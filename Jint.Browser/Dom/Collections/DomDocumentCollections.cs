@@ -44,6 +44,17 @@ internal static class DomDocumentCollections
                 _ => throw new InvalidOperationException("Unknown document collection: " + kind),
             };
         }
+        internal override bool Matches(Element element, DomReadWork work)
+        {
+            if (kind == "all") return true;
+            if (element.NamespaceUri != Namespaces.Html) return false;
+            return kind switch
+            {
+                "anchors" => element.LocalName == "a" && work.Attribute(element, "name") is not null,
+                "links" => element.LocalName is "a" or "area" && work.Attribute(element, "href") is not null,
+                _ => Matches(element),
+            };
+        }
     }
 
     private sealed class NamedNodeList(Document document, string name) : DomNodeList
@@ -69,13 +80,32 @@ internal static class DomDocumentCollections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
         }
-        private IEnumerable<Element> Matches()
+        internal override int ReadLength(Action<int>? checkpoint, CancellationToken token)
         {
-            foreach (var element in NodeTraversal.DescendantElements(document, CancellationToken.None))
+            var count = 0;
+            foreach (var unused in Matches(checkpoint, token)) count++;
+            return count;
+        }
+        internal override Node? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
+        {
+            foreach (var element in Matches(checkpoint, token))
             {
-                if (element.NamespaceUri == Namespaces.Html && element.GetAttribute("name") == name)
-                    yield return element;
+                if (index-- != 0) continue;
+                token.ThrowIfCancellationRequested();
+                checkpoint?.Invoke(0);
+                token.ThrowIfCancellationRequested();
+                return element;
             }
+            return null;
+        }
+        private IEnumerable<Element> Matches(Action<int>? checkpoint = null, CancellationToken token = default)
+        {
+            var work = new DomReadWork(checkpoint, token);
+            work.Check();
+            foreach (var element in NodeTraversal.DescendantElements(document, work.Check, token))
+                if (element.NamespaceUri == Namespaces.Html && work.Equal(work.Attribute(element, "name"), name))
+                    yield return element;
+            work.Check();
         }
     }
 }

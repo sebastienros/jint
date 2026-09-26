@@ -20,17 +20,65 @@ internal sealed class DomChildHtmlCollection(Node root) : DomHtmlCollection<Elem
         }
     }
 
-    internal static Element? First(Node root)
+    internal override int GetLength(DomRealm realm)
     {
+        var count = 0;
+        foreach (var unused in Read(realm)) count++;
+        return count;
+    }
+
+    internal override Element? GetItem(DomRealm realm, uint index)
+    {
+        Element? result = null;
+        foreach (var element in Read(realm))
+        {
+            if (index-- != 0) continue;
+            result = element;
+            break;
+        }
+        realm.Engine.Constraints.Check();
+        return result;
+    }
+
+    internal override IEnumerable<Element> Read(DomRealm realm)
+    {
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
         for (var child = root.FirstChild; child is not null; child = child.NextSibling)
-            if (child is Element element) return element;
+        {
+            work.Step();
+            if (child is Element element) yield return element;
+        }
+        work.Check();
+    }
+
+    internal static Element? First(Node root, Action<int>? checkpoint = null, CancellationToken token = default)
+    {
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
+        for (var child = root.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is not Element element) continue;
+            work.Check();
+            return element;
+        }
+        work.Check();
         return null;
     }
 
-    internal static Element? Last(Node root)
+    internal static Element? Last(Node root, Action<int>? checkpoint = null, CancellationToken token = default)
     {
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
         for (var child = root.LastChild; child is not null; child = child.PreviousSibling)
-            if (child is Element element) return element;
+        {
+            work.Step();
+            if (child is not Element element) continue;
+            work.Check();
+            return element;
+        }
+        work.Check();
         return null;
     }
 

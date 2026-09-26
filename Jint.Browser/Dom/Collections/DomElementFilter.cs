@@ -39,6 +39,8 @@ internal abstract class DomElementFilter
     /// <summary>Whether <paramref name="element"/> is in the collection.</summary>
     internal abstract bool Matches(Element element);
 
+    internal virtual bool Matches(Element element, DomReadWork work) => Matches(element);
+
     private sealed class NothingFilter : DomElementFilter
     {
         internal override bool MatchesNothing => true;

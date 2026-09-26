@@ -29,41 +29,37 @@ internal sealed class DomChildNodeList : DomNodeList
     internal override int Length => _parent?.ChildCount ?? 0;
 
     internal override Node this[int index]
+        => ReadItem(unchecked((uint) index), null, default) ?? throw new ArgumentOutOfRangeException(nameof(index));
+
+    internal override Node? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
     {
-        get
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
+        if (index >= (uint) Length) return null;
+        var document = _parent as Document ?? _parent!.OwnerDocument!;
+        var stamp = document.MutationStamp;
+        Node current;
+        uint position;
+        if (stamp != ulong.MaxValue && _cursorStamp == stamp && index >= (uint) _cursorIndex && _cursor.TryGetTarget(out var remembered))
         {
-            if ((uint) index >= (uint) Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-
-            var document = _parent as Document ?? _parent!.OwnerDocument!;
-            var stamp = document.MutationStamp;
-            Node current;
-            int position;
-            if (stamp != ulong.MaxValue && _cursorStamp == stamp && index >= _cursorIndex && _cursor.TryGetTarget(out var remembered))
-            {
-                current = remembered;
-                position = _cursorIndex;
-            }
-            else
-            {
-                current = _parent!.FirstChild!;
-                position = 0;
-            }
-
-            while (position < index)
-            {
-                current = current.NextSibling!;
-                position++;
-            }
-
-            // A weak cursor permits sequential indexing over native linked children without retaining
-            // a removed child for this live collection's lifetime.
-            _cursor.SetTarget(current);
-            _cursorIndex = index;
-            _cursorStamp = stamp;
-            return current;
+            current = remembered;
+            position = (uint) _cursorIndex;
         }
+        else
+        {
+            current = _parent!.FirstChild!;
+            position = 0;
+        }
+        while (position < index)
+        {
+            work.Step();
+            current = current.NextSibling!;
+            position++;
+        }
+        work.Check();
+        _cursor.SetTarget(current);
+        _cursorIndex = (int) index;
+        _cursorStamp = stamp;
+        return current;
     }
 }

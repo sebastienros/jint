@@ -63,7 +63,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     }
 
     /// <inheritdoc />
-    public override uint Length => (uint) _collection.Length;
+    public override uint Length => (uint) _collection.GetLength(DomRealm);
 
     /// <inheritdoc />
     protected override bool IgnoreNamedPropertiesInSet => true;
@@ -98,19 +98,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     /// <summary>The <paramref name="index"/>th element of the collection, in one pass, or <see langword="null"/>.</summary>
     private Element? ElementAt(uint index)
     {
-        var remaining = index;
-
-        foreach (var candidate in _collection)
-        {
-            if (remaining == 0)
-            {
-                return candidate;
-            }
-
-            remaining--;
-        }
-
-        return null;
+        return _collection.GetItem(DomRealm, index);
     }
 
     /// <summary>
@@ -225,9 +213,11 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
 
         Element? first = null;
         var count = 0;
-        foreach (var element in _collection)
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
+        foreach (var element in _collection.Read(DomRealm))
         {
-            if (!Matches(element, name))
+            if (!Matches(element, name, work))
             {
                 continue;
             }
@@ -239,6 +229,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
             }
         }
 
+        work.Check();
         if (count == 0)
         {
             return JsValue.Null;
@@ -278,11 +269,16 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     private sealed class AllNamedFilter(string name) : DomElementFilter
     {
         internal override bool Matches(Element element) => DomHtmlAllCollectionObject.Matches(element, name);
+        internal override bool Matches(Element element, DomReadWork work) => DomHtmlAllCollectionObject.Matches(element, name, work);
     }
 
     private static bool Matches(Element element, string name)
         => string.Equals(element.GetAttribute("id"), name, StringComparison.Ordinal)
            || (IsAllNamed(element) && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal));
+
+    private static bool Matches(Element element, string name, DomReadWork work)
+        => work.Equal(work.Attribute(element, "id"), name)
+            || (IsAllNamed(element) && work.Equal(work.Attribute(element, "name"), name));
 
     private static bool IsAllNamed(Element element)
         => element.NamespaceUri == Namespaces.Html && _allNamed.Contains(element.LocalName);
@@ -296,21 +292,25 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     {
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
 
-        foreach (var element in _collection)
+        foreach (var element in _collection.Read(DomRealm))
         {
-            Add(names, element.GetAttribute("id"));
+            Add(names, work.Attribute(element, "id"));
 
             if (IsAllNamed(element))
             {
-                Add(names, element.GetAttribute("name"));
+                Add(names, work.Attribute(element, "name"));
             }
         }
 
+        work.Check();
         return names;
 
         void Add(List<string> names, string? candidate)
         {
+            if (candidate is not null) foreach (var unused in candidate) work.Step();
             if (string.IsNullOrEmpty(candidate)
                 || !seen.Add(candidate!)
                 // A supported name that spells a canonical array index is unreachable as a property — the
