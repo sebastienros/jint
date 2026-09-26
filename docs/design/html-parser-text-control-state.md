@@ -397,6 +397,37 @@ Cache raw→API normalization per raw-value revision, not per Document.MutationS
 changes must not rematerialize a megabyte textarea. Preserve explicit copied-raw state for the shallow
 clone case above. Default reads may cost returned text size; parser appends without reads may not.
 
+## D7b1c dispatch clarification (reviewed 2026-09-25)
+
+Current common prerequisites are complete: D7a2 disabledness, D7b1a classifier and D7b1b pure text
+algorithms. The coordinator explicitly reserves native Element/Node/CharacterNodes/NodeCloner and
+HtmlElementState files for the textarea owner. Parser TreeConstruction and XML parsing remain separately
+owned; b1c adds no parser-completion calls or notification transport.
+
+Expose one stable lazy `HtmlElementState.TextArea` view only for HTML-namespace lowercase textarea.
+Put the completed value/default/reset/textLength/submission, selection and editing operations on
+`HtmlTextAreaState` itself, with the bound Element parameter removed from the signatures above.
+Textarea selection setters take nonnullable uint. The general HtmlTextControl/Input facade waits for
+b1d and all input families; no stub Input member is added. UserValidity is one element-owned boolean.
+
+Semantic children-changed hooks are independent of mutation-record suppression. For fragment insertion,
+run the destination hook once after the entire inserted sequence; retain each specified individual
+removal step. Do not attach the semantic hook to every low-level LinkBefore and invent intermediate
+fragment insertion states. Direct-parent CharacterData replacement includes Comment/PI although only
+Text/CDATA contributes child text. DOM observer suppression must not suppress semantic state changes.
+
+Copy raw/dirty state at CopySingle before descendant insertion. A clean shallow clone retains explicit
+copied raw text despite empty default children until its next children-changed step. Adoption preserves
+state identity. Keep explicit raw storage distinct from lazy child projection, with local revisions and
+cached API normalization. Parsed append invalidates in O(1), without reading Text.Data or flattening
+prefixes; monotonic appends need no shortening clamp, while destructive mutations retain their actual
+intermediate clamps. Repeated replace-all must not repeatedly flatten intermediate prefixes.
+
+Keep automatic clamping and explicit range application as distinct algorithm steps ready for b1e
+instrumentation, but add no placeholder transport. The working Reset operation supplies the later
+parser-completion seam. Tests for b1c cover its complete native behaviors; parser lifecycle and event
+notification claims remain b1e. No public surface promotion accompanies this dispatch.
+
 ## Finite slices and gates
 
 | Slice | Files and bounded completion |
