@@ -486,7 +486,7 @@ public sealed partial class Page
 
         try
         {
-            var creator = await _loop.PostAsync(CreationFactsOf).ConfigureAwait(false);
+            var creator = await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(url))).ConfigureAwait(false);
             var loaderId = NextLoaderId();
             _observer?.NavigationStarted(url, loaderId);
 
@@ -564,7 +564,7 @@ public sealed partial class Page
         }
 
         var href = target.Serialize();
-        var creator = await _loop.PostAsync(CreationFactsOf).ConfigureAwait(false);
+        var creator = await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(href))).ConfigureAwait(false);
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL equal to the
         // current one with fragments excluded, and whose own fragment is non-null, keeps the document, the
@@ -1134,11 +1134,11 @@ public sealed partial class Page
         string? InlineContent = null,
         Exception? PreflightFailure = null);
 
-    private DocumentCreationFacts CreationFactsOf(Engine engine)
+    private DocumentCreationFacts CreationFactsOf(Engine engine, bool includeBaseUrl)
         => _load is { } load
             ? new DocumentCreationFacts(Dom.DomDocumentState.Of(load.Document).Origin,
-                Dom.DomDocumentState.BaseUri(load.Document, engine.Constraints.Check,
-                    PageRuntime.Find(engine)!.Cancellation?.Token ?? CancellationToken.None))
+                includeBaseUrl ? Dom.DomDocumentState.BaseUri(load.Document, engine.Constraints.Check,
+                    PageRuntime.Find(engine)!.Cancellation?.Token ?? CancellationToken.None) : null)
             : new DocumentCreationFacts(Dom.DomDocumentOrigin.Opaque(), null);
 
     private sealed record DocumentCreationFacts(Dom.DomDocumentOrigin Origin, string? BaseUrl);
