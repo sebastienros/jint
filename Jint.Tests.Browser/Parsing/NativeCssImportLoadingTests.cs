@@ -1,11 +1,167 @@
 using System.Text;
+using System.Reflection;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
+using Jint.Browser.Runtime.Parsing;
+using Jint.Browser.Styling;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Values;
 using Jint.Tests.Browser.Navigation;
 
 namespace Jint.Tests.Browser.Parsing;
 
 public sealed class NativeCssImportLoadingTests
 {
+    [Test]
+    public async Task ACommittedCssomEditSurvivesACheckpointInterruptionWithoutReplayingTheMutation()
+    {
+        var probe = new ImportInterruptionProbe();
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<style id=s>p{display:block}</style>")
+            .Map("/child.css", _ => LoopbackResponse.Css("p{color:red}")),
+            configureBrowser: options => options.ConfigureEngine(engineOptions => engineOptions.AddConstraint(probe)));
+        var observer = new ImportRuntimeObserver();
+        fixture.Page.Observe(observer);
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        await fixture.Page.RunOnLoopAsync(engine =>
+        {
+            var owner = DomBindings.Bind<Element>(engine.GetValue("s"), "durable import notification").Target;
+            var source = NativeCssStyleSheets.CaptureImportSource(owner.OwnerDocument!, owner, new CssValueWork(default))!;
+            var sheet = NativeCssStyleSheets.EnsureSheet(source, new CssValueWork(default));
+            // Commit the real producer once, then interrupt at the notification boundary.
+            sheet.InsertRule("@import '/child.css';", 0);
+            var import = (CssImportRule) sheet.Rules[0];
+            engine.SetValue("committedImport", DomRealm.Of(engine).Wrap(import));
+            probe.Armed = true;
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                observer.Runtime!.Parser!.QueueCssImports(sheet);
+                engine.Constraints.Check();
+            })!.Message.Should().Be(ImportInterruptionProbe.Marker);
+            import.StyleSheet.Should().BeNull();
+            var pending = typeof(ParserDriver).GetField("_pendingResourceEvents", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            ((int) pending.GetValue(observer.Runtime!.Parser!)!).Should().BeGreaterThan(0);
+            return true;
+        });
+        (await fixture.Page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await fixture.Page.EvaluateAsync<bool>("s.sheet.cssRules[0]===committedImport && committedImport.styleSheet!==null")).Should().BeTrue();
+        fixture.Server.Received.Count(request => request.Path == "/child.css").Should().Be(1);
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task InlineTextRoundTripsAtArrivalRetireAGraphBeforeDeferredResourceDelivery()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requests = 0;
+        var held = 0;
+        const string body = "p{color:red}";
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<style id=s>p{display:block}</style>")
+            .Map("/child.css", _ => LoopbackResponse.Css("@import '/pending.css';"))
+            .Map("/pending.css", _ =>
+            {
+                if (Interlocked.Increment(ref requests) != 1) return LoopbackResponse.Css(body);
+                Volatile.Write(ref held, 1);
+                return new LoopbackResponse
+                {
+                    Body = body,
+                    WriteBodyAsync = async (stream, token) =>
+                    {
+                        await release.Task.WaitAsync(token);
+                        await stream.WriteAsync(Encoding.UTF8.GetBytes(body), token);
+                    }
+                }.With("Content-Type", "text/css");
+            }));
+        var observer = new ImportRuntimeObserver();
+        fixture.Page.Observe(observer);
+        try
+        {
+            await fixture.Page.NavigateAsync(fixture.Url("/"));
+            await fixture.Page.RunOnLoopAsync(engine =>
+            {
+                var driver = observer.Runtime!.Parser!;
+                var owner = DomBindings.Bind<Element>(engine.GetValue("s"), "inline import arrival witness").Target;
+                var work = new CssValueWork(default, engine.Constraints.Check);
+                const string original = "@import '/child.css';";
+                NativeCssStyleSheets.Install(owner.OwnerDocument!, owner, original, fixture.Url("/"), fixture.Url("/"), work);
+                var source = NativeCssStyleSheets.CaptureImportSource(owner.OwnerDocument!, owner, work)!;
+                engine.SetValue("importText", original);
+                var draining = typeof(ParserDriver).GetField("_drainingResourceRecords", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var previous = (bool) draining.GetValue(driver)!;
+                draining.SetValue(driver, true);
+                void MutateWhenHeld()
+                {
+                    if (Volatile.Read(ref held) == 0) { engine.Tasks.Post(MutateWhenHeld); return; }
+                    try
+                    {
+                        engine.Execute("window.oldPending=s.sheet.cssRules[0].styleSheet.cssRules[0]; s.textContent='p{color:blue}'; s.textContent=importText;");
+                    }
+                    finally { release.TrySetResult(); }
+                }
+                engine.Tasks.Post(MutateWhenHeld);
+                try
+                {
+                    var load = typeof(ParserDriver).GetMethod("LoadCssImports", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                    Func<bool> current = () => true;
+                    load.Invoke(driver, [owner, current, true, null, current])!.ToString().Should().Be("Stale");
+                    NativeCssStyleSheets.IsCurrent(source).Should().BeFalse();
+                    engine.Evaluate("oldPending.styleSheet===null").AsBoolean().Should().BeTrue();
+                }
+                finally
+                {
+                    draining.SetValue(driver, previous);
+                    typeof(ParserDriver).GetMethod("DrainResourceRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(driver, null);
+                }
+                return true;
+            }).WaitAsync(Jint.Tests.TestBudgets.WedgeCeiling);
+            (await fixture.Page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
+            fixture.Page.Errors.Should().BeEmpty();
+        }
+        finally { release.TrySetResult(); }
+    }
+
+    [TestCase(8, 64)]
+    [TestCase(4097, 64)]
+    [TestCase(8, 8192)]
+    [TestCase(4097, 8192)]
+    public async Task OwnerEligibilityProofsDoNotMultiplyCssParsingByOwnerDepth(int depth, int rules)
+    {
+        var css = string.Concat(Enumerable.Repeat("p{color:red}", rules));
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<style id=s>p{display:block}</style>")
+            .Map("/child.css", _ => LoopbackResponse.Css(css)));
+        var observer = new ImportRuntimeObserver();
+        fixture.Page.Observe(observer);
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        await fixture.Page.RunOnLoopAsync(engine =>
+        {
+            var owner = DomBindings.Bind<Element>(engine.GetValue("s"), "import work witness").Target;
+            var document = owner.OwnerDocument!;
+            var parent = document.DocumentElement!;
+            for (var i = 0; i < depth; i++)
+            {
+                var child = document.CreateElement("div");
+                parent.AppendChild(child);
+                parent = child;
+            }
+            parent.AppendChild(owner);
+            var work = new CssValueWork(default, engine.Constraints.Check);
+            NativeCssStyleSheets.Install(document, owner, "@import '/child.css';", fixture.Url("/"), fixture.Url("/"), work);
+            var source = NativeCssStyleSheets.CaptureImportSource(document, owner, work)!;
+            var proofs = 0;
+            Func<bool> eligibility = () => { proofs++; return true; };
+            Func<bool> identity = () => NativeCssStyleSheets.IsCurrent(source);
+            // Exercise the private loader with a countable eligibility predicate, keeping its
+            // production visibility. Real fetch, parser, registry and connectivity proof are used.
+            var load = typeof(ParserDriver).GetMethod("LoadCssImports", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            load.Invoke(observer.Runtime!.Parser!, [owner, eligibility, false, null, identity])!.ToString().Should().Be("Completed");
+            proofs.Should().BeLessThanOrEqualTo(12, "eligibility is checked at graph boundaries, never per CSS parser checkpoint");
+            return true;
+        });
+    }
+
     [Test]
     public async Task ARedirectedCssOriginDoesNotBecomeTheOwnersCredentialOrigin()
     {
@@ -315,5 +471,24 @@ public sealed class NativeCssImportLoadingTests
             runtime.Engine.SetValue("childRequested", requested);
             runtime.Engine.SetValue("releaseCssBody", (Action) (() => release.TrySetResult()));
         }
+    }
+
+    private sealed class ImportRuntimeObserver : IPageObserver
+    {
+        internal PageRuntime? Runtime;
+        public void DocumentCreated(PageRuntime runtime, string loaderId) => Runtime = runtime;
+    }
+
+    private sealed class ImportInterruptionProbe : Constraint
+    {
+        internal const string Marker = "CSS import notification checkpoint interruption";
+        internal bool Armed;
+        public override void Check()
+        {
+            if (!Armed) return;
+            Armed = false;
+            throw new InvalidOperationException(Marker);
+        }
+        public override void Reset() { }
     }
 }

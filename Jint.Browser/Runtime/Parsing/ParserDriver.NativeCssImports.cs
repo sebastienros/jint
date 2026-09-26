@@ -16,6 +16,7 @@ internal sealed partial class ParserDriver
     private readonly ConditionalWeakTable<CssStyleSheet, ImportSheetState> _cssImportSheets = new();
     private readonly ConditionalWeakTable<CssImportRule, ImportAttempt> _cssImportAttempts = new();
     private readonly Dictionary<CssStyleSheet, ImportScan> _cssImportScans = new();
+    private readonly Dictionary<CssStyleSheet, ImportNotification> _cssImportNotifications = new();
     private readonly HashSet<object> _activeCssImportSources = new();
     private readonly Dictionary<CssStyleSheet, int> _activeCssImportRoots = new();
 
@@ -44,6 +45,11 @@ internal sealed partial class ParserDriver
         internal bool Delaying;
     }
 
+    private sealed class ImportNotification
+    {
+        internal bool Delaying;
+    }
+
     private sealed class ImportFrame(CssStyleSheet sheet, CssImportRule? through, string charset,
         string? sourceUrl, string? baseUrl, ImportSheetState state, string[] keys)
     {
@@ -62,7 +68,7 @@ internal sealed partial class ParserDriver
     // CSS Cascade 5 §2.2 / CSSOM fetching CSS style sheets. Installation and CSSOM topology changes
     // enter this lane; ordinary style queries never fetch. Media filters applicability, not this load.
     private CssImportLoadResult LoadCssImports(Element owner, Func<bool> ownerRequestIsCurrent, bool mayPump,
-        string? inheritedCharset = null)
+        string? inheritedCharset = null, Func<bool>? ownerRequestIdentityIsCurrent = null)
     {
         _cancellationToken.ThrowIfCancellationRequested();
         if (_disposed || owner.OwnerDocument is not { } document) return CssImportLoadResult.Stale;
@@ -78,21 +84,42 @@ internal sealed partial class ParserDriver
         var ancestry = new HashSet<string>(StringComparer.Ordinal);
         CssStyleSheet? root = null;
         var active = false;
+        CssImportConnectivity? connectivity = null;
+        // The optional identity predicate must be O(1): e.g. the exact StyleRequest token.
+        // The full eligibility predicate can walk DOM ancestors and is boundary-only.
         bool Current()
         {
             _cancellationToken.ThrowIfCancellationRequested();
             if (_disposed || !NativeCssStyleSheets.IsCurrent(source)) return false;
-            var current = ownerRequestIsCurrent();
+            var current = ownerRequestIdentityIsCurrent?.Invoke() ?? true;
             _cancellationToken.ThrowIfCancellationRequested();
             return current && !_disposed && NativeCssStyleSheets.IsCurrent(source);
         }
+        bool BoundaryCurrent(CssImportRule? pending = null)
+        {
+            while (true)
+            {
+                if (!Current()) return false;
+                var requestCurrent = ownerRequestIsCurrent();
+                if (!Current() || !requestCurrent) return false;
+                if (connectivity is null || !connectivity.IsCurrent)
+                    connectivity = NativeCssStyleSheets.CaptureImportConnectivity(source, work);
+                work.Charge(frames.Count);
+                work.CheckCancellation();
+                if (!Current()) return false;
+                // A last callback can change ancestry. Rebuild its charged proof before trying
+                // again; never traverse an uncharged path after that callback.
+                if (!connectivity.IsCurrent) continue;
+                return connectivity.Connected && (frames.Count == 0 || ActiveLinksCurrent(source, frames, pending));
+            }
+        }
         try
         {
-            if (!Current()) return CssImportLoadResult.Stale;
+            if (!BoundaryCurrent()) return CssImportLoadResult.Stale;
             if (source.Sheet is null && !NativeCssStyleSheets.MayContainImport(source, work))
-                return Current() ? CssImportLoadResult.Completed : CssImportLoadResult.Stale;
+                return BoundaryCurrent() ? CssImportLoadResult.Completed : CssImportLoadResult.Stale;
             root = NativeCssStyleSheets.EnsureSheet(source, work);
-            if (!Current() || !_activeCssImportSources.Add(source.SourceGeneration)) return CssImportLoadResult.Stale;
+            if (!BoundaryCurrent() || !_activeCssImportSources.Add(source.SourceGeneration)) return CssImportLoadResult.Stale;
             active = true;
             _activeCssImportRoots.TryGetValue(root, out var count);
             _activeCssImportRoots[root] = count + 1;
@@ -118,9 +145,7 @@ internal sealed partial class ParserDriver
                 {
                     // A callback can delete an ancestor without changing this source generation.
                     // Validate before popping, while the exact path is still retained.
-                    work.Charge(frames.Count);
-                    work.CheckCancellation();
-                    if (!Current() || !ActiveLinksCurrent(source, frames)) return CssImportLoadResult.Stale;
+                    if (!BoundaryCurrent()) return CssImportLoadResult.Stale;
                     frame.State.Failed = frame.Failed;
                     if (ReferenceEquals(frame.Topology, frame.State.Topology)) frame.State.CompletedTopology = frame.Topology;
                     foreach (var key in frame.Keys) ancestry.Remove(key);
@@ -156,22 +181,19 @@ internal sealed partial class ParserDriver
                 }
                 var requestedKey = UrlKey(requested, work);
                 if (ancestry.Contains(requestedKey)) { attempt.Attempted = true; continue; }
-                work.Charge(frames.Count);
-                if (!Current() || !ActiveLinksCurrent(source, frames, import)) return CssImportLoadResult.Stale;
+                if (!BoundaryCurrent(import)) return CssImportLoadResult.Stale;
                 string? failure = null;
                 var referrer = UrlParser.Parse(frame.SourceUrl ?? documentUrl);
                 var fetched = FetchBytes(requested, owner, "imported stylesheet", PageRequestKind.Stylesheet, mayPump,
                     onFailure: message => failure = message, fetchSource: new FetchSource(referrer, origin));
-                work.Charge(frames.Count);
-                if (!Current() || !ActiveLinksCurrent(source, frames, import)) return CssImportLoadResult.Stale;
+                if (!BoundaryCurrent(import)) return CssImportLoadResult.Stale;
                 if (fetched is not { } body)
                 {
                     Failed(requested, failure ?? "The imported stylesheet could not be loaded.", attempt, frame);
                     continue;
                 }
                 var finalKey = UrlKey(body.Url, work);
-                work.Charge(frames.Count);
-                if (!Current() || !ActiveLinksCurrent(source, frames, import)) return CssImportLoadResult.Stale;
+                if (!BoundaryCurrent(import)) return CssImportLoadResult.Stale;
                 if (ancestry.Contains(finalKey)) { attempt.Attempted = true; continue; }
                 // Tokenizer callbacks only check the root generation and immediate rule: the O(depth)
                 // ancestry proof belongs to publication, not every byte/token checkpoint.
@@ -182,15 +204,16 @@ internal sealed partial class ParserDriver
                         throw new CssImportSourceStaleException();
                 });
                 var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200).Text(frame.Charset);
+                // Finite checkpoint: existing decoder's response-header -> fallback -> UTF-8
+                // chain. CSS BOM/@charset selected-encoding inheritance and response MIME
+                // eligibility remain follow-up work; this is not complete CSS fetching.
                 parsing.Charge(text.Length);
                 var child = CssStyleSheet.Parse(text, null, parsing, _cancellationToken);
                 var childCharset = ImportCharset(body.ContentType, frame.Charset);
                 var childKeys = requestedKey == finalKey ? new[] { finalKey } : new[] { requestedKey, finalKey };
                 // Charge before the final callback, then prove every active link with token checks only.
-                work.Charge(frames.Count);
                 work.Charge(child.Rules.Count);
-                work.CheckCancellation();
-                if (!Current() || !ActiveLinksCurrent(source, frames, import)) return CssImportLoadResult.Stale;
+                if (!BoundaryCurrent(import)) return CssImportLoadResult.Stale;
                 _cancellationToken.ThrowIfCancellationRequested();
                 var url = new Uri(body.Url, UriKind.Absolute);
                 import.SetStyleSheet(child, url, url, new CssValueWork(_cancellationToken));
@@ -250,14 +273,7 @@ internal sealed partial class ParserDriver
             if (!ReferenceEquals(through.ParentStyleSheet, frames[i - 1].Sheet) ||
                 !ReferenceEquals(through.StyleSheet, frames[i].Sheet)) return false;
         }
-        Node node = source.Owner;
-        var depth = 0;
-        while ((node.ParentNode ?? (node as ShadowRoot)?.Host) is { } parent)
-        {
-            if ((++depth & 1023) == 0) _cancellationToken.ThrowIfCancellationRequested();
-            node = parent;
-        }
-        return ReferenceEquals(node, source.Document);
+        return true;
     }
 
     private static string UrlKey(string url, CssValueWork work)
@@ -277,6 +293,34 @@ internal sealed partial class ParserDriver
     }
 
     internal void QueueCssImports(CssStyleSheet changedSheet)
+    {
+        // The producer has already committed. Persist ownership and its load delay in O(1),
+        // before any cancellation/constraint checkpoint or callback-capable ancestry work.
+        if (_disposed || _cssImportNotifications.ContainsKey(changedSheet)) return;
+        var notification = new ImportNotification();
+        _cssImportNotifications.Add(changedSheet, notification);
+        BeginResourceDelay();
+        notification.Delaying = true;
+        try { _resourceTasks.Post(() => RunCssImportNotification(changedSheet, notification)); }
+        catch { ReleaseCssImportNotification(changedSheet, notification); throw; }
+    }
+
+    private void RunCssImportNotification(CssStyleSheet changedSheet, ImportNotification notification)
+    {
+        if (!notification.Delaying) return;
+        try { PrepareCssImportScan(changedSheet); }
+        finally { ReleaseCssImportNotification(changedSheet, notification); }
+    }
+
+    private void ReleaseCssImportNotification(CssStyleSheet changedSheet, ImportNotification notification)
+    {
+        _cssImportNotifications.Remove(changedSheet);
+        if (!notification.Delaying) return;
+        notification.Delaying = false;
+        EndResourceDelay();
+    }
+
+    private void PrepareCssImportScan(CssStyleSheet changedSheet)
     {
         _cancellationToken.ThrowIfCancellationRequested();
         if (_disposed) return;
@@ -335,7 +379,8 @@ internal sealed partial class ParserDriver
             if (!_disposed && NativeCssStyleSheets.IsCurrent(scan.Source))
             {
                 using var mutation = _runtime.Layout.BeginMutation();
-                LoadCssImports(scan.Source.Owner, () => IsResourceConnected(scan.Source.Owner), mayPump: true);
+                LoadCssImports(scan.Source.Owner, () => NativeCssStyleSheets.IsCurrent(scan.Source), mayPump: true,
+                    ownerRequestIdentityIsCurrent: () => NativeCssStyleSheets.IsCurrent(scan.Source));
             }
         }
         finally
@@ -357,6 +402,13 @@ internal sealed partial class ParserDriver
 
     private void DisposeCssImports()
     {
+        foreach (var notification in _cssImportNotifications.Values)
+        {
+            if (!notification.Delaying) continue;
+            notification.Delaying = false;
+            EndResourceDelay();
+        }
+        _cssImportNotifications.Clear();
         foreach (var scan in _cssImportScans.Values)
         {
             if (!scan.Delaying) continue;
