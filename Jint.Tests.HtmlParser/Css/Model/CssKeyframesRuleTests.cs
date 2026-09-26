@@ -262,7 +262,9 @@ public sealed class CssKeyframesRuleTests
     [Test]
     public void DeepDefinitionOwnershipUsesTheSharedIterativeTraversalAndLimits()
     {
-        const int depth = 1200;
+        // This inventory must exceed the work polling interval before its final checkpoint.
+        // 1200 groups charged only 3605 units and never reached the second callback.
+        const int depth = 3000;
         var source = string.Concat(Enumerable.Repeat("@media screen {", depth)) + "@keyframes x {from {}}" + new string('}', depth);
         var sheet = CssStyleSheet.Parse(source);
         sheet.SerializeWithRanges().Ranges.Count.Should().Be(depth + 2);
@@ -271,12 +273,18 @@ public sealed class CssKeyframesRuleTests
         while (leaf.Rules.Count != 0) leaf = leaf.Rules[0];
         ((CssKeyframeRule) leaf).SetKeyText("to");
         sheet.Stamp.Value.Should().Be(1);
+        var root = sheet.Rules[0];
+        var stamp = sheet.Stamp;
         using var cancellation = new CancellationTokenSource();
         var checks = 0;
         var work = new CssValueWork(cancellation.Token, () => { if (++checks == 2) cancellation.Cancel(); });
         Assert.Throws<OperationCanceledException>(() => sheet.DeleteRule(0, work));
+        checks.Should().Be(2);
         sheet.Rules.Count.Should().Be(1);
+        sheet.Rules[0].Should().BeSameAs(root);
+        root.ParentStyleSheet.Should().BeSameAs(sheet);
         leaf.ParentStyleSheet.Should().BeSameAs(sheet);
+        sheet.Stamp.Should().Be(stamp);
         var options = new CssParseOptions { Limits = new ParseLimits { MaxNestingDepth = 4 } };
         Assert.Throws<ParseLimitException>(() => CssStyleSheet.Parse(source, options));
     }
