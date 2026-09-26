@@ -22,7 +22,8 @@ internal static class CssContainerParser
             parts.RemoveAt(0);
         }
         var instructions = new List<CssContainerInstruction>();
-        if (!Condition(parts, instructions, work, 0)) return null;
+        if (parts.Count != 0 && !Condition(parts, instructions, work, 0)) return null;
+        if (parts.Count == 0 && name.Length == 0) return null;
         var query = CssSyntaxSerializer.SerializeComponents(new CssComponentValueList(parts.ToArray()), work);
         var text = name.Length == 0 ? query : CssSyntaxSerializer.SerializeIdentifier(name, work) + " " + query;
         work.CheckCancellation();

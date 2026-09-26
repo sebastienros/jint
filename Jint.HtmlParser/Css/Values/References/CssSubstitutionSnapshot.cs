@@ -62,13 +62,16 @@ internal sealed class CssSubstitutionSnapshot
     private readonly CssSubstitutionBinding[] _bindings;
     private readonly CssSubstitutionSnapshot? _parent;
     private readonly Dictionary<uint, List<int>> _buckets;
+    private readonly ICssQueryBindingResolver? _queryResolver;
+    internal bool IsQueryBound => _queryResolver is not null;
 
     private CssSubstitutionSnapshot(CssSubstitutionBinding[] bindings, Dictionary<uint, List<int>> buckets,
-        CssSubstitutionSnapshot? parent)
+        CssSubstitutionSnapshot? parent, ICssQueryBindingResolver? queryResolver = null)
     {
         _bindings = bindings;
         _buckets = buckets;
         _parent = parent;
+        _queryResolver = queryResolver;
     }
 
     internal static CssSubstitutionSnapshot Create(ReadOnlySpan<CssSubstitutionBinding> bindings,
@@ -80,6 +83,8 @@ internal sealed class CssSubstitutionSnapshot
     {
         ArgumentNullException.ThrowIfNull(work);
         work.CheckCancellation();
+        if (parent is { IsQueryBound: true })
+            throw new ArgumentException("Frozen variable snapshots cannot retain a query-bound parent.", nameof(parent));
         var copy = new CssSubstitutionBinding[bindings.Length];
         var buckets = new Dictionary<uint, List<int>>();
         work.CheckCancellation();
@@ -87,6 +92,8 @@ internal sealed class CssSubstitutionSnapshot
         {
             work.Charge(1);
             var binding = bindings[i];
+            if (binding.Scope is { IsQueryBound: true })
+                throw new ArgumentException("Frozen variable snapshots cannot retain a query-bound defining scope.", nameof(bindings));
             if (binding.Kind == CssSubstitutionBindingKind.Uninitialized ||
                 !CssSubstitutionArguments.IsCustomName(binding.Name))
                 throw new ArgumentException("A valid binding is required.", nameof(bindings));
@@ -111,6 +118,12 @@ internal sealed class CssSubstitutionSnapshot
         return new CssSubstitutionSnapshot(copy, buckets, parent);
     }
 
+    // Invocation-affine adapter only. Existing factories remain immutable/shareable and callback-free.
+    internal static CssSubstitutionSnapshot CreateQueryLayer(CssSubstitutionSnapshot? parent,
+        ICssQueryBindingResolver localResolver)
+        => new([], new Dictionary<uint, List<int>>(), parent,
+            localResolver ?? throw new ArgumentNullException(nameof(localResolver)));
+
     internal bool TryGet(string name, CssValueWork work, out CssSubstitutionBinding binding)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -121,6 +134,13 @@ internal sealed class CssSubstitutionSnapshot
         for (CssSubstitutionSnapshot? scope = this; scope is not null; scope = scope._parent)
         {
             work.Charge(1);
+            if (scope._queryResolver is { } resolver)
+            {
+                if (!resolver.TryResolve(name, work, out var local)) continue;
+                work.CheckCancellation();
+                binding = local.WithScope(scope);
+                return true;
+            }
             if (!scope._buckets.TryGetValue(hash, out var bucket)) continue;
             foreach (var index in bucket)
             {
@@ -136,4 +156,10 @@ internal sealed class CssSubstitutionSnapshot
         binding = default;
         return false;
     }
+}
+
+// Only an invocation-owned query may implement this. False means no local override, never failure.
+internal interface ICssQueryBindingResolver
+{
+    bool TryResolve(string name, CssValueWork work, out CssSubstitutionBinding binding);
 }

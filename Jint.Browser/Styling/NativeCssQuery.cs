@@ -106,6 +106,14 @@ internal sealed partial class NativeCssQuery
 
     private NativeCssProperty GetPropertyCore(Element element, string name, ref SelectorMatchWork matching, bool adjust, bool normalize = true)
     {
+        name = CssPropertyRegistry.NormalizeName(name, _work);
+        using var guard = EnterDependency(element, adjust ? "property" : "unadjusted-property", name);
+        try { return GetPropertyValueCore(element, name, ref matching, adjust); }
+        catch { AbortRead(); throw; }
+    }
+
+    private NativeCssProperty GetPropertyValueCore(Element element, string name, ref SelectorMatchWork matching, bool adjust)
+    {
         Verify();
         matching.Observe(element);
         if (normalize) name = CssPropertyRegistry.NormalizeName(name, _work);
@@ -253,7 +261,15 @@ internal sealed partial class NativeCssQuery
     {
         var state = StateOf(element, ref matching);
         Verify();
-        return state.Matches.AsReadOnly();
+        var result = new List<CssStyleRule>();
+        try
+        {
+            foreach (var rule in state.Matches)
+                if (ConditionsApply(rule, element, ref matching)) result.Add(rule);
+            Verify();
+            return result.AsReadOnly();
+        }
+        catch { AbortRead(); throw; }
     }
 
     internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, ref SelectorMatchWork matching)
@@ -358,14 +374,15 @@ internal sealed partial class NativeCssQuery
         state.Sources.Add(source);
     }
 
-    private List<Candidate> Candidates(State state, string name)
+    private List<Candidate> Candidates(State state, string name, ref SelectorMatchWork matching)
     {
         if (state.Candidates.TryGetValue(name, out var cached)) return cached;
         var candidates = new List<Candidate>();
         foreach (var source in state.Sources)
         {
             _work.Charge(1);
-            if (source.Block.ResolveProperty(name, _work) is { } declaration) candidates.Add(new(declaration, source));
+            if (SourceApplies(source, state.Element, name, ref matching) &&
+                source.Block.ResolveProperty(name, _work) is { } declaration) candidates.Add(new(declaration, source));
         }
         candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
         Verify();
@@ -400,13 +417,14 @@ internal sealed partial class NativeCssQuery
         return comparison != 0 ? comparison : left.Order.CompareTo(right.Order);
     }
 
-    private (CssCustomDeclaration Declaration, NativeCssSource Source)? CustomWinner(State state, string name)
+    private (CssCustomDeclaration Declaration, NativeCssSource Source)? CustomWinner(State state, string name, ref SelectorMatchWork matching)
     {
         var candidates = new List<(CssCustomDeclaration Declaration, NativeCssSource Source)>();
         foreach (var source in state.Sources)
         {
             _work.Charge(1);
-            if (source.Block.ResolveCustomProperty(name, _work) is { } declaration) candidates.Add((declaration, source));
+            if (SourceApplies(source, state.Element, name, ref matching) &&
+                source.Block.ResolveCustomProperty(name, _work) is { } declaration) candidates.Add((declaration, source));
         }
         candidates.Sort((left, right) =>
         {
@@ -436,7 +454,7 @@ internal sealed partial class NativeCssQuery
 
     private Candidate? Winner(State state, string name, ref SelectorMatchWork matching, bool substitute = false)
     {
-        var candidates = Candidates(state, name);
+        var candidates = Candidates(state, name, ref matching);
         var excludedOrigins = new bool[3];
         var excludedRules = new HashSet<CssDeclarationBlock>();
         foreach (var candidate in candidates)
@@ -479,18 +497,12 @@ internal sealed partial class NativeCssQuery
         var inherited = current.Variables;
         while (pending.TryPop(out current))
         {
-            var bindings = new List<CssSubstitutionBinding>();
-            foreach (var name in CustomNames(current))
-            {
-                _work.Charge(1);
-                if (!name.StartsWith("--", StringComparison.Ordinal)) continue;
-                var candidate = CustomWinner(current, name);
-                if (candidate is null) continue;
-                var declaration = candidate.Value.Declaration;
-                if (declaration.WideKeyword is null or "initial") bindings.Add(declaration.Binding);
-                // inherit and unset retain the parent's defining scope.
-            }
-            inherited = CssSubstitutionSnapshot.CreateLayer(bindings.ToArray(), inherited, _work);
+            _work.Charge(1);
+            // Copies share the existing observation/work cell; no per-name cadence reset.
+            matching.EnsureCell();
+            inherited = CssSubstitutionSnapshot.CreateQueryLayer(inherited, new QueryVariables(this, current, matching));
+            matching.VerifyRead();
+            Verify();
             current.Variables = inherited;
         }
         return state.Variables!;
@@ -520,7 +532,7 @@ internal sealed partial class NativeCssQuery
                     text = result.Value.SerializeCustomProperty(_work);
             }
         }
-        var property = new NativeCssProperty(name, text, null, CustomWinner(state, name)?.Source, NativeCssDisposition.Cascaded);
+        var property = new NativeCssProperty(name, text, null, CustomWinner(state, name, ref matching)?.Source, NativeCssDisposition.Cascaded);
         Verify();
         state.Computed.Add(name, property);
         _diagnostics?.ComputedPublished(element, name);
@@ -568,6 +580,7 @@ internal sealed partial class NativeCssQuery
 
     internal void Verify()
     {
+        if (_aborted) throw new InvalidOperationException("The native CSS read context was aborted.");
         var inlineCount = _inline.Count;
         _work.Charge(inlineCount);
         // The graph's final host checkpoint precedes every witness comparison. A later callback
