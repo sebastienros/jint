@@ -35,15 +35,24 @@ sanitize, and initialize selection in HTML order. Same-state type spelling chang
 origin and selection. An outer attribute record is queued before input change steps so nested value
 attribute writes appear afterward. Namespaced attributes do not supply HTML input metadata.
 
-Parser batches prepare the final component from the complete staged attribute list, with the original
-cancellation token, before publishing attributes. They do not simulate intermediate type/value writes.
-Cloning/import copy the current value and dirty flag; origin/user validity/selection begin fresh.
-Adoption retains the same owned component and its interaction state.
+Fresh parser batches keep raw attributes and do not construct or sanitize an input value component.
+An already-materialized view is refreshed from the complete staged batch with the original cancellation
+token before publication. First semantic access initializes once from the complete authoritative
+attributes; allocation/reads do not advance the document stamp. Ordinary readonly/default/value and
+unrelated attribute writes remain cold. Effective type changes and email multiple-presence changes
+conservatively materialize before publication because their intermediate sanitization/transfer history
+may not be reconstructed from final attributes. They do not simulate per-attribute parser writes.
+
+Cloning/import leave a cold source and target cold. For a materialized source they copy the current
+value and dirty flag; origin/user validity/selection begin fresh. Adoption retains existing interaction
+state without materializing a cold value component.
 
 Unimplemented families are named unavailable. No unsupported getter fabricates an empty/text value,
 and no history buffer restores stale text after a crossing. An unsupported Value-to-Value crossing
 remains unavailable on return until a supported explicit SetValue or ResetValue establishes the current
-value. A non-Value-to-Value transition loads the real default and clears dirty as specified. Ordinary
+value. A non-Value-to-Value transition loads the real default and clears dirty as specified. Default/DefaultOn
+destinations are independent and available after a non-Value source, including Filename; an unknown
+Value source retains the unavailable dependency because its transfer cannot be reconstructed. Ordinary
 attribute reflection and independent checkedness remain usable. DefaultValue is truthful even while
 the current value is unavailable. Numeric helpers must extend this backing store rather than create a
 second value/dirty/provenance/selection store.
@@ -75,3 +84,13 @@ another unpolled long string comparison. No per-edit counter object or callback 
 UserValueCheckpointTests covers cross-stage cadence, short-operation tail checks, ancestry/sanitizer/
 comparison cancellation, cold child projection, and constraint-callback exceptions. These tests assert
 coherent native state and original cancellation, with no timing assertion.
+
+## Lazy parsing invariant
+
+InputLazyValueTests parses all 22 types with hostile-length raw attributes and verifies absent value
+components before/after raw attribute reads, ordinary selector matching and serialization. It also
+covers cold reflected writes, same-state spelling, irreversible type/email history, availability
+correction, cold cloning/import/adoption, and seeded cold-versus-materialized histories followed by
+reset. Checkedness/radio initialization remains separate because connected peer exclusion can be
+irreversible; its storage/collection architecture is a separate audit. The numeric helpers remain
+pure and unused by HTML parsing until their lazy semantic consumer integration is reviewed.

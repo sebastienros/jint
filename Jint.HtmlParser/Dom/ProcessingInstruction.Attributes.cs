@@ -155,9 +155,20 @@ public sealed partial class ProcessingInstruction
         }
         var replacement = data.ToString();
         work.Charge(0);
-        ReplaceDataCore(replacement, 0, (uint) _data.Length, (uint) replacement.Length, preserveAttributes: true);
+        var oldMap = _attributeMap;
+        var oldNames = _attributeNames;
+        var oldData = _data;
         _attributeMap = map;
         _attributeNames = names;
+        try { ReplaceDataCore(replacement, 0, (uint) _data.Length, (uint) replacement.Length, preserveAttributes: true); }
+        catch
+        {
+            // Range notification runs after the coherent data/map commit. A
+            // notification failure must not roll back only half of that state.
+            if (ReferenceEquals(_data, oldData)) { _attributeMap = oldMap; _attributeNames = oldNames; }
+            throw;
+        }
+        work.Charge(0);
     }
 
     private void InvalidateAttributes()

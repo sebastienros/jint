@@ -147,9 +147,11 @@ public class InputConstraintsTests
         Action action = () => constraints.GetStep(value, int.MaxValue, false,
             count => { units = count; if (count == 4) cancellation.Cancel(); }, cancellation.Token);
         action.Should().Throw<OperationCanceledException>();
-        units.Should().Be(4);
+        // The source scan now shares the arithmetic counter. Cancellation at
+        // four units stops at the next scan boundary within the 256-unit cadence.
+        units.Should().BeInRange(4L, 256L);
         constraints.GetStep(value, int.MaxValue, false, count => units = count, default).Status.Should().Be(HtmlInputStepStatus.Write);
-        units.Should().Be(7); // Counts arithmetic phases, never the enormous grid index or Int32 count.
+        units.Should().Be(7 + 2 * value.Length); // Seven arithmetic phases plus grammar/conversion, never the grid index/count.
     }
 
     [TestCase("fr-FR")]

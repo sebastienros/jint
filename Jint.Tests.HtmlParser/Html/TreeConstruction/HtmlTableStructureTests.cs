@@ -87,20 +87,18 @@ public partial class HtmlTreeConstructionTests
     }
 
     [Test]
-    public void HeadRulesAndDependentStopsRemainReachableThroughTables()
+    public void HeadRulesAndTemplateFallbackRemainReachableThroughTables()
     {
         var parsed = Parse("<table><style>x</style><script>y</script><tr><td>z</table>", 1);
         parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
         var table = (Element) parsed.Document.DocumentElement!.LastChild!.FirstChild!;
         ((Element) table.FirstChild!).LocalName.Should().Be("style");
         ((Element) table.FirstChild!.NextSibling!).LocalName.Should().Be("script");
-        foreach (var (source, family) in new[]
-        {
-            ("<table><template for=target>", HtmlMissingFeature.Templates)
-        })
-        {
-            Parse(source, 1).Step.MissingFeature.Should().Be(family);
-        }
+        var fallback = Parse("<table><template for=target>", 1);
+        fallback.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        var template = (Element) fallback.Document.DocumentElement!.LastChild!.FirstChild!.FirstChild!;
+        template.LocalName.Should().Be("template");
+        template.GetAttribute("for").Should().Be("target");
     }
 
     [Test]

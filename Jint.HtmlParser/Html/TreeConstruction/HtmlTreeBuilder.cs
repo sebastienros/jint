@@ -5,8 +5,8 @@ using System.Threading;
 
 namespace Jint.HtmlParser.Html;
 
-// HTML Standard §13.2.6.4 (2026-09-22). This partial builder stops at the
-// first unimplemented later-family operation; no unsupported token enters a generic rule.
+// HTML Standard §13.2.6.4 (2026-09-25). One native tree builder and
+// shared cooperative budget implement document and contextual fragment parsing.
 internal sealed partial class HtmlTreeBuilder
 {
     private enum Mode
@@ -123,7 +123,13 @@ internal sealed partial class HtmlTreeBuilder
         _preparedAttributeIndex = 0;
         _preparedAttributeWork = 0;
         _templateHasFor = false;
-        _templateOrdinaryShadowFallback = false;
+        _templateHasValidShadowMode = false;
+        _templateForValue = null;
+        _templateDelegatesFocus = false;
+        _templateSerializable = false;
+        _templateClonable = false;
+        _templateManualSlotAssignment = false;
+        _templateKeepRegistryNull = false;
         ResetFormattingToken();
         _fosterParenting = false;
         _delegateToBody = false;
@@ -175,6 +181,13 @@ internal sealed partial class HtmlTreeBuilder
         // budget, so a long chain yields without an arbitrary pass limit.
         while (true)
         {
+            if (_templateOperation is not null)
+            {
+                if (!AdvanceTemplateOperation()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                if (_pendingPopTarget >= 0) continue;
+                FinishToken();
+                return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            }
             if (_framesetReplacementStage != 0)
             {
                 if (!AdvanceFramesetReplacement()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
@@ -239,6 +252,7 @@ internal sealed partial class HtmlTreeBuilder
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, family, _token.Offset);
             if (_pendingShiftIndex >= 0) continue;
             if (_pendingPopTarget >= 0) continue;
+            if (_templateOperation is not null) continue;
             if (!reprocess)
             {
                 var eof = _token.Kind == HtmlTokenKind.EndOfFile;
@@ -306,7 +320,7 @@ internal sealed partial class HtmlTreeBuilder
     private Node CurrentParent => _open.Count == 0 ? _document : Current;
 
     private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null,
-        long attributeWork = 0, string? isValue = null)
+        long attributeWork = 0, string? isValue = null, bool onlyAddToStack = false)
     {
         CheckDepth();
         var location = FindAdjustedInsertionLocation(parentOverride ?? _headInsertionOverride);
@@ -326,7 +340,7 @@ internal sealed partial class HtmlTreeBuilder
             element.InitializeParsedAttributes(attributes, _cancellationToken);
             Charge(attributeWork);
         }
-        if (!DeferFormInsertion(element, location, parentOverride ?? _headInsertionOverride ?? CurrentParent)) InsertAt(location, element);
+        if (!onlyAddToStack && !DeferFormInsertion(element, location, parentOverride ?? _headInsertionOverride ?? CurrentParent)) InsertAt(location, element);
         Push(element);
         return element;
     }
@@ -348,11 +362,16 @@ internal sealed partial class HtmlTreeBuilder
                 _foreignAnnotationEncoding = AsciiEquals(item.Value, "text/html") || AsciiEquals(item.Value, "application/xhtml+xml");
             if (_token.Name == "template")
             {
-                if (item.Name == "for") _templateHasFor = true;
+                if (item.Name == "for") { _templateHasFor = true; _templateForValue = item.Value; }
                 if (item.Name == "shadowrootmode" &&
                     (string.Equals(item.Value, "open", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(item.Value, "closed", StringComparison.OrdinalIgnoreCase)))
-                    _templateOrdinaryShadowFallback = true;
+                    _templateHasValidShadowMode = true;
+                if (item.Name == "shadowrootdelegatesfocus") _templateDelegatesFocus = true;
+                if (item.Name == "shadowrootserializable") _templateSerializable = true;
+                if (item.Name == "shadowrootclonable") _templateClonable = true;
+                if (item.Name == "shadowrootcustomelementregistry") _templateKeepRegistryNull = true;
+                if (item.Name == "shadowrootslotassignment" && AsciiEquals(item.Value, "manual")) _templateManualSlotAssignment = true;
             }
             var itemWork = 1L + item.Name.Length + item.Value.Length;
             _preparedAttributeWork = _preparedAttributeWork > long.MaxValue - itemWork ? long.MaxValue : _preparedAttributeWork + itemWork;

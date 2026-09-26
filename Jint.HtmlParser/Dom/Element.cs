@@ -18,9 +18,22 @@ public sealed class Element : Node
 
     internal HtmlElementState? GetHtmlState()
         => NamespaceUri == Namespaces.Html ? _htmlState ??= new HtmlElementState(this) : null;
+    private HtmlOptionCore? _optionCore;
+    private HtmlSelectCore? _selectCore;
+    internal HtmlOptionCore GetOptionCore(CancellationToken token = default)
+        => _optionCore ??= new HtmlOptionCore(this, token);
+    internal HtmlOptionCore InitializeOptionCore(bool selected)
+        => _optionCore ??= new HtmlOptionCore(this, selected);
+    internal HtmlSelectCore GetSelectCore(CancellationToken token = default)
+        => _selectCore ??= new HtmlSelectCore(this, token);
+    internal HtmlOptionCore? ExistingOptionCore => _optionCore;
+    internal HtmlSelectCore? ExistingSelectCore => _selectCore;
+    internal HtmlOptionState? ExistingOptionState => _htmlState?.ExistingOption;
+    internal HtmlSelectState? ExistingSelectState => _htmlState?.ExistingSelect;
     internal HtmlInputCheckedState? ExistingCheckedState => _htmlState?.ExistingCheckedState;
     internal bool HasHtmlState => _htmlState is not null;
     internal HtmlTextAreaState? ExistingTextAreaState => _htmlState?.ExistingTextArea;
+    internal HtmlInputValueState? ExistingInputValueState => _htmlState?.ExistingInputValue;
     internal ShadowRoot? AttachedShadowRoot { get; private set; }
     internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
@@ -180,7 +193,7 @@ public sealed class Element : Node
         }
         else
         {
-            HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+            HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
             var oldValue = previous.Value;
             var matches = MutationTracking.Match(this, MutationRecordKind.Attributes,
                 attribute.LocalName, attribute.NamespaceUri);
@@ -230,7 +243,7 @@ public sealed class Element : Node
             throw DomException.NotFound();
         }
 
-        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, null);
         _attributes!.Remove(attribute);
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
@@ -391,7 +404,7 @@ public sealed class Element : Node
 
     private void AppendNewAttribute(Attr attribute)
     {
-        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
         _attributes ??= [];
         _attributes.Add(attribute);
         attribute.OwnerElement = this;

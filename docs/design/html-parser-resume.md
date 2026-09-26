@@ -7,7 +7,37 @@ references, standalone parsing entry points, and equivalent paired benchmark acc
 conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
-**Current integrated checkpoint: `6e3273234`.** Reviewed number parsing/shortest formatting
+**Build feedback amendment (user request):** routine implementation builds and tests now target
+Release `net10.0` only. Validate every supported target framework at the final integration gate;
+this defers the other framework legs, not their acceptance requirement. Never use `--no-build`.
+
+**Demand boundary amendment:** [parsing and lazy behavior](html-parser-demand-boundary.md) follows the
+user's latest direction. Input value initialization is lazy at `825eba36e`; select derived views and
+inventories will follow, preserving intrinsic history. CSS cascade belongs to an on-demand Browser
+module. Ordinary parsing must not invoke numeric/temporal conversions or style computation.
+
+Latest common Release validation at `0f7291a92`: **6,446/6,446**, zero failures/skips,
+net8/net10 (`/private/tmp/jint-resumed-lazy-checked-common.log`). This includes reviewed lazy
+non-radio checkedness, PI attribute/data coherence and specified CSS color grammar/fixes.
+Parsed inputs and cold clones retain
+no value sidecar; raw attributes, ordinary selectors and serialization remain cold. First semantic
+access initializes once, while type/multiple transitions preserve observable history. Radios retain
+the state needed for peer-exclusion history. Select derived-view laziness remains in progress.
+
+Browser binding checkpoint `d30175b2d` reduces its local build to 414 unique errors; it is under
+review and is not a passing native Browser build. Events source checkpoint `6de325e084` is reviewed,
+but runtime tests remain blocked by shared compilation. CSS cascade, native parser scheduling and
+public HTML entry points are still being integrated. Do not claim replacement or speedup acceptance.
+
+**Earlier completed test gate: `d196ec650`.** CSS sheets/media and sizing/flex/alignment grammars,
+input value state, and pure numeric/temporal helpers pass **5,898/5,898** fresh Release non-corpus tests
+across net8/net10 (`/private/tmp/jint-resumed-temporal-common.log`). Shared atomic user-edit accounting
+and combined select/input clone hooks at `7d5acec6a` then pass **6,026/6,026**, zero failures/skips,
+both frameworks (`/private/tmp/jint-resumed-select-common.log`).
+Numeric-helper chat `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` is archived after review/integration/tests;
+its clean `3c0a` checkout is retained because both root and owner return no managed archive identity.
+
+**Previous integrated checkpoint: `6e3273234`.** Reviewed number parsing/shortest formatting
 (`c9885646d`) and contextual HTML fragments with bounded parser form association
 (`df35c6263`, `6e3273234`) pass **5,224/5,224** fresh Release non-corpus tests across net8/net10,
 zero failures/skips (`/private/tmp/jint-resumed-fragments-common.log`). Browser work remains isolated;
@@ -18,23 +48,25 @@ Current owners:
 
 | Work | Chat | Checkout |
 | --- | --- | --- |
-| Browser DOM/generator/runtime/parser integration | `01a0db4d-a396-7e33-a770-ace95e2ad537` | `414c` |
+| Browser shared DOM/runtime/parser integration | `01a0db4d-a396-7e33-a770-ace95e2ad537` | `414c` |
+| Browser contract/generator/native binding consumers | `01a0dbf5-ad50-79d2-9253-109314f39e60` | `b78d` |
 | Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
-| Native CSS sheets/rules/media/declarations | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
+| Browser demand-driven CSS cascade and style consumers | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
 | Native select/option state and shared native mutation hooks | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
-| Internal input text/default value component | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
-| Pure native input numeric/temporal algorithms | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
-| Native CSS sizing/flex/alignment properties | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
-| Contextual HTML fragments and parser form-pointer hookup | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
+| Lazy input state and numeric/temporal value integration | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
+| Pure numeric/temporal helpers (complete, chat archived) | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
+| CSS layout/color grammars (complete, chat archived) | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
+| HTML template patching, DSR and public parsing facade | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
 
 Events excludes shared `BrowserEventRealm.cs` and `DomHostHooks.cs`, retained by the Browser owner.
 Select owns narrow Element/HtmlElementState/Attr/Node/CharacterNodes/NodeCloner hooks; numeric
 helpers own new InputValues files only, and fragments own tokenizer/treebuilder/session paths.
 CSS model work must preserve named unfinished-grammar blockers, rather than accepting invalid or
 unimplemented declarations silently. Reviewed completed slices continue to land in common, and
-Browser changes remain in `414c` until the package builds and works. Reopening CSS and input state leaves 66 completed
-chats archived and 22 completed checkouts awaiting managed archive identities; previous counts below
-refer to the finite checkpoint.
+Browser changes remain isolated until the package builds and works. After numeric-helper and CSS
+color completion, 68 completed chats are archived and 24 completed checkouts await managed archive
+identities. Root and both owners returned empty artifact lists; no invented identity or shell
+removal was used. Unfinished worktrees remain active. Previous counts below are historical.
 
 **Historical user-directed finalization (September 25, before resumption):** reviewed native checkedness/radio state,
 script source coordinates, and internal CSS declaration blocks are integrated through `c9925b18c`.

@@ -6,6 +6,7 @@ namespace Jint.HtmlParser.Html;
 internal sealed partial class HtmlTreeBuilder
 {
     private Element? _fragmentContext;
+    private Element? _fragmentShadowHost;
     private Element? _fragmentRoot;
     private DocumentFragment? _fragmentResult;
     private Element? _fragmentSourceContext;
@@ -19,6 +20,7 @@ internal sealed partial class HtmlTreeBuilder
     internal void InitializeFragment(Element context, DocumentFragment result)
     {
         _fragmentSourceContext = context;
+        if (_context.AllowDeclarativeShadowRoots) _fragmentShadowHost = context;
         _fragmentContext = _document.CreateParsedElement(context.NamespaceUri, context.LocalName, context.Prefix, null);
         _fragmentResult = result;
         _fragmentAncestor = context;

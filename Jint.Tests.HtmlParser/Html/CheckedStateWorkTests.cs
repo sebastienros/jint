@@ -273,7 +273,9 @@ public class CheckedStateWorkTests
         var probe = new HtmlCheckedWorkProbe { Checkpoint = n => { if (n == 600) cancellation.Cancel(); } };
         document.CheckedWorkProbe = probe;
         Assert.Throws<OperationCanceledException>(() => HtmlCheckableState.GetRadioGroupFacts(a, cancellation.Token));
-        probe.Units.Should().Be(768);
+        // Applicability now adds an earlier explicit cancellation boundary.
+        // The same shared counter must still stop within the original ceiling.
+        probe.Units.Should().BeInRange(600, 768);
         root.RadioIndex.Should().BeNull();
         probe.Checkpoint = null;
         HtmlCheckableState.GetRadioGroupFacts(a, default).MemberCount.Should().Be(1);

@@ -7,6 +7,9 @@ internal sealed class HtmlInputCheckedState
     {
         Element = element;
         RefreshMetadata(ref work);
+        // With no published sidecar there has been no explicit flag write or
+        // radio exclusion. Materialize the logical default without a mutation.
+        Checked = DefaultChecked;
     }
     internal void RefreshMetadata(ref HtmlCheckedWork work)
     {

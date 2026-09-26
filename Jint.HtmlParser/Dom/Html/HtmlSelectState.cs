@@ -4,74 +4,38 @@ namespace Jint.HtmlParser;
 internal sealed class HtmlSelectState
 {
     private List<Element>? _options;
-    private int _fallbackScanIndex;
-    private bool _selectedContentKnown;
-    private Element? _selectedContent;
-    internal bool UpdatingSelectedContent { get; set; }
+    internal bool HasOptionInventory => _options is not null;
+    internal bool UpdatingSelectedContent { get => _core.UpdatingSelectedContent; set => _core.UpdatingSelectedContent = value; }
     internal string FallbackButtonText { get; private set; } = string.Empty;
-    internal void InvalidateSelectedContent() { _selectedContentKnown = false; _selectedContent = null; }
-    internal Element? GetEnabledSelectedContent(CancellationToken token)
-    {
-        token.ThrowIfCancellationRequested();
-        if (Multiple) return null;
-        if (!_selectedContentKnown)
-        {
-            Element? result = null;
-            var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
-            for (var node = Element.FirstChild; node is not null; node = HtmlSelectMutations.Next(node, Element, false, ref work))
-            {
-                work.Step();
-                if (node is Element { NamespaceUri: Namespaces.Html, LocalName: "selectedcontent" } content) { result = content; break; }
-            }
-            work.Check();
-            _selectedContent = result;
-            _selectedContentKnown = true;
-        }
-        return _selectedContent?.GetHtmlState()!.SelectedContentDisabled == false ? _selectedContent : null;
-    }
+    internal void InvalidateSelectedContent() => _core.InvalidateSelectedContent();
+    internal Element? GetEnabledSelectedContent(CancellationToken token) => _core.GetEnabledSelectedContent(token);
     private readonly List<Element> _selected = [];
-    private bool _multiple;
-    private uint? _parsedSize;
-    private void ClearSelected()
-    {
-        foreach (var option in _selected)
-        {
-            var state = option.GetHtmlState()!.Option!;
-            if (!ReferenceEquals(state.SelectionIndexOwner, this)) continue;
-            state.SelectionIndexOwner = null;
-            state.SelectedPosition = -1;
-        }
-        _selected.Clear();
-    }
+    private readonly HtmlSelectCore _core;
+    private readonly Dictionary<Element, int> _selectedSlots = [];
+    internal int SelectedPosition(Element option) => _selectedSlots.TryGetValue(option, out var index) ? index : -1;
+    private void ClearSelected() { _selected.Clear(); _selectedSlots.Clear(); }
     private void AddSelected(Element option)
     {
-        var state = option.GetHtmlState()!.Option!;
-        if (ReferenceEquals(state.SelectionIndexOwner, this)) return;
-        state.SelectionIndexOwner?.RemoveSelected(option);
-        state.SelectedPosition = _selected.Count;
-        state.SelectionIndexOwner = this;
+        if (_selectedSlots.ContainsKey(option)) return;
+        _selectedSlots.Add(option, _selected.Count);
         _selected.Add(option);
     }
     private void RemoveSelected(Element option)
     {
-        var state = option.GetHtmlState()!.Option!;
-        if (!ReferenceEquals(state.SelectionIndexOwner, this)) return;
-        var index = state.SelectedPosition;
+        if (!_selectedSlots.Remove(option, out var index)) return;
         var last = _selected[^1];
         _selected[index] = last;
-        last.GetHtmlState()!.Option!.SelectedPosition = index;
         _selected.RemoveAt(_selected.Count - 1);
-        state.SelectionIndexOwner = null;
-        state.SelectedPosition = -1;
+        if (!ReferenceEquals(last, option)) _selectedSlots[last] = index;
     }
     private HtmlSelectOptions? _optionsView;
     private HtmlSelectOptions? _selectedView;
-    internal HtmlSelectState(Element element, CancellationToken token = default) { Element = element; RefreshMetadata(token); }
-    internal HtmlSelectState(Element element, HtmlSelectMetadata metadata) { Element = element; ApplyMetadata(metadata); }
+    internal HtmlSelectState(Element element, CancellationToken token = default) { Element = element; _core = element.GetSelectCore(token); }
+    internal HtmlSelectState(Element element, HtmlSelectMetadata metadata) { Element = element; _core = element.GetSelectCore(); ApplyMetadata(metadata); }
     internal Element Element { get; }
     internal HtmlSelectOptions Options => _optionsView ??= new HtmlSelectOptions(this, false);
     internal HtmlSelectOptions SelectedOptions => _selectedView ??= new HtmlSelectOptions(this, true);
-    internal bool Multiple => _multiple;
+    internal bool Multiple => _core.Multiple;
     internal string Type => Multiple ? "select-multiple" : "select-one";
     internal bool UserValidity { get; private set; }
     internal long MembershipRevision { get; private set; }
@@ -79,7 +43,7 @@ internal sealed class HtmlSelectState
     internal uint GetDisplaySize(CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return _parsedSize ?? (Multiple ? 4u : 1u);
+        return _core.DisplaySize;
     }
     internal void RefreshMetadata(CancellationToken token)
     {
@@ -87,16 +51,8 @@ internal sealed class HtmlSelectState
         work.Check();
         ApplyMetadata(HtmlSelectMetadata.Read(Element.Attributes, ref work));
     }
-    internal void ApplyMetadata(HtmlSelectMetadata metadata) { _multiple = metadata.Multiple; _parsedSize = metadata.Size; }
-    internal void AttributeChanged(string name, string? value)
-    {
-        if (name == "multiple") _multiple = value is not null;
-        else if (name == "size")
-        {
-            var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, default);
-            _parsedSize = ParseSize(value, ref work);
-        }
-    }
+    internal void ApplyMetadata(HtmlSelectMetadata metadata) => _core.ApplyMetadata(metadata);
+    internal void AttributeChanged(string name, string? value) => _core.AttributeChanged(name, value);
     internal static uint? ParseSize(string? raw, ref HtmlSelectWork work)
     {
         if (raw is null) return null;
@@ -148,7 +104,7 @@ internal sealed class HtmlSelectState
         foreach (var option in options)
         {
             work.Step();
-            if (option.GetHtmlState()!.Option!.Selected) selected.Add(option);
+            if (option.GetOptionCore(token).Selected) selected.Add(option);
         }
         foreach (var option in _selected) work.Step();
         work.Check();
@@ -160,7 +116,7 @@ internal sealed class HtmlSelectState
     internal void InvalidateMembership()
     {
         _options = null;
-        _fallbackScanIndex = 0;
+        ClearSelected();
         MembershipRevision++;
         SelectionRevision++;
         _selectedView?.InvalidateSelection();
@@ -177,7 +133,7 @@ internal sealed class HtmlSelectState
             current = parent;
         }
         _options.Add(option);
-        if (option.GetHtmlState()!.Option!.Selected) AddSelected(option);
+        if (option.GetOptionCore().Selected) AddSelected(option);
         MembershipRevision++;
         SelectionRevision++;
         _selectedView?.InvalidateSelection();
@@ -193,86 +149,21 @@ internal sealed class HtmlSelectState
         _selectedView?.InvalidateSelection();
         return true;
     }
-    internal void InvalidateFallback() => _fallbackScanIndex = 0;
-    internal void SelectionChanged(HtmlOptionState option)
+    internal void InvalidateFallback() => _core.InvalidateFallback();
+    internal void SelectionChanged(HtmlOptionCore option)
     {
+        if (_options is null) return;
         if (option.Selected) AddSelected(option.Element);
-        else { RemoveSelected(option.Element); _fallbackScanIndex = 0; }
+        else RemoveSelected(option.Element);
         SelectionRevision++;
         _selectedView?.InvalidateSelection();
     }
     internal void SetOptionSelected(HtmlOptionState state, bool selected, CancellationToken token)
-    {
-        var options = Prepare(token);
-        var peers = PrepareSelected(token);
-        Element? fallback = null;
-        var remaining = peers.Count - (state.Selected ? 1 : 0);
-        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
-        if (!selected && !Multiple && remaining == 0 && GetDisplaySize(token) == 1)
-            foreach (var option in options)
-            {
-                work.Step();
-                if (!HtmlDisabledness.IsOptionDisabled(option, token)) { fallback = option; break; }
-            }
-        work.Check();
-        state.Write(selected, true);
-        if (selected && !Multiple)
-            foreach (var peer in peers)
-                if (!ReferenceEquals(peer, state.Element))
-                {
-                    var other = peer.GetHtmlState()!.Option!;
-                    other.Write(false, other.DirtySelectedness);
-                }
-        if (fallback is not null)
-        {
-            var other = fallback.GetHtmlState()!.Option!;
-            other.Write(true, other.DirtySelectedness);
-        }
-    }
+        => _core.SetOptionSelected(state.Element.GetOptionCore(token), selected, token);
     internal void ExcludePeers(HtmlOptionState chosen, bool markDocument = true)
-    {
-        if (Multiple) return;
-        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, default);
-        for (var i = _selected.Count - 1; i >= 0; i--)
-        {
-            work.Step();
-            var other = _selected[i];
-            if (ReferenceEquals(other, chosen.Element)) continue;
-            var state = other.GetHtmlState()!.Option!;
-            RemoveSelected(other);
-            state.Write(false, state.DirtySelectedness, markDocument);
-        }
-    }
+        => _core.ExcludePeers(chosen.Element.GetOptionCore(), markDocument);
     internal void SetSelectedness(CancellationToken token, bool markDocument = true)
-    {
-        var options = Prepare(token);
-        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
-        Element? chosen = null;
-        if (!Multiple && _selected.Count == 0 && GetDisplaySize(token) == 1)
-        {
-            var scanned = _fallbackScanIndex;
-            while (scanned < options.Count)
-            {
-                work.Step();
-                var option = options[scanned++];
-                if (!HtmlDisabledness.IsOptionDisabled(option, token)) { chosen = option; break; }
-            }
-            work.Check();
-            _fallbackScanIndex = scanned;
-        }
-        else if (!Multiple && _selected.Count > 1)
-        {
-            foreach (var option in options) { work.Step(); if (option.GetHtmlState()!.Option!.Selected) chosen = option; }
-        }
-        work.Check();
-        if (chosen is not null)
-        {
-            var state = chosen.GetHtmlState()!.Option!;
-            state.Write(true, state.DirtySelectedness, markDocument);
-            AddSelected(chosen);
-            ExcludePeers(state, markDocument);
-        }
-    }
+        => _core.SetSelectedness(token, markDocument);
     internal int IndexOf(Element option, CancellationToken token)
     {
         var options = Prepare(token);
@@ -285,14 +176,14 @@ internal sealed class HtmlSelectState
     {
         var options = Prepare(token);
         var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
-        for (var i = 0; i < options.Count; i++) { work.Step(); if (options[i].GetHtmlState()!.Option!.Selected) { work.Check(); return i; } }
+        for (var i = 0; i < options.Count; i++) { work.Step(); if (options[i].GetOptionCore(token).Selected) { work.Check(); return i; } }
         work.Check();
         return -1;
     }
     internal string GetValue(CancellationToken token)
     {
         var index = GetSelectedIndex(token);
-        return index < 0 ? string.Empty : Prepare(token)[index].GetHtmlState()!.Option!.GetValue(token);
+        return index < 0 ? string.Empty : Prepare(token)[index].GetHtmlState()!.GetOptionState(token)!.GetValue(token);
     }
     internal void SetSelectedIndex(int index, CancellationToken token)
     {
@@ -313,7 +204,7 @@ internal sealed class HtmlSelectState
         foreach (var option in options)
         {
             work.Step();
-            if (HtmlSelectWork.StringEquals(option.GetHtmlState()!.Option!.GetValue(token), value, ref work)) { chosen = option; break; }
+            if (HtmlSelectWork.StringEquals(option.GetHtmlState()!.GetOptionState(token)!.GetValue(token), value, ref work)) { chosen = option; break; }
         }
         work.Check();
         var update = HtmlSelectedContent.PrepareUpdate(this, chosen, token);
@@ -334,10 +225,10 @@ internal sealed class HtmlSelectState
     {
         foreach (var selected in previous)
         {
-            var state = selected.GetHtmlState()!.Option!;
+            var state = selected.GetOptionCore();
             state.Write(false, state.DirtySelectedness);
         }
-        chosen?.GetHtmlState()!.Option!.Write(true, true);
+        chosen?.GetOptionCore().Write(true, true);
     }
     internal bool ApplyUserSelection(Element option, bool selected, CancellationToken token)
     {
@@ -345,7 +236,7 @@ internal sealed class HtmlSelectState
         if (Element.GetHtmlState()!.GetDisabledState(token) != HtmlDisabledState.Enabled ||
             IndexOf(option, token) < 0 || HtmlDisabledness.IsOptionDisabled(option, token)) return false;
         if (!Multiple && !selected && GetDisplaySize(token) <= 1) return false;
-        var state = option.GetHtmlState()!.Option!;
+        var state = option.GetOptionCore(token);
         var changed = state.Selected != selected || selected && !Multiple && _selected.Count > 1;
         var peers = selected && !Multiple ? PrepareSelected(token) : null;
         token.ThrowIfCancellationRequested();
@@ -354,7 +245,7 @@ internal sealed class HtmlSelectState
             foreach (var peer in peers)
                 if (!ReferenceEquals(peer, option))
                 {
-                    var other = peer.GetHtmlState()!.Option!;
+                    var other = peer.GetOptionCore(token);
                     other.Write(false, other.DirtySelectedness);
                 }
         return changed;
@@ -365,7 +256,7 @@ internal sealed class HtmlSelectState
     {
         var index = GetSelectedIndex(token);
         var option = index < 0 ? null : Prepare(token)[index];
-        var label = option?.GetHtmlState()!.Option!.GetSemanticLabel(token) ?? string.Empty;
+        var label = option?.GetHtmlState()!.GetOptionState(token)!.GetSemanticLabel(token) ?? string.Empty;
         var update = HtmlSelectedContent.PrepareUpdate(this, option, token);
         token.ThrowIfCancellationRequested();
         SetUserValidity(true);
@@ -377,10 +268,14 @@ internal sealed class HtmlSelectState
         var options = Prepare(token);
         var defaults = new bool[options.Count];
         var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
-        for (var i = 0; i < defaults.Length; i++) { work.Step(); defaults[i] = options[i].GetHtmlState()!.Option!.DefaultSelected; }
+        for (var i = 0; i < defaults.Length; i++)
+        {
+            work.Step();
+            defaults[i] = options[i].ExistingOptionState?.DefaultSelected ?? HtmlOptionCore.ReadDefault(options[i].Attributes, ref work);
+        }
         work.Check();
         SetUserValidity(false);
-        for (var i = 0; i < defaults.Length; i++) options[i].GetHtmlState()!.Option!.Write(defaults[i], false);
+        for (var i = 0; i < defaults.Length; i++) options[i].GetOptionCore(CancellationToken.None).Write(defaults[i], false);
         SetSelectedness(CancellationToken.None);
     }
 }

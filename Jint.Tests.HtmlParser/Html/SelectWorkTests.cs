@@ -62,6 +62,7 @@ public class SelectWorkTests
         select.InitializeParsedAttributes(selectAttributes, default); option.InitializeParsedAttributes(optionAttributes, default);
         select.AppendParsedChild(option);
         var state = select.GetHtmlState()!.Select!; var optionState = option.GetHtmlState()!.Option!;
+        state.Options.Count.Should().Be(1); // Materialize the independently lazy collection before measuring cached reads.
         var probe = new HtmlSelectWorkProbe(); document.SelectWorkProbe = probe;
         for (var i = 0; i < 100; i++)
         {
@@ -121,8 +122,7 @@ public class SelectWorkTests
         probe.Units.Should().BeLessThan(16L * size + 64);
     }
     [TestCase("option")]
-    [TestCase("select")]
-    public void CloneColdMetadataSecondPassIsCancellable(string kind)
+    public void CloneIntrinsicSelectednessScanIsCancellable(string kind)
     {
         var document = Document.CreateHtml(); var element = document.CreateElement(kind);
         element.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
@@ -137,6 +137,7 @@ public class SelectWorkTests
     public void ParsedMetadataCancelsBeforeAttributeBatchPublication(string kind)
     {
         var document = Document.CreateHtml(); var element = document.CreateElement(kind);
+        if (kind == "select") element.GetSelectCore(); // Existing required facts must refresh atomically.
         using var cts = new CancellationTokenSource();
         document.SelectWorkProbe = new HtmlSelectWorkProbe { Checkpoint = units => { if (units == 256) cts.Cancel(); } };
         var attributes = Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray();
@@ -159,33 +160,35 @@ public class SelectWorkTests
     }
 
     [Test]
-    public void CombinedClonePassesCancellationIntoColdInputValueConstruction()
+    public void CombinedClonePassesCancellationIntoColdTargetForMaterializedInputSource()
     {
         var document = Document.CreateHtml(); var attributes = document.CreateElement("div");
         attributes.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
         var input = document.CreateElement("input");
-        input.CopyAttributesFrom(attributes, document); // A trusted cold source, no value-state read yet.
-        input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        input.CopyAttributesFrom(attributes, document);
+        var source = input.GetHtmlState()!.GetInputValueState(default)!;
+        source.SetValue("stored", default);
         using var cts = new CancellationTokenSource();
         var probe = new HtmlSelectWorkProbe { Checkpoint = units => { if (units == 1025) cts.Cancel(); } }; document.SelectWorkProbe = probe;
         var stamp = document.MutationStamp;
         Assert.Throws<OperationCanceledException>(() => NodeCloner.Clone(input, document, true, cancellationToken: cts.Token));
-        input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        input.GetHtmlState()!.ExistingInputValue.Should().BeSameAs(source);
+        source.GetValue(default).Should().Be("stored");
         probe.Units.Should().Be(1025); document.MutationStamp.Should().Be(stamp);
     }
 
     [Test]
-    public void ClonePollsCancellationDuringColdSourceCheckednessMetadataScan()
+    public void ClonePollsCancellationDuringColdTargetCheckednessMetadataScan()
     {
         var document = Document.CreateHtml(); var attributes = document.CreateElement("div");
         attributes.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
         var input = document.CreateElement("input"); input.CopyAttributesFrom(attributes, document);
-        input.ExistingCheckedState.Should().BeNull();
+        var source = HtmlCheckableState.Get(input)!;
         using var cts = new CancellationTokenSource();
         var probe = new HtmlCheckedWorkProbe { Checkpoint = units => { if (units == 256) cts.Cancel(); } }; document.CheckedWorkProbe = probe;
         var stamp = document.MutationStamp;
         Assert.Throws<OperationCanceledException>(() => NodeCloner.Clone(input, document, true, cancellationToken: cts.Token));
-        input.ExistingCheckedState.Should().BeNull(); input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        input.ExistingCheckedState.Should().BeSameAs(source); input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
         probe.Units.Should().Be(256); document.MutationStamp.Should().Be(stamp);
     }
     [Test]

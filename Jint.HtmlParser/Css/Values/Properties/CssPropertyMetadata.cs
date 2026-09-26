@@ -10,7 +10,7 @@ internal enum CssPropertyGrammar
 {
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
     Sizing, FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
-    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf
+    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -56,6 +56,9 @@ internal static class CssPropertyRegistry
         var entries = new Dictionary<string, CssPropertyMetadata>(StringComparer.Ordinal);
         Add("display", CssPropertyGrammar.Display, "inline");
         Add("visibility", CssPropertyGrammar.Visibility, "visible", true);
+        // CSS Color 4 §3.2; Backgrounds 3 §2.2. No computed-color metadata.
+        Add("color", CssPropertyGrammar.Color, "canvastext", true);
+        Add("background-color", CssPropertyGrammar.Color, "transparent");
         Add("opacity", CssPropertyGrammar.Opacity, "1");
         Add("position", CssPropertyGrammar.Position, "static");
         Add("pointer-events", CssPropertyGrammar.PointerEvents, "auto", true);

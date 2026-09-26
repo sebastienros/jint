@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
 
@@ -55,6 +56,17 @@ internal static class CssPropertyParser
             return CssPropertyResult.Accepted(CssPropertyValue.Reference(analysis.Program, ValueText(input, work), false), true);
         var wide = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
         if (wide.IsMatch) return CssPropertyResult.Accepted(CssPropertyValue.Keyword(wide.Value.CanonicalSpelling(), wide.Span));
+        if (entry.Grammar == CssPropertyGrammar.Color)
+        {
+            var color = CssColorParser.Parse(input.Components, input.MaxNestingDepth, work);
+            return color.Status switch
+            {
+                CssColorParseStatus.Match => CssPropertyResult.Accepted(CssPropertyValue.ColorValue(color.Value,
+                    CssColorSerializer.SerializeSpecified(color.Value, work))),
+                CssColorParseStatus.RequiresLaterGrammar => CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, color.Blocker),
+                _ => Invalid()
+            };
+        }
         var parts = Significant(input.Components, work);
         if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.FlexBasis)
             return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);

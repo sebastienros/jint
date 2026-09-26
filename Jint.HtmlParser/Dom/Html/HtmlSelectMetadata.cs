@@ -42,4 +42,4 @@ internal readonly record struct HtmlSelectMetadata(bool Multiple, uint? Size)
         return new HtmlSelectMetadata(multiple, parsed);
     }
 }
-internal readonly record struct HtmlSelectInitialization(HtmlOptionMetadata? Option, HtmlSelectMetadata? Select);
+internal readonly record struct HtmlSelectInitialization(bool? Selected, HtmlOptionMetadata? Option, HtmlSelectMetadata? Select);

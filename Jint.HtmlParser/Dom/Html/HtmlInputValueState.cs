@@ -5,7 +5,7 @@ internal readonly record struct HtmlInputValueFacts(HtmlInputType Type, bool IsA
     bool HasSelectionApi, bool ReadOnly, uint? TextLength);
 
 /// <summary>HTML §4.10.5: one current value and provenance for implemented native input families.</summary>
-internal sealed class HtmlInputValueState
+internal sealed partial class HtmlInputValueState
 {
     private string? _value;
     private Attr? _valueAttribute;
@@ -39,7 +39,7 @@ internal sealed class HtmlInputValueState
 
     internal static bool IsTextType(HtmlInputType type) => type is HtmlInputType.Text or HtmlInputType.Search
         or HtmlInputType.Tel or HtmlInputType.Url or HtmlInputType.Email or HtmlInputType.Password;
-    internal static bool IsSupportedType(HtmlInputType type) => IsTextType(type) || type is
+    internal static bool IsSupportedType(HtmlInputType type) => IsTextType(type) || IsNumericType(type) || type is
         HtmlInputType.Hidden or HtmlInputType.Submit or HtmlInputType.Image or HtmlInputType.Reset or
         HtmlInputType.Button or HtmlInputType.Checkbox or HtmlInputType.Radio;
 
@@ -52,6 +52,9 @@ internal sealed class HtmlInputValueState
         work.Check();
         string? type = null;
         Attr? valueAttribute = null;
+        Attr? minimum = null;
+        Attr? maximum = null;
+        Attr? step = null;
         var multiple = false;
         var readOnly = false;
         var count = initialAttributes?.Count ?? Element.AttributeCount;
@@ -66,18 +69,26 @@ internal sealed class HtmlInputValueState
                 case "value": valueAttribute = attribute; break;
                 case "multiple": multiple = true; break;
                 case "readonly": readOnly = true; break;
+                case "min": minimum = attribute; break;
+                case "max": maximum = attribute; break;
+                case "step": step = attribute; break;
             }
         }
         var parsed = HtmlInputTypes.Parse(type);
         var supported = IsSupportedType(parsed);
-        var initial = supported && IsTextType(parsed)
-            ? HtmlTextSanitizer.SanitizeInput(parsed, valueAttribute?.Value ?? string.Empty, multiple, cancellationToken)
+        var initial = supported && HtmlInputTypes.Info(parsed).ValueMode == HtmlInputValueMode.Value
+            ? SanitizeFamily(parsed, valueAttribute?.Value ?? string.Empty, multiple,
+                minimum?.Value, maximum?.Value, step?.Value, valueAttribute?.Value, null, cancellationToken)
             : null;
         work.Check();
         Type = parsed;
         _valueAttribute = valueAttribute;
         _multiple = multiple;
         _readOnly = readOnly;
+        _minimumAttribute = minimum;
+        _maximumAttribute = maximum;
+        _stepAttribute = step;
+        _numeric = null;
         _value = initial;
         IsAvailable = supported;
         _unavailableFamily = supported ? null : parsed;
@@ -89,6 +100,10 @@ internal sealed class HtmlInputValueState
         _valueAttribute = prepared._valueAttribute;
         _multiple = prepared._multiple;
         _readOnly = prepared._readOnly;
+        _minimumAttribute = prepared._minimumAttribute;
+        _maximumAttribute = prepared._maximumAttribute;
+        _stepAttribute = prepared._stepAttribute;
+        _numeric = null;
         _value = prepared._value;
         IsAvailable = prepared.IsAvailable;
         _unavailableFamily = prepared._unavailableFamily;
@@ -136,7 +151,7 @@ internal sealed class HtmlInputValueState
             SetOrigin(HtmlValueChangeOrigin.NonUser);
             return;
         }
-        var prepared = HtmlTextSanitizer.SanitizeInput(Type, value, _multiple, checkpoint, cancellationToken);
+        var prepared = Sanitize(value, checkpoint, cancellationToken);
         var changed = !IsAvailable || !string.Equals(_value, prepared, StringComparison.Ordinal);
         cancellationToken.ThrowIfCancellationRequested();
         MakeAvailable();
@@ -144,8 +159,12 @@ internal sealed class HtmlInputValueState
         SetDirty(true);
         if (changed)
         {
-            ClampSelection((uint) prepared.Length);
-            SetSelection(HtmlInputTextOperations.Normalize((uint) prepared.Length, (uint) prepared.Length, null, (uint) prepared.Length));
+            if (HasTextBuffer)
+            {
+                ClampSelection((uint) prepared.Length);
+                SetSelection(HtmlInputTextOperations.Normalize((uint) prepared.Length, (uint) prepared.Length, null, (uint) prepared.Length));
+            }
+            else SetSelection(default);
         }
     }
 
@@ -154,7 +173,8 @@ internal sealed class HtmlInputValueState
         ArgumentNullException.ThrowIfNull(value);
         cancellationToken.ThrowIfCancellationRequested();
         var prepared = IsAvailable && ValueMode == HtmlInputValueMode.Value && !DirtyValue
-            ? HtmlTextSanitizer.SanitizeInput(Type, value, _multiple, cancellationToken) : null;
+            ? SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
+                _stepAttribute?.Value, value, null, cancellationToken) : null;
         cancellationToken.ThrowIfCancellationRequested();
         _preparedDefaultValue = prepared;
         try { Element.SetAttribute("value", value); }
@@ -166,8 +186,7 @@ internal sealed class HtmlInputValueState
     {
         cancellationToken.ThrowIfCancellationRequested();
         RequireSupportedType();
-        var prepared = IsTextType(Type) ? HtmlTextSanitizer.SanitizeInput(Type,
-            GetDefaultValue(cancellationToken), _multiple, cancellationToken) : null;
+        var prepared = ValueMode == HtmlInputValueMode.Value ? Sanitize(GetDefaultValue(cancellationToken), cancellationToken) : null;
         cancellationToken.ThrowIfCancellationRequested();
         MakeAvailable();
         if (prepared is not null) CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
@@ -183,10 +202,10 @@ internal sealed class HtmlInputValueState
         {
             case "value":
                 _valueAttribute = newValue is null ? null : Element.GetAttributeNodeNS(null, "value");
+                InvalidateNumericConstraints();
                 if (!_typeTransition && IsAvailable && ValueMode == HtmlInputValueMode.Value && !DirtyValue)
                 {
-                    var prepared = _preparedDefaultValue ?? HtmlTextSanitizer.SanitizeInput(Type,
-                        newValue ?? string.Empty, _multiple, default);
+                    var prepared = _preparedDefaultValue ?? Sanitize(newValue ?? string.Empty, default);
                     CommitAutomaticValue(prepared);
                 }
                 else if (!_typeTransition && IsAvailable && ValueMode is HtmlInputValueMode.Default or HtmlInputValueMode.DefaultOn)
@@ -201,6 +220,17 @@ internal sealed class HtmlInputValueState
                     CommitAutomaticValue(HtmlTextSanitizer.SanitizeInput(Type, _value!, _multiple, default));
                 break;
             case "readonly": _readOnly = newValue is not null; break;
+            case "min":
+            case "max":
+            case "step":
+                var attribute = newValue is null ? null : Element.GetAttributeNodeNS(null, localName);
+                if (localName == "min") _minimumAttribute = attribute;
+                else if (localName == "max") _maximumAttribute = attribute;
+                else _stepAttribute = attribute;
+                InvalidateNumericConstraints();
+                if (Type == HtmlInputType.Range && IsAvailable && !_typeTransition)
+                    CommitAutomaticValue(Sanitize(_value!, default));
+                break;
         }
     }
 
@@ -212,11 +242,12 @@ internal sealed class HtmlInputValueState
         var oldRelevantValue = IsAvailable ? GetValue(default) : null;
         var nextMode = HtmlInputTypes.Info(nextType).ValueMode;
         var enteredSelection = !HasSelectionApi && HtmlInputTypes.Info(nextType).HasSelectionApi;
-        var nextAvailable = IsSupportedType(nextType) && (IsAvailable || oldMode != HtmlInputValueMode.Value && nextMode == HtmlInputValueMode.Value);
+        var nextAvailable = IsSupportedType(nextType) && (IsAvailable || oldMode != HtmlInputValueMode.Value);
         var candidate = nextMode == HtmlInputValueMode.Value && nextAvailable
             ? oldMode == HtmlInputValueMode.Value ? _value! : GetDefaultValue(default) : null;
         // Prepare the sanitizer before semantic mutation, publish it at its specified step.
-        var prepared = candidate is not null ? HtmlTextSanitizer.SanitizeInput(nextType, candidate, _multiple, default) : null;
+        var prepared = candidate is not null ? SanitizeFamily(nextType, candidate, _multiple,
+            _minimumAttribute?.Value, _maximumAttribute?.Value, _stepAttribute?.Value, _valueAttribute?.Value, null, default) : null;
         _typeTransition = true;
         try
         {
@@ -224,6 +255,7 @@ internal sealed class HtmlInputValueState
                 Element.SetAttribute("value", _value);
             if (oldMode != HtmlInputValueMode.Value && nextMode == HtmlInputValueMode.Value) SetDirty(false);
             Type = nextType;
+            _numeric = null;
             IsAvailable = nextAvailable;
             _unavailableFamily = nextAvailable ? null : IsSupportedType(nextType) ? _unavailableFamily : nextType;
             checkedTypeSignal();
@@ -243,13 +275,23 @@ internal sealed class HtmlInputValueState
                     SetOrigin(HtmlValueChangeOrigin.NonUser);
             }
             if (!IsAvailable) SetSelection(default);
+            else if (!IsTextType(nextType)) SetSelection(default);
             else if (enteredSelection) SetSelection(default);
         }
         finally { _typeTransition = false; }
     }
 
     internal string Sanitize(string value, CancellationToken cancellationToken)
-        => HtmlTextSanitizer.SanitizeInput(Type, value, _multiple, cancellationToken);
+        => Sanitize(value, null, cancellationToken);
+    private string Sanitize(string value, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        if (Type != HtmlInputType.Range)
+            return SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
+                _stepAttribute?.Value, _valueAttribute?.Value, checkpoint, cancellationToken);
+        var numericCheckpoint = AdaptCheckpoint(checkpoint);
+        return HtmlInputRangeValue.Sanitize(value, GetNumericConstraints(cancellationToken, numericCheckpoint),
+            numericCheckpoint, cancellationToken);
+    }
     internal HtmlTextSelection? GetSelection(CancellationToken cancellationToken)
         => HtmlInputTextOperations.GetSelection(this, cancellationToken);
     internal void SetSelectionStart(uint? value, CancellationToken cancellationToken)
@@ -281,6 +323,7 @@ internal sealed class HtmlInputValueState
     {
         ArgumentNullException.ThrowIfNull(source);
         _value = source._value;
+        _numeric = null;
         IsAvailable = source.IsAvailable;
         _unavailableFamily = source._unavailableFamily;
         DirtyValue = source.DirtyValue;
@@ -305,7 +348,7 @@ internal sealed class HtmlInputValueState
         => CommitValue(value, origin, !string.Equals(_value, value, StringComparison.Ordinal));
     internal void CommitValue(string value, HtmlValueChangeOrigin origin, bool changed)
     {
-        if (changed) { _value = value; MarkChanged(); }
+        if (changed) { _value = value; InvalidateNumericValue(); MarkChanged(); }
         SetOrigin(origin);
     }
     private void CommitAutomaticValue(string value)
