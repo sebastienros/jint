@@ -1,5 +1,6 @@
 ﻿using Jint.HtmlParser;
 using Jint.Browser.Dom;
+using Jint.Browser.CustomElements;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -659,7 +660,8 @@ internal static partial class InputDispatcher
         // The inventory is the form's owned controls in tree order rather than `form.elements`, which excludes
         // image buttons — so a form whose only submit button is `<input type=image>` had no default button at
         // all, and one whose submit button sits outside it under a `form` attribute now has one.
-        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, dom.CancellationToken))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, token: dom.CancellationToken,
+            customElements: CustomElementRegistry.Of(dom.Engine)))
         {
             if (element.NamespaceUri == Namespaces.Html && FormSubmission.IsSubmitButton(element))
             {
@@ -678,7 +680,8 @@ internal static partial class InputDispatcher
     {
         var count = 0;
 
-        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, dom.CancellationToken))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, token: dom.CancellationToken,
+            customElements: CustomElementRegistry.Of(dom.Engine)))
         {
             if (EventDom.IsHtml(element, "input") && EventDom.InputType(element) is
                 "text" or "search" or "url" or "tel" or "email" or "password"
