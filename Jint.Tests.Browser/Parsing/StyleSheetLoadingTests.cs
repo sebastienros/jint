@@ -1,4 +1,6 @@
 using Jint.Tests.Browser.Navigation;
+using Jint.Browser.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Parsing;
 
@@ -230,6 +232,94 @@ public class StyleSheetLoadingTests
 
         (await loopback.Page.EvaluateAsync<int>("loads")).Should().Be(1);
         loopback.Server.Received.Should().ContainSingle(request => request.Path == "/site.css");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AMoveDeliveredWhileConnectedKeepsSheetIdentityEditsAndCurrentCascadeOrder(bool nativeBatch)
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/first.css", _ => LoopbackResponse.Css("body { opacity:.2; }"))
+            .Map("/second.css", _ => LoopbackResponse.Css("body { opacity:.8; }"))
+            .MapHtml("/", """
+                <!doctype html><head><script>window.loads=0;</script>
+                <link id=first rel=stylesheet href=/first.css onload="loads++">
+                <link rel=stylesheet href=/second.css>
+                </head><body></body>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("window.saved=first.sheet; saved.cssRules[0].style.opacity='.3';");
+        (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.body).opacity")).Should().Be("0.8");
+        if (nativeBatch)
+        {
+            await loopback.Page.RunOnLoopAsync(engine =>
+            {
+                var link = DomBindings.Bind<Element>(engine.GetValue("first"), "move regression").Target;
+                var document = link.OwnerDocument!;
+                link.ParentNode!.RemoveChild(link);
+                document.DocumentElement!.LastChild!.AppendChild(link);
+                return true;
+            });
+        }
+        else await loopback.Page.EvaluateAsync("document.body.appendChild(first)");
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<bool>("first.sheet === saved && document.styleSheets[1] === saved")).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.body).opacity")).Should().Be("0.3");
+        (await loopback.Page.EvaluateAsync<int>("loads")).Should().Be(1);
+        loopback.Server.Received.Count(request => request.Path == "/first.css").Should().Be(1);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ASeparatelyDeliveredDetachedLinkStartsANewRequestOnReconnection()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/site.css", _ => LoopbackResponse.Css("body { opacity:.2; }"))
+            .MapHtml("/", """
+                <!doctype html><head><script>window.loads=0;</script>
+                <link id=sheet rel=stylesheet href=/site.css onload="loads++">
+                </head><body></body>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("window.saved=sheet.sheet; sheet.remove()");
+        (await loopback.Page.EvaluateAsync<int>("document.styleSheets.length")).Should().Be(0);
+        await loopback.Page.EvaluateAsync("document.body.appendChild(sheet)");
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<bool>("sheet.sheet !== saved")).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<int>("loads")).Should().Be(2);
+        loopback.Server.Received.Count(request => request.Path == "/site.css").Should().Be(2);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task MovingAConnectedShadowHostKeepsItsLoadedLinkAndNativeObservation()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/first.css", _ => LoopbackResponse.Css("p {opacity:.2;}"))
+            .Map("/second.css", _ => LoopbackResponse.Css("p {opacity:.8;}"))
+            .MapHtml("/", "<!doctype html><body><div id=host></div></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            host.attachShadow({mode:'open'}).innerHTML='<link rel=stylesheet href=/first.css><p>text</p>';
+            window.shadowLink=host.shadowRoot.querySelector('link');
+            window.saved=shadowLink.sheet;
+            document.head.appendChild(host);
+            """);
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        (await loopback.Page.EvaluateAsync<bool>("shadowLink.sheet === saved")).Should().BeTrue();
+        loopback.Server.Received.Count(request => request.Path == "/first.css").Should().Be(1);
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var link = DomBindings.Bind<Element>(engine.GetValue("shadowLink"), "shadow move regression").Target;
+            link.SetAttribute("href", "/second.css");
+            return true;
+        });
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        (await loopback.Page.EvaluateAsync<bool>("shadowLink.sheet !== saved")).Should().BeTrue();
+        loopback.Server.Received.Count(request => request.Path == "/second.css").Should().Be(1);
         loopback.Page.Errors.Should().BeEmpty();
     }
 }

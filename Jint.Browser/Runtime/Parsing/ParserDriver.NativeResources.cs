@@ -36,6 +36,8 @@ internal sealed partial class ParserDriver
         internal string? Signature;
         internal object? StyleRequest;
         internal Document? StyleRequestDocument;
+        internal Node? StyleRequestRoot;
+        internal bool StyleLoaded;
         internal bool ModuleStarted;
         internal MutationSubscription? ScriptSubscription;
     }
@@ -299,16 +301,28 @@ internal sealed partial class ParserDriver
         {
             _runtime.Engine.Constraints.Check();
             seen.Remove(node);
-            if (node is ShadowRoot && _resourceWatches.TryGetValue(node, out var watch) &&
-                ReferenceEquals(watch.Document, document)) RetireResourceWatch(watch);
+            if (node is ShadowRoot shadowRoot && _resourceWatches.TryGetValue(node, out var watch) &&
+                ReferenceEquals(watch.Document, document) &&
+                !(ReferenceEquals(shadowRoot.OwnerDocument, document) &&
+                  ReferenceEquals(shadowRoot.Host.AttachedShadowRoot, shadowRoot) && IsResourceConnected(shadowRoot.Host)))
+                RetireResourceWatch(watch);
             if (node is Element element)
             {
                 if (element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg ||
                     element is { LocalName: "link", NamespaceUri: Namespaces.Html })
                 {
-                    NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(document), document, element);
-                    if (_resourceSources.TryGetValue(element, out var source) &&
-                        ReferenceEquals(source.StyleRequestDocument, document)) InvalidateStyleRequest(source);
+                    var preserve = element.LocalName == "link" &&
+                        _resourceSources.TryGetValue(element, out var current) && current.StyleLoaded &&
+                        ReferenceEquals(current.StyleRequestDocument, document) && current.StyleRequest is { } request &&
+                        CurrentStyleSheetSource(element, document, current, request, current.Signature);
+                    // A move completed before delivery can retain its sheet and edited CSSOM rules.
+                    // A separately delivered detached state, changed root, URL or owner still invalidates.
+                    if (!preserve)
+                    {
+                        NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(document), document, element);
+                        if (_resourceSources.TryGetValue(element, out var source) &&
+                            ReferenceEquals(source.StyleRequestDocument, document)) InvalidateStyleRequest(source);
+                    }
                 }
                 if (element.AttachedShadowRoot is { } shadow) pending.Push(shadow);
             }
@@ -409,13 +423,16 @@ internal sealed partial class ParserDriver
             return;
         }
         var url = PageUrl.Resolve(href, BaseUrlOf(document));
+        var root = ShadowTree.GetRoot(link, composed: false, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);
         if (source.Signature == url && source.StyleRequest is not null &&
-            ReferenceEquals(source.StyleRequestDocument, document)) return;
+            ReferenceEquals(source.StyleRequestDocument, document) && ReferenceEquals(source.StyleRequestRoot, root)) return;
         // A changed request removes the old sheet before the new fetch can pump a page turn.
         NativeCssStyleSheets.DisassociateOwner(realm, document, link);
         var request = new object();
         source.StyleRequest = request;
         source.StyleRequestDocument = document;
+        source.StyleRequestRoot = root;
+        source.StyleLoaded = false;
         source.Signature = url;
         bool Current() => CurrentStyleSheetSource(link, document, source, request, url);
         if (url is null)
@@ -441,13 +458,19 @@ internal sealed partial class ParserDriver
         var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200)
             .Text(DomDocumentState.Of(document).CharacterSet);
         NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), link, text, body.Url);
-        if (Current()) QueueResourceEvent(link, "load", afterParse: false, Current);
+        if (Current())
+        {
+            source.StyleLoaded = true;
+            QueueResourceEvent(link, "load", afterParse: false, Current);
+        }
     }
 
     private static void InvalidateStyleRequest(ResourceSource source)
     {
         source.StyleRequest = null;
         source.StyleRequestDocument = null;
+        source.StyleRequestRoot = null;
+        source.StyleLoaded = false;
         source.Signature = null;
     }
 
@@ -461,12 +484,13 @@ internal sealed partial class ParserDriver
             if (stamp == ulong.MaxValue) throw new InvalidOperationException(NativeCssQuery.Invalidated);
             if (!ReferenceEquals(source.StyleRequest, request) || !ReferenceEquals(link.OwnerDocument, document)) return false;
             var connected = IsResourceConnected(link);
+            var root = ShadowTree.GetRoot(link, composed: false, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);
             var eligible = NativeCssStyleSheets.EligibleOwner(link, reads, work);
             var currentUrl = PageUrl.Resolve(reads.Attribute(link, "href") ?? "", BaseUrlOf(document));
             work.CheckCancellation();
             if (stamp != document.MutationStamp) continue;
             return ReferenceEquals(link.OwnerDocument, document) && connected && eligible &&
-                ReferenceEquals(source.StyleRequest, request) && currentUrl == url;
+                ReferenceEquals(source.StyleRequest, request) && ReferenceEquals(source.StyleRequestRoot, root) && currentUrl == url;
         }
     }
 
