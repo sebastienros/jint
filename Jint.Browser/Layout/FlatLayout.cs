@@ -455,6 +455,28 @@ internal sealed class FlatLayout
 
         internal double Width(Element target) => HasBox(target) ? WidthOf(target) : 0;
 
+        internal double Height(Element target) => HasBox(target) ? HeightOf(target) : 0;
+
+        // CSS2 §10.1: ordinary inline/contents ancestors do not establish the normal-flow
+        // containing block. Its available width is the same synthetic (including flex-assigned)
+        // width used by rectangles, never an authored width or a viewport fallback.
+        internal double? ContainingInlineWidth(Element target)
+        {
+            token.ThrowIfCancellationRequested();
+            checkpoint?.Invoke();
+            if (!HasBox(target)) return null;
+            if (ReferenceEquals(target, document?.DocumentElement)) return viewportWidth;
+            for (var parent = target.ParentNode as Element; parent is not null; parent = parent.ParentNode as Element)
+            {
+                Step();
+                var display = cascade?.Of(parent).GetPropertyValue("display");
+                if (display is "inline" or "contents") continue;
+                if (display is null or "none" || parent.NamespaceUri != Namespaces.Html) return null;
+                return HasBox(parent) ? WidthOf(parent) : null;
+            }
+            return null;
+        }
+
         internal bool HasBox(Element target)
         {
             var ancestors = new Stack<Element>();

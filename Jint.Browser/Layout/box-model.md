@@ -51,6 +51,34 @@ matched separately for every element.
 The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
 so its native inheritance and value computation still produce the complete declaration.
 
+**CSSOM resolved values use these same synthetic sizes.** Browser's `ResolvedStyle` adapts the
+layout-free native computed query on demand ([CSSOM §9](https://drafts.csswg.org/cssom/#resolved-values)).
+For a connected current-document HTML box to which width/height apply, every declaration reads the
+same `SizeQuery` dimensions as rectangles: an ordinary leaf can answer `1280px`/`16px` even when its
+authored dimensions are `40px`/`12px`. Horizontal flex still consumes its own computed width/basis.
+Ordinary non-replaced inline elements, `display:none`/`contents`, and missing boxes retain computed
+dimensions. The supported inline replaced-element classification uses synthetic boxes, without intrinsic
+image or font measurements. Width queries do not measure height or place boxes; height queries request
+width only if the existing flex algorithm needs it. Authored inline and rule declarations stay unchanged.
+
+Absolute computed margin/padding lengths request no sizes. Percentage and percentage-bearing math
+edges use the normal-flow containing block's available inline width from the same size query, including
+flex-assigned widths; all four sides use that basis. Inline and contents ancestors are skipped. Only the
+root uses the initial containing block's viewport width; an unavailable other containing block is a named
+dependency. Padding clamps to zero; margins may be negative. Normal-flow auto margins resolve to zero
+under the existing margin-free policy. Flex/grid/positioned auto margins, positioned percentage bases,
+SVG edges and authored pending writing modes remain explicit metric dependencies. This read adapter
+introduces no margin/padding placement, box expansion, renderer or second geometry cache.
+
+[CSS Sizing 3 §3.1](https://drafts.csswg.org/css-sizing-3/#min-width) auto minima resolve to zero for
+ordinary represented CSS2 boxes with the initial auto aspect ratio, and for elements with no box.
+Flex/grid automatic minima remain named dependencies. An aspect-ratio candidate (including an `all` reset) in the existing matched
+raw declaration index is a demand-only `V2:aspect-ratio` dependency until that property's producer exists;
+there is no second selector scan and no unconditional pending-property read. Min/max percentages and
+math stay computed. Native DOM, CSSOM, selector semantics, browsing context/media and layout witnesses
+are checked around used-value measurement and serialization; canceled or reentrant stale reads do not
+publish a value. This is an explicit finite headless policy, not full CSS layout.
+
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
 `PageLayout.ClientBoxOf` places the requested box first. Its bottom is a lower bound on document height,

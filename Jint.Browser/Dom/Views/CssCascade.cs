@@ -1,4 +1,6 @@
 using Jint.Browser.Styling;
+using Jint.Browser.Runtime;
+using Jint.Browser.Events;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
@@ -17,7 +19,7 @@ internal static class CssCascade
     // Scopes retain the existing caller vocabulary. Lazy getters eliminate eager scope filtering.
     internal enum StyleScope { All, Visibility, Layout }
 
-    internal sealed class Traversal(NativeCssQuery query, SelectorMatchWork matching)
+    internal sealed class Traversal(NativeCssQuery query, SelectorMatchWork matching, Action? witness = null)
     {
         private readonly Dictionary<Element, NativeCssComputedStyle> _views = new();
         private SelectorMatchWork _matching = matching;
@@ -27,17 +29,31 @@ internal static class CssCascade
             CancellationToken cancellationToken = default)
         {
             if (document is null) return null;
+            var runtime = NativeCssStyleSheets.RealmOf(document) is { } host
+                ? PageRuntime.FindBrowsingContext(host.Engine, document) : null;
+            var media = runtime?.Media;
+            var events = runtime is null ? null : BrowserEventRealm.Of(runtime.Engine);
+            var focus = events?.FocusedElement;
+            var press = events?.MousePressTarget;
+            var url = DomDocumentState.Of(document).Url;
+            var target = DomDocumentState.Of(document).TargetElement;
             var input = NativeCssStyleSheets.RealmOf(document) is { } realm
                 ? NativeCssStyleSheets.CreateQuery(document, realm, diagnostics, checkpoint, cancellationToken)
                 : NativeCssStyleSheets.CreateInertQuery(document, new CssValueWork(cancellationToken, checkpoint), checkpoint, diagnostics);
-            return new(input.Query, input.Matching);
+            return new(input.Query, input.Matching, runtime is null ? null : () =>
+            {
+                if (!ReferenceEquals(runtime.Document, document) || runtime.Media != media ||
+                    !ReferenceEquals(events!.FocusedElement, focus) || !ReferenceEquals(events.MousePressTarget, press) ||
+                    DomDocumentState.Of(document).Url != url || !ReferenceEquals(DomDocumentState.Of(document).TargetElement, target))
+                    throw new InvalidOperationException(NativeCssQuery.Invalidated);
+            });
         }
 
         internal NativeCssComputedStyle Of(Element element)
         {
             _matching.VerifyRead();
             if (_views.TryGetValue(element, out var cached)) return cached;
-            var view = new NativeCssComputedStyle(query, element, _matching);
+            var view = new NativeCssComputedStyle(query, element, _matching, witness);
             // Matching is separate from computation; coverage observes real matched rule identities.
             if (CssRuleUsage.IsTracking) CssRuleUsage.Observe(element, view.MatchedRules());
             _views.Add(element, view);
