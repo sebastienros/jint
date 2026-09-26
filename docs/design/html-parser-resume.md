@@ -13,10 +13,28 @@ this defers the other framework legs, not their acceptance requirement. Never us
 
 **Demand boundary amendment:** [parsing and lazy behavior](html-parser-demand-boundary.md) follows the
 user's latest direction. Input value initialization is lazy at `825eba36e`; select derived views and
-inventories will follow, preserving intrinsic history. CSS cascade belongs to an on-demand Browser
-module. Ordinary parsing must not invoke numeric/temporal conversions or style computation.
+inventories are lazy at `96827c3d9`, preserving intrinsic history. Numeric/temporal values and number
+editing use that same demand-created state (`e9c95b864`, `fbc35417c`, `1ef6fb2c7`, `c4c71a95c`).
+CSS cascade belongs to an on-demand Browser module. Ordinary parsing must not invoke
+numeric/temporal conversions or style computation.
 
-Latest common Release validation at `0f7291a92`: **6,446/6,446**, zero failures/skips,
+**Latest common gate: `c4c71a95c`, 3,374/3,374 net10.0 Release non-corpus tests**, zero failures/skips
+(`/private/tmp/jint-resumed-number-editor-net10.log`). This includes the public inert HTML facade
+(`984bb06e5`), bounded shadow attachment (`a8bec9104`), and option completion/EOF closure
+(`0d0d4cc3d`). Paired HTML benchmarks (`ce7010d0b`) pass correctness-only validation for four complete
+trees, count-preserving corruption probes, and 256 cold/first/warm control reads
+(`/private/tmp/jint-resumed-html-comparison-common.log`). No timings or speedup claim yet.
+
+Build contention prompted temporary serialization: implementation and source reviews continue, while
+the coordinator grants one Release net10 build/test slot at a time. Final cross-framework validation
+remains required. Native Browser still does not compile; its reviewed binding groups are being merged
+into the isolated runtime worktree. CSS and script-scheduling review corrections remain outstanding.
+
+The shared DOM/PI changes preserve the XML corpus's exact prior failure-name multiset:
+4,022 total, 3,766 passing, 256 known failures, zero skips, both TFMs
+(`/private/tmp/jint-resumed-h6f-xml.log`). This is unchanged debt, not a passing conformance gate.
+
+Earlier common Release validation at `0f7291a92`: **6,446/6,446**, zero failures/skips,
 net8/net10 (`/private/tmp/jint-resumed-lazy-checked-common.log`). This includes reviewed lazy
 non-radio checkedness, PI attribute/data coherence and specified CSS color grammar/fixes.
 Parsed inputs and cold clones retain
@@ -56,16 +74,17 @@ Current owners:
 | Lazy input state and numeric/temporal value integration | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
 | Pure numeric/temporal helpers (complete, chat archived) | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
 | CSS layout/color grammars (complete, chat archived) | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
-| HTML template patching, DSR and public parsing facade | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
+| HTML facade/option completion/paired benchmarks (complete, chat archived) | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
+| Browser lazy media/canvas/dialog capabilities | `01a0dc24-22c8-79d1-a3fd-f6a671706229` | `7778` |
 
 Events excludes shared `BrowserEventRealm.cs` and `DomHostHooks.cs`, retained by the Browser owner.
 Select owns narrow Element/HtmlElementState/Attr/Node/CharacterNodes/NodeCloner hooks; numeric
 helpers own new InputValues files only, and fragments own tokenizer/treebuilder/session paths.
 CSS model work must preserve named unfinished-grammar blockers, rather than accepting invalid or
 unimplemented declarations silently. Reviewed completed slices continue to land in common, and
-Browser changes remain isolated until the package builds and works. After numeric-helper and CSS
-color completion, 68 completed chats are archived and 24 completed checkouts await managed archive
-identities. Root and both owners returned empty artifact lists; no invented identity or shell
+Browser changes remain isolated until the package builds and works. After numeric-helper, CSS color
+and HTML facade/benchmark completion, 69 completed chats are archived and 25 completed checkouts await
+managed archive identities. Root and the completed owners returned empty artifact lists; no invented identity or shell
 removal was used. Unfinished worktrees remain active. Previous counts below are historical.
 
 **Historical user-directed finalization (September 25, before resumption):** reviewed native checkedness/radio state,
