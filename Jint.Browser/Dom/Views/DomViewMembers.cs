@@ -4,6 +4,7 @@ using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
+using Namespaces = Jint.HtmlParser.Namespaces;
 
 namespace Jint.Browser.Dom.Views;
 
