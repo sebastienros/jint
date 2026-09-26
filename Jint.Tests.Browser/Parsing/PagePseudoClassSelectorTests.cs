@@ -994,8 +994,11 @@ public sealed class PagePseudoClassSelectorTests
     /// The third category, which AngleSharp reads through its own <c>IsContentEditable</c> — the member
     /// <c>Events/ContentEditing</c> already documents as answering <see langword="false"/> for
     /// <c>contenteditable</c> written without a value, which is how nearly every page writes it. An editing
-    /// host and everything editable inside it is <c>:read-write</c>, and a document in design mode is an
-    /// editing host of its own; a control inside one is still decided by the first two categories.
+    /// host and everything editable inside it is <c>:read-write</c>. Design mode makes the document's
+    /// child HTML element an editing host; <c>contenteditable="false"</c> subtrees remain noneditable.
+    /// A control inside an editing host is still decided by the first two categories.
+    /// https://html.spec.whatwg.org/multipage/interaction.html#editing-host
+    /// https://w3c.github.io/editing/docs/execCommand/#editable
     /// </summary>
     [Test]
     public async Task AnEditingHostAndWhatIsEditableInsideItIsReadWrite()
@@ -1026,12 +1029,18 @@ public sealed class PagePseudoClassSelectorTests
               document.designMode = 'on';
               const designing = plain.matches(':read-write') + ':' + readOnly.matches(':read-write')
                 + ':' + refused.matches(':read-write');
+              window.designModeBarrierFacts = ['explicitlyFalse', 'refused'].map(id => {
+                const element = document.getElementById(id);
+                return [element.matches(':read-write'), element.matches(':read-only'), element.isContentEditable].join(':');
+              }).join('|');
               document.designMode = 'off';
               return before + '|' + designing + '|' + plain.matches(':read-write');
             })()
             """)).Should().Be(
             "host:true,inside:true,mutable:true,readOnly:false,disabled:false,area:true,readOnlyArea:false," +
-            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:true|false");
+            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:false|false");
+        (await page.EvaluateAsync<string>("window.designModeBarrierFacts"))
+            .Should().Be("false:true:false|false:true:false");
     }
 
     /// <summary>
