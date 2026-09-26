@@ -84,6 +84,7 @@ internal sealed partial class HtmlTreeBuilder
         if (_fragmentContext is not null || _form is null || IsParsingTemplateContents ||
             !ReferenceEquals(element.OwnerDocument, _form.OwnerDocument) ||
             !HtmlFormState.IsFormAssociated(element) ||
+            element.FormAssociationState?.IsFormAssociatedCustomElement == true ||
             HtmlFormState.IsListed(element) && element.GetAttributeNodeNS(null, "form") is not null)
             return false;
         if (_pendingFormElement is not null) throw new InvalidOperationException("Form insertion is already pending.");

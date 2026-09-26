@@ -3,6 +3,33 @@ namespace Jint.HtmlParser;
 /// <summary>Stored form ownership and synchronous HTML insertion/removal hooks.</summary>
 internal static class HtmlFormAssociation
 {
+    // Browser supplies the existing custom-element definition's category. It owns the
+    // construction algorithm point that resets ownership after enabling this bit.
+    internal static void SetFormAssociatedCustomElement(Element element, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (element.NamespaceUri != Namespaces.Html)
+            throw new ArgumentException("A form-associated custom element must be in the HTML namespace.", nameof(element));
+        var state = element.FormAssociationState;
+        if ((state?.IsFormAssociatedCustomElement == true) == value) return;
+        state ??= element.FormAssociationState = new HtmlFormAssociationState();
+        var reference = element.GetAttributeNodeNS(null, "form")?.Value;
+        if (value)
+        {
+            state.IsFormAssociatedCustomElement = true;
+            // The current root may already have indexed this element's ID while it
+            // was undefined. Only its newly enabled form reference changes here.
+            if (reference is not null) OrdinaryRoot(element).FormIndex?.ChangeReference(element, null, reference);
+        }
+        else
+        {
+            if (reference is not null) OrdinaryRoot(element).FormIndex?.ChangeReference(element, reference, null);
+            StoreOwner(element, state, null);
+            state.ParserInserted = false;
+            state.IsFormAssociatedCustomElement = false;
+        }
+    }
+
     internal static Node OrdinaryRoot(Node node)
         => OrdinaryRoot(node, null, default);
 
@@ -76,6 +103,7 @@ internal static class HtmlFormAssociation
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(form);
         if (!HtmlFormState.IsFormAssociated(element) ||
+            element.FormAssociationState?.IsFormAssociatedCustomElement == true ||
             form.NamespaceUri != Namespaces.Html || form.LocalName != "form" ||
             (HtmlFormState.IsListed(element) && element.GetAttributeNodeNS(null, "form") is not null) ||
             element.WasInserted || element.ParentNode is not null || element.FirstChild is not null ||
@@ -258,6 +286,7 @@ internal static class HtmlFormAssociation
         if (ReferenceEquals(state.Owner, owner)) return;
         var oldOwner = state.Owner;
         state.Owner = owner;
+        if (state.OwnerRevision != ulong.MaxValue) state.OwnerRevision++;
         element.OwnerDocument?.CheckedWorkProbe?.OwnerStore?.Invoke(element, oldOwner, owner);
         HtmlInputStateChanges.OwnerChanged(element);
     }

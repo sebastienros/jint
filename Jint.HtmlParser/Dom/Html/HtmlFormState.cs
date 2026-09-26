@@ -6,15 +6,17 @@ internal static class HtmlFormState
     internal static bool IsFormAssociated(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return element.NamespaceUri == Namespaces.Html && element.LocalName is
-            "button" or "fieldset" or "input" or "object" or "output" or "select" or "textarea" or "img";
+        return element.NamespaceUri == Namespaces.Html && (element.LocalName is
+            "button" or "fieldset" or "input" or "object" or "output" or "select" or "textarea" or "img"
+            || element.FormAssociationState?.IsFormAssociatedCustomElement == true);
     }
 
     internal static bool IsListed(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return element.NamespaceUri == Namespaces.Html && element.LocalName is
-            "button" or "fieldset" or "input" or "object" or "output" or "select" or "textarea";
+        return element.NamespaceUri == Namespaces.Html && (element.LocalName is
+            "button" or "fieldset" or "input" or "object" or "output" or "select" or "textarea"
+            || element.FormAssociationState?.IsFormAssociatedCustomElement == true);
     }
 
     internal static Element? GetOwner(Element element)
@@ -51,6 +53,9 @@ internal static class HtmlFormState
     }
 
     internal static void ResetOwner(Element element) => HtmlFormAssociation.ResetOwner(element);
+
+    internal static void SetFormAssociatedCustomElement(Element element, bool value)
+        => HtmlFormAssociation.SetFormAssociatedCustomElement(element, value);
 
     internal static void AssociateFromParser(Element element, Element form)
         => HtmlFormAssociation.AssociateFromParser(element, form);
@@ -104,5 +109,9 @@ internal static class HtmlFormState
 internal sealed class HtmlFormAssociationState
 {
     internal Element? Owner;
+    // HTML §4.10.3 removes past names whenever the owner changes, including away-and-back.
+    // Saturation permanently prevents a consumer from treating this value as a reusable revision.
+    internal ulong OwnerRevision;
+    internal bool IsFormAssociatedCustomElement;
     internal bool ParserInserted;
 }
