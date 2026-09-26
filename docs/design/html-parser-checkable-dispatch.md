@@ -56,3 +56,14 @@ Clarify the design's final B2/B3 row: Browser may wire the completed internal ch
 Native gates: all flag/attribute/type/namespace matrices from the existing design; independent slow group oracle over mutations; exact unrelated-ID f→null→f case; multi-checked detached/connection ordering; parser batch/XML defaults; clone/import/adopt/template/shadow behavior; canceled preparation/committed insertion coherence; deterministic dense-group/distinct-name/repeated-append/ID-reset work; retained-old-document weak lifetime. Fresh Release net8/net10 focused and broad non-corpus tests.
 
 WPT repository pin is 6c7127bdd9f2cc6a3668fd9791757843e09d5a9e (Jint.Tests/Wpt/Vendor/README.md). radio.html/checkbox.html referenced by the design are not locally vendored at their upstream paths; indeterminate-radio.html is vendored. Resolve source tests at that exact pin and record differences from living HTML before counting evidence. Authored native fixtures are not WPT passes. Browser activation/disabled/trusted-vs-synthetic/nested-dispatch acceptance is a separate owner gate.
+
+### Reset-candidate ordering refinement
+
+A root may cache an immutable tree-ordered reset-candidate array. Membership changes and moves of
+candidates invalidate it; unrelated ID/name/value writes and unrelated subtree changes do not. A dirty
+array can be rebuilt by one charged ordinary preorder, O(N + F), instead of repeated tree comparisons.
+Repeated ID-triggered resets then enumerate O(F) cached candidates plus required owner/group work.
+Drop an invalidated array immediately so removed controls are not retained. Do not use a document-wide
+mutation stamp as the invalidation key. Verify fixed F with increasing unrelated N, candidate moves,
+equal reference writes, stable snapshots and removed-control lifetime. This is an explicit ordering
+rebuild cost, not permission to scan every unrelated node for every ID write.
