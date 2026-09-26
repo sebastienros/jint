@@ -59,13 +59,69 @@ public sealed class FocusTests
         });
     }
 
+    [Test]
+    public async Task ShallowDetachedFocusIsNotClearedWhenTheFinalReadCheckCancels()
+    {
+        var options = new BrowserOptions().ConfigureEngine(o => o.AddConstraint(static () => new CancelFocusRead()));
+        await using var browser = new Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=host></div>");
+        await page.EvaluateAsync("window.savedRoot = host.attachShadow({mode: 'closed'}); window.savedInput = document.createElement('input'); savedRoot.appendChild(savedInput); savedInput.focus();");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var root = (ShadowRoot) ((IDomWrapper) engine.GetValue("savedRoot")).DomTarget;
+            var input = ((IDomWrapper) engine.GetValue("savedInput")).DomTarget;
+            var realm = BrowserEventRealm.Of(engine);
+            root.Host.ParentNode!.RemoveChild(root.Host);
+            var constraint = engine.Constraints.Find<CancelFocusRead>()!;
+            constraint.Armed = true;
+            try
+            {
+                Action read = () => FocusController.ActiveElement(realm, root);
+                read.Should().ThrowExactly<OperationCanceledException>();
+                constraint.Checks.Should().Be(2);
+                realm.FocusedElement.Should().BeSameAs(input);
+            }
+            finally { constraint.Armed = false; }
+            FocusController.ActiveElement(realm, root).Should().BeNull();
+            realm.FocusedElement.Should().BeNull();
+            return true;
+        });
+    }
+
+    [Test]
+    public async Task ActiveElementPollsDocumentCommentPrefixWhileFindingItsFallbackBody()
+    {
+        var options = new BrowserOptions().ConfigureEngine(o => o.AddConstraint(static () => new CancelFocusRead()));
+        await using var browser = new Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>content</p>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var document = DomRealm.Of(engine).Document!;
+            var html = document.DocumentElement!;
+            for (var i = 0; i < 1024; i++) document.InsertBefore(document.CreateComment("prefix"), html);
+            var constraint = engine.Constraints.Find<CancelFocusRead>()!;
+            constraint.CancelAt = int.MaxValue;
+            constraint.Armed = true;
+            try
+            {
+                FocusController.ActiveElement(BrowserEventRealm.Of(engine), document).Should().BeSameAs(DomDocumentElements.Body(document));
+                constraint.Checks.Should().BeGreaterThanOrEqualTo(6, "the 1024 document-prefix links require four bounded checks between entry and publication");
+            }
+            finally { constraint.Armed = false; }
+            return true;
+        });
+    }
+
     private sealed class CancelFocusRead : Constraint
     {
         internal bool Armed;
         internal int Checks;
+        internal int CancelAt = 2;
         public override void Check()
         {
-            if (Armed && ++Checks == 2) throw new OperationCanceledException();
+            if (Armed && ++Checks == CancelAt) throw new OperationCanceledException();
         }
         public override void Reset() { }
     }

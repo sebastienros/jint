@@ -42,8 +42,10 @@ internal static class FocusController
     internal static Element? ActiveElement(BrowserEventRealm realm, Document document)
     {
         var work = FocusReadWork(realm);
-        var result = ActiveElement(realm, document, work);
+        var focused = realm.FocusedElement;
+        var result = ActiveElement(realm, document, work, out var clearFocus);
         work.Check();
+        if (clearFocus && ReferenceEquals(realm.FocusedElement, focused)) realm.FocusedElement = null;
         return result;
     }
 
@@ -55,8 +57,9 @@ internal static class FocusController
         return work;
     }
 
-    private static Element? ActiveElement(BrowserEventRealm realm, Document document, DomReadWork work)
+    private static Element? ActiveElement(BrowserEventRealm realm, Document document, DomReadWork work, out bool clearFocus)
     {
+        clearFocus = false;
         if (PageRuntime.Find(realm.Engine, document) is null)
         {
             return Body(document, work);
@@ -74,7 +77,7 @@ internal static class FocusController
         if (focused.OwnerDocument is not { } owner || !IsConnectedTo(focused, owner, work)
             || !ReferenceEquals(BrowserEventRealm.FocusedElementOf(owner), focused))
         {
-            realm.FocusedElement = null;
+            clearFocus = true;
             return Body(document, work);
         }
 
@@ -83,7 +86,15 @@ internal static class FocusController
 
     private static Element? Body(Document document, DomReadWork work)
     {
-        if (DomDocumentElements.Html(document) is not { } html) return null;
+        Element? html = null;
+        for (var child = document.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is not Element element) continue;
+            if (element is { NamespaceUri: Namespaces.Html, LocalName: "html" }) html = element;
+            break;
+        }
+        if (html is null) return null;
         for (var child = html.FirstChild; child is not null; child = child.NextSibling)
         {
             work.Step();
@@ -96,22 +107,28 @@ internal static class FocusController
     internal static Element? ActiveElement(BrowserEventRealm realm, ShadowRoot root)
     {
         var work = FocusReadWork(realm);
+        var focused = realm.FocusedElement;
+        var result = ShadowActiveElement(realm, root, work, out var clearFocus);
+        work.Check();
+        if (clearFocus && ReferenceEquals(realm.FocusedElement, focused)) realm.FocusedElement = null;
+        return result;
+    }
+
+    private static Element? ShadowActiveElement(BrowserEventRealm realm, ShadowRoot root, DomReadWork work, out bool clearFocus)
+    {
+        clearFocus = false;
         var document = root.OwnerDocument!;
-        if (PageRuntime.Find(realm.Engine, document) is null) { work.Check(); return null; }
-        // Reuse document validation so removed or adopted focus cannot survive in a shadow exposure.
-        ActiveElement(realm, document, work);
-        if (realm.FocusedElement is not { } focused || !ReferenceEquals(focused.OwnerDocument, document))
-        {
-            work.Check();
-            return null;
-        }
+        if (PageRuntime.Find(realm.Engine, document) is null) return null;
+        // Reuse document validation, but commit stale-focus clearing only after the whole read succeeds.
+        ActiveElement(realm, document, work, out clearFocus);
+        if (clearFocus || realm.FocusedElement is not { } focused || !ReferenceEquals(focused.OwnerDocument, document)) return null;
         Element candidate = focused;
         while (true)
         {
             Node tree = candidate;
             while (tree.ParentNode is { } parent) { work.Step(); tree = parent; }
-            if (ReferenceEquals(tree, root)) { work.Check(); return candidate; }
-            if (tree is not ShadowRoot shadow) { work.Check(); return null; }
+            if (ReferenceEquals(tree, root)) return candidate;
+            if (tree is not ShadowRoot shadow) return null;
             work.Step();
             candidate = shadow.Host;
         }
