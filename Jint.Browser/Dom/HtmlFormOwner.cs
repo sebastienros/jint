@@ -45,6 +45,7 @@ internal static class HtmlFormOwner
         if (element.NamespaceUri != Namespaces.Html) return null;
         return element.LocalName switch
         {
+            "keygen" => DomLegacyKeygenForm.Of(element, checkpoint, token),
             "label" => HtmlLabelAssociation.ControlFor(element, checkpoint, token) is { } control ? Of(control) : null,
             "legend" => element.ParentNode is Element { NamespaceUri: Namespaces.Html, LocalName: "fieldset" } fieldset
                 ? Of(fieldset) : null,
