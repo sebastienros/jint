@@ -6,7 +6,12 @@ internal enum SerializationStage
     Scan,
     Append,
     Materialize,
-    Final
+    Final,
+    HtmlOptions,
+    HtmlTraversal,
+    HtmlName,
+    HtmlEscape,
+    HtmlShadow
 }
 
 // One cadence is shared by the writer and every scalar/structure scan in a call.
