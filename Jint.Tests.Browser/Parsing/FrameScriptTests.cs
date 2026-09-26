@@ -26,6 +26,19 @@ public class FrameScriptTests
     }
 
     [Test]
+    public async Task GrandchildResourcesFinishBeforeItsScriptAndTheParentScript()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/grandchild.css", _ => LoopbackResponse.Css("body { font-size: 33px; }"))
+            .MapHtml("/grandchild", "<link rel=stylesheet href=/grandchild.css><body><script>window.sawStyle = document.querySelector('link').sheet.cssRules.length === 1;</script>")
+            .MapHtml("/child", "<iframe src=/grandchild></iframe><script>window.sawGrandchild = frames[0].sawStyle;</script>")
+            .MapHtml("/", "<iframe src=/child></iframe><script>window.sawChild = frames[0].sawGrandchild;</script>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("sawChild && frames[0].sawGrandchild && frames[0].frames[0].sawStyle")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ChildResourcesPrepareAtTheirOwnParserBoundary()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

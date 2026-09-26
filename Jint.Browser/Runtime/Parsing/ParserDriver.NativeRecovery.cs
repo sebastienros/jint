@@ -51,8 +51,6 @@ internal sealed partial class ParserDriver
         if (!_resourceRecords.TryDequeue(out entry)) return false;
         _activeResourceRecord = entry;
         _activeMetaCursor = 0;
-        _pendingFrameDocuments.Clear();
-        _pendingFrameDocumentSet.Clear();
         return true;
     }
 
@@ -65,6 +63,8 @@ internal sealed partial class ParserDriver
         _pendingNativeDocumentSet.Clear();
         _activeResourceRecord = null;
         _activeMetaCursor = 0;
+        _pendingFrameDocuments.Clear();
+        _pendingFrameDocumentSet.Clear();
     }
 
     private static void ClearCapturedDocuments(ResourceEnvelope entry)
