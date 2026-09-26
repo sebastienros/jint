@@ -103,7 +103,7 @@ public sealed class MutationSubscription : IDisposable
 
     internal void Enqueue(MutationRecord record) => (_records ??= []).Add(record);
 
-    internal MutationRecordQueueReservation ReserveRecord(MutationRecord record)
+    internal static MutationRecordQueueReservation ReserveRecord(MutationRecord record)
         => new(new MutationQueueSegment(), new MutationQueueSegment { Record = record });
 
     internal void EnqueueReserved(MutationRecordQueueReservation reservation)

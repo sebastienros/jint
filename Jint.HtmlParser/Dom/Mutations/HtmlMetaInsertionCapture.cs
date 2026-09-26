@@ -59,7 +59,7 @@ internal sealed class HtmlMetaInsertionCapture
                 previous, next, targetWasConnected: matches.TargetWasConnected,
                 htmlMetaInsertions: entry.CaptureHtmlMetaInsertions ? Facts : null);
             work.Check();
-            _reserved[i] = entry.Subscription.ReserveRecord(record);
+            _reserved[i] = MutationSubscription.ReserveRecord(record);
             work.Check();
         }
         _initialUnits = work.Count;
