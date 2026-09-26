@@ -7,9 +7,12 @@ public sealed class NativeHtmlSemanticBindingTests
     {
         using var dom = DomTestFixture.Create("<a id=a>before<span>inside</span><!-- omitted -->after</a>");
         dom.Execute("var a=document.getElementById('a'), span=a.firstElementChild;");
+        dom.Bool("(()=>{var d=Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype,'text');return typeof d.get==='function' && typeof d.set==='function' && d.enumerable && d.configurable})()").Should().BeTrue();
         dom.Text("a.text").Should().Be("beforeinsideafter");
-        dom.Execute("a.text='replacement';");
+        dom.Execute("var converted=0; a.text={toString(){converted++;return 'replacement'}};");
+        dom.Number("converted").Should().Be(1);
         dom.Bool("a.text==='replacement' && a.childNodes.length===1 && a.firstChild.nodeType===Node.TEXT_NODE && span.parentNode===null").Should().BeTrue();
+        dom.Bool("(()=>{try{a.text={toString(){throw new Error('conversion')}}}catch(e){return a.text==='replacement'}})()").Should().BeTrue();
         dom.Execute("a.text='';");
         dom.Bool("a.childNodes.length===0 && a.text===''").Should().BeTrue();
     }

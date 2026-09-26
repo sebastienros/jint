@@ -24,3 +24,9 @@ replaces the actual old body when present, and otherwise appends to the actual
 document element. Null reaches the HTML `HierarchyRequestError` rather than failing
 the nullable interface conversion. An existing foreign document element remains
 the setter's append target; a document without one refuses the assignment.
+
+The pinned anchor getter is descendant text content. Its native binding uses the
+bounded descendant-text reader and the existing actual child replacement operation.
+The original generated projection omitted the HTMLAnchorElement.text setter; the
+migration review approved restoring that WebIDL setter as an intentional descriptor
+correction, in addition to the separately documented input selectionDirection fix.
