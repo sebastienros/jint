@@ -118,3 +118,10 @@ value differs, so an equivalent prefix keeps its raw spelling and a missing/inva
 absence/spelling. The existing RequiredInt32 conversion precedes this setter algorithm. Reads and the
 setter's pre-mutation parse check actual digit work, including long zero and overflowing prefixes.
 This supplies finite reflection behavior without a rendering animation or eager loop state.
+
+The dormant canvas context and text cue interface descriptors remain present, but no native producer
+creates their receivers. A private-constructor abstract Browser marker replaces their legacy CLR receiver
+type; it cannot be instantiated or subclassed. Generated members check the interface receiver before
+argument coercion, followed by a defensive `NotSupportedError` continuation that no actual receiver can
+reach. Prototype objects and objects forged with those prototypes fail the ordinary receiver check.
+Constructors remain illegal. No context, cue, dummy node or legacy-to-native cast is introduced.
