@@ -227,7 +227,7 @@ internal static class FormSubmitter
                     if (!ReferenceEquals(element, submitter)) return;
                     break;
                 case HtmlInputType.Checkbox or HtmlInputType.Radio:
-                    if (!element.GetHtmlState()!.CheckedState!.Checked) return;
+                    if (!HtmlCheckableState.Get(element, realm.NativeReadCheckpoint, realm.CancellationToken)!.Checked) return;
                     break;
                 case HtmlInputType.Image:
                     if (ReferenceEquals(element, submitter))
@@ -253,7 +253,8 @@ internal static class FormSubmitter
                     return;
             }
             if (string.IsNullOrEmpty(name)) return;
-            var value = element.GetHtmlState()!.InputValue!.GetValue(realm.CancellationToken);
+            var value = element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, realm.CancellationToken)!
+                .GetValue(realm.NativeReadCheckpoint, realm.CancellationToken);
             if (type == HtmlInputType.Hidden && work.EqualAsciiIgnoreCase(name, "_charset_")) value = "UTF-8";
             entries.Add(StringEntry(name, value));
             AppendDirection(realm, entries, element, work);
@@ -262,13 +263,16 @@ internal static class FormSubmitter
         if (string.IsNullOrEmpty(name)) return;
         if (element.LocalName == "select")
         {
-            var options = element.GetHtmlState()!.Select!.SelectedOptions.Snapshot(realm.CancellationToken);
+            var context = HtmlSelectWorkContext.Create(realm.NativeReadCheckpoint, realm.CancellationToken);
+            var options = element.GetHtmlState()!.GetSelectStateWithWork(context, realm.CancellationToken)!
+                .SelectedOptions.SnapshotWithWork(context, realm.CancellationToken);
             work.Check();
             foreach (var option in options)
             {
                 work.Step();
                 if (!HtmlDisabledness.IsOptionDisabled(option, realm.NativeReadCheckpoint, realm.CancellationToken))
-                    entries.Add(StringEntry(name, option.GetHtmlState()!.Option!.GetValue(realm.CancellationToken)));
+                    entries.Add(StringEntry(name, option.GetHtmlState()!.GetOptionStateWithWork(context, realm.CancellationToken)!
+                        .GetValueWithWork(context, realm.CancellationToken)));
             }
             return;
         }
