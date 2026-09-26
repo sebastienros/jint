@@ -107,7 +107,7 @@ public sealed class CssDeclarationResolutionTests
     {
         var small = Checks(2000);
         var large = Checks(4000);
-        large.Should().BeLessThan(small * 2.3 + 20);
+        large.Should().BeLessThan((int) (small * 2.3 + 20));
 
         static int Checks(int count)
         {
