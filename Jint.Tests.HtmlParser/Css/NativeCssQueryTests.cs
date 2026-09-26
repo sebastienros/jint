@@ -516,8 +516,9 @@ public sealed class NativeCssQueryTests
         query.GetProperty(child, "display", ref matching).Text.Should().Be("block");
     }
 
-    [Test]
-    public void RubyInlinifiesBlockChildrenAndDescendantsOfInlineChildren()
+    [TestCase("inline")]
+    [TestCase("run-in")]
+    public void RubyInlinifiesBlockChildrenAndDescendantsOfInlineChildren(string childDisplay)
     {
         var document = Document.CreateHtml();
         var ruby = document.CreateElement("ruby");
@@ -528,10 +529,26 @@ public sealed class NativeCssQueryTests
         ruby.AppendChild(inline);
         inline.AppendChild(nested);
         var query = Query(document, [], [(ruby, CssDeclarationBlock.Parse("display:ruby")),
-            (block, CssDeclarationBlock.Parse("display:block")), (nested, CssDeclarationBlock.Parse("display:block"))]);
+            (block, CssDeclarationBlock.Parse("display:block")),
+            (inline, CssDeclarationBlock.Parse($"display:{childDisplay}")),
+            (nested, CssDeclarationBlock.Parse("display:block"))]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(block, "display", ref matching).Text.Should().Be("inline-block");
+        query.GetProperty(inline, "display", ref matching).Text.Should().Be("inline");
         query.GetProperty(nested, "display", ref matching).Text.Should().Be("inline-block");
+    }
+
+    [Test]
+    public void RubyInlinifiesRunInFlowRootToInlineBlock()
+    {
+        var document = Document.CreateHtml();
+        var ruby = document.CreateElement("ruby");
+        var child = document.CreateElement("div");
+        ruby.AppendChild(child);
+        var query = Query(document, [], [(ruby, CssDeclarationBlock.Parse("display:ruby")),
+            (child, CssDeclarationBlock.Parse("display:run-in flow-root"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(child, "display", ref matching).Text.Should().Be("inline-block");
     }
 
     [Test]

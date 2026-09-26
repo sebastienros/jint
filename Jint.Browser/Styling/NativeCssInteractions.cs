@@ -65,8 +65,9 @@ internal sealed partial class NativeCssQuery
                 (parent is null || !StateOf(parent, ref matching).InlinifiesChildren)) return value;
             var inline = value.Text switch
             {
-                "block" or "run-in" => "inline-block",
-                "flow-root" => "inline-block",
+                "block" => "inline-block",
+                "run-in" => "inline",
+                "flow-root" or "run-in flow-root" => "inline-block",
                 "flex" or "run-in flex" => "inline-flex",
                 "grid" or "run-in grid" => "inline-grid",
                 "table" or "run-in table" => "inline-table",
