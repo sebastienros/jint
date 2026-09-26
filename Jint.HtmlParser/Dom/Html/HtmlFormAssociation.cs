@@ -258,6 +258,7 @@ internal static class HtmlFormAssociation
         if (ReferenceEquals(state.Owner, owner)) return;
         var oldOwner = state.Owner;
         state.Owner = owner;
+        if (state.OwnerRevision != ulong.MaxValue) state.OwnerRevision++;
         element.OwnerDocument?.CheckedWorkProbe?.OwnerStore?.Invoke(element, oldOwner, owner);
         HtmlInputStateChanges.OwnerChanged(element);
     }

@@ -6,6 +6,30 @@ namespace Jint.Tests.HtmlParser.Html;
 public class FormAssociationTests
 {
     [Test]
+    public void OwnerRevisionRetainsAwayAndBackHistoryAndSaturates()
+    {
+        var document = Document.CreateHtml();
+        var form = document.CreateElement("form");
+        document.AppendChild(form);
+        var input = document.CreateElement("input");
+        form.AppendChild(input);
+        var state = input.FormAssociationState!;
+        var revision = state.OwnerRevision;
+        HtmlFormState.ResetOwner(input);
+        state.OwnerRevision.Should().Be(revision);
+        form.RemoveChild(input);
+        form.AppendChild(input);
+        state.Owner.Should().BeSameAs(form);
+        state.OwnerRevision.Should().BeGreaterThan(revision);
+        state.OwnerRevision = ulong.MaxValue - 1;
+        form.RemoveChild(input);
+        state.OwnerRevision.Should().Be(ulong.MaxValue);
+        form.AppendChild(input);
+        state.Owner.Should().BeSameAs(form);
+        state.OwnerRevision.Should().Be(ulong.MaxValue);
+    }
+
+    [Test]
     public void CategoriesAndStableViewUseExactHtmlElementType()
     {
         var document = Document.CreateHtml();
