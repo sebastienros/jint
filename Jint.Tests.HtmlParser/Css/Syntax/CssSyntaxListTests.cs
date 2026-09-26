@@ -8,6 +8,51 @@ namespace Jint.Tests.HtmlParser.Css.Syntax;
 [TestFixture]
 public sealed class CssSyntaxListTests
 {
+    [TestCase("--x: /* first */ red /* last */;", " /* first */ red /* last */", false)]
+    [TestCase("--x: /* only */;", " /* only */", false)]
+    [TestCase("--x: /* only */ ! /* gap */ IMPORTANT /* tail */;", " /* only */ ", true)]
+    [TestCase("--x: f(!important) !important;", " f(!important) ", true)]
+    [TestCase("--x: a\\ ;", " a\\ ", false)]
+    [TestCase("--x: red /* eof */", " red /* eof */", false)]
+    [TestCase("--x:;", "", false)]
+    public void LexicalValueSpanRetainsCommentsAndExcludesOnlyPriority(string source, string expected, bool important)
+    {
+        var direct = new CssSyntaxParser(source, null, default).ParseDeclaration();
+        source.Substring(direct.ValueSourceSpan.Start, direct.ValueSourceSpan.Length).Should().Be(expected);
+        direct.IsImportant.Should().Be(important);
+        var prefixed = "opacity: .5; " + source;
+        var declaration = new CssSyntaxParser(prefixed, null, default).ParseDeclarationList()[1];
+        prefixed.Substring(declaration.ValueSourceSpan.Start, declaration.ValueSourceSpan.Length).Should().Be(expected);
+        declaration.ValueSourceSpan.Start.Should().Be(direct.ValueSourceSpan.Start + 13);
+        declaration.IsImportant.Should().Be(important);
+    }
+
+    [Test]
+    public void LexicalValueSpanStopsAtContainingBlockClose()
+    {
+        const string source = "{ --x: /* only */ }";
+        var parser = new CssSyntaxParser(source, null, default);
+        var block = parser.ParseComponentValue();
+        var declaration = parser.ParseBlockContents(block)[0].Declarations[0];
+        source.Substring(declaration.ValueSourceSpan.Start, declaration.ValueSourceSpan.Length).Should().Be(" /* only */ ");
+        declaration.Value.Count.Should().Be(0);
+    }
+
+    [TestCase("--x:  /* first */ red /* last */  ;", "/* first */ red /* last */")]
+    [TestCase("--x: /* only */;", "/* only */")]
+    [TestCase("--x: /* only */ ! /* gap */ IMPORTANT /* tail */;", "/* only */")]
+    [TestCase("--x: a\\ ;", "a\\ ")]
+    [TestCase("--x: a\\20 ;", "a\\20 ")]
+    [TestCase("--x:/* note   ", "/* note   ")]
+    [TestCase("--x: f(a   ", "f(a   ")]
+    [TestCase("--x: \t/* gap */ \t;", "/* gap */")]
+    [TestCase("--x: \t;", "")]
+    public void SerializationSpanTrimsBoundaryWhitespaceTokensWithoutScanningComments(string source, string expected)
+    {
+        var declaration = new CssSyntaxParser(source, null, default).ParseDeclarationList()[0];
+        source.Substring(declaration.ValueSerializationSpan.Start, declaration.ValueSerializationSpan.Length).Should().Be(expected);
+    }
+
     [Test]
     public void StyleSheetSkipsTopLevelCdoCdcAndPreservesUnknownRules()
     {

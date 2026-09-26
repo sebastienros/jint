@@ -158,16 +158,21 @@ public sealed class CssRuleSyntax
 
 public sealed class CssDeclarationSyntax
 {
-    internal CssDeclarationSyntax(string name, CssComponentValueList value, bool isImportant, CssSourceSpan span)
+    internal CssDeclarationSyntax(string name, CssComponentValueList value, bool isImportant, CssSourceSpan span,
+        CssSourceSpan valueSourceSpan, CssSourceSpan valueSerializationSpan)
     {
         Name = name;
         Value = value;
         IsImportant = isImportant;
         Span = span;
+        ValueSourceSpan = valueSourceSpan;
+        ValueSerializationSpan = valueSerializationSpan;
     }
 
     public string Name { get; }
     public CssComponentValueList Value { get; }
     public bool IsImportant { get; }
     public CssSourceSpan Span { get; }
+    internal CssSourceSpan ValueSourceSpan { get; }
+    internal CssSourceSpan ValueSerializationSpan { get; }
 }
