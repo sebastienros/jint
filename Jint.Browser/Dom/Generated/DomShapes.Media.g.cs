@@ -19,37 +19,38 @@ internal static partial class DomInterfaces
             .Accessor("enabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.enabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.enabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsEnabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "AudioTrack.enabled");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "AudioTrack.enabled");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("AudioTrack.enabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.enabled");
-                    self.Target.IsEnabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "AudioTrack.enabled");
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "AudioTrack.enabled");
                 }))
             .Accessor("id",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.id", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.id");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "AudioTrack.id");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "AudioTrack.id");
                 }))
             .Accessor("kind",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.kind", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.kind");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "AudioTrack.kind");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "AudioTrack.kind");
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.label");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "AudioTrack.label");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "AudioTrack.label");
                 }))
             .Accessor("language",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.language", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.language");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "AudioTrack.language");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "AudioTrack.language");
                 }))
             .Build();
 
@@ -147,113 +148,118 @@ internal static partial class DomInterfaces
             .Accessor("buffered",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.buffered", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.buffered");
-                    return self.Realm.Wrap(self.Target.BufferedTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.buffered");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.buffered");
                 }))
             .Accessor("currentTime",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.currentTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.currentTime");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.CurrentTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.currentTime");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.currentTime");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.currentTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.currentTime");
-                    self.Target.CurrentTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.currentTime"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.currentTime");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.currentTime");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.currentTime");
                 }))
             .Accessor("defaultPlaybackRate",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.defaultPlaybackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.defaultPlaybackRate");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.DefaultPlaybackRate);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.defaultPlaybackRate");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.defaultPlaybackRate");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.defaultPlaybackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.defaultPlaybackRate");
-                    self.Target.DefaultPlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.defaultPlaybackRate"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.defaultPlaybackRate");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.defaultPlaybackRate");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.defaultPlaybackRate");
                 }))
             .Accessor("duration",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.duration", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.duration");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Duration);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.duration");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.duration");
                 }))
             .Accessor("muted",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.muted", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.muted");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMuted);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.muted");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.muted");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.muted", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.muted");
-                    self.Target.IsMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.muted");
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.muted");
                 }))
             .Method("pause",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.pause", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.pause");
-                    self.Target.Pause(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.pause");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.pause");
                 }),
                 length: 0)
             .Accessor("paused",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.paused", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.paused");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPaused);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.paused");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.paused");
                 }))
             .Method("play",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.play", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.play");
-                    self.Target.Play(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.play");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.play");
                 }),
                 length: 0)
             .Accessor("playbackRate",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.playbackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.playbackRate");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.PlaybackRate);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.playbackRate");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.playbackRate");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.playbackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.playbackRate");
-                    self.Target.PlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.playbackRate"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.playbackRate");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.playbackRate");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.playbackRate");
                 }))
             .Accessor("playbackState",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.playbackState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.playbackState");
-                    return global::Jint.Browser.Dom.DomEnums.FromMediaControllerPlaybackState(self.Target.PlaybackState);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.playbackState");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.playbackState");
                 }))
             .Accessor("played",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.played", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.played");
-                    return self.Realm.Wrap(self.Target.PlayedTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.played");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.played");
                 }))
             .Accessor("readyState",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.readyState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.readyState");
-                    return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.readyState");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.readyState");
                 }))
             .Accessor("seekable",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.seekable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.seekable");
-                    return self.Realm.Wrap(self.Target.SeekableTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.seekable");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.seekable");
                 }))
             .Accessor("volume",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaController.volume", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.volume");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Volume);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.volume");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.volume");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaController.volume", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.volume");
-                    self.Target.Volume = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.volume"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "MediaController.volume");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.volume");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "MediaController.volume");
                 }))
             .Build();
 
@@ -282,56 +288,59 @@ internal static partial class DomInterfaces
             .Accessor("activeCues",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.activeCues", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.activeCues");
-                    return self.Realm.Wrap(self.Target.ActiveCues);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.activeCues");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.activeCues");
                 }))
             .Method("addCue",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrack.addCue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.addCue");
-                    self.Target.Add(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.ITextTrackCue>(args, 0, "TextTrack.addCue")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.addCue");
+                    _ = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.Browser.Dom.NativeMediaUnavailable>(args, 0, "TextTrack.addCue");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.addCue");
                 }),
                 length: 1)
             .Accessor("cues",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.cues", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.cues");
-                    return self.Realm.Wrap(self.Target.Cues);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.cues");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.cues");
                 }))
             .Accessor("kind",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.kind", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.kind");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.kind");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.kind");
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.label");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.label");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.label");
                 }))
             .Accessor("language",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.language", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.language");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.language");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.language");
                 }))
             .Accessor("mode",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.mode", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.mode");
-                    return global::Jint.Browser.Dom.DomEnums.FromTextTrackMode(self.Target.Mode);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.mode");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.mode");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrack.mode", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.mode");
-                    self.Target.Mode = global::Jint.Browser.Dom.DomEnums.ToTextTrackMode(global::Jint.Browser.Dom.DomConvert.At(args, 0), "TextTrack.mode"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.mode");
+                    _ = global::Jint.Browser.Dom.DomEnums.ToTextTrackMode(global::Jint.Browser.Dom.DomConvert.At(args, 0), "TextTrack.mode");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.mode");
                 }))
             .Method("removeCue",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrack.removeCue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.removeCue");
-                    self.Target.Remove(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.ITextTrackCue>(args, 0, "TextTrack.removeCue")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrack.removeCue");
+                    _ = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.Browser.Dom.NativeMediaUnavailable>(args, 0, "TextTrack.removeCue");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrack.removeCue");
                 }),
                 length: 1)
             .Build();
@@ -499,15 +508,16 @@ internal static partial class DomInterfaces
             .Method("getCueById",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.getCueById", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, "TextTrackCueList.getCueById");
-                    return self.Realm.Wrap(self.Target.GetCueById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCueList.getCueById")));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCueList.getCueById");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCueList.getCueById");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCueList.getCueById");
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, "TextTrackCueList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCueList.length");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCueList.length");
                 }))
             .Build();
 
@@ -562,37 +572,38 @@ internal static partial class DomInterfaces
             .Accessor("id",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.id", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.id");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "VideoTrack.id");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "VideoTrack.id");
                 }))
             .Accessor("kind",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.kind", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.kind");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "VideoTrack.kind");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "VideoTrack.kind");
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.label");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "VideoTrack.label");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "VideoTrack.label");
                 }))
             .Accessor("language",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.language", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.language");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "VideoTrack.language");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "VideoTrack.language");
                 }))
             .Accessor("selected",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.selected", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.selected");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSelected);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "VideoTrack.selected");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "VideoTrack.selected");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("VideoTrack.selected", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.selected");
-                    self.Target.IsSelected = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "VideoTrack.selected");
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "VideoTrack.selected");
                 }))
             .Build();
 

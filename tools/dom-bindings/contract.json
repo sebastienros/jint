@@ -3,8 +3,8 @@
   "Interfaces": [
     {
       "DomName": "ApplicationCache",
-      "ClrTypeName": "AngleSharp.Browser.Dom.IApplicationCache",
-      "ReceiverType": "global::AngleSharp.Browser.Dom.IApplicationCache",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -19,7 +19,7 @@
         {
           "DomName": "abort",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, \"ApplicationCache.abort\");\nself.Target.Abort(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"ApplicationCache.abort\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"ApplicationCache.abort\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IApplicationCache.Abort"
@@ -27,7 +27,7 @@
         {
           "DomName": "status",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, \"ApplicationCache.status\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Status));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"ApplicationCache.status\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"ApplicationCache.status\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IApplicationCache.Status"
@@ -35,7 +35,7 @@
         {
           "DomName": "swapCache",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, \"ApplicationCache.swapCache\");\nself.Target.Swap(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"ApplicationCache.swapCache\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"ApplicationCache.swapCache\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IApplicationCache.Swap"
@@ -43,7 +43,7 @@
         {
           "DomName": "update",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, \"ApplicationCache.update\");\nself.Target.Update(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"ApplicationCache.update\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"ApplicationCache.update\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IApplicationCache.Update"
@@ -81,7 +81,8 @@
           "Origin": "CacheStatus.UpdateReady"
         }
       ],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "Node",
@@ -504,8 +505,8 @@
     },
     {
       "DomName": "AudioTrack",
-      "ClrTypeName": "AngleSharp.Media.Dom.IAudioTrack",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IAudioTrack",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -520,15 +521,15 @@
         {
           "DomName": "enabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, \"AudioTrack.enabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsEnabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, \"AudioTrack.enabled\");\nself.Target.IsEnabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"AudioTrack.enabled\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"AudioTrack.enabled\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"AudioTrack.enabled\");\n_ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"AudioTrack.enabled\");",
           "Length": 0,
           "Origin": "IAudioTrack.IsEnabled"
         },
         {
           "DomName": "id",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, \"AudioTrack.id\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"AudioTrack.id\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"AudioTrack.id\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IAudioTrack.Id"
@@ -536,7 +537,7 @@
         {
           "DomName": "kind",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, \"AudioTrack.kind\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"AudioTrack.kind\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"AudioTrack.kind\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IAudioTrack.Kind"
@@ -544,7 +545,7 @@
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, \"AudioTrack.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"AudioTrack.label\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"AudioTrack.label\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IAudioTrack.Label"
@@ -552,14 +553,15 @@
         {
           "DomName": "language",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, \"AudioTrack.language\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"AudioTrack.language\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"AudioTrack.language\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IAudioTrack.Language"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "AudioTrackList",
@@ -12725,8 +12727,8 @@
     },
     {
       "DomName": "MediaController",
-      "ClrTypeName": "AngleSharp.Media.Dom.IMediaController",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IMediaController",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -12741,7 +12743,7 @@
         {
           "DomName": "buffered",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.buffered\");\nreturn self.Realm.Wrap(self.Target.BufferedTime);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.buffered\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.buffered\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.BufferedTime"
@@ -12749,23 +12751,23 @@
         {
           "DomName": "currentTime",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.currentTime\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.CurrentTime);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.currentTime\");\nself.Target.CurrentTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.currentTime\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.currentTime\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.currentTime\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.currentTime\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.currentTime\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.currentTime\");",
           "Length": 0,
           "Origin": "IMediaController.CurrentTime"
         },
         {
           "DomName": "defaultPlaybackRate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.defaultPlaybackRate\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.DefaultPlaybackRate);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.defaultPlaybackRate\");\nself.Target.DefaultPlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.defaultPlaybackRate\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.defaultPlaybackRate\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.defaultPlaybackRate\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.defaultPlaybackRate\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.defaultPlaybackRate\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.defaultPlaybackRate\");",
           "Length": 0,
           "Origin": "IMediaController.DefaultPlaybackRate"
         },
         {
           "DomName": "duration",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.duration\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Duration);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.duration\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.duration\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.Duration"
@@ -12773,15 +12775,15 @@
         {
           "DomName": "muted",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.muted\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMuted);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.muted\");\nself.Target.IsMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.muted\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.muted\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.muted\");\n_ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.muted\");",
           "Length": 0,
           "Origin": "IMediaController.IsMuted"
         },
         {
           "DomName": "pause",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.pause\");\nself.Target.Pause(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.pause\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.pause\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.Pause"
@@ -12789,7 +12791,7 @@
         {
           "DomName": "paused",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.paused\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPaused);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.paused\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.paused\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.IsPaused"
@@ -12797,7 +12799,7 @@
         {
           "DomName": "play",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.play\");\nself.Target.Play(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.play\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.play\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.Play"
@@ -12805,15 +12807,15 @@
         {
           "DomName": "playbackRate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.playbackRate\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.PlaybackRate);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.playbackRate\");\nself.Target.PlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.playbackRate\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.playbackRate\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.playbackRate\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.playbackRate\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.playbackRate\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.playbackRate\");",
           "Length": 0,
           "Origin": "IMediaController.PlaybackRate"
         },
         {
           "DomName": "playbackState",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.playbackState\");\nreturn global::Jint.Browser.Dom.DomEnums.FromMediaControllerPlaybackState(self.Target.PlaybackState);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.playbackState\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.playbackState\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.PlaybackState"
@@ -12821,7 +12823,7 @@
         {
           "DomName": "played",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.played\");\nreturn self.Realm.Wrap(self.Target.PlayedTime);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.played\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.played\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.PlayedTime"
@@ -12829,7 +12831,7 @@
         {
           "DomName": "readyState",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.readyState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.readyState\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.readyState\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.ReadyState"
@@ -12837,7 +12839,7 @@
         {
           "DomName": "seekable",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.seekable\");\nreturn self.Realm.Wrap(self.Target.SeekableTime);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.seekable\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.seekable\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.SeekableTime"
@@ -12845,8 +12847,8 @@
         {
           "DomName": "volume",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.volume\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Volume);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, \"MediaController.volume\");\nself.Target.Volume = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.volume\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.volume\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.volume\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"MediaController.volume\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"MediaController.volume\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"MediaController.volume\");",
           "Length": 0,
           "Origin": "IMediaController.Volume"
         }
@@ -12878,7 +12880,8 @@
           "Origin": "MediaReadyState.Nothing"
         }
       ],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "MediaError",
@@ -14241,8 +14244,8 @@
     },
     {
       "DomName": "TextTrack",
-      "ClrTypeName": "AngleSharp.Media.Dom.ITextTrack",
-      "ReceiverType": "global::AngleSharp.Media.Dom.ITextTrack",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -14257,7 +14260,7 @@
         {
           "DomName": "activeCues",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.activeCues\");\nreturn self.Realm.Wrap(self.Target.ActiveCues);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.activeCues\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.activeCues\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrack.ActiveCues"
@@ -14265,7 +14268,7 @@
         {
           "DomName": "addCue",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.addCue\");\nself.Target.Add(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.ITextTrackCue>(args, 0, \"TextTrack.addCue\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.addCue\");\n_ = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.Browser.Dom.NativeMediaUnavailable>(args, 0, \"TextTrack.addCue\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.addCue\");",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITextTrack.Add"
@@ -14273,7 +14276,7 @@
         {
           "DomName": "cues",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.cues\");\nreturn self.Realm.Wrap(self.Target.Cues);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.cues\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.cues\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrack.Cues"
@@ -14281,7 +14284,7 @@
         {
           "DomName": "kind",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.kind\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.kind\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.kind\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrack.Kind"
@@ -14289,7 +14292,7 @@
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.label\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.label\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrack.Label"
@@ -14297,7 +14300,7 @@
         {
           "DomName": "language",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.language\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.language\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.language\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrack.Language"
@@ -14305,22 +14308,23 @@
         {
           "DomName": "mode",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.mode\");\nreturn global::Jint.Browser.Dom.DomEnums.FromTextTrackMode(self.Target.Mode);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.mode\");\nself.Target.Mode = global::Jint.Browser.Dom.DomEnums.ToTextTrackMode(global::Jint.Browser.Dom.DomConvert.At(args, 0), \"TextTrack.mode\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.mode\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.mode\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.mode\");\n_ = global::Jint.Browser.Dom.DomEnums.ToTextTrackMode(global::Jint.Browser.Dom.DomConvert.At(args, 0), \"TextTrack.mode\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.mode\");",
           "Length": 0,
           "Origin": "ITextTrack.Mode"
         },
         {
           "DomName": "removeCue",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, \"TextTrack.removeCue\");\nself.Target.Remove(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.ITextTrackCue>(args, 0, \"TextTrack.removeCue\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrack.removeCue\");\n_ = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.Browser.Dom.NativeMediaUnavailable>(args, 0, \"TextTrack.removeCue\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrack.removeCue\");",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITextTrack.Remove"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "TextTrackCue",
@@ -14447,8 +14451,8 @@
     },
     {
       "DomName": "TextTrackCueList",
-      "ClrTypeName": "AngleSharp.Media.Dom.ITextTrackCueList",
-      "ReceiverType": "global::AngleSharp.Media.Dom.ITextTrackCueList",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -14457,13 +14461,13 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>TextTrackCueList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackCueList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.ITextTrackCueList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>A retained cue-list accessor with no native producer.</summary>\ninternal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackCueList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target)\n    {\n        _ = (global::Jint.Browser.Dom.NativeMediaUnavailable) target;\n        return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.RefuseValue<uint>(realm, \"TextTrackCueList.length\");\n    }\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        _ = (global::Jint.Browser.Dom.NativeMediaUnavailable) target;\n        value = global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(realm, \"TextTrackCueList.index\");\n        return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.RefuseValue<bool>(realm, \"TextTrackCueList.index\");\n    }\n}\n",
       "AccessorReference": "DomAccessorTextTrackCueList.Instance",
       "Members": [
         {
           "DomName": "getCueById",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, \"TextTrackCueList.getCueById\");\nreturn self.Realm.Wrap(self.Target.GetCueById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCueList.getCueById\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCueList.getCueById\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCueList.getCueById\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCueList.getCueById\");",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITextTrackCueList.GetCueById"
@@ -14471,14 +14475,15 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, \"TextTrackCueList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCueList.length\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCueList.length\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrackCueList.Length"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "TextTrackList",
@@ -14833,8 +14838,8 @@
     },
     {
       "DomName": "VideoTrack",
-      "ClrTypeName": "AngleSharp.Media.Dom.IVideoTrack",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IVideoTrack",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -14849,7 +14854,7 @@
         {
           "DomName": "id",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, \"VideoTrack.id\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"VideoTrack.id\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"VideoTrack.id\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IVideoTrack.Id"
@@ -14857,7 +14862,7 @@
         {
           "DomName": "kind",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, \"VideoTrack.kind\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"VideoTrack.kind\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"VideoTrack.kind\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IVideoTrack.Kind"
@@ -14865,7 +14870,7 @@
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, \"VideoTrack.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"VideoTrack.label\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"VideoTrack.label\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IVideoTrack.Label"
@@ -14873,7 +14878,7 @@
         {
           "DomName": "language",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, \"VideoTrack.language\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"VideoTrack.language\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"VideoTrack.language\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IVideoTrack.Language"
@@ -14881,14 +14886,15 @@
         {
           "DomName": "selected",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, \"VideoTrack.selected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSelected);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, \"VideoTrack.selected\");\nself.Target.IsSelected = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"VideoTrack.selected\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"VideoTrack.selected\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"VideoTrack.selected\");\n_ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"VideoTrack.selected\");",
           "Length": 0,
           "Origin": "IVideoTrack.IsSelected"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "VideoTrackList",

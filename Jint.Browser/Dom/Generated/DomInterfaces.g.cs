@@ -15,7 +15,7 @@ namespace Jint.Browser.Dom;
 /// </summary>
 internal static partial class DomInterfaces
 {
-    /// <summary>The <c>ApplicationCache</c> interface, projected from <c>AngleSharp.Browser.Dom.IApplicationCache</c>.</summary>
+    /// <summary>The <c>ApplicationCache</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition ApplicationCache;
 
     /// <summary>The <c>Node</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
@@ -24,7 +24,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>Attr</c> interface, projected from <c>Jint.HtmlParser.Attr</c>.</summary>
     internal static readonly DomInterfaceDefinition Attr;
 
-    /// <summary>The <c>AudioTrack</c> interface, projected from <c>AngleSharp.Media.Dom.IAudioTrack</c>.</summary>
+    /// <summary>The <c>AudioTrack</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition AudioTrack;
 
     /// <summary>The <c>AudioTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserAudioTrackList</c>.</summary>
@@ -408,7 +408,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>Location</c> interface, projected from <c>Jint.Browser.Dom.DomLocation</c>.</summary>
     internal static readonly DomInterfaceDefinition Location;
 
-    /// <summary>The <c>MediaController</c> interface, projected from <c>AngleSharp.Media.Dom.IMediaController</c>.</summary>
+    /// <summary>The <c>MediaController</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaController;
 
     /// <summary>The <c>MediaError</c> interface, projected from <c>Jint.Browser.Dom.BrowserMediaError</c>.</summary>
@@ -477,13 +477,13 @@ internal static partial class DomInterfaces
     /// <summary>The <c>Text</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
     internal static readonly DomInterfaceDefinition Text;
 
-    /// <summary>The <c>TextTrack</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrack</c>.</summary>
+    /// <summary>The <c>TextTrack</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrack;
 
     /// <summary>The <c>TextTrackCue</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrackCue;
 
-    /// <summary>The <c>TextTrackCueList</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrackCueList</c>.</summary>
+    /// <summary>The <c>TextTrackCueList</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrackCueList;
 
     /// <summary>The <c>TextTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserTextTrackList</c>.</summary>
@@ -498,7 +498,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>ValidityState</c> interface, projected from <c>AngleSharp.Html.Dom.IValidityState</c>.</summary>
     internal static readonly DomInterfaceDefinition ValidityState;
 
-    /// <summary>The <c>VideoTrack</c> interface, projected from <c>AngleSharp.Media.Dom.IVideoTrack</c>.</summary>
+    /// <summary>The <c>VideoTrack</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition VideoTrack;
 
     /// <summary>The <c>VideoTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserVideoTrackList</c>.</summary>
@@ -513,7 +513,7 @@ internal static partial class DomInterfaces
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
-            typeof(global::AngleSharp.Browser.Dom.IApplicationCache),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildApplicationCache,
             null,
             rootsAtEventTarget: true,
@@ -570,7 +570,7 @@ internal static partial class DomInterfaces
 
         AudioTrack = Add(new DomInterfaceDefinition(
             "AudioTrack",
-            typeof(global::AngleSharp.Media.Dom.IAudioTrack),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildAudioTrack,
             null,
             rootsAtEventTarget: false,
@@ -1779,7 +1779,7 @@ internal static partial class DomInterfaces
 
         MediaController = Add(new DomInterfaceDefinition(
             "MediaController",
-            typeof(global::AngleSharp.Media.Dom.IMediaController),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildMediaController,
             null,
             rootsAtEventTarget: false,
@@ -2028,7 +2028,7 @@ internal static partial class DomInterfaces
 
         TextTrack = Add(new DomInterfaceDefinition(
             "TextTrack",
-            typeof(global::AngleSharp.Media.Dom.ITextTrack),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildTextTrack,
             null,
             rootsAtEventTarget: true,
@@ -2046,7 +2046,7 @@ internal static partial class DomInterfaces
 
         TextTrackCueList = Add(new DomInterfaceDefinition(
             "TextTrackCueList",
-            typeof(global::AngleSharp.Media.Dom.ITextTrackCueList),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildTextTrackCueList,
             null,
             rootsAtEventTarget: false,
@@ -2109,7 +2109,7 @@ internal static partial class DomInterfaces
 
         VideoTrack = Add(new DomInterfaceDefinition(
             "VideoTrack",
-            typeof(global::AngleSharp.Media.Dom.IVideoTrack),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildVideoTrack,
             null,
             rootsAtEventTarget: false,

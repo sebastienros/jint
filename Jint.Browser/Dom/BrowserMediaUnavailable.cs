@@ -13,4 +13,10 @@ internal static class BrowserUnavailableMediaMembers
 {
     internal static JsValue Refuse(DomRealm realm, string member)
         => DomFailures.Refuse(realm, member, "NotSupportedError", "This media interface has no native semantic producer.");
+
+    internal static T RefuseValue<T>(DomRealm realm, string member)
+    {
+        Refuse(realm, member);
+        throw new InvalidOperationException("An unavailable native interface unexpectedly returned a value.");
+    }
 }

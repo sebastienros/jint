@@ -280,24 +280,22 @@ internal sealed class DomAccessorStyleSheetList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>TextTrackCueList</c> answers indexed and named property lookups.</summary>
+/// <summary>A retained cue-list accessor with no native producer.</summary>
 internal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor
 {
     internal static readonly DomAccessorTextTrackCueList Instance = new();
 
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;
+    internal override uint Length(DomRealm realm, object target)
+    {
+        _ = (global::Jint.Browser.Dom.NativeMediaUnavailable) target;
+        return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.RefuseValue<uint>(realm, "TextTrackCueList.length");
+    }
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Media.Dom.ITextTrackCueList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
+        _ = (global::Jint.Browser.Dom.NativeMediaUnavailable) target;
+        value = global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(realm, "TextTrackCueList.index");
+        return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.RefuseValue<bool>(realm, "TextTrackCueList.index");
     }
 }
 

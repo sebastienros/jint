@@ -25,28 +25,28 @@ internal static partial class DomInterfaces
             .Method("abort",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ApplicationCache.abort", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.abort");
-                    self.Target.Abort(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.abort");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.abort");
                 }),
                 length: 0)
             .Accessor("status",
                 global::Jint.Browser.Dom.DomFailures.Guard("ApplicationCache.status", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.status");
-                    return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Status));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.status");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.status");
                 }))
             .Method("swapCache",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ApplicationCache.swapCache", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.swapCache");
-                    self.Target.Swap(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.swapCache");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.swapCache");
                 }),
                 length: 0)
             .Method("update",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ApplicationCache.update", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.update");
-                    self.Target.Update(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.update");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.update");
                 }),
                 length: 0)
             .Build();
