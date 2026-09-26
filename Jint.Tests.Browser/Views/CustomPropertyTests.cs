@@ -1,7 +1,13 @@
+using Jint.Browser.Dom;
+using Jint.Browser.Dom.Views;
+using Jint.Browser.Runtime;
+using Jint.HtmlParser.Css.Model;
+
 namespace Jint.Tests.Browser.Views;
 
 using Browser = global::Jint.Browser.Browser;
 
+// CSS Color 4 §16.2.2: opaque computed sRGB serializes as rgb(), preserving component values.
 public sealed class CustomPropertyTests
 {
     [TestCase("--a:var(--a)")]
@@ -9,11 +15,8 @@ public sealed class CustomPropertyTests
     [TestCase("--a:var(--b);--b:var(--a)")]
     [TestCase("--a:var(--b, red);--b:var(--a, blue)")]
     [TestCase("--a:var(--b);--b:var(--c);--c:var(--a)")]
-    [TestCase("--a:var(--present, var(--a));--present:red")]
-    [TestCase("--a:var(--present, calc(var(--a)));--present:red")]
-    [TestCase("--a:var(--b);--b:var(--present, calc(var(--a)));--present:red")]
     [TestCase("--a:var(--b, var(--c));--b:var(--a);--c:var(--b, red)")]
-    public async Task EveryMemberOfACycleIsInvalidEvenWithAFallback(string declarations)
+    public async Task SubstitutionCyclesInvalidateTheirParticipants(string declarations)
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -32,15 +35,43 @@ public sealed class CustomPropertyTests
               return [s.getPropertyValue('--a'), s.getPropertyValue('--b'),
                       s.getPropertyValue('--c'), s.color, s.opacity, s.width].join('|');
             })()
-            """)).Should().Be("|||rgba(0, 0, 0, 1)|0.25|auto");
+            """)).Should().Be("|||rgb(0, 0, 0)|0.25|auto");
         page.Errors.Should().BeEmpty();
     }
 
-    [TestCase("var(--a, red)", "rgba(255, 0, 0, 1)")]
-    [TestCase("var(--a, var(--missing, blue))", "rgba(0, 0, 255, 1)")]
-    [TestCase("var(--recovered)", "rgba(0, 128, 0, 1)")]
-    [TestCase("var(--missing, var(--a))", "rgba(0, 0, 0, 1)")]
-    [TestCase("var(--a,)", "rgba(0, 0, 0, 1)")]
+    // CSS Variables 1 replacement step 4: an unused fallback is not substituted.
+    // This deliberately replaces the historical unconditional dependency-graph expectations.
+    [TestCase("--a:var(--present, var(--a));--present:red", "red|||rgb(255, 0, 0)|0.25|auto")]
+    [TestCase("--a:var(--present, calc(var(--a)));--present:red", "red|||rgb(255, 0, 0)|0.25|auto")]
+    [TestCase("--a:var(--b);--b:var(--present, calc(var(--a)));--present:red", "red|red||rgb(255, 0, 0)|0.25|auto")]
+    public async Task UnusedFallbacksDoNotCreateSubstitutionCycles(string declarations, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $$"""
+            <style>
+              #t { {{declarations}}; color:var(--a); width:var(--a); opacity:.25 }
+            </style>
+            <span id="t">text</span>
+            """);
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const s = getComputedStyle(document.getElementById('t'));
+              return [s.getPropertyValue('--a'), s.getPropertyValue('--b'),
+                      s.getPropertyValue('--c'), s.color, s.opacity, s.width].join('|');
+            })()
+            """)).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("var(--a, red)", "rgb(255, 0, 0)")]
+    [TestCase("var(--a, var(--missing, blue))", "rgb(0, 0, 255)")]
+    [TestCase("var(--recovered)", "rgb(0, 128, 0)")]
+    [TestCase("var(--missing, var(--a))", "rgb(0, 0, 0)")]
+    [TestCase("var(--a,)", "rgb(0, 0, 0)")]
     public async Task AConsumerCanRecoverFromAnInvalidVariable(string value, string expected)
     {
         await using var browser = new Browser();
@@ -84,7 +115,7 @@ public sealed class CustomPropertyTests
             ['child','cycle','sibling','invalid'].map(id =>
               getComputedStyle(document.getElementById(id)).color).join('|')
             """)).Should().Be(
-                "rgba(255, 0, 0, 1)|rgba(0, 128, 0, 1)|rgba(255, 0, 0, 1)|rgba(0, 0, 255, 1)");
+                "rgb(255, 0, 0)|rgb(0, 128, 0)|rgb(255, 0, 0)|rgb(0, 0, 255)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -103,7 +134,7 @@ public sealed class CustomPropertyTests
             """);
 
         (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('span')).color")).Should().Be("rgba(0, 128, 0, 1)");
+            "getComputedStyle(document.querySelector('span')).color")).Should().Be("rgb(0, 128, 0)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -125,7 +156,7 @@ public sealed class CustomPropertyTests
 
         (await page.EvaluateAsync<string>(
             "['initial','unset'].map(id => getComputedStyle(document.getElementById(id)).color).join('|')"))
-            .Should().Be("rgba(0, 0, 255, 1)|rgba(255, 0, 0, 1)");
+            .Should().Be("rgb(0, 0, 255)|rgb(255, 0, 0)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -145,7 +176,7 @@ public sealed class CustomPropertyTests
               const s = getComputedStyle(document.querySelector('span'));
               return s.color + '|' + s.backgroundColor;
             })()
-            """)).Should().Be("rgba(255, 0, 0, 1)|rgba(0, 0, 255, 1)");
+            """)).Should().Be("rgb(255, 0, 0)|rgb(0, 0, 255)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -194,13 +225,13 @@ public sealed class CustomPropertyTests
               e.style.setProperty('--a', 'var(--missing,calc('.repeat(8192) + 'red' + '))'.repeat(8192));
               return shallow + '|' + getComputedStyle(e).color;
             })()
-            """)).Should().Be("rgba(0, 0, 0, 1)|rgba(0, 0, 0, 1)");
+            """)).Should().Be("rgb(0, 0, 0)|rgb(0, 0, 0)");
         page.Errors.Should().BeEmpty();
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task LongDependencyGraphsDoNotUseTheClrCallStack(bool cyclic)
+    public async Task LongSubstitutionChainsDoNotUseTheClrCallStack(bool cyclic)
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -210,7 +241,7 @@ public sealed class CustomPropertyTests
 
         (await page.EvaluateAsync<string>(
             "getComputedStyle(document.querySelector('span')).color")).Should()
-            .Be(cyclic ? "rgba(0, 0, 255, 1)" : "rgba(255, 0, 0, 1)");
+            .Be(cyclic ? "rgb(0, 0, 255)" : "rgb(255, 0, 0)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -233,7 +264,7 @@ public sealed class CustomPropertyTests
               values.push(read());
               return values.join('|');
             })()
-            """)).Should().Be("rgba(255, 0, 0, 1)|rgba(0, 0, 255, 1)|var(--a)|rgba(0, 128, 0, 1)");
+            """)).Should().Be("rgb(255, 0, 0)|rgb(0, 0, 255)|var(--a)|rgb(0, 128, 0)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -256,8 +287,8 @@ public sealed class CustomPropertyTests
         await first.SetContentAsync(content);
         await second.SetContentAsync(content);
         const string read = "getComputedStyle(document.querySelector('span')).color";
-        (await first.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
-        (await second.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+        (await first.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
+        (await second.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
 
         (await first.EvaluateAsync<string>(
             """
@@ -266,12 +297,12 @@ public sealed class CustomPropertyTests
               style.setProperty('--a', 'var(--alias)');
               return getComputedStyle(document.querySelector('span')).color + '|' + style.getPropertyValue('--a');
             })()
-            """)).Should().Be("rgba(0, 0, 255, 1)|var(--alias)");
-        (await second.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+            """)).Should().Be("rgb(0, 0, 255)|var(--alias)");
+        (await second.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
 
         await first.EvaluateAsync("document.styleSheets[0].cssRules[0].style.setProperty('--a', 'purple')");
-        (await first.EvaluateAsync<string>(read)).Should().Be("rgba(128, 0, 128, 1)");
-        (await second.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+        (await first.EvaluateAsync<string>(read)).Should().Be("rgb(128, 0, 128)");
+        (await second.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
         first.Errors.Should().BeEmpty();
         second.Errors.Should().BeEmpty();
     }
@@ -306,7 +337,7 @@ public sealed class CustomPropertyTests
     }
 
     [Test]
-    public async Task AnUnrelatedComputationFailureStillUsesTheExistingCascadeFailurePolicy()
+    public async Task AnUnrequestedWidthMetricDoesNotPoisonVisibilityOrRecoveredColor()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -314,7 +345,37 @@ public sealed class CustomPropertyTests
             "<span style='--a:var(--a);color:var(--a,red);width:20ch;visibility:hidden'>text</span>");
 
         (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('span')).visibility")).Should().Be("visible");
+            """
+            (() => {
+              const style = getComputedStyle(document.querySelector('span'));
+              return style.visibility + '|' + style.color;
+            })()
+            """)).Should().Be("hidden|rgb(255, 0, 0)");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ARequestedWidthReportsItsMissingFontMetric()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<span id='t' style='--a:var(--a);color:var(--a,red);width:20ch;visibility:hidden'>text</span>");
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
+            var computed = CssCascade.Of(element)!;
+            computed.GetPropertyValue("visibility").Should().Be("hidden");
+            computed.GetPropertyValue("color").Should().Be("rgb(255, 0, 0)");
+            var failure = Caught.Exception(() => computed.GetPropertyValue("width"));
+            failure.Should().BeOfType<CssIncompleteGrammarException>();
+            ((CssIncompleteGrammarException) failure!).Blocker.Should().Be("C6:zero-advance");
+            computed.GetPropertyValue("visibility").Should().Be("hidden");
+            computed.GetPropertyValue("color").Should().Be("rgb(255, 0, 0)");
+            return true;
+        });
         page.Errors.Should().BeEmpty();
     }
 
@@ -340,10 +401,9 @@ public sealed class CustomPropertyTests
             <button>Save</button>
             """);
 
-        // An invalid declared color takes its inherited/initial value. This is upstream computation,
-        // not an expansion of ResolvedStyle's policy for properties that were never declared.
+        // An invalid declared color takes its inherited/initial value while the cycle stays bounded.
         (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('button')).color")).Should().Be("rgba(0, 0, 0, 1)");
+            "getComputedStyle(document.querySelector('button')).color")).Should().Be("rgb(0, 0, 0)");
         page.Errors.Should().BeEmpty();
     }
 }
