@@ -3,6 +3,9 @@ namespace Jint.HtmlParser;
 /// <summary>A stable-identity attribute, attached to at most one element.</summary>
 public sealed class Attr
 {
+    internal EndpointBucket? RangeEndpoints;
+    internal List<WeakReference<DomNodeIterator>>? RootIterators;
+    internal int IteratorRootSweepCursor;
     private string _value;
     private string? _prefix;
 
@@ -68,6 +71,8 @@ public sealed class Attr
 
         var previous = OwnerDocument;
         OwnerDocument = document;
+        LiveTraversalTracking.Rehome(RangeEndpoints, document);
+        IteratorTracking.Rehome(RootIterators, document);
         previous.MarkMutation();
         document.MarkMutation();
     }

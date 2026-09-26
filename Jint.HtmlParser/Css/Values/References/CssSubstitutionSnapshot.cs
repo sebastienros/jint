@@ -1,0 +1,125 @@
+namespace Jint.HtmlParser.Css.Values.References;
+
+internal enum CssSubstitutionBindingKind { Uninitialized, Specified, Computed, Invalid, Pending }
+
+internal readonly struct CssSubstitutionBinding
+{
+    private readonly CssReferenceInput? _input;
+    private readonly CssSubstitutedValue? _value;
+    private readonly string? _feature;
+    private readonly bool _animationTainted;
+
+    private CssSubstitutionBinding(CssSubstitutionBindingKind kind, string name,
+        CssReferenceInput? input, CssSubstitutedValue? value, bool animationTainted, string? feature)
+    {
+        Kind = kind;
+        Name = name;
+        _input = input;
+        _value = value;
+        _animationTainted = animationTainted;
+        _feature = feature;
+    }
+
+    internal CssSubstitutionBindingKind Kind { get; }
+    internal string Name { get; }
+    internal CssReferenceInput Input => Kind == CssSubstitutionBindingKind.Specified
+        ? _input! : throw new InvalidOperationException();
+    internal CssSubstitutedValue Value => Kind == CssSubstitutionBindingKind.Computed
+        ? _value! : throw new InvalidOperationException();
+    internal bool AnimationTainted => Kind is CssSubstitutionBindingKind.Specified or
+        CssSubstitutionBindingKind.Computed or CssSubstitutionBindingKind.Invalid
+        ? _animationTainted : throw new InvalidOperationException();
+    internal string PendingFeature => Kind == CssSubstitutionBindingKind.Pending
+        ? _feature! : throw new InvalidOperationException();
+
+    internal static CssSubstitutionBinding Specified(string name, CssReferenceInput input,
+        bool animationTainted) => new(CssSubstitutionBindingKind.Specified,
+            CssSubstitutionArguments.RequireCustomName(name),
+            input ?? throw new ArgumentNullException(nameof(input)), null, animationTainted, null);
+
+    internal static CssSubstitutionBinding Computed(string name, CssSubstitutedValue value,
+        bool animationTainted) => new(CssSubstitutionBindingKind.Computed,
+            CssSubstitutionArguments.RequireCustomName(name), null,
+            value ?? throw new ArgumentNullException(nameof(value)), animationTainted, null);
+
+    internal static CssSubstitutionBinding Invalid(string name, bool animationTainted) =>
+        new(CssSubstitutionBindingKind.Invalid, CssSubstitutionArguments.RequireCustomName(name),
+            null, null, animationTainted, null);
+
+    internal static CssSubstitutionBinding Pending(string name, string feature) =>
+        new(CssSubstitutionBindingKind.Pending, CssSubstitutionArguments.RequireCustomName(name),
+            null, null, false,
+            !string.IsNullOrEmpty(feature) ? feature : throw new ArgumentException("A feature is required.", nameof(feature)));
+}
+
+internal sealed class CssSubstitutionSnapshot
+{
+    private readonly CssSubstitutionBinding[] _bindings;
+    private readonly Dictionary<uint, List<int>> _buckets;
+
+    private CssSubstitutionSnapshot(CssSubstitutionBinding[] bindings, Dictionary<uint, List<int>> buckets)
+    {
+        _bindings = bindings;
+        _buckets = buckets;
+    }
+
+    internal static CssSubstitutionSnapshot Create(ReadOnlySpan<CssSubstitutionBinding> bindings,
+        CssValueWork work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        work.CheckCancellation();
+        var copy = new CssSubstitutionBinding[bindings.Length];
+        var buckets = new Dictionary<uint, List<int>>();
+        work.CheckCancellation();
+        for (var i = 0; i < bindings.Length; i++)
+        {
+            work.Charge(1);
+            var binding = bindings[i];
+            if (binding.Kind == CssSubstitutionBindingKind.Uninitialized ||
+                !CssSubstitutionArguments.IsCustomName(binding.Name))
+                throw new ArgumentException("A valid binding is required.", nameof(bindings));
+            var hash = CssSubstitutionArguments.Hash(binding.Name, work);
+            if (!buckets.TryGetValue(hash, out var bucket))
+            {
+                work.CheckCancellation();
+                bucket = new List<int>();
+                buckets.Add(hash, bucket);
+            }
+            foreach (var index in bucket)
+            {
+                work.Charge(1);
+                if (CssSubstitutionArguments.Equals(binding.Name, copy[index].Name, work))
+                    throw new ArgumentException("Duplicate custom-property name.", nameof(bindings));
+            }
+            copy[i] = binding;
+            work.CheckCancellation();
+            bucket.Add(i);
+        }
+        work.CheckCancellation();
+        return new CssSubstitutionSnapshot(copy, buckets);
+    }
+
+    internal bool TryGet(string name, CssValueWork work, out CssSubstitutionBinding binding)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(work);
+        CssSubstitutionArguments.RequireCustomName(name);
+        work.CheckCancellation();
+        var hash = CssSubstitutionArguments.Hash(name, work);
+        if (_buckets.TryGetValue(hash, out var bucket))
+        {
+            foreach (var index in bucket)
+            {
+                work.Charge(1);
+                var candidate = _bindings[index];
+                if (!CssSubstitutionArguments.Equals(name, candidate.Name, work)) continue;
+                work.CheckCancellation();
+                binding = candidate;
+                return true;
+            }
+        }
+        work.CheckCancellation();
+        binding = default;
+        return false;
+    }
+}

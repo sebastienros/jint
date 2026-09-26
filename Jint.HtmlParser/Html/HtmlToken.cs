@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Jint.HtmlParser.Html;
 
-internal enum HtmlReadStatus { Token, NeedInput, Yielded, Complete }
+internal enum HtmlReadStatus { Token, NeedInput, Yielded, Complete, InsertionBoundary }
 internal enum HtmlTokenKind { Text, StartTag, EndTag, Comment, Doctype, ProcessingInstruction, EndOfFile }
 
 internal readonly record struct HtmlAttribute(string Name, string Value);

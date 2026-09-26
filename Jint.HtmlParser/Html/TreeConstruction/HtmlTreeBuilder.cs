@@ -23,7 +23,7 @@ internal sealed partial class HtmlTreeBuilder
     private readonly int _maxDepth;
     private readonly bool _scriptingEnabled;
     private readonly List<Element> _open = [];
-    private Dictionary<string, List<int>> _nameIndexes = new(StringComparer.Ordinal);
+    private Dictionary<(string? Namespace, string Name), List<int>> _nameIndexes = [];
     private List<int> _specialIndexes = [];
     private List<int> _liStops = [];
     private List<int> _ddDtStops = [];
@@ -80,6 +80,7 @@ internal sealed partial class HtmlTreeBuilder
     }
 
     internal bool HasToken => _hasToken;
+    internal bool AllowCData => _open.Count != 0 && Current.NamespaceUri != Namespaces.Html;
     internal long WorkCount => _work;
 
     internal void SetToken(HtmlToken token)
@@ -102,6 +103,15 @@ internal sealed partial class HtmlTreeBuilder
         _fosterParenting = false;
         _delegateToBody = false;
         _tableFosterCharacterErrorReported = false;
+        _foreignHtmlReprocess = false;
+        _foreignEndScan = -1;
+        _foreignEndStarted = false;
+        _foreignInitialEndComparison = false;
+        _foreignNameCursor = 0;
+        _foreignBreakout = false;
+        _foreignAttributeIndex = 0;
+        _foreignFontBreakout = false;
+        _foreignAnnotationEncoding = false;
     }
 
     internal HtmlParseStep Process(long quota, CancellationToken cancellationToken)
@@ -192,7 +202,8 @@ internal sealed partial class HtmlTreeBuilder
             if (_remaining <= 0) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             Charge(1);
             if (_delegateToBody && _mode != _delegatedFromMode) _delegateToBody = false;
-            var reprocess = Dispatch(_delegateToBody ? Mode.InBody : _mode);
+            var reprocess = !_foreignHtmlReprocess && (_foreignBreakout || ShouldUseForeignRules(_token))
+                ? InForeign() : Dispatch(_delegateToBody ? Mode.InBody : _mode);
             if (_missing is { } family)
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, family, _token.Offset);
             if (_pendingShiftIndex >= 0) continue;
@@ -240,6 +251,7 @@ internal sealed partial class HtmlTreeBuilder
         _missing = null;
         _fosterParenting = false;
         _delegateToBody = false;
+        _foreignHtmlReprocess = false;
     }
 
     private void Missing(HtmlMissingFeature family) => _missing = family;
@@ -291,6 +303,9 @@ internal sealed partial class HtmlTreeBuilder
             var item = attributes[_preparedAttributeIndex];
             _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
             if (item.Name == "is") _preparedIsValue = item.Value;
+            if (item.Name is "color" or "face" or "size") _foreignFontBreakout = true;
+            if (item.Name == "encoding")
+                _foreignAnnotationEncoding = AsciiEquals(item.Value, "text/html") || AsciiEquals(item.Value, "application/xhtml+xml");
             if (_token.Name == "template")
             {
                 if (item.Name == "for") _templateHasFor = true;
@@ -321,14 +336,14 @@ internal sealed partial class HtmlTreeBuilder
         _open.Add(element);
         _openIdentity.Add(element);
         AddIndexes(element, index);
-        if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount++;
+        if (!AllowedOpenAtEof(element)) _unexpectedOpenCount++;
         Charge(1);
     }
 
     private void AddIndexes(Element element, int index)
     {
-        if (!_nameIndexes.TryGetValue(element.LocalName, out var indexes))
-            _nameIndexes[element.LocalName] = indexes = [];
+        if (!_nameIndexes.TryGetValue((element.NamespaceUri, element.LocalName), out var indexes))
+            _nameIndexes[(element.NamespaceUri, element.LocalName)] = indexes = [];
         indexes.Add(index);
         if (IsSpecialElement(element)) _specialIndexes.Add(index);
         if (IsSpecialElement(element) && element.LocalName is not ("address" or "div" or "p" or "li"))
@@ -341,9 +356,10 @@ internal sealed partial class HtmlTreeBuilder
 
     private void RemoveIndexes(Element element, int index)
     {
-        var names = _nameIndexes[element.LocalName];
+        _annotationXmlHtmlIntegration.Remove(element);
+        var names = _nameIndexes[(element.NamespaceUri, element.LocalName)];
         RemoveIndex(names, index);
-        if (names.Count == 0) _nameIndexes.Remove(element.LocalName);
+        if (names.Count == 0) _nameIndexes.Remove((element.NamespaceUri, element.LocalName));
         if (IsSpecialElement(element))
         {
             RemoveIndex(_specialIndexes, index);
@@ -356,7 +372,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private void ShiftIndexes(Element element, int oldIndex)
     {
-        ShiftIndex(_nameIndexes[element.LocalName], oldIndex);
+        ShiftIndex(_nameIndexes[(element.NamespaceUri, element.LocalName)], oldIndex);
         if (IsSpecialElement(element))
         {
             ShiftIndex(_specialIndexes, oldIndex);
@@ -394,15 +410,16 @@ internal sealed partial class HtmlTreeBuilder
         var element = _open[index];
         _open.RemoveAt(index);
         _openIdentity.Remove(element);
-        var indexes = _nameIndexes[element.LocalName];
+        _annotationXmlHtmlIntegration.Remove(element);
+        var indexes = _nameIndexes[(element.NamespaceUri, element.LocalName)];
         indexes.RemoveAt(indexes.Count - 1);
-        if (indexes.Count == 0) _nameIndexes.Remove(element.LocalName);
+        if (indexes.Count == 0) _nameIndexes.Remove((element.NamespaceUri, element.LocalName));
         if (_specialIndexes.Count > 0 && _specialIndexes[^1] == index) _specialIndexes.RemoveAt(_specialIndexes.Count - 1);
         if (_liStops.Count > 0 && _liStops[^1] == index) _liStops.RemoveAt(_liStops.Count - 1);
         if (_ddDtStops.Count > 0 && _ddDtStops[^1] == index) _ddDtStops.RemoveAt(_ddDtStops.Count - 1);
         if (_scopeStops.Count > 0 && _scopeStops[^1] == index) _scopeStops.RemoveAt(_scopeStops.Count - 1);
         if (_resetModeIndexes.Count > 0 && _resetModeIndexes[^1] == index) _resetModeIndexes.RemoveAt(_resetModeIndexes.Count - 1);
-        if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount--;
+        if (!AllowedOpenAtEof(element)) _unexpectedOpenCount--;
         Charge(1);
         return element;
     }
@@ -418,7 +435,7 @@ internal sealed partial class HtmlTreeBuilder
         _resetAfterPop = resetMode;
     }
 
-    private int Last(string name) => _nameIndexes.TryGetValue(name, out var indexes) ? indexes[^1] : -1;
+    private int Last(string name) => _nameIndexes.TryGetValue((Namespaces.Html, name), out var indexes) ? indexes[^1] : -1;
     private int LastSpecial => _specialIndexes.Count == 0 ? -1 : _specialIndexes[^1];
     private int LastLiStop => _liStops.Count == 0 ? -1 : _liStops[^1];
     private int LastDdDtStop => _ddDtStops.Count == 0 ? -1 : _ddDtStops[^1];
@@ -429,8 +446,13 @@ internal sealed partial class HtmlTreeBuilder
     private bool InTableScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(Last("html"), Math.Max(Last("table"), Last("template")));
     private static bool IsHtmlElement(Element element, string name) =>
         element.NamespaceUri == Namespaces.Html && element.LocalName == name;
-    private static bool IsScopeBoundary(Element element) => element.NamespaceUri == Namespaces.Html &&
-        element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "select" or "template";
+    private static bool IsScopeBoundary(Element element) => element.NamespaceUri switch
+    {
+        Namespaces.Html => element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "select" or "template",
+        Namespaces.MathMl => element.LocalName is "mi" or "mo" or "mn" or "ms" or "mtext" or "annotation-xml",
+        Namespaces.Svg => element.LocalName is "foreignObject" or "desc" or "title",
+        _ => false
+    };
     private static bool IsResetModeElement(Element element) => element.NamespaceUri == Namespaces.Html &&
         element.LocalName is "td" or "th" or "tr" or "tbody" or "thead" or "tfoot" or "caption" or
             "colgroup" or "table" or "template" or "head" or "body" or "frameset" or "html";
@@ -438,7 +460,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool TryGenerateImpliedEndTags(string? except = null)
     {
         var popped = false;
-        while (_open.Count > 0 && Current.LocalName != except && IsImpliedEndTag(Current.LocalName))
+        while (_open.Count > 0 && Current.NamespaceUri == Namespaces.Html && Current.LocalName != except && IsImpliedEndTag(Current.LocalName))
         {
             // Dispatch itself costs one unit. Permit one pop when quota is one
             // so resuming this token always advances the explicit stack cursor.
@@ -452,7 +474,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool CloseP(bool reprocess)
     {
         if (!TryGenerateImpliedEndTags("p")) return false;
-        if (Current.LocalName != "p") Error("misnested-p-end-tag");
+        if (!IsHtmlElement(Current, "p")) Error("misnested-p-end-tag");
         SchedulePopTo(Last("p"), reprocess);
         return true;
     }
@@ -501,7 +523,7 @@ internal sealed partial class HtmlTreeBuilder
     private static bool White(char c) => c is '\t' or '\n' or '\f' or '\r' or ' ';
     private static bool IsHeading(string name) => name is "h1" or "h2" or "h3" or "h4" or "h5" or "h6";
     private static bool IsImpliedEndTag(string name) => name is "dd" or "dt" or "li" or "optgroup" or "option" or "p" or "rb" or "rp" or "rt" or "rtc";
-    private static bool AllowedOpenAtEof(string name) => name is "dd" or "dt" or "li" or "optgroup" or
+    private static bool AllowedOpenAtEof(Element element) => element.NamespaceUri == Namespaces.Html && element.LocalName is "dd" or "dt" or "li" or "optgroup" or
         "option" or "p" or "rb" or "rp" or "rt" or "rtc" or "tbody" or "td" or "tfoot" or "th" or
         "thead" or "tr" or "body" or "html";
 

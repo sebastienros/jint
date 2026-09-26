@@ -26,6 +26,10 @@ public abstract partial class Node
     internal WeakReference<Element>? ManualSlot;
     internal ShadowRoot? TreeShadowRoot;
 
+    internal EndpointBucket? RangeEndpoints;
+    internal List<WeakReference<DomNodeIterator>>? RootIterators;
+    internal int IteratorRootSweepCursor;
+
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 
     public abstract NodeType NodeType { get; }
@@ -56,6 +60,7 @@ public abstract partial class Node
     // assignment steps without repeating public ancestor validation.
     internal void AppendClonedChild(Node child)
     {
+        LiveTraversalTracking.Insert(this, null, 1);
         LinkBefore(child, null);
         SlotAssignment.AfterInsertion(this, child, null);
         HtmlFormAssociation.Inserted(child);
@@ -118,6 +123,15 @@ public abstract partial class Node
     // precedes link changes so a failed insertion leaves both trees intact.
     public Node AppendChild(Node child) => InsertBefore(child, null);
 
+    internal void EnsurePreInsert(Node child, Node? referenceChild)
+    {
+        EnsureContainer();
+        if (child is ShadowRoot) throw DomException.Hierarchy();
+        if (referenceChild is not null && !ReferenceEquals(referenceChild.ParentNode, this)) throw DomException.NotFound();
+        RejectAncestor(child);
+        ValidateInsertion(CollectIncoming(child), referenceChild, null);
+    }
+
     public Node InsertBefore(Node child, Node? referenceChild)
     {
         ArgumentNullException.ThrowIfNull(child);
@@ -151,11 +165,12 @@ public abstract partial class Node
             }
 
             MutationTracking.QueueChildList(child, (IReadOnlyList<Node>?) null, incoming.Many, null, null);
+            LiveTraversalTracking.Insert(this, referenceChild, (uint) incoming.Count);
             for (var i = 0; i < incoming.Count; i++)
             {
                 var node = incoming[i];
                 Adopt(node, destinationDocument);
-                InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true);
+                InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true, suppressLiveInsertion: true);
             }
 
             HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
@@ -223,11 +238,12 @@ public abstract partial class Node
                 MutationTracking.QueueChildList(child, (IReadOnlyList<Node>?) null, incoming.Many, null, null);
             }
 
+            LiveTraversalTracking.Insert(this, anchor, (uint) incoming.Count);
             for (var i = 0; i < incoming.Count; i++)
             {
                 var node = incoming[i];
                 Adopt(node, destinationDocument);
-                InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true);
+                InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true, suppressLiveInsertion: true);
             }
 
             if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
@@ -508,7 +524,9 @@ public abstract partial class Node
         }
     }
 
-    private static void Detach(Node node, bool suppressRecord = false, bool suppressSemantic = false)
+    internal void RemoveForNormalization(uint index) => Detach(this, knownIndex: index);
+
+    private static void Detach(Node node, bool suppressRecord = false, bool suppressSemantic = false, uint? knownIndex = null)
     {
         var parent = node.ParentNode;
         if (parent is null)
@@ -516,6 +534,8 @@ public abstract partial class Node
             return;
         }
 
+        LiveTraversalTracking.Remove(node, parent, knownIndex);
+        IteratorTracking.Remove(node, parent as Document ?? parent.OwnerDocument!);
         var formRemoval = HtmlFormAssociation.BeforeRemoval(node, parent);
         var previousSibling = node.PreviousSibling;
         var nextSibling = node.NextSibling;
@@ -581,8 +601,9 @@ public abstract partial class Node
     }
 
     private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false,
-        bool suppressSemantic = false)
+        bool suppressSemantic = false, bool suppressLiveInsertion = false)
     {
+        if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
         LinkBefore(node, referenceChild);
         (this as Document ?? _ownerDocument!).MarkMutation();
@@ -629,6 +650,8 @@ public abstract partial class Node
             {
                 var oldDocument = current.Node._ownerDocument;
                 current.Node._ownerDocument = current.Owner;
+                LiveTraversalTracking.Rehome(current.Node.RangeEndpoints, current.Owner);
+                IteratorTracking.Rehome(current.Node.RootIterators, current.Owner);
                 if (current.Node.MutationRegistrations is not null)
                 {
                     current.Owner.MarkMutationRegistrationsPresent();
