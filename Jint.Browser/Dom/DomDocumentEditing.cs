@@ -17,7 +17,11 @@ internal static class DomDocumentEditing
         work.Check();
         if (work.EqualAsciiIgnoreCase(value, "on"))
         {
-            if (DomDocumentState.IsDesignModeEnabled(document)) return JsValue.Undefined;
+            if (DomDocumentState.IsDesignModeEnabled(document))
+            {
+                work.Check();
+                return JsValue.Undefined;
+            }
             work.Check();
             DomDocumentState.Of(document).DesignModeEnabled = true;
             // The existing Selection implementation belongs to the displayed document.
