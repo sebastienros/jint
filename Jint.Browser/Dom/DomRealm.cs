@@ -1,7 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Collections;
 using Jint.Native;
 using Jint.Native.Object;
@@ -49,9 +47,9 @@ internal sealed class DomRealm
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers;
     private readonly DomRealm _principal;
     private readonly ConditionalWeakTable<Realm, DomRealm> _secondaryRealms = new();
-    private readonly ConditionalWeakTable<INode, DomRealm> _creationRealms;
-    private readonly ConditionalWeakTable<IBrowsingContext, DomRealm> _contexts;
-    private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
+    private readonly ConditionalWeakTable<object, DomRealm> _creationRealms;
+    private readonly ConditionalWeakTable<DomBrowsingContext, DomRealm> _contexts;
+    private readonly ConditionalWeakTable<Element, AriaElementReflection.Cache> _ariaCaches = new();
     private Dictionary<string, JsString>? _htmlUppercasedTagNames;
     private int _nodes;
     private DomHostHooks _hooks = DomHostHooks.Default;
@@ -166,7 +164,7 @@ internal sealed class DomRealm
     /// Keyed on the AngleSharp element and never on the wrapper, so it dies with the element rather than with
     /// whichever wrapper happened to reach it first.
     /// </remarks>
-    internal AriaElementReflection.Cache AriaCacheFor(IElement element) => _ariaCaches.GetOrCreateValue(element);
+    internal AriaElementReflection.Cache AriaCacheFor(Element element) => _ariaCaches.GetOrCreateValue(element);
 
     /// <summary>
     /// The maximum number of distinct <a
@@ -193,7 +191,7 @@ internal sealed class DomRealm
     /// <remarks>
     /// Sound because the uppercasing is a pure function of the qualified name alone: <see cref="DomHostHooks.TagName"/>
     /// only ever calls this once it has already decided the element is in the HTML namespace and its owner is
-    /// an <see cref="IHtmlDocument"/>, so every qualified name reaching this cache needs the same answer
+    /// an <see cref="Document"/>, so every qualified name reaching this cache needs the same answer
     /// regardless of which element asked — an SVG element sharing a local name with an HTML one never reaches
     /// here at all, because that decision is made by the caller before the qualified name is looked up.
     /// </remarks>
@@ -246,15 +244,15 @@ internal sealed class DomRealm
     }
 
     /// <summary>The document associated with this realm's global, if any.</summary>
-    internal IDocument? Document { get; private set; }
+    internal Document? Document { get; private set; }
 
-    internal IHtmlScriptElement? CurrentScript { get; set; }
+    internal Element? CurrentScript { get; set; }
 
     internal string? ReadyState { get; set; }
 
     internal bool LoadCompleted { get; set; }
 
-    internal void AssociateContext(IBrowsingContext context)
+    internal void AssociateContext(DomBrowsingContext context)
     {
         if (_contexts.TryGetValue(context, out var existing) && !ReferenceEquals(existing, this))
         {
@@ -263,14 +261,17 @@ internal sealed class DomRealm
         _contexts.GetValue(context, _ => this);
     }
 
-    internal void AssociateDocument(IDocument document, bool associatedGlobal = false)
+    internal void AssociateDocument(Document document, bool associatedGlobal = false)
     {
         var associated = _creationRealms.TryGetValue(document, out var existing);
         if (associated && !ReferenceEquals(existing, this))
         {
             throw new ArgumentException("The document already belongs to another realm.", nameof(document));
         }
-        AssociateContext(document.Context);
+        if (DomBrowsingContext.Of(document) is { } context)
+        {
+            AssociateContext(context);
+        }
         _creationRealms.GetValue(document, _ => this);
         if (!associated)
         {
@@ -283,50 +284,63 @@ internal sealed class DomRealm
     }
 
     /// <summary>Associates a newly opened window document while retaining old documents' creation brands.</summary>
-    internal void AssociateWindowDocument(IDocument document)
+    internal void AssociateWindowDocument(Document document)
     {
         // AngleSharp may open srcdoc again in the same context during element setup. The new global owns
         // subsequent parser nodes; documents and wrappers from the previous opening retain their realm.
-        _contexts.Remove(document.Context);
+        if (DomBrowsingContext.Of(document) is { } context)
+        {
+            _contexts.Remove(context);
+        }
         AssociateDocument(document, associatedGlobal: true);
     }
 
-    internal bool TryGetDocumentRealm(IDocument document, out DomRealm? realm)
+    internal bool TryGetDocumentRealm(Document document, out DomRealm? realm)
         => _creationRealms.TryGetValue(document, out realm);
 
-    internal DomRealm RealmOfDocument(IDocument document)
+    internal DomRealm RealmOfDocument(Document document)
     {
         if (_creationRealms.TryGetValue(document, out var realm))
         {
             return realm;
         }
-        realm = _contexts.TryGetValue(document.Context, out var contextRealm) ? contextRealm : this;
-        realm.AssociateDocument(document);
+        realm = DomBrowsingContext.Of(document) is { } context && _contexts.TryGetValue(context, out var contextRealm) ? contextRealm : this;
+        _creationRealms.GetValue(document, _ => realm);
         return realm;
     }
 
     // https://dom.spec.whatwg.org/#concept-create-node: a node retains its creation realm through
     // adoption. The owner is consulted only at the creation/adoption boundary, never for a known node.
-    internal DomRealm CreationRealmOf(INode node)
+    internal DomRealm CreationRealmOf(Node node)
     {
         if (_creationRealms.TryGetValue(node, out var known))
         {
             return known;
         }
-        if (node is IDocument document)
+        if (node is Document document)
         {
-            var documentRealm = _contexts.TryGetValue(document.Context, out var contextRealm) ? contextRealm : this;
-            documentRealm.AssociateDocument(document);
+            var documentRealm = DomBrowsingContext.Of(document) is { } context && _contexts.TryGetValue(context, out var contextRealm) ? contextRealm : this;
+            _creationRealms.GetValue(document, _ => documentRealm);
             return documentRealm;
         }
-        var realm = node.Owner is { } owner ? RealmOfDocument(owner) : this;
+        var realm = node.OwnerDocument is { } owner ? RealmOfDocument(owner) : this;
         return _creationRealms.GetValue(node, _ => realm);
     }
 
-    /// <summary>Records a new or about-to-be-adopted subtree, including non-light-tree descendants.</summary>
-    internal void RecordSubtree(INode root)
+    internal DomRealm CreationRealmOf(Attr attribute)
     {
-        var pending = new Stack<INode>();
+        if (_creationRealms.TryGetValue(attribute, out var known))
+        {
+            return known;
+        }
+        var realm = RealmOfDocument(attribute.OwnerDocument);
+        return _creationRealms.GetValue(attribute, _ => realm);
+    }
+
+    /// <summary>Records a new or about-to-be-adopted subtree, including non-light-tree descendants.</summary>
+    internal void RecordSubtree(Node root)
+    {
+        var pending = new Stack<Node>();
         pending.Push(root);
         while (pending.TryPop(out var node))
         {
@@ -335,21 +349,20 @@ internal sealed class DomRealm
             {
                 pending.Push(child);
             }
-            if (node is IElement element)
+            if (node is Element element)
             {
-                DomNamespaces.Capture(element);
                 foreach (var attribute in element.Attributes)
                 {
-                    _creationRealms.GetValue(attribute, _ => node.Owner is { } owner ? RealmOfDocument(owner) : this);
+                    _creationRealms.GetValue(attribute, _ => node.OwnerDocument is { } owner ? RealmOfDocument(owner) : this);
                 }
-                if (element.ShadowRoot is { } shadow)
+                if (element.AttachedShadowRoot is { } shadow)
                 {
                     pending.Push(shadow);
                 }
             }
-            if (node is IHtmlTemplateElement template)
+            if (node is Element { TemplateContent: { } content })
             {
-                pending.Push(template.Content);
+                pending.Push(content);
             }
         }
     }
@@ -481,8 +494,14 @@ internal sealed class DomRealm
             return cached;
         }
 
-        definition ??= value is INode node
-            ? DomManualInterfaces.For(node) ?? DomTypeMap.For(value.GetType())
+        if (value is Attr attribute)
+        {
+            var attributeRealm = CreationRealmOf(attribute);
+            return Cache(attribute, new DomNodeObject(attributeRealm, DomInterfaces.Attr, attribute));
+        }
+
+        definition ??= value is Node node
+            ? DomTypeMap.For(node)
             : DomTypeMap.For(value.GetType());
         if (definition is null)
         {
@@ -491,30 +510,33 @@ internal sealed class DomRealm
                 "'" + value.GetType().FullName + "' implements no interface the DOM bindings were generated from.");
         }
 
-        if (value is INode newNode && !_creationRealms.TryGetValue(newNode, out _))
-        {
-            RecordSubtree(newNode);
-        }
-        var realm = value is INode createdNode ? CreationRealmOf(createdNode) : this;
+        var realm = value is Node createdNode ? CreationRealmOf(createdNode) : this;
         return Cache(value, realm.Create(definition!, value));
     }
 
     /// <summary>Projects a node, which is what most generated members return.</summary>
-    internal JsValue WrapNodeValue(INode? node) => node is null ? JsValue.Null : WrapNode(node);
+    internal JsValue WrapNodeValue(Node? node) => node is null ? JsValue.Null : WrapNode(node);
+
+    private Action<int>? _nativeReadCheckpoint;
+    // Trusted host-only checks. Native read work owns polling and never retains this callback.
+    internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= _ => Engine.Constraints.Check();
+
+    internal CancellationToken CancellationToken
+        => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
+
+    internal JsValue WrapIdentity(DomNodeIdentity? identity)
+        => identity is not { } value ? JsValue.Null
+            : value.Attribute is { } attribute ? Wrap(attribute) : WrapNodeValue(value.Node);
 
     /// <summary>Projects a node, giving back the one wrapper it has for the life of this engine.</summary>
-    internal DomNodeObject WrapNode(INode node)
+    internal DomNodeObject WrapNode(Node node)
     {
         if (_wrappers.TryGetValue(node, out var cached))
         {
             return (DomNodeObject) cached;
         }
 
-        if (!_creationRealms.TryGetValue(node, out _))
-        {
-            RecordSubtree(node);
-        }
-        var definition = DomManualInterfaces.For(node) ?? DomTypeMap.For(node.GetType()) ?? DomInterfaces.Node;
+        var definition = DomTypeMap.For(node);
         return (DomNodeObject) Cache(node, CreationRealmOf(node).NewNode(definition, node));
     }
 
@@ -523,7 +545,7 @@ internal sealed class DomRealm
     /// property projection (<c>form[0]</c>, <c>form.username</c>, <c>select[0]</c>). Both are node wrappers,
     /// because a node's wrapper is what the engine's tree-dispatch lane keys on.
     /// </summary>
-    private DomNodeObject NewNode(DomInterfaceDefinition definition, INode node)
+    private DomNodeObject NewNode(DomInterfaceDefinition definition, Node node)
         => definition.WrapperKind == DomWrapperKind.IndexedNode && definition.CollectionAccessor is { } accessor
             ? new DomIndexedNodeObject(this, definition, node, accessor)
             : new DomNodeObject(this, definition, node);
@@ -531,7 +553,7 @@ internal sealed class DomRealm
     /// <summary>
     /// Projects an <c>IHtmlCollection&lt;T&gt;</c>, whose element type the calling generated member knows.
     /// </summary>
-    internal JsValue WrapCollection<T>(IHtmlCollection<T>? collection) where T : class, IElement
+    internal JsValue WrapCollection<T>(DomHtmlCollection<T>? collection) where T : Node
     {
         if (collection is null)
         {
@@ -547,15 +569,15 @@ internal sealed class DomRealm
 
         // document.all is the one collection whose own interface decides the wrapper: HTML gives it a named
         // lookup, an item(), a legacy caller and an internal slot no HTMLCollection has, and it arrives here
-        // because the generated Document.all getter's declared return type is IHtmlCollection<IElement>.
-        if (definition?.WrapperKind == DomWrapperKind.HtmlAllCollection && collection is IHtmlAllCollection all)
+        // because the generated Document.all getter's declared return type is IHtmlCollection<Element>.
+        if (definition?.WrapperKind == DomWrapperKind.HtmlAllCollection && collection is DomHtmlCollection<Element> all)
         {
             return Cache(collection, new DomHtmlAllCollectionObject(this, definition, all));
         }
 
         if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
         {
-            // AngleSharp's QueryCollection also implements INodeList. The member's IDL return type,
+            // AngleSharp's QueryCollection also implements NodeList. The member's IDL return type,
             // not that extra CLR interface, decides whether named properties belong on this result.
             definition = DomInterfaces.HTMLCollection;
         }
@@ -571,7 +593,7 @@ internal sealed class DomRealm
     /// <remarks>
     /// <para>
     /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) rather than AngleSharp's, because
-    /// nothing about an <see cref="INodeList"/> says whether it is live and the wrapper keeps one element
+    /// nothing about an <see cref="NodeList"/> says whether it is live and the wrapper keeps one element
     /// wrapper per index. It is cached like every other wrapper, so <c>Hooks.WrapperCreated</c> fires once
     /// for it; the snapshot is new on every call, which keeps
     /// <c>el.querySelectorAll('x') !== el.querySelectorAll('x')</c> — DOM's answer, and the one the binding
@@ -585,41 +607,42 @@ internal sealed class DomRealm
     /// that is a contract rather than a preference.
     /// </para>
     /// </remarks>
-    internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> matches)
+    internal JsValue WrapStaticNodeList(IEnumerable<Element> matches)
     {
         var snapshot = new DomStaticNodeList(matches);
         return Cache(snapshot, new DomCollectionObject(this, DomInterfaces.NodeList, snapshot, DomAccessorNodeList.Instance));
     }
 
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>
-    internal JsValue WrapLabels(IHtmlElement control)
+    internal JsValue WrapLabels(Element control)
     {
         var labels = new DomLabelNodeList(control);
         return Cache(labels, new DomCollectionObject(this, DomInterfaces.NodeList, labels, DomAccessorNodeList.Instance));
     }
 
     /// <summary>Projects an element's <c>dataset</c> through HTML's name conversion algorithms.</summary>
-    internal JsValue WrapStringMap(IElement element, IStringMap map)
+    private readonly ConditionalWeakTable<Element, DomStringMapAdapter> _datasets = new();
+
+    internal JsValue WrapStringMap(Element element)
     {
+        var map = _datasets.GetValue(element, owner => new DomStringMapAdapter(this, owner));
         if (_wrappers.TryGetValue(map, out var cached))
         {
             return cached;
         }
-
-        var target = new DomStringMapAdapter(this, element);
-        return Cache(map, new DomNamedMapObject(this, DomInterfaces.DOMStringMap, target, DomAccessorDOMStringMap.Instance));
+        return Cache(map, new DomNamedMapObject(this, DomInterfaces.DOMStringMap, map, DomAccessorDOMStringMap.Instance));
     }
 
     private ObjectInstance Create(DomInterfaceDefinition definition, object value)
     {
         if (definition.WrapperKind is DomWrapperKind.Node or DomWrapperKind.IndexedNode)
         {
-            return NewNode(definition, (INode) value);
+            return NewNode(definition, (Node) value);
         }
 
         if (definition.WrapperKind == DomWrapperKind.HtmlAllCollection)
         {
-            return value is IHtmlAllCollection all
+            return value is DomHtmlCollection<Element> all
                 ? new DomHtmlAllCollectionObject(this, definition, all)
                 : Unsupported(value, "is projected as HTMLAllCollection but is not an IHtmlAllCollection");
         }

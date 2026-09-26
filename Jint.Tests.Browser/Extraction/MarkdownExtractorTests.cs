@@ -81,14 +81,14 @@ public sealed class MarkdownExtractorTests
     [TestCaseSource(nameof(Constructs))]
     public void RendersTheConstruct(string html, string expected)
     {
-        using var document = PageFixture.Parse(html, "https://example.com/dir/index.html");
+        var document = PageFixture.Parse(html, "https://example.com/dir/index.html");
         MarkdownExtractor.ToMarkdown(document).Should().Be(expected);
     }
 
     [Test]
     public void RendersAGitHubFlavouredTable()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<table><thead><tr><th>Name</th><th>Qty</th></tr></thead>" +
             "<tbody><tr><td>Apples</td><td>3</td></tr><tr><td>Pears</td><td>12</td></tr></tbody></table>");
 
@@ -104,7 +104,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void ATableWithNoHeaderRowStillGetsTheSeparatorGfmRequires()
     {
-        using var document = PageFixture.Parse("<table><tr><td>a</td><td>b</td></tr></table>");
+        var document = PageFixture.Parse("<table><tr><td>a</td><td>b</td></tr></table>");
 
         MarkdownExtractor.ToMarkdown(document).Should().Be(
             """
@@ -117,7 +117,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void ATableCaptionBecomesABoldLineAboveIt()
     {
-        using var document = PageFixture.Parse("<table><caption>Stock</caption><tr><th>a</th></tr></table>");
+        var document = PageFixture.Parse("<table><caption>Stock</caption><tr><th>a</th></tr></table>");
 
         MarkdownExtractor.ToMarkdown(document).Should().StartWith("**Stock**\n\n| a |");
     }
@@ -125,7 +125,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void ANestedTablesRowsStayInTheNestedTable()
     {
-        using var document = PageFixture.Parse("<table><tr><td>outer<table><tr><td>inner</td></tr></table></td></tr></table>");
+        var document = PageFixture.Parse("<table><tr><td>outer<table><tr><td>inner</td></tr></table></td></tr></table>");
 
         var markdown = MarkdownExtractor.ToMarkdown(document);
 
@@ -136,7 +136,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void APipeInACellIsEscaped()
     {
-        using var document = PageFixture.Parse("<table><tr><td>a|b</td></tr></table>");
+        var document = PageFixture.Parse("<table><tr><td>a|b</td></tr></table>");
 
         MarkdownExtractor.ToMarkdown(document).Should().Contain("a\\|b");
     }
@@ -144,7 +144,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void ImagesCanBeReducedToTheirAlternativeText()
     {
-        using var document = PageFixture.Parse("<p>see <img src=pic.png alt='the cat'> now</p>");
+        var document = PageFixture.Parse("<p>see <img src=pic.png alt='the cat'> now</p>");
 
         MarkdownExtractor.ToMarkdown(document, MarkdownOptions.Default with { IncludeImages = false })
             .Should().Be("see the cat now");
@@ -155,26 +155,26 @@ public sealed class MarkdownExtractorTests
     {
         const string Chrome = "<nav><a href='/'>Home</a></nav><footer><p>Footer</p></footer>";
 
-        using var withMain = PageFixture.Parse("<main><p>Main body</p></main>" + Chrome);
+        var withMain = PageFixture.Parse("<main><p>Main body</p></main>" + Chrome);
         Markdown(withMain).Should().Be("Main body");
 
-        using var withRole = PageFixture.Parse("<div role=main><p>Role body</p></div>" + Chrome);
+        var withRole = PageFixture.Parse("<div role=main><p>Role body</p></div>" + Chrome);
         Markdown(withRole).Should().Be("Role body");
 
-        using var withArticle = PageFixture.Parse("<article><p>Article body</p></article>" + Chrome);
+        var withArticle = PageFixture.Parse("<article><p>Article body</p></article>" + Chrome);
         Markdown(withArticle).Should().Be("Article body");
 
-        using var withNeither = PageFixture.Parse("<p>Everything</p>" + Chrome);
+        var withNeither = PageFixture.Parse("<p>Everything</p>" + Chrome);
         Markdown(withNeither).Should().Contain("Everything").And.Contain("Home").And.Contain("Footer");
 
-        static string Markdown(AngleSharp.Dom.IDocument document) =>
+        static string Markdown(Jint.HtmlParser.Document document) =>
             MarkdownExtractor.ToMarkdown(document, MarkdownOptions.Default with { MainContentOnly = true });
     }
 
     [Test]
     public void MaxLengthTruncatesAtAWordBoundaryAndSaysSo()
     {
-        using var document = PageFixture.Parse("<p>" + string.Join(" ", Enumerable.Repeat("word", 200)) + "</p>");
+        var document = PageFixture.Parse("<p>" + string.Join(" ", Enumerable.Repeat("word", 200)) + "</p>");
 
         var full = MarkdownExtractor.ToMarkdown(document);
         var cut = MarkdownExtractor.ToMarkdown(document, MarkdownOptions.Default with { MaxLength = 100 });
@@ -189,7 +189,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void MaxLengthLeavesAShortDocumentAlone()
     {
-        using var document = PageFixture.Parse("<p>short</p>");
+        var document = PageFixture.Parse("<p>short</p>");
 
         MarkdownExtractor.ToMarkdown(document, MarkdownOptions.Default with { MaxLength = 100 }).Should().Be("short");
     }
@@ -197,7 +197,7 @@ public sealed class MarkdownExtractorTests
     [Test]
     public void RendersAWholePageInOnePass()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             """
             <html><head><title>Release notes</title></head><body>
             <header><nav><a href="/">Home</a> <a href="/docs">Docs</a></nav></header>

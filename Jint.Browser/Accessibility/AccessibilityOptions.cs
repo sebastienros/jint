@@ -1,7 +1,7 @@
 namespace Jint.Browser.Accessibility;
 
 /// <summary>
-/// What a call to <see cref="AccessibilityTree.Build(AngleSharp.Dom.IDocument, AccessibilityOptions?)"/>
+/// What a call to <see cref="AccessibilityTree.Build(Jint.HtmlParser.Document, AccessibilityOptions?)"/>
 /// keeps and what it prunes.
 /// </summary>
 /// <remarks>
@@ -47,7 +47,7 @@ internal sealed record AccessibilityOptions
 
     /// <summary>Whether the CSS cascade is consulted for <c>display</c> and <c>visibility</c>.</summary>
     /// <remarks>
-    /// It needs <c>AngleSharp.Css</c> registered on the browsing context. When it is not, the computation
+    /// It needs the Browser CSS cascade to be available for the document. When it is not, the computation
     /// falls back to the <c>style</c> content attribute and the <c>hidden</c> attribute, once, and stays
     /// there for the life of the walk rather than throwing per element.
     /// </remarks>

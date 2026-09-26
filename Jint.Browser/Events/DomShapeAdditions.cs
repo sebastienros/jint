@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 
@@ -37,13 +36,13 @@ internal static class DomShapeAdditions
 {
     /// <summary><c>HTMLElement</c>: <c>GlobalEventHandlers</c> and <c>DocumentAndElementEventHandlers</c>.</summary>
     internal static void HtmlElementHandlers(JsObjectShape.Builder builder)
-        => AddHandlers<IHtmlElement>(builder, "HTMLElement", EventHandlerContentAttributes.ElementHandlers);
+        => AddHandlers<Element>(builder, "HTMLElement", EventHandlerContentAttributes.ElementHandlers);
 
     /// <summary><c>Document</c>: the same two mixins, plus the two handlers only a document carries.</summary>
     internal static void DocumentHandlers(JsObjectShape.Builder builder)
     {
-        AddHandlers<IDocument>(builder, "Document", EventHandlerContentAttributes.ElementHandlers);
-        AddHandlers<IDocument>(builder, "Document", ["readystatechange", "visibilitychange"]);
+        AddHandlers<Document>(builder, "Document", EventHandlerContentAttributes.ElementHandlers);
+        AddHandlers<Document>(builder, "Document", ["readystatechange", "visibilitychange"]);
     }
 
     /// <summary>

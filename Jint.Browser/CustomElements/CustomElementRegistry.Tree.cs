@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.CustomElements;
 
@@ -32,65 +32,99 @@ namespace Jint.Browser.CustomElements;
 /// </remarks>
 internal sealed partial class CustomElementRegistry
 {
-    private MutationObserver? _tree;
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<Node, MutationSubscription> _trees = new();
+    private readonly List<WeakReference<MutationSubscription>> _nativeSubscriptions = [];
+    private readonly Queue<MutationSubscription> _pendingNativeMutations = new();
+    private readonly HashSet<MutationSubscription> _pendingNativeSubscriptions = new();
 
-    /// <summary>
-    /// Starts watching <paramref name="document"/> for insertions and removals, once, and only once
-    /// something has been defined.
-    /// </summary>
-    internal void EnsureWatching(IDocument document)
+    internal void EnsureWatching(Document document)
     {
-        if (_tree is not null)
-        {
-            return;
-        }
-
-        _tree = new MutationObserver(OnTreeMutations);
-        _tree.Connect(
-            document,
-            childList: true,
-            subtree: true,
-            attributes: false,
-            characterData: false,
-            attributeOldValue: false,
-            characterDataOldValue: false,
-            attributeFilter: null);
+        EnsureWatchingTree(document);
     }
 
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#concept-node-insert and #concept-node-remove, as AngleSharp reports them:
-    /// what entered the document is upgraded or connected, and what left it is disconnected.
-    /// </summary>
-    /// <remarks>
-    /// A record only arrives for a target inside the observed document, so everything in
-    /// <c>addedNodes</c> is connected now and everything in <c>removedNodes</c> was connected a moment ago —
-    /// which is why neither list is re-tested.
-    /// </remarks>
-    private void OnTreeMutations(IEnumerable<IMutationRecord> records, MutationObserver source)
+    private void EnsureWatchingTree(Node root)
     {
-        foreach (var record in records)
-        {
-            if (record.Removed is { } removed)
-            {
-                foreach (var node in removed)
-                {
-                    Walk(node, Disconnected);
-                }
-            }
+        if (_trees.TryGetValue(root, out _)) return;
+        var subscription = (root as Document ?? root.OwnerDocument!).ObserveMutations(root,
+            new MutationObserverOptions { ChildList = true, Subtree = true });
+        subscription.PendingRecord = QueueNativeMutation;
+        _nativeSubscriptions.Add(new WeakReference<MutationSubscription>(subscription));
+        _trees.Add(root, subscription);
+    }
 
-            if (record.Added is { } added)
+    // Trusted native scheduling only. Reactions are delivered after the complete DOM call.
+    private void QueueNativeMutation(MutationSubscription source)
+    {
+        if (_pendingNativeSubscriptions.Add(source)) _pendingNativeMutations.Enqueue(source);
+        Schedule();
+    }
+
+    private void ObserveAttributes(Element element, CustomElementRecord record)
+    {
+        if (record.NativeAttributes is not null) return;
+        var subscription = element.OwnerDocument!.ObserveMutations(element,
+            new MutationObserverOptions { Attributes = true, AttributeOldValue = true });
+        subscription.PendingRecord = QueueNativeMutation;
+        record.NativeAttributes = subscription;
+        _nativeSubscriptions.Add(new WeakReference<MutationSubscription>(subscription));
+        EnsureWatching(element.OwnerDocument!);
+        var root = element as Node;
+        while (root.ParentNode is { } parent) root = parent;
+        if (root is ShadowRoot) EnsureWatchingTree(root);
+    }
+
+    private void ReleaseNativeSubscriptions()
+    {
+        foreach (var weak in _nativeSubscriptions)
+        {
+            if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
+        }
+        _nativeSubscriptions.Clear();
+        _pendingNativeMutations.Clear();
+        _pendingNativeSubscriptions.Clear();
+        _trees.Clear();
+    }
+
+    internal void FlushNativeMutations()
+    {
+        while (_pendingNativeMutations.TryDequeue(out var source))
+        {
+            _pendingNativeSubscriptions.Remove(source);
+            var records = source.TakeRecordsForDelivery();
+            for (var i = 0; i < records.Count; i++)
             {
-                foreach (var node in added)
+                _runtime.Engine.Constraints.Check();
+                var mutation = records[i];
+                if (mutation.Kind == MutationRecordKind.ChildList)
                 {
-                    Walk(node, Connected);
+                    foreach (var removed in mutation.RemovedNodes) Walk(removed, Disconnected);
+                    foreach (var added in mutation.AddedNodes) Walk(added, Connected);
+                }
+                else if (mutation.Kind == MutationRecordKind.Attributes && mutation.Target is Element element
+                    && TryGetRecord(element) is { State: CustomElementState.Custom } record)
+                {
+                    var name = mutation.AttributeName!;
+                    var value = element.GetAttributeNS(mutation.AttributeNamespace, name);
+                    // The next record's old value is this mutation's new value, including removals.
+                    for (var j = i + 1; j < records.Count; j++)
+                    {
+                        if ((j & 255) == 0) _runtime.Engine.Constraints.Check();
+                        var next = records[j];
+                        if (ReferenceEquals(next.Target, element) && next.AttributeName == name
+                            && next.AttributeNamespace == mutation.AttributeNamespace)
+                        {
+                            value = next.OldValue;
+                            break;
+                        }
+                    }
+                    EnqueueCallback(element, record, CustomElementReactionKind.AttributeChanged,
+                        name, mutation.OldValue, value);
                 }
             }
         }
-
-        Drain();
     }
 
-    private void Connected(IElement element)
+    private void Connected(Element element)
     {
         if (TryGetRecord(element) is { State: CustomElementState.Custom } record)
         {
@@ -101,7 +135,7 @@ internal sealed partial class CustomElementRegistry
         TryUpgrade(element);
     }
 
-    private void Disconnected(IElement element)
+    private void Disconnected(Element element)
     {
         if (TryGetRecord(element) is { State: CustomElementState.Custom } record)
         {
@@ -140,15 +174,16 @@ internal sealed partial class CustomElementRegistry
     /// <c>adoptedCallback</c> is enqueued after it returns, which is DOM's own order.
     /// </para>
     /// </remarks>
-    internal static INode Adopt(Dom.DomRealm realm, IDocument document, INode node)
+    internal static Node Adopt(Dom.DomRealm realm, Document document, Node node)
     {
         if (Of(realm.Engine) is not { HasDefinitions: true } registry)
         {
-            return document.Adopt(node);
+            return document.AdoptNode(node);
         }
 
-        var oldDocument = node.Owner;
-        var adopted = document.Adopt(node);
+        var oldDocument = node.OwnerDocument;
+        var adopted = document.AdoptNode(node);
+        registry.FlushNativeMutations();
 
         if (oldDocument is not null && !ReferenceEquals(oldDocument, document))
         {
@@ -160,7 +195,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>Step 3.2 itself, over the adopted node's subtree in tree order.</summary>
-    private void Adopted(INode root, IDocument oldDocument, IDocument newDocument)
+    private void Adopted(Node root, Document oldDocument, Document newDocument)
     {
         Walk(root, element =>
         {
@@ -181,7 +216,7 @@ internal sealed partial class CustomElementRegistry
     /// always reported as <see langword="null"/>, because the service does not carry one — see this file's
     /// remarks.
     /// </remarks>
-    internal void AttributeChanged(IElement element, string name, string? value)
+    internal void AttributeChanged(Element element, string name, string? value)
     {
         if (_byName.Count == 0 || TryGetRecord(element) is not { State: CustomElementState.Custom } record)
         {
@@ -218,7 +253,7 @@ internal sealed partial class CustomElementRegistry
     /// for every page that has no custom elements.
     /// </para>
     /// </remarks>
-    internal static void SubtreeCreated(Dom.DomRealm realm, INode? root)
+    internal static void SubtreeCreated(Dom.DomRealm realm, Node? root)
     {
         if (root is null || Of(realm.Engine) is not { HasDefinitions: true } registry)
         {
@@ -248,14 +283,12 @@ internal sealed partial class CustomElementRegistry
     /// a stranger's document — and pairing by index is what AngleSharp's own clone produces.
     /// </para>
     /// </remarks>
-    internal static void Cloned(Dom.DomRealm realm, INode source, INode copy)
+    internal static void Cloned(Dom.DomRealm realm, Node source, Node copy)
     {
         if (Of(realm.Engine) is not { } registry)
         {
             return;
         }
-
-        registry.CarryIsValues(source, copy);
 
         if (registry.HasDefinitions)
         {
@@ -264,59 +297,4 @@ internal sealed partial class CustomElementRegistry
         }
     }
 
-    private void CarryIsValues(INode source, INode copy)
-    {
-        var pending = new Stack<(INode Source, INode Copy)>();
-        pending.Push((source, copy));
-
-        while (pending.Count > 0)
-        {
-            var (from, to) = pending.Pop();
-
-            if (from is IElement element
-                && to is IElement clone
-                && TryGetRecord(element) is { IsValue: { } isValue })
-            {
-                RecordFor(clone).IsValue = isValue;
-            }
-
-            var sources = from.ChildNodes;
-            var copies = to.ChildNodes;
-
-            for (var i = Math.Min(sources.Length, copies.Length) - 1; i >= 0; i--)
-            {
-                pending.Push((sources[i], copies[i]));
-            }
-        }
-    }
-}
-
-/// <summary>
-/// The <c>IAttributeObserver</c> the page's parser configuration registers, so that an attribute written on
-/// any element of the document — connected or not — can become an <c>attributeChangedCallback</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// It is registered with <c>.With&lt;IAttributeObserver&gt;</c>, which <b>adds</b> a service rather than
-/// replacing one: AngleSharp's own <c>DefaultAttributeObserver</c> stays in the list and goes on doing what
-/// it does. Measured against the pinned 1.7.2 rather than assumed.
-/// </para>
-/// <para>
-/// <b>It never runs script.</b> The parser calls it while building the tree, on the parser's thread, so
-/// everything it does is a dictionary write and an enqueue; the reaction lane decides when a callback runs
-/// and refuses to run one off the page loop.
-/// </para>
-/// </remarks>
-internal sealed class CustomElementAttributeObserver : IAttributeObserver
-{
-    private readonly Runtime.PageRuntime _runtime;
-
-    internal CustomElementAttributeObserver(Runtime.PageRuntime runtime)
-    {
-        _runtime = runtime;
-    }
-
-    /// <inheritdoc />
-    public void NotifyChange(IElement host, string name, string? value)
-        => _runtime.CustomElementsIfCreated?.AttributeChanged(host, name, value);
 }

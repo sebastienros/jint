@@ -23,35 +23,35 @@ internal static partial class DomInterfaces
             .Accessor("accessKey",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.accessKey", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.accessKey");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AccessKey);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.accessKey");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLElementAccessKey.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.accessKey", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.accessKey");
-                    self.Target.AccessKey = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLElement.accessKey"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.accessKey");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLElementAccessKey.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("accessKeyLabel",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.accessKeyLabel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.accessKeyLabel");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.accessKeyLabel");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AccessKeyLabel);
                 }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.autofocus");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.autofocus");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementAutofocus.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.autofocus");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.autofocus");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementAutofocus.Set(self.Realm, self.Target, args);
                 }))
             .Method("blur",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.blur", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.blur");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.blur");
                     global::Jint.Browser.Events.FocusController.Blur(self.Realm, self.Target);
                     return global::Jint.Native.JsValue.Undefined;
                 }),
@@ -59,7 +59,7 @@ internal static partial class DomInterfaces
             .Method("click",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.click", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.click");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.click");
                     global::Jint.Browser.Events.InputDispatcher.FireSyntheticClick((global::Jint.Browser.Dom.DomNodeObject) thisObj, trusted: false);
                     return global::Jint.Native.JsValue.Undefined;
                 }),
@@ -67,68 +67,68 @@ internal static partial class DomInterfaces
             .Accessor("contentEditable",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.contentEditable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.contentEditable");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.contentEditable");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ContentEditable);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.contentEditable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.contentEditable");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.contentEditable");
                     self.Target.ContentEditable = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLElement.contentEditable"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("contextMenu",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.contextMenu", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.contextMenu");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.contextMenu");
                     return self.Realm.WrapNodeValue(self.Target.ContextMenu);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.contextMenu", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.contextMenu");
-                    self.Target.ContextMenu = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlMenuElement>(args, 0, "HTMLElement.contextMenu"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.contextMenu");
+                    self.Target.ContextMenu = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLElement.contextMenu", "HTMLMenuElement"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("dataset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.dataset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dataset");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.dataset");
                     return self.Realm.Hooks.Dataset(self.Realm, self.Target);
                 }))
             .Accessor("dir",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.dir", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dir");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.dir");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementDir.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.dir", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dir");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.dir");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementDir.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("draggable",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.draggable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.draggable");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.draggable");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDraggable);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.draggable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.draggable");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.draggable");
                     self.Target.IsDraggable = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("enterKeyHint",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.enterKeyHint", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.enterKeyHint");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.enterKeyHint");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementEnterKeyHint.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.enterKeyHint", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.enterKeyHint");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.enterKeyHint");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementEnterKeyHint.Set(self.Realm, self.Target, args);
                 }))
             .Method("focus",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.focus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.focus");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.focus");
                     global::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);
                     return global::Jint.Native.JsValue.Undefined;
                 }),
@@ -136,132 +136,132 @@ internal static partial class DomInterfaces
             .Method("forceSpellCheck",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.forceSpellCheck", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.forceSpellCheck");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.forceSpellCheck");
                     self.Target.DoSpellCheck(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("hidden",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.hidden", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.hidden");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.hidden");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsHidden);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.hidden", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.hidden");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.hidden");
                     self.Target.IsHidden = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("inputMode",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.inputMode", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.inputMode");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.inputMode");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementInputMode.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.inputMode", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.inputMode");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.inputMode");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementInputMode.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("isContentEditable",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.isContentEditable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.isContentEditable");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.isContentEditable");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsContentEditable);
                 }))
             .Accessor("lang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.lang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.lang");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.lang");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementLang.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.lang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.lang");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.lang");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementLang.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("nonce",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.nonce", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.nonce");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.nonce");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementNonce.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.nonce", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.nonce");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.nonce");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementNonce.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("offsetHeight",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.offsetHeight", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetHeight");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.offsetHeight");
                     return global::Jint.Browser.Layout.LayoutMembers.OffsetHeight(self.Realm, self.Target);
                 }))
             .Accessor("offsetLeft",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.offsetLeft", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetLeft");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.offsetLeft");
                     return global::Jint.Browser.Layout.LayoutMembers.OffsetLeft(self.Realm, self.Target);
                 }))
             .Accessor("offsetParent",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.offsetParent", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetParent");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.offsetParent");
                     return global::Jint.Browser.Layout.LayoutMembers.OffsetParent(self.Realm, self.Target);
                 }))
             .Accessor("offsetTop",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.offsetTop", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetTop");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.offsetTop");
                     return global::Jint.Browser.Layout.LayoutMembers.OffsetTop(self.Realm, self.Target);
                 }))
             .Accessor("offsetWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.offsetWidth", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetWidth");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.offsetWidth");
                     return global::Jint.Browser.Layout.LayoutMembers.OffsetWidth(self.Realm, self.Target);
                 }))
             .Accessor("spellcheck",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.spellcheck", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.spellcheck");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.spellcheck");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSpellChecked);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.spellcheck", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.spellcheck");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.spellcheck");
                     self.Target.IsSpellChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("tabIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.tabIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.tabIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.tabIndex");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementTabIndex.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.tabIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.tabIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.tabIndex");
                     return global::Jint.Browser.Dom.DomReflected.HTMLElementTabIndex.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("title",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.title", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.title");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Title);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.title");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLElementTitle.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.title", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.title");
-                    self.Target.Title = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLElement.title"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.title");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLElementTitle.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("translate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.translate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.translate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.translate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTranslated);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLElement.translate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.translate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLElement.translate");
                     self.Target.IsTranslated = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }));
 
@@ -277,267 +277,267 @@ internal static partial class DomInterfaces
             .Accessor("charset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.charset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.charset");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.charset");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementCharset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.charset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.charset");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.charset");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementCharset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("coords",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.coords", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.coords");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.coords");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementCoords.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.coords", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.coords");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.coords");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementCoords.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("download",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.download", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.download");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Download);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.download");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementDownload.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.download", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.download");
-                    self.Target.Download = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.download"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.download");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementDownload.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hash",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.hash", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.hash");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hash");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hash");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.hash", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.hash");
-                    self.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.hash"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hash");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hash", args);
                 }))
             .Accessor("host",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.host", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.host");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.host");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "host");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.host", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.host");
-                    self.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.host"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.host");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "host", args);
                 }))
             .Accessor("hostname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.hostname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.hostname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hostname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hostname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.hostname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.hostname");
-                    self.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.hostname"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hostname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hostname", args);
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.href");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "href");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.href");
-                    self.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.href"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.href");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "href", args);
                 }))
             .Accessor("hreflang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.hreflang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.hreflang");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.TargetLanguage);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hreflang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementHreflang.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.hreflang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.hreflang");
-                    self.Target.TargetLanguage = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.hreflang"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hreflang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementHreflang.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.name");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.name");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("origin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.origin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.origin");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.origin");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "origin");
                 }))
             .Accessor("password",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.password", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.password");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.password");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "password");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.password", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.password");
-                    self.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.password"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.password");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "password", args);
                 }))
             .Accessor("pathname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.pathname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.pathname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.pathname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "pathname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.pathname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.pathname");
-                    self.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.pathname"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.pathname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "pathname", args);
                 }))
             .Accessor("ping",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.ping", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.ping");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.ping");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementPing.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.ping", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.ping");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.ping");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementPing.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("port",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.port", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.port");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.port");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "port");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.port", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.port");
-                    self.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.port"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.port");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "port", args);
                 }))
             .Accessor("protocol",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.protocol", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.protocol");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.protocol");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "protocol");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.protocol", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.protocol");
-                    self.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.protocol"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.protocol");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "protocol", args);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementReferrerPolicy.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementReferrerPolicy.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rel",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.rel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.rel");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Relation);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.rel");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementRel.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.rel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.rel");
-                    self.Target.Relation = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.rel"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.rel");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementRel.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("relList",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.relList", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.relList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel", self.Target.RelationList);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.relList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.relList", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.relList");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.relList");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
                 }))
             .Accessor("rev",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.rev", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.rev");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.rev");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementRev.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.rev", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.rev");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.rev");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementRev.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("search",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.search", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.search");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.search");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "search");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.search", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.search");
-                    self.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.search"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.search");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "search", args);
                 }))
             .Accessor("shape",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.shape", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.shape");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.shape");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementShape.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.shape", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.shape");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.shape");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementShape.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.target");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Target);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.target");
-                    self.Target.Target = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.target"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementTarget.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("text",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.text");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAnchorElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("username",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.username", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.username");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.username");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "username");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.username", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.username");
-                    self.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.username"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.username");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "username", args);
                 }))
             .Build();
 
@@ -549,250 +549,250 @@ internal static partial class DomInterfaces
             .Accessor("alt",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.alt", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.alt");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AlternativeText);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.alt");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementAlt.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.alt", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.alt");
-                    self.Target.AlternativeText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.alt"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.alt");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementAlt.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("coords",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.coords", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.coords");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Coordinates);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.coords");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementCoords.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.coords", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.coords");
-                    self.Target.Coordinates = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.coords"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.coords");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementCoords.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("download",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.download", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.download");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Download);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.download");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementDownload.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.download", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.download");
-                    self.Target.Download = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.download"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.download");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementDownload.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hash",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.hash", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.hash");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hash");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hash");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.hash", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.hash");
-                    self.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.hash"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hash");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hash", args);
                 }))
             .Accessor("host",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.host", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.host");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.host");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "host");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.host", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.host");
-                    self.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.host"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.host");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "host", args);
                 }))
             .Accessor("hostname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.hostname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.hostname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hostname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hostname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.hostname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.hostname");
-                    self.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.hostname"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hostname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hostname", args);
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.href");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "href");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.href");
-                    self.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.href"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.href");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "href", args);
                 }))
             .Accessor("hreflang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.hreflang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.hreflang");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.TargetLanguage);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hreflang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementHreflang.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.hreflang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.hreflang");
-                    self.Target.TargetLanguage = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.hreflang"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hreflang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementHreflang.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("noHref",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.noHref", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.noHref");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.noHref");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementNoHref.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.noHref", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.noHref");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.noHref");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementNoHref.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("origin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.origin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.origin");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.origin");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "origin");
                 }))
             .Accessor("password",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.password", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.password");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.password");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "password");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.password", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.password");
-                    self.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.password"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.password");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "password", args);
                 }))
             .Accessor("pathname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.pathname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.pathname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.pathname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "pathname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.pathname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.pathname");
-                    self.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.pathname"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.pathname");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "pathname", args);
                 }))
             .Accessor("ping",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.ping", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.ping");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.ping");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementPing.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.ping", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.ping");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.ping");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementPing.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("port",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.port", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.port");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.port");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "port");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.port", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.port");
-                    self.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.port"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.port");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "port", args);
                 }))
             .Accessor("protocol",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.protocol", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.protocol");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.protocol");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "protocol");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.protocol", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.protocol");
-                    self.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.protocol"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.protocol");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "protocol", args);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementReferrerPolicy.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementReferrerPolicy.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rel",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.rel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.rel");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Relation);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.rel");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementRel.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.rel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.rel");
-                    self.Target.Relation = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.rel"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.rel");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementRel.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("relList",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.relList", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.relList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel", self.Target.RelationList);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.relList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.relList", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.relList");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.relList");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
                 }))
             .Accessor("search",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.search", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.search");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.search");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "search");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.search", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.search");
-                    self.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.search"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.search");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "search", args);
                 }))
             .Accessor("shape",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.shape", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.shape");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Shape);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.shape");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementShape.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.shape", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.shape");
-                    self.Target.Shape = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.shape"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.shape");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementShape.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.target");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Target);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.target");
-                    self.Target.Target = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.target"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementTarget.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLAreaElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("username",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.username", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.username");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.username");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "username");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.username", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.username");
-                    self.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.username"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.username");
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "username", args);
                 }))
             .Build();
 
@@ -813,292 +813,292 @@ internal static partial class DomInterfaces
             .Method("addTextTrack",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.addTextTrack", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.addTextTrack");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.addTextTrack");
                     return self.Realm.Wrap(self.Target.AddTextTrack(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMediaElement.addTextTrack"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 1, null)!, global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!));
                 }),
                 length: 1)
             .Accessor("audioTracks",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.audioTracks", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.audioTracks");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.audioTracks");
                     return self.Realm.Wrap(self.Target.AudioTracks);
                 }))
             .Accessor("autoplay",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.autoplay", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.autoplay");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.autoplay");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsAutoplay);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.autoplay", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.autoplay");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.autoplay");
                     self.Target.IsAutoplay = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("buffered",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.buffered", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.buffered");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.buffered");
                     return self.Realm.Wrap(self.Target.BufferedTime);
                 }))
             .Method("canPlayType",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.canPlayType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.canPlayType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.canPlayType");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CanPlayType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMediaElement.canPlayType")));
                 }),
                 length: 1)
             .Accessor("controller",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.controller", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.controller");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.controller");
                     return self.Realm.Wrap(self.Target.Controller);
                 }))
             .Accessor("controls",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.controls", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.controls");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.controls");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsShowingControls);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.controls", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.controls");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.controls");
                     self.Target.IsShowingControls = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("crossOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMediaElementCrossOrigin.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMediaElementCrossOrigin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("currentSrc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.currentSrc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.currentSrc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.currentSrc");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CurrentSource);
                 }))
             .Accessor("currentTime",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.currentTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.currentTime");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.currentTime");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.CurrentTime);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.currentTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.currentTime");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.currentTime");
                     self.Target.CurrentTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMediaElement.currentTime"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("defaultMuted",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.defaultMuted", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.defaultMuted");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.defaultMuted");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefaultMuted);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.defaultMuted", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.defaultMuted");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.defaultMuted");
                     self.Target.IsDefaultMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("defaultPlaybackRate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.defaultPlaybackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.defaultPlaybackRate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.defaultPlaybackRate");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.DefaultPlaybackRate);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.defaultPlaybackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.defaultPlaybackRate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.defaultPlaybackRate");
                     self.Target.DefaultPlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMediaElement.defaultPlaybackRate"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("duration",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.duration", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.duration");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.duration");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Duration);
                 }))
             .Accessor("ended",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.ended", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.ended");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.ended");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsEnded);
                 }))
             .Accessor("error",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.error", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.error");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.error");
                     return self.Realm.Wrap(self.Target.MediaError);
                 }))
             .Method("load",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.load", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.load");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.load");
                     self.Target.Load(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("loading",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.loading", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.loading");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.loading");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMediaElementLoading.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.loading", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.loading");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.loading");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMediaElementLoading.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("loop",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.loop", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.loop");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.loop");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsLoop);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.loop", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.loop");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.loop");
                     self.Target.IsLoop = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("mediaGroup",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.mediaGroup", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.mediaGroup");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.mediaGroup");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.MediaGroup);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.mediaGroup", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.mediaGroup");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.mediaGroup");
                     self.Target.MediaGroup = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMediaElement.mediaGroup"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("muted",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.muted", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.muted");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.muted");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMuted);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.muted", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.muted");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.muted");
                     self.Target.IsMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("networkState",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.networkState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.networkState");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.networkState");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.NetworkState));
                 }))
             .Method("pause",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.pause", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.pause");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.pause");
                     self.Target.Pause(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("paused",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.paused", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.paused");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.paused");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPaused);
                 }))
             .Method("play",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.play", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.play");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.play");
                     self.Target.Play(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("playbackRate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.playbackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.playbackRate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.playbackRate");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.PlaybackRate);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.playbackRate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.playbackRate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.playbackRate");
                     self.Target.PlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMediaElement.playbackRate"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("playbackState",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.playbackState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.playbackState");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.playbackState");
                     return global::Jint.Browser.Dom.DomEnums.FromMediaControllerPlaybackState(self.Target.PlaybackState);
                 }))
             .Accessor("played",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.played", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.played");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.played");
                     return self.Realm.Wrap(self.Target.PlayedTime);
                 }))
             .Accessor("preload",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.preload", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.preload");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.preload");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMediaElementPreload.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.preload", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.preload");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.preload");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMediaElementPreload.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("readyState",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.readyState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.readyState");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.readyState");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));
                 }))
             .Accessor("seekable",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.seekable", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.seekable");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.seekable");
                     return self.Realm.Wrap(self.Target.SeekableTime);
                 }))
             .Accessor("seeking",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.seeking", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.seeking");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.seeking");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSeeking);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.src");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.src");
                     self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMediaElement.src"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("startDate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.startDate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.startDate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.startDate");
                     return global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.StartDate);
                 }))
             .Accessor("textTracks",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.textTracks", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.textTracks");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.textTracks");
                     return self.Realm.Wrap(self.Target.TextTracks);
                 }))
             .Accessor("videoTracks",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.videoTracks", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.videoTracks");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.videoTracks");
                     return self.Realm.Wrap(self.Target.VideoTracks);
                 }))
             .Accessor("volume",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMediaElement.volume", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.volume");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.volume");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Volume);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMediaElement.volume", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMediaElement>(thisObj, "HTMLMediaElement.volume");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMediaElement.volume");
                     self.Target.Volume = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMediaElement.volume"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -1118,12 +1118,12 @@ internal static partial class DomInterfaces
             .Accessor("clear",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBRElement.clear", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBreakRowElement>(thisObj, "HTMLBRElement.clear");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBRElement.clear");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBRElementClear.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBRElement.clear", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBreakRowElement>(thisObj, "HTMLBRElement.clear");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBRElement.clear");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBRElementClear.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -1136,24 +1136,24 @@ internal static partial class DomInterfaces
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBaseElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBaseElement>(thisObj, "HTMLBaseElement.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBaseElement.href");
+                    return global::Jint.Browser.Dom.DomDocumentState.BaseHref(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBaseElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBaseElement>(thisObj, "HTMLBaseElement.href");
-                    self.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLBaseElement.href"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBaseElement.href");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBaseElementHref.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBaseElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBaseElement>(thisObj, "HTMLBaseElement.target");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Target);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBaseElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBaseElementTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBaseElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBaseElement>(thisObj, "HTMLBaseElement.target");
-                    self.Target.Target = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLBaseElement.target"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBaseElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBaseElementTarget.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -1165,67 +1165,67 @@ internal static partial class DomInterfaces
             .Accessor("aLink",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.aLink", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.aLink");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.aLink");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementALink.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBodyElement.aLink", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.aLink");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.aLink");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementALink.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("background",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.background", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.background");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.background");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBackground.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBodyElement.background", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.background");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.background");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBackground.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("bgColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBgColor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBodyElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBgColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("link",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.link", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.link");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.link");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementLink.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBodyElement.link", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.link");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.link");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementLink.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("text",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.text");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementText.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBodyElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.text");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementText.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("vLink",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.vLink", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.vLink");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.vLink");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementVLink.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLBodyElement.vLink", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.vLink");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLBodyElement.vLink");
                     return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementVLink.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -1238,166 +1238,166 @@ internal static partial class DomInterfaces
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.autofocus");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementAutofocus.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.autofocus");
-                    self.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementAutofocus.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("formAction",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formAction", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formAction");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formAction");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormAction.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.formAction", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formAction");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formAction");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormAction.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formEncType",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formEncType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEncType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formEncType");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormEncType);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.formEncType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEncType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formEncType");
                     self.Target.FormEncType = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.formEncType"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("formEnctype",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formEnctype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEnctype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formEnctype");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormEnctype.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.formEnctype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEnctype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formEnctype");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormEnctype.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formMethod",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formMethod", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formMethod");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formMethod");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormMethod.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.formMethod", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formMethod");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formMethod");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormMethod.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formNoValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formNoValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formNoValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.FormNoValidate);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formNoValidate");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormNoValidate.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.formNoValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formNoValidate");
-                    self.Target.FormNoValidate = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formNoValidate");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormNoValidate.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formTarget",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formTarget", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formTarget");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormTarget);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formTarget");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.formTarget", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formTarget");
-                    self.Target.FormTarget = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.formTarget"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.formTarget");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormTarget.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementName.Set(self.Realm, self.Target, args);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.value");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementValue.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.value");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -1410,51 +1410,51 @@ internal static partial class DomInterfaces
             .Method("getContext",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.getContext", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.getContext");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.getContext");
                     return self.Realm.Wrap(self.Target.GetContext(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLCanvasElement.getContext")));
                 }),
                 length: 1)
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCanvasElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLCanvasElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLCanvasElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Method("probablySupportsContext",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.probablySupportsContext", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.probablySupportsContext");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.probablySupportsContext");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSupportingContext(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLCanvasElement.probablySupportsContext")));
                 }),
                 length: 1)
             .Method("setContext",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.setContext", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.setContext");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.setContext");
                     self.Target.SetContext(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.IRenderingContext>(args, 0, "HTMLCanvasElement.setContext")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("toDataURL",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.toDataURL", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.toDataURL");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.toDataURL");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ToDataUrl(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, null)!));
                 }),
                 length: 0)
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCanvasElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLCanvasElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCanvasElement>(thisObj, "HTMLCanvasElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLCanvasElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -1467,73 +1467,73 @@ internal static partial class DomInterfaces
             .Accessor("checked",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.checked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.checked");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.checked");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsChecked);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCommandElement.checked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.checked");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.checked");
                     self.Target.IsChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("command",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.command", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.command");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.command");
                     return self.Realm.WrapNodeValue(self.Target.Command);
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCommandElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("icon",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.icon", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.icon");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.icon");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Icon);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCommandElement.icon", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.icon");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.icon");
                     self.Target.Icon = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLCommandElement.icon"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCommandElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.label");
                     self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLCommandElement.label"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("radiogroup",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.radiogroup", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.radiogroup");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.radiogroup");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RadioGroup);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCommandElement.radiogroup", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.radiogroup");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.radiogroup");
                     self.Target.RadioGroup = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLCommandElement.radiogroup"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCommandElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlCommandElement>(thisObj, "HTMLCommandElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.type");
                     self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLCommandElement.type"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -1546,13 +1546,13 @@ internal static partial class DomInterfaces
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDataElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDataElement>(thisObj, "HTMLDataElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDataElement.value");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLDataElementValue.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDataElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDataElement>(thisObj, "HTMLDataElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLDataElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDataElement.value");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLDataElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -1564,8 +1564,8 @@ internal static partial class DomInterfaces
             .Accessor("options",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDataListElement.options", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDataListElement>(thisObj, "HTMLDataListElement.options");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlOptionElement>(self.Target.Options);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDataListElement.options");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Options);
                 }))
             .Build();
 
@@ -1577,13 +1577,13 @@ internal static partial class DomInterfaces
             .Accessor("open",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDetailsElement.open", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDetailsElement>(thisObj, "HTMLDetailsElement.open");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsOpen);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDetailsElement.open");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLDetailsElementOpen.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDetailsElement.open", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDetailsElement>(thisObj, "HTMLDetailsElement.open");
-                    self.Target.IsOpen = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDetailsElement.open");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLDetailsElementOpen.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -1595,44 +1595,44 @@ internal static partial class DomInterfaces
             .Method("close",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDialogElement.close", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.close");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.close");
                     self.Target.Close(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, null)!); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("open",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDialogElement.open", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.open");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Open);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.open");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLDialogElementOpen.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDialogElement.open", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.open");
-                    self.Target.Open = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.open");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLDialogElementOpen.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("returnValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDialogElement.returnValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.returnValue");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.returnValue");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ReturnValue);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDialogElement.returnValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.returnValue");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.returnValue");
                     self.Target.ReturnValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLDialogElement.returnValue"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("show",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDialogElement.show", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.show");
-                    self.Target.Show(global::Jint.Browser.Dom.DomBindings.NullableArgument<global::AngleSharp.Dom.IElement>(args, 0, "HTMLDialogElement.show")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.show");
+                    self.Target.Show(global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, "HTMLDialogElement.show", "Element")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("showModal",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDialogElement.showModal", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDialogElement>(thisObj, "HTMLDialogElement.showModal");
-                    self.Target.ShowModal(global::Jint.Browser.Dom.DomBindings.NullableArgument<global::AngleSharp.Dom.IElement>(args, 0, "HTMLDialogElement.showModal")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDialogElement.showModal");
+                    self.Target.ShowModal(global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, "HTMLDialogElement.showModal", "Element")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Build();
@@ -1645,12 +1645,12 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDivElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDivElement>(thisObj, "HTMLDivElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDivElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLDivElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLDivElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlDivElement>(thisObj, "HTMLDivElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDivElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLDivElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -1670,68 +1670,68 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLEmbedElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLEmbedElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLEmbedElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.height");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DisplayHeight);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.height");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLEmbedElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.height");
-                    self.Target.DisplayHeight = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLEmbedElement.height"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.height");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLEmbedElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.name");
                     return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLEmbedElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.name");
                     return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLEmbedElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.src");
                     return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLEmbedElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.src");
                     return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLEmbedElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLEmbedElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLEmbedElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLEmbedElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.width");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DisplayWidth);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLEmbedElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(thisObj, "HTMLEmbedElement.width");
-                    self.Target.DisplayWidth = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLEmbedElement.width"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLEmbedElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLEmbedElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -1743,73 +1743,73 @@ internal static partial class DomInterfaces
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFieldSetElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFieldSetElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFieldSetElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFieldSetElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("elements",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.elements", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.elements");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlElement>(self.Target.Elements);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.elements");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Elements);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFieldSetElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFieldSetElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFieldSetElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFieldSetElementName.Set(self.Realm, self.Target, args);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFieldSetElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFieldSetElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFieldSetElement>(thisObj, "HTMLFieldSetElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -1829,128 +1829,128 @@ internal static partial class DomInterfaces
             .Accessor("acceptCharset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.acceptCharset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.acceptCharset");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AcceptCharset);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.acceptCharset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAcceptCharset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.acceptCharset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.acceptCharset");
-                    self.Target.AcceptCharset = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.acceptCharset"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.acceptCharset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAcceptCharset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("action",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.action", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.action");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.action");
                     return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAction.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.action", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.action");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.action");
                     return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAction.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("autocomplete",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.autocomplete");
                     return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAutocomplete.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.autocomplete");
                     return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAutocomplete.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("elements",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.elements", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.elements");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlElement>(self.Target.Elements);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.elements");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Elements);
                 }))
             .Accessor("encoding",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.encoding", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.encoding");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.encoding");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Encoding);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.encoding", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.encoding");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.encoding");
                     self.Target.Encoding = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.encoding"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("enctype",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.enctype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.enctype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.enctype");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Enctype);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.enctype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.enctype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.enctype");
                     self.Target.Enctype = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.enctype"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Accessor("method",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.method", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.method");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.method");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Method);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.method", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.method");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.method");
                     self.Target.Method = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.method"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("noValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.noValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.noValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.NoValidate);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.noValidate");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementNoValidate.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.noValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.noValidate");
-                    self.Target.NoValidate = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.noValidate");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementNoValidate.Set(self.Realm, self.Target, args);
                 }))
             .Method("reportValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.reportValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.reportValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.reportValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ReportValidity());
                 }),
                 length: 0)
             .Method("requestAutocomplete",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.requestAutocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.requestAutocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.requestAutocomplete");
                     self.Target.RequestAutocomplete(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("requestSubmit",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.requestSubmit", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.requestSubmit");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.requestSubmit");
                     global::Jint.Browser.Events.FormSubmission.RequestSubmit(self.Realm, self.Target, args.Length > 0 ? args[0] : global::Jint.Native.JsValue.Undefined);
                     return global::Jint.Native.JsValue.Undefined;
                 }),
@@ -1958,7 +1958,7 @@ internal static partial class DomInterfaces
             .Method("reset",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.reset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.reset");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.reset");
                     global::Jint.Browser.Events.FormSubmission.Reset(self.Realm, self.Target);
                     return global::Jint.Native.JsValue.Undefined;
                 }),
@@ -1966,7 +1966,7 @@ internal static partial class DomInterfaces
             .Method("submit",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.submit", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.submit");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.submit");
                     global::Jint.Browser.Events.FormSubmission.SubmitWithoutEvent(self.Realm, self.Target, submitter: null);
                     return global::Jint.Native.JsValue.Undefined;
                 }),
@@ -1974,13 +1974,13 @@ internal static partial class DomInterfaces
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.target");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Target);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFormElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.target");
-                    self.Target.Target = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.target"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFormElement.target");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementTarget.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -1992,56 +1992,56 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHRElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHRElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("color",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHRElement.color", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.color");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.color");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementColor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHRElement.color", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.color");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.color");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("noShade",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHRElement.noShade", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.noShade");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.noShade");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementNoShade.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHRElement.noShade", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.noShade");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.noShade");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementNoShade.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("size",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHRElement.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.size");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.size");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementSize.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHRElement.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.size");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.size");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementSize.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHRElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHRElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHrElement>(thisObj, "HTMLHRElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHRElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHRElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -2061,12 +2061,12 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHeadingElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHeadingElement>(thisObj, "HTMLHeadingElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHeadingElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHeadingElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHeadingElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHeadingElement>(thisObj, "HTMLHeadingElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHeadingElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHeadingElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -2079,23 +2079,23 @@ internal static partial class DomInterfaces
             .Accessor("manifest",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHtmlElement.manifest", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHtmlElement>(thisObj, "HTMLHtmlElement.manifest");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHtmlElement.manifest");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Manifest);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHtmlElement.manifest", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHtmlElement>(thisObj, "HTMLHtmlElement.manifest");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHtmlElement.manifest");
                     self.Target.Manifest = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLHtmlElement.manifest"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("version",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHtmlElement.version", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHtmlElement>(thisObj, "HTMLHtmlElement.version");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHtmlElement.version");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHtmlElementVersion.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHtmlElement.version", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHtmlElement>(thisObj, "HTMLHtmlElement.version");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHtmlElement.version");
                     return global::Jint.Browser.Dom.DomReflected.HTMLHtmlElementVersion.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -2108,189 +2108,189 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("allowFullscreen",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.allowFullscreen", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.allowFullscreen");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsFullscreenAllowed);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.allowFullscreen");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementAllowFullscreen.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.allowFullscreen", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.allowFullscreen");
-                    self.Target.IsFullscreenAllowed = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.allowFullscreen");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementAllowFullscreen.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("allowPaymentRequest",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.allowPaymentRequest", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.allowPaymentRequest");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPaymentRequestAllowed);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.allowPaymentRequest");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementAllowPaymentRequest.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.allowPaymentRequest", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.allowPaymentRequest");
-                    self.Target.IsPaymentRequestAllowed = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.allowPaymentRequest");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementAllowPaymentRequest.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("contentDocument",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.contentDocument", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.contentDocument");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.contentDocument");
                     return global::Jint.Browser.Dom.DomFrameMembers.ContentDocument(self.Realm, self.Target);
                 }))
             .Accessor("contentWindow",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.contentWindow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.contentWindow");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.contentWindow");
                     return global::Jint.Browser.Dom.DomFrameMembers.ContentWindow(self.Realm, self.Target);
                 }))
             .Accessor("frameBorder",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.frameBorder", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.frameBorder");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.frameBorder");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementFrameBorder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.frameBorder", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.frameBorder");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.frameBorder");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementFrameBorder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("longDesc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.longDesc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.longDesc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.longDesc");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementLongDesc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.longDesc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.longDesc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.longDesc");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementLongDesc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("marginHeight",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.marginHeight", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.marginHeight");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.marginHeight");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementMarginHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.marginHeight", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.marginHeight");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.marginHeight");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementMarginHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("marginWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.marginWidth", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.marginWidth");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.marginWidth");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementMarginWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.marginWidth", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.marginWidth");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.marginWidth");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementMarginWidth.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLIFrameElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementReferrerPolicy.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementReferrerPolicy.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("sandbox",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.sandbox", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.sandbox");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "sandbox", self.Target.Sandbox);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.sandbox");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "sandbox");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.sandbox", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.sandbox");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.sandbox");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "sandbox", args);
                 }))
             .Accessor("scrolling",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.scrolling", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.scrolling");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.scrolling");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementScrolling.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.scrolling", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.scrolling");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.scrolling");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementScrolling.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("seamless",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.seamless", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.seamless");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSeamless);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.seamless");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementSeamless.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.seamless", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.seamless");
-                    self.Target.IsSeamless = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.seamless");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementSeamless.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.src");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.src");
-                    self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLIFrameElement.src"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("srcdoc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.srcdoc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.srcdoc");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ContentHtml);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.srcdoc");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementSrcdoc.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.srcdoc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.srcdoc");
-                    self.Target.ContentHtml = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLIFrameElement.srcdoc"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.srcdoc");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementSrcdoc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLIFrameElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -2303,241 +2303,241 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("alt",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.alt", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.alt");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AlternativeText);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.alt");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementAlt.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.alt", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.alt");
-                    self.Target.AlternativeText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLImageElement.alt"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.alt");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementAlt.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("border",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.border", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.border");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.border");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementBorder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.border", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.border");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.border");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementBorder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("complete",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.complete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.complete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.complete");
                     return self.Realm.Hooks.ImageComplete(self.Realm, self.Target);
                 }))
             .Accessor("crossOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementCrossOrigin.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementCrossOrigin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("currentSrc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.currentSrc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.currentSrc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.currentSrc");
                     return self.Realm.Hooks.ImageCurrentSrc(self.Realm, self.Target);
                 }))
             .Method("decode",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.decode", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.decode");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.decode");
                     return global::Jint.Browser.Media.ImageDecode.Decode(self.Realm, self.Target);
                 }),
                 length: 0)
             .Accessor("decoding",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.decoding", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.decoding");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.decoding");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementDecoding.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.decoding", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.decoding");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.decoding");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementDecoding.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.height");
                     return self.Realm.Hooks.ImageHeight(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.hspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.hspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.hspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementHspace.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.hspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.hspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.hspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementHspace.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("isMap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.isMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.isMap");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMap);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.isMap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementIsMap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.isMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.isMap");
-                    self.Target.IsMap = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.isMap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementIsMap.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("loading",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.loading", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.loading");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.loading");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLoading.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.loading", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.loading");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.loading");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLoading.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("longDesc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.longDesc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.longDesc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.longDesc");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLongDesc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.longDesc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.longDesc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.longDesc");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLongDesc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("lowsrc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.lowsrc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.lowsrc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.lowsrc");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLowsrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.lowsrc", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.lowsrc");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.lowsrc");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLowsrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.name");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.name");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("naturalHeight",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.naturalHeight", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.naturalHeight");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.naturalHeight");
                     return self.Realm.Hooks.ImageNaturalHeight(self.Realm, self.Target);
                 }))
             .Accessor("naturalWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.naturalWidth", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.naturalWidth");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.naturalWidth");
                     return self.Realm.Hooks.ImageNaturalWidth(self.Realm, self.Target);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementReferrerPolicy.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementReferrerPolicy.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("sizes",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.sizes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.sizes");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Sizes);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.sizes");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementSizes.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.sizes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.sizes");
-                    self.Target.Sizes = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLImageElement.sizes"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.sizes");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementSizes.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.src");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.src");
-                    self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLImageElement.src"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("srcset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.srcset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.srcset");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SourceSet);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.srcset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementSrcset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.srcset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.srcset");
-                    self.Target.SourceSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLImageElement.srcset"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.srcset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementSrcset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("useMap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.useMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.useMap");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UseMap);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.useMap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementUseMap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.useMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.useMap");
-                    self.Target.UseMap = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLImageElement.useMap"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.useMap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementUseMap.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("vspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.vspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.vspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.vspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementVspace.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.vspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.vspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.vspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementVspace.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.width");
                     return self.Realm.Hooks.ImageWidth(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLImageElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLImageElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLImageElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -2550,525 +2550,525 @@ internal static partial class DomInterfaces
             .Accessor("accept",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.accept", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.accept");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Accept);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.accept");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAccept.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.accept", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.accept");
-                    self.Target.Accept = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.accept"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.accept");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAccept.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("alt",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.alt", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.alt");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AlternativeText);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.alt");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAlt.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.alt", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.alt");
-                    self.Target.AlternativeText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.alt"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.alt");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAlt.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("autocomplete",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.autocomplete");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Autocomplete);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.autocomplete");
                     self.Target.Autocomplete = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.autocomplete"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.autofocus");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAutofocus.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.autofocus");
-                    self.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementAutofocus.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("checked",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.checked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.checked");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.checked");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsChecked);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.checked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.checked");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.checked");
                     self.Target.IsChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("defaultChecked",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.defaultChecked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.defaultChecked");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefaultChecked);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.defaultChecked");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementDefaultChecked.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.defaultChecked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.defaultChecked");
-                    self.Target.IsDefaultChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.defaultChecked");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementDefaultChecked.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("defaultValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.defaultValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.defaultValue");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.defaultValue");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.defaultValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.defaultValue");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.defaultValue");
                     self.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.defaultValue"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("dirName",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.dirName", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.dirName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DirectionName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.dirName");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementDirName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.dirName", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.dirName");
-                    self.Target.DirectionName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.dirName"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.dirName");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementDirName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("files",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.files", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.files");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.files");
                     return global::Jint.Browser.Dom.Files.FileTransferMembers.InputFiles(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.files", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.files");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.files");
                     return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputFiles(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("formAction",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.formAction", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formAction");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formAction");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormAction.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.formAction", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formAction");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formAction");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormAction.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formEncType",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.formEncType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formEncType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formEncType");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormEncType);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.formEncType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formEncType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formEncType");
                     self.Target.FormEncType = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.formEncType"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("formEnctype",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.formEnctype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formEnctype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formEnctype");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormEnctype.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.formEnctype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formEnctype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formEnctype");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormEnctype.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formMethod",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.formMethod", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formMethod");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formMethod");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormMethod.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.formMethod", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formMethod");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formMethod");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormMethod.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formNoValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.formNoValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formNoValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.FormNoValidate);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formNoValidate");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormNoValidate.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.formNoValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formNoValidate");
-                    self.Target.FormNoValidate = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formNoValidate");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormNoValidate.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formTarget",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.formTarget", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formTarget");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormTarget);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formTarget");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.formTarget", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.formTarget");
-                    self.Target.FormTarget = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.formTarget"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.formTarget");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormTarget.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("indeterminate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.indeterminate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.indeterminate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.indeterminate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsIndeterminate);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.indeterminate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.indeterminate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.indeterminate");
                     self.Target.IsIndeterminate = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("list",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.list", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.list");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.list");
                     return self.Realm.WrapNodeValue(self.Target.List);
                 }))
             .Accessor("max",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.max", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.max");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Maximum);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.max");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMax.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.max", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.max");
-                    self.Target.Maximum = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.max"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.max");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMax.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("maxLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.maxLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.maxLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.maxLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMaxLength.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.maxLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.maxLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.maxLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMaxLength.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("min",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.min", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.min");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Minimum);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.min");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMin.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.min", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.min");
-                    self.Target.Minimum = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.min"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.min");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("minLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.minLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.minLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.minLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMinLength.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.minLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.minLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.minLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMinLength.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("multiple",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.multiple", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.multiple");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMultiple);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.multiple");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMultiple.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.multiple", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.multiple");
-                    self.Target.IsMultiple = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.multiple");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementMultiple.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("pattern",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.pattern", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.pattern");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Pattern);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.pattern");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementPattern.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.pattern", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.pattern");
-                    self.Target.Pattern = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.pattern"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.pattern");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementPattern.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("placeholder",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.placeholder", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.placeholder");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Placeholder);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.placeholder");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementPlaceholder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.placeholder", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.placeholder");
-                    self.Target.Placeholder = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.placeholder"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.placeholder");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementPlaceholder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("readOnly",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.readOnly", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.readOnly");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsReadOnly);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.readOnly");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementReadOnly.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.readOnly", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.readOnly");
-                    self.Target.IsReadOnly = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.readOnly");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementReadOnly.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("required",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.required", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.required");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRequired);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.required");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementRequired.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.required", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.required");
-                    self.Target.IsRequired = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.required");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementRequired.Set(self.Realm, self.Target, args);
                 }))
             .Method("select",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.select", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.select");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.select");
                     self.Target.SelectAll(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("selectionDirection",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.selectionDirection", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.selectionDirection");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionDirection");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectionDirection);
                 }))
             .Accessor("selectionEnd",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.selectionEnd", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.selectionEnd");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionEnd");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionEnd);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.selectionEnd", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.selectionEnd");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionEnd");
                     self.Target.SelectionEnd = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLInputElement.selectionEnd"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("selectionStart",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.selectionStart", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.selectionStart");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionStart");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionStart);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.selectionStart", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.selectionStart");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionStart");
                     self.Target.SelectionStart = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLInputElement.selectionStart"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setSelectionRange",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.setSelectionRange", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.setSelectionRange");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.setSelectionRange");
                     self.Target.Select(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLInputElement.setSelectionRange"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "HTMLInputElement.setSelectionRange"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Accessor("size",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.size");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.size");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementSize.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.size");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.size");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementSize.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.src");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.src");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("step",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.step", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.step");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Step);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.step");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementStep.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.step", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.step");
-                    self.Target.Step = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.step"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.step");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLInputElementStep.Set(self.Realm, self.Target, args);
                 }))
             .Method("stepDown",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.stepDown", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.stepDown");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.stepDown");
                     self.Target.StepDown(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("stepUp",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.stepUp", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.stepUp");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.stepUp");
                     self.Target.StepUp(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.type");
                     return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputType(self.Realm, self.Target, args);
                 }))
             .Accessor("useMap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.useMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.useMap");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.useMap");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementUseMap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.useMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.useMap");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.useMap");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementUseMap.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.value");
                     return global::Jint.Browser.Dom.Files.FileTransferMembers.InputValue(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.value");
                     return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputValue(self.Realm, self.Target, args);
                 }))
             .Accessor("valueAsDate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.valueAsDate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.valueAsDate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsDate");
                     return global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.ValueAsDate);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.valueAsDate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.valueAsDate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsDate");
                     self.Target.ValueAsDate = global::Jint.Browser.Dom.DomConvert.NullableTimestamp(args, 0); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("valueAsNumber",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.valueAsNumber", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.valueAsNumber");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsNumber");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ValueAsNumber);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.valueAsNumber", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.valueAsNumber");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsNumber");
                     self.Target.ValueAsNumber = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLInputElement.valueAsNumber"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLInputElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -3081,106 +3081,106 @@ internal static partial class DomInterfaces
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.autofocus");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.autofocus");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.autofocus");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.autofocus");
                     self.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("challenge",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.challenge", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.challenge");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.challenge");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Challenge);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.challenge", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.challenge");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.challenge");
                     self.Target.Challenge = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLKeygenElement.challenge"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("keytype",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.keytype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.keytype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.keytype");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.KeyEncryption);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.keytype", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.keytype");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.keytype");
                     self.Target.KeyEncryption = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLKeygenElement.keytype"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.labels");
                     return self.Realm.Wrap(self.Target.Labels);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.name");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.name");
                     self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLKeygenElement.name"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLKeygenElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlKeygenElement>(thisObj, "HTMLKeygenElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -3193,23 +3193,23 @@ internal static partial class DomInterfaces
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLIElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlListItemElement>(thisObj, "HTMLLIElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLIElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLIElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLIElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlListItemElement>(thisObj, "HTMLLIElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLIElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLIElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLIElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlListItemElement>(thisObj, "HTMLLIElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLIElement.value");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLIElementValue.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLIElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlListItemElement>(thisObj, "HTMLLIElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLIElement.value");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLIElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -3222,25 +3222,25 @@ internal static partial class DomInterfaces
             .Accessor("control",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLabelElement.control", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLabelElement>(thisObj, "HTMLLabelElement.control");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLabelElement.control");
                     return self.Realm.Hooks.LabelControl(self.Realm, self.Target);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLabelElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLabelElement>(thisObj, "HTMLLabelElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLabelElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("htmlFor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLabelElement.htmlFor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLabelElement>(thisObj, "HTMLLabelElement.htmlFor");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HtmlFor);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLabelElement.htmlFor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLabelElementHtmlFor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLabelElement.htmlFor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLabelElement>(thisObj, "HTMLLabelElement.htmlFor");
-                    self.Target.HtmlFor = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLabelElement.htmlFor"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLabelElement.htmlFor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLabelElementHtmlFor.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -3252,18 +3252,18 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLegendElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLegendElement>(thisObj, "HTMLLegendElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLegendElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLegendElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLegendElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLegendElement>(thisObj, "HTMLLegendElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLegendElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLegendElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLegendElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLegendElement>(thisObj, "HTMLLegendElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLegendElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Build();
@@ -3276,179 +3276,179 @@ internal static partial class DomInterfaces
             .Accessor("as",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.as", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.as");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.as");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementAs.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.as", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.as");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.as");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementAs.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("charset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.charset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.charset");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.charset");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementCharset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.charset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.charset");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.charset");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementCharset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("crossOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementCrossOrigin.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementCrossOrigin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.href");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.href");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementHref.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.href");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.href");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementHref.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hreflang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.hreflang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.hreflang");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.TargetLanguage);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.hreflang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementHreflang.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.hreflang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.hreflang");
-                    self.Target.TargetLanguage = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.hreflang"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.hreflang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementHreflang.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("import",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.import", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.import");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.import");
                     return self.Realm.WrapNodeValue(self.Target.Import);
                 }))
             .Accessor("integrity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.integrity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.integrity");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Integrity);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.integrity");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementIntegrity.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.integrity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.integrity");
-                    self.Target.Integrity = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.integrity"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.integrity");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementIntegrity.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.media");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Media);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.media");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementMedia.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.media");
-                    self.Target.Media = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.media"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.media");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementMedia.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementReferrerPolicy.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.referrerPolicy", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.referrerPolicy");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.referrerPolicy");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementReferrerPolicy.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rel",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.rel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.rel");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Relation);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.rel");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementRel.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.rel", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.rel");
-                    self.Target.Relation = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.rel"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.rel");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementRel.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("relList",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.relList", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.relList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel", self.Target.RelationList);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.relList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.relList", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.relList");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.relList");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
                 }))
             .Accessor("rev",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.rev", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.rev");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ReverseRelation);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.rev");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementRev.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.rev", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.rev");
-                    self.Target.ReverseRelation = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.rev"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.rev");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementRev.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("sheet",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.sheet", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.sheet");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.sheet");
                     return self.Realm.Wrap(self.Target.Sheet);
                 }))
             .Accessor("sizes",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.sizes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.sizes");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "sizes", self.Target.Sizes);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.sizes");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "sizes");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.sizes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.sizes");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.sizes");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "sizes", args);
                 }))
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.target");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.target");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementTarget.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.target");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.target");
                     return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementTarget.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -3460,25 +3460,25 @@ internal static partial class DomInterfaces
             .Accessor("areas",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.areas", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMapElement>(thisObj, "HTMLMapElement.areas");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlAreaElement>(self.Target.Areas);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMapElement.areas");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Areas);
                 }))
             .Accessor("images",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.images", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMapElement>(thisObj, "HTMLMapElement.images");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlImageElement>(self.Target.Images);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMapElement.images");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Images);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMapElement>(thisObj, "HTMLMapElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMapElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMapElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMapElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMapElement>(thisObj, "HTMLMapElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMapElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMapElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMapElementName.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -3490,100 +3490,100 @@ internal static partial class DomInterfaces
             .Accessor("bgColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementBgColor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementBgColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.hspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.hspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.hspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHspace.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.hspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.hspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.hspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHspace.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("loop",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.loop", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.loop");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.loop");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Loop);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.loop", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.loop");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.loop");
                     self.Target.Loop = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLMarqueeElement.loop"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("scrollAmount",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollAmount", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollAmount");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.scrollAmount");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollAmount.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.scrollAmount", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollAmount");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.scrollAmount");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollAmount.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("scrollDelay",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollDelay", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollDelay");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.scrollDelay");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollDelay.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.scrollDelay", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollDelay");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.scrollDelay");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollDelay.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("trueSpeed",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.trueSpeed", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.trueSpeed");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.trueSpeed");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementTrueSpeed.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.trueSpeed", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.trueSpeed");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.trueSpeed");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementTrueSpeed.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("vspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.vspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.vspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.vspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementVspace.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.vspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.vspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.vspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementVspace.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -3596,34 +3596,34 @@ internal static partial class DomInterfaces
             .Accessor("compact",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuElement.compact", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuElement>(thisObj, "HTMLMenuElement.compact");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuElement.compact");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMenuElementCompact.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuElement.compact", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuElement>(thisObj, "HTMLMenuElement.compact");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuElement.compact");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMenuElementCompact.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuElement>(thisObj, "HTMLMenuElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuElement.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuElement>(thisObj, "HTMLMenuElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuElement.label");
                     self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMenuElement.label"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuElement>(thisObj, "HTMLMenuElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuElement>(thisObj, "HTMLMenuElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuElement.type");
                     self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMenuElement.type"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -3636,84 +3636,84 @@ internal static partial class DomInterfaces
             .Accessor("checked",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.checked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.checked");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.checked");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsChecked);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.checked", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.checked");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.checked");
                     self.Target.IsChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("command",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.command", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.command");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.command");
                     return self.Realm.WrapNodeValue(self.Target.Command);
                 }))
             .Accessor("default",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.default", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.default");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.default");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefault);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.default", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.default");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.default");
                     self.Target.IsDefault = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("icon",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.icon", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.icon");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.icon");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Icon);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.icon", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.icon");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.icon");
                     self.Target.Icon = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMenuItemElement.icon"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.label");
                     self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMenuItemElement.label"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("radiogroup",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.radiogroup", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.radiogroup");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.radiogroup");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RadioGroup);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.radiogroup", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.radiogroup");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.radiogroup");
                     self.Target.RadioGroup = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMenuItemElement.radiogroup"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMenuItemElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMenuItemElement>(thisObj, "HTMLMenuItemElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.type");
                     self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMenuItemElement.type"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -3726,56 +3726,56 @@ internal static partial class DomInterfaces
             .Accessor("content",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMetaElement.content", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.content");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Content);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.content");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementContent.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMetaElement.content", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.content");
-                    self.Target.Content = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMetaElement.content"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.content");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementContent.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("httpEquiv",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMetaElement.httpEquiv", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.httpEquiv");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HttpEquivalent);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.httpEquiv");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementHttpEquiv.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMetaElement.httpEquiv", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.httpEquiv");
-                    self.Target.HttpEquivalent = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMetaElement.httpEquiv"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.httpEquiv");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementHttpEquiv.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMetaElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.media");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.media");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementMedia.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMetaElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.media");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.media");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementMedia.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMetaElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMetaElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLMetaElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("scheme",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMetaElement.scheme", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.scheme");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.scheme");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementScheme.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMetaElement.scheme", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMetaElement>(thisObj, "HTMLMetaElement.scheme");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMetaElement.scheme");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMetaElementScheme.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -3788,73 +3788,73 @@ internal static partial class DomInterfaces
             .Accessor("high",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.high", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.high");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.high");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.High);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.high", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.high");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.high");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementHigh.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("low",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.low", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.low");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.low");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Low);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.low", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.low");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.low");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementLow.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("max",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.max", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.max");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.max");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Maximum);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.max", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.max");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.max");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementMax.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("min",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.min", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.min");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.min");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Minimum);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.min", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.min");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.min");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementMin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("optimum",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.optimum", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.optimum");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.optimum");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Optimum);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.optimum", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.optimum");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.optimum");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementOptimum.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.value");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Value);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.value");
                     return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -3867,35 +3867,35 @@ internal static partial class DomInterfaces
             .Accessor("cite",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLModElement.cite", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.cite");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLModElement.cite");
                     return global::Jint.Browser.Dom.DomReflected.HTMLModElementCite.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLModElement.cite", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.cite");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLModElement.cite");
                     return global::Jint.Browser.Dom.DomReflected.HTMLModElementCite.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("dateTime",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLModElement.dateTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.dateTime");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLModElement.dateTime");
                     return global::Jint.Browser.Dom.DomReflected.HTMLModElementDateTime.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLModElement.dateTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.dateTime");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLModElement.dateTime");
                     return global::Jint.Browser.Dom.DomReflected.HTMLModElementDateTime.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("datetime",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLModElement.datetime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.datetime");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DateTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLModElement.datetime");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLModElementDatetime.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLModElement.datetime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.datetime");
-                    self.Target.DateTime = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLModElement.datetime"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLModElement.datetime");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLModElementDatetime.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -3907,45 +3907,45 @@ internal static partial class DomInterfaces
             .Accessor("compact",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOListElement.compact", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.compact");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.compact");
                     return global::Jint.Browser.Dom.DomReflected.HTMLOListElementCompact.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOListElement.compact", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.compact");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.compact");
                     return global::Jint.Browser.Dom.DomReflected.HTMLOListElementCompact.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("reversed",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOListElement.reversed", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.reversed");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsReversed);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.reversed");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOListElementReversed.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOListElement.reversed", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.reversed");
-                    self.Target.IsReversed = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.reversed");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOListElementReversed.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("start",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOListElement.start", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.start");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.start");
                     return global::Jint.Browser.Dom.DomReflected.HTMLOListElementStart.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOListElement.start", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.start");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.start");
                     return global::Jint.Browser.Dom.DomReflected.HTMLOListElementStart.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOListElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOListElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOrderedListElement>(thisObj, "HTMLOListElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOListElement.type");
                     self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOListElement.type"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -3958,238 +3958,238 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("archive",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.archive", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.archive");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.archive");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementArchive.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.archive", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.archive");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.archive");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementArchive.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("border",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.border", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.border");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.border");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementBorder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.border", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.border");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.border");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementBorder.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("code",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.code", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.code");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.code");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementCode.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.code", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.code");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.code");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementCode.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("codeBase",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.codeBase", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.codeBase");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.codeBase");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementCodeBase.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.codeBase", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.codeBase");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.codeBase");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementCodeBase.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("codeType",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.codeType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.codeType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.codeType");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementCodeType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.codeType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.codeType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.codeType");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementCodeType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("contentDocument",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.contentDocument", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.contentDocument");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.contentDocument");
                     return self.Realm.WrapNodeValue(self.Target.ContentDocument);
                 }))
             .Accessor("contentWindow",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.contentWindow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.contentWindow");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.contentWindow");
                     return global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.ContentWindow);
                 }))
             .Accessor("data",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.data", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.data");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.data");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementData.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.data", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.data");
-                    self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.data"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.data");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementData.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("declare",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.declare", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.declare");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.declare");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementDeclare.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.declare", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.declare");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.declare");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementDeclare.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.hspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.hspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.hspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementHspace.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.hspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.hspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.hspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementHspace.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementName.Set(self.Realm, self.Target, args);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("standby",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.standby", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.standby");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.standby");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementStandby.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.standby", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.standby");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.standby");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementStandby.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("typeMustMatch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.typeMustMatch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.typeMustMatch");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.TypeMustMatch);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.typeMustMatch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementTypeMustMatch.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.typeMustMatch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.typeMustMatch");
-                    self.Target.TypeMustMatch = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.typeMustMatch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementTypeMustMatch.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("useMap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.useMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.useMap");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UseMap);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.useMap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementUseMap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.useMap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.useMap");
-                    self.Target.UseMap = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.useMap"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.useMap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementUseMap.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("vspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.vspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.vspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.vspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementVspace.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.vspace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.vspace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.vspace");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementVspace.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLObjectElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -4202,24 +4202,24 @@ internal static partial class DomInterfaces
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptGroupElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsGroupElement>(thisObj, "HTMLOptGroupElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptGroupElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOptGroupElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptGroupElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsGroupElement>(thisObj, "HTMLOptGroupElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptGroupElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOptGroupElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptGroupElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsGroupElement>(thisObj, "HTMLOptGroupElement.label");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptGroupElement.label");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOptGroupElementLabel.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptGroupElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsGroupElement>(thisObj, "HTMLOptGroupElement.label");
-                    self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptGroupElement.label"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptGroupElement.label");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOptGroupElementLabel.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -4231,79 +4231,79 @@ internal static partial class DomInterfaces
             .Accessor("defaultSelected",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.defaultSelected", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.defaultSelected");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.defaultSelected");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefaultSelected);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.defaultSelected", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.defaultSelected");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.defaultSelected");
                     self.Target.IsDefaultSelected = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOptionElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOptionElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("index",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.index", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.index");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.index");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.label");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.label");
                     self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.label"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("selected",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.selected", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.selected");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.selected");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSelected);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.selected", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.selected");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.selected");
                     self.Realm.Hooks.SetOptionSelected(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("text",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.text");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.text");
                     self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.text"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.value");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionElement>(thisObj, "HTMLOptionElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.value");
                     self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.value"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -4348,95 +4348,95 @@ internal static partial class DomInterfaces
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("defaultValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.defaultValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.defaultValue");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.defaultValue");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.defaultValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.defaultValue");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.defaultValue");
                     self.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.defaultValue"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("htmlFor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.htmlFor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.htmlFor");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "for", self.Target.HtmlFor);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.htmlFor");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "for");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.htmlFor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.htmlFor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.htmlFor");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "for", args);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOutputElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLOutputElementName.Set(self.Realm, self.Target, args);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.value");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.value");
                     self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.value"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -4449,12 +4449,12 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLParagraphElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParagraphElement>(thisObj, "HTMLParagraphElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParagraphElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLParagraphElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLParagraphElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParagraphElement>(thisObj, "HTMLParagraphElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParagraphElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLParagraphElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -4467,45 +4467,45 @@ internal static partial class DomInterfaces
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLParamElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLParamElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLParamElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLParamElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLParamElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLParamElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLParamElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLParamElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLParamElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLParamElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.value");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLParamElementValue.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLParamElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLParamElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.value");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLParamElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("valueType",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLParamElement.valueType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.valueType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.valueType");
                     return global::Jint.Browser.Dom.DomReflected.HTMLParamElementValueType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLParamElement.valueType", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlParamElement>(thisObj, "HTMLParamElement.valueType");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLParamElement.valueType");
                     return global::Jint.Browser.Dom.DomReflected.HTMLParamElementValueType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -4525,12 +4525,12 @@ internal static partial class DomInterfaces
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLPreElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlPreElement>(thisObj, "HTMLPreElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLPreElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLPreElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLPreElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlPreElement>(thisObj, "HTMLPreElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLPreElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLPreElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -4543,35 +4543,35 @@ internal static partial class DomInterfaces
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("max",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.max", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.max");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.max");
                     return global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLProgressElement.max", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.max");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.max");
                     return global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("position",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.position", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.position");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.position");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Position);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.value");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Value);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLProgressElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.value");
                     self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLProgressElement.value"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -4584,12 +4584,12 @@ internal static partial class DomInterfaces
             .Accessor("cite",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLQuoteElement.cite", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlQuoteElement>(thisObj, "HTMLQuoteElement.cite");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLQuoteElement.cite");
                     return global::Jint.Browser.Dom.DomReflected.HTMLQuoteElementCite.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLQuoteElement.cite", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlQuoteElement>(thisObj, "HTMLQuoteElement.cite");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLQuoteElement.cite");
                     return global::Jint.Browser.Dom.DomReflected.HTMLQuoteElementCite.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -4602,123 +4602,125 @@ internal static partial class DomInterfaces
             .Accessor("async",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.async", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.async");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsAsync);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.async");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.Script!.ForceAsync || self.Target.GetAttributeNode("async") is not null);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.async", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.async");
-                    self.Target.IsAsync = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.async");
+                    self.Target.GetHtmlState()!.Script!.ForceAsync = false;
+                    if (global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)) self.Target.SetAttribute("async", ""); else self.Target.RemoveAttribute("async");
+                    return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("charset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.charset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.charset");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CharacterSet);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.charset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCharset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.charset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.charset");
-                    self.Target.CharacterSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.charset"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.charset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCharset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("crossOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCrossOrigin.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.crossOrigin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.crossOrigin");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.crossOrigin");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCrossOrigin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("defer",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.defer", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.defer");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDeferred);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.defer");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementDefer.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.defer", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.defer");
-                    self.Target.IsDeferred = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.defer");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementDefer.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("event",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.event", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.event");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.event");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementEvent.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.event", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.event");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.event");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementEvent.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("htmlFor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.htmlFor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.htmlFor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.htmlFor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementHtmlFor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.htmlFor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.htmlFor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.htmlFor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementHtmlFor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("integrity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.integrity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.integrity");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Integrity);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.integrity");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementIntegrity.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.integrity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.integrity");
-                    self.Target.Integrity = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.integrity"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.integrity");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementIntegrity.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("noModule",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.noModule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.noModule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.noModule");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementNoModule.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.noModule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.noModule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.noModule");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementNoModule.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.src");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.src");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.src");
                     return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("text",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.text");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.text");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomNodeMembers.TextContent((global::Jint.Browser.Dom.DomNodeObject) thisObj) ?? "");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.text");
-                    self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.text"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.text");
+                    return global::Jint.Browser.Dom.DomNodeMembers.SetTextContent((global::Jint.Browser.Dom.DomNodeObject) thisObj, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.text"));
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -4730,183 +4732,183 @@ internal static partial class DomInterfaces
             .Method("add",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.add", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.add");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.add");
                     return global::Jint.Browser.Dom.DomUnionMembers.SelectAdd(self, args);
                 }),
                 length: 1)
             .Accessor("autocomplete",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.autocomplete");
                     return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementAutocomplete.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.autocomplete");
                     return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementAutocomplete.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.autofocus");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementAutofocus.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.autofocus");
-                    self.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementAutofocus.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Accessor("multiple",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.multiple", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.multiple");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMultiple);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.multiple");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementMultiple.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.multiple", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.multiple");
-                    self.Target.IsMultiple = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.multiple");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementMultiple.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSelectElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("options",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.options", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.options");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlOptionElement>(self.Target.Options);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.options");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Options);
                 }))
             .Method("remove",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.remove", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.remove");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.remove");
                     self.Target.RemoveOptionAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLSelectElement.remove")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("required",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.required", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.required");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRequired);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.required");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementRequired.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.required", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.required");
-                    self.Target.IsRequired = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.required");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementRequired.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("selectedIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.selectedIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.selectedIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.selectedIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.selectedIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.selectedIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.selectedIndex");
                     self.Target.Options.SelectedIndex = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLSelectElement.selectedIndex");
                     return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("selectedOptions",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.selectedOptions", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.selectedOptions");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlOptionElement>(self.Target.SelectedOptions);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.selectedOptions");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.SelectedOptions);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSelectElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("size",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.size");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.size");
                     return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementSize.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.size");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.size");
                     return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementSize.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.value");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.value");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.value");
                     self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSelectElement.value"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Build();
@@ -4919,34 +4921,34 @@ internal static partial class DomInterfaces
             .Method("assignedElements",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSlotElement.assignedElements", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.assignedElements");
-                    return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSlotElement.assignedElements");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("assignedNodes",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSlotElement.assignedNodes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.assignedNodes");
-                    return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedNodes(self.Realm, self.Target);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSlotElement.assignedNodes");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedNodes(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("getDistributedNodes",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSlotElement.getDistributedNodes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.getDistributedNodes");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSlotElement.getDistributedNodes");
                     return global::Jint.Browser.Dom.DomConvert.NodeSequence(self.Realm, self.Target.GetDistributedNodes());
                 }),
                 length: 0)
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSlotElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSlotElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSlotElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSlotElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSlotElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSlotElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSlotElementName.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -4958,57 +4960,57 @@ internal static partial class DomInterfaces
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSourceElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.media");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Media);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.media");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementMedia.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSourceElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.media");
-                    self.Target.Media = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSourceElement.media"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.media");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementMedia.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("sizes",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSourceElement.sizes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.sizes");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Sizes);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.sizes");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementSizes.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSourceElement.sizes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.sizes");
-                    self.Target.Sizes = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSourceElement.sizes"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.sizes");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementSizes.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSourceElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.src");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSourceElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.src");
-                    self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSourceElement.src"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("srcset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSourceElement.srcset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.srcset");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SourceSet);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.srcset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementSrcset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSourceElement.srcset", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.srcset");
-                    self.Target.SourceSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSourceElement.srcset"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.srcset");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementSrcset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSourceElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSourceElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSourceElement>(thisObj, "HTMLSourceElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSourceElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSourceElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSourceElementType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -5027,52 +5029,52 @@ internal static partial class DomInterfaces
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLStyleElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.media");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Media);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.media");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLStyleElementMedia.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLStyleElement.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.media");
-                    self.Target.Media = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLStyleElement.media"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.media");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLStyleElementMedia.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("scoped",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.scoped", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.scoped");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsScoped);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.scoped");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLStyleElementScoped.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLStyleElement.scoped", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.scoped");
-                    self.Target.IsScoped = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.scoped");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLStyleElementScoped.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("sheet",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.sheet", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.sheet");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.sheet");
                     return self.Realm.Wrap(self.Target.Sheet);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLStyleElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLStyleElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlStyleElement>(thisObj, "HTMLStyleElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLStyleElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.type");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLStyleElementType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -5084,12 +5086,12 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCaptionElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCaptionElement>(thisObj, "HTMLTableCaptionElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCaptionElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCaptionElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCaptionElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCaptionElement>(thisObj, "HTMLTableCaptionElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCaptionElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCaptionElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -5102,161 +5104,161 @@ internal static partial class DomInterfaces
             .Accessor("abbr",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.abbr", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.abbr");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.abbr");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAbbr.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.abbr", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.abbr");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.abbr");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAbbr.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("axis",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.axis", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.axis");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.axis");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAxis.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.axis", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.axis");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.axis");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAxis.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("bgColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementBgColor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementBgColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("cellIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.cellIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.cellIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.cellIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
                 }))
             .Accessor("ch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementCh.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementCh.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("chOff",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementChOff.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementChOff.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("colSpan",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.colSpan", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.colSpan");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.colSpan");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementColSpan.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.colSpan", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.colSpan");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.colSpan");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementColSpan.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("headers",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.headers", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.headers");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.headers");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeaders.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.headers", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.headers");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.headers");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeaders.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("noWrap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.noWrap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.noWrap");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.noWrap");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementNoWrap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.noWrap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.noWrap");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.noWrap");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementNoWrap.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rowSpan",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.rowSpan", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.rowSpan");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.rowSpan");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementRowSpan.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.rowSpan", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.rowSpan");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.rowSpan");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementRowSpan.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("scope",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.scope", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.scope");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.scope");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementScope.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.scope", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.scope");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.scope");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementScope.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("vAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementVAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementVAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableCellElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -5269,67 +5271,67 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableColElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("ch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementCh.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableColElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementCh.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("chOff",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementChOff.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableColElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementChOff.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("span",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.span", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.span");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.span");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementSpan.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableColElement.span", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.span");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.span");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementSpan.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("vAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementVAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableColElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementVAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableColElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableColElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -5342,208 +5344,208 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("bgColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBgColor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBgColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("border",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.border", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.border");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.border");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBorder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.border", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.border");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.border");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBorder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("caption",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.caption", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.caption");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.caption");
                     return self.Realm.WrapNodeValue(self.Target.Caption);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.caption", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.caption");
-                    self.Target.Caption = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlTableCaptionElement>(args, 0, "HTMLTableElement.caption"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.caption");
+                    self.Target.Caption = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.caption", "HTMLTableCaptionElement"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("cellPadding",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellPadding", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellPadding");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.cellPadding");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellPadding.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.cellPadding", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellPadding");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.cellPadding");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellPadding.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("cellSpacing",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellSpacing", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellSpacing");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.cellSpacing");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellSpacing.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.cellSpacing", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellSpacing");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.cellSpacing");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellSpacing.Set(self.Realm, self.Target, args);
                 }))
             .Method("createCaption",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createCaption", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.createCaption");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createCaption");
                     return self.Realm.WrapNodeValue(self.Target.CreateCaption());
                 }),
                 length: 0)
             .Method("createTBody",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createTBody", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.createTBody");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createTBody");
                     return self.Realm.WrapNodeValue(self.Target.CreateBody());
                 }),
                 length: 0)
             .Method("createTFoot",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createTFoot", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.createTFoot");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createTFoot");
                     return self.Realm.WrapNodeValue(self.Target.CreateFoot());
                 }),
                 length: 0)
             .Method("createTHead",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createTHead", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.createTHead");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createTHead");
                     return self.Realm.WrapNodeValue(self.Target.CreateHead());
                 }),
                 length: 0)
             .Method("deleteCaption",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteCaption", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.deleteCaption");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteCaption");
                     self.Target.DeleteCaption(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("deleteRow",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteRow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.deleteRow");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteRow");
                     self.Target.RemoveRowAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableElement.deleteRow")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("deleteTFoot",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteTFoot", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.deleteTFoot");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteTFoot");
                     self.Target.DeleteFoot(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("deleteTHead",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteTHead", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.deleteTHead");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteTHead");
                     self.Target.DeleteHead(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("frame",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.frame", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.frame");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.frame");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementFrame.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.frame", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.frame");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.frame");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementFrame.Set(self.Realm, self.Target, args);
                 }))
             .Method("insertRow",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.insertRow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.insertRow");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.insertRow");
                     return self.Realm.WrapNodeValue(self.Target.InsertRowAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1)));
                 }),
                 length: 0)
             .Accessor("rows",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.rows", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.rows");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(self.Target.Rows);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.rows");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Rows);
                 }))
             .Accessor("rules",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.rules", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.rules");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.rules");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementRules.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.rules", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.rules");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.rules");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementRules.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("summary",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.summary", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.summary");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.summary");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementSummary.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.summary", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.summary");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.summary");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementSummary.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("tBodies",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tBodies", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.tBodies");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(self.Target.Bodies);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tBodies");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Bodies);
                 }))
             .Accessor("tFoot",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tFoot", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.tFoot");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tFoot");
                     return self.Realm.WrapNodeValue(self.Target.Foot);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.tFoot", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.tFoot");
-                    self.Target.Foot = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(args, 0, "HTMLTableElement.tFoot"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tFoot");
+                    self.Target.Foot = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.tFoot", "HTMLTableSectionElement"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("tHead",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tHead", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.tHead");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tHead");
                     return self.Realm.WrapNodeValue(self.Target.Head);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.tHead", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.tHead");
-                    self.Target.Head = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(args, 0, "HTMLTableElement.tHead"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tHead");
+                    self.Target.Head = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.tHead", "HTMLTableSectionElement"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -5556,88 +5558,88 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("bgColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementBgColor.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.bgColor", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.bgColor");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementBgColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("cells",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.cells", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.cells");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(self.Target.Cells);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.cells");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Cells);
                 }))
             .Accessor("ch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementCh.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementCh.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("chOff",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementChOff.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementChOff.Set(self.Realm, self.Target, args);
                 }))
             .Method("deleteCell",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.deleteCell", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.deleteCell");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.deleteCell");
                     self.Target.RemoveCellAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableRowElement.deleteCell")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("insertCell",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.insertCell", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.insertCell");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.insertCell");
                     return self.Realm.WrapNodeValue(self.Target.InsertCellAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), (global::AngleSharp.Html.Dom.TableCellKind) global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));
                 }),
                 length: 0)
             .Accessor("rowIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.rowIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.rowIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.rowIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
                 }))
             .Accessor("sectionRowIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.sectionRowIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.sectionRowIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.sectionRowIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.IndexInSection);
                 }))
             .Accessor("vAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementVAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementVAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -5650,65 +5652,65 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.align");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.align");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementAlign.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("ch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementCh.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.ch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.ch");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.ch");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementCh.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("chOff",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementChOff.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.chOff", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.chOff");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.chOff");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementChOff.Set(self.Realm, self.Target, args);
                 }))
             .Method("deleteRow",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.deleteRow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.deleteRow");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.deleteRow");
                     self.Target.RemoveRowAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableSectionElement.deleteRow")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("insertRow",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.insertRow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.insertRow");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.insertRow");
                     return self.Realm.WrapNodeValue(self.Target.InsertRowAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1)));
                 }),
                 length: 0)
             .Accessor("rows",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.rows", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.rows");
-                    return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(self.Target.Rows);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.rows");
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Rows);
                 }))
             .Accessor("vAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementVAlign.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.vAlign", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.vAlign");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.vAlign");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementVAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -5721,7 +5723,7 @@ internal static partial class DomInterfaces
             .Accessor("content",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTemplateElement.content", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTemplateElement>(thisObj, "HTMLTemplateElement.content");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTemplateElement.content");
                     return self.Realm.WrapNodeValue(self.Target.Content);
                 }))
             .Build();
@@ -5734,265 +5736,265 @@ internal static partial class DomInterfaces
             .Accessor("autocomplete",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.autocomplete");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutocomplete.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.autocomplete", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.autocomplete");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.autocomplete");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutocomplete.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.autofocus");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutofocus.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.autofocus", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.autofocus");
-                    self.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.autofocus");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutofocus.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.checkValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.checkValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.checkValidity");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
                 }),
                 length: 0)
             .Accessor("cols",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.cols", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.cols");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.cols");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementCols.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.cols", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.cols");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.cols");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementCols.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("defaultValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.defaultValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.defaultValue");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.defaultValue");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.DefaultValue(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.defaultValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.defaultValue");
-                    self.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.defaultValue"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.defaultValue");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetValue(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.defaultValue"), defaultValue: true);
                 }))
             .Accessor("dirName",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.dirName", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.dirName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DirectionName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.dirName");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDirName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.dirName", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.dirName");
-                    self.Target.DirectionName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.dirName"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.dirName");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDirName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.disabled");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.form", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.form");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.form");
                     return self.Realm.Hooks.FormOwner(self.Realm, self.Target);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.labels", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.labels");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.labels");
                     return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("maxLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.maxLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.maxLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.maxLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMaxLength.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.maxLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.maxLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.maxLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMaxLength.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("minLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.minLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.minLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.minLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMinLength.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.minLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.minLength");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.minLength");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMinLength.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.name");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("placeholder",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.placeholder", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.placeholder");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Placeholder);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.placeholder");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementPlaceholder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.placeholder", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.placeholder");
-                    self.Target.Placeholder = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.placeholder"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.placeholder");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementPlaceholder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("readOnly",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.readOnly", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.readOnly");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsReadOnly);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.readOnly");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementReadOnly.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.readOnly", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.readOnly");
-                    self.Target.IsReadOnly = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.readOnly");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementReadOnly.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("required",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.required", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.required");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRequired);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.required");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRequired.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.required", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.required");
-                    self.Target.IsRequired = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.required");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRequired.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rows",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.rows", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.rows");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.rows");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRows.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.rows", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.rows");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.rows");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRows.Set(self.Realm, self.Target, args);
                 }))
             .Method("select",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.select", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.select");
-                    self.Target.SelectAll(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.select");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.Select(self.Realm, self.Target);
                 }),
                 length: 0)
             .Accessor("selectionDirection",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.selectionDirection", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.selectionDirection");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectionDirection);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionDirection");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Direction(self.Target));
                 }))
             .Accessor("selectionEnd",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.selectionEnd", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.selectionEnd");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionEnd);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionEnd");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.End);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.selectionEnd", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.selectionEnd");
-                    self.Target.SelectionEnd = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.selectionEnd"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionEnd");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "HTMLTextAreaElement.selectionEnd"), start: false);
                 }))
             .Accessor("selectionStart",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.selectionStart", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.selectionStart");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionStart);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionStart");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.Start);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.selectionStart", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.selectionStart");
-                    self.Target.SelectionStart = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.selectionStart"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionStart");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "HTMLTextAreaElement.selectionStart"), start: true);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.setCustomValidity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.setCustomValidity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.setCustomValidity");
                     self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setSelectionRange",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.setSelectionRange", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.setSelectionRange");
-                    self.Target.Select(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.setSelectionRange"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "HTMLTextAreaElement.setSelectionRange"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.setSelectionRange");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionRange(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Accessor("textLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.textLength", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.textLength");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.TextLength);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.textLength");
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTextAreaMembers.Value(self.Realm, self.Target).Length);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.type");
+                    return global::Jint.Native.JsString.Create("textarea");
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.validationMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.validationMessage");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.validationMessage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.validity", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.validity");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.validity");
                     return self.Realm.Wrap(self.Target.Validity);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.value");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Value(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.value", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.value");
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetValue(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.value"), defaultValue: false);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.willValidate", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.willValidate");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.willValidate");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
                 }))
             .Accessor("wrap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.wrap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.wrap");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Wrap);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.wrap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementWrap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.wrap", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.wrap");
-                    self.Target.Wrap = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.wrap"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.wrap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementWrap.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -6004,24 +6006,24 @@ internal static partial class DomInterfaces
             .Accessor("dateTime",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTimeElement.dateTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTimeElement>(thisObj, "HTMLTimeElement.dateTime");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTimeElement.dateTime");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTimeElementDateTime.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTimeElement.dateTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTimeElement>(thisObj, "HTMLTimeElement.dateTime");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTimeElement.dateTime");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTimeElementDateTime.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("datetime",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTimeElement.datetime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTimeElement>(thisObj, "HTMLTimeElement.datetime");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DateTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTimeElement.datetime");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTimeElementDatetime.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTimeElement.datetime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTimeElement>(thisObj, "HTMLTimeElement.datetime");
-                    self.Target.DateTime = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTimeElement.datetime"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTimeElement.datetime");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTimeElementDatetime.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -6033,12 +6035,12 @@ internal static partial class DomInterfaces
             .Accessor("text",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTitleElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTitleElement>(thisObj, "HTMLTitleElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTitleElement.text");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTitleElement.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTitleElement>(thisObj, "HTMLTitleElement.text");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTitleElement.text");
                     self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTitleElement.text"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
@@ -6055,68 +6057,68 @@ internal static partial class DomInterfaces
             .Accessor("default",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.default", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.default");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefault);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.default");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementDefault.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTrackElement.default", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.default");
-                    self.Target.IsDefault = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.default");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementDefault.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("kind",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.kind", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.kind");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.kind");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementKind.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTrackElement.kind", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.kind");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.kind");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementKind.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.label");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.label");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementLabel.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTrackElement.label", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.label");
-                    self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTrackElement.label"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.label");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementLabel.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("readyState",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.readyState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.readyState");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.readyState");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));
                 }))
             .Accessor("src",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.src");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTrackElement.src", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.src");
-                    self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTrackElement.src"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.src");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementSrc.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("srclang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.srclang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.srclang");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SourceLanguage);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.srclang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementSrclang.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTrackElement.srclang", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.srclang");
-                    self.Target.SourceLanguage = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTrackElement.srclang"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.srclang");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTrackElementSrclang.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("track",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTrackElement.track", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTrackElement>(thisObj, "HTMLTrackElement.track");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTrackElement.track");
                     return self.Realm.Wrap(self.Target.Track);
                 }))
             .Build();
@@ -6129,23 +6131,23 @@ internal static partial class DomInterfaces
             .Accessor("compact",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLUListElement.compact", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlUnorderedListElement>(thisObj, "HTMLUListElement.compact");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLUListElement.compact");
                     return global::Jint.Browser.Dom.DomReflected.HTMLUListElementCompact.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLUListElement.compact", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlUnorderedListElement>(thisObj, "HTMLUListElement.compact");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLUListElement.compact");
                     return global::Jint.Browser.Dom.DomReflected.HTMLUListElementCompact.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLUListElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlUnorderedListElement>(thisObj, "HTMLUListElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLUListElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLUListElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLUListElement.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlUnorderedListElement>(thisObj, "HTMLUListElement.type");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLUListElement.type");
                     return global::Jint.Browser.Dom.DomReflected.HTMLUListElementType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
@@ -6165,57 +6167,57 @@ internal static partial class DomInterfaces
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLVideoElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementHeight.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLVideoElement.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.height");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.height");
                     return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementHeight.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("playsInline",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLVideoElement.playsInline", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.playsInline");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.playsInline");
                     return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementPlaysInline.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLVideoElement.playsInline", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.playsInline");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.playsInline");
                     return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementPlaysInline.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("poster",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLVideoElement.poster", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.poster");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Poster);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.poster");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementPoster.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLVideoElement.poster", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.poster");
-                    self.Target.Poster = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLVideoElement.poster"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.poster");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementPoster.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("videoHeight",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLVideoElement.videoHeight", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.videoHeight");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.videoHeight");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.OriginalHeight);
                 }))
             .Accessor("videoWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLVideoElement.videoWidth", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.videoWidth");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.videoWidth");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.OriginalWidth);
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLVideoElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementWidth.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLVideoElement.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlVideoElement>(thisObj, "HTMLVideoElement.width");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLVideoElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLVideoElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();

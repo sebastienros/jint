@@ -1,5 +1,5 @@
 using System.Text;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 
 namespace Jint.Browser.Extraction;
@@ -27,7 +27,7 @@ namespace Jint.Browser.Extraction;
 internal static class TextExtractor
 {
     /// <summary>Returns the rendered text of <paramref name="element"/>.</summary>
-    internal static string InnerText(IElement element, bool useComputedStyle = true)
+    internal static string InnerText(Element element, bool useComputedStyle = true)
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -37,11 +37,11 @@ internal static class TextExtractor
     }
 
     /// <summary>Returns the rendered text of <paramref name="document"/>'s body.</summary>
-    internal static string InnerText(IDocument document, bool useComputedStyle = true)
+    internal static string InnerText(Document document, bool useComputedStyle = true)
     {
         ArgumentNullException.ThrowIfNull(document);
 
-        var root = document.Body ?? document.DocumentElement;
+        var root = Dom.DomDocumentElements.Body(document) ?? document.DocumentElement;
         return root is null ? string.Empty : InnerText(root, useComputedStyle);
     }
 
@@ -52,21 +52,25 @@ internal static class TextExtractor
 
         internal Collector(ElementVisibility visibility) => _visibility = visibility;
 
-        internal void Collect(INode node, bool preserveWhitespace)
+        internal void Collect(Node node, bool preserveWhitespace)
         {
             switch (node)
             {
-                case IText text:
+                case Text text:
                     _items.Add(Item.Content(text.Data, preserveWhitespace));
                     return;
 
-                case IElement element:
+                case CDataSection cdata:
+                    _items.Add(Item.Content(cdata.Data, preserveWhitespace));
+                    return;
+
+                case Element element:
                     CollectElement(element, preserveWhitespace);
                     return;
             }
         }
 
-        private void CollectElement(IElement element, bool inheritedPreserve)
+        private void CollectElement(Element element, bool inheritedPreserve)
         {
             if (ImplicitRole.IsMetadataContent(element) || _visibility.RenderingReasonFor(element) != AxIgnoredReason.None)
             {
@@ -96,7 +100,7 @@ internal static class TextExtractor
                     Collect(child, preserve);
                 }
 
-                if (string.Equals(display, "table-cell", StringComparison.Ordinal) && element.NextElementSibling is not null)
+                if (string.Equals(display, "table-cell", StringComparison.Ordinal) && ContentDom.NextElementSibling(element) is not null)
                 {
                     _items.Add(Item.Separator("\t"));
                 }
@@ -186,22 +190,22 @@ internal static class TextExtractor
             return builder.ToString();
         }
 
-        private static bool IsLastRow(IElement row)
+        private static bool IsLastRow(Element row)
         {
-            if (row.NextElementSibling is not null)
+            if (ContentDom.NextElementSibling(row) is not null)
             {
                 return false;
             }
 
-            var group = row.ParentElement;
+            var group = (row.ParentNode as Element);
             if (group is null || group.LocalName is not ("thead" or "tbody" or "tfoot"))
             {
                 return true;
             }
 
-            for (var sibling = group.NextElementSibling; sibling is not null; sibling = sibling.NextElementSibling)
+            for (var sibling = ContentDom.NextElementSibling(group); sibling is not null; sibling = ContentDom.NextElementSibling(sibling))
             {
-                if (sibling.LocalName is "thead" or "tbody" or "tfoot" && sibling.QuerySelector("tr") is not null)
+                if (sibling.LocalName is "thead" or "tbody" or "tfoot" && ContentDom.First(sibling, "tr") is not null)
                 {
                     return false;
                 }

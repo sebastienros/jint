@@ -168,8 +168,7 @@ internal sealed class ParserDriver : IDisposable
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new FrameAttributeObserver(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new Dom.Files.FileInputAttributeObserver(_runtime));
+            ;
 
         // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled
         // — the scripting service is simply not registered, which is how AngleSharp is told a document has
@@ -1186,6 +1185,8 @@ internal sealed class ParserDriver : IDisposable
 
     private void FinishLoad(IDocument document, Action<NavigationPhase>? onPhase)
     {
+        if (_runtime.Document is { } nativeDocument) DomDocumentState.SelectNavigationTarget(_runtime.Dom, nativeDocument);
+
         // The handler content attributes on <body> that HTML redirects to the window — onload above all —
         // belong to a target the body's own wrapper is what registers them on. Every other element's arrive
         // with its wrapper; see EventHandlerContentAttributes.InstallBodyHandlers for why this one cannot.

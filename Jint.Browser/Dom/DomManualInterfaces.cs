@@ -1,7 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
-using AngleSharp.Svg.Dom;
-using AngleSharp.Xml.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Collections;
 using Jint.Native;
 
@@ -20,7 +17,7 @@ namespace Jint.Browser.Dom;
 /// own that no node ever takes. The first is the harder one to see, and is this: AngleSharp models
 /// <c>&lt;dl&gt;</c>, <c>&lt;dir&gt;</c>, <c>&lt;font&gt;</c>, <c>&lt;frame&gt;</c> and
 /// <c>&lt;frameset&gt;</c> with internal sealed classes whose only public interface is
-/// <c>IHtmlElement</c> — there is no <c>IHtmlDListElement</c>, no <c>IHtmlFrameElement</c> and no
+/// <c>Element</c> — there is no <c>IHtmlDListElement</c>, no <c>IHtmlFrameElement</c> and no
 /// <c>[DomName]</c> for any of the five WebIDL interfaces anywhere in the pinned assemblies — so
 /// <c>DomTypeMap</c>, which keys on the CLR type, cannot tell any of them from a <c>&lt;div&gt;</c>. The
 /// events bridge already makes the same test the same way (<c>EventHandlerContentAttributes.TargetFor</c>),
@@ -163,7 +160,7 @@ internal static class DomManualInterfaces
     /// <summary>
     /// <a href="https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement">SVG 2 §16.2</a>'s
     /// <c>SVGAElement</c>, declared by local name over AngleSharp's bare <c>SvgElement</c> exactly as the
-    /// five HTML interfaces above are declared over its bare <c>IHtmlElement</c>.
+    /// five HTML interfaces above are declared over its bare <c>Element</c>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -186,7 +183,7 @@ internal static class DomManualInterfaces
     /// </remarks>
     internal static readonly DomInterfaceDefinition SVGAElement = new(
         "SVGAElement",
-        typeof(ISvgElement),
+        typeof(Element),
         SvgAnchorShape,
         DomInterfaces.SVGElement,
         rootsAtEventTarget: true,
@@ -194,14 +191,14 @@ internal static class DomManualInterfaces
         DomWrapperKind.Node);
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#xmldocument. AngleSharp exposes <see cref="IXmlDocument"/> but gives it
+    /// https://dom.spec.whatwg.org/#xmldocument. AngleSharp exposes <see cref="Document"/> but gives it
     /// no <c>[DomName]</c>, so the generated interface table cannot see the WebIDL interface. The explicit
     /// wrapper selected by <c>new Document()</c> remains <c>Document</c>; every other XML document and its
     /// clones take this interface.
     /// </summary>
     internal static readonly DomInterfaceDefinition XMLDocument = new(
         "XMLDocument",
-        typeof(IXmlDocument),
+        typeof(Document),
         static () => new JsObjectShape.Builder()
             .PerRealmSlot("constructor", enumerable: false)
             .ToStringTag("XMLDocument")
@@ -255,14 +252,14 @@ internal static class DomManualInterfaces
     }
 
     /// <summary>
-    /// One of HTML's element interfaces that AngleSharp models with a plain <c>IHtmlElement</c>: an
+    /// One of HTML's element interfaces that AngleSharp models with a plain <c>Element</c>: an
     /// <c>HTMLElement</c> subclass whose shape is the <c>constructor</c> slot, the tag and its own reflected
     /// members.
     /// </summary>
     private static DomInterfaceDefinition ElementInterface(string name, ReflectedAttribute[] members)
         => new(
             name,
-            typeof(IHtmlElement),
+            typeof(Element),
             () => Shape(name, members),
             DomInterfaces.HTMLElement,
             rootsAtEventTarget: true,
@@ -278,7 +275,7 @@ internal static class DomManualInterfaces
 
         foreach (var member in members)
         {
-            builder.Accessor(MemberNameOf(member), Reflected<IHtmlElement>(member), ReflectedSetter<IHtmlElement>(member));
+            builder.Accessor(MemberNameOf(member), Reflected<Element>(member), ReflectedSetter<Element>(member));
         }
 
         return builder.Build();
@@ -300,18 +297,18 @@ internal static class DomManualInterfaces
             .ToStringTag("SVGAElement")
             .Accessor(
                 MemberNameOf(_svgAnchorMembers[0]),
-                Reflected<ISvgElement>(_svgAnchorMembers[0]),
-                ReflectedSetter<ISvgElement>(_svgAnchorMembers[0]))
+                Reflected<Element>(_svgAnchorMembers[0]),
+                ReflectedSetter<Element>(_svgAnchorMembers[0]))
             .Accessor(
                 "relList",
                 DomFailures.Guard(RelList, static (thisObject, _) =>
                 {
-                    var self = DomBindings.Bind<ISvgElement>(thisObject, RelList);
+                    var self = DomBindings.Bind<Element>(thisObject, RelList);
                     return DomTokenListMembers.Project(self.Realm, self.Target, "rel", DomAttributeTokenList.Rel(self.Target));
                 }),
                 DomFailures.Guard(RelList, static (thisObject, arguments) =>
                 {
-                    var self = DomBindings.Bind<ISvgElement>(thisObject, RelList);
+                    var self = DomBindings.Bind<Element>(thisObject, RelList);
                     return DomTokenListMembers.PutForwards(self.Target, "rel", arguments);
                 }))
             .Build();
@@ -329,14 +326,14 @@ internal static class DomManualInterfaces
     /// generated member body is.
     /// </summary>
     /// <remarks>
-    /// The receiver is bound as <see cref="IHtmlElement"/> and not as the element's own type, because there is
+    /// The receiver is bound as <see cref="Element"/> and not as the element's own type, because there is
     /// no such type to bind: that absence is the whole reason these interfaces are declared by local name. A
     /// receiver of any other interface therefore reaches the descriptor, which is exactly what a
     /// <c>Function.prototype.call</c> onto a <c>&lt;div&gt;</c> does in a browser — the member reads that
     /// element's own content attribute rather than raising.
     /// </remarks>
     private static Func<JsValue, JsValue[], JsValue> Reflected<TElement>(ReflectedAttribute attribute)
-        where TElement : class, IElement
+        where TElement : class
     {
         if (attribute.ReflectsUrl)
         {
@@ -360,7 +357,7 @@ internal static class DomManualInterfaces
 
     /// <summary>The same member's setter.</summary>
     private static Func<JsValue, JsValue[], JsValue> ReflectedSetter<TElement>(ReflectedAttribute attribute)
-        where TElement : class, IElement
+        where TElement : class
         => DomFailures.Guard(attribute.Member, (thisObject, arguments) =>
         {
             var self = DomBindings.Bind<TElement>(thisObject, attribute.Member);
@@ -389,54 +386,5 @@ internal static class DomManualInterfaces
     /// each is a name the HTML parser knows.
     /// </para>
     /// </remarks>
-    internal static DomInterfaceDefinition? For(INode node)
-    {
-        if (node is IXmlDocument)
-        {
-            return XMLDocument;
-        }
-
-        if (node is IHtmlElement html && ByLocalName(html.LocalName) is { } declared)
-        {
-            return declared;
-        }
-
-        // SVG's element interfaces are chosen by local name too, and case-sensitively: SVG has no
-        // ASCII-case-insensitive name matching, so `createElementNS(SVG, "A")` is an SVGElement.
-        if (node is ISvgElement svg && string.Equals(svg.LocalName, "a", StringComparison.Ordinal))
-        {
-            return SVGAElement;
-        }
-
-        if (node is IHtmlUnknownElement unknown && CustomElements.CustomElementNames.IsValid(unknown.LocalName))
-        {
-            return DomInterfaces.HTMLElement;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// The interface HTML gives an element of this local name, for the six AngleSharp cannot name — and
-    /// <see langword="null"/> for every other element, which is nearly all of them.
-    /// </summary>
-    /// <remarks>
-    /// <c>applet</c> is the one row here that names a <b>generated</b> interface rather than one declared
-    /// above, and it is the opposite kind of gap: HTML <i>removed</i> <c>HTMLAppletElement</c>
-    /// (https://html.spec.whatwg.org/multipage/obsolete.html#htmlappletelement), so the element takes the
-    /// <c>HTMLUnknownElement</c> every unlisted HTML name takes. AngleSharp still builds an
-    /// <c>HtmlAppletElement</c> implementing nothing narrower than <c>IHtmlElement</c>, so
-    /// <see cref="DomTypeMap"/> would answer <c>HTMLElement</c> — which is why the local name has to decide
-    /// it here too.
-    /// </remarks>
-    private static DomInterfaceDefinition? ByLocalName(string localName) => localName switch
-    {
-        "applet" => DomInterfaces.HTMLUnknownElement,
-        "dir" => HTMLDirectoryElement,
-        "dl" => HTMLDListElement,
-        "font" => HTMLFontElement,
-        "frame" => HTMLFrameElement,
-        "frameset" => HTMLFrameSetElement,
-        _ => null,
-    };
+    internal static DomInterfaceDefinition For(Node node) => DomTypeMap.For(node);
 }

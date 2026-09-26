@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
@@ -29,27 +29,27 @@ namespace Jint.Browser.Dom.Collections;
 /// match, and is deliberately left on that shape rather than given a wrapper of its own.
 /// </para>
 /// </remarks>
-internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
+internal sealed class DomLiveHtmlCollection : DomHtmlCollection<Element>
 {
-    private readonly INode? _root;
-    private readonly IEnumerable<IElement>? _source;
+    private readonly Node? _root;
+    private readonly IEnumerable<Element>? _source;
     private readonly DomElementFilter _filter;
 
     /// <summary>The element descendants of <paramref name="root"/> that <paramref name="filter"/> matches.</summary>
-    internal DomLiveHtmlCollection(INode root, DomElementFilter filter)
+    internal DomLiveHtmlCollection(Node root, DomElementFilter filter)
     {
         _root = root;
         _filter = filter;
     }
 
     /// <summary>The members of <paramref name="source"/> that <paramref name="filter"/> matches.</summary>
-    internal DomLiveHtmlCollection(IEnumerable<IElement> source, DomElementFilter filter)
+    internal DomLiveHtmlCollection(IEnumerable<Element> source, DomElementFilter filter)
     {
         _source = source;
         _filter = filter;
     }
 
-    public int Length
+    internal override int Length
     {
         get
         {
@@ -91,7 +91,7 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
     /// which is the authoritative bounds answer, taken from the one walk rather than from a
     /// <see cref="Length"/> that would have had to run the whole query again.
     /// </summary>
-    internal bool TryGetElementAt(uint index, [NotNullWhen(true)] out IElement? element)
+    internal bool TryGetElementAt(uint index, [NotNullWhen(true)] out Element? element)
     {
         if (!_filter.MatchesNothing)
         {
@@ -137,7 +137,7 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
         return false;
     }
 
-    public IElement this[int index]
+    public Element this[int index]
     {
         get
         {
@@ -157,7 +157,7 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
     /// is an HTML element whose <c>name</c> content attribute is. One pass, and the same rule
     /// <c>DomHtmlCollectionObject.NamedItem</c> applies to the wrapper — which is the one script reaches.
     /// </summary>
-    public IElement? this[string id]
+    public Element? this[string id]
     {
         get
         {
@@ -194,21 +194,20 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
         }
     }
 
-    private static bool IsNamed(IElement element, string id)
-        => string.Equals(element.Id, id, StringComparison.Ordinal)
-           || (element is AngleSharp.Html.Dom.IHtmlElement
+    private static bool IsNamed(Element element, string id)
+        => string.Equals(element.GetAttribute("id"), id, StringComparison.Ordinal)
+           || (element.NamespaceUri == Namespaces.Html
                && string.Equals(element.GetAttribute("name"), id, StringComparison.Ordinal));
 
-    public IEnumerator<IElement> GetEnumerator() => Filtered().GetEnumerator();
+    public override IEnumerator<Element> GetEnumerator() => Filtered().GetEnumerator();
 
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>
     /// The matching elements as a sequence, for the callers that really do visit all of them — the named
     /// half of <c>HTMLCollection</c>, and the sequence-sourced form. The indexed lane does not come through
     /// here, because a state machine is an allocation and it reads one element.
     /// </summary>
-    private IEnumerable<IElement> Filtered()
+    private IEnumerable<Element> Filtered()
     {
         if (_filter.MatchesNothing)
         {

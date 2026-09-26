@@ -1,5 +1,5 @@
 using System.Collections.Frozen;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Accessibility;
 
@@ -87,14 +87,14 @@ internal static class HtmlDisplay
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>Returns HTML's suggested <c>display</c> for the element, or <c>inline</c>.</summary>
-    internal static string DefaultFor(IElement element) =>
+    internal static string DefaultFor(Element element) =>
         s_defaults.TryGetValue(element.LocalName, out var display) ? display : "inline";
 
     /// <summary>
     /// Returns the element's effective <c>display</c>: the declared value when it differs from HTML's
     /// suggested rendering, and the suggested rendering otherwise.
     /// </summary>
-    internal static string Resolve(IElement element, string? declared)
+    internal static string Resolve(Element element, string? declared)
     {
         var fallback = DefaultFor(element);
         if (string.IsNullOrEmpty(declared) || string.Equals(declared, fallback, StringComparison.OrdinalIgnoreCase))
@@ -134,7 +134,7 @@ internal static class HtmlDisplay
     /// The element list is HTML's; AngleSharp.Css's default sheet carries <c>pre { white-space: pre }</c> but
     /// not the <c>textarea</c> rule, so asking the cascade alone would collapse a text area's content.
     /// </remarks>
-    internal static bool PreservesWhitespace(IElement element, string? declaredWhiteSpace)
+    internal static bool PreservesWhitespace(Element element, string? declaredWhiteSpace)
     {
         if (!string.IsNullOrEmpty(declaredWhiteSpace))
         {

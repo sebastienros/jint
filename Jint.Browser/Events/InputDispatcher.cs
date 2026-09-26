@@ -1,5 +1,4 @@
-﻿using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+﻿using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
@@ -54,7 +53,7 @@ internal static partial class InputDispatcher
         // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — clicking a focusable
         // element focuses it, and clicking anything else moves focus to the nearest focusable ancestor, which
         // is what makes a click on a <span> inside a <button> focus the button.
-        if (target.Node is IElement clicked && NearestFocusable(clicked) is { } focusTarget)
+        if (target.Node is Element clicked && NearestFocusable(dom, clicked) is { } focusTarget)
         {
             FocusController.Focus(dom, focusTarget);
         }
@@ -136,7 +135,7 @@ internal static partial class InputDispatcher
                 Pointer(target, "pointerdown", options, cancelable: true, layout);
 
                 if (Mouse(target, "mousedown", options, cancelable: true)
-                    && NearestFocusable(hit) is { } focusTarget)
+                    && NearestFocusable(dom, hit) is { } focusTarget)
                 {
                     FocusController.Focus(dom, focusTarget);
                 }
@@ -184,7 +183,7 @@ internal static partial class InputDispatcher
         DomRealm dom,
         BrowserEventRealm events,
         DomNodeObject target,
-        IElement hit,
+        Element hit,
         in ClickOptions options,
         in MouseInput input,
         FlatLayout layout)
@@ -235,11 +234,11 @@ internal static partial class InputDispatcher
     /// mouse events are dispatched at.
     /// </para>
     /// </remarks>
-    private static (IElement Image, int X, int Y)? ImagePointOf(IElement hit, double x, double y, FlatLayout layout)
+    private static (Element Image, int X, int Y)? ImagePointOf(Element hit, double x, double y, FlatLayout layout)
     {
-        for (var element = hit; element is not null; element = element.ParentElement)
+        for (var element = hit; element is not null; element = (element.ParentNode as Element))
         {
-            if (element is not IHtmlInputElement { Type: "image" } image)
+            if (element is not { NamespaceUri: Namespaces.Html, LocalName: "input" } image || !ActivationBehaviors.IsType(image, "image"))
             {
                 continue;
             }
@@ -331,7 +330,7 @@ internal static partial class InputDispatcher
         // The hit-test query precedes every listener. Reuse it only for the first event: a pointer
         // listener can move the target before the following mouse/click event begins. Keeping just
         // these numbers adds no layout walk and retains no query across a callback.
-        if (target.Node is IElement element && layout.ClientBoxOf(element) is { } box)
+        if (target.Node is Element element && layout.ClientBoxOf(element) is { } box)
         {
             ev.PrepareOffsets(ev.ClientX - box.X, ev.ClientY - box.Y);
         }
@@ -386,16 +385,16 @@ internal static partial class InputDispatcher
     /// <summary>
     /// The nearest common inclusive ancestor of two elements, or <see langword="null"/> when one is missing.
     /// </summary>
-    private static IElement? CommonAncestor(IElement? first, IElement? second)
+    private static Element? CommonAncestor(Element? first, Element? second)
     {
         if (first is null || second is null)
         {
             return null;
         }
 
-        for (IElement? candidate = first; candidate is not null; candidate = candidate.ParentElement)
+        for (Element? candidate = first; candidate is not null; candidate = (candidate.ParentNode as Element))
         {
-            for (IElement? other = second; other is not null; other = other.ParentElement)
+            for (Element? other = second; other is not null; other = (other.ParentNode as Element))
             {
                 if (ReferenceEquals(candidate, other))
                 {
@@ -450,14 +449,14 @@ internal static partial class InputDispatcher
         }
 
         var dom = runtime.Dom;
-        var focused = FocusController.ActiveElement(BrowserEventRealm.Of(dom.Engine), document);
+        var focused = FocusController.InteractionTarget(BrowserEventRealm.Of(dom.Engine), document);
 
         if (focused is null)
         {
             return;
         }
 
-        if (TextEditing.IsEditable(focused))
+        if (TextEditing.IsEditable(dom, focused))
         {
             TextEditing.Insert(dom, new TextEditing.TextControl(dom, focused), text, "insertText");
             return;
@@ -504,7 +503,7 @@ internal static partial class InputDispatcher
 
         var dom = runtime.Dom;
         var realm = BrowserEventRealm.Of(dom.Engine);
-        var focused = FocusController.ActiveElement(realm, document);
+        var focused = FocusController.InteractionTarget(realm, document);
 
         if (focused is null)
         {
@@ -543,7 +542,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Dispatches <c>keypress</c>, answering whether nothing cancelled it.</summary>
-    private static bool Keypress(DomRealm dom, BrowserEventRealm realm, IElement focused, in KeyOptions options)
+    private static bool Keypress(DomRealm dom, BrowserEventRealm realm, Element focused, in KeyOptions options)
         => dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keypress", options, cancelable: true));
 
     /// <summary>
@@ -555,7 +554,7 @@ internal static partial class InputDispatcher
     /// command nothing here knows leaves the key's ordinary default action to run, which is what a client
     /// sending <c>moveToEndOfLine</c> beside an <kbd>End</kbd> key needs.
     /// </remarks>
-    private static void RunDefaultAction(DomRealm dom, IDocument document, IElement focused, in KeyOptions options, bool allowInsertion)
+    private static void RunDefaultAction(DomRealm dom, Document document, Element focused, in KeyOptions options, bool allowInsertion)
     {
         if (options.HasCommand("selectAll"))
         {
@@ -569,11 +568,11 @@ internal static partial class InputDispatcher
                 MoveFocus(dom, document, focused, backwards: (options.Modifiers & EventModifiers.Shift) != EventModifiers.None);
                 return;
 
-            case "Enter" when focused is IHtmlInputElement input && TextEditing.IsEditable(input):
+            case "Enter" when EventDom.IsHtml(focused, "input") && TextEditing.IsEditable(dom, focused):
                 // The value is committed by the press, so `change` fires here rather than waiting for focus to
                 // leave — which is what a page listening for it on a search box is written against.
-                TextEditing.CommitChange(dom, input);
-                ImplicitSubmission(dom, input);
+                TextEditing.CommitChange(dom, focused);
+                ImplicitSubmission(dom, focused);
                 return;
         }
 
@@ -589,7 +588,7 @@ internal static partial class InputDispatcher
     }
 
     /// <summary>Select-all, wherever the focus is — a text control or an editing host.</summary>
-    private static void SelectAll(DomRealm dom, IElement focused)
+    private static void SelectAll(DomRealm dom, Element focused)
     {
         var selectAll = KeyOptions.For("a") with { Modifiers = EventModifiers.Control };
 
@@ -608,9 +607,9 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — <kbd>Tab</kbd>,
     /// and <kbd>Shift</kbd>+<kbd>Tab</kbd> the other way.
     /// </summary>
-    private static void MoveFocus(DomRealm dom, IDocument document, IElement from, bool backwards)
+    private static void MoveFocus(DomRealm dom, Document document, Element from, bool backwards)
     {
-        if (FocusController.NextInTabOrder(document, from, backwards) is { } next)
+        if (FocusController.NextInTabOrder(dom, document, from, backwards) is { } next)
         {
             FocusController.Focus(dom, next);
         }
@@ -626,16 +625,16 @@ internal static partial class InputDispatcher
     /// makes <kbd>Enter</kbd> submit a one-field search form and do nothing in a two-field login form that has
     /// no submit button.
     /// </remarks>
-    private static void ImplicitSubmission(DomRealm dom, IHtmlInputElement input)
+    private static void ImplicitSubmission(DomRealm dom, Element input)
     {
         if (HtmlFormOwner.Of(input) is not { } form)
         {
             return;
         }
 
-        if (DefaultButton(form) is { } button)
+        if (DefaultButton(dom, form) is { } button)
         {
-            if (!IsDisabled(button))
+            if (!EventDom.Disabled(dom, button))
             {
                 FireSyntheticClick(dom.WrapNode(button), trusted: true);
             }
@@ -643,7 +642,7 @@ internal static partial class InputDispatcher
             return;
         }
 
-        if (BlockingFieldCount(form) > 1)
+        if (BlockingFieldCount(dom, form) > 1)
         {
             return;
         }
@@ -655,16 +654,16 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/forms.html#default-button — the first submit button in tree
     /// order among the form's controls.
     /// </summary>
-    private static IHtmlElement? DefaultButton(IHtmlFormElement form)
+    private static Element? DefaultButton(DomRealm dom, Element form)
     {
         // The inventory is the form's owned controls in tree order rather than `form.elements`, which excludes
         // image buttons — so a form whose only submit button is `<input type=image>` had no default button at
         // all, and one whose submit button sits outside it under a `form` attribute now has one.
-        foreach (var element in HtmlFormOwner.ControlsOf(form))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, dom.CancellationToken))
         {
-            if (element is IHtmlElement html && FormSubmission.IsSubmitButton(html))
+            if (element.NamespaceUri == Namespaces.Html && FormSubmission.IsSubmitButton(element))
             {
-                return html;
+                return element;
             }
         }
 
@@ -675,13 +674,13 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#field-that-blocks-implicit-submission —
     /// the input types whose presence in more than one makes <kbd>Enter</kbd> do nothing.
     /// </summary>
-    private static int BlockingFieldCount(IHtmlFormElement form)
+    private static int BlockingFieldCount(DomRealm dom, Element form)
     {
         var count = 0;
 
-        foreach (var element in HtmlFormOwner.ControlsOf(form))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, dom.CancellationToken))
         {
-            if (element is IHtmlInputElement input && input.Type is
+            if (EventDom.IsHtml(element, "input") && EventDom.InputType(element) is
                 "text" or "search" or "url" or "tel" or "email" or "password"
                 or "date" or "month" or "week" or "time" or "datetime-local" or "number")
             {
@@ -691,13 +690,6 @@ internal static partial class InputDispatcher
 
         return count;
     }
-
-    private static bool IsDisabled(IHtmlElement element) => element switch
-    {
-        IHtmlButtonElement button => button.IsDisabled,
-        IHtmlInputElement input => input.IsDisabled,
-        _ => false,
-    };
 
     /// <summary>
     /// One keyboard event over <paramref name="options"/>.
@@ -743,11 +735,11 @@ internal static partial class InputDispatcher
     /// The nearest focusable element at or above <paramref name="element"/> — HTML's "if the element is not a
     /// focusable area, then the nearest ancestor that is".
     /// </summary>
-    private static IElement? NearestFocusable(IElement element)
+    private static Element? NearestFocusable(DomRealm dom, Element element)
     {
-        for (INode? node = element; node is not null; node = node.Parent)
+        for (Node? node = element; node is not null; node = node.ParentNode)
         {
-            if (node is IElement candidate && FocusController.IsFocusable(candidate))
+            if (node is Element candidate && FocusController.IsFocusable(dom, candidate))
             {
                 return candidate;
             }

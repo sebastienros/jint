@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.CustomElements;
 
@@ -71,8 +71,8 @@ internal readonly record struct CustomElementReaction(
     string? Name,
     string? OldValue,
     string? NewValue,
-    IDocument? OldDocument = null,
-    IDocument? NewDocument = null);
+    Document? OldDocument = null,
+    Document? NewDocument = null);
 
 /// <summary>
 /// Everything one element carries because it is, or could become, a custom element: DOM's custom element
@@ -95,6 +95,8 @@ internal readonly record struct CustomElementReaction(
 /// </remarks>
 internal sealed class CustomElementRecord
 {
+    internal MutationSubscription? NativeAttributes { get; set; }
+
     /// <summary>DOM's custom element state.</summary>
     internal CustomElementState State { get; set; } = CustomElementState.Undefined;
 

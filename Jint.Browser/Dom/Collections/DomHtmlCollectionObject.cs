@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Array;
 
@@ -12,14 +11,14 @@ namespace Jint.Browser.Dom.Collections;
 /// <remarks>
 /// It is the one collection the generated <see cref="DomCollectionAccessor"/> scheme cannot serve, because
 /// AngleSharp's <see cref="IHtmlCollection{T}"/> is generic and <b>invariant</b>: an
-/// <c>IHtmlCollection&lt;IHtmlOptionElement&gt;</c> is not an <c>IHtmlCollection&lt;IElement&gt;</c>, so one
+/// <c>IHtmlCollection&lt;IHtmlOptionElement&gt;</c> is not an <c>IHtmlCollection&lt;Element&gt;</c>, so one
 /// non-generic accessor could not reach the indexer at all. A generated member instead names its declared
 /// element type at the call site — <c>realm.WrapCollection&lt;IHtmlOptionElement&gt;(…)</c> — which keeps the
 /// path free of reflection and of a generic instantiation nothing static can see.
 /// </remarks>
-internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : class, IElement
+internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : Node
 {
-    private readonly IHtmlCollection<T> _collection;
+    private readonly DomHtmlCollection<T> _collection;
     // The collection when it is the binding's own live one, and null when it is AngleSharp's -- read on
     // every indexed access, so it is a field rather than a type test, the same shape and for the same reason
     // as DomCollectionObject's static-NodeList branch.
@@ -27,7 +26,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
 
     private List<string> _names = [];
 
-    internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, IHtmlCollection<T> collection)
+    internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, DomHtmlCollection<T> collection)
         : base(realm, definition, collection)
     {
         _collection = collection;
@@ -82,7 +81,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// whose length probe is a field read, and it stays where it is.
     /// </para>
     /// </remarks>
-    private IElement? ElementAt(uint index)
+    private Element? ElementAt(uint index)
     {
         if (_live is { } live)
         {
@@ -95,7 +94,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
         {
             if (remaining == 0)
             {
-                return candidate;
+                return (Element) (Node) candidate;
             }
 
             remaining--;
@@ -184,10 +183,11 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
             return JsValue.Null;
         }
 
-        foreach (var element in _collection)
+        foreach (var candidate in _collection)
         {
-            if (string.Equals(element.Id, name, StringComparison.Ordinal)
-                || (element is IHtmlElement && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal)))
+            var element = (Element) (Node) candidate;
+            if (string.Equals(element.GetAttribute("id"), name, StringComparison.Ordinal)
+                || (element.NamespaceUri == Namespaces.Html && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal)))
             {
                 return DomRealm.Wrap(element);
             }
@@ -207,11 +207,12 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var element in _collection)
+        foreach (var candidate in _collection)
         {
-            Add(names, element.Id);
+            var element = (Element) (Node) candidate;
+            Add(names, element.GetAttribute("id"));
 
-            if (element is IHtmlElement)
+            if (element.NamespaceUri == Namespaces.Html)
             {
                 Add(names, element.GetAttribute("name"));
             }

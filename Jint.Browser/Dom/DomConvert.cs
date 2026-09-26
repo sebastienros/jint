@@ -99,7 +99,7 @@ internal static class DomConvert
     /// <c>NodeList</c> (<c>HTMLSlotElement.assignedNodes</c>). WebIDL's <c>sequence&lt;Node&gt;</c> is a
     /// snapshot by definition, so a plain array is the right shape and there is nothing live to keep.
     /// </summary>
-    internal static JsValue NodeSequence(DomRealm realm, System.Collections.Generic.IEnumerable<AngleSharp.Dom.INode>? nodes)
+    internal static JsValue NodeSequence(DomRealm realm, System.Collections.Generic.IEnumerable<Jint.HtmlParser.Node>? nodes)
     {
         if (nodes is null)
         {
@@ -258,32 +258,33 @@ internal static class DomConvert
     }
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#converting-nodes-into-a-node {EM} the <c>(Node or DOMString)...</c> of
+    /// https://dom.spec.whatwg.org/#converting-nodes-into-a-node — the <c>(Node or DOMString)...</c> of
     /// <c>append</c>, <c>prepend</c>, <c>before</c>, <c>after</c> and <c>replaceWith</c>: an argument that is
     /// not a node is stringified and becomes a <c>Text</c> node in <paramref name="owner"/>'s node document.
     /// </summary>
-    /// <remarks>
-    /// AngleSharp's signature is <c>INode[]</c>, so the string half of the union has to be converted before
-    /// the call. It needs a document to create the text node against, which is why this takes the receiver:
-    /// a node's node document is its <c>Owner</c>, or itself when the receiver <em>is</em> the document.
-    /// </remarks>
-    internal static AngleSharp.Dom.INode[] NodeOrTextRest(DomRealm realm, AngleSharp.Dom.INode owner, JsValue[] arguments, int from, string member)
+    internal static Jint.HtmlParser.DomNodeIdentity[] NodeOrTextRest(DomRealm realm, Jint.HtmlParser.Node owner, JsValue[] arguments, int from, string member)
     {
         if (arguments.Length <= from)
         {
             return [];
         }
 
-        var document = owner as AngleSharp.Dom.IDocument ?? owner.Owner;
-        var values = new AngleSharp.Dom.INode[arguments.Length - from];
+        var document = owner as Jint.HtmlParser.Document ?? owner.OwnerDocument;
+        var values = new Jint.HtmlParser.DomNodeIdentity[arguments.Length - from];
 
         for (var i = 0; i < values.Length; i++)
         {
             var value = arguments[from + i];
 
-            if (value is IDomWrapper wrapper && wrapper.DomTarget is AngleSharp.Dom.INode node)
+            if (value is IDomWrapper wrapper && wrapper.DomTarget is Jint.HtmlParser.Node node)
             {
-                values[i] = node;
+                values[i] = new(node);
+                continue;
+            }
+
+            if (value is DomNodeObject { Attribute: { } attribute })
+            {
+                values[i] = new(attribute);
                 continue;
             }
 
@@ -292,19 +293,20 @@ internal static class DomConvert
                 // A node with no node document cannot make a text node, and inventing a document to make one
                 // in would put the result in a tree nothing else can reach. Only a detached DocumentType gets
                 // here, which is why this is a TypeError rather than a silent drop.
-                values[i] = DomBindings.Argument<AngleSharp.Dom.INode>(arguments, from + i, member);
+                values[i] = DomBindings.IdentityArgument(arguments, from + i, member);
                 continue;
             }
 
-            values[i] = document.CreateTextNode(TypeConverter.ToString(value));
-            realm.CreationRealmOf(values[i]);
+            var text = document.CreateTextNode(TypeConverter.ToString(value));
+            realm.CreationRealmOf(text);
+            values[i] = new(text);
         }
 
         // A string conversion may run script that changes a node argument's descendants. Record
         // after every conversion and before the native variadic operation can adopt those nodes.
-        foreach (var node in values)
+        foreach (var identity in values)
         {
-            if (!ReferenceEquals(node.Owner, document))
+            if (identity.Node is { } node && !ReferenceEquals(node.OwnerDocument, document))
             {
                 realm.RecordSubtree(node);
             }

@@ -1,5 +1,4 @@
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Views;
 
 namespace Jint.Browser.Accessibility;
@@ -21,7 +20,7 @@ internal sealed class ElementVisibility
 
     internal ElementVisibility(bool useComputedStyle) => _useComputedStyle = useComputedStyle;
 
-    internal CssCascade.Traversal? CreateTraversal(IDocument? document)
+    internal CssCascade.Traversal? CreateTraversal(Document? document)
         => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, scope: CssCascade.StyleScope.Visibility) : null;
 
     /// <summary>
@@ -36,7 +35,7 @@ internal sealed class ElementVisibility
     /// Ancestors are not consulted: the tree walk carries an inherited verdict down, which is both cheaper
     /// than walking up per node and the only way <c>hiddenRoot</c> can name the ancestor that did it.
     /// </remarks>
-    internal AxIgnoredReason ReasonFor(IElement element, CssCascade.Traversal? traversal = null)
+    internal AxIgnoredReason ReasonFor(Element element, CssCascade.Traversal? traversal = null)
         => ReasonFor(element, ariaHiddenCounts: true, traversal);
 
     /// <summary>
@@ -47,10 +46,10 @@ internal sealed class ElementVisibility
     /// changes nothing about the rendering. It is what the text and markdown extractors ask, because a
     /// decorative marker is still text on the page.
     /// </remarks>
-    internal AxIgnoredReason RenderingReasonFor(IElement element, CssCascade.Traversal? traversal = null)
+    internal AxIgnoredReason RenderingReasonFor(Element element, CssCascade.Traversal? traversal = null)
         => ReasonFor(element, ariaHiddenCounts: false, traversal);
 
-    private AxIgnoredReason ReasonFor(IElement element, bool ariaHiddenCounts, CssCascade.Traversal? traversal)
+    private AxIgnoredReason ReasonFor(Element element, bool ariaHiddenCounts, CssCascade.Traversal? traversal)
     {
         if (element.HasAttribute("hidden"))
         {
@@ -82,7 +81,7 @@ internal sealed class ElementVisibility
     /// Reads the element's <c>display</c> and <c>visibility</c>, from the cascade when it is available and
     /// from the <c>style</c> content attribute when it is not.
     /// </summary>
-    internal (string? Display, string? Visibility) Style(IElement element, CssCascade.Traversal? traversal = null)
+    internal (string? Display, string? Visibility) Style(Element element, CssCascade.Traversal? traversal = null)
     {
         if (_useComputedStyle && _cascadeAvailable)
         {
@@ -104,7 +103,7 @@ internal sealed class ElementVisibility
     /// Reads the element's declared <c>white-space</c>, or <see langword="null"/> when the cascade cannot
     /// answer.
     /// </summary>
-    internal string? WhiteSpace(IElement element)
+    internal string? WhiteSpace(Element element)
     {
         if (!_useComputedStyle || !_cascadeAvailable)
         {
@@ -141,7 +140,7 @@ internal sealed class ElementVisibility
         }
     }
 
-    private static (string? Display, string? Visibility) InlineStyle(IElement element)
+    private static (string? Display, string? Visibility) InlineStyle(Element element)
     {
         var style = element.GetAttribute("style");
         if (string.IsNullOrEmpty(style))

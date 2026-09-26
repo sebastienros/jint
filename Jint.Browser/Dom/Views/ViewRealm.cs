@@ -32,6 +32,8 @@ internal sealed class ViewRealm
     private HostInterfaceObject? _geolocationInterface;
     private JsGeolocation? _geolocation;
     private JsSelection? _selection;
+    internal void DisconnectSelection() => _selection?.Disconnect();
+
     private ObjectInstance? _xPathEvaluatorPrototype;
     private HostInterfaceObject? _xPathEvaluator;
     private ObjectInstance? _xPathExpressionPrototype;
