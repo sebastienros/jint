@@ -12,6 +12,26 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class CustomElementTests
 {
+    [Test]
+    public async Task NamespacedCreationPreservesCaseDuringCustomElementLookup()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <script>
+              window.constructions = 0;
+              class Thing extends HTMLElement {
+                constructor() { super(); window.constructions++; }
+              }
+              customElements.define('x-thing', Thing);
+              const upper = document.createElementNS('http://www.w3.org/1999/xhtml', 'X-THING');
+              const lower = document.createElementNS('http://www.w3.org/1999/xhtml', 'x-thing');
+              window.result = [upper.localName, upper instanceof Thing, lower instanceof Thing, constructions].join('|');
+            </script>
+            """);
+        (await page.EvaluateAsync<string>("window.result")).Should().Be("X-THING|false|true|1");
+        page.Errors.Should().BeEmpty();
+    }
     private static async Task<Page> PageWith(Browser browser, string body)
     {
         var page = await browser.NewPageAsync();
