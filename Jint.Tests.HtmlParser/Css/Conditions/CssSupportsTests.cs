@@ -105,6 +105,21 @@ public sealed class CssSupportsTests
     }
 
     [Test]
+    public void DeepAndWideTraversalChargeLinearWork()
+    {
+        static int Count(string text)
+        {
+            var checks = 0;
+            CssSupports.EvaluateCondition(text, null, new CssValueWork(default, () => checks++));
+            return checks;
+        }
+        static string Deep(int size) => new string('(', size) + "color:red" + new string(')', size);
+        static string Wide(int size) => string.Join(" or ", Enumerable.Repeat("(color:red)", size));
+        Count(Deep(2000)).Should().BeLessThan(3 * Count(Deep(1000)));
+        Count(Wide(2000)).Should().BeLessThan(3 * Count(Wide(1000)));
+    }
+
+    [Test]
     public void CancellationDuringOneLongTokenPropagates()
     {
         using var cancellation = new CancellationTokenSource();

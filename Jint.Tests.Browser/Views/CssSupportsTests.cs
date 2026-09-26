@@ -1,5 +1,9 @@
 #nullable enable
 
+using Jint.Browser.Dom;
+using Jint.Browser.Dom.Views;
+using Jint.Native;
+
 namespace Jint.Tests.Browser.Views;
 
 using Browser = global::Jint.Browser.Browser;
@@ -43,6 +47,17 @@ public sealed class CssSupportsTests
               return log.join('|');
             })()
             """)).Should().Be("property|value|true|true|property|true");
+    }
+
+    [Test]
+    public void CancellationFromTheOwningEngineDoesNotBecomeAFalseCapabilityAnswer()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var engine = new Engine(options => options.ObserveCancellation(cancellation.Token));
+        var realm = DomRealm.Of(engine);
+        cancellation.Cancel();
+        Action query = () => JsCssNamespace.Supports(realm, [JsString.Create("color"), JsString.Create("red")]);
+        query.Should().Throw<OperationCanceledException>();
     }
 
     [Test]
