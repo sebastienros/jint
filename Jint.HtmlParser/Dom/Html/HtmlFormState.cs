@@ -104,5 +104,8 @@ internal static class HtmlFormState
 internal sealed class HtmlFormAssociationState
 {
     internal Element? Owner;
+    // HTML §4.10.3 removes past names whenever the owner changes, including away-and-back.
+    // Saturation permanently prevents a consumer from treating this value as a reusable revision.
+    internal ulong OwnerRevision;
     internal bool ParserInserted;
 }
