@@ -31,8 +31,8 @@ namespace Jint.Browser.Events;
 /// <para>
 /// Native control state owns the value, its user-change provenance and the editing selection. A canceled
 /// <c>beforeinput</c> commits none of them; an accepted edit applies the value and selection together through
-/// the native user-edit operation. The private editing selection also supports email inputs, whose public
-/// selection API is unavailable.
+/// the native user-edit operation. The private editing selection also supports email and number inputs, whose public
+/// selection API is unavailable. Number presentation is native state and may differ from its API value.
 /// </para>
 /// </remarks>
 internal static class TextEditing
@@ -49,13 +49,19 @@ internal static class TextEditing
     /// </summary>
     internal static bool IsEditable(DomRealm dom, Element element)
     {
-        if (element.NamespaceUri != Namespaces.Html || EventDom.Disabled(dom, element) || element.HasContentAttribute("readonly"))
+        if (element.NamespaceUri != Namespaces.Html || EventDom.Disabled(dom, element)) return false;
+        if (element.LocalName == "input")
         {
-            return false;
+            var state = element.GetHtmlState()!.GetInputValueState(dom.NativeReadCheckpoint, dom.CancellationToken)!;
+            return state.HasEditingBuffer && !state.ReadOnly
+                && state.GetEditingSelection(dom.NativeReadCheckpoint, dom.CancellationToken) is not null;
         }
-        return element.LocalName == "textarea" || element.LocalName == "input"
-            && EventDom.InputType(element) is "text" or "search" or "url" or "tel" or "password" or "email" or "number"
-            && element.GetHtmlState()!.GetInputValueState(dom.CancellationToken)!.GetEditingSelection(dom.CancellationToken) is not null;
+        if (element.LocalName != "textarea") return false;
+        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
+        work.Check();
+        var editable = work.Attribute(element, "readonly") is null;
+        work.Check();
+        return editable;
     }
 
     /// <summary>Whether the control holds one line, which is what makes <kbd>Enter</kbd> submit rather than insert.</summary>
@@ -217,7 +223,20 @@ internal static class TextEditing
             return true;
         }
 
-        if (!control.ApplyUserValue(string.Concat(value.AsSpan(0, start), text, value.AsSpan(end)), start + text.Length))
+        // A listener can change the type, disabledness, value or selection. The accepted splice is
+        // formed from the actual native editing state after that listener returns.
+        if (!IsEditable(dom, control.Element)) return true;
+        var accepted = new TextControl(dom, control.Element);
+        value = accepted.Value;
+        start = accepted.Start;
+        end = accepted.End;
+        if (MaxLengthOf(dom, accepted.Element) is { } currentMaximum)
+        {
+            var room = currentMaximum - (value.Length - (end - start));
+            if (room <= 0) return true;
+            if (text.Length > room) text = text.Substring(0, (int) room);
+        }
+        if (!accepted.ApplyUserValue(string.Concat(value.AsSpan(0, start), text, value.AsSpan(end)), start + text.Length))
         {
             return true;
         }
@@ -229,31 +248,7 @@ internal static class TextEditing
     private static bool DeleteAround(DomRealm dom, in TextControl control, bool forward)
     {
         using var mutation = dom.MutateLayout();
-        var value = control.Value;
-        var start = control.Start;
-        var end = control.End;
-
-        if (start == end)
-        {
-            if (forward)
-            {
-                if (end >= value.Length)
-                {
-                    return true;
-                }
-
-                end++;
-            }
-            else
-            {
-                if (start == 0)
-                {
-                    return true;
-                }
-
-                start--;
-            }
-        }
+        if (!DeletionRange(control, forward, out _, out _, out _)) return true;
 
         var inputType = forward ? "deleteContentForward" : "deleteContentBackward";
 
@@ -262,12 +257,34 @@ internal static class TextEditing
             return true;
         }
 
-        if (!control.ApplyUserValue(string.Concat(value.AsSpan(0, start), value.AsSpan(end)), start))
+        if (!IsEditable(dom, control.Element)) return true;
+        var accepted = new TextControl(dom, control.Element);
+        if (!DeletionRange(accepted, forward, out var value, out var start, out var end)) return true;
+        if (!accepted.ApplyUserValue(string.Concat(value.AsSpan(0, start), value.AsSpan(end)), start))
         {
             return true;
         }
 
         FireInput(dom, control.Element, inputType, JsValue.Null);
+        return true;
+    }
+
+    private static bool DeletionRange(in TextControl control, bool forward, out string value, out int start, out int end)
+    {
+        value = control.Value;
+        start = control.Start;
+        end = control.End;
+        if (start != end) return true;
+        if (forward)
+        {
+            if (end >= value.Length) return false;
+            end++;
+        }
+        else
+        {
+            if (start == 0) return false;
+            start--;
+        }
         return true;
     }
 
@@ -406,11 +423,19 @@ internal static class TextEditing
 
     private static string ValueOf(DomRealm dom, Element element) => element switch
     {
-        { NamespaceUri: Namespaces.Html, LocalName: "input" } => element.GetHtmlState()!.GetInputValueState(dom.CancellationToken)!.GetValue(dom.CancellationToken),
-        { NamespaceUri: Namespaces.Html, LocalName: "textarea" } => element.GetHtmlState()!.TextArea!.GetValue(dom.CancellationToken),
-        { NamespaceUri: Namespaces.Html, LocalName: "select" } => element.GetHtmlState()!.GetSelectState(dom.CancellationToken)!.GetValue(dom.CancellationToken),
+        { NamespaceUri: Namespaces.Html, LocalName: "input" } => InputValueOf(dom, element),
+        { NamespaceUri: Namespaces.Html, LocalName: "textarea" } => element.GetHtmlState()!.TextArea!.GetValue(dom.NativeReadCheckpoint, dom.CancellationToken),
+        { NamespaceUri: Namespaces.Html, LocalName: "select" } => element.GetHtmlState()!.GetSelectState(dom.NativeReadCheckpoint, dom.CancellationToken)!.GetValue(dom.NativeReadCheckpoint, dom.CancellationToken),
         _ => "",
     };
+
+    private static string InputValueOf(DomRealm dom, Element element)
+    {
+        var state = element.GetHtmlState()!.GetInputValueState(dom.NativeReadCheckpoint, dom.CancellationToken)!;
+        return state.HasEditingBuffer
+            ? state.GetEditingValue(dom.NativeReadCheckpoint, dom.CancellationToken)
+            : state.GetValue(dom.NativeReadCheckpoint, dom.CancellationToken);
+    }
 
     /// <summary>The value a control had when it was focused.</summary>
     private sealed class EditSnapshot(string value)
@@ -429,17 +454,17 @@ internal static class TextEditing
         {
             _dom = dom;
             Element = element;
-            _input = element.GetHtmlState()?.GetInputValueState(dom.CancellationToken);
+            _input = element.GetHtmlState()?.GetInputValueState(dom.NativeReadCheckpoint, dom.CancellationToken);
             _textArea = element.GetHtmlState()?.TextArea;
         }
 
         internal Element Element { get; }
         internal string Value => _input is not null
-            ? _input.GetValue(_dom.CancellationToken)
-            : _textArea!.GetValue(_dom.CancellationToken);
+            ? _input.GetEditingValue(_dom.NativeReadCheckpoint, _dom.CancellationToken)
+            : _textArea!.GetValue(_dom.NativeReadCheckpoint, _dom.CancellationToken);
         private HtmlTextSelection Selection => _input is not null
-            ? _input.GetEditingSelection(_dom.CancellationToken)!.Value
-            : _textArea!.GetEditingSelection(_dom.CancellationToken);
+            ? _input.GetEditingSelection(_dom.NativeReadCheckpoint, _dom.CancellationToken)!.Value
+            : _textArea!.GetEditingSelection(_dom.NativeReadCheckpoint, _dom.CancellationToken);
         internal int Start => (int) Selection.Start;
         internal int End => (int) Selection.End;
         internal bool IsCollapsed => Start == End;
@@ -453,15 +478,15 @@ internal static class TextEditing
         {
             var previous = Selection;
             var changed = _input is not null
-                ? _input.SetEditingSelection((uint) start, (uint) end, direction, _dom.CancellationToken)
-                : _textArea!.SetEditingSelection((uint) start, (uint) end, direction, _dom.CancellationToken);
+                ? _input.SetEditingSelection((uint) start, (uint) end, direction, _dom.NativeReadCheckpoint, _dom.CancellationToken)
+                : _textArea!.SetEditingSelection((uint) start, (uint) end, direction, _dom.NativeReadCheckpoint, _dom.CancellationToken);
             if (changed && previous != Selection) SelectionChange.Schedule(_dom, Element);
         }
 
         // HTML user edits commit value, dirty state, origin and caret together; script value setters are separate.
         internal bool ApplyUserValue(string value, int caret)
         {
-            if (_input is not null && _input.GetEditingSelection(_dom.CancellationToken) is null)
+            if (_input is not null && _input.GetEditingSelection(_dom.NativeReadCheckpoint, _dom.CancellationToken) is null)
             {
                 return false;
             }

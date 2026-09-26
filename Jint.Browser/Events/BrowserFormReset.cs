@@ -19,7 +19,7 @@ internal static class BrowserFormReset
             if (CustomElementRegistry.Of(realm.Engine)?.TryGetRecord(control) is { FormAssociated: true })
                 throw new NotSupportedException("Form-associated custom-element reset requires its reaction callback.");
             if (EventDom.IsHtml(control, "input") && HtmlInputTypes.Get(control) != HtmlInputType.File)
-                control.GetHtmlState()!.GetInputValueState(realm.CancellationToken)!.GetValue(realm.CancellationToken);
+                control.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, realm.CancellationToken)!.GetValue(realm.NativeReadCheckpoint, realm.CancellationToken);
         }
         foreach (var control in controls)
         {
@@ -28,15 +28,15 @@ internal static class BrowserFormReset
             switch (control.LocalName)
             {
                 case "input" when HtmlInputTypes.Get(control) != HtmlInputType.File:
-                    control.GetHtmlState()!.GetInputValueState(realm.CancellationToken)!.ResetValue(realm.CancellationToken);
+                    control.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, realm.CancellationToken)!.ResetValue(realm.NativeReadCheckpoint, realm.CancellationToken);
                     if (HtmlInputTypes.Get(control) is HtmlInputType.Checkbox or HtmlInputType.Radio)
                         HtmlCheckednessAlgorithms.ResetCheckedness(control, realm.CancellationToken);
                     break;
                 case "textarea":
-                    control.GetHtmlState()!.TextArea!.Reset(realm.CancellationToken);
+                    control.GetHtmlState()!.TextArea!.Reset(realm.NativeReadCheckpoint, realm.CancellationToken);
                     break;
                 case "select":
-                    control.GetHtmlState()!.GetSelectState(realm.CancellationToken)!.Reset(realm.CancellationToken);
+                    control.GetHtmlState()!.GetSelectState(realm.NativeReadCheckpoint, realm.CancellationToken)!.Reset(realm.NativeReadCheckpoint, realm.CancellationToken);
                     break;
                 case "output":
                     BrowserOutputValue.Reset(control, realm.NativeReadCheckpoint, realm.CancellationToken);

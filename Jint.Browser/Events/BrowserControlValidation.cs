@@ -76,7 +76,7 @@ internal static class BrowserControlValidation
                     break;
                 case "textarea":
                     var area = element.GetHtmlState()!.TextArea!;
-                    var value = area.GetValue(work.Token);
+                    var value = area.GetValue(realm.NativeReadCheckpoint, work.Token);
                     if (work.Attribute(element, "required") is not null && value.Length == 0
                         && work.Attribute(element, "readonly") is null && !EventDom.Disabled(realm, element))
                     {
@@ -85,7 +85,7 @@ internal static class BrowserControlValidation
                     flags |= Length(realm, element, value, area.DirtyValue, area.LastValueChangeOrigin);
                     break;
                 case "select":
-                    flags |= Select(element, work);
+                    flags |= Select(realm, element, work);
                     break;
             }
         }
@@ -144,7 +144,7 @@ internal static class BrowserControlValidation
         }
         if (EventDom.Disabled(realm, element)) return false;
         if (element.LocalName == "textarea" && work.Attribute(element, "readonly") is not null) return false;
-        if (element.LocalName == "input" && element.GetHtmlState()!.GetInputValueState(work.Token)!.ReadOnly) return false;
+        if (element.LocalName == "input" && element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, work.Token)!.ReadOnly) return false;
         for (var ancestor = element.ParentNode; ancestor is not null; ancestor = ancestor.ParentNode)
         {
             work.Step();
@@ -155,7 +155,7 @@ internal static class BrowserControlValidation
 
     private static ControlValidityFlags Input(DomRealm realm, Element element, DomReadWork work)
     {
-        var state = element.GetHtmlState()!.GetInputValueState(work.Token)!;
+        var state = element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, work.Token)!;
         var required = work.Attribute(element, "required") is not null;
         if (state.Type == HtmlInputType.Checkbox)
             return required && !HtmlCheckableState.Get(element)!.Checked ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
@@ -170,14 +170,15 @@ internal static class BrowserControlValidation
             return required && (files is null || files.Length == 0) ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         }
         // Unimplemented native value families throw here. They never become a successful validity result.
-        var value = state.GetValue(work.Token);
+        var value = state.GetValue(realm.NativeReadCheckpoint, work.Token);
         var flags = required && HtmlInputTypes.Info(state.Type).RequiredApplies
             && value.Length == 0 && !state.ReadOnly && !EventDom.Disabled(realm, element)
             ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         // HTML's range and step constraints use the native numeric/temporal lattice; Browser does not
         // reparse attributes or derive a second coordinate from the exposed value string.
         // https://html.spec.whatwg.org/multipage/input.html#the-min-and-max-attributes
-        var numeric = state.GetNumericFacts(work.Token);
+        var numeric = state.GetNumericFacts(realm.NativeReadCheckpoint, work.Token);
+        if (state.BadInput) flags |= ControlValidityFlags.BadInput;
         if (numeric.Applies)
         {
             if (numeric.Underflow) flags |= ControlValidityFlags.RangeUnderflow;
@@ -207,15 +208,15 @@ internal static class BrowserControlValidation
         return flags;
     }
 
-    private static ControlValidityFlags Select(Element element, DomReadWork work)
+    private static ControlValidityFlags Select(DomRealm realm, Element element, DomReadWork work)
     {
         if (work.Attribute(element, "required") is null) return ControlValidityFlags.None;
-        var state = element.GetHtmlState()!.GetSelectState(work.Token)!;
-        var selected = state.SelectedOptions.Snapshot(work.Token);
+        var state = element.GetHtmlState()!.GetSelectState(realm.NativeReadCheckpoint, work.Token)!;
+        var selected = state.SelectedOptions.Snapshot(realm.NativeReadCheckpoint, work.Token);
         if (selected.Count == 0) return ControlValidityFlags.ValueMissing;
-        var first = state.Options.Item(0, work.Token);
-        if (selected.Count == 1 && ReferenceEquals(selected[0], first) && state.GetDisplaySize(work.Token) == 1
-            && first!.GetHtmlState()!.GetOptionState(work.Token)!.GetValue(work.Token).Length == 0)
+        var first = state.Options.Item(0, realm.NativeReadCheckpoint, work.Token);
+        if (selected.Count == 1 && ReferenceEquals(selected[0], first) && state.GetDisplaySize(realm.NativeReadCheckpoint, work.Token) == 1
+            && first!.GetHtmlState()!.GetOptionState(realm.NativeReadCheckpoint, work.Token)!.GetValue(realm.NativeReadCheckpoint, work.Token).Length == 0)
         {
             for (var parent = first.ParentNode; parent is not null && !ReferenceEquals(parent, element); parent = parent.ParentNode)
             {
