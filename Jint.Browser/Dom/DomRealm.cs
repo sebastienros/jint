@@ -279,6 +279,8 @@ internal sealed class DomRealm
         _creationRealms.GetValue(document, _creationRealmFactory);
         if (!associated)
         {
+            // Register only the actual realm/document metadata; CSS remains demand-driven.
+            global::Jint.Browser.Styling.NativeCssStyleSheets.Associate(this, document);
             RecordSubtree(document);
         }
         if (associatedGlobal)
