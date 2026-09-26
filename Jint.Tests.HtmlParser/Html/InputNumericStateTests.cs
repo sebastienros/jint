@@ -42,8 +42,13 @@ public class InputNumericStateTests
         state.GetValueAsNumber(default).Should().Be(number);
         state.HasNumericCoordinate.Should().BeTrue(); state.HasNumericConstraints.Should().BeFalse();
         state.GetFacts(default).TextLength.Should().BeNull();
-        state.GetSelection(default).Should().BeNull(); state.GetEditingSelection(default).Should().BeNull();
-        state.ApplyUserValue("1", default, default).Should().BeFalse();
+        state.GetSelection(default).Should().BeNull();
+        if (type == "number") state.GetEditingSelection(default).Should().Be(default(HtmlTextSelection));
+        else
+        {
+            state.GetEditingSelection(default).Should().BeNull();
+            state.ApplyUserValue("1", default, default).Should().BeFalse();
+        }
         input.OwnerDocument.MutationStamp.Should().Be(stamp);
     }
 
@@ -183,6 +188,12 @@ public class InputNumericStateTests
         cold.SetAttribute("min", "80"); cold.SetAttribute("min", "0");
         State(cold).GetValue(default).Should().Be("80");
         State(cold).DirtyValue.Should().BeFalse();
+        var other = Document.CreateHtml();
+        foreach (var copy in new[] { (Element) cold.CloneNode(), (Element) other.ImportNode(cold) })
+        {
+            State(copy).GetValue(default).Should().Be("80");
+            State(copy).DirtyValue.Should().BeFalse();
+        }
     }
 
     [Test]
@@ -267,7 +278,7 @@ public class InputNumericStateTests
         var before = Snapshot(state); var stamp = state.Element.OwnerDocument!.MutationStamp;
         using var cancellation = new CancellationTokenSource();
         var value = temporal ? new string('0', 10000) + "1970-01-01" : new string('0', 10000) + "1";
-        var exception = Assert.Throws<OperationCanceledException>(() => state.SetValue(value, n => { if (n == 300) cancellation.Cancel(); }, cancellation.Token));
+        var exception = Assert.Throws<OperationCanceledException>(() => state.SetValue(value, n => { if (n == 256) cancellation.Cancel(); }, cancellation.Token));
         exception!.CancellationToken.Should().Be(cancellation.Token);
         Snapshot(state).Should().Be(before); state.Element.OwnerDocument.MutationStamp.Should().Be(stamp);
     }

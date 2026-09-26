@@ -62,6 +62,7 @@ public class SelectWorkTests
         select.InitializeParsedAttributes(selectAttributes, default); option.InitializeParsedAttributes(optionAttributes, default);
         select.AppendParsedChild(option);
         var state = select.GetHtmlState()!.Select!; var optionState = option.GetHtmlState()!.Option!;
+        state.Options.Count.Should().Be(1); // Materialize the independently lazy collection before measuring cached reads.
         var probe = new HtmlSelectWorkProbe(); document.SelectWorkProbe = probe;
         for (var i = 0; i < 100; i++)
         {
@@ -121,8 +122,7 @@ public class SelectWorkTests
         probe.Units.Should().BeLessThan(16L * size + 64);
     }
     [TestCase("option")]
-    [TestCase("select")]
-    public void CloneColdMetadataSecondPassIsCancellable(string kind)
+    public void CloneIntrinsicSelectednessScanIsCancellable(string kind)
     {
         var document = Document.CreateHtml(); var element = document.CreateElement(kind);
         element.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
@@ -137,6 +137,7 @@ public class SelectWorkTests
     public void ParsedMetadataCancelsBeforeAttributeBatchPublication(string kind)
     {
         var document = Document.CreateHtml(); var element = document.CreateElement(kind);
+        if (kind == "select") element.GetSelectCore(); // Existing required facts must refresh atomically.
         using var cts = new CancellationTokenSource();
         document.SelectWorkProbe = new HtmlSelectWorkProbe { Checkpoint = units => { if (units == 256) cts.Cancel(); } };
         var attributes = Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray();

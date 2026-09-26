@@ -145,6 +145,10 @@ internal static class HtmlInputTemporalSyntax
     internal static string Sanitize(HtmlInputType type, string source, Action<long>? checkpoint, CancellationToken cancellationToken)
     {
         var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return Sanitize(type, source, ref work);
+    }
+    internal static string Sanitize(HtmlInputType type, string source, ref HtmlInputValueWork work)
+    {
         if (!ParseCore(type, source, strict: true, out var parsed, ref work)) return string.Empty;
         if (type != HtmlInputType.DateTimeLocal) return source;
         var time = source.AsSpan(parsed.YearLength + 7);
@@ -287,13 +291,19 @@ internal static class HtmlInputTemporalSyntax
 
     internal static HtmlInputDateResult GetDate(HtmlInputType type, string source, CancellationToken cancellationToken = default)
     {
+        var work = new HtmlInputValueWork(null, cancellationToken);
+        return GetDate(type, source, ref work);
+    }
+    internal static HtmlInputDateResult GetDate(HtmlInputType type, string source, ref HtmlInputValueWork work)
+    {
+        var cancellationToken = work.Token;
         ArgumentNullException.ThrowIfNull(source);
         cancellationToken.ThrowIfCancellationRequested();
         if (type is not (HtmlInputType.Date or HtmlInputType.Month or HtmlInputType.Week or HtmlInputType.Time)) return default;
-        if (!TryParseMicrosyntax(type, source, out var parsed, cancellationToken: cancellationToken)) return default;
+        if (!ParseCore(type, source, false, out var parsed, ref work)) return default;
         if (type == HtmlInputType.Time)
         {
-            GetTimeCoordinate(parsed, cancellationToken).TryPublish(out var time);
+            GetTimeCoordinate(parsed, ref work).TryPublish(out var time);
             cancellationToken.ThrowIfCancellationRequested();
             return new(true, Math.Truncate(time));
         }

@@ -191,6 +191,13 @@
         public void SetAttributeNS(string? namespaceUri, string qualifiedName, string value) { }
         public Jint.HtmlParser.Attr? SetAttributeNode(Jint.HtmlParser.Attr attribute) { }
     }
+    public sealed class HtmlParseOptions
+    {
+        public HtmlParseOptions() { }
+        public Jint.HtmlParser.ParseDiagnosticCollector? Diagnostics { get; init; }
+        public Jint.HtmlParser.ParseLimits Limits { get; init; }
+        public bool ScriptingEnabled { get; init; }
+    }
     public sealed class MarkupParseException : System.Exception
     {
         public string Code { get; }
@@ -202,6 +209,8 @@
         public static Jint.HtmlParser.Css.CssComponentValueList ParseCssComponentValues(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.Css.CssDeclarationSyntax ParseCssDeclaration(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.Css.CssRuleSyntax ParseCssRule(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Document ParseHtml(string source, Jint.HtmlParser.HtmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.DocumentFragment ParseHtmlFragment(string source, Jint.HtmlParser.Element context, Jint.HtmlParser.HtmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.Document ParseSvg(string source, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.Document ParseXml(string source, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.DocumentFragment ParseXmlFragment(string source, Jint.HtmlParser.Element context, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }

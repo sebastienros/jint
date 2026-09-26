@@ -57,8 +57,26 @@ missing or reordered declarations, and corrupt descendant bindings are rejected.
 parsed trees; SVG document MIME branding differs between the generic AngleSharp XML entry and
 native `ParseSvg`.
 
-HTML and CSS remain AngleSharp-only until the corresponding native document/CSSOM APIs exist. A
-future candidate must return a fully materialized result of the same kind and validate it during
+`HtmlParserComparisonBenchmark` pairs the four HTML inputs with public `MarkupParser.ParseHtml`.
+Both rows receive identical cached strings, reuse scripting-disabled configuration, retain no
+source references or diagnostics, and produce fresh complete documents. Setup checks all node
+kinds, values, attribute order/namespaces, child order, template subtrees and owner/parent links.
+Untimed corruption probes exercise content, attributes, comments, namespaces and ownership.
+Run `--validate-html-parser-comparison` for these checks without starting a timing run.
+
+`HtmlControlsParserComparisonBenchmark` adds three separate pairs over 256 text/url/email/password
+inputs: parsing alone, parsing plus first value access, and warm value access. First access includes
+a fresh parse and control-array construction on both sides; warm access has row-owned parsed
+documents and control arrays outside measurement. Setup verifies identical values and that native
+parsing leaves input value sidecars absent. These rows deliberately expose deferred sanitizer cost.
+URL and email values are already canonical: the pinned AngleSharp getter preserves surrounding URL
+spaces while native HTML normalization removes them, so such inputs cannot establish equal observable
+value workloads. Setup compares each control value, not only a checksum.
+The native semantic row invokes the production native input-state accessor through benchmark
+internal access; it does not claim a public parser-package semantic API.
+
+CSS remains AngleSharp-only: native public CSS Syntax results are not comparable to AngleSharp
+CSSOM output. A future candidate must return a fully materialized result of the same kind and validate it during
 setup. A tokenizer-only row would not be comparable to document-producing rows. Use the
 repository's paired benchmark procedure for reported timing numbers; no timing results are
 recorded with this corpus.
