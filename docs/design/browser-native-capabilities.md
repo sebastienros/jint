@@ -21,11 +21,17 @@ rendering. The native cutover makes the boundary explicit:
   No request is made by those queries, setters, context operations or playback refusal.
   An explicit `load()` selects the current null-namespace `src`, or the first source child, and calls
   the existing document resource owner. The selected URL is captured once on the page loop. A lazy
-  source observer cancels the operation on source/subtree changes; repeated loads cancel the previous
-  operation. Completion returns to the loop and checks operation identity, owner document, source and
+  source observer cancels a direct source on its own `src` changes. Source-child selection queues a
+  bounded recheck; unrelated descendants and appended tracks do not cancel the selected request.
+  Repeated loads cancel the previous operation and invalidate its queued resource events. Completion
+  returns to the loop and checks operation identity, owner document, source and
   base URL before publishing a media error. Receiving bytes still yields `MEDIA_ERR_SRC_NOT_SUPPORTED`
   because no decoder exists; a failed request yields `MEDIA_ERR_NETWORK`. Disposal cancels transport and
   releases the observer. A document with no resource owner explicitly refuses a non-empty request.
+  Absence of a source stays `NETWORK_EMPTY`; a present empty, malformed or disallowed source resets the
+  previous load and becomes `MEDIA_ERR_SRC_NOT_SUPPORTED`. Known source setup failures use a dedicated
+  resource-owner exception; host and constraint failures propagate. Completion checks precede state
+  commit, and a failed check leaves coherent empty state after releasing the operation.
 * Track lists are stable empty objects; there is no decoder output or invented text track. `addTextTrack`,
   the nonstandard controller and start-date capabilities explicitly refuse. Empty immutable range objects
   are reused within each realm, which differs from HTML's fresh range snapshots but cannot expose stale data.

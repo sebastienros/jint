@@ -17,13 +17,13 @@ public sealed class NativeCapabilityTests
         var element = Document.CreateHtml().CreateElement("video");
         element.SetAttributeNS("urn:test", "muted", "");
         var state = BrowserMediaState.Of(realm, element);
-        state.Muted.Should().BeFalse();
+        state.GetMuted(realm).Should().BeFalse();
         element.SetAttributeNS(null, "muted", "");
-        state.Muted.Should().BeTrue();
+        state.GetMuted(realm).Should().BeTrue();
         element.RemoveAttributeNS(null, "muted");
-        state.Muted.Should().BeFalse();
+        state.GetMuted(realm).Should().BeFalse();
         state.SetMuted(realm, true);
-        state.Muted.Should().BeTrue();
+        state.GetMuted(realm).Should().BeTrue();
         state.Paused.Should().BeTrue();
         state.Seeking.Should().BeFalse();
         state.Ended.Should().BeFalse();
@@ -116,5 +116,24 @@ public sealed class NativeCapabilityTests
     {
         var error = Caught.Exception(action).Should().BeOfType<JavaScriptException>().Subject;
         return error.Error.AsObject().Get("name").AsString();
+    }
+
+    [Test]
+    public void MutedContentAttributeReadChecksActualAttributeWork()
+    {
+        using var engine = new Engine(options => options.UseWebApis());
+        var realm = DomRealm.Of(engine);
+        var element = Document.CreateHtml().CreateElement("audio");
+        for (var i = 0; i < 1024; i++) element.SetAttributeNS(null, "data-" + i, "x");
+        element.SetAttributeNS(null, "muted", "");
+        var charged = 0;
+        var work = new DomReadWork(units =>
+        {
+            charged += units;
+            if (charged >= 256) throw new OperationCanceledException();
+        }, default);
+        Caught.Exception(() => BrowserMediaState.Of(realm, element).GetMuted(realm, work))
+            .Should().BeOfType<OperationCanceledException>();
+        charged.Should().Be(256);
     }
 }

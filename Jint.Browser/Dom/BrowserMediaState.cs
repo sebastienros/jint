@@ -36,7 +36,6 @@ internal sealed partial class BrowserMediaState
 
     internal double CurrentTime { get; private set; }
     internal double Volume => _volume;
-    internal bool Muted => _muted ?? _element.HasContentAttribute("muted");
     internal double DefaultPlaybackRate => _defaultPlaybackRate;
     internal double PlaybackRate => _playbackRate;
     internal double Duration => double.NaN;
@@ -56,6 +55,15 @@ internal sealed partial class BrowserMediaState
     internal BrowserTimeRanges Buffered => BrowserTimeRanges.Empty;
     internal BrowserTimeRanges Played => BrowserTimeRanges.Empty;
     internal BrowserTimeRanges Seekable => BrowserTimeRanges.Empty;
+
+    internal bool GetMuted(DomRealm realm, DomReadWork? work = null)
+    {
+        work ??= new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        var muted = _muted ?? work.Attribute(_element, "muted") is not null;
+        work.Check();
+        return muted;
+    }
 
     internal void SetCurrentTime(DomRealm realm, double value)
     {
@@ -163,10 +171,14 @@ internal sealed partial class BrowserMediaState
         realm.Engine.Constraints.Check();
     }
 
-    private void QueueEvent(DomRealm realm, string name)
+    private void QueueEvent(DomRealm realm, string name, long? loadGeneration = null)
     {
         var target = realm.WrapNode(_element);
-        realm.Engine.Tasks.Post(() => ActivationBehaviors.Fire(target, name, bubbles: false, composed: false));
+        realm.Engine.Tasks.Post(() =>
+        {
+            if (loadGeneration is { } generation && generation != _loadGeneration) return;
+            ActivationBehaviors.Fire(target, name, bubbles: false, composed: false);
+        });
     }
 }
 

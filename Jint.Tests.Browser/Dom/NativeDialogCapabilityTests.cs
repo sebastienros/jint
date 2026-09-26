@@ -18,9 +18,9 @@ public sealed class NativeDialogCapabilityTests
         fixture.Engine.SetValue("dialog", realm.WrapNode(dialog));
         fixture.Execute("var seen=[]; for(const name of ['beforetoggle','toggle','close']) dialog.addEventListener(name,e=>seen.push([e.type,e.oldState,e.newState,e.bubbles,e.cancelable,e.isTrusted]));");
         state.Show(realm);
-        state.Open.Should().BeTrue();
+        state.IsOpen(realm).Should().BeTrue();
         state.Close(realm, "accepted");
-        state.Open.Should().BeFalse();
+        state.IsOpen(realm).Should().BeFalse();
         state.ReturnValue.Should().Be("accepted");
         fixture.Number("seen.length").Should().Be(2);
         fixture.Engine.Tasks.ProcessTasks();
@@ -37,7 +37,7 @@ public sealed class NativeDialogCapabilityTests
         fixture.Engine.SetValue("dialog", realm.WrapNode(dialog));
         fixture.Execute("dialog.addEventListener('beforetoggle',e=>e.preventDefault(),{once:true});");
         state.Show(realm);
-        state.Open.Should().BeFalse();
+        state.IsOpen(realm).Should().BeFalse();
         fixture.Execute("dialog.addEventListener('beforetoggle',()=>dialog.setAttribute('open','authored'),{once:true});");
         state.Show(realm);
         dialog.GetAttributeNS(null, "open").Should().Be("authored");
@@ -56,10 +56,10 @@ public sealed class NativeDialogCapabilityTests
         var dialog = document.CreateElement("dialog");
         dialog.SetAttributeNS("urn:test", "open", "");
         var state = BrowserDialogState.Of(realm, dialog);
-        state.Open.Should().BeFalse();
+        state.IsOpen(realm).Should().BeFalse();
         var error = Caught.Exception(() => state.ShowModal(realm)).Should().BeOfType<JavaScriptException>().Subject;
         error.Error.AsObject().Get("name").AsString().Should().Be("NotSupportedError");
-        state.Open.Should().BeFalse();
+        state.IsOpen(realm).Should().BeFalse();
         BrowserDialogState.IsModal.Should().BeFalse();
         state.ReturnValue = "original";
         document.CreateElement("div").AppendChild(dialog);
@@ -85,5 +85,61 @@ public sealed class NativeDialogCapabilityTests
         (await page.EvaluateAsync<string>("dialog.show(); other.focus(); dialog.close(); document.activeElement.id"))
             .Should().Be("other");
         page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public void NestedBeforeToggleCloseWinsAndEmitsOneClose()
+    {
+        using var fixture = DomTestFixture.Create("");
+        var realm = DomRealm.Of(fixture.Engine);
+        var dialog = fixture.Document.CreateElement("dialog");
+        var state = BrowserDialogState.Of(realm, dialog);
+        fixture.Engine.SetValue("dialog", realm.WrapNode(dialog));
+        state.Show(realm);
+        fixture.Engine.SetValue("nestedClose", new Action(() => state.Close(realm, "inner")));
+        fixture.Execute("var closes=0; dialog.addEventListener('close',()=>closes++); dialog.addEventListener('beforetoggle',nestedClose,{once:true});");
+        state.Close(realm, "outer");
+        fixture.Engine.Tasks.ProcessTasks();
+        state.IsOpen(realm).Should().BeFalse();
+        state.ReturnValue.Should().Be("inner");
+        fixture.Number("closes").Should().Be(1);
+    }
+
+    [Test]
+    public void CoalescedToggleRunsAfterAnInterveningTask()
+    {
+        using var fixture = DomTestFixture.Create("");
+        var realm = DomRealm.Of(fixture.Engine);
+        var dialog = fixture.Document.CreateElement("dialog");
+        var state = BrowserDialogState.Of(realm, dialog);
+        fixture.Engine.SetValue("dialog", realm.WrapNode(dialog));
+        fixture.Execute("var order=[]; dialog.addEventListener('toggle',e=>order.push(e.oldState+':'+e.newState));");
+        state.Show(realm);
+        fixture.Engine.Tasks.Post(() => fixture.Execute("order.push('middle');"));
+        state.Close(realm);
+        fixture.Engine.Tasks.ProcessTasks();
+        fixture.Text("JSON.stringify(order)").Should().Be("[\"middle\",\"closed:closed\"]");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DialogAttributeAndFocusCandidateScansCancelBeforeOpening(bool candidate)
+    {
+        using var fixture = DomTestFixture.Create("");
+        var realm = DomRealm.Of(fixture.Engine);
+        var dialog = fixture.Document.CreateElement("dialog");
+        var target = candidate ? fixture.Document.CreateElement("input") : dialog;
+        if (candidate) dialog.AppendChild(target);
+        for (var i = 0; i < 1024; i++) target.SetAttributeNS(null, "data-" + i, "x");
+        var charged = 0;
+        var work = new DomReadWork(units =>
+        {
+            charged += units;
+            if (charged >= 256) throw new OperationCanceledException();
+        }, default);
+        var state = BrowserDialogState.Of(realm, dialog);
+        Caught.Exception(() => state.Show(realm, work)).Should().BeOfType<OperationCanceledException>();
+        state.IsOpen(realm).Should().BeFalse();
+        charged.Should().Be(256);
     }
 }
