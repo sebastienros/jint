@@ -10,9 +10,9 @@ internal sealed partial class HtmlTreeBuilder
     // does not hide unbounded work behind one tree-builder dispatch.
     private bool AdvanceFramesetReplacement()
     {
-        var body = _open[1];
         if (_framesetReplacementStage == 1)
         {
+            var body = _open[1];
             while (_framesetScanNode is { } node && _remaining > 0)
             {
                 _cancellationToken.ThrowIfCancellationRequested();
@@ -44,6 +44,7 @@ internal sealed partial class HtmlTreeBuilder
         if (_framesetReplacementStage == 2)
         {
             if (_remaining <= 0) return false;
+            var body = _open[1];
             body.ParentNode?.RemoveChild(body);
             Charge(1);
             _framesetReplacementStage = 3;

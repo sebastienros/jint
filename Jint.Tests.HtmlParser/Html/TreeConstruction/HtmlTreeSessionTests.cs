@@ -229,13 +229,15 @@ public class HtmlTreeSessionTests
             if (++turns > source.Length * 20) throw new InvalidOperationException("Input attribute scan stalled.");
         } while (step.Kind == HtmlParseStepKind.Yielded);
         step.Kind.Should().Be(HtmlParseStepKind.NeedInput);
-        var input = (Element) document.DocumentElement!.LastChild!.FirstChild!;
+        var body = (Element) document.DocumentElement!.LastChild!;
+        var input = (Element) body.FirstChild!;
         input.AttributeCount.Should().Be(attributes + 1);
         session.AppendInput("<frameset>", isFinal: true);
         do step = session.Drive(1, CancellationToken.None);
         while (step.Kind == HtmlParseStepKind.Yielded);
         step.Kind.Should().Be(HtmlParseStepKind.Complete);
-        input.ParentNode.Should().BeNull();
+        body.ParentNode.Should().BeNull();
+        input.ParentNode.Should().BeSameAs(body);
         ((Element) document.DocumentElement.LastChild!).LocalName.Should().Be("frameset");
     }
 
