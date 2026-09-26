@@ -61,8 +61,10 @@ dimensions. The supported inline replaced-element classification uses synthetic 
 image or font measurements. Width queries do not measure height or place boxes; height queries request
 width only if the existing flex algorithm needs it. Authored inline and rule declarations stay unchanged.
 
-Absolute computed margin/padding lengths request no sizes. Percentage and percentage-bearing math
-edges use the normal-flow containing block's available inline width from the same size query, including
+Margin/padding shorthands serialize their resolved sides with canonical one-to-four-value compression,
+sharing one invocation, computed query, work/token, witnesses and lazy size query. Authored declarations
+and native computed shorthands retain their existing values. Absolute computed margin/padding lengths
+request no sizes. Percentage and percentage-bearing math edges use the normal-flow containing block's available inline width from the same size query, including
 flex-assigned widths; all four sides use that basis. Inline and contents ancestors are skipped. Only the
 root uses the initial containing block's viewport width; an unavailable other containing block is a named
 dependency. Padding clamps to zero; margins may be negative. Normal-flow auto margins resolve to zero
@@ -75,9 +77,11 @@ ordinary represented CSS2 boxes with the initial auto aspect ratio, and for elem
 Flex/grid automatic minima remain named dependencies. An aspect-ratio candidate (including an `all` reset) in the existing matched
 raw declaration index is a demand-only `V2:aspect-ratio` dependency until that property's producer exists;
 there is no second selector scan and no unconditional pending-property read. Min/max percentages and
-math stay computed. Native DOM, CSSOM, selector semantics, browsing context/media and layout witnesses
-are checked around used-value measurement and serialization; canceled or reentrant stale reads do not
-publish a value. This is an explicit finite headless policy, not full CSS layout.
+math stay computed. Native DOM, CSSOM, selector semantics, active browsing-context association/media
+and layout witnesses are checked around used-value measurement and serialization; canceled or reentrant stale reads do not
+publish a value. Active child documents share the principal runtime for computed reads; unavailable
+child geometry never borrows the principal document's boxes. This is an explicit finite headless policy,
+not full CSS layout.
 
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
