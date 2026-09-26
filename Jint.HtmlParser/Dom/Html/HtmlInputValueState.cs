@@ -33,6 +33,7 @@ internal sealed partial class HtmlInputValueState
     internal HtmlValueChangeOrigin LastValueChangeOrigin { get; private set; }
     internal bool UserValidity { get; private set; }
     internal bool HasTextBuffer => IsAvailable && IsTextType(Type);
+    internal bool HasEditingBuffer => IsAvailable && (IsTextType(Type) || Type == HtmlInputType.Number);
     internal bool HasSelectionApi => HtmlInputTypes.Info(Type).HasSelectionApi;
     internal bool ReadOnly => HtmlInputTypes.Info(Type).ReadOnlyApplies && _readOnly;
     internal HtmlTextSelection Selection => _selection;
@@ -89,6 +90,7 @@ internal sealed partial class HtmlInputValueState
         _maximumAttribute = maximum;
         _stepAttribute = step;
         _numeric = null;
+        _numberPresentation = null;
         _value = initial;
         IsAvailable = supported;
         _unavailableFamily = supported ? null : parsed;
@@ -104,6 +106,7 @@ internal sealed partial class HtmlInputValueState
         _maximumAttribute = prepared._maximumAttribute;
         _stepAttribute = prepared._stepAttribute;
         _numeric = null;
+        _numberPresentation = null;
         _value = prepared._value;
         IsAvailable = prepared.IsAvailable;
         _unavailableFamily = prepared._unavailableFamily;
@@ -156,6 +159,8 @@ internal sealed partial class HtmlInputValueState
         cancellationToken.ThrowIfCancellationRequested();
         MakeAvailable();
         CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
+        ClearNumberPresentation();
+        if (Type == HtmlInputType.Number) SetSelection(default);
         SetDirty(true);
         if (changed)
         {
@@ -193,6 +198,8 @@ internal sealed partial class HtmlInputValueState
         else SetOrigin(HtmlValueChangeOrigin.NonUser);
         SetDirty(false);
         SetUserValidity(false);
+        ClearNumberPresentation();
+        if (Type == HtmlInputType.Number) SetSelection(default);
         ClampSelection((uint) (prepared?.Length ?? 0));
     }
 
@@ -239,6 +246,7 @@ internal sealed partial class HtmlInputValueState
         ArgumentNullException.ThrowIfNull(checkedTypeSignal);
         if (nextType == Type) return;
         var oldMode = ValueMode;
+        var leavingNumber = Type == HtmlInputType.Number;
         var oldRelevantValue = IsAvailable ? GetValue(default) : null;
         var nextMode = HtmlInputTypes.Info(nextType).ValueMode;
         var enteredSelection = !HasSelectionApi && HtmlInputTypes.Info(nextType).HasSelectionApi;
@@ -256,6 +264,8 @@ internal sealed partial class HtmlInputValueState
             if (oldMode != HtmlInputValueMode.Value && nextMode == HtmlInputValueMode.Value) SetDirty(false);
             Type = nextType;
             _numeric = null;
+            ClearNumberPresentation();
+            if (leavingNumber) SetSelection(default);
             IsAvailable = nextAvailable;
             _unavailableFamily = nextAvailable ? null : IsSupportedType(nextType) ? _unavailableFamily : nextType;
             checkedTypeSignal();
@@ -324,6 +334,7 @@ internal sealed partial class HtmlInputValueState
         ArgumentNullException.ThrowIfNull(source);
         _value = source._value;
         _numeric = null;
+        _numberPresentation = null;
         IsAvailable = source.IsAvailable;
         _unavailableFamily = source._unavailableFamily;
         DirtyValue = source.DirtyValue;

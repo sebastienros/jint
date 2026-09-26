@@ -42,8 +42,13 @@ public class InputNumericStateTests
         state.GetValueAsNumber(default).Should().Be(number);
         state.HasNumericCoordinate.Should().BeTrue(); state.HasNumericConstraints.Should().BeFalse();
         state.GetFacts(default).TextLength.Should().BeNull();
-        state.GetSelection(default).Should().BeNull(); state.GetEditingSelection(default).Should().BeNull();
-        state.ApplyUserValue("1", default, default).Should().BeFalse();
+        state.GetSelection(default).Should().BeNull();
+        if (type == "number") state.GetEditingSelection(default).Should().Be(default(HtmlTextSelection));
+        else
+        {
+            state.GetEditingSelection(default).Should().BeNull();
+            state.ApplyUserValue("1", default, default).Should().BeFalse();
+        }
         input.OwnerDocument.MutationStamp.Should().Be(stamp);
     }
 
@@ -183,6 +188,12 @@ public class InputNumericStateTests
         cold.SetAttribute("min", "80"); cold.SetAttribute("min", "0");
         State(cold).GetValue(default).Should().Be("80");
         State(cold).DirtyValue.Should().BeFalse();
+        var other = Document.CreateHtml();
+        foreach (var copy in new[] { (Element) cold.CloneNode(), (Element) other.ImportNode(cold) })
+        {
+            State(copy).GetValue(default).Should().Be("80");
+            State(copy).DirtyValue.Should().BeFalse();
+        }
     }
 
     [Test]

@@ -106,15 +106,15 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        return state.HasTextBuffer ? state.Selection : null;
+        return state.HasEditingBuffer ? state.Selection : null;
     }
     internal static bool SetEditingSelection(HtmlInputValueState state, uint start, uint end, string? direction,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!state.HasTextBuffer) return false;
-        var next = Normalize(start, end, direction, state.GetTextLength(cancellationToken));
+        if (!state.HasEditingBuffer) return false;
+        var next = Normalize(start, end, direction, (uint) state.GetEditingValue(cancellationToken).Length);
         cancellationToken.ThrowIfCancellationRequested();
         state.SetSelection(next);
         return true;
@@ -128,6 +128,8 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(value);
+        if (state.Type == HtmlInputType.Number)
+            return state.ApplyNumberUserValue(value, selection, checkpoint, cancellationToken);
         var work = new HtmlTextWork(cancellationToken, checkpoint);
         work.Check();
         work.Step();
