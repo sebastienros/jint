@@ -1,4 +1,7 @@
 using Jint.Browser.Runtime;
+using Jint.Browser.Dom;
+using Jint.Browser.Dom.Views;
+using Jint.HtmlParser.Css.Model;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -6,38 +9,10 @@ namespace Jint.Tests.Browser.Views;
 // than to the type. The alias belongs inside the namespace declaration, where it wins that lookup.
 using Browser = global::Jint.Browser.Browser;
 
-/// <summary>
-/// <c>getComputedStyle</c>: AngleSharp.Css's cascade, with ten resolved values over it, read-only.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>The standing decision, and the exception to it.</b>
-/// <a href="https://drafts.csswg.org/cssom/#resolved-values">CSSOM</a> says a computed style answers a
-/// resolved value for every supported longhand — the initial value where nothing is declared, and the used
-/// value for the box properties. AngleSharp.Css reports only what the cascade <i>declared</i>, so everything
-/// else is the empty string, and the decision here has been to record that as a divergence rather than to
-/// keep an initial-value table of some three hundred properties in a package whose whole point is that it
-/// does not re-implement a CSSOM.
-/// </para>
-/// <para>
-/// That decision still stands for the table. What it cost was a client: Playwright's actionability check
-/// ends in <c>style.visibility !== "visible"</c>, so an empty <c>visibility</c> made it read <i>every</i>
-/// element of <i>every</i> page as hidden — an unforced <c>ClickAsync</c> waited out its timeout and
-/// <c>GetByRole</c> dropped the page. So exactly ten properties resolve, and they are the ones a client
-/// reads to decide that an element can be interacted with: <c>visibility</c>, <c>display</c>,
-/// <c>opacity</c>, <c>pointer-events</c>, <c>overflow</c> with its two longhands, <c>position</c>, and
-/// <c>width</c>/<c>height</c> from the flat box model. <c>Jint.Browser/Dom/Views/ResolvedStyle</c> is the
-/// table and argues each one.
-/// </para>
-/// <para>
-/// <b>Everything else is still the declared cascade</b>, and the empty string where nothing declared it —
-/// which is what <see cref="APropertyOutsideTheExceptionIsStillTheDeclaredCascade"/> pins, so the exception
-/// cannot quietly grow into the table it was written instead of.
-/// </para>
-/// </remarks>
+/// <summary>CSSOM resolved values over the native computed query, with the synthetic flat box policy.</summary>
 public sealed class ComputedStyleTests
 {
-    /// <summary>The ten, with the value CSS's initial value gives each.</summary>
+    /// <summary>Initial values for the interaction properties.</summary>
     private static readonly (string Property, string Initial)[] _resolved =
     [
         ("visibility", "visible"),
@@ -67,7 +42,8 @@ public sealed class ComputedStyleTests
 
         var computed = "getComputedStyle(document.getElementById('by-id'))";
 
-        (await page.EvaluateAsync<string>(computed + ".getPropertyValue('font-weight')")).Should().Be("bold");
+        (await page.EvaluateAsync<string>(computed + ".getPropertyValue('font-weight')")).Should().Be("700");
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[1].style.fontWeight")).Should().Be("bold");
         (await page.EvaluateAsync<string>(computed + ".getPropertyValue('text-align')")).Should().Be("center");
         (await page.EvaluateAsync<string>(computed + ".color")).Should().Contain("0, 128, 0");
         (await page.EvaluateAsync<bool>(computed + " instanceof CSSStyleDeclaration")).Should().BeTrue();
@@ -198,7 +174,7 @@ public sealed class ComputedStyleTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        await page.SetContentAsync("<div id='block'>a</div><span id='leaf'>b</span>");
+        await page.SetContentAsync("<div id='block'>a</div><div id='leaf'>b</div>");
 
         var leaf = "getComputedStyle(document.getElementById('leaf'))";
 
@@ -220,14 +196,13 @@ public sealed class ComputedStyleTests
         (await page.EvaluateAsync<string>("getComputedStyle(document.body).height"))
             .Should().Be("48px", "the body owns its own row and the two elements under it");
 
-        // And the cascade still wins where AngleSharp's user-agent sheet declares something: a <div> is
-        // block because that sheet says so, where the <span> above took the initial value.
+        // The native user-agent sheet supplies HTML block defaults.
         (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('block')).display")).Should().Be("block");
     }
 
-    /// <summary>What is deliberately not resolved, which is what keeps the exception an exception.</summary>
+    /// <summary>Supported longhands expose native initial values and enumeration.</summary>
     [Test]
-    public async Task APropertyOutsideTheExceptionIsStillTheDeclaredCascade()
+    public async Task SupportedLonghandsAnswerInitialValuesAndAreEnumerated()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -236,121 +211,78 @@ public sealed class ComputedStyleTests
 
         var plain = "getComputedStyle(document.getElementById('plain'))";
 
-        foreach (var property in new[] { "color", "font-size", "margin-top", "z-index", "background-color", "cursor" })
-        {
-            (await page.EvaluateAsync<string>(plain + ".getPropertyValue('" + property + "')"))
-                .Should().BeEmpty("{0} is outside the ten, so it stays the declared cascade", property);
-        }
-
-        // And the enumeration stays the declared set rather than growing the ten into a list.
-        (await page.EvaluateAsync<int>(plain + ".length")).Should().Be(0);
-    }
-
-    /// <summary>
-    /// Every relative length the page's own render device can resolve, for the six properties an
-    /// author writes them on.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A relative length used to abort the whole call, and that is what
-    /// <see href="https://github.com/sebastienros/jint/issues/3730">#3730</see> was.</b> AngleSharp.Css
-    /// resolves every length to pixels against an <c>IRenderDevice</c>; the page's browsing context had
-    /// none, so the <c>DefaultRenderDevice</c> it fell back to reported 0 × 0 and raised
-    /// <c>ArgumentException</c> rather than skipping the declaration. <c>Runtime/PageRenderDevice</c> is
-    /// registered on the context now, so each of these computes — against the page's viewport, which is
-    /// 1280 × 720 with a 16px root font.
-    /// </para>
-    /// <para>
-    /// <b>Two divergences are asserted here rather than hidden.</b> A percentage resolves against the
-    /// viewport <i>width</i> whichever property it is on, so <c>height: 50%</c> is 640px and not 360px —
-    /// AngleSharp.Css passes the horizontal axis for every property
-    /// (<a href="https://github.com/AngleSharp/AngleSharp.Css/issues/232">#232</a>'s neighbourhood). And
-    /// CSSOM keeps a percentage <i>as a percentage</i> in the computed value of <c>min-width</c>,
-    /// <c>margin</c> and <c>padding</c>; AngleSharp.Css resolves those too. Both are AngleSharp's model,
-    /// and the table in <c>Jint.Browser/AGENTS.md</c> records them.
-    /// </para>
-    /// </remarks>
-    [Test]
-    public async Task EveryRelativeLengthResolvesAgainstTheViewportRatherThanThrowing()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-
-        // A percentage is horizontal for every property, so the height rows are the width answers too.
-        (string Value, string Expected)[] lengths =
-        [
-            ("100%", "1280px"),
-            ("50%", "640px"),
-            ("calc(100% - 10px)", "1270px"),
-            ("2em", "32px"),
-            ("2rem", "32px"),
-            ("10vw", "128px"),
-            ("10vh", "72px"),
-        ];
-
-        foreach (var property in new[] { "width", "height", "min-width", "margin-left", "padding-left", "font-size" })
-        {
-            foreach (var (value, expected) in lengths)
-            {
-                await page.SetContentAsync($"<style>#t {{ {property}: {value} }}</style><div id='t'>g</div>");
-
-                (await Read(page, property))
-                    .Should().Be(expected, "{0}: {1} resolves against the viewport", property, value);
-            }
-        }
-
-        page.Errors.Should().BeEmpty();
-    }
-
-    /// <summary>
-    /// <c>auto</c>, which is a keyword and not a length, and <c>ch</c>, which AngleSharp.Css cannot convert.
-    /// </summary>
-    /// <remarks>
-    /// <c>auto</c> is legal on <c>width</c>, <c>height</c> and a margin and meaningless on the other three,
-    /// so the cascade answers it where it parses and drops it where it does not —
-    /// <c>Dom/Views/ResolvedStyle</c> then answers the flat box model's <c>width</c>/<c>height</c> and the
-    /// empty string for the rest. <c>ch</c> reaches <c>default:</c> in AngleSharp.Css's unit conversion and
-    /// raises <c>InvalidOperationException</c> whatever device is registered, which is why
-    /// <c>Dom/Views/CssCascade</c> keeps its guard: the whole cascade is dropped, nothing throws, and the
-    /// resolved values answer.
-    /// </remarks>
-    [Test]
-    public async Task AKeywordAndAUnitAngleSharpCannotConvertAnswerWithoutThrowing()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-
         foreach (var (property, expected) in new[]
         {
-            ("width", "auto"),
-            ("height", "auto"),
-            ("margin-left", "auto"),
-            ("min-width", ""),
-            ("padding-left", ""),
-            ("font-size", ""),
+            ("color", "rgb(0, 0, 0)"), ("font-size", "16px"), ("margin-top", "0px"),
+            ("z-index", "auto"), ("background-color", "rgba(0, 0, 0, 0)"), ("cursor", "auto")
         })
         {
-            await page.SetContentAsync($"<style>#t {{ {property}: auto }}</style><div id='t'>g</div>");
-            (await Read(page, property)).Should().Be(expected, "{0}: auto", property);
+            (await page.EvaluateAsync<string>(plain + ".getPropertyValue('" + property + "')")).Should().Be(expected);
+            (await page.EvaluateAsync<bool>("Array.from(" + plain + ").includes('" + property + "')")).Should().BeTrue();
         }
+        (await page.EvaluateAsync<int>(plain + ".length")).Should().BeGreaterThan(6);
 
-        // `ch` is the unit that still cannot be computed, so this is the guard's own case: no cascade at
-        // all, which leaves the resolved values answering and nothing thrown.
-        await page.SetContentAsync("<style>#t { width: 20ch; visibility: hidden }</style><div id='t'>g</div>");
+    }
 
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              try { return getComputedStyle(document.getElementById('t')).visibility }
-              catch (e) { return 'threw: ' + e }
-            })()
-            """))
-            .Should().Be("visible", "a cascade AngleSharp cannot compute takes its own visibility: hidden with it");
-
-        (await Read(page, "width")).Should().Be("auto", "the box query still honors visibility despite the unrelated unsupported width");
-        (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
-
+    // Fonts 4 §2.5 uses the actual parent's computed size; Sizing 3 retains min-size percentages.
+    [TestCase("100%", "16px")]
+    [TestCase("50%", "8px")]
+    [TestCase("calc(100% - 10px)", "6px")]
+    [TestCase("2em", "32px")]
+    [TestCase("2rem", "32px")]
+    [TestCase("10vw", "128px")]
+    [TestCase("10vh", "72px")]
+    public async Task FontSizeRelativeLengthsUseTheirSpecifiedBasis(string value, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div id='t' style='font-size:{value}'>g</div>");
+        (await Read(page, "font-size")).Should().Be(expected);
         page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("100%", "100%")]
+    [TestCase("50%", "50%")]
+    [TestCase("calc(100% - 10px)", "calc(100% - 10px)")]
+    [TestCase("2em", "32px")]
+    [TestCase("2rem", "32px")]
+    [TestCase("10vw", "128px")]
+    [TestCase("10vh", "72px")]
+    public async Task MinimumWidthKeepsComputedPercentages(string value, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div id='t' style='min-width:{value}'>g</div>");
+        (await Read(page, "min-width")).Should().Be(expected);
+    }
+
+    [Test]
+    public async Task InvalidKeywordsUseInitialValuesAndUnusedFontMetricsDoNotDiscardVisibility()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        foreach (var (property, expected) in new[]
+        {
+            ("width", "1280px"), ("height", "16px"), ("margin-left", "0px"),
+            ("min-width", "0px"), ("padding-left", "0px"), ("font-size", "16px")
+        })
+        {
+            await page.SetContentAsync($"<div id='t' style='{property}:auto'>g</div>");
+            (await Read(page, property)).Should().Be(expected);
+        }
+        await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden'>g</div>");
+        (await Read(page, "visibility")).Should().Be("hidden");
+        (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
+        // A missing box retains the computed dimension, so this demand still requires the font metric.
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
+            var style = CssCascade.Traversal.For(runtime.Document)!.Of(element);
+            Action read = () => ResolvedStyle.ValueOf("width", style, element, runtime);
+            read.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be("C6:zero-advance");
+            return true;
+        });
     }
 
     [Test]
@@ -555,7 +487,8 @@ public sealed class ComputedStyleTests
         await page.EvaluateAsync("document.getElementById('p').style.setProperty('font-weight', 'bold')");
 
         (await page.EvaluateAsync<string>("document.getElementById('p').getAttribute('style')")).Should().Contain("font-weight");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')")).Should().Be("bold");
+        (await page.EvaluateAsync<string>("document.getElementById('p').style.fontWeight")).Should().Be("bold");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')")).Should().Be("700");
     }
 
     [Test]
