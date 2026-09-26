@@ -195,6 +195,22 @@ internal static class MarkdownExtractor
                 case "p":
                     return InlineOf(element);
 
+                // CSS Display 3 §2.7 can give an inline HTML construct a block box. Preserve its
+                // CommonMark semantics while Blocks still supplies the surrounding block separators.
+                // https://drafts.csswg.org/css-display/#automatic-box-type-transformations
+                case "a":
+                case "img":
+                case "strong":
+                case "b":
+                case "em":
+                case "i":
+                case "del":
+                case "s":
+                case "code":
+                case "kbd":
+                case "samp":
+                    return Inline(element);
+
                 case "pre":
                     return CodeBlock(element);
 

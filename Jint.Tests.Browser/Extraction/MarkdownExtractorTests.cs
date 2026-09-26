@@ -85,6 +85,42 @@ public sealed class MarkdownExtractorTests
         MarkdownExtractor.ToMarkdown(document).Should().Be(expected);
     }
 
+    [TestCase("display:block")]
+    [TestCase("position:absolute")]
+    public void ABlockBoxPreservesLinkMarkupAndSeparatesAdjacentInlineRuns(string style)
+    {
+        var document = PageFixture.Parse(
+            "<div>Before<a href='#main' style='" + style + "'><em>Skip</em> to content</a>After</div>",
+            "https://example.com/dir/index.html");
+        MarkdownExtractor.ToMarkdown(document).Should().Be(
+            "Before\n\n[*Skip* to content](https://example.com/dir/index.html#main)\n\nAfter");
+    }
+
+    [TestCase("strong", "**Text**")]
+    [TestCase("b", "**Text**")]
+    [TestCase("em", "*Text*")]
+    [TestCase("i", "*Text*")]
+    [TestCase("del", "~~Text~~")]
+    [TestCase("s", "~~Text~~")]
+    [TestCase("code", "`Text`")]
+    [TestCase("kbd", "`Text`")]
+    [TestCase("samp", "`Text`")]
+    public void ABlockBoxPreservesEmphasisDeletionAndCodeMarkup(string tag, string expected)
+    {
+        var document = PageFixture.Parse("<div>Before<" + tag + " style='display:block'>Text</" + tag + ">After</div>");
+        MarkdownExtractor.ToMarkdown(document).Should().Be("Before\n\n" + expected + "\n\nAfter");
+    }
+
+    [TestCase(true, "![A cat](https://example.com/dir/pic.png)")]
+    [TestCase(false, "A cat")]
+    public void ABlockImagePreservesItsSourceAlternativeAndImageOption(bool includeImages, string expected)
+    {
+        var document = PageFixture.Parse("<div>Before<img style='display:block' src='pic.png' alt='A cat'>After</div>",
+            "https://example.com/dir/index.html");
+        MarkdownExtractor.ToMarkdown(document, new MarkdownOptions { IncludeImages = includeImages })
+            .Should().Be("Before\n\n" + expected + "\n\nAfter");
+    }
+
     [Test]
     public void RendersAGitHubFlavouredTable()
     {
