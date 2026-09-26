@@ -40,8 +40,8 @@ internal sealed class HtmlRadioGroupIndex
         {
             work.Step();
             if (current is not Element element) continue;
-            var member = HtmlCheckableState.Get(element, ref work);
-            if (member?.Type != HtmlInputType.Radio) continue;
+            if (HtmlCheckableState.Type(element, ref work) != HtmlInputType.Radio) continue;
+            var member = HtmlCheckableState.Get(element, ref work)!;
             var bucket = staged.Find(member, ref work);
             var required = member.RegisteredRequired;
             staged._members.Add(member);

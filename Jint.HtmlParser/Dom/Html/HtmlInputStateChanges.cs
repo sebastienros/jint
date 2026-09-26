@@ -16,6 +16,7 @@ internal static class HtmlInputStateChanges
             else value.InitializeMetadata(default);
         }
         var existing = element.ExistingCheckedState;
+        if (existing is null && !HtmlCheckableState.IsRadio(element)) return;
         if (HtmlCheckableState.Get(element) is not { } state) return;
         // A fresh component's constructor already saw the complete batch. An
         // existing read-only view must refresh once after publication too.
@@ -46,40 +47,36 @@ internal static class HtmlInputStateChanges
         string? oldValue, string? newValue)
     {
         if (namespaceUri is not null || element is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return;
-        var state = HtmlCheckableState.Get(element)!;
+        var state = element.ExistingCheckedState;
         var valueState = element.ExistingInputValueState;
         valueState?.AttributeChanged(localName, oldValue, newValue);
         switch (localName)
         {
-            case "checked":
+            case "checked" when state is not null:
                 state.CheckedAttribute = newValue is null ? null : element.GetAttributeNodeNS(null, "checked");
                 if ((oldValue is null) != (newValue is null) && !state.DirtyCheckedness)
                     HtmlCheckednessAlgorithms.SetCore(state, newValue is not null, false, default);
                 break;
-            case "name":
+            case "name" when state is not null:
                 state.Name = newValue;
                 Rekey(state);
                 Trigger(state);
                 break;
             case "type":
                 var nextType = HtmlInputTypes.Parse(newValue);
+                // Radio entry needs group history; all other cold flags are still
+                // derivable. Existing sidecars survive every type transition.
+                if (state is null && nextType == HtmlInputType.Radio) state = HtmlCheckableState.Get(element)!;
                 if (valueState is not null)
                 {
-                    valueState.TypeChanged(nextType, () =>
-                    {
-                        state.Type = nextType;
-                        Rekey(state);
-                        Trigger(state);
-                    });
+                    valueState.TypeChanged(nextType, () => SignalType(state, nextType));
                 }
                 else if (HtmlInputTypes.Parse(oldValue) != nextType)
                 {
-                    state.Type = nextType;
-                    Rekey(state);
-                    Trigger(state);
+                    SignalType(state, nextType);
                 }
                 break;
-            case "required":
+            case "required" when state is not null:
                 HtmlRadioGroupIndex.RequiredChanged(state, newValue is not null);
                 break;
         }
@@ -87,7 +84,8 @@ internal static class HtmlInputStateChanges
 
     internal static void OwnerChanged(Element element)
     {
-        if (HtmlCheckableState.Get(element) is not { } state) return;
+        if (!HtmlCheckableState.IsRadio(element)) return;
+        var state = HtmlCheckableState.Get(element)!;
         Rekey(state);
         Trigger(state);
     }
@@ -103,6 +101,13 @@ internal static class HtmlInputStateChanges
         var state = HtmlCheckableState.Get(element)!;
         Rekey(state);
         if (ShadowTree.IsConnected(element, default)) Trigger(state);
+    }
+    private static void SignalType(HtmlInputCheckedState? state, HtmlInputType type)
+    {
+        if (state is null) return;
+        state.Type = type;
+        Rekey(state);
+        Trigger(state);
     }
     private static void Trigger(HtmlInputCheckedState state)
     {
