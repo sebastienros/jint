@@ -66,6 +66,7 @@ public abstract partial class Node
         LinkBefore(child, null);
         SlotAssignment.AfterInsertion(this, child, null);
         HtmlFormAssociation.Inserted(child);
+        HtmlSelectMutations.Inserted(child, markDocument: false);
         HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false, markDocument: false);
     }
 
@@ -583,6 +584,7 @@ public abstract partial class Node
         (parent as Document ?? parent._ownerDocument!).MarkMutation();
         SlotAssignment.AfterRemoval(parent, node);
         HtmlFormAssociation.Removed(node, formRemoval);
+        HtmlSelectMutations.Removed(node, parent);
         if (!suppressSemantic) HtmlTextAreaMutations.ChildrenChanged(parent);
         if (!suppressRecord)
         {
@@ -626,6 +628,7 @@ public abstract partial class Node
         (this as Document ?? _ownerDocument!).MarkMutation();
         SlotAssignment.AfterInsertion(this, node, referenceChild);
         HtmlFormAssociation.Inserted(node);
+        HtmlSelectMutations.Inserted(node);
         if (!suppressSemantic) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
         if (!suppressRecord)
         {

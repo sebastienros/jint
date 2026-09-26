@@ -192,6 +192,8 @@ public sealed class Element : Node
                 oldValue, attribute.Value);
             HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
+            HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+                oldValue, attribute.Value);
             SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
@@ -233,6 +235,8 @@ public sealed class Element : Node
             attribute.Value, null);
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
+        HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            attribute.Value, null);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
@@ -252,21 +256,25 @@ public sealed class Element : Node
         }
     }
 
-    internal void CopyAttributesFrom(Element source, Document document)
+    internal void CopyAttributesFrom(Element source, Document document, CancellationToken cancellationToken = default)
     {
         if (source._attributes is null)
         {
             return;
         }
 
+        var work = new HtmlSelectWork(document.SelectWorkProbe, cancellationToken);
+        work.Check();
         _attributes = new List<Attr>(source._attributes.Count);
         foreach (var attribute in source._attributes)
         {
+            work.Step();
             var copy = NodeCloner.CloneAttribute(attribute, document);
             copy.OwnerElement = this;
             _attributes.Add(copy);
             ScriptAttributeAdded(copy);
         }
+        work.Check();
     }
 
     // The parser supplies one duplicate-free, validated initial batch before the
@@ -289,6 +297,7 @@ public sealed class Element : Node
         if (attributes.IsEmpty)
         {
             HtmlInputStateChanges.Initialize(this);
+            HtmlSelectMutations.Initialize(this, HtmlSelectMutations.PrepareInitialization(this, [], cancellationToken));
             return;
         }
 
@@ -315,8 +324,11 @@ public sealed class Element : Node
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        var selectInitialization = HtmlSelectMutations.PrepareInitialization(this, result, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
         HtmlInputStateChanges.Initialize(this);
+        HtmlSelectMutations.Initialize(this, selectInitialization);
         if (scriptAsyncAdded) GetHtmlState()!.Script!.ForceAsync = false;
     }
 
@@ -384,6 +396,8 @@ public sealed class Element : Node
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            null, attribute.Value);
+        HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);

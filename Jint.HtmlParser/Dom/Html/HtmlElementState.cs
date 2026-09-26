@@ -26,6 +26,33 @@ internal sealed class HtmlElementState
         ? _textArea ??= new HtmlTextAreaState(Element) : null;
     internal HtmlTextAreaState? ExistingTextArea => _textArea;
 
+    internal bool SelectedContentDisabled { get; set; }
+
+    private HtmlSelectState? _select;
+    internal HtmlSelectState? Select => GetSelectState(default);
+    internal HtmlSelectState? GetSelectState(CancellationToken token)
+        => Element is { NamespaceUri: Namespaces.Html, LocalName: "select" }
+            ? _select ??= new HtmlSelectState(Element, token) : null;
+    internal HtmlSelectState InitializeSelect(HtmlSelectMetadata metadata)
+    {
+        if (_select is null) _select = new HtmlSelectState(Element, metadata);
+        else _select.ApplyMetadata(metadata);
+        return _select;
+    }
+    internal HtmlSelectState? ExistingSelect => _select;
+    private HtmlOptionState? _option;
+    internal HtmlOptionState? Option => GetOptionState(default);
+    internal HtmlOptionState? GetOptionState(CancellationToken token)
+        => Element is { NamespaceUri: Namespaces.Html, LocalName: "option" }
+            ? _option ??= new HtmlOptionState(Element, token) : null;
+    internal HtmlOptionState InitializeOption(HtmlOptionMetadata metadata)
+    {
+        if (_option is null) _option = new HtmlOptionState(Element, metadata);
+        else _option.ApplyMetadata(metadata);
+        return _option;
+    }
+    internal HtmlOptionState? ExistingOption => _option;
+
     private HtmlScriptState? _script;
     internal HtmlScriptState? Script => Element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
         ? _script ??= new HtmlScriptState() : null;

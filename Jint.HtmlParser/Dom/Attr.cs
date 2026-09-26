@@ -56,6 +56,7 @@ public sealed class Attr
             {
                 HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
                 HtmlInputStateChanges.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
+                HtmlSelectMutations.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
                 SlotAssignment.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
                 MutationTracking.QueueAttribute(owner, LocalName, NamespaceUri, oldValue, matches);
             }
