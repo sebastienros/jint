@@ -7710,8 +7710,8 @@
         {
           "DomName": "checked",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.checked\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsChecked);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.checked\");\nself.Target.IsChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.checked\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"checked\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.checked\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"checked\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlCommandElement.IsChecked"
         },
@@ -7726,40 +7726,40 @@
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"disabled\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.disabled\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"disabled\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlCommandElement.IsDisabled"
         },
         {
           "DomName": "icon",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.icon\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Icon);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.icon\");\nself.Target.Icon = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.icon\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.icon\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"icon\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.icon\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"icon\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.icon\"));",
           "Length": 0,
           "Origin": "IHtmlCommandElement.Icon"
         },
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.label\");\nself.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.label\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"label\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.label\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"label\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.label\"));",
           "Length": 0,
           "Origin": "IHtmlCommandElement.Label"
         },
         {
           "DomName": "radiogroup",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.radiogroup\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.RadioGroup);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.radiogroup\");\nself.Target.RadioGroup = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.radiogroup\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.radiogroup\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"radiogroup\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.radiogroup\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"radiogroup\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.radiogroup\"));",
           "Length": 0,
           "Origin": "IHtmlCommandElement.RadioGroup"
         },
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.type\");\nself.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.type\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"type\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.type\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"type\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCommandElement.type\"));",
           "Length": 0,
           "Origin": "IHtmlCommandElement.Type"
         }
@@ -9282,16 +9282,16 @@
         {
           "DomName": "autofocus",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.autofocus\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.autofocus\");\nself.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.autofocus\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"autofocus\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.autofocus\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"autofocus\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlKeygenElement.Autofocus"
         },
         {
           "DomName": "challenge",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.challenge\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Challenge);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.challenge\");\nself.Target.Challenge = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.challenge\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.challenge\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"challenge\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.challenge\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"challenge\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.challenge\"));",
           "Length": 0,
           "Origin": "IHtmlKeygenElement.Challenge"
         },
@@ -9306,8 +9306,8 @@
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"disabled\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.disabled\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"disabled\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlKeygenElement.IsDisabled"
         },
@@ -9322,8 +9322,8 @@
         {
           "DomName": "keytype",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.keytype\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.KeyEncryption);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.keytype\");\nself.Target.KeyEncryption = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.keytype\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.keytype\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"keytype\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.keytype\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"keytype\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.keytype\"));",
           "Length": 0,
           "Origin": "IHtmlKeygenElement.KeyEncryption"
         },
@@ -9338,8 +9338,8 @@
         {
           "DomName": "name",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.name\");\nself.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.name\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"name\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.name\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"name\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.name\"));",
           "Length": 0,
           "Origin": "IHtmlKeygenElement.Name"
         },
@@ -9354,7 +9354,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(\"keygen\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlKeygenElement.Type"
@@ -9822,16 +9822,16 @@
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.label\");\nself.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuElement.label\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"label\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.label\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"label\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuElement.label\"));",
           "Length": 0,
           "Origin": "IHtmlMenuElement.Label"
         },
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.type\");\nself.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuElement.type\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"type\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuElement.type\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"type\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuElement.type\"));",
           "Length": 0,
           "Origin": "IHtmlMenuElement.Type"
         }
@@ -9858,8 +9858,8 @@
         {
           "DomName": "checked",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.checked\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsChecked);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.checked\");\nself.Target.IsChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.checked\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"checked\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.checked\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"checked\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.IsChecked"
         },
@@ -9874,48 +9874,48 @@
         {
           "DomName": "default",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.default\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefault);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.default\");\nself.Target.IsDefault = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.default\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"default\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.default\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"default\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.IsDefault"
         },
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"disabled\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.disabled\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.SetFlag(self.Realm, self.Target, \"disabled\", global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.IsDisabled"
         },
         {
           "DomName": "icon",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.icon\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Icon);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.icon\");\nself.Target.Icon = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.icon\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.icon\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"icon\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.icon\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"icon\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.icon\"));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.Icon"
         },
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.label\");\nself.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.label\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"label\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.label\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"label\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.label\"));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.Label"
         },
         {
           "DomName": "radiogroup",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.radiogroup\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.RadioGroup);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.radiogroup\");\nself.Target.RadioGroup = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.radiogroup\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.radiogroup\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"radiogroup\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.radiogroup\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"radiogroup\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.radiogroup\"));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.RadioGroup"
         },
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.type\");\nself.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.type\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"type\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.type\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"type\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMenuItemElement.type\"));",
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.Type"
         }

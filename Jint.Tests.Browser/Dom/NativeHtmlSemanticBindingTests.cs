@@ -3,6 +3,20 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeHtmlSemanticBindingTests
 {
     [Test]
+    public void RetainedLegacyAttributesReflectRawContentWithoutEnhancedState()
+    {
+        using var dom = DomTestFixture.Create("<menu id=m type=popup label=commands><menuitem id=item checked default icon=raw-path type=checkbox></menuitem></menu><keygen id=k challenge=token keytype=rsa>");
+        dom.Execute("var m=document.getElementById('m'), item=document.getElementById('item'), k=document.getElementById('k');");
+        dom.Bool("m.type==='popup' && m.label==='commands' && item.checked && item.default && item.icon==='raw-path' && item.type==='checkbox'").Should().BeTrue();
+        dom.Bool("k instanceof HTMLUnknownElement").Should().BeTrue();
+        dom.Bool("(()=>{try{Object.getOwnPropertyDescriptor(HTMLKeygenElement.prototype,'type').get.call(k)}catch(e){return e instanceof TypeError}})()").Should().BeTrue();
+        dom.Execute("item.checked=false; item.disabled=true; item.radiogroup='group';");
+        dom.Bool("!item.hasAttribute('checked') && item.hasAttribute('disabled') && item.getAttribute('radiogroup')==='group'").Should().BeTrue();
+        dom.Execute("item.setAttribute('label','changed');");
+        dom.Bool("item.label==='changed'").Should().BeTrue();
+    }
+
+    [Test]
     public void AnchorTextReadsActualDescendantsAndReplacesActualChildren()
     {
         using var dom = DomTestFixture.Create("<a id=a>before<span>inside</span><!-- omitted -->after</a>");
