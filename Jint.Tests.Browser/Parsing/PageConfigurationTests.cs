@@ -1,96 +1,137 @@
-using System.Collections;
-using AngleSharp;
-using AngleSharp.Dom;
-using Jint.Browser.Runtime.Parsing;
+using System.Collections.Concurrent;
+using Jint.Browser;
+using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
+using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Parsing;
 
-public class PageConfigurationTests
+// The removed AngleSharp service enumeration/factory tests policed that implementation.
+// These native tests preserve isolation and configuration order; they do not claim the
+// old enumeration-count performance evidence.
+public sealed class PageConfigurationTests
 {
     [Test]
-    public void ConstructionAndRepeatedConsumptionDoNotReplayEarlierReplacements()
+    public async Task ManufacturedDocumentsDoNotReplayConfigurationOnAnExistingEngine()
     {
-        var input = new CountedServices(Configuration.Default.Services.ToArray());
-        IConfiguration configuration = new Configuration(input);
-        var marker = new Marker();
-        for (var i = 0; i < 6; i++)
+        var order = new ConcurrentQueue<string>();
+        await using var browser = new global::Jint.Browser.Browser(ConfiguredOptions(order));
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>page</p>");
+        var before = order.ToArray();
+        await page.RunOnLoopAsync(engine =>
         {
-            configuration = configuration.WithOnly<IMarker>(marker).MaterializeServices();
-        }
-
-        var constructionPasses = input.Passes;
-        constructionPasses.Should().BeLessThanOrEqualTo(3);
-        for (var i = 0; i < 10; i++)
-        {
-            configuration.Services.OfType<IMarker>().Single().Should().BeSameAs(marker);
-        }
-        input.Passes.Should().Be(constructionPasses);
+            var marker = engine.GetValue("configurationMarker").ToObject();
+            engine.Evaluate("""
+                var retained = new DOMParser().parseFromString('<Root>original</Root>', 'text/xml');
+                for (var i=0; i<8; i++) {
+                    new DOMParser().parseFromString('<p>html</p>', 'text/html');
+                    new DOMParser().parseFromString('<Other>xml</Other>', 'application/xml');
+                    document.implementation.createHTMLDocument('manufactured');
+                    document.implementation.createDocument('urn:example', 'm:Root', null);
+                }
+                retained.documentElement.localName === 'Root' && retained.documentElement.textContent === 'original'
+                """).AsBoolean().Should().BeTrue();
+            engine.GetValue("configurationMarker").ToObject().Should().BeSameAs(marker);
+            return true;
+        });
+        order.ToArray().Should().Equal(before);
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]
-    public void SnapshotPreservesOrderIdentityAndUnresolvedContextCreators()
+    public async Task DistinctPageEnginesKeepMarkersAndConfigureBeforeObserverAndFirstScript()
     {
-        var first = new Marker();
-        var second = new Marker();
-        var calls = new List<IBrowsingContext>();
-        Func<IBrowsingContext, IMarker> creator = context =>
+        var order = new ConcurrentQueue<string>();
+        await using var browser = new global::Jint.Browser.Browser(ConfiguredOptions(order));
+        await using var firstContext = await browser.NewContextAsync();
+        await using var secondContext = await browser.NewContextAsync();
+        var first = await firstContext.NewPageAsync();
+        var second = await secondContext.NewPageAsync();
+        object? firstMarker = null;
+        foreach (var page in new[] { first, second })
         {
-            calls.Add(context);
-            return new Marker();
-        };
-        var source = new Configuration([first, creator, second]);
-        var snapshot = source.MaterializeServices();
-        var services = snapshot.Services.ToArray();
-        services.Length.Should().Be(3);
-        services[0].Should().BeSameAs(first);
-        services[1].Should().BeSameAs(creator);
-        services[2].Should().BeSameAs(second);
-        calls.Should().BeEmpty();
-
-        var creators = new Configuration([creator]).MaterializeServices();
-        using var a = BrowsingContext.New(creators);
-        using var b = BrowsingContext.New(creators);
-        var serviceA = a.GetService<IMarker>();
-        var serviceB = b.GetService<IMarker>();
-        serviceA.Should().NotBeNull().And.NotBeSameAs(serviceB);
-        calls.Should().Equal(a, b);
-    }
-
-    [Test]
-    public void XmlRegistrationMutatesOnlyTheDocumentFactoryForThisConfiguration()
-    {
-        var first = new PageDocumentFactory();
-        var second = new PageDocumentFactory();
-        var a = Configuration.Default.WithOnly<IDocumentFactory>(first).MaterializeServices();
-        var b = Configuration.Default.WithOnly<IDocumentFactory>(second).MaterializeServices();
-        a = a.WithCss().MaterializeServices().WithXml().MaterializeServices();
-        b = b.WithCss().MaterializeServices().WithXml().MaterializeServices();
-        first.ReadXmlWithTheXmlParser();
-        second.ReadXmlWithTheXmlParser();
-        a.Services.OfType<IDocumentFactory>().Single().Should().BeSameAs(first);
-        b.Services.OfType<IDocumentFactory>().Single().Should().BeSameAs(second);
-        var creator = first.Unregister("text/xml");
-        creator.Should().NotBeNull();
-        second.Unregister("text/xml").Should().NotBeNull();
-        first.Unregister("text/xml").Should().BeNull();
-    }
-
-    private interface IMarker;
-    private sealed class Marker : IMarker;
-
-    private sealed class CountedServices(object[] services) : IEnumerable<object>
-    {
-        internal int Passes { get; private set; }
-
-        public IEnumerator<object> GetEnumerator()
-        {
-            Passes++;
-            foreach (var service in services)
+            order.Clear();
+            page.Observe(new ConfigurationObserver(order));
+            await page.SetContentAsync("<script>window.firstMarker=configurationMarker; recordFirstScript();</script>");
+            order.ToArray().Should().Equal("options-first", "options-second", "engine-first", "engine-second", "observer", "script");
+            var marker = await page.RunOnLoopAsync(engine =>
             {
-                yield return service;
+                var configured = engine.GetValue("configurationMarker").ToObject();
+                engine.GetValue("firstMarker").ToObject().Should().BeSameAs(configured);
+                return configured;
+            });
+            marker.Should().NotBeNull();
+            if (firstMarker is null) firstMarker = marker;
+            else marker.Should().NotBeSameAs(firstMarker);
+            page.Errors.Should().BeEmpty();
+        }
+    }
+
+    [Test]
+    public async Task InterleavedMimeParsingKeepsDocumentKindsNamespacesAndTreesIndependent()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var first = await browser.NewPageAsync();
+        var second = await browser.NewPageAsync();
+        var retained = new Dictionary<Page, List<Document>> { [first] = [], [second] = [] };
+        foreach (var mime in new[] { "text/html", "text/xml", "application/xml", "application/xhtml+xml", "image/svg+xml", "text/html" })
+        {
+            var html = mime == "text/html";
+            var namespaceUri = mime == "image/svg+xml" ? Namespaces.Svg
+                : mime == "application/xhtml+xml" || html ? Namespaces.Html : "urn:example";
+            var markup = html ? "<MiXeD>original</MiXeD>" : "<MiXeD xmlns='" + namespaceUri + "'>original</MiXeD>";
+            foreach (var page in new[] { first, second })
+            {
+                await page.RunOnLoopAsync(engine =>
+                {
+                    engine.SetValue("inputMarkup", markup);
+                    engine.SetValue("inputMime", mime);
+                    var document = DomBindings.Bind<Document>(engine.Evaluate(
+                        "new DOMParser().parseFromString(inputMarkup, inputMime)"), "configuration regression").Target;
+                    document.Kind.Should().Be(html ? DocumentKind.Html : DocumentKind.Xml);
+                    document.ContentType.Should().Be(mime);
+                    var root = html ? document.DocumentElement!.LastChild!.FirstChild! : document.DocumentElement!;
+                    var element = (Element) root;
+                    element.LocalName.Should().Be(html ? "mixed" : "MiXeD");
+                    element.NamespaceUri.Should().Be(namespaceUri);
+                    foreach (var earlier in retained[page])
+                    {
+                        document.Should().NotBeSameAs(earlier);
+                        DomDescendantText.Read(earlier, null, default).Should().Be("original");
+                    }
+                    retained[page].Add(document);
+                    return true;
+                });
             }
         }
+    }
 
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    private static BrowserOptions ConfiguredOptions(ConcurrentQueue<string> order) => new BrowserOptions()
+        .ConfigureEngine(options =>
+        {
+            order.Enqueue("options-first");
+            var marker = new object();
+            options.Configure(engine =>
+            {
+                order.Enqueue("engine-first");
+                engine.SetValue("configurationMarker", marker);
+                engine.SetValue("recordFirstScript", (Action) (() => order.Enqueue("script")));
+            });
+        })
+        .ConfigureEngine(options =>
+        {
+            order.Enqueue("options-second");
+            options.Configure(_ => order.Enqueue("engine-second"));
+        });
+
+    private sealed class ConfigurationObserver(ConcurrentQueue<string> order) : IPageObserver
+    {
+        public void DocumentCreated(PageRuntime runtime, string loaderId)
+        {
+            runtime.Document.Should().BeNull();
+            runtime.Engine.GetValue("configurationMarker").ToObject().Should().NotBeNull();
+            order.Enqueue("observer");
+        }
     }
 }
