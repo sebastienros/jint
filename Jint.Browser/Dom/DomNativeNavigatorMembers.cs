@@ -13,10 +13,27 @@ internal static class DomNativeNavigatorMembers
         var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
         work.Check();
         var userAgent = navigator.Engine.NavigatorUserAgentValue.AsString();
-        var value = userAgent.StartsWith("Mozilla/5.0 (", StringComparison.Ordinal)
-            ? JsString.Create(userAgent["Mozilla/".Length..])
-            : JsString.Empty;
+        return AppVersion(userAgent, work);
+    }
+
+    internal static JsValue AppVersion(string userAgent, DomReadWork work)
+    {
         work.Check();
-        return value;
+        if (!userAgent.StartsWith("Mozilla/5.0 (", StringComparison.Ordinal))
+        {
+            work.Check();
+            return JsString.Empty;
+        }
+        var value = string.Create(userAgent.Length - "Mozilla/".Length, (userAgent, work), static (destination, state) =>
+        {
+            for (var i = 0; i < destination.Length; i++)
+            {
+                state.work.Step();
+                destination[i] = state.userAgent[i + "Mozilla/".Length];
+            }
+            state.work.Check();
+        });
+        work.Check();
+        return JsString.Create(value);
     }
 }
