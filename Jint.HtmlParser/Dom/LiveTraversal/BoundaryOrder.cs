@@ -30,7 +30,13 @@ internal static class BoundaryOrder
         CancellationToken cancellationToken)
     {
         RequireValid(node, nameof(node));
-        var work = new WorkCounter(workCheckpoint, cancellationToken);
+        var work = new TraversalWork(node, default, workCheckpoint, cancellationToken);
+        return GetRoot(node, ref work);
+    }
+
+    internal static DomNodeIdentity GetRoot(DomNodeIdentity node, ref TraversalWork work)
+    {
+        RequireValid(node, nameof(node));
         work.Check();
         if (node.Attribute is not null)
         {
@@ -61,7 +67,14 @@ internal static class BoundaryOrder
     {
         RequireValid(left.Container, nameof(left));
         RequireValid(right.Container, nameof(right));
-        var work = new WorkCounter(workCheckpoint, cancellationToken);
+        var work = new TraversalWork(left.Container, right.Container, workCheckpoint, cancellationToken);
+        return Compare(left, right, ref work);
+    }
+
+    internal static int Compare(BoundaryPoint left, BoundaryPoint right, ref TraversalWork work)
+    {
+        RequireValid(left.Container, nameof(left));
+        RequireValid(right.Container, nameof(right));
         work.Check();
 
         // Validate left then right before comparing roots. A point can retain an
@@ -126,7 +139,7 @@ internal static class BoundaryOrder
         return result;
     }
 
-    private static void ValidatePoint(BoundaryPoint point, ref WorkCounter work)
+    private static void ValidatePoint(BoundaryPoint point, ref TraversalWork work)
     {
         if (point.Container.Node is DocumentType)
         {
@@ -142,7 +155,7 @@ internal static class BoundaryOrder
         }
     }
 
-    private static List<Node> BuildPath(Node node, ref WorkCounter work)
+    private static List<Node> BuildPath(Node node, ref TraversalWork work)
     {
         var path = new List<Node>();
         for (Node? current = node; current is not null; current = current.ParentNode)
@@ -155,7 +168,7 @@ internal static class BoundaryOrder
         return path;
     }
 
-    private static uint IndexOfChild(Node parent, Node child, ref WorkCounter work)
+    private static uint IndexOfChild(Node parent, Node child, ref TraversalWork work)
     {
         uint index = 0;
         for (var current = parent.FirstChild; current is not null; current = current.NextSibling)
@@ -172,7 +185,7 @@ internal static class BoundaryOrder
         throw new InvalidOperationException("The tree changed during boundary comparison.");
     }
 
-    private static bool BeforeInSiblings(Node parent, Node left, Node right, ref WorkCounter work)
+    private static bool BeforeInSiblings(Node parent, Node left, Node right, ref TraversalWork work)
     {
         for (var current = parent.FirstChild; current is not null; current = current.NextSibling)
         {
@@ -202,23 +215,4 @@ internal static class BoundaryOrder
     private static DomException WrongDocument()
         => new("WrongDocumentError", "Boundary points are in different trees.");
 
-    private struct WorkCounter(Action<int>? checkpoint, CancellationToken cancellationToken)
-    {
-        private int _steps;
-
-        internal void Step()
-        {
-            _steps++;
-            if ((_steps & 255) == 0)
-            {
-                Check();
-            }
-        }
-
-        internal void Check()
-        {
-            checkpoint?.Invoke(_steps);
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-    }
 }

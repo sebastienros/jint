@@ -125,24 +125,34 @@ public sealed partial class DomRange
 
     internal DomNodeIdentity GetCommonAncestor(Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (Start.Container.Equals(End.Container)) return Start.Container;
+        var work = new TraversalWork(this, null, default, workCheckpoint, cancellationToken);
+        return GetCommonAncestor(ref work);
+    }
+
+    private DomNodeIdentity GetCommonAncestor(ref TraversalWork work)
+    {
+        work.Check();
+        if (Start.Container.Equals(End.Container)) { work.Check(); return Start.Container; }
         var ancestors = new HashSet<Node>();
-        var work = new TraversalWork(workCheckpoint, cancellationToken);
         for (var node = Start.Container.Node; node is not null; node = node.ParentNode) { ancestors.Add(node); work.Step(); }
         for (var node = End.Container.Node; node is not null; node = node.ParentNode)
         {
             work.Step();
             if (ancestors.Contains(node)) { work.Check(); return new(node); }
         }
+        work.Check();
         throw Error("WrongDocumentError");
     }
     /// <summary>Compares selected boundary points using DOM selectors 0, 1, 2, or 3; returns -1, 0, or 1.</summary>
     /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
     public int CompareBoundaryPoints(ushort how, DomRange source, CancellationToken cancellationToken = default)
+        => CompareBoundaryPoints(how, source, null, cancellationToken);
+
+    internal int CompareBoundaryPoints(ushort how, DomRange source, Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
         if (how > 3) throw Error("NotSupportedError");
         ArgumentNullException.ThrowIfNull(source);
+        var work = new TraversalWork(this, source, default, workCheckpoint, cancellationToken);
         var (left, right) = how switch
         {
             0 => (Start, source.Start),
@@ -150,38 +160,62 @@ public sealed partial class DomRange
             2 => (End, source.End),
             _ => (Start, source.End)
         };
-        return BoundaryOrder.Compare(left, right, cancellationToken);
+        return BoundaryOrder.Compare(left, right, ref work);
     }
     /// <summary>Returns -1 before the range, 0 inside it, or 1 after it; a different root throws WrongDocumentError.</summary>
     /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
     public int ComparePoint(DomNodeIdentity node, uint offset, CancellationToken cancellationToken = default)
+        => ComparePoint(node, offset, null, cancellationToken);
+
+    internal int ComparePoint(DomNodeIdentity node, uint offset, Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
-        if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) throw Error("WrongDocumentError");
+        if (!node.IsValid) throw new ArgumentException("A node or attribute identity is required.", nameof(node));
+        var work = new TraversalWork(this, null, node, workCheckpoint, cancellationToken);
+        if (!HasSameRoot(node, ref work)) { work.Check(); throw Error("WrongDocumentError"); }
+        return ComparePointInRoot(node, offset, ref work);
+    }
+
+    private bool HasSameRoot(DomNodeIdentity node, ref TraversalWork work)
+        => BoundaryOrder.GetRoot(node, ref work).Equals(BoundaryOrder.GetRoot(Start.Container, ref work));
+
+    private int ComparePointInRoot(DomNodeIdentity node, uint offset, ref TraversalWork work)
+    {
         var point = new BoundaryPoint(node, offset);
+        work.Check();
         Validate(point);
-        if (BoundaryOrder.Compare(point, Start, cancellationToken) < 0) return -1;
-        return BoundaryOrder.Compare(point, End, cancellationToken) > 0 ? 1 : 0;
+        work.Check();
+        if (BoundaryOrder.Compare(point, Start, ref work) < 0) return -1;
+        return BoundaryOrder.Compare(point, End, ref work) > 0 ? 1 : 0;
     }
     /// <summary>Tests whether a valid point is within the range, returning false for a different root.</summary>
     /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
     public bool IsPointInRange(DomNodeIdentity node, uint offset, CancellationToken cancellationToken = default)
+        => IsPointInRange(node, offset, null, cancellationToken);
+
+    internal bool IsPointInRange(DomNodeIdentity node, uint offset, Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
-        if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) return false;
-        return ComparePoint(node, offset, cancellationToken) == 0;
+        if (!node.IsValid) throw new ArgumentException("A node or attribute identity is required.", nameof(node));
+        var work = new TraversalWork(this, null, node, workCheckpoint, cancellationToken);
+        if (!HasSameRoot(node, ref work)) { work.Check(); return false; }
+        return ComparePointInRoot(node, offset, ref work) == 0;
     }
     /// <summary>Tests ordinary-tree intersection; a matching parentless root intersects even a collapsed range.</summary>
     /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
     public bool IntersectsNode(DomNodeIdentity node, CancellationToken cancellationToken = default)
+        => IntersectsNode(node, null, cancellationToken);
+
+    internal bool IntersectsNode(DomNodeIdentity node, Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
-        if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) return false;
-        if (node.Node?.ParentNode is null) return true;
-        var work = new TraversalWork(cancellationToken);
+        if (!node.IsValid) throw new ArgumentException("A node or attribute identity is required.", nameof(node));
+        var work = new TraversalWork(this, null, node, workCheckpoint, cancellationToken);
+        if (!HasSameRoot(node, ref work)) { work.Check(); return false; }
+        if (node.Node?.ParentNode is null) { work.Check(); return true; }
         uint index = 0;
         for (var sibling = node.Node.PreviousSibling; sibling is not null; sibling = sibling.PreviousSibling) { index++; work.Step(); }
         work.Check();
         var before = new BoundaryPoint(new(node.Node.ParentNode), index);
-        return BoundaryOrder.Compare(before with { Offset = before.Offset + 1 }, Start, cancellationToken) > 0 &&
-               BoundaryOrder.Compare(before, End, cancellationToken) < 0;
+        return BoundaryOrder.Compare(before with { Offset = before.Offset + 1 }, Start, ref work) > 0 &&
+               BoundaryOrder.Compare(before, End, ref work) < 0;
     }
     /// <summary>Copies selected Text and CDATA data in tree order, excluding Comment and processing-instruction data.</summary>
     /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
@@ -189,9 +223,9 @@ public sealed partial class DomRange
 
     internal string GetText(Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
-        var work = new TraversalWork(workCheckpoint, cancellationToken);
+        var work = new TraversalWork(this, null, default, workCheckpoint, cancellationToken);
         if (Collapsed) { work.Check(); return string.Empty; }
-        var root = GetCommonAncestor(cancellationToken).Node;
+        var root = GetCommonAncestor(ref work).Node;
         if (root is null) { work.Check(); return string.Empty; }
         var builder = new StringBuilder();
         var first = BoundaryNode(Start, root, ref work);
@@ -232,16 +266,6 @@ public sealed partial class DomRange
 
 }
 
-internal struct TraversalWork
-{
-    private readonly CancellationToken _token;
-    private readonly Action<int>? _checkpoint;
-    private int _count;
-    internal TraversalWork(CancellationToken token) : this(null, token) { }
-    internal TraversalWork(Action<int>? checkpoint, CancellationToken token) { _token = token; _checkpoint = checkpoint; _count = 0; Check(); }
-    internal void Step() { if ((++_count & 255) == 0) Check(); }
-    internal readonly void Check() { _checkpoint?.Invoke(_count); _token.ThrowIfCancellationRequested(); }
-}
 internal static class NativeTraversal
 {
     internal static Node? Next(Node node, Node root, ref TraversalWork work)
