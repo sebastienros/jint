@@ -112,7 +112,7 @@ internal sealed class CssDeclarationBlock
         // CSSOM precedence: reject priority before parsing a nonempty value (including pending grammars).
         if (!string.IsNullOrEmpty(priority) && !CssAscii.EqualsIgnoreCase(priority, "important")) return;
         if (_context == CssDeclarationContext.Keyframe && !string.IsNullOrEmpty(priority)) return;
-        var parser = new CssSyntaxParser(value, options, cancellationToken);
+        var parser = new CssSyntaxParser(value, options, cancellationToken, work.CheckCancellation);
         var components = parser.ParseComponentValues();
         var input = CssReferenceInput.FromComponents(value, components, options?.Limits.MaxNestingDepth ?? 0,
             new CssSourceSpan(0, value.Length), work);
@@ -153,9 +153,13 @@ internal sealed class CssDeclarationBlock
 
     internal void ReplaceText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
+        => ReplaceText(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void ReplaceText(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
-        var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
-        ReplaceDeclarations(source, syntax, options?.Limits.MaxNestingDepth ?? 0, new CssValueWork(cancellationToken));
+        var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
+        ReplaceDeclarations(source, syntax, options?.Limits.MaxNestingDepth ?? 0, work);
     }
 
     internal void ReplaceDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,

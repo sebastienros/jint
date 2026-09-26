@@ -139,7 +139,7 @@ internal sealed partial class CssDomain : CSSDomainBase
     /// <summary>The element a <c>nodeId</c> names, in the <c>DOM</c> domain's own wording.</summary>
     private Element Element(int nodeId)
     {
-        var node = _target.Nodes.ByNodeId(nodeId) ?? Throw.ServerError<Node>("Could not find node with given id");
+        var node = _target.Nodes.ByNodeId(nodeId) ?? Throw.ServerError<object>("Could not find node with given id");
         return node as Element ?? Throw.ServerError<Element>("Node is not an Element");
     }
 

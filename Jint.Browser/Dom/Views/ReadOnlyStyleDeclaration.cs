@@ -8,7 +8,7 @@ namespace Jint.Browser.Dom.Views;
 
 // CSSOM §6.6.1: a live declaration with its computed and read-only flags set.
 // Each script read creates a fresh native query; no cached query crosses DOM/CSSOM writes.
-internal sealed class ReadOnlyStyleDeclaration
+internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
 {
     private readonly PageRuntime _runtime;
     private readonly Element _element;
@@ -19,10 +19,10 @@ internal sealed class ReadOnlyStyleDeclaration
         _element = element;
     }
 
-    internal string this[int index] => Current()[index];
-    internal string this[string name] => GetPropertyValue(name);
-    internal int Length => Current().Length;
-    internal string CssText
+    internal override string Item(int index) => Current()[index];
+    internal override Jint.HtmlParser.Css.Model.CssRule? ParentRule => null;
+    internal override int Length => Current().Length;
+    internal override string CssText
     {
         get
         {
@@ -32,18 +32,20 @@ internal sealed class ReadOnlyStyleDeclaration
         set => Refuse("cssText");
     }
 
-    internal string GetPropertyValue(string propertyName)
+    internal override string GetPropertyValue(string propertyName)
     {
         var property = Current().GetProperty(propertyName);
-        return property.Source is null && property.Text == "auto" && property.Name is "width" or "height"
-            ? ResolvedStyle.ValueOf(property.Name, _element, _runtime) ?? property.Text : property.Text;
+        var document = _element.OwnerDocument;
+        var host = document is null ? null : NativeCssStyleSheets.RealmOf(document);
+        var current = host is null ? null : PageRuntime.FindBrowsingContext(host.Engine, document);
+        return property.Source is null && property.Text == "auto" && property.Name is "width" or "height" && current is not null
+            ? ResolvedStyle.ValueOf(property.Name, _element, current) ?? property.Text : property.Text;
     }
     internal NativeCssProperty GetProperty(string propertyName) => Current().GetProperty(propertyName);
-    internal string GetPropertyPriority(string propertyName) => Current().GetPropertyPriority(propertyName);
+    internal override string GetPropertyPriority(string propertyName) => Current().GetPropertyPriority(propertyName);
     internal IReadOnlyList<NativeCssProperty> Enumerate() => Current().Enumerate();
-    internal void SetProperty(string name, string value, string? priority = null) => Refuse("setProperty");
-    internal void Update(string value) => Refuse("cssText");
-    internal string RemoveProperty(string name)
+    internal override void SetProperty(string name, string value, string? priority = null) => Refuse("setProperty");
+    internal override string RemoveProperty(string name)
     {
         Refuse("removeProperty");
         return "";
@@ -52,10 +54,9 @@ internal sealed class ReadOnlyStyleDeclaration
     private NativeCssComputedStyle Current()
     {
         var document = _element.OwnerDocument ?? throw new ArgumentException("Element needs a document.");
-        var realm = _runtime.Dom.RealmOfDocument(document);
+        var realm = NativeCssStyleSheets.RealmOf(document) ?? _runtime.Dom.RealmOfDocument(document);
         NativeCssStyleSheets.Associate(realm, document);
-        var input = NativeCssStyleSheets.CreateQuery(document, realm);
-        return new(input.Query, _element, input.Matching);
+        return CssCascade.Traversal.For(document)!.Of(_element);
     }
 
     private void Refuse(string member)
