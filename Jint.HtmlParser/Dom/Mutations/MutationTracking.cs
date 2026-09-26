@@ -98,20 +98,23 @@ internal static class MutationTracking
         EmitChildList(target, addedNodes, removedNodes, previousSibling, nextSibling, matches);
     }
 
-    internal static void QueueAttribute(Element target, string localName, string? namespaceUri,
+    internal static void QueueAttribute(Element target, Attr attribute,
         string? oldValue, MutationMatches? matches = null)
     {
-        matches ??= Match(target, MutationRecordKind.Attributes, localName, namespaceUri);
-        if (matches is null)
+        matches ??= Match(target, MutationRecordKind.Attributes, attribute.LocalName, attribute.NamespaceUri);
+        if (matches is null || matches.Entries.Count == 0)
         {
             return;
         }
 
+        // Capture the actual qualified name only when records are needed. Attr.Name reuses LocalName
+        // when unprefixed; a prefixed name is built once and shared by all interested subscriptions.
+        var qualifiedName = attribute.Name;
         foreach (var entry in matches.Entries)
         {
             entry.Subscription.Queue(new MutationRecord(MutationRecordKind.Attributes, target,
-                attributeName: localName, attributeNamespace: namespaceUri,
-                oldValue: entry.OldValue ? oldValue : null));
+                attributeName: attribute.LocalName, attributeNamespace: attribute.NamespaceUri,
+                oldValue: entry.OldValue ? oldValue : null, attributeQualifiedName: qualifiedName));
         }
     }
 

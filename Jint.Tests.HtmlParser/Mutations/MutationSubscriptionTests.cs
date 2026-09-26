@@ -6,6 +6,41 @@ namespace Jint.Tests.HtmlParser.Mutations;
 public class MutationSubscriptionTests
 {
     [Test]
+    public void QualifiedAttributeMetadataIsFrozenWithoutChangingDomLocalNameOrOldValue()
+    {
+        var document = Document.CreateXml();
+        var root = document.CreateElement("root");
+        using var subscription = document.ObserveMutations(root, new MutationObserverOptions
+        {
+            Attributes = true, AttributeOldValue = true
+        });
+        root.SetAttributeNS("urn:test", "first:local", "one");
+        var original = root.GetAttributeNodeNS("urn:test", "local")!;
+        original.Value = "two";
+        root.RemoveAttributeNode(original);
+        original.Prefix = "detached";
+        var replacement = document.CreateAttributeNS("urn:test", "second:local");
+        replacement.Value = "three";
+        root.SetAttributeNode(replacement);
+        var changedPrefix = document.CreateAttributeNS("urn:test", "third:local");
+        changedPrefix.Value = "four";
+        root.SetAttributeNode(changedPrefix);
+        replacement.Prefix = "also-detached";
+        root.SetAttribute("plain", "plain-value");
+        var plain = root.GetAttributeNode("plain")!;
+        var records = subscription.TakeRecords();
+        records.Select(record => record.AttributeQualifiedName).Should().Equal(
+            "first:local", "first:local", "first:local", "second:local", "third:local", "plain");
+        records.Take(5).Select(record => record.AttributeName).Should().OnlyContain(name => name == "local");
+        records.Take(5).Select(record => record.AttributeNamespace).Should().OnlyContain(uri => uri == "urn:test");
+        records.Select(record => record.OldValue).Should().Equal(null, "one", "two", null, "three", null);
+        records[5].AttributeQualifiedName.Should().BeSameAs(plain.LocalName, "unprefixed metadata reuses the existing local-name string");
+        records[5].AttributeNamespace.Should().BeNull();
+        original.Prefix.Should().Be("detached");
+        replacement.Prefix.Should().Be("also-detached");
+    }
+
+    [Test]
     public void ObserveDefaultsValidationAndFilterSnapshot()
     {
         var document = Document.CreateXml();
