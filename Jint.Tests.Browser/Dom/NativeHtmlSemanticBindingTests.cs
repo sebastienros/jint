@@ -3,6 +3,18 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeHtmlSemanticBindingTests
 {
     [Test]
+    public void AnchorTextReadsActualDescendantsAndReplacesActualChildren()
+    {
+        using var dom = DomTestFixture.Create("<a id=a>before<span>inside</span><!-- omitted -->after</a>");
+        dom.Execute("var a=document.getElementById('a'), span=a.firstElementChild;");
+        dom.Text("a.text").Should().Be("beforeinsideafter");
+        dom.Execute("a.text='replacement';");
+        dom.Bool("a.text==='replacement' && a.childNodes.length===1 && a.firstChild.nodeType===Node.TEXT_NODE && span.parentNode===null").Should().BeTrue();
+        dom.Execute("a.text='';");
+        dom.Bool("a.childNodes.length===0 && a.text===''").Should().BeTrue();
+    }
+
+    [Test]
     public void AutofillGetterAndLiveMapViewUseNativeAlgorithms()
     {
         using var dom = DomTestFixture.Create("<input id=i><map id=m name=region></map><img id=a usemap=#region>");

@@ -515,7 +515,17 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.text");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDescendantText.Read(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.text", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.text");
+                    var value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.text");
+                    var work = new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken);
+                    work.Check();
+                    global::Jint.Browser.Dom.DomNodeMembers.SetTextContent(global::Jint.Browser.Dom.DomBindings.BindNode(thisObj, "HTMLAnchorElement.text"), value);
+                    work.Check();
+                    return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.type", static (thisObj, args) =>

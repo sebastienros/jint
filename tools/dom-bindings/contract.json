@@ -6707,8 +6707,8 @@
         {
           "DomName": "text",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);",
-          "SetterBody": null,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDescendantText.Read(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.text\");\nvar value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.text\");\nvar work = new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken);\nwork.Check();\nglobal::Jint.Browser.Dom.DomNodeMembers.SetTextContent(global::Jint.Browser.Dom.DomBindings.BindNode(thisObj, \"HTMLAnchorElement.text\"), value);\nwork.Check();\nreturn global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlAnchorElement.Text"
         },
