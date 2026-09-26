@@ -145,7 +145,13 @@ internal static class CssReferenceParser
             }
             else if (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{' &&
                 (componentIndex == frame.HeaderWrapperIndex || componentIndex == frame.FallbackWrapperIndex))
-                declarationRoot = true;
+            {
+                // A direct early invocation in the header can introduce the first comma.
+                // In that case this raw fallback block may be ordinary nested content,
+                // rather than the wrapper of a declaration-value argument.
+                declarationRoot = componentIndex != frame.FallbackWrapperIndex ||
+                    !frame.ReferenceArguments || !earlyHeaders[frame.EarlyOwnerIndex];
+            }
 
             work.CheckCancellation();
             var fallbackStart = owner != frame.ParentIndex && occurrences[owner].HasFallback

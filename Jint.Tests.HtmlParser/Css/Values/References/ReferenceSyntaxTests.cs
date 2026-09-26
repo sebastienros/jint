@@ -157,6 +157,21 @@ public sealed class ReferenceSyntaxTests
         program[1].EarlySubstitutionCount.Should().Be(0);
     }
 
+    [TestCase("var(...var(--args),{red;blue})", "var(--x, red,{red;blue})")]
+    [TestCase("var(...var(--args),{!})", "var(--x, red,{!})")]
+    public void DirectHeaderSpreadKeepsRawFallbackWrapperProvisional(string source, string effective)
+    {
+        var raw = Analyze(source);
+        raw.Kind.Should().Be(CssReferenceAnalysisKind.Deferred);
+        raw.Program[0].HasEarlySubstitution.Should().BeTrue();
+        Analyze(effective).Kind.Should().Be(CssReferenceAnalysisKind.Deferred);
+    }
+
+    [TestCase("var(foo(...var(--args)),{red;blue})")]
+    [TestCase("var([./**/../**/var(--args)],{!})")]
+    public void NestedHeaderSpreadCannotChangeTheOuterComma(string source) =>
+        Analyze(source).Kind.Should().Be(CssReferenceAnalysisKind.InvalidSyntax);
+
     [Test]
     public void EarlyTraversalStopsAtAnotherArbitraryFunction()
     {
