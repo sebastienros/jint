@@ -340,75 +340,94 @@ internal sealed partial class CustomElementRegistry
 
         record.Definition = definition;
         record.State = CustomElementState.Failed;
-        record.FormAssociated = definition.FormAssociated;
-        Snapshot(element, record, definition);
-
-        if (definition.AttributeChangedCallback is not null)
-        {
-            foreach (var attribute in element.Attributes)
-            {
-                if (definition.Observes(attribute.LocalName))
-                {
-                    Enqueue(element, record, new CustomElementReaction(
-                        CustomElementReactionKind.AttributeChanged,
-                        definition,
-                        attribute.LocalName,
-                        null,
-                        attribute.Value));
-                }
-            }
-        }
-
-        if (definition.ConnectedCallback is not null && IsConnected(element))
-        {
-            Enqueue(element, record, new CustomElementReaction(CustomElementReactionKind.Connected, definition, null, null, null));
-        }
-
-        // The wrapper is built now rather than by the constructor, because it is what `super()` hands back:
-        // the construction stack holds the element being upgraded, and the base constructor returns it.
-        var wrapper = _runtime.Dom.WrapNode(element);
-        definition.ConstructionStack.Add(wrapper);
-
+        record.FormAssociated = definition.IsAutonomous && definition.FormAssociated;
+        var succeeded = false;
+        var stackPushed = false;
         try
         {
-            if (definition.DisableShadow && element.AttachedShadowRoot is not null)
+            if (record.FormAssociated) HtmlFormState.SetFormAssociatedCustomElement(element, true);
+            Snapshot(element, record, definition);
+
+            if (definition.AttributeChangedCallback is not null)
             {
-                var engine = _runtime.Engine;
-                var error = engine._mainRealm.Intrinsics.DomException.CreateException(
-                    DomExceptionNames.NotSupported,
-                    "The custom element '" + definition.Name + "' disabled shadow, so an element that already has a shadow root cannot be upgraded.");
-                var location = engine._lastSyntaxElement?.Location ?? default;
-                Throw.JavaScriptException(engine, error, in location);
+                foreach (var attribute in element.Attributes)
+                {
+                    if (definition.Observes(attribute.LocalName))
+                    {
+                        Enqueue(element, record, new CustomElementReaction(
+                            CustomElementReactionKind.AttributeChanged,
+                            definition,
+                            attribute.LocalName,
+                            null,
+                            attribute.Value));
+                    }
+                }
             }
 
-            record.State = CustomElementState.Precustomized;
-
-            var constructed = _runtime.Engine.Construct(definition.Constructor, [], definition.Constructor, null);
-
-            if (!ReferenceEquals(constructed, wrapper))
+            if (definition.ConnectedCallback is not null && IsConnected(element))
             {
-                Throw.TypeError(
-                    _runtime.Engine._mainRealm,
-                    "The custom element constructor for '" + definition.Name + "' did not produce the element being upgraded.");
+                Enqueue(element, record, new CustomElementReaction(CustomElementReactionKind.Connected, definition, null, null, null));
             }
-        }
-        catch (JavaScriptException exception)
-        {
-            // "If any of these steps threw exception: set element's custom element definition to null, empty
-            // element's custom element reaction queue, and report the exception." The element stays failed,
-            // which is what stops a second attempt from running the constructor again.
-            record.Definition = null;
-            record.Reactions.Clear();
-            record.State = CustomElementState.Failed;
-            Report(exception, definition.Name);
-            return;
+
+            // The wrapper is built now rather than by the constructor, because it is what `super()` hands back:
+            // the construction stack holds the element being upgraded, and the base constructor returns it.
+            var wrapper = _runtime.Dom.WrapNode(element);
+            definition.ConstructionStack.Add(wrapper);
+            stackPushed = true;
+
+            try
+            {
+                if (definition.DisableShadow && element.AttachedShadowRoot is not null)
+                {
+                    var engine = _runtime.Engine;
+                    var error = engine._mainRealm.Intrinsics.DomException.CreateException(
+                        DomExceptionNames.NotSupported,
+                        "The custom element '" + definition.Name + "' disabled shadow, so an element that already has a shadow root cannot be upgraded.");
+                    var location = engine._lastSyntaxElement?.Location ?? default;
+                    Throw.JavaScriptException(engine, error, in location);
+                }
+
+                record.State = CustomElementState.Precustomized;
+
+                var constructed = _runtime.Engine.Construct(definition.Constructor, [], definition.Constructor, null);
+
+                if (!ReferenceEquals(constructed, wrapper))
+                {
+                    Throw.TypeError(
+                        _runtime.Engine._mainRealm,
+                        "The custom element constructor for '" + definition.Name + "' did not produce the element being upgraded.");
+                }
+            }
+            catch (JavaScriptException exception)
+            {
+                // "If any of these steps threw exception: set element's custom element definition to null, empty
+                // element's custom element reaction queue, and report the exception." The element stays failed,
+                // which is what stops a second attempt from running the constructor again.
+                FailUpgrade(element, record);
+                Report(exception, definition.Name);
+                return;
+            }
+
+            // HTML upgrade steps 11 and 12: association is reset after construction,
+            // before the element enters the custom state.
+            if (record.FormAssociated) HtmlFormState.ResetOwner(element);
+            record.State = CustomElementState.Custom;
+            succeeded = true;
         }
         finally
         {
-            definition.ConstructionStack.RemoveAt(definition.ConstructionStack.Count - 1);
+            if (stackPushed) definition.ConstructionStack.RemoveAt(definition.ConstructionStack.Count - 1);
+            if (!succeeded) FailUpgrade(element, record);
         }
+    }
 
-        record.State = CustomElementState.Custom;
+    private static void FailUpgrade(Element element, CustomElementRecord record)
+    {
+        record.Definition = null;
+        record.Reactions.Clear();
+        record.State = CustomElementState.Failed;
+        if (record.FormAssociated) HtmlFormState.SetFormAssociatedCustomElement(element, false);
+        record.FormAssociated = false;
     }
 
     /// <summary>

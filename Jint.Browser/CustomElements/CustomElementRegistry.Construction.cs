@@ -145,7 +145,8 @@ internal sealed partial class CustomElementRegistry
 
         record.Definition = definition;
         record.IsValue = definition.IsAutonomous ? null : definition.Name;
-        record.FormAssociated = definition.FormAssociated;
+        record.FormAssociated = definition.IsAutonomous && definition.FormAssociated;
+        if (record.FormAssociated) HtmlFormState.SetFormAssociatedCustomElement(element, true);
         record.State = CustomElementState.Custom;
         Snapshot(element, record, definition);
 
