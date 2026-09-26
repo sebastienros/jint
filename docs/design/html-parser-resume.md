@@ -7,7 +7,20 @@ references, standalone parsing entry points, and equivalent paired benchmark acc
 conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
-**Current integrated checkpoint: `6e3273234`.** Reviewed number parsing/shortest formatting
+**Demand boundary amendment:** [parsing and lazy behavior](html-parser-demand-boundary.md) follows the
+user's latest direction. Input value initialization is being made lazy; select derived views and
+inventories will follow, preserving intrinsic history. CSS cascade belongs to an on-demand Browser
+module. Ordinary parsing must not invoke numeric/temporal conversions or style computation.
+
+**Latest completed test gate: `d196ec650`.** CSS sheets/media and sizing/flex/alignment grammars,
+input value state, and pure numeric/temporal helpers pass **5,898/5,898** fresh Release non-corpus tests
+across net8/net10 (`/private/tmp/jint-resumed-temporal-common.log`). Shared atomic user-edit accounting
+and combined select/input clone hooks at `7d5acec6a` then pass **6,026/6,026**, zero failures/skips,
+both frameworks (`/private/tmp/jint-resumed-select-common.log`).
+Numeric-helper chat `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` is archived after review/integration/tests;
+its clean `3c0a` checkout is retained because both root and owner return no managed archive identity.
+
+**Previous integrated checkpoint: `6e3273234`.** Reviewed number parsing/shortest formatting
 (`c9885646d`) and contextual HTML fragments with bounded parser form association
 (`df35c6263`, `6e3273234`) pass **5,224/5,224** fresh Release non-corpus tests across net8/net10,
 zero failures/skips (`/private/tmp/jint-resumed-fragments-common.log`). Browser work remains isolated;
