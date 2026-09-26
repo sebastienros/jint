@@ -3,6 +3,7 @@ using Jint.Browser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
+using Jint.Constraints;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Values;
 
@@ -176,6 +177,53 @@ public sealed class NativeMetaDefaultStyleTests
         page.Errors.Should().BeEmpty();
     }
 
+    [Test]
+    public async Task AnIdleRequestBoundsItsRecoveryAndRetriesThePendingFactsAfterFailure()
+    {
+        var clock = new RecoveryClock();
+        var probe = new Probe();
+        var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(1) }
+            .ConfigureEngine(engine => engine.AddConstraint(probe)
+                .AddConstraint(() => new OperationDeadlineConstraint(clock)));
+        await using var browser = new global::Jint.Browser.Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<body></body>");
+        var ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var original = new OperationCanceledException("failed insertion before idle request");
+        var failed = page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var body = DomDocumentElements.Body(document)!;
+            var fragment = document.CreateDocumentFragment();
+            var first = Meta(document, "idle-recovered");
+            fragment.AppendChild(first); fragment.AppendChild(Meta(document, "uncommitted"));
+            probe.Checking = () => { if (ReferenceEquals(first.ParentNode, body)) throw original; };
+            try { body.AppendChild(fragment); }
+            catch
+            {
+                probe.Checking = () => clock.Advance(TimeSpan.FromSeconds(2));
+                ready.TrySetResult(true);
+                release.Wait(TestBudgets.WedgeCeiling).Should().BeTrue();
+                throw;
+            }
+            return true;
+        });
+        try
+        {
+            await ready.Task.WaitAsync(TestBudgets.WedgeCeiling);
+            // Queue while the failed entry is still held, so this request precedes the next task pump.
+            var idle = page.WaitForIdleAsync(TestBudgets.WedgeCeiling);
+            release.Set();
+            (await Caught.ExceptionAsync(() => failed)).Should().BeSameAs(original);
+            (await Caught.ExceptionAsync(() => idle)).Should().BeOfType<TimeoutException>();
+        }
+        finally { release.Set(); probe.Checking = null; }
+        (await page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await page.EvaluateAsync<string>("document.preferredStyleSheetSet")).Should().Be("idle-recovered");
+    }
+
     private static Element Meta(Document document, string content)
     {
         var element = document.CreateElement("meta");
@@ -189,5 +237,13 @@ public sealed class NativeMetaDefaultStyleTests
         internal Action? Checking;
         public override void Check() => Checking?.Invoke();
         public override void Reset() { }
+    }
+
+    private sealed class RecoveryClock : TimeProvider
+    {
+        private long _timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Interlocked.Read(ref _timestamp);
+        internal void Advance(TimeSpan amount) => Interlocked.Add(ref _timestamp, amount.Ticks);
     }
 }

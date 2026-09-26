@@ -12,6 +12,9 @@ internal sealed partial class ParserDriver
     private bool _drainingResourceRecords;
     private bool _recoveringNativeNotifications;
 
+    internal bool HasPendingNativeRecovery => !_disposed &&
+        (_pendingNativeDocuments.Count != 0 || _activeResourceRecord is not null || _resourceRecords.Count != 0);
+
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct ResourceEnvelope(ResourceWatch Watch, MutationRecord Record, bool ImageDelegated);
 
@@ -23,8 +26,7 @@ internal sealed partial class ParserDriver
     /// <summary>Recovers native scheduling only on a healthy, already budgeted page entry.</summary>
     internal void RecoverNativeMutationNotifications()
     {
-        if (_disposed || _recoveringNativeNotifications ||
-            _pendingNativeDocuments.Count == 0 && _activeResourceRecord is null && _resourceRecords.Count == 0) return;
+        if (!HasPendingNativeRecovery || _recoveringNativeNotifications) return;
         _recoveringNativeNotifications = true;
         try
         {

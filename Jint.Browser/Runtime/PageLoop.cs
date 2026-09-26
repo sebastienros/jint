@@ -188,7 +188,17 @@ internal sealed class PageLoop : IDisposable
 
             try
             {
-                if (bracketed) PageRuntime.Find(engine)?.Parser?.RecoverNativeMutationNotifications();
+                if (PageRuntime.Find(engine) is { Parser: { HasPendingNativeRecovery: true } parser } runtime)
+                {
+                    if (bracketed) parser.RecoverNativeMutationNotifications();
+                    else
+                    {
+                        // Pump requests own no turn. Bound only their pending recovery, and release
+                        // that budget before the pump begins its separately budgeted tasks and parks.
+                        using var recovery = runtime.Budget.BeginTurn();
+                        parser.RecoverNativeMutationNotifications();
+                    }
+                }
                 completion.TrySetResult(work(engine));
             }
             catch (Exception exception)
