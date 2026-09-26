@@ -118,7 +118,7 @@ public sealed class MutationNotificationOrderTests
         var laterNotifications = 0;
         first.PendingRecord = _ => throw exception;
         later.PendingRecord = _ => laterNotifications++;
-        Caught.Exception(() => element.SetAttribute("x", "outer")).Should().BeSameAs(exception);
+        Assert.Throws<InvalidOperationException>(() => element.SetAttribute("x", "outer")).Should().BeSameAs(exception);
         laterNotifications.Should().Be(0);
         first.TakeRecords().Select(record => record.AttributeNewValue).Should().Equal("outer");
         later.TakeRecords().Select(record => record.AttributeNewValue).Should().Equal("outer");
