@@ -3,6 +3,19 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeHtmlSemanticBindingTests
 {
     [Test]
+    public void TokenBindingIndexedReadsAndForwardedWritesUseTheLiveNativeScanner()
+    {
+        using var dom = DomTestFixture.Create("<div id=e class=' a a b '></div>");
+        dom.Execute("var e=document.getElementById('e'), tokens=e.classList;");
+        dom.Bool("tokens===e.classList && tokens.length===2 && tokens[0]==='a' && tokens[1]==='b' && tokens[2]===undefined && tokens.item(2)===null && tokens.contains('b') && !tokens.contains('a b')").Should().BeTrue();
+        dom.Text("tokens.value").Should().Be(" a a b ");
+        dom.Execute("e.classList=' c c d ';");
+        dom.Bool("tokens.value===' c c d ' && tokens.toString()===' c c d ' && tokens.length===2 && tokens[0]==='c' && tokens.contains('d')").Should().BeTrue();
+        dom.Execute("tokens.value='';");
+        dom.Bool("tokens.length===0 && tokens.item(0)===null && tokens[0]===undefined").Should().BeTrue();
+    }
+
+    [Test]
     public void LegacyCommandAndMarqueeBindingsUseReviewedNativeAlgorithms()
     {
         using var dom = DomTestFixture.Create("<div id=target></div><command id=c command=target></command><marquee id=m loop='+0002suffix'></marquee>");

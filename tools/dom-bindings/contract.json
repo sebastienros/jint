@@ -4569,7 +4569,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
-      "AccessorClass": "/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMTokenList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMTokenList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native attribute token indexed properties through the bounded scanner.</summary>\ninternal sealed class DomAccessorDOMTokenList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMTokenList Instance = new();\n    internal override uint Length(DomRealm realm, object target)\n        => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).ReadLength(realm.NativeReadCheckpoint, realm.CancellationToken);\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        if (item is null) { value = global::Jint.Native.JsValue.Undefined; return false; }\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMTokenList.Instance",
       "Members": [
         {
@@ -4583,7 +4583,7 @@
         {
           "DomName": "contains",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.contains\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"DOMTokenList.contains\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.contains\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Contains(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITokenList.Contains"
@@ -4591,7 +4591,7 @@
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.item\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.item\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
@@ -4599,7 +4599,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.ReadLength(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITokenList.Length"
@@ -4631,7 +4631,7 @@
         {
           "DomName": "toString",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.toString\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.toString\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -4647,7 +4647,7 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Realm, self.Target);",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.SetValue(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -5708,7 +5708,7 @@
           "DomName": "classList",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.classList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"class\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.classList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"class\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.classList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"class\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -6668,7 +6668,7 @@
           "DomName": "relList",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"rel\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -6888,7 +6888,7 @@
           "DomName": "relList",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"rel\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -8559,7 +8559,7 @@
           "DomName": "sandbox",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLIFrameElement.sandbox\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sandbox\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLIFrameElement.sandbox\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"sandbox\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLIFrameElement.sandbox\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"sandbox\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -9611,7 +9611,7 @@
           "DomName": "relList",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"rel\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -9635,7 +9635,7 @@
           "DomName": "sizes",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.sizes\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sizes\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.sizes\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"sizes\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.sizes\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"sizes\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -10582,7 +10582,7 @@
           "DomName": "htmlFor",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.htmlFor\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"for\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.htmlFor\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"for\", args);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.htmlFor\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, \"for\", args);",
           "Length": 0,
           "Origin": "overrides.json"
         },

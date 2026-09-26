@@ -465,7 +465,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.relList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.relList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "rel", args);
                 }))
             .Accessor("rev",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.rev", static (thisObj, args) =>
@@ -747,7 +747,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.relList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.relList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "rel", args);
                 }))
             .Accessor("search",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.search", static (thisObj, args) =>
@@ -2250,7 +2250,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLIFrameElement.sandbox", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLIFrameElement.sandbox");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "sandbox", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "sandbox", args);
                 }))
             .Accessor("scrolling",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.scrolling", static (thisObj, args) =>
@@ -3418,7 +3418,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.relList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.relList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "rel", args);
                 }))
             .Accessor("rev",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.rev", static (thisObj, args) =>
@@ -3446,7 +3446,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.sizes", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.sizes");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "sizes", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "sizes", args);
                 }))
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.target", static (thisObj, args) =>
@@ -4398,7 +4398,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.htmlFor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.htmlFor");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "for", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "for", args);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.labels", static (thisObj, args) =>

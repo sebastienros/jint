@@ -145,23 +145,17 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>
+/// <summary>Native attribute token indexed properties through the bounded scanner.</summary>
 internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
 {
     internal static readonly DomAccessorDOMTokenList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target)
+        => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).ReadLength(realm.NativeReadCheckpoint, realm.CancellationToken);
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);
+        var item = ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);
+        if (item is null) { value = global::Jint.Native.JsValue.Undefined; return false; }
+        value = global::Jint.Browser.Dom.DomConvert.Text(item);
         return true;
     }
 }

@@ -607,21 +607,21 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.contains", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, "DOMTokenList.contains");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMTokenList.contains")));
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Contains(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, "DOMTokenList.item");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, "DOMTokenList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ReadLength(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Method("remove",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.remove", static (thisObj, args) =>
@@ -648,7 +648,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.toString", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, "DOMTokenList.toString");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Realm, self.Target);
                 }),
                 length: 0)
             .Method("toggle",
@@ -662,7 +662,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, "DOMTokenList.value");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.value", static (thisObj, args) =>
                 {
@@ -1587,7 +1587,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.classList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.classList");
-                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "class", args);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Realm, self.Target, "class", args);
                 }))
             .Accessor("className",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.className", static (thisObj, args) =>
