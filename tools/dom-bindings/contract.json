@@ -4462,7 +4462,7 @@
         {
           "DomName": "createDocument",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, \"DOMImplementation.createDocument\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, \"DOMImplementation.createDocument\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "overrides.json"
@@ -5002,8 +5002,8 @@
         {
           "DomName": "domain",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.domain\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Domain);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.domain\");\nself.Target.Domain = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.domain\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.domain\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentMetadata.Domain(self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.domain\");\nreturn global::Jint.Browser.Dom.DomDocumentMetadata.SetDomain(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.domain\"));",
           "Length": 0,
           "Origin": "IDocument.Domain"
         },
@@ -5194,7 +5194,7 @@
         {
           "DomName": "lastModified",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.lastModified\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.LastModified);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.lastModified\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentMetadata.LastModified(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocument.LastModified"
@@ -5242,7 +5242,7 @@
         {
           "DomName": "origin",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.origin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.origin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentMetadata.Origin(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocument.Origin"

@@ -523,7 +523,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMImplementation.createDocument", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, "DOMImplementation.createDocument");
-                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("createDocumentType",
@@ -983,12 +983,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.domain", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.domain");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Domain);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentMetadata.Domain(self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.domain", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.domain");
-                    self.Target.Domain = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.domain"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomDocumentMetadata.SetDomain(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.domain"));
                 }))
             .Method("elementFromPoint",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.elementFromPoint", static (thisObj, args) =>
@@ -1154,7 +1154,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.lastModified", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.lastModified");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.LastModified);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentMetadata.LastModified(self.Target));
                 }))
             .Accessor("lastStyleSheetSet",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.lastStyleSheetSet", static (thisObj, args) =>
@@ -1201,7 +1201,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.origin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.origin");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentMetadata.Origin(self.Target));
                 }))
             .Accessor("plugins",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.plugins", static (thisObj, args) =>
