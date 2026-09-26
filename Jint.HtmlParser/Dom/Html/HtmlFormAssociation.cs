@@ -103,6 +103,7 @@ internal static class HtmlFormAssociation
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(form);
         if (!HtmlFormState.IsFormAssociated(element) ||
+            element.FormAssociationState?.IsFormAssociatedCustomElement == true ||
             form.NamespaceUri != Namespaces.Html || form.LocalName != "form" ||
             (HtmlFormState.IsListed(element) && element.GetAttributeNodeNS(null, "form") is not null) ||
             element.WasInserted || element.ParentNode is not null || element.FirstChild is not null ||
