@@ -41,41 +41,70 @@ internal static class FocusController
     /// </summary>
     internal static Element? ActiveElement(BrowserEventRealm realm, Document document)
     {
+        var work = FocusReadWork(realm);
+        var result = ActiveElement(realm, document, work);
+        work.Check();
+        return result;
+    }
+
+    private static DomReadWork FocusReadWork(BrowserEventRealm realm)
+    {
+        var dom = DomRealm.Of(realm.Engine);
+        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
+        work.Check();
+        return work;
+    }
+
+    private static Element? ActiveElement(BrowserEventRealm realm, Document document, DomReadWork work)
+    {
         if (PageRuntime.Find(realm.Engine, document) is null)
         {
-            return DomDocumentElements.Body(document);
+            return Body(document, work);
         }
 
         if (realm.FocusedElement is not { } focused)
         {
-            return DomDocumentElements.Body(document);
+            return Body(document, work);
         }
 
         // A focused element removed from the tree stops being the active element, which is what HTML's
         // "if the element is no longer being rendered" clause amounts to without a rendering. Its own node
         // document is what it has to be connected to, so that focus held by a child navigable's document
         // survives a read of this one's active element rather than being cleared by it.
-        if (focused.OwnerDocument is not { } owner || !IsConnectedTo(focused, owner)
+        if (focused.OwnerDocument is not { } owner || !IsConnectedTo(focused, owner, work)
             || !ReferenceEquals(BrowserEventRealm.FocusedElementOf(owner), focused))
         {
             realm.FocusedElement = null;
-            return DomDocumentElements.Body(document);
+            return Body(document, work);
         }
 
-        return ReferenceEquals(owner, document) ? RetargetToDocument(focused, document) : DomDocumentElements.Body(document);
+        return ReferenceEquals(owner, document) ? RetargetToDocument(focused, document, work) : Body(document, work);
+    }
+
+    private static Element? Body(Document document, DomReadWork work)
+    {
+        if (DomDocumentElements.Html(document) is not { } html) return null;
+        for (var child = html.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } body) return body;
+        }
+        return null;
     }
 
     /// <summary>HTML DocumentOrShadowRoot.activeElement, retargeted within this shadow tree.</summary>
     internal static Element? ActiveElement(BrowserEventRealm realm, ShadowRoot root)
     {
+        var work = FocusReadWork(realm);
         var document = root.OwnerDocument!;
-        if (PageRuntime.Find(realm.Engine, document) is null) return null;
+        if (PageRuntime.Find(realm.Engine, document) is null) { work.Check(); return null; }
         // Reuse document validation so removed or adopted focus cannot survive in a shadow exposure.
-        ActiveElement(realm, document);
-        if (realm.FocusedElement is not { } focused || !ReferenceEquals(focused.OwnerDocument, document)) return null;
-        var dom = DomRealm.Of(realm.Engine);
-        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
-        work.Check();
+        ActiveElement(realm, document, work);
+        if (realm.FocusedElement is not { } focused || !ReferenceEquals(focused.OwnerDocument, document))
+        {
+            work.Check();
+            return null;
+        }
         Element candidate = focused;
         while (true)
         {
@@ -383,11 +412,12 @@ internal static class FocusController
         => PageRuntime.FindBrowsingContext(dom.Engine, element.OwnerDocument) is not null;
 
     // DOM retargeting keeps the real focused node in the interaction store and exposes its outer host.
-    private static Element? RetargetToDocument(Element focused, Document document)
+    private static Element? RetargetToDocument(Element focused, Document document, DomReadWork work)
     {
         var target = focused;
         for (Node? current = focused; current is not null; current = current.ParentNode)
         {
+            work.Step();
             if (current is ShadowRoot { Host: { } host })
             {
                 target = host;
@@ -403,10 +433,11 @@ internal static class FocusController
         internal long Revision;
     }
 
-    private static bool IsConnectedTo(Element element, Document document)
+    private static bool IsConnectedTo(Element element, Document document, DomReadWork? work = null)
     {
         for (Node? node = element; node is not null; node = node.ParentNode ?? (node as ShadowRoot)?.Host)
         {
+            work?.Step();
             if (ReferenceEquals(node, document))
             {
                 return true;

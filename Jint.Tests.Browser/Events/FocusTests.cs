@@ -1,3 +1,8 @@
+using Jint.Browser;
+using Jint.Browser.Dom;
+using Jint.Browser.Events;
+using Jint.HtmlParser;
+
 namespace Jint.Tests.Browser.Events;
 
 using Browser = global::Jint.Browser.Browser;
@@ -7,6 +12,64 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class FocusTests
 {
+    [Test]
+    public async Task ShadowActiveElementChecksCancellationDuringInitialConnectivityWalk()
+    {
+        var options = new BrowserOptions().ConfigureEngine(o => o.AddConstraint(static () => new CancelFocusRead()));
+        await using var browser = new Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=host></div>");
+        await page.EvaluateAsync(
+            """
+            window.savedRoot = document.getElementById('host').attachShadow({mode: 'closed'});
+            let parent = savedRoot;
+            for (let i = 0; i < 1024; i++) {
+              const child = document.createElement('div');
+              parent.appendChild(child);
+              parent = child;
+            }
+            window.savedInput = document.createElement('input');
+            parent.appendChild(savedInput);
+            savedInput.focus();
+            """);
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var root = (ShadowRoot) ((IDomWrapper) engine.GetValue("savedRoot")).DomTarget;
+            var input = ((IDomWrapper) engine.GetValue("savedInput")).DomTarget;
+            var realm = BrowserEventRealm.Of(engine);
+            root.Host.ParentNode!.RemoveChild(root.Host);
+            realm.FocusedElement.Should().BeSameAs(input);
+            var constraint = engine.Constraints.Find<CancelFocusRead>()!;
+            constraint.Armed = true;
+            try
+            {
+                Action read = () => FocusController.ActiveElement(realm, root);
+                read.Should().ThrowExactly<OperationCanceledException>();
+                constraint.Checks.Should().Be(2, "the initial check and the first bounded ancestor batch must both poll");
+                realm.FocusedElement.Should().BeSameAs(input, "cancellation must interrupt connectivity before stale focus is cleared");
+            }
+            finally
+            {
+                constraint.Armed = false;
+            }
+            FocusController.ActiveElement(realm, root).Should().BeNull();
+            realm.FocusedElement.Should().BeNull();
+            return true;
+        });
+    }
+
+    private sealed class CancelFocusRead : Constraint
+    {
+        internal bool Armed;
+        internal int Checks;
+        public override void Check()
+        {
+            if (Armed && ++Checks == 2) throw new OperationCanceledException();
+        }
+        public override void Reset() { }
+    }
+
     [TestCase("open")]
     [TestCase("closed")]
     public async Task ShadowActiveElementRetargetsNestedFocusAndClearsAfterHostRemoval(string mode)
