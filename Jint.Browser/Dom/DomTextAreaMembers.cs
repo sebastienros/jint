@@ -42,11 +42,11 @@ internal static class DomTextAreaMembers
 
     internal static string Direction(DomRealm realm, Element element)
         => State(element).GetSelection(realm.NativeReadCheckpoint, realm.CancellationToken).Direction switch
-    {
-        HtmlSelectionDirection.Forward => "forward",
-        HtmlSelectionDirection.Backward => "backward",
-        _ => "none",
-    };
+        {
+            HtmlSelectionDirection.Forward => "forward",
+            HtmlSelectionDirection.Backward => "backward",
+            _ => "none",
+        };
 
     internal static JsValue SetSelectionOffset(DomRealm realm, Element element, uint offset, bool start)
     {
