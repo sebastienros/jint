@@ -326,7 +326,7 @@ internal sealed class CssStyleSheet
                 return animationName is null ? null : new CssKeyframesRule(animationName, syntax.Span);
             }
             if (name == "container")
-                return syntax.Block is null ? null : CssContainerParser.Parse(syntax.Prelude, syntax.Span, work);
+                return syntax.Block is null ? null : CssContainerParser.Parse(source, syntax.Prelude, syntax.Span, parser, work);
             if (name == "supports")
             {
                 if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))

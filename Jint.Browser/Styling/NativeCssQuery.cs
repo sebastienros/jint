@@ -92,12 +92,19 @@ internal sealed partial class NativeCssQuery
 
     internal bool HasPropertyInput(Element element, string name, ref SelectorMatchWork matching)
     {
+        using var guard = EnterDependency(element, "property-input", name);
+        try { return HasPropertyInputCore(element, name, ref matching); }
+        catch { AbortRead(); throw; }
+    }
+
+    private bool HasPropertyInputCore(Element element, string name, ref SelectorMatchWork matching)
+    {
         var state = StateOf(element, ref matching);
         var present = false;
         foreach (var source in state.Sources)
         {
             _work.Charge(1);
-            present |= source.Block.HasPropertyInput(name, _work);
+            present |= source.Block.HasPropertyInput(name, _work) && ConditionsApply(source.Rule, element, ref matching);
         }
         matching.VerifyRead();
         Verify();
@@ -106,7 +113,7 @@ internal sealed partial class NativeCssQuery
 
     private NativeCssProperty GetPropertyCore(Element element, string name, ref SelectorMatchWork matching, bool adjust, bool normalize = true)
     {
-        name = CssPropertyRegistry.NormalizeName(name, _work);
+        if (normalize) name = CssPropertyRegistry.NormalizeName(name, _work);
         using var guard = EnterDependency(element, adjust ? "property" : "unadjusted-property", name);
         try { return GetPropertyValueCore(element, name, ref matching, adjust); }
         catch { AbortRead(); throw; }
@@ -116,7 +123,6 @@ internal sealed partial class NativeCssQuery
     {
         Verify();
         matching.Observe(element);
-        if (normalize) name = CssPropertyRegistry.NormalizeName(name, _work);
         if (name.StartsWith("--", StringComparison.Ordinal)) return Custom(element, name, ref matching);
         var metadata = CssPropertyRegistry.Find(name, CssDeclarationContext.Style);
         if (metadata is null)
@@ -259,11 +265,11 @@ internal sealed partial class NativeCssQuery
 
     internal IReadOnlyList<CssStyleRule> MatchedRules(Element element, ref SelectorMatchWork matching)
     {
-        var state = StateOf(element, ref matching);
-        Verify();
-        var result = new List<CssStyleRule>();
         try
         {
+            var state = StateOf(element, ref matching);
+            Verify();
+            var result = new List<CssStyleRule>();
             foreach (var rule in state.Matches)
                 if (ConditionsApply(rule, element, ref matching)) result.Add(rule);
             Verify();
@@ -273,6 +279,12 @@ internal sealed partial class NativeCssQuery
     }
 
     internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, ref SelectorMatchWork matching)
+    {
+        try { return EnumerateCore(element, ref matching); }
+        catch { AbortRead(); throw; }
+    }
+
+    private IReadOnlyList<NativeCssProperty> EnumerateCore(Element element, ref SelectorMatchWork matching)
     {
         var own = StateOf(element, ref matching);
         if (own.Enumeration is { } cached) return cached;
@@ -598,6 +610,7 @@ internal sealed partial class NativeCssQuery
                 throw new InvalidOperationException(Invalidated);
         }
         _work.Token.ThrowIfCancellationRequested();
+        _readWitness?.Invoke();
     }
 
     private void VerifyControlFactsSeed()

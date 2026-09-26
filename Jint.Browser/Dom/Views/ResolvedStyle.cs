@@ -34,7 +34,7 @@ internal static class ResolvedStyle
             if (box is "content-box" or "fill-box") throw Missing("transform-content-box");
             if (box is not ("view-box" or "border-box" or "stroke-box")) throw Missing("transform-reference-box");
             style.VerifyRead();
-            var sizes = runtime.Layout.MeasureSizes();
+            var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
             if (!sizes.HasBox(element)) throw Missing("transform-reference-box");
             // These are untransformed synthetic flat dimensions (inherited/flex width and row height),
             // not a claim of full CSS padding/border geometry. Never Place or use FlatBox.Empty.
@@ -152,13 +152,13 @@ internal static class ResolvedStyle
             if (!needsBasis) return Finish(property.Text);
             if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
             if (Positioned()) throw Missing(name, "positioned-containing-block");
-            // writing-mode is still pending: absence has its horizontal initial semantics, while
-            // an authored candidate is an explicit dependency, never a guessed vertical basis.
+            // The finite writing-mode metadata supplies actual horizontal semantics. Other modes
+            // retain a named dependency rather than borrowing the physical width.
             for (Element? ancestor = element; ancestor is not null; ancestor = ancestor.ParentNode as Element)
             {
                 style.Work.Charge(1);
                 var ancestorStyle = style.For(ancestor);
-                if (ancestorStyle.HasPropertyInput("writing-mode")) throw Missing(name, "writing-mode");
+                if (ancestorStyle.GetPropertyValue("writing-mode") != "horizontal-tb") throw Missing(name, "writing-mode");
                 if (ancestor.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
                 if (ancestorStyle.GetPropertyValue("position") != "static") throw Missing(name, "positioned-containing-block");
             }
@@ -193,7 +193,7 @@ internal static class ResolvedStyle
                 Verify();
                 if (sharedSizes is null)
                 {
-                    sharedSizes = runtime!.Layout.MeasureSizes();
+                    sharedSizes = style.ReadContext is { } context ? runtime!.Layout.MeasureSizes(context) : runtime!.Layout.MeasureSizes();
                     revision = runtime.Layout.Version;
                 }
                 Verify();

@@ -11,8 +11,18 @@ namespace Jint.HtmlParser.Css.Conditions;
 // Conditional 5 §5.4. Grammar and explicit dependencies survive projection unchanged.
 internal static class CssContainerParser
 {
-    internal static CssContainerRule? Parse(CssComponentValueList prelude, CssSourceSpan span, CssValueWork work)
+    internal static CssContainerRule? Parse(string source, CssComponentValueList prelude, CssSourceSpan span, CssSyntaxParser parser, CssValueWork work)
     {
+        var pending = new Stack<CssComponentValueList>();
+        pending.Push(prelude);
+        while (pending.TryPop(out var values))
+            foreach (var value in values)
+            {
+                work.Charge(1);
+                if (value.Kind is CssComponentKind.Function or CssComponentKind.SimpleBlock) pending.Push(value.Values);
+                else if (value.Token.Kind is CssTokenKind.BadString or CssTokenKind.BadUrl or
+                    CssTokenKind.CloseParenthesis or CssTokenKind.CloseSquareBracket or CssTokenKind.CloseCurlyBracket) return null;
+            }
         var parts = CssPropertyParser.Significant(prelude, work);
         if (parts.Count == 0) return null;
         var name = "";
@@ -22,42 +32,64 @@ internal static class CssContainerParser
             parts.RemoveAt(0);
         }
         var instructions = new List<CssContainerInstruction>();
-        if (parts.Count != 0 && !Condition(parts, instructions, work, 0)) return null;
+        if (parts.Count != 0 && !Condition(parts, instructions, work)) return null;
         if (parts.Count == 0 && name.Length == 0) return null;
-        var query = CssSyntaxSerializer.SerializeComponents(new CssComponentValueList(parts.ToArray()), work);
-        var text = name.Length == 0 ? query : CssSyntaxSerializer.SerializeIdentifier(name, work) + " " + query;
+        var query = parts.Count == 0 ? "" : CssStyleSheet.SelectorText(source, new CssComponentValueList(parts.ToArray()), parser, work);
+        var text = name.Length == 0 ? query : CssSyntaxSerializer.SerializeIdentifier(name, work) + (query.Length == 0 ? "" : " " + query);
         work.CheckCancellation();
         return new(name, query, text, new(instructions.ToArray()), span);
     }
 
-    private static bool Condition(List<CssComponentValue> parts, List<CssContainerInstruction> program, CssValueWork work, int depth)
+    private sealed record Task(List<CssComponentValue>? Parts = null, CssComponentValue? Operand = null,
+        CssMediaOperation? Operation = null);
+
+    private static bool Condition(List<CssComponentValue> parts, List<CssContainerInstruction> program, CssValueWork work)
     {
-        if (depth > 64) throw new ParseLimitException(ParseLimitKind.NestingDepth, 64, depth);
-        work.Charge(1);
-        if (parts.Count == 2 && Ident(parts[0], "not"))
+        var pending = new Stack<Task>();
+        pending.Push(new(Parts: parts));
+        while (pending.TryPop(out var task))
         {
-            if (!Operand(parts[1], program, work, depth)) return false;
-            program.Add(new(CssMediaOperation.Not));
-            return true;
-        }
-        if (parts.Count == 0 || (parts.Count & 1) == 0) return false;
-        CssMediaOperation? join = null;
-        for (var i = 0; i < parts.Count; i += 2)
-        {
-            if (i != 0)
+            work.Charge(1);
+            if (task.Operation is { } operation) { program.Add(new(operation)); continue; }
+            if (task.Operand is { } operand)
             {
-                var next = Ident(parts[i - 1], "and") ? CssMediaOperation.And
-                    : Ident(parts[i - 1], "or") ? CssMediaOperation.Or : (CssMediaOperation?) null;
+                if (operand.Kind == CssComponentKind.SimpleBlock && operand.OpeningDelimiter == '(')
+                {
+                    var values = CssPropertyParser.Significant(operand.Values, work);
+                    if (values.Count == 0) return false;
+                    if (values[0].Kind is CssComponentKind.SimpleBlock or CssComponentKind.Function || Ident(values[0], "not"))
+                    { pending.Push(new(Parts: values)); continue; }
+                }
+                if (!Operand(operand, program, work)) return false;
+                continue;
+            }
+            var items = task.Parts!;
+            if (items.Count == 2 && Ident(items[0], "not"))
+            {
+                pending.Push(new(Operation: CssMediaOperation.Not));
+                pending.Push(new(Operand: items[1]));
+                continue;
+            }
+            if (items.Count == 0 || (items.Count & 1) == 0) return false;
+            CssMediaOperation? join = null;
+            for (var i = 1; i < items.Count; i += 2)
+            {
+                work.Charge(1);
+                var next = Ident(items[i], "and") ? CssMediaOperation.And
+                    : Ident(items[i], "or") ? CssMediaOperation.Or : (CssMediaOperation?) null;
                 if (next is null || join is not null && join != next) return false;
                 join = next;
             }
-            if (!Operand(parts[i], program, work, depth)) return false;
-            if (i != 0) program.Add(new(join!.Value));
+            for (var i = items.Count - 1; i >= 0; i -= 2)
+            {
+                if (i != 0) pending.Push(new(Operation: join!.Value));
+                pending.Push(new(Operand: items[i]));
+            }
         }
         return true;
     }
 
-    private static bool Operand(CssComponentValue operand, List<CssContainerInstruction> program, CssValueWork work, int depth)
+    private static bool Operand(CssComponentValue operand, List<CssContainerInstruction> program, CssValueWork work)
     {
         work.Charge(1);
         if (operand.Kind == CssComponentKind.Function)
@@ -71,8 +103,6 @@ internal static class CssContainerParser
         if (operand.Kind != CssComponentKind.SimpleBlock || operand.OpeningDelimiter != '(') return false;
         var parts = CssPropertyParser.Significant(operand.Values, work);
         if (parts.Count == 0) return false;
-        if (parts[0].Kind is CssComponentKind.SimpleBlock or CssComponentKind.Function || Ident(parts[0], "not"))
-            return Condition(parts, program, work, depth + 1);
         if (parts[0].Kind != CssComponentKind.Token || parts[0].Token.Kind != CssTokenKind.Ident)
         {
             program.Add(new(CssMediaOperation.Feature, new(CssContainerAxis.Unknown, CssMediaComparison.Boolean,

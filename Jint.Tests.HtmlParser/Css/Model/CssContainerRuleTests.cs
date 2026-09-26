@@ -82,7 +82,8 @@ public sealed class CssContainerRuleTests
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => CssPropertyParser.Parse("container-name", "name", cancellationToken: cancellation.Token));
         var condition = new string('(', 66) + "width:1px" + new string(')', 66);
-        Assert.Throws<ParseLimitException>(() => CssStyleSheet.Parse("@container " + condition + " {}"))!.Kind.Should().Be(ParseLimitKind.NestingDepth);
+        Assert.Throws<ParseLimitException>(() => CssStyleSheet.Parse("@container " + condition + " {}",
+            new CssParseOptions { Limits = new ParseLimits { MaxNestingDepth = 64 } }))!.Kind.Should().Be(ParseLimitKind.NestingDepth);
         CssPropertyRegistry.Completed["writing-mode"].Inherited.Should().BeTrue();
         CssPropertyRegistry.Completed["writing-mode"].InitialValue.Should().Be("horizontal-tb");
     }

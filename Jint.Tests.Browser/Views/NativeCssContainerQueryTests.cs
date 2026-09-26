@@ -167,6 +167,59 @@ public sealed class NativeCssContainerQueryTests
         third.Query.GetProperty(child, "width", ref third.Matching).Text.Should().Be("10px");
     }
 
+    [Test]
+    public void CrossLayerDependencyDepthStopsBeforeTheClrStack()
+    {
+        var css = string.Join("", Enumerable.Range(0, 70).Select(i =>
+            "@container n" + i + " (width:10px){#c" + i + "{opacity:.5}}"));
+        var body = string.Join("", Enumerable.Range(0, 70).Select(i =>
+            "<div style='container:n" + i + " / inline-size'><span id=c" + i + "></span></div>"));
+        using var fixture = Create("<style>" + css + "</style>" + body);
+        var input = Query(fixture);
+        var index = 0;
+        input.Query.AttachContainerMetrics(new Metrics { Value = 10, OnWidth = () =>
+        {
+            index++;
+            input.Query.GetProperty(ContentDom.ElementById(fixture.Document, "c" + index)!, "opacity", ref input.Matching);
+        } });
+        Assert.Throws<NativeCssDependencyLimitException>(() => input.Query.GetProperty(
+            ContentDom.ElementById(fixture.Document, "c0")!, "opacity", ref input.Matching))!
+            .Message.Should().Contain("container-dependency-depth");
+        index.Should().BeLessThan(64);
+    }
+
+    [Test]
+    public void CancellationDuringMetricReadAndAfterCachedReadKeepsItsOriginalException()
+    {
+        using var fixture = Create("<style>@container (width:10px){#child{opacity:.5;font-size:12px}}</style>"
+            + "<div style='container-type:inline-size'><span id=child></span></div>");
+        var child = ContentDom.ElementById(fixture.Document, "child")!;
+        using var cancellation = new CancellationTokenSource();
+        var input = NativeCssStyleSheets.CreateQuery(fixture.Document, DomRealm.Of(fixture.Engine), cancellationToken: cancellation.Token);
+        input.Query.AttachContainerMetrics(new Metrics { Value = 10, OnWidth = cancellation.Cancel });
+        Assert.Throws<OperationCanceledException>(() => input.Query.GetProperty(child, "opacity", ref input.Matching));
+        using var cachedCancellation = new CancellationTokenSource();
+        var cached = NativeCssStyleSheets.CreateQuery(fixture.Document, DomRealm.Of(fixture.Engine), cancellationToken: cachedCancellation.Token);
+        cached.Query.AttachContainerMetrics(new Metrics { Value = 10 });
+        cached.Query.GetProperty(child, "opacity", ref cached.Matching).Text.Should().Be("0.5");
+        cachedCancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => cached.Query.GetProperty(child, "font-size", ref cached.Matching));
+    }
+
+    [TestCase("inline-size", "vertical-rl", "inline-size", "C6:container-writing-mode")]
+    [TestCase("size", "horizontal-tb", "height", "C6:container-metric:height")]
+    public void UnsupportedAxesAreDistinctFromTheAbsenceOfAnEligibleContainer(string type, string mode, string feature, string blocker)
+    {
+        using var fixture = Create("<style>@container (" + feature + ":10px){#child{opacity:.5}}</style>"
+            + "<div style='container-type:" + type + ";writing-mode:" + mode + "'><span id=child></span></div>");
+        var input = Query(fixture);
+        var metrics = new Metrics { Value = 10 };
+        input.Query.AttachContainerMetrics(metrics);
+        Assert.Throws<CssIncompleteGrammarException>(() => input.Query.GetProperty(
+            ContentDom.ElementById(fixture.Document, "child")!, "opacity", ref input.Matching))!.Blocker.Should().Be(blocker);
+        metrics.Reads.Should().Be(0);
+    }
+
     private static (NativeCssQuery Query, SelectorMatchWork Matching) Query(DomTestFixture fixture)
         => NativeCssStyleSheets.CreateQuery(fixture.Document, DomRealm.Of(fixture.Engine));
 
