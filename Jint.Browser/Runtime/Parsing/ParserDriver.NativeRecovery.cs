@@ -13,7 +13,7 @@ internal sealed partial class ParserDriver
     private bool _recoveringNativeNotifications;
 
     internal bool HasPendingNativeRecovery => !_disposed &&
-        (_pendingNativeDocuments.Count != 0 || _activeResourceRecord is not null || _resourceRecords.Count != 0);
+        (_pendingNativeDocuments.Count != 0 || _activeResourceRecord is not null || _resourceRecords.Count != 0 || _pendingFrameDocuments.Count != 0);
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct ResourceEnvelope(ResourceWatch Watch, MutationRecord Record, bool ImageDelegated);
@@ -51,6 +51,8 @@ internal sealed partial class ParserDriver
         if (!_resourceRecords.TryDequeue(out entry)) return false;
         _activeResourceRecord = entry;
         _activeMetaCursor = 0;
+        _pendingFrameDocuments.Clear();
+        _pendingFrameDocumentSet.Clear();
         return true;
     }
 

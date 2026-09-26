@@ -13,6 +13,8 @@ internal sealed partial class ParserDriver
     private readonly HashSet<Element> _pendingStyleCompletions = [];
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
     private readonly Queue<ResourceEnvelope> _resourceRecords = new();
+    private readonly Queue<Element> _pendingFrameDocuments = new();
+    private readonly HashSet<Element> _pendingFrameDocumentSet = [];
     private readonly List<Element> _candidateShadowHosts = [];
     private readonly HashSet<Element> _inlineStyles = [];
     private readonly HashSet<Element> _changedScripts = [];
@@ -205,7 +207,7 @@ internal sealed partial class ParserDriver
 
     private void DrainResourceRecords()
     {
-        if (_drainingResourceRecords || _activeResourceRecord is null && _resourceRecords.Count == 0) return;
+        if (_drainingResourceRecords || _activeResourceRecord is null && _resourceRecords.Count == 0 && _pendingFrameDocuments.Count == 0) return;
         _drainingResourceRecords = true;
         try
         {
@@ -230,6 +232,17 @@ internal sealed partial class ParserDriver
             }
         }
         finally { _drainingResourceRecords = false; }
+        // A child parser must be able to deliver its own resources before running a script. Start
+        // frame documents after releasing the parent record's drain ownership, never on unwind.
+        // Remove before entering the child: its Drive can safely consume later frame requests.
+        while (_pendingFrameDocuments.TryPeek(out var frame))
+        {
+            _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
+            _runtime.Engine.Constraints.Check();
+            _pendingFrameDocuments.Dequeue();
+            _pendingFrameDocumentSet.Remove(frame);
+            LoadFrame(frame);
+        }
     }
 
     private void ProcessResourceRecord(ResourceEnvelope entry, HashSet<Node> seen, HashSet<ResourceWatch> delivered)
@@ -387,7 +400,11 @@ internal sealed partial class ParserDriver
                 LoadStyleSheet(element);
                 return;
             case "iframe":
-                LoadFrame(element);
+                if (_drainingResourceRecords)
+                {
+                    if (_pendingFrameDocumentSet.Add(element)) _pendingFrameDocuments.Enqueue(element);
+                }
+                else LoadFrame(element);
                 return;
             case "embed":
                 // HTML §4.8.6 needs a plugin host. Preserve the refused reference in the request
