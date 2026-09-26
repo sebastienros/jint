@@ -25,6 +25,11 @@ internal static class CssContainerParser
             }
         var parts = CssPropertyParser.Significant(prelude, work);
         if (parts.Count == 0) return null;
+        foreach (var part in parts)
+        {
+            work.Charge(1);
+            if (Token(part, CssTokenKind.Comma)) return ConditionList(source, prelude, span, parser, work);
+        }
         var name = "";
         if (CssContainerPropertyParser.IsName(parts[0], work))
         {
@@ -32,7 +37,7 @@ internal static class CssContainerParser
             parts.RemoveAt(0);
         }
         var instructions = new List<CssContainerInstruction>();
-        if (parts.Count != 0 && !Condition(parts, instructions, work)) return null;
+        if (parts.Count != 0 && !TryParseCondition(parts, instructions, work)) return null;
         if (parts.Count == 0 && name.Length == 0) return null;
         var query = parts.Count == 0 ? "" : CssStyleSheet.SelectorText(source, new CssComponentValueList(parts.ToArray()), parser, work);
         var text = name.Length == 0 ? query : CssSyntaxSerializer.SerializeIdentifier(name, work) + (query.Length == 0 ? "" : " " + query);
@@ -40,10 +45,42 @@ internal static class CssContainerParser
         return new(name, query, text, new(instructions.ToArray()), span);
     }
 
+    // Conditional 5 §5.4's condition list is preserved, never silently treated as an invalid rule.
+    // Each branch remains typed; evaluation is outside this finite single-container slice.
+    private static CssContainerRule? ConditionList(string source, CssComponentValueList prelude,
+        CssSourceSpan span, CssSyntaxParser parser, CssValueWork work)
+    {
+        var branches = new List<CssContainerQuery>();
+        var texts = new List<string>();
+        var values = new List<CssComponentValue>();
+        foreach (var value in prelude)
+        {
+            work.Charge(1);
+            if (!Token(value, CssTokenKind.Comma)) { values.Add(value); continue; }
+            if (!Branch()) return null;
+        }
+        if (!Branch()) return null;
+        var text = string.Join(", ", texts);
+        work.Charge(text.Length);
+        work.CheckCancellation();
+        return new("", "", text, new([], "C6:container-condition-list"), span, branches.ToArray());
+
+        bool Branch()
+        {
+            work.Charge(values.Count);
+            var branch = Parse(source, new CssComponentValueList(values.ToArray()), span, parser, work);
+            values.Clear();
+            if (branch is null) return false;
+            branches.Add(new(branch.ContainerName, branch.ContainerQuery, branch.Condition));
+            texts.Add(branch.ConditionText);
+            return true;
+        }
+    }
+
     private sealed record Task(List<CssComponentValue>? Parts = null, CssComponentValue? Operand = null,
         CssMediaOperation? Operation = null);
 
-    private static bool Condition(List<CssComponentValue> parts, List<CssContainerInstruction> program, CssValueWork work)
+    internal static bool TryParseCondition(List<CssComponentValue> parts, List<CssContainerInstruction> program, CssValueWork work)
     {
         var pending = new Stack<Task>();
         pending.Push(new(Parts: parts));
@@ -82,6 +119,7 @@ internal static class CssContainerParser
             }
             for (var i = items.Count - 1; i >= 0; i -= 2)
             {
+                work.Charge(1);
                 if (i != 0) pending.Push(new(Operation: join!.Value));
                 pending.Push(new(Operand: items[i]));
             }
@@ -122,7 +160,13 @@ internal static class CssContainerParser
         if (axis == CssContainerAxis.Unknown) { program.Add(new(CssMediaOperation.Unknown)); return true; }
         var pixels = 0d;
         string? dependency = null;
-        if (parts.Count == 1) comparison = CssMediaComparison.Boolean;
+        if (parts.Count == 1)
+        {
+            // MQ5 §2.4.4: a min-/max- prefixed feature cannot be used in boolean context.
+            // Preserve it as general-enclosed unknown, including under not and or.
+            if (comparison != CssMediaComparison.Equal) { program.Add(new(CssMediaOperation.Unknown)); return true; }
+            comparison = CssMediaComparison.Boolean;
+        }
         else if (parts.Count == 3 && Token(parts[1], CssTokenKind.Colon) &&
             parts[2].Kind == CssComponentKind.Token && parts[2].Token.Kind is CssTokenKind.Dimension or CssTokenKind.Number)
         {

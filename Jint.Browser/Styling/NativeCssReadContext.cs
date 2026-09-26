@@ -34,6 +34,7 @@ internal sealed class NativeCssReadContext : INativeCssContainerMetrics
 
     internal NativeCssQuery Query { get; }
     internal CssCascade.Traversal Traversal { get; }
+    internal bool HasSizeQuery => _sizes is not null;
 
     internal void Verify()
     {
@@ -62,6 +63,12 @@ internal sealed class NativeCssReadContext : INativeCssContainerMetrics
         try
         {
             Verify();
+            // A visibility row is not sufficient: display:contents has no principal box.
+            // Query this invocation's actual computed display before allocating/measuring geometry.
+            var display = Traversal.Of(element).GetPropertyValue("display");
+            matching.VerifyRead();
+            Verify();
+            if (display is "none" or "contents") return false;
             var result = MeasureSizes().HasBox(element);
             matching.VerifyRead();
             Verify();

@@ -100,6 +100,8 @@ internal sealed partial class NativeCssQuery
         Verify();
         if (_containerConditions.TryGetValue((element, rule), out var cached)) return cached;
         using var guard = EnterDependency(element, "condition", rule);
+        if (rule.Condition.PendingDependency is { } pending)
+            throw new CssIncompleteGrammarException("container", pending, rule.SourceSpan);
         var container = SelectContainer(element, rule, ref matching);
         // No eligible ancestor is spec unknown BEFORE applying not/and/or.
         var result = CssMediaTruth.Unknown;

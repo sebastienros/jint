@@ -4,12 +4,58 @@ using Jint.HtmlParser.Css.Conditions;
 using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Values.Properties;
 
 namespace Jint.Tests.HtmlParser.Css.Model;
 
 public sealed class CssContainerRuleTests
 {
+    [TestCase("(min-width)")]
+    [TestCase("not (max-inline-size)")]
+    [TestCase("(min-width) or (width:10px)")]
+    public void PrefixedBooleanFeaturesStayUnknownRatherThanBecomingNonzeroTests(string condition)
+    {
+        var rule = (CssContainerRule) CssStyleSheet.Parse("@container " + condition + " {a{}}").Rules[0];
+        rule.Condition.Instructions.Should().Contain(instruction => instruction.Operation == CssMediaOperation.Unknown);
+        rule.Condition.Instructions.Where(instruction => instruction.Feature is not null)
+            .Should().OnlyContain(instruction => instruction.Feature!.Comparison != CssMediaComparison.Boolean);
+    }
+
+    [Test]
+    public void ConditionListsKeepTypedBranchesAndChildrenWithANamedDependency()
+    {
+        var sheet = CssStyleSheet.Parse("@container first (width:10px), second not (inline-size:20px) {a{opacity:.5}}");
+        var rule = (CssContainerRule) sheet.Rules[0];
+        rule.Rules.Count.Should().Be(1);
+        rule.ContainerName.Should().Be("");
+        rule.ContainerQuery.Should().Be("");
+        rule.ConditionText.Should().Be("first (width:10px), second not (inline-size:20px)");
+        rule.Conditions.Select(branch => branch.Name).Should().Equal("first", "second");
+        rule.Condition.PendingDependency.Should().Be("C6:container-condition-list");
+        Assert.Throws<CssIncompleteGrammarException>(() => rule.Condition.Evaluate(_ => CssMediaTruth.True, new CssValueWork(default)))!
+            .Blocker.Should().Be("C6:container-condition-list");
+    }
+    [Test]
+    public void WideConditionCancellationInterruptsTaskExpansionBeforeEvaluatingOperands()
+    {
+        var source = string.Join(" or ", Enumerable.Repeat("(width:1px)", 8192));
+        var values = new CssSyntaxParser(source, null, default).ParseComponentValues();
+        var parts = CssPropertyParser.Significant(values, new CssValueWork(default));
+        using var cancellation = new CancellationTokenSource();
+        var checkpoints = 0;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            // The frame and join validation consume exactly 8192 units (two polls).
+            // The third poll occurs inside expansion, before any queued operand executes.
+            if (++checkpoints == 3) cancellation.Cancel();
+        });
+        var program = new List<CssContainerInstruction>();
+        Assert.Throws<OperationCanceledException>(() => CssContainerParser.TryParseCondition(parts, program, work));
+        checkpoints.Should().Be(3);
+        program.Should().BeEmpty();
+    }
+
     [Test]
     public void NamedRuleOwnsLiveOrderedChildrenAndRetainsTypedCondition()
     {
