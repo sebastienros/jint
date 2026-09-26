@@ -214,6 +214,24 @@ public sealed class CssKeyframesRuleTests
     }
 
     [Test]
+    public void LeadingZeroExponentSerializationRemainsCancelableAfterExactValidation()
+    {
+        // Bypass tokenization to put the work budget directly on validation + serialization.
+        // Exact validation uses fewer than 40 checkpoints; scanning the raw exponent again
+        // must continue polling rather than handing the entire string to an unbounded BCL scan.
+        var literal = "1e-" + new string('0', 100_000) + "1";
+        var components = new global::Jint.HtmlParser.Css.CssComponentValueList([
+            global::Jint.HtmlParser.Css.CssComponentValue.FromToken(new global::Jint.HtmlParser.Css.CssToken(
+                global::Jint.HtmlParser.Css.CssTokenKind.Percentage, default, numberText: literal))]);
+        CssKeyframeKeys.FromComponents(components, new CssValueWork(default), out _)!.Text.Should().Be("0.1%");
+        using var cancellation = new CancellationTokenSource();
+        var checks = 0;
+        var work = new CssValueWork(cancellation.Token, () => { if (++checks == 40) cancellation.Cancel(); });
+        Assert.Throws<OperationCanceledException>(() => CssKeyframeKeys.FromComponents(components, work, out _));
+        checks.Should().Be(40);
+    }
+
+    [Test]
     public void CanceledDefinitionReplacementAndSettersLeaveAllPublishedStateUntouched()
     {
         var sheet = CssStyleSheet.Parse("@keyframes x {from {}}");

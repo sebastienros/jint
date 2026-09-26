@@ -117,9 +117,23 @@ internal sealed class CssKeyframeKeys(CssNumber[] values, string text)
         while (end > first && all[end - 1] == '0') { work.Charge(1); end--; }
         work.Charge(all.Length);
         var significant = all.Substring(first, end - first);
-        var exponent = 0;
-        if (exponentStart < spelling.Length && !int.TryParse(spelling.AsSpan(exponentStart),
-                NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out exponent))
+        long magnitude = 0;
+        var exponentSign = 1;
+        if (exponentStart < spelling.Length && spelling[exponentStart] is '+' or '-')
+        {
+            work.Charge(1);
+            if (spelling[exponentStart] == '-') exponentSign = -1;
+            exponentStart++;
+        }
+        // Saturation preserves bounded arithmetic, but every exponent digit is still charged.
+        // Leading zeros can be arbitrarily long even when the final magnitude fits Int32.
+        for (var i = exponentStart; i < spelling.Length; i++)
+        {
+            work.Charge(1);
+            magnitude = System.Math.Min((long) int.MaxValue + 2, magnitude * 10 + spelling[i] - '0');
+        }
+        var exponent = exponentSign * magnitude;
+        if (exponent > int.MaxValue || exponent < int.MinValue)
         {
             work.Charge(spelling.Length);
             return spelling; // exact, finite output; comparisons still use CssNumber

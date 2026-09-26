@@ -59,3 +59,12 @@ Generated `.g.cs` output is an integration dependency. No compiler, test runner,
 run while producing this source packet; main integration owns the serial Release net10 validation slot.
 The three WPT dom/events/handler-count variants' unused `@keyframes fade-out` definitions can now be parsed
 without claiming that any animation runs. Their actual results remain for integration validation.
+
+Astra review follow-up: number serialization scans every raw exponent digit through charged,
+saturating arithmetic instead of an unbounded `Int32.TryParse` pass. A regression with 100,000
+leading exponent zeros isolates cancellation during that second scan. The Browser find adapter
+now applies the existing rule-stamp work guard across all checkpoints, including the final
+checkpoint before indexing the live list. Callback-driven deletion during final and scan checkpoints
+must report the native invalidation error. Name/keyText getters snapshot their immutable returned
+string before charging output, so callback changes cannot substitute an uncharged return value.
+The additional adapter fixture is `NativeCssKeyframesWorkTests`; compilation remains unclaimed.
