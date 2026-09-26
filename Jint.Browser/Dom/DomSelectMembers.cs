@@ -53,7 +53,10 @@ internal class DomSelectCollection(DomRealm realm, Element select, bool selected
         internal DomSelectCollection? Selected;
     }
     internal Element Select => select;
-    private HtmlSelectOptions Native(DomRealm caller) => selectedOnly
+    // The native view identity is stable. Each operation below still prepares its current contents
+    // with the current caller's work and token; no option snapshot or caller is retained here.
+    private HtmlSelectOptions? _native;
+    private HtmlSelectOptions Native(DomRealm caller) => _native ??= selectedOnly
         ? DomSelectMembers.State(caller, select).SelectedOptions : DomSelectMembers.State(caller, select).Options;
 
     internal static DomSelectCollection Of(DomRealm realm, Element select, bool selectedOnly)
