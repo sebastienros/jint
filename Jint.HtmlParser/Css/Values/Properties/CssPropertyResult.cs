@@ -4,24 +4,27 @@ using Jint.HtmlParser.Css.Values.References;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Deferred, Custom }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom }
 
 internal sealed class CssPropertyValue
 {
     private readonly CssNumericAtom _numeric;
     private readonly CssMathValue? _math;
     private readonly CssReferenceProgram? _references;
+    private readonly IReadOnlyList<CssPropertyValue>? _components;
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
-        string? second = null)
+        string? second = null, IReadOnlyList<CssPropertyValue>? components = null)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
-        _references = references; SecondKeyword = second;
+        _references = references; SecondKeyword = second; _components = components;
     }
     internal CssPropertyValueKind Kind { get; }
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
     internal string? SecondKeyword { get; }
+    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent
+        ? _components! : throw new InvalidOperationException();
     internal CssNumericAtom Numeric => Kind == CssPropertyValueKind.Numeric ? _numeric : throw new InvalidOperationException();
     internal CssMathValue Math => Kind == CssPropertyValueKind.Math ? _math! : throw new InvalidOperationException();
     internal CssReferenceProgram References => Kind is CssPropertyValueKind.Deferred or CssPropertyValueKind.Custom
@@ -31,6 +34,12 @@ internal sealed class CssPropertyValue
     internal static CssPropertyValue Calculation(CssMathValue math, string text) => new(CssPropertyValueKind.Math, text, math.Span, math: math);
     internal static CssPropertyValue Pair(string first, string second, CssSourceSpan span) =>
         new(CssPropertyValueKind.OverflowPair, first, span, second: second);
+    // Arrays are newly owned by the family parser and never exposed for mutation.
+    internal static CssPropertyValue Shorthand(string text, CssSourceSpan span, params CssPropertyValue[] values) =>
+        new(CssPropertyValueKind.Shorthand, text, span, components: Array.AsReadOnly(values));
+    internal static CssPropertyValue FitContent(CssPropertyValue argument, CssSourceSpan span) =>
+        new(CssPropertyValueKind.FitContent, "fit-content(" + argument.Serialize() + ")", span,
+            components: Array.AsReadOnly(new[] { argument }));
     internal static CssPropertyValue Reference(CssReferenceProgram program, string text, bool custom) =>
         new(custom ? CssPropertyValueKind.Custom : CssPropertyValueKind.Deferred, text, default, references: program);
     internal string Serialize() => Kind == CssPropertyValueKind.OverflowPair && Text != SecondKeyword

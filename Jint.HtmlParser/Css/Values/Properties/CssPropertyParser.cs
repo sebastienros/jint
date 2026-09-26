@@ -56,6 +56,14 @@ internal static class CssPropertyParser
         var wide = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
         if (wide.IsMatch) return CssPropertyResult.Accepted(CssPropertyValue.Keyword(wide.Value.CanonicalSpelling(), wide.Span));
         var parts = Significant(input.Components, work);
+        if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.FlexBasis)
+            return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.FlexFactor or CssPropertyGrammar.FlexDirection or
+            CssPropertyGrammar.FlexWrap or CssPropertyGrammar.Direction or CssPropertyGrammar.Flex or CssPropertyGrammar.FlexFlow)
+            return CssFlexPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.AlignItems or CssPropertyGrammar.AlignSelf or
+            CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf)
+            return CssAlignmentPropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar == CssPropertyGrammar.Display) return Display(parts);
         if (entry.Grammar is CssPropertyGrammar.Opacity or CssPropertyGrammar.ZIndex)
             return Numeric(entry.Grammar, input, parts, work);
@@ -188,7 +196,7 @@ internal static class CssPropertyParser
         return CssPropertyResult.Accepted(CssPropertyValue.Keyword(text, parts[0].Span));
     }
 
-    private static List<CssComponentValue> Significant(CssComponentValueList values, CssValueWork work)
+    internal static List<CssComponentValue> Significant(CssComponentValueList values, CssValueWork work)
     {
         var parts = new List<CssComponentValue>();
         for (var i = 0; i < values.Count; i++)
@@ -199,10 +207,10 @@ internal static class CssPropertyParser
         return parts;
     }
 
-    private static string? Keyword(CssComponentValue value, string choices)
+    internal static string? Keyword(CssComponentValue value, string choices, CssValueWork? work = null)
     {
         if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Ident) return null;
-        var name = CssPropertyRegistry.NormalizeName(value.Token.Text);
+        var name = CssPropertyRegistry.NormalizeName(value.Token.Text, work);
         var remaining = choices.AsSpan();
         while (!remaining.IsEmpty)
         {
