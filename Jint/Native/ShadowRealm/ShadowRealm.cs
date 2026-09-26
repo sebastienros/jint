@@ -518,7 +518,7 @@ public sealed class ShadowRealm : ObjectInstance
             JsValue result;
             try
             {
-                result = target.Call(wrappedThisArgument, wrappedArgs);
+                result = _engine.Call((ICallable) target, wrappedThisArgument, wrappedArgs, expression: null);
             }
             catch (JavaScriptException ex)
             {

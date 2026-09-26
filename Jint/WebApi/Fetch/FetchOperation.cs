@@ -619,15 +619,16 @@ internal sealed class FetchOperation
     }
 
     /// <summary>
-    /// Abandons the request because the evaluation cycle it belongs to has ended. Cancels the transport so
-    /// the socket is freed at once; any settle already on its way is discarded by the generation fence rather
-    /// than applied to the restored engine.
+    /// Abandons the request because its evaluation cycle ended or the engine retired. Cancels the transport
+    /// so the socket is freed at once; any settle already on its way is discarded by the generation fence.
     /// </summary>
-    internal void Abandon()
+    internal void Abandon(bool retiring)
     {
         Interlocked.Exchange(ref _settled, 1);
 
-        _observation?.Failed("The engine's globals were restored while the request was in flight.", null);
+        _observation?.Failed(retiring
+            ? "The engine was retired while the request was in flight."
+            : "The engine's globals were restored while the request was in flight.", null);
 
         try
         {

@@ -361,6 +361,36 @@ public class EngineRetirementTests
     }
 
     [Test]
+    public void ShadowRealmWrappedRetirementLeavesCleanupUntilTheCurrentTaskReturns()
+    {
+        var manager = new LockManager();
+        using var retired = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        using var other = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        retired.SetValue("retire", new Action(() => retired.Advanced.Retire()));
+        retired.Execute("""
+            const wrappedRetire = new ShadowRealm().evaluate('(retire) => () => retire()')(retire);
+            const { port1, port2 } = new MessageChannel();
+            port1.addEventListener('message', () => queueMicrotask(wrappedRetire));
+            port1.addEventListener('message', () => {
+                navigator.locks.request('shared', () => new Promise(() => {}));
+            });
+            port1.start();
+            port2.postMessage('go');
+            """);
+
+        retired.Tasks.ProcessTasks();
+        other.Execute("var got = false; navigator.locks.request('shared', () => { got = true; });");
+        for (var i = 0; i < 20; i++)
+        {
+            retired.Tasks.ProcessTasks();
+            other.Tasks.ProcessTasks();
+        }
+
+        retired.IsRetired.Should().BeTrue();
+        other.Evaluate("got").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
     public void RetirementInsideScriptDropsPendingIdleCallback()
     {
         using var engine = new Engine(options => options.UseWebApis());

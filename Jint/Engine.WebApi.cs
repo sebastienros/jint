@@ -1158,7 +1158,7 @@ internal sealed class WebApiEngineState
 
         Timers?.Clear();
         Scheduler?.Clear();
-        AbandonFetches();
+        AbandonFetches(retiring);
         AbandonFetchBodies();
         AbandonEventSources();
         AbandonXhrOperations();
@@ -1267,7 +1267,7 @@ internal sealed class WebApiEngineState
         }
     }
 
-    private void AbandonFetches()
+    private void AbandonFetches(bool retiring)
     {
         if (_fetches is not { Count: > 0 } fetches)
         {
@@ -1281,7 +1281,7 @@ internal sealed class WebApiEngineState
 
         foreach (var fetch in pending)
         {
-            fetch.Abandon();
+            fetch.Abandon(retiring);
         }
     }
 

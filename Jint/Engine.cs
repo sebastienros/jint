@@ -5466,6 +5466,10 @@ public sealed partial class Engine : IDisposable
     /// The engine must not be used afterwards; <see cref="TaskOperations.Post"/> refuses with
     /// <see cref="ObjectDisposedException"/>, and <see cref="IsDisposed"/> answers for everything else.
     /// </para>
+    /// <para>
+    /// Teardown invokes host callbacks while serializing lifecycle cleanup. They must not wait for another
+    /// thread to call <see cref="AdvancedOperations.Retire"/> or <see cref="Dispose"/> on this engine.
+    /// </para>
     /// </remarks>
     public void Dispose()
     {

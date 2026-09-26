@@ -131,6 +131,10 @@ public abstract class WorkerProvider
     /// holds is taken. It may run concurrently with <see cref="OnWorkerStarted"/>, including before that
     /// method returns.
     /// </para>
+    /// <para>
+    /// Engine retirement or disposal can invoke this callback while serializing lifecycle cleanup. Do not
+    /// wait here for another thread to call <c>Retire</c> or <c>Dispose</c> on the same engine.
+    /// </para>
     /// </remarks>
     /// <param name="connection">The connection that ended. <see cref="WorkerConnection.IsEnded"/> is already
     /// <see langword="true"/>, and <see cref="WorkerConnection.EndReason"/> already answers
