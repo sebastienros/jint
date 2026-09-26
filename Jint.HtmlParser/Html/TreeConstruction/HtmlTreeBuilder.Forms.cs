@@ -12,6 +12,10 @@ internal sealed partial class HtmlTreeBuilder
     private Element? _pendingFormElement;
     private Element? _pendingFormOwner;
     private InsertionLocation _pendingFormLocation;
+    private Node? _pendingFormTarget;
+    private bool _pendingFormFosterParenting;
+    private bool _pendingFormLocationDirty;
+    private int _pendingOwnerAttributeIndex;
     private Node? _rootCursor;
     private Node? _resolvedRoot;
     private Node? _intendedParentRoot;
@@ -44,6 +48,8 @@ internal sealed partial class HtmlTreeBuilder
         _rootCache = new Dictionary<Node, Node>(ReferenceEqualityComparer.Instance);
         if (_pendingFormElement is null) return;
         _rootPath = [];
+        _pendingFormLocationDirty = true;
+        _pendingOwnerAttributeIndex = 0;
         _rootCursor = _pendingFormLocation.Parent;
         _resolvedRoot = null;
         _intendedParentRoot = null;
@@ -73,7 +79,7 @@ internal sealed partial class HtmlTreeBuilder
     // until the intended parent and form are proven to share an ordinary root.
     // The caller's parser-stack operations can finish, but no next token or host
     // request is processed before this cooperative insertion commit finishes.
-    private bool DeferFormInsertion(Element element, InsertionLocation location)
+    private bool DeferFormInsertion(Element element, InsertionLocation location, Node target)
     {
         if (_fragmentContext is not null || _form is null || IsParsingTemplateContents ||
             !ReferenceEquals(element.OwnerDocument, _form.OwnerDocument) ||
@@ -84,6 +90,10 @@ internal sealed partial class HtmlTreeBuilder
         _pendingFormElement = element;
         _pendingFormOwner = _form;
         _pendingFormLocation = location;
+        _pendingFormTarget = target;
+        _pendingFormFosterParenting = _fosterParenting;
+        _pendingFormLocationDirty = false;
+        _pendingOwnerAttributeIndex = 0;
         _rootCursor = location.Parent;
         _resolvedRoot = null;
         _intendedParentRoot = null;
@@ -97,6 +107,43 @@ internal sealed partial class HtmlTreeBuilder
     {
         while (_remaining > 0)
         {
+            if (_pendingFormLocationDirty)
+            {
+                var savedFosterParenting = _fosterParenting;
+                _fosterParenting = _pendingFormFosterParenting;
+                _pendingFormLocation = FindAdjustedInsertionLocation(_pendingFormTarget);
+                _fosterParenting = savedFosterParenting;
+                _pendingFormLocationDirty = false;
+                _rootCursor = _pendingFormLocation.Parent;
+                TrackRootDocument(_rootCursor);
+                // Switching the cache document invalidates the previous proof.
+                _pendingFormLocationDirty = false;
+                Charge(1);
+                continue;
+            }
+            var owner = _pendingFormLocation.Parent as Document ?? _pendingFormLocation.Parent.OwnerDocument!;
+            if (!ReferenceEquals(_pendingFormElement!.OwnerDocument, owner))
+            {
+                // Preflight the fresh node's attribute adoption under this quota;
+                // the native ownership commit preserves its stack identity.
+                if (_pendingOwnerAttributeIndex < _pendingFormElement.AttributeCount)
+                {
+                    _pendingOwnerAttributeIndex++;
+                    Charge(1);
+                    continue;
+                }
+                _pendingFormElement.AdoptInto(owner);
+                Charge(1);
+                continue;
+            }
+            // A host can adopt just the insertion target, or move the whole form
+            // subtree while this walk is suspended. Different node documents
+            // prove different ordinary trees without switching cache documents.
+            if (!ReferenceEquals(owner, _pendingFormOwner!.OwnerDocument))
+            {
+                CommitFormInsertion(associate: false);
+                return;
+            }
             if (_resolvedRoot is null)
             {
                 var node = _rootCursor!;
@@ -128,16 +175,21 @@ internal sealed partial class HtmlTreeBuilder
                 Charge(1);
                 continue;
             }
-            if (ReferenceEquals(_intendedParentRoot, _resolvedRoot))
-                HtmlFormAssociation.AssociateFromParser(_pendingFormElement!, _pendingFormOwner!);
-            InsertAt(_pendingFormLocation, _pendingFormElement!);
-            _pendingFormElement = null;
-            _pendingFormOwner = null;
-            _rootCursor = null;
-            _resolvedRoot = null;
-            _intendedParentRoot = null;
-            Charge(1);
+            CommitFormInsertion(ReferenceEquals(_intendedParentRoot, _resolvedRoot));
             return;
         }
+    }
+
+    private void CommitFormInsertion(bool associate)
+    {
+        if (associate) HtmlFormAssociation.AssociateFromParser(_pendingFormElement!, _pendingFormOwner!);
+        InsertAt(_pendingFormLocation, _pendingFormElement!);
+        _pendingFormElement = null;
+        _pendingFormOwner = null;
+        _pendingFormTarget = null;
+        _rootCursor = null;
+        _resolvedRoot = null;
+        _intendedParentRoot = null;
+        Charge(1);
     }
 }

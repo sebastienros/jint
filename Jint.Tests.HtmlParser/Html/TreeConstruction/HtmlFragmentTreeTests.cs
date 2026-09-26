@@ -375,6 +375,52 @@ public class HtmlFragmentTreeTests
         HtmlFormState.GetOwner(input).Should().BeNull();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AdoptionDuringSavedFormRootWalkRehomesFreshControl(bool moveForm)
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<form>" + string.Concat(Enumerable.Repeat("<div>", 500)));
+        DriveToBoundary(session, 100_000).Should().Be(HtmlParseStepKind.NeedInput);
+        session.AppendInput("<input id=x>", isFinal: true);
+        for (var i = 0; i < 40; i++) session.Drive(1, default).Kind.Should().Be(HtmlParseStepKind.Yielded);
+        var form = (Element) document.DocumentElement!.LastChild!.FirstChild!;
+        var parent = form;
+        for (var i = 0; i < 500; i++) parent = (Element) parent.FirstChild!;
+        parent.FirstChild.Should().BeNull();
+        var destination = Document.CreateHtml();
+        var destinationRoot = destination.CreateElement("section");
+        destinationRoot.AppendChild(moveForm ? form : parent);
+        DriveToBoundary(session, 1).Should().Be(HtmlParseStepKind.Complete);
+        var input = (Element) parent.FirstChild!;
+        input.OwnerDocument.Should().BeSameAs(destination);
+        input.GetAttributeNode("id")!.OwnerDocument.Should().BeSameAs(destination);
+        input.GetAttributeNode("id")!.OwnerElement.Should().BeSameAs(input);
+        HtmlFormState.GetOwner(input).Should().BeSameAs(moveForm ? form : null);
+    }
+
+    [Test]
+    public void SuspendedFosterInsertionRefreshesMovedReferenceChild()
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<form>" + string.Concat(Enumerable.Repeat("<div>", 500)) + "<table>");
+        DriveToBoundary(session, 100_000).Should().Be(HtmlParseStepKind.NeedInput);
+        session.AppendInput("<input id=x>", isFinal: true);
+        for (var i = 0; i < 40; i++) session.Drive(1, default).Kind.Should().Be(HtmlParseStepKind.Yielded);
+        var table = NodeTraversal.DescendantElements(document, default).Single(e => e.LocalName == "table");
+        var destination = Document.CreateHtml();
+        var destinationRoot = destination.CreateElement("section");
+        destinationRoot.AppendChild(table);
+        DriveToBoundary(session, 1).Should().Be(HtmlParseStepKind.Complete);
+        var input = (Element) destinationRoot.FirstChild!;
+        input.LocalName.Should().Be("input");
+        input.OwnerDocument.Should().BeSameAs(destination);
+        input.NextSibling.Should().BeSameAs(table);
+        HtmlFormState.GetOwner(input).Should().BeNull();
+    }
+
     // Intersection cases exclude current normative select/PI/patch rules that
     // AngleSharp 1.8.2 does not implement. Compare structure, not HTML strings.
     [TestCase("body", "<b><i>x</b>y</i><!--z-->")]

@@ -41,7 +41,7 @@ select cases remain with H7b.
 
 H7b contextual fragments use the same native session/tokenizer/tree builder with a
 private parser document, a synthetic HTML stack root, and a target-owned detached
-root insertion fragment. `HtmlFragmentTreeTests` contains 54 authored cases against
+root insertion fragment. `HtmlFragmentTreeTests` contains 57 authored cases against
 HTML Standard §13.4 and the tree-construction rules inspected 2026-09-25. This is
 an internal seam; it does not promote `MarkupParser` or complete Browser cutover.
 The matrix covers HTML/table/select/template contexts, initial text states without

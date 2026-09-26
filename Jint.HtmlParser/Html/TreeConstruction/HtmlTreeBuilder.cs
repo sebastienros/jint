@@ -326,7 +326,7 @@ internal sealed partial class HtmlTreeBuilder
             element.InitializeParsedAttributes(attributes, _cancellationToken);
             Charge(attributeWork);
         }
-        if (!DeferFormInsertion(element, location)) InsertAt(location, element);
+        if (!DeferFormInsertion(element, location, parentOverride ?? _headInsertionOverride ?? CurrentParent)) InsertAt(location, element);
         Push(element);
         return element;
     }
