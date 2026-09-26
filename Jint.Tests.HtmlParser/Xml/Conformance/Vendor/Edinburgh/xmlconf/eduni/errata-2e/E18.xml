@@ -1,0 +1,7 @@
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ENTITY % pe SYSTEM "subdir1/E18-pe">
+%pe;
+%intpe;
+]>
+<foo>&ent;</foo>

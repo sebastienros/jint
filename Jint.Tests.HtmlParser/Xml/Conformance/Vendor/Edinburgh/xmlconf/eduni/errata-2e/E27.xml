@@ -1,0 +1,4 @@
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+]>
+<foo>í €í°€</foo>

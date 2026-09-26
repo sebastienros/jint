@@ -1,0 +1,2 @@
+<!ELEMENT foo ANY>
+<!ATTLIST foo bar NMTOKENS #IMPLIED>

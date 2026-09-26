@@ -1,0 +1,463 @@
+﻿namespace Jint.HtmlParser
+{
+    public sealed class Attr
+    {
+        public string LocalName { get; }
+        public string Name { get; }
+        public string? NamespaceUri { get; }
+        public Jint.HtmlParser.Document OwnerDocument { get; }
+        public Jint.HtmlParser.Element? OwnerElement { get; }
+        public string? Prefix { get; }
+        public string Value { get; set; }
+        public Jint.HtmlParser.Attr Clone() { }
+    }
+    public readonly struct BoundaryPoint : System.IEquatable<Jint.HtmlParser.BoundaryPoint>
+    {
+        public BoundaryPoint(Jint.HtmlParser.DomNodeIdentity Container, uint Offset) { }
+        public Jint.HtmlParser.DomNodeIdentity Container { get; init; }
+        public uint Offset { get; init; }
+    }
+    public sealed class CDataSection : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public uint Length { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public Jint.HtmlParser.Text SplitText(uint offset) { }
+        public string SubstringData(uint offset, uint count) { }
+    }
+    public sealed class Comment : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public uint Length { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public string SubstringData(uint offset, uint count) { }
+    }
+    public sealed class CssParseException : System.Exception
+    {
+        public string Code { get; }
+        public long Offset { get; }
+    }
+    public sealed class CssParseOptions
+    {
+        public CssParseOptions() { }
+        public Jint.HtmlParser.ParseDiagnosticCollector? Diagnostics { get; init; }
+        public Jint.HtmlParser.ParseLimits Limits { get; init; }
+    }
+    public sealed class Document : Jint.HtmlParser.Node
+    {
+        public Document(Jint.HtmlParser.DocumentKind kind) { }
+        public string CharacterSet { get; }
+        public string ContentType { get; }
+        public Jint.HtmlParser.DocumentType? Doctype { get; }
+        public Jint.HtmlParser.Element? DocumentElement { get; }
+        public Jint.HtmlParser.DocumentKind Kind { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlSkippedEntity> SkippedXmlEntities { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlNotationDeclaration> XmlNotations { get; }
+        public Jint.HtmlParser.Node AdoptNode(Jint.HtmlParser.Node node) { }
+        public Jint.HtmlParser.Attr CreateAttribute(string name) { }
+        public Jint.HtmlParser.Attr CreateAttributeNS(string? namespaceUri, string qualifiedName) { }
+        public Jint.HtmlParser.CDataSection CreateCDataSection(string data) { }
+        public Jint.HtmlParser.Comment CreateComment(string data) { }
+        public Jint.HtmlParser.DocumentFragment CreateDocumentFragment() { }
+        public Jint.HtmlParser.DocumentType CreateDocumentType(string name, string publicId = "", string systemId = "") { }
+        public Jint.HtmlParser.Element CreateElement(string localName) { }
+        public Jint.HtmlParser.Element CreateElementNS(string? namespaceUri, string qualifiedName) { }
+        public Jint.HtmlParser.ProcessingInstruction CreateProcessingInstruction(string target, string data) { }
+        public Jint.HtmlParser.DomRange CreateRange() { }
+        public Jint.HtmlParser.Text CreateTextNode(string data) { }
+        public Jint.HtmlParser.Attr ImportAttribute(Jint.HtmlParser.Attr source) { }
+        public Jint.HtmlParser.Node ImportNode(Jint.HtmlParser.Node source, bool deep = false) { }
+        public Jint.HtmlParser.MutationSubscription ObserveMutations(Jint.HtmlParser.Node target, Jint.HtmlParser.MutationObserverOptions options) { }
+        public static Jint.HtmlParser.Document CreateHtml() { }
+        public static Jint.HtmlParser.Document CreateXml() { }
+        public static Jint.HtmlParser.Document CreateXml(string contentType) { }
+    }
+    public class DocumentFragment : Jint.HtmlParser.Node
+    {
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+    }
+    public enum DocumentKind
+    {
+        Html = 0,
+        Xml = 1,
+    }
+    public sealed class DocumentType : Jint.HtmlParser.Node
+    {
+        public string Name { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public string PublicId { get; }
+        public string SystemId { get; }
+    }
+    public sealed class DomException : System.Exception
+    {
+        public DomException(string name, string message) { }
+        public string Name { get; }
+    }
+    public readonly struct DomNodeIdentity : System.IEquatable<Jint.HtmlParser.DomNodeIdentity>
+    {
+        public DomNodeIdentity(Jint.HtmlParser.Attr attribute) { }
+        public DomNodeIdentity(Jint.HtmlParser.Node node) { }
+        public Jint.HtmlParser.Attr? Attribute { get; }
+        public bool IsValid { get; }
+        public Jint.HtmlParser.Node? Node { get; }
+        public bool Equals(Jint.HtmlParser.DomNodeIdentity other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Jint.HtmlParser.DomNodeIdentity left, Jint.HtmlParser.DomNodeIdentity right) { }
+        public static bool operator ==(Jint.HtmlParser.DomNodeIdentity left, Jint.HtmlParser.DomNodeIdentity right) { }
+    }
+    public sealed class DomNodeIterator
+    {
+        public DomNodeIterator(Jint.HtmlParser.DomNodeIdentity root, uint whatToShow) { }
+        public bool PointerBeforeReference { get; }
+        public Jint.HtmlParser.DomNodeIdentity Reference { get; }
+        public Jint.HtmlParser.DomNodeIdentity Root { get; }
+        public uint WhatToShow { get; }
+        public void Detach() { }
+        public Jint.HtmlParser.DomNodeIdentity? Next(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Previous(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class DomRange
+    {
+        public bool Collapsed { get; }
+        public Jint.HtmlParser.BoundaryPoint End { get; }
+        public Jint.HtmlParser.BoundaryPoint Start { get; }
+        public Jint.HtmlParser.DocumentFragment CloneContents() { }
+        public Jint.HtmlParser.DomRange CloneRange() { }
+        public void Collapse(bool toStart = false) { }
+        public int CompareBoundaryPoints(ushort how, Jint.HtmlParser.DomRange source, System.Threading.CancellationToken cancellationToken = default) { }
+        public int ComparePoint(Jint.HtmlParser.DomNodeIdentity node, uint offset, System.Threading.CancellationToken cancellationToken = default) { }
+        public void DeleteContents() { }
+        public void Detach() { }
+        public Jint.HtmlParser.DocumentFragment ExtractContents() { }
+        public Jint.HtmlParser.DomNodeIdentity GetCommonAncestor(System.Threading.CancellationToken cancellationToken = default) { }
+        public string GetText(System.Threading.CancellationToken cancellationToken = default) { }
+        public void InsertNode(Jint.HtmlParser.DomNodeIdentity identity) { }
+        public bool IntersectsNode(Jint.HtmlParser.DomNodeIdentity node, System.Threading.CancellationToken cancellationToken = default) { }
+        public bool IsPointInRange(Jint.HtmlParser.DomNodeIdentity node, uint offset, System.Threading.CancellationToken cancellationToken = default) { }
+        public void SelectNode(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SelectNodeContents(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetEnd(Jint.HtmlParser.DomNodeIdentity node, uint offset) { }
+        public void SetEndAfter(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetEndBefore(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetStart(Jint.HtmlParser.DomNodeIdentity node, uint offset) { }
+        public void SetStartAfter(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetStartBefore(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SurroundContents(Jint.HtmlParser.DomNodeIdentity identity) { }
+    }
+    public sealed class DomStaticRange
+    {
+        public DomStaticRange(Jint.HtmlParser.BoundaryPoint start, Jint.HtmlParser.BoundaryPoint end) { }
+        public bool Collapsed { get; }
+        public Jint.HtmlParser.BoundaryPoint End { get; }
+        public Jint.HtmlParser.BoundaryPoint Start { get; }
+        public bool IsValid(System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class DomTreeWalker
+    {
+        public DomTreeWalker(Jint.HtmlParser.DomNodeIdentity root, uint whatToShow) { }
+        public Jint.HtmlParser.DomNodeIdentity Current { get; set; }
+        public Jint.HtmlParser.DomNodeIdentity Root { get; }
+        public uint WhatToShow { get; }
+        public Jint.HtmlParser.DomNodeIdentity? FirstChild(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? LastChild(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Next(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? NextSibling(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Parent(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Previous(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? PreviousSibling(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class Element : Jint.HtmlParser.Node
+    {
+        public int AttributeCount { get; }
+        public System.Collections.Generic.IEnumerable<Jint.HtmlParser.Attr> Attributes { get; }
+        public string LocalName { get; }
+        public string? NamespaceUri { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public string? Prefix { get; }
+        public string TagName { get; }
+        public Jint.HtmlParser.DocumentFragment? TemplateContent { get; }
+        public string? GetAttribute(string name) { }
+        public string? GetAttributeNS(string? namespaceUri, string localName) { }
+        public Jint.HtmlParser.Attr? GetAttributeNode(string name) { }
+        public Jint.HtmlParser.Attr? GetAttributeNodeNS(string? namespaceUri, string localName) { }
+        public void RemoveAttribute(string name) { }
+        public void RemoveAttributeNS(string? namespaceUri, string localName) { }
+        public Jint.HtmlParser.Attr RemoveAttributeNode(Jint.HtmlParser.Attr attribute) { }
+        public void SetAttribute(string name, string value) { }
+        public void SetAttributeNS(string? namespaceUri, string qualifiedName, string value) { }
+        public Jint.HtmlParser.Attr? SetAttributeNode(Jint.HtmlParser.Attr attribute) { }
+    }
+    public sealed class MarkupParseException : System.Exception
+    {
+        public string Code { get; }
+        public long Offset { get; }
+    }
+    public static class MarkupParser
+    {
+        public static Jint.HtmlParser.Css.CssComponentValue ParseCssComponentValue(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Css.CssComponentValueList ParseCssComponentValues(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Css.CssDeclarationSyntax ParseCssDeclaration(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Css.CssRuleSyntax ParseCssRule(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Document ParseSvg(string source, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Document ParseXml(string source, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.DocumentFragment ParseXmlFragment(string source, Jint.HtmlParser.Element context, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class MutationObserverOptions
+    {
+        public MutationObserverOptions() { }
+        public System.Collections.Generic.IReadOnlyList<string>? AttributeFilter { get; init; }
+        public bool? AttributeOldValue { get; init; }
+        public bool? Attributes { get; init; }
+        public bool? CharacterData { get; init; }
+        public bool? CharacterDataOldValue { get; init; }
+        public bool ChildList { get; init; }
+        public bool Subtree { get; init; }
+    }
+    public sealed class MutationRecord
+    {
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.Node> AddedNodes { get; }
+        public string? AttributeName { get; }
+        public string? AttributeNamespace { get; }
+        public Jint.HtmlParser.MutationRecordKind Kind { get; }
+        public Jint.HtmlParser.Node? NextSibling { get; }
+        public string? OldValue { get; }
+        public Jint.HtmlParser.Node? PreviousSibling { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.Node> RemovedNodes { get; }
+        public Jint.HtmlParser.Node Target { get; }
+    }
+    public enum MutationRecordKind
+    {
+        ChildList = 0,
+        Attributes = 1,
+        CharacterData = 2,
+    }
+    public sealed class MutationSubscription : System.IDisposable
+    {
+        public void Disconnect() { }
+        public void Dispose() { }
+        public void Observe(Jint.HtmlParser.Node target, Jint.HtmlParser.MutationObserverOptions options) { }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.MutationRecord> TakeRecords() { }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.MutationRecord> TakeRecordsForDelivery() { }
+    }
+    public static class Namespaces
+    {
+        public const string Html = "http://www.w3.org/1999/xhtml";
+        public const string MathMl = "http://www.w3.org/1998/Math/MathML";
+        public const string Svg = "http://www.w3.org/2000/svg";
+        public const string Xml = "http://www.w3.org/XML/1998/namespace";
+        public const string Xmlns = "http://www.w3.org/2000/xmlns/";
+    }
+    public abstract class Node
+    {
+        public int ChildCount { get; }
+        public System.Collections.Generic.IEnumerable<Jint.HtmlParser.Node> ChildNodes { get; }
+        public Jint.HtmlParser.Node? FirstChild { get; }
+        public Jint.HtmlParser.Node? LastChild { get; }
+        public Jint.HtmlParser.Node? NextSibling { get; }
+        public abstract Jint.HtmlParser.NodeType NodeType { get; }
+        public Jint.HtmlParser.Document? OwnerDocument { get; }
+        public Jint.HtmlParser.Node? ParentNode { get; }
+        public Jint.HtmlParser.Node? PreviousSibling { get; }
+        public Jint.HtmlParser.Node AppendChild(Jint.HtmlParser.Node child) { }
+        public Jint.HtmlParser.Node CloneNode(bool deep = false) { }
+        public Jint.HtmlParser.Node InsertBefore(Jint.HtmlParser.Node child, Jint.HtmlParser.Node? referenceChild) { }
+        public void Normalize() { }
+        public Jint.HtmlParser.Node RemoveChild(Jint.HtmlParser.Node child) { }
+        public Jint.HtmlParser.Node ReplaceChild(Jint.HtmlParser.Node child, Jint.HtmlParser.Node oldChild) { }
+        public void ReplaceChildren(Jint.HtmlParser.Node? replacement = null) { }
+    }
+    public enum NodeType
+    {
+        Element = 1,
+        Text = 3,
+        CDataSection = 4,
+        ProcessingInstruction = 7,
+        Comment = 8,
+        Document = 9,
+        DocumentType = 10,
+        DocumentFragment = 11,
+    }
+    public readonly struct ParseDiagnostic
+    {
+        public string Code { get; }
+        public long Offset { get; }
+    }
+    public sealed class ParseDiagnosticCollector
+    {
+        public ParseDiagnosticCollector(int capacity = 100) { }
+        public int Capacity { get; }
+        public bool IsTruncated { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.ParseDiagnostic> Items { get; }
+        public void Clear() { }
+    }
+    public sealed class ParseLimitException : System.Exception
+    {
+        public Jint.HtmlParser.ParseLimitKind Kind { get; }
+        public long Limit { get; }
+        public long Observed { get; }
+    }
+    public enum ParseLimitKind
+    {
+        InputCharacters = 0,
+        TokenCharacters = 1,
+        NestingDepth = 2,
+        EntityExpansionCharacters = 3,
+    }
+    public sealed class ParseLimits
+    {
+        public ParseLimits() { }
+        public long MaxEntityExpansionCharacters { get; init; }
+        public long MaxInputCharacters { get; init; }
+        public int MaxNestingDepth { get; init; }
+        public int MaxTokenCharacters { get; init; }
+        public static Jint.HtmlParser.ParseLimits Unbounded { get; }
+    }
+    public sealed class ProcessingInstruction : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public uint Length { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public string Target { get; }
+        public string? GetAttribute(string name) { }
+        public string[] GetAttributeNames() { }
+        public bool HasAttribute(string name) { }
+        public bool HasAttributes() { }
+        public void RemoveAttribute(string name) { }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public void SetAttribute(string name, string value) { }
+        public string SubstringData(uint offset, uint count) { }
+        public bool ToggleAttribute(string name, bool? force = default) { }
+    }
+    public sealed class Text : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public uint Length { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public Jint.HtmlParser.Text SplitText(uint offset) { }
+        public string SubstringData(uint offset, uint count) { }
+    }
+    public delegate ushort TraversalFilter(Jint.HtmlParser.DomNodeIdentity node);
+    public readonly struct XmlNotationDeclaration
+    {
+        public string Name { get; }
+        public long Offset { get; }
+        public string? PublicId { get; }
+        public string? SystemId { get; }
+    }
+    public sealed class XmlParseOptions
+    {
+        public XmlParseOptions() { }
+        public Jint.HtmlParser.ParseLimits Limits { get; init; }
+    }
+    public readonly struct XmlSkippedEntity
+    {
+        public Jint.HtmlParser.XmlSkippedEntityKind Kind { get; }
+        public string Name { get; }
+        public long Offset { get; }
+        public string? PublicId { get; }
+        public string? SystemId { get; }
+    }
+    public enum XmlSkippedEntityKind
+    {
+        General = 0,
+        Parameter = 1,
+        ExternalSubset = 2,
+    }
+}
+namespace Jint.HtmlParser.Css
+{
+    public enum CssComponentKind
+    {
+        None = 0,
+        Token = 1,
+        Function = 2,
+        SimpleBlock = 3,
+    }
+    public readonly struct CssComponentValue
+    {
+        public string FunctionName { get; }
+        public Jint.HtmlParser.Css.CssComponentKind Kind { get; }
+        public char OpeningDelimiter { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+        public Jint.HtmlParser.Css.CssToken Token { get; }
+        public Jint.HtmlParser.Css.CssComponentValueList Values { get; }
+    }
+    public sealed class CssComponentValueList : System.Collections.Generic.IEnumerable<Jint.HtmlParser.Css.CssComponentValue>, System.Collections.Generic.IReadOnlyCollection<Jint.HtmlParser.Css.CssComponentValue>, System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.Css.CssComponentValue>, System.Collections.IEnumerable
+    {
+        public int Count { get; }
+        public Jint.HtmlParser.Css.CssComponentValue this[int index] { get; }
+        public System.Collections.Generic.IEnumerator<Jint.HtmlParser.Css.CssComponentValue> GetEnumerator() { }
+    }
+    public sealed class CssDeclarationSyntax
+    {
+        public bool IsImportant { get; }
+        public string Name { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+        public Jint.HtmlParser.Css.CssComponentValueList Value { get; }
+    }
+    public enum CssRuleKind
+    {
+        AtRule = 0,
+        QualifiedRule = 1,
+    }
+    public sealed class CssRuleSyntax
+    {
+        public Jint.HtmlParser.Css.CssComponentValue? Block { get; }
+        public Jint.HtmlParser.Css.CssRuleKind Kind { get; }
+        public string Name { get; }
+        public Jint.HtmlParser.Css.CssComponentValueList Prelude { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+    }
+    public readonly struct CssSourceSpan
+    {
+        public int Length { get; }
+        public int Start { get; }
+    }
+    public readonly struct CssToken
+    {
+        public char Delimiter { get; }
+        public bool IsIdHash { get; }
+        public bool IsInteger { get; }
+        public Jint.HtmlParser.Css.CssTokenKind Kind { get; }
+        public string NumberText { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+        public string Text { get; }
+        public int UnicodeRangeEnd { get; }
+        public int UnicodeRangeStart { get; }
+        public string Unit { get; }
+    }
+    public enum CssTokenKind
+    {
+        None = 0,
+        Ident = 1,
+        Function = 2,
+        AtKeyword = 3,
+        Hash = 4,
+        String = 5,
+        BadString = 6,
+        Url = 7,
+        BadUrl = 8,
+        Delim = 9,
+        Number = 10,
+        Percentage = 11,
+        Dimension = 12,
+        UnicodeRange = 13,
+        Whitespace = 14,
+        Cdo = 15,
+        Cdc = 16,
+        Colon = 17,
+        Semicolon = 18,
+        Comma = 19,
+        OpenParenthesis = 20,
+        CloseParenthesis = 21,
+        OpenSquareBracket = 22,
+        CloseSquareBracket = 23,
+        OpenCurlyBracket = 24,
+        CloseCurlyBracket = 25,
+    }
+}

@@ -1,0 +1,6 @@
+<!DOCTYPE foo [
+<!ELEMENT foo EMPTY>
+<!ENTITY empty "">
+]>
+<foo>&empty;</foo>
+

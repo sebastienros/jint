@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- Colon in entity name -->
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ENTITY a:b "bogus">
+]>
+<foo/>

@@ -1,0 +1,65 @@
+<!DOCTYPE LegalNameStartChar [
+<!ELEMENT LegalNameStartChar ANY>
+<!ELEMENT :LegalNameStartChar ANY>
+<!ELEMENT ÀLegalNameStartChar ANY>
+<!ELEMENT ÁLegalNameStartChar ANY>
+<!ELEMENT ˾LegalNameStartChar ANY>
+<!ELEMENT ˿LegalNameStartChar ANY>
+<!ELEMENT ͰLegalNameStartChar ANY>
+<!ELEMENT ͱLegalNameStartChar ANY>
+<!ELEMENT ͼLegalNameStartChar ANY>
+<!ELEMENT ͽLegalNameStartChar ANY>
+<!ELEMENT ͿLegalNameStartChar ANY>
+<!ELEMENT ΀LegalNameStartChar ANY>
+<!ELEMENT ῾LegalNameStartChar ANY>
+<!ELEMENT ῿LegalNameStartChar ANY>
+<!ELEMENT ‌LegalNameStartChar ANY>
+<!ELEMENT ‍LegalNameStartChar ANY>
+<!ELEMENT ⁰LegalNameStartChar ANY>
+<!ELEMENT ⁱLegalNameStartChar ANY>
+<!ELEMENT ↎LegalNameStartChar ANY>
+<!ELEMENT ↏LegalNameStartChar ANY>
+<!ELEMENT ⰀLegalNameStartChar ANY>
+<!ELEMENT ⰁLegalNameStartChar ANY>
+<!ELEMENT ⿮LegalNameStartChar ANY>
+<!ELEMENT ⿯LegalNameStartChar ANY>
+<!ELEMENT 、LegalNameStartChar ANY>
+<!ELEMENT 。LegalNameStartChar ANY>
+<!ELEMENT ퟾LegalNameStartChar ANY>
+<!ELEMENT ퟿LegalNameStartChar ANY>
+<!ELEMENT 豈LegalNameStartChar ANY>
+<!ELEMENT 更LegalNameStartChar ANY>
+]>
+<!-- LegalNameChar  0x3A,0xC0,,0xC1,0x2FE,0xC0,,0xC1,0x2FE,0x2FF,0x370,0x371,0x37C,0x37D,0x37F,0x380,0x1FFE,0x1FFF,0x200C,0x200D,0x2070,0x2071,0x218E,0x218F,0x2C00,0x2C01,0x2FEE,0x2FEF,0x3001,0x3002,0xD7FE,0xD7FF,0xF900,0xF901,0xEFFFF,0xFFFFF
+in p02:   -->
+<LegalNameStartChar>	<:LegalNameStartChar/>
+	<ÀLegalNameStartChar/>
+	<ÁLegalNameStartChar/>
+	<˾LegalNameStartChar/>
+	<˿LegalNameStartChar/>
+	<ͰLegalNameStartChar/>
+	<ͱLegalNameStartChar/>
+	<ͼLegalNameStartChar/>
+	<ͽLegalNameStartChar/>
+	<ͿLegalNameStartChar/>
+	<΀LegalNameStartChar/>
+	<῾LegalNameStartChar/>
+	<῿LegalNameStartChar/>
+	<‌LegalNameStartChar/>
+	<‍LegalNameStartChar/>
+	<⁰LegalNameStartChar/>
+	<ⁱLegalNameStartChar/>
+	<↎LegalNameStartChar/>
+	<↏LegalNameStartChar/>
+	<ⰀLegalNameStartChar/>
+	<ⰁLegalNameStartChar/>
+	<⿮LegalNameStartChar/>
+	<⿯LegalNameStartChar/>
+	<、LegalNameStartChar/>
+	<。LegalNameStartChar/>
+	<퟾LegalNameStartChar/>
+	<퟿LegalNameStartChar/>
+	<豈LegalNameStartChar/>
+	<更LegalNameStartChar/>
+
+</LegalNameStartChar>

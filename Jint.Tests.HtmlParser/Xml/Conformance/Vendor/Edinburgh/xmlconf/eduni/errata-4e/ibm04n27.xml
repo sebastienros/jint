@@ -1,0 +1,5 @@
+<!DOCTYPE IllegalNameStartChar [
+<!ELEMENT IllegalNameStartChar ANY>
+]>
+<!-- IllegalNameStartChar #0xF8FF -->
+<IllegalNameStartChar/>

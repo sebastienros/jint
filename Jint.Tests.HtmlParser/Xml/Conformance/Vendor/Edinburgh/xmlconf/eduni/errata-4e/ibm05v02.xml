@@ -1,0 +1,54 @@
+<!DOCTYPE LegalName [
+<!ELEMENT LegalName ANY>
+]>
+<!-- Legal Names containing one to four characters in order from the list below  used in PI Target Names.  x003A, 0x00C0, 0x00C1, 0x02FE, 0x00C2, 0x00C3, 0x02FD, 0x02FF, 0x0370, 0x0371, 0x037C, 0x037D, 0x037F, 0x0380, 0x1FFE, 0x1FFF, 0x200C, 0x200D, 0x2070, 0x2071, 0x218E, 0x218F, 0x2C00, 0x2C01, 0x2FEE, 0x2FEF, 0x3001, 0x3002, 0xD7FE, 0xD7FF, 0xF900, 0xF901, 0xFFFD, 0x002D, 0x002E, 0x0041, 0x007A, 0x0030, 0x00B7, 0x0300, 0x0301, 0x036E, 0x036F, 0x203F, 0x2040 -->
+<LegalName>
+	<?PITarget: 	Test	 PIData?>
+	<?PITargetÀ 	Test	 PIData?>
+	<?PITargetÁ 	Test	 PIData?>
+	<?PITarget˾ 	Test	 PIData?>
+	<?PITargetÂ 	Test	 PIData?>
+	<?PITargetÃ 	Test	 PIData?>
+	<?PITarget˽ 	Test	 PIData?>
+	<?PITarget˿ 	Test	 PIData?>
+	<?PITargetͰ 	Test	 PIData?>
+	<?PITargetͱ 	Test	 PIData?>
+	<?PITargetͼͽ 	Test	 PIData?>
+	<?PITargetͽͿ 	Test	 PIData?>
+	<?PITargetͿ΀ 	Test	 PIData?>
+	<?PITarget΀῾ 	Test	 PIData?>
+	<?PITarget῾῿ 	Test	 PIData?>
+	<?PITarget῿‌ 	Test	 PIData?>
+	<?PITarget‌‍ 	Test	 PIData?>
+	<?PITarget‍⁰ 	Test	 PIData?>
+	<?PITarget⁰ⁱ 	Test	 PIData?>
+	<?PITargetⁱ↎ 	Test	 PIData?>
+	<?PITarget↎↏Ⰰ 	Test	 PIData?>
+	<?PITarget↏ⰀⰁ 	Test	 PIData?>
+	<?PITargetⰀⰁ⿮ 	Test	 PIData?>
+	<?PITargetⰁ⿮⿯ 	Test	 PIData?>
+	<?PITarget⿮⿯、 	Test	 PIData?>
+	<?PITarget⿯、。 	Test	 PIData?>
+	<?PITarget、。퟾ 	Test	 PIData?>
+	<?PITarget。퟾퟿ 	Test	 PIData?>
+	<?PITarget퟾퟿豈 	Test	 PIData?>
+	<?PITarget퟿豈更 	Test	 PIData?>
+	<?PITarget豈퟿퟾。 	Test	 PIData?>
+	<?PITarget更豈퟿퟾ 	Test	 PIData?>
+	<?PITarget�更豈퟿ 	Test	 PIData?>
+	<?PITarget-�更豈 	Test	 PIData?>
+	<?PITarget.-�更 	Test	 PIData?>
+	<?PITargetA.-� 	Test	 PIData?>
+	<?PITargetzA.- 	Test	 PIData?>
+	<?PITarget0zA. 	Test	 PIData?>
+	<?PITarget·0zA 	Test	 PIData?>
+	<?PITarget̀·0z 	Test	 PIData?>
+	<?PITarget́̀·0 	Test	 PIData?>
+	<?PITargetͮ́̀· 	Test	 PIData?>
+	<?PITargetͯͮ́̀ 	Test	 PIData?>
+	<?PITarget‿ͯͮ́ 	Test	 PIData?>
+	<?PITarget⁀‿ͯͮ 	Test	 PIData?>
+	<?PITargetnull⁀‿ͯ 	Test	 PIData?>
+	<?PITargetnullnull⁀‿ 	Test	 PIData?>
+	<?PITargetnullnullnull⁀ 	Test	 PIData?>
+</LegalName>

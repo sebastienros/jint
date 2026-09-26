@@ -1,0 +1,6 @@
+<!ELEMENT foo ANY>
+<!ENTITY % pe "hello">
+<!-- If forward were expanded when ent was declared, we were get an error,
+     but it is bypassed and not expanded until ent is used in the instance -->
+<!ENTITY ent "%pe; &#33; &forward;">
+<!ENTITY forward "goodbye">

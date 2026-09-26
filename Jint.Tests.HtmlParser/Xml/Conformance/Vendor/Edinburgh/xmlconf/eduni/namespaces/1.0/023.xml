@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<!-- Illegal use of 1.1-style prefix unbinding in 1.0 document -->
+<a:foo xmlns:a="http://example.org/namespace">
+ <a:foo xmlns:a=""/>
+</a:foo>
+

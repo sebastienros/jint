@@ -1,0 +1,6 @@
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ATTLIST foo bar (one|one) #IMPLIED>
+]>
+<foo/>
+

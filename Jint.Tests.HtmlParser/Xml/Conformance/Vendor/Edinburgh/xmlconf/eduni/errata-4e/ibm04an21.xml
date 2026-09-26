@@ -1,0 +1,5 @@
+<!DOCTYPE IllegalNameCharí € [
+<!ELEMENT IllegalNameCharí € ANY>
+]>
+<!-- IllegalNameChar #0xD800 -->
+<IllegalNameCharí €/>

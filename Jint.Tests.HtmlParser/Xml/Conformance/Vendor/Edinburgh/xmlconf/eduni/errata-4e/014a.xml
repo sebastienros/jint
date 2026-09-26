@@ -1,0 +1,7 @@
+<!-- Has a "long s" in an ID, legal in XML 1.1, illegal in XML 1.0 -->
+<!DOCTYPE egg [
+<!ELEMENT egg EMPTY>
+<!ATTLIST egg id ID #REQUIRED>
+]>
+<egg id="eggſ"/>
+

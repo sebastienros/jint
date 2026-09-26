@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<!-- Reserved prefixes and namespaces: binding another prefix
+     to the xml namespace -->
+<foo xmlns:yml="http://www.w3.org/XML/1998/namespace"/>

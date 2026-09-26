@@ -1,0 +1,4 @@
+<!DOCTYPE root [
+<!ENTITY bom SYSTEM "bom_be.xml">
+]>
+<root>&bom;</root>

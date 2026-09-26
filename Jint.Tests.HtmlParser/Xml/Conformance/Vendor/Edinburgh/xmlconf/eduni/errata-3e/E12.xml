@@ -1,0 +1,7 @@
+<!-- Default values for attributes may not contain references to external entities. -->
+<!DOCTYPE foo [
+<!ENTITY ent SYSTEM "ent">
+<!ELEMENT foo ANY>
+<!ATTLIST foo a CDATA "contains &ent; reference">
+]>
+<foo a="not defaulted"/>

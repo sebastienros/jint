@@ -75,11 +75,11 @@ Use `--project` for a project path and pass runner options directly, without VST
 A separate leg runs `Jint.Tests` and `Jint.Tests.PublicInterface` with the host-contract verifiers on
 (`JINT_HOST_CONTRACT_VERIFICATION=1`), the configuration an embedder is told to use. For a quick manual run
 before a test exists there is `Jint.Repl`, and **always pass `-t`** so a runaway script cannot hang the
-session; anything worth keeping becomes a test — in one of seven projects, and the one a change needs is
+session; anything worth keeping becomes a test — in one of eight projects, and the one a change needs is
 often not the one it edits: a conformance failure is never "fixed" in `Jint.Tests.Test262`, and a test only
 proves a third party can reach an API in `Jint.Tests.PublicInterface`. What each project holds, the runner
 timeout each needs, why that verification leg is not the default and the `Jint.Repl` invocations are all in
-[`Jint.Tests/AGENTS.md`](Jint.Tests/AGENTS.md#the-seven-test-projects-and-which-one-a-test-belongs-in).
+[`Jint.Tests/AGENTS.md`](Jint.Tests/AGENTS.md#the-eight-test-projects-and-which-one-a-test-belongs-in).
 
 ## Third-party integration surface
 

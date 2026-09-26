@@ -63,7 +63,16 @@ internal sealed class InterfaceModel
 {
     internal required string DomName { get; init; }
 
-    internal required Type ClrType { get; init; }
+    internal Type ClrType { get; init; } = null!;
+
+    /// <summary>The contract's source type name, retained for review and generated documentation.</summary>
+    internal required string ClrTypeName { get; init; }
+
+    /// <summary>The C# receiver type written to the generated registry.</summary>
+    internal required string ReceiverType { get; init; }
+
+    /// <summary>Whether CLR assignability selects this interface for an untyped native object.</summary>
+    internal bool TypeMapCandidate { get; init; } = true;
 
     internal InterfaceModel? Parent { get; set; }
 
@@ -124,6 +133,12 @@ internal sealed class BindingModel
 
     /// <summary>Closed <c>IHtmlCollection&lt;T&gt;</c> constructions seen in a member signature.</summary>
     internal SortedSet<string> HtmlCollectionElements { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The collection receiver family named by the explicit contract.</summary>
+    internal string HtmlCollectionOpenType { get; set; } = "global::AngleSharp.Dom.IHtmlCollection";
+
+    /// <summary>The least-specific element receiver, emitted after specialized cases.</summary>
+    internal string HtmlCollectionDefaultElement { get; set; } = "global::AngleSharp.Dom.IElement";
 
     /// <summary>
     /// The namespaces holding the extension classes a generated member calls. They are emitted as <c>using</c>

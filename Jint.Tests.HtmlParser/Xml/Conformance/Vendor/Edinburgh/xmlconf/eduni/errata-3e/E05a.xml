@@ -1,0 +1,5 @@
+<!-- CDATA sections may occur in Mixed content. -->
+<!DOCTYPE foo [
+<!ELEMENT foo (#PCDATA|foo)*>
+]>
+<foo>a <![CDATA[cdata section]]> in mixed content</foo>

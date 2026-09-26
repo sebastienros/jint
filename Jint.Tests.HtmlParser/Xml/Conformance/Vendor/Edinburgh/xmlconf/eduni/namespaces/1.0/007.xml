@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- Namespace inequality test: different capitalization -->
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ATTLIST foo xmlns:a CDATA #IMPLIED
+              xmlns:b CDATA #IMPLIED
+              xmlns:c CDATA #IMPLIED>
+<!ELEMENT bar ANY>
+<!ATTLIST bar a:attr CDATA #IMPLIED
+              b:attr CDATA #IMPLIED
+              c:attr CDATA #IMPLIED>
+]>
+<foo xmlns:a="http://example.org/wine"
+     xmlns:b="http://Example.org/wine"
+     xmlns:c="http://example.org/Wine">
+
+<bar a:attr="1" b:attr="2" c:attr="3"/>
+
+</foo>
+

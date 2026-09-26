@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!-- Attribute uniqueness: repeated attribute with different prefixes -->
+<foo xmlns:a="http://example.org/~wilbur"
+     xmlns:b="http://example.org/~wilbur">
+
+<bar a:attr="1" b:attr="2"/>
+
+</foo>

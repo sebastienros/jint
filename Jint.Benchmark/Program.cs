@@ -9,9 +9,26 @@ using BenchmarkDotNet.Running;
 using Jint;
 using Jint.Benchmark;
 
+if (args.Length > 0 && args[0] == "--validate-markup-primitives")
+{
+    return MarkupPrimitiveData.Validate();
+}
+
 if (args.Length > 0 && args[0] == "--profile-memory")
 {
     return MemoryProbe.Run(args);
+}
+
+if (args.Length > 0 && args[0] == "--validate-html-parser-corpus")
+{
+    // Parse and inspect every checked-in input without starting a timing run.
+    return HtmlParserCorpusBenchmark.ValidateAll();
+}
+
+if (args.Length > 0 && args[0] == "--validate-xml-svg-parser-comparison")
+{
+    // Compare the two complete XML/SVG trees and run semantic corruption probes without timing.
+    return XmlSvgParserComparisonBenchmark.ValidateAll();
 }
 
 if (args.Length > 0 && args[0] == "--profile-cpu")

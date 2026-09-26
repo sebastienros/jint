@@ -1,0 +1,18 @@
+<TESTCASES PROFILE="Richard Tobin's XML Namespaces 1.0/1.1 2nd edition test suite 1 June 2006">
+
+<!-- These tests are for the erratum to Namespaces in XML 1.0 and 1.1
+     first edition.  The erratum is the same for both 1.0 and 1.1. -->
+
+<TEST RECOMMENDATION="NS1.0-errata1e" SECTIONS="NE13" URI="NE13a.xml" ID="rmt-ns-e1.0-13a" TYPE="not-wf">
+The xml namespace must not be declared as the default namespace.
+</TEST>
+
+<TEST RECOMMENDATION="NS1.0-errata1e" SECTIONS="NE13" URI="NE13b.xml" ID="rmt-ns-e1.0-13b" TYPE="not-wf">
+The xmlns namespace must not be declared as the default namespace.
+</TEST>
+
+<TEST RECOMMENDATION="NS1.0-errata1e" SECTIONS="NE13" URI="NE13c.xml" ID="rmt-ns-e1.0-13c" TYPE="not-wf">
+Elements must not have the prefix xmlns.
+</TEST>
+
+</TESTCASES>

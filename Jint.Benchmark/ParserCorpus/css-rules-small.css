@@ -1,0 +1,1 @@
+@layer reset, components; :root { --brand: #123456; color: var(--brand); } @media (min-width: 40rem) { .card > h2:hover { color: red; margin: 0 1rem; } } @supports (display: grid) { main { display: grid; gap: 1rem; } } @keyframes fade { from { opacity: 0 } to { opacity: 1 } }

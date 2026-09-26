@@ -1,0 +1,311 @@
+using System.Globalization;
+using System.Text;
+
+namespace Jint.HtmlParser.Css.Values.Math;
+
+// CSS Values 4 §10.13 and CSSOM component serialization, checked 2026-09-23.
+internal static class CssMathSerializer
+{
+    internal static string SerializeSpecified(CssMathValue value, CssValueWork work)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(work);
+        work.CheckCancellation();
+        var builder = new StringBuilder();
+        var root = value.GetNode(value.RootIndex);
+        var outerFunction = root.Kind switch
+        {
+            CssMathNodeKind.Min => "min(",
+            CssMathNodeKind.Max => "max(",
+            CssMathNodeKind.Clamp => "clamp(",
+            CssMathNodeKind.Round => "round(",
+            CssMathNodeKind.Mod => "mod(",
+            CssMathNodeKind.Rem => "rem(",
+            CssMathNodeKind.Abs => "abs(",
+            CssMathNodeKind.Sign => "sign(",
+            CssMathNodeKind.Sin => "sin(",
+            CssMathNodeKind.Cos => "cos(",
+            CssMathNodeKind.Tan => "tan(",
+            CssMathNodeKind.Asin => "asin(",
+            CssMathNodeKind.Acos => "acos(",
+            CssMathNodeKind.Atan => "atan(",
+            CssMathNodeKind.Atan2 => "atan2(",
+            CssMathNodeKind.Pow => "pow(",
+            CssMathNodeKind.Sqrt => "sqrt(",
+            CssMathNodeKind.Hypot => "hypot(",
+            CssMathNodeKind.Log => "log(",
+            CssMathNodeKind.Exp => "exp(",
+            _ => "calc("
+        };
+        Append(builder, outerFunction, work);
+        var stack = new Stack<Frame>();
+        stack.Push(new Frame(value.RootIndex, true));
+        while (stack.Count > 0)
+        {
+            work.Charge(1);
+            var frame = stack.Peek();
+            var node = value.GetNode(frame.Index);
+            if (!frame.Started)
+            {
+                frame.Started = true;
+                if (node.Kind == CssMathNodeKind.Numeric)
+                {
+                    var grouped = frame.GroupNumeric && !double.IsFinite(node.Numeric.Value) &&
+                        node.Numeric.Kind != CssNumericKind.Number;
+                    if (grouped) Append(builder, "(", work);
+                    AppendNumeric(builder, node.Numeric, frame.IsTop, work);
+                    if (grouped) Append(builder, ")", work);
+                    stack.Pop();
+                    continue;
+                }
+                if (node.Kind == CssMathNodeKind.AbsentBound)
+                {
+                    Append(builder, "none", work); stack.Pop(); continue;
+                }
+                frame.Children = SortedChildren(value, node, work);
+                switch (node.Kind)
+                {
+                    case CssMathNodeKind.Min: Append(builder, frame.IsTop ? "" : "min(", work); break;
+                    case CssMathNodeKind.Max: Append(builder, frame.IsTop ? "" : "max(", work); break;
+                    case CssMathNodeKind.Clamp: Append(builder, frame.IsTop ? "" : "clamp(", work); break;
+                    case CssMathNodeKind.Round:
+                        Append(builder, frame.IsTop ? "" : "round(", work);
+                        if (node.RoundingStrategy != CssRoundingStrategy.Nearest)
+                        {
+                            Append(builder, node.RoundingStrategy switch
+                            {
+                                CssRoundingStrategy.Up => "up, ",
+                                CssRoundingStrategy.Down => "down, ",
+                                CssRoundingStrategy.ToZero => "to-zero, ",
+                                CssRoundingStrategy.LineWidth => "line-width, ",
+                                _ => throw new InvalidOperationException("Unknown rounding strategy.")
+                            }, work);
+                        }
+                        break;
+                    case CssMathNodeKind.Mod: Append(builder, frame.IsTop ? "" : "mod(", work); break;
+                    case CssMathNodeKind.Rem: Append(builder, frame.IsTop ? "" : "rem(", work); break;
+                    case CssMathNodeKind.Abs: Append(builder, frame.IsTop ? "" : "abs(", work); break;
+                    case CssMathNodeKind.Sign: Append(builder, frame.IsTop ? "" : "sign(", work); break;
+                    case CssMathNodeKind.Sin: Append(builder, frame.IsTop ? "" : "sin(", work); break;
+                    case CssMathNodeKind.Cos: Append(builder, frame.IsTop ? "" : "cos(", work); break;
+                    case CssMathNodeKind.Tan: Append(builder, frame.IsTop ? "" : "tan(", work); break;
+                    case CssMathNodeKind.Asin: Append(builder, frame.IsTop ? "" : "asin(", work); break;
+                    case CssMathNodeKind.Acos: Append(builder, frame.IsTop ? "" : "acos(", work); break;
+                    case CssMathNodeKind.Atan: Append(builder, frame.IsTop ? "" : "atan(", work); break;
+                    case CssMathNodeKind.Atan2: Append(builder, frame.IsTop ? "" : "atan2(", work); break;
+                    case CssMathNodeKind.Pow: Append(builder, frame.IsTop ? "" : "pow(", work); break;
+                    case CssMathNodeKind.Sqrt: Append(builder, frame.IsTop ? "" : "sqrt(", work); break;
+                    case CssMathNodeKind.Hypot: Append(builder, frame.IsTop ? "" : "hypot(", work); break;
+                    case CssMathNodeKind.Log: Append(builder, frame.IsTop ? "" : "log(", work); break;
+                    case CssMathNodeKind.Exp: Append(builder, frame.IsTop ? "" : "exp(", work); break;
+                    case CssMathNodeKind.Sum:
+                    case CssMathNodeKind.Product:
+                        if (!frame.IsTop && !frame.Unwrap) Append(builder, "(", work);
+                        break;
+                    case CssMathNodeKind.Negate: Append(builder, "(-1 * ", work); break;
+                    case CssMathNodeKind.Invert: Append(builder, "(1 / ", work); break;
+                }
+            }
+            if (frame.Position == frame.Children.Length)
+            {
+                if (!frame.IsTop &&
+                    (!frame.Unwrap && node.Kind != CssMathNodeKind.Numeric ||
+                     node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
+                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
+                         CssMathNodeKind.Abs or CssMathNodeKind.Sign or CssMathNodeKind.Sin or
+                         CssMathNodeKind.Cos or CssMathNodeKind.Tan or CssMathNodeKind.Asin or
+                         CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 or
+                         CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                         CssMathNodeKind.Log or CssMathNodeKind.Exp))
+                    Append(builder, ")", work);
+                stack.Pop();
+                continue;
+            }
+            var childIndex = frame.Children[frame.Position];
+            var child = value.GetNode(childIndex);
+            var denominator = node.Kind == CssMathNodeKind.Invert;
+            if (frame.Position > 0)
+            {
+                if (node.Kind == CssMathNodeKind.Sum)
+                {
+                    if (child.Kind == CssMathNodeKind.Negate)
+                    {
+                        Append(builder, " - ", work);
+                        childIndex = value.GetChild(child.ChildStart);
+                    }
+                    else if (child.Kind == CssMathNodeKind.Numeric && child.Numeric.Value < 0)
+                    {
+                        Append(builder, " - ", work);
+                        AppendNumeric(builder, new CssMathNumeric(-child.Numeric.Value, child.Numeric.Kind,
+                            child.Numeric.Unit, child.Numeric.Span), false, work);
+                        frame.Position++;
+                        continue;
+                    }
+                    else Append(builder, " + ", work);
+                }
+                else if (node.Kind == CssMathNodeKind.Product)
+                {
+                    if (child.Kind == CssMathNodeKind.Invert)
+                    {
+                        Append(builder, " / ", work);
+                        childIndex = value.GetChild(child.ChildStart);
+                        denominator = true;
+                    }
+                    else Append(builder, " * ", work);
+                }
+                else if (node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
+                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
+                         CssMathNodeKind.Abs or CssMathNodeKind.Sign or CssMathNodeKind.Sin or
+                         CssMathNodeKind.Cos or CssMathNodeKind.Tan or CssMathNodeKind.Asin or
+                         CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 or
+                         CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                         CssMathNodeKind.Log or CssMathNodeKind.Exp)
+                    Append(builder, ", ", work);
+            }
+            frame.Position++;
+            stack.Push(new Frame(childIndex, false,
+                node.Kind is (CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
+                    CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
+                    CssMathNodeKind.Abs or CssMathNodeKind.Sign or CssMathNodeKind.Sin or
+                    CssMathNodeKind.Cos or CssMathNodeKind.Tan or CssMathNodeKind.Asin or
+                    CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 or
+                    CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                    CssMathNodeKind.Log or CssMathNodeKind.Exp) &&
+                value.GetNode(childIndex).Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product,
+                denominator));
+        }
+        Append(builder, ")", work);
+        work.CheckCancellation();
+        var result = builder.ToString();
+        work.Charge(result.Length);
+        work.CheckCancellation();
+        return result;
+    }
+
+    private static int[] SortedChildren(CssMathValue value, CssMathNode node, CssValueWork work)
+    {
+        var children = new int[node.ChildCount];
+        for (var i = 0; i < children.Length; i++) { work.Charge(1); children[i] = value.GetChild(node.ChildStart + i); }
+        if (node.Kind is not (CssMathNodeKind.Sum or CssMathNodeKind.Product) || children.Length < 2) return children;
+        // The finite unit inventory bounds the bucket walk independently of child count.
+        var sorted = new int[children.Length];
+        var count = 0;
+        for (var bucket = 0; bucket < 2; bucket++)
+        {
+            foreach (var child in children)
+            {
+                work.Charge(1);
+                var n = value.GetNode(child);
+                if (n.Kind == CssMathNodeKind.Numeric && n.Numeric.Kind == (bucket == 0 ? CssNumericKind.Number : CssNumericKind.Percentage))
+                    sorted[count++] = child;
+            }
+        }
+        // Unit names are sorted by ASCII-insensitive spelling, as CSS Values requires.
+        foreach (var unit in OrderedUnits)
+        {
+            var name = UnitName(unit);
+            foreach (var child in children)
+            {
+                work.Charge(1);
+                var n = value.GetNode(child);
+                if (n.Kind == CssMathNodeKind.Numeric && n.Numeric.Kind == CssNumericKind.Dimension &&
+                    UnitName(n.Numeric.Unit).Equals(name, StringComparison.OrdinalIgnoreCase)) sorted[count++] = child;
+            }
+        }
+        foreach (var child in children)
+        {
+            work.Charge(1);
+            var n = value.GetNode(child);
+            if (n.Kind != CssMathNodeKind.Numeric) sorted[count++] = child;
+        }
+        return sorted;
+    }
+
+    private static void AppendNumeric(StringBuilder builder, CssMathNumeric numeric, bool top, CssValueWork work)
+    {
+        var value = numeric.Value;
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            Append(builder, double.IsNaN(value) ? "NaN" : value < 0 ? "-infinity" : "infinity", work);
+            if (numeric.Kind != CssNumericKind.Number)
+            {
+                Append(builder, " * 1", work);
+                Append(builder, numeric.Kind == CssNumericKind.Percentage ? "%" : UnitName(numeric.Unit), work);
+            }
+            return;
+        }
+        if (value == 0 && double.IsNegative(value) && !top)
+        {
+            Append(builder, "(-1 * 0", work);
+            Append(builder, numeric.Kind == CssNumericKind.Percentage ? "%" :
+                numeric.Kind == CssNumericKind.Dimension ? UnitName(numeric.Unit) : "", work);
+            Append(builder, ")", work);
+            return;
+        }
+        AppendFiniteNumber(builder, value, work);
+        if (numeric.Kind == CssNumericKind.Percentage) Append(builder, "%", work);
+        else if (numeric.Kind == CssNumericKind.Dimension) Append(builder, UnitName(numeric.Unit), work);
+    }
+
+    internal static string SerializeFiniteNumber(double value, CssValueWork work)
+    {
+        if (!double.IsFinite(value)) throw new ArgumentOutOfRangeException(nameof(value));
+        var builder = new StringBuilder();
+        AppendFiniteNumber(builder, value, work);
+        work.CheckCancellation();
+        return builder.ToString();
+    }
+
+    private static void AppendFiniteNumber(StringBuilder builder, double value, CssValueWork work)
+    {
+        if (value == 0) value = 0;
+        Span<char> scratch = stackalloc char[384];
+        work.CheckCancellation();
+        if (!value.TryFormat(scratch, out var length, "F6", CultureInfo.InvariantCulture))
+            throw new InvalidOperationException("Finite CSS number exceeded the formatter bound.");
+        work.CheckCancellation();
+        while (length > 0 && scratch[length - 1] == '0' && scratch[..length].IndexOf('.') >= 0) length--;
+        if (length > 0 && scratch[length - 1] == '.') length--;
+        if (scratch[..length].SequenceEqual("-0"))
+        {
+            Append(builder, "0", work);
+        }
+        else
+        {
+            work.CheckCancellation();
+            var grows = length > builder.Capacity - builder.Length;
+            builder.Append(scratch[..length]);
+            work.Charge(length);
+            if (grows) work.CheckCancellation();
+        }
+    }
+
+    private static readonly string[] UnitNames = Enum.GetValues<CssUnit>()
+        .Select(static unit => unit.ToString().ToLowerInvariant()).ToArray();
+
+    private static readonly CssUnit[] OrderedUnits = Enum.GetValues<CssUnit>()
+        .Where(static unit => unit != CssUnit.None)
+        .OrderBy(UnitName, StringComparer.OrdinalIgnoreCase).ToArray();
+
+    private static string UnitName(CssUnit unit) => UnitNames[(int) unit];
+
+    private static void Append(StringBuilder builder, string text, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var grows = text.Length > builder.Capacity - builder.Length;
+        builder.Append(text);
+        work.Charge(text.Length);
+        if (grows) work.CheckCancellation();
+    }
+
+    private sealed class Frame(int index, bool isTop, bool unwrap = false, bool groupNumeric = false)
+    {
+        internal int Index { get; } = index;
+        internal bool IsTop { get; } = isTop;
+        internal bool Unwrap { get; } = unwrap;
+        internal bool GroupNumeric { get; } = groupNumeric;
+        internal bool Started { get; set; }
+        internal int Position { get; set; }
+        internal int[] Children { get; set; } = [];
+    }
+}

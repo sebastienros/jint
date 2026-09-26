@@ -1,0 +1,5 @@
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ENTITY e SYSTEM "E38.ent">
+]>
+<foo>&e;</foo>

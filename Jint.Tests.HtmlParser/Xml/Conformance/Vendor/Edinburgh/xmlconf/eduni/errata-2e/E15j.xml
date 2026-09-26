@@ -1,0 +1,4 @@
+<!DOCTYPE foo [
+<!ELEMENT foo (foo*)>
+]>
+<foo><foo/><?pi xxx?><foo/></foo>
