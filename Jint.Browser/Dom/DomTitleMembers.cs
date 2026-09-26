@@ -1,0 +1,98 @@
+using System.Text;
+using Jint.HtmlParser;
+using Jint.Native;
+
+namespace Jint.Browser.Dom;
+
+/// <summary>HTML §3.1.7 title selection and child text over the authoritative native tree.</summary>
+internal static class DomTitleMembers
+{
+    // https://html.spec.whatwg.org/multipage/dom.html#document.title
+    internal static string Get(DomRealm realm, Document document)
+    {
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        var title = Find(document, work);
+        return title is null ? string.Empty : ChildText(title, work, collapse: true);
+    }
+
+    internal static JsValue Set(DomRealm realm, Document document, string value)
+    {
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        var root = document.DocumentElement;
+        if (root is null) return JsValue.Undefined;
+        var svg = root is { NamespaceUri: Namespaces.Svg, LocalName: "svg" };
+        if (!svg && root.NamespaceUri != Namespaces.Html) return JsValue.Undefined;
+        var title = Find(document, work);
+        if (title is null)
+        {
+            Element? parent = svg ? root : null;
+            if (!svg && root.LocalName == "html")
+                foreach (var child in DomTableMembers.Children(root, work))
+                    if (DomTableMembers.Is(child, "head")) { parent = child; break; }
+            work.Check();
+            if (parent is null) return JsValue.Undefined;
+            title = document.CreateElementNS(svg ? Namespaces.Svg : Namespaces.Html, "title");
+            parent.InsertBefore(title, svg ? parent.FirstChild : null);
+        }
+        return SetText(realm, title, value);
+    }
+
+    internal static string Text(DomRealm realm, Element title)
+        => ChildText(title, new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken), collapse: false);
+
+    internal static JsValue SetText(DomRealm realm, Element title, string value)
+    {
+        realm.Engine.Constraints.Check();
+        realm.CancellationToken.ThrowIfCancellationRequested();
+        title.ReplaceChildren(value.Length == 0 ? null : title.OwnerDocument!.CreateTextNode(value));
+        realm.CancellationToken.ThrowIfCancellationRequested();
+        return JsValue.Undefined;
+    }
+
+    private static Element? Find(Document document, DomReadWork work)
+    {
+        work.Check();
+        if (document.DocumentElement is Element { NamespaceUri: Namespaces.Svg, LocalName: "svg" } svg)
+        {
+            foreach (var child in DomTableMembers.Children(svg, work))
+                if (child is { NamespaceUri: Namespaces.Svg, LocalName: "title" }) { work.Check(); return child; }
+        }
+        else
+        {
+            foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
+                if (DomTableMembers.Is(element, "title")) { work.Check(); return element; }
+        }
+        work.Check();
+        return null;
+    }
+
+    private static string ChildText(Element title, DomReadWork work, bool collapse)
+    {
+        work.Check();
+        var result = new StringBuilder();
+        var pendingSpace = false;
+        for (var child = title.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is Text text)
+                for (var i = 0; i < text.DataLength; i++) Append(text.DataAt(i));
+            else if (child is CDataSection data)
+                foreach (var character in data.Data) Append(character);
+        }
+        work.Check();
+        return result.ToString();
+
+        void Append(char character)
+        {
+            work.Step();
+            if (collapse && character is ' ' or '\t' or '\n' or '\r' or '\f')
+            {
+                pendingSpace = result.Length != 0;
+                return;
+            }
+            if (pendingSpace) { result.Append(' '); pendingSpace = false; }
+            result.Append(character);
+        }
+    }
+}

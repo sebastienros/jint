@@ -1501,7 +1501,7 @@ internal static partial class DomInterfaces
 
         HTMLOptionsCollection = Add(new DomInterfaceDefinition(
             "HTMLOptionsCollection",
-            typeof(global::AngleSharp.Html.Dom.IHtmlOptionsCollection),
+            typeof(global::Jint.Browser.Dom.DomSelectOptionsCollection),
             BuildHTMLOptionsCollection,
             HTMLCollection,
             rootsAtEventTarget: false,

@@ -573,7 +573,7 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>AudioTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorAudioTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorAudioTrackList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.IAudioTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.IAudioTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>AudioTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorAudioTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorAudioTrackList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IAudioTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.IAudioTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorAudioTrackList.Instance",
       "Members": [
         {
@@ -1885,7 +1885,7 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>CSSPseudoElementList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorCSSPseudoElementList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSPseudoElementList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.ICssPseudoElementList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.ICssPseudoElementList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>CSSPseudoElementList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorCSSPseudoElementList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSPseudoElementList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssPseudoElementList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.ICssPseudoElementList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorCSSPseudoElementList.Instance",
       "Members": [
         {
@@ -1928,7 +1928,7 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>CSSRuleList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorCSSRuleList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSRuleList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.ICssRuleList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.ICssRuleList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>CSSRuleList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorCSSRuleList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSRuleList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssRuleList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.ICssRuleList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorCSSRuleList.Instance",
       "Members": [
         {
@@ -2008,7 +2008,7 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>CSSStyleDeclaration</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorCSSStyleDeclaration : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSStyleDeclaration Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.ICssStyleDeclaration) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.ICssStyleDeclaration) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>CSSStyleDeclaration</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorCSSStyleDeclaration : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSStyleDeclaration Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssStyleDeclaration) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.ICssStyleDeclaration) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorCSSStyleDeclaration.Instance",
       "Members": [
         {
@@ -4508,7 +4508,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>DOMStringList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.IStringList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Dom.IStringList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMStringList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStringList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Dom.IStringList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMStringList.Instance",
       "Members": [
         {
@@ -4551,7 +4551,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined \u2014 the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined — the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMStringMap.Instance",
       "Members": [],
       "Constants": [],
@@ -4569,7 +4569,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
-      "AccessorClass": "/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMTokenList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMTokenList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMTokenList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMTokenList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMTokenList.Instance",
       "Members": [
         {
@@ -5394,8 +5394,8 @@
         {
           "DomName": "title",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.title\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Title);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.title\");\nself.Target.Title = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.title\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.title\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTitleMembers.Get(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.title\");\nreturn global::Jint.Browser.Dom.DomTitleMembers.Set(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.title\"));",
           "Length": 0,
           "Origin": "IDocument.Title"
         },
@@ -5667,7 +5667,7 @@
         {
           "DomName": "attachShadow",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.attachShadow\");\nreturn self.Realm.WrapNodeValue(self.Target.AttachShadow(global::Jint.Browser.Dom.DomEnums.ToShadowRootMode(global::Jint.Browser.Dom.DomConvert.DictionaryMember(args, 0, \"mode\"), \"Element.attachShadow\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.attachShadow\");\nreturn global::Jint.Browser.Dom.DomShadowMembers.Attach(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IElement.AttachShadow"
@@ -6236,7 +6236,7 @@
       "Group": "Io",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>FileList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorFileList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorFileList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Io.Dom.IFileList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Io.Dom.IFileList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>FileList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorFileList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorFileList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Io.Dom.IFileList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Io.Dom.IFileList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorFileList.Instance",
       "Members": [
         {
@@ -6399,8 +6399,8 @@
         {
           "DomName": "hidden",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.hidden\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsHidden);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.hidden\");\nself.Target.IsHidden = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.hidden\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLElementHidden.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.hidden\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLElementHidden.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlElement.IsHidden"
         },
@@ -7500,8 +7500,8 @@
         {
           "DomName": "formEncType",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.formEncType\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormEncType);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.formEncType\");\nself.Target.FormEncType = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLButtonElement.formEncType\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.formEncType\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormEncType.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.formEncType\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormEncType.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlButtonElement.FormEncType"
         },
@@ -8157,7 +8157,7 @@
       "Group": "Html",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>HTMLFormElement</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLFormElement Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(collection[(int) index]);\n        return true;\n    }\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        var length = collection.Length;\n        var names = new global::System.Collections.Generic.List<string>(length);\n        for (var i = 0; i < length; i++)\n        {\n            var item = collection[i];\n            if (item is null)\n            {\n                continue;\n            }\n\n            Add(names, item.GetAttribute(\"name\"));\n            Add(names, item.Id);\n        }\n\n        return names;\n\n        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        if (string.IsNullOrEmpty(name))\n        {\n            return false;\n        }\n\n        var collection = (global::Jint.HtmlParser.Element) target;\n        var length = collection.Length;\n        for (var i = 0; i < length; i++)\n        {\n            var item = collection[i];\n            if (item is not null\n                && (string.Equals(item.GetAttribute(\"name\"), name, global::System.StringComparison.Ordinal)\n                    || string.Equals(item.Id, name, global::System.StringComparison.Ordinal)))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.HtmlParser.Element) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(item);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>HTMLFormElement</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLFormElement Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(collection[(int) index]);\n        return true;\n    }\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        var length = collection.Length;\n        var names = new global::System.Collections.Generic.List<string>(length);\n        for (var i = 0; i < length; i++)\n        {\n            var item = collection[i];\n            if (item is null)\n            {\n                continue;\n            }\n\n            Add(names, item.GetAttribute(\"name\"));\n            Add(names, item.Id);\n        }\n\n        return names;\n\n        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        if (string.IsNullOrEmpty(name))\n        {\n            return false;\n        }\n\n        var collection = (global::Jint.HtmlParser.Element) target;\n        var length = collection.Length;\n        for (var i = 0; i < length; i++)\n        {\n            var item = collection[i];\n            if (item is not null\n                && (string.Equals(item.GetAttribute(\"name\"), name, global::System.StringComparison.Ordinal)\n                    || string.Equals(item.Id, name, global::System.StringComparison.Ordinal)))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.HtmlParser.Element) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(item);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorHTMLFormElement.Instance",
       "Members": [
         {
@@ -8187,7 +8187,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.FormSubmission.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFormElement.CheckValidity"
@@ -8203,16 +8203,16 @@
         {
           "DomName": "encoding",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.encoding\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Encoding);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.encoding\");\nself.Target.Encoding = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLFormElement.encoding\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.encoding\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLFormElementEncoding.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.encoding\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLFormElementEncoding.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlFormElement.Encoding"
         },
         {
           "DomName": "enctype",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.enctype\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Enctype);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.enctype\");\nself.Target.Enctype = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLFormElement.enctype\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.enctype\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLFormElementEnctype.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.enctype\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLFormElementEnctype.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlFormElement.Enctype"
         },
@@ -8227,8 +8227,8 @@
         {
           "DomName": "method",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.method\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Method);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.method\");\nself.Target.Method = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLFormElement.method\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.method\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLFormElementMethod.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.method\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLFormElementMethod.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlFormElement.Method"
         },
@@ -8251,7 +8251,7 @@
         {
           "DomName": "reportValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.reportValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ReportValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.reportValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.FormSubmission.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFormElement.ReportValidity"
@@ -8902,8 +8902,8 @@
         {
           "DomName": "defaultValue",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.defaultValue\");\nself.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.defaultValue\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLInputElementDefaultValue.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLInputElementDefaultValue.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlInputElement.DefaultValue"
         },
@@ -8950,8 +8950,8 @@
         {
           "DomName": "formEncType",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.formEncType\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormEncType);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.formEncType\");\nself.Target.FormEncType = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.formEncType\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.formEncType\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormEncType.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.formEncType\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLInputElementFormEncType.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlInputElement.FormEncType"
         },
@@ -9190,7 +9190,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomInputMembers.Type(self.Realm, self.Target));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.type\");\nreturn global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputType(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -10499,7 +10499,7 @@
     {
       "DomName": "HTMLOptionsCollection",
       "ClrTypeName": "AngleSharp.Html.Dom.IHtmlOptionsCollection",
-      "ReceiverType": "global::AngleSharp.Html.Dom.IHtmlOptionsCollection",
+      "ReceiverType": "global::Jint.Browser.Dom.DomSelectOptionsCollection",
       "Parent": "HTMLCollection",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -10514,7 +10514,7 @@
         {
           "DomName": "add",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsCollection>(thisObj, \"HTMLOptionsCollection.add\");\nreturn global::Jint.Browser.Dom.DomUnionMembers.OptionsAdd(self, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.add\");\nreturn global::Jint.Browser.Dom.DomSelectMembers.Add(self.Realm, self.Target.Select, args, \"HTMLOptionsCollection.add\");",
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
@@ -10522,7 +10522,7 @@
         {
           "DomName": "remove",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsCollection>(thisObj, \"HTMLOptionsCollection.remove\");\nself.Target.Remove(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLOptionsCollection.remove\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.remove\");\nreturn global::Jint.Browser.Dom.DomSelectMembers.Remove(self.Realm, self.Target.Select, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLOptionsCollection.remove\"));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlOptionsCollection.Remove"
@@ -10530,8 +10530,8 @@
         {
           "DomName": "selectedIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nself.Target.SelectedIndex = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLOptionsCollection.selectedIndex\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target.Select).GetSelectedIndex(self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target.Select).SetSelectedIndex(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLOptionsCollection.selectedIndex\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionsCollection.SelectedIndex"
         }
@@ -10982,13 +10982,13 @@
       "Group": "Html",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>HTMLSelectElement</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLSelectElement Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native select indexed properties use the authoritative option inventory.</summary>\ninternal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLSelectElement Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.GetCount(realm.CancellationToken);\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var option = global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.Item(index, realm.CancellationToken);\n        value = realm.WrapNodeValue(option);\n        return option is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorHTMLSelectElement.Instance",
       "Members": [
         {
           "DomName": "add",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.add\");\nreturn global::Jint.Browser.Dom.DomUnionMembers.SelectAdd(self, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.add\");\nreturn global::Jint.Browser.Dom.DomSelectMembers.Add(self.Realm, self.Target, args, \"HTMLSelectElement.add\");",
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
@@ -11044,7 +11044,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).Options.GetCount(self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlSelectElement.Length"
@@ -11068,7 +11068,7 @@
         {
           "DomName": "options",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.options\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Options);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.options\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomSelectCollection.Of(self.Realm, self.Target, false));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlSelectElement.Options"
@@ -11076,7 +11076,7 @@
         {
           "DomName": "remove",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.remove\");\nself.Target.RemoveOptionAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.remove\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.remove\");\nreturn global::Jint.Browser.Dom.DomSelectMembers.Remove(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.remove\"));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlSelectElement.RemoveOptionAt"
@@ -11092,15 +11092,15 @@
         {
           "DomName": "selectedIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nself.Target.Options.SelectedIndex = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.selectedIndex\");\nreturn global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).GetSelectedIndex(self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).SetSelectedIndex(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.selectedIndex\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "overrides.json"
         },
         {
           "DomName": "selectedOptions",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedOptions\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.SelectedOptions);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedOptions\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomSelectCollection.Of(self.Realm, self.Target, true));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlSelectElement.SelectedOptions"
@@ -11124,7 +11124,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).Type);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlSelectElement.Type"
@@ -11148,8 +11148,8 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nself.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLSelectElement.value\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).GetValue(self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLSelectElement.value\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlSelectElement.Value"
         },
@@ -11200,7 +11200,7 @@
         {
           "DomName": "getDistributedNodes",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSlotElement.getDistributedNodes\");\nreturn global::Jint.Browser.Dom.DomConvert.NodeSequence(self.Realm, self.Target.GetDistributedNodes());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSlotElement.getDistributedNodes\");\nreturn global::Jint.Browser.Dom.DomConvert.NodeSequence(self.Realm, global::Jint.HtmlParser.SlotAssignment.AssignedNodes(self.Target, false, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlSlotElement.GetDistributedNodes"
@@ -11991,7 +11991,7 @@
         {
           "DomName": "content",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTemplateElement.content\");\nreturn self.Realm.WrapNodeValue(self.Target.Content);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTemplateElement.content\");\nreturn self.Realm.WrapNodeValue(self.Target.TemplateContent);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTemplateElement.Content"
@@ -12307,8 +12307,8 @@
         {
           "DomName": "text",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTitleElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTitleElement.text\");\nself.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTitleElement.text\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTitleElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTitleMembers.Text(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTitleElement.text\");\nreturn global::Jint.Browser.Dom.DomTitleMembers.SetText(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTitleElement.text\"));",
           "Length": 0,
           "Origin": "IHtmlTitleElement.Text"
         }
@@ -12937,7 +12937,7 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>MediaList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorMediaList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorMediaList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.IMediaList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.IMediaList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>MediaList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorMediaList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorMediaList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.IMediaList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Css.Dom.IMediaList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorMediaList.Instance",
       "Members": [
         {
@@ -13165,7 +13165,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>Native attribute-list indexed and named reads.</summary>\ninternal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNamedNodeMap Instance = new();\n    internal override uint Length(object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((Collections.DomNamedNodeMap) target).Item(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n    internal override bool HasNamedGetter => true;\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n        => ((Collections.DomNamedNodeMap) target).SupportedNames();\n    internal override bool HasSupportedName(object target, string name)\n        => ((Collections.DomNamedNodeMap) target).HasSupportedName(name);\n    internal override bool AreNamesEnumerable => false;\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var map = (Collections.DomNamedNodeMap) target;\n        var item = map.HasSupportedName(name) ? map.GetNamedItem(name) : null;\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native attribute-list indexed and named reads.</summary>\ninternal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNamedNodeMap Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((Collections.DomNamedNodeMap) target).Item(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n    internal override bool HasNamedGetter => true;\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n        => ((Collections.DomNamedNodeMap) target).SupportedNames();\n    internal override bool HasSupportedName(object target, string name)\n        => ((Collections.DomNamedNodeMap) target).HasSupportedName(name);\n    internal override bool AreNamesEnumerable => false;\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var map = (Collections.DomNamedNodeMap) target;\n        var item = map.HasSupportedName(name) ? map.GetNamedItem(name) : null;\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorNamedNodeMap.Instance",
       "Members": [
         {
@@ -13506,7 +13506,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
-      "AccessorClass": "/// <summary>How <c>NodeList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorNodeList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNodeList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;\n        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);\n        return item is not null;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>NodeList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorNodeList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNodeList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;\n        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorNodeList.Instance",
       "Members": [
         {
@@ -14168,7 +14168,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>StyleSheetList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorStyleSheetList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorStyleSheetList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.IStyleSheetList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Dom.IStyleSheetList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>StyleSheetList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorStyleSheetList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorStyleSheetList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStyleSheetList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Dom.IStyleSheetList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorStyleSheetList.Instance",
       "Members": [
         {
@@ -14453,7 +14453,7 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>TextTrackCueList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackCueList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.ITextTrackCueList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>TextTrackCueList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackCueList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.ITextTrackCueList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorTextTrackCueList.Instance",
       "Members": [
         {
@@ -14488,7 +14488,7 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>TextTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorTextTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.ITextTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>TextTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorTextTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.ITextTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorTextTrackList.Instance",
       "Members": [
         {
@@ -14898,7 +14898,7 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>VideoTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorVideoTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorVideoTrackList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.IVideoTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.IVideoTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>VideoTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorVideoTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorVideoTrackList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IVideoTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.IVideoTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorVideoTrackList.Instance",
       "Members": [
         {
@@ -15004,7 +15004,7 @@
       ]
     },
     {
-      "ClrFullName": "global::AngleSharp.Dom.ShadowRootMode",
+      "ClrFullName": "global::Jint.HtmlParser.ShadowRootMode",
       "HelperName": "ShadowRootMode",
       "Values": [
         {
@@ -15067,7 +15067,7 @@
     {
       "Interface": "CharacterData",
       "Member": "replace",
-      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "Document",
@@ -15077,12 +15077,12 @@
     {
       "Interface": "DocumentType",
       "Member": "replace",
-      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "Element",
       "Member": "replace",
-      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "HTMLAnchorElement",
@@ -15107,7 +15107,7 @@
     {
       "Interface": "HTMLLinkElement",
       "Member": "nonce",
-      "Reason": "HTML \u00a72.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
+      "Reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
     },
     {
       "Interface": "HTMLMarqueeElement",
@@ -17963,6 +17963,69 @@
       "Factory": "ReflectedAttribute.Numeric(\"HTMLProgressElement.value\", \"value\", ReflectedKind.Double, 0)",
       "Replaced": true,
       "SetterOnly": true
+    },
+    {
+      "Field": "HTMLElementHidden",
+      "Qualified": "HTMLElement.hidden",
+      "Attribute": "hidden",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLElement.hidden\", \"hidden\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLFormElementMethod",
+      "Qualified": "HTMLFormElement.method",
+      "Attribute": "method",
+      "Type": "enumerated",
+      "Factory": "ReflectedAttribute.Enumerated(\"HTMLFormElement.method\", \"method\", [\"get\", \"post\", \"dialog\"], \"get\", \"get\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLFormElementEnctype",
+      "Qualified": "HTMLFormElement.enctype",
+      "Attribute": "enctype",
+      "Type": "enumerated",
+      "Factory": "ReflectedAttribute.Enumerated(\"HTMLFormElement.enctype\", \"enctype\", [\"application/x-www-form-urlencoded\", \"multipart/form-data\", \"text/plain\"], \"application/x-www-form-urlencoded\", \"application/x-www-form-urlencoded\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLFormElementEncoding",
+      "Qualified": "HTMLFormElement.encoding",
+      "Attribute": "enctype",
+      "Type": "enumerated",
+      "Factory": "ReflectedAttribute.Enumerated(\"HTMLFormElement.encoding\", \"enctype\", [\"application/x-www-form-urlencoded\", \"multipart/form-data\", \"text/plain\"], \"application/x-www-form-urlencoded\", \"application/x-www-form-urlencoded\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLButtonElementFormEncType",
+      "Qualified": "HTMLButtonElement.formEncType",
+      "Attribute": "formenctype",
+      "Type": "enum",
+      "Factory": "ReflectedAttribute.Enumerated(\"HTMLButtonElement.formEncType\", \"formenctype\", [\"application/x-www-form-urlencoded\", \"multipart/form-data\", \"text/plain\"], missing: \"\", invalid: \"application/x-www-form-urlencoded\")",
+      "Replaced": false,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLInputElementFormEncType",
+      "Qualified": "HTMLInputElement.formEncType",
+      "Attribute": "formenctype",
+      "Type": "enum",
+      "Factory": "ReflectedAttribute.Enumerated(\"HTMLInputElement.formEncType\", \"formenctype\", [\"application/x-www-form-urlencoded\", \"multipart/form-data\", \"text/plain\"], missing: \"\", invalid: \"application/x-www-form-urlencoded\")",
+      "Replaced": false,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLInputElementDefaultValue",
+      "Qualified": "HTMLInputElement.defaultValue",
+      "Attribute": "value",
+      "Type": "text",
+      "Factory": "ReflectedAttribute.Text(\"HTMLInputElement.defaultValue\", \"value\")",
+      "Replaced": true,
+      "SetterOnly": false
     }
   ],
   "Diagnostics": []

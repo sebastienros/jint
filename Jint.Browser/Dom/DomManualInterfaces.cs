@@ -275,7 +275,7 @@ internal static class DomManualInterfaces
 
         foreach (var member in members)
         {
-            builder.Accessor(MemberNameOf(member), Reflected<Element>(member), ReflectedSetter<Element>(member));
+            builder.Accessor(MemberNameOf(member), Reflected(member), ReflectedSetter(member));
         }
 
         return builder.Build();
@@ -297,14 +297,14 @@ internal static class DomManualInterfaces
             .ToStringTag("SVGAElement")
             .Accessor(
                 MemberNameOf(_svgAnchorMembers[0]),
-                Reflected<Element>(_svgAnchorMembers[0]),
-                ReflectedSetter<Element>(_svgAnchorMembers[0]))
+                Reflected(_svgAnchorMembers[0]),
+                ReflectedSetter(_svgAnchorMembers[0]))
             .Accessor(
                 "relList",
                 DomFailures.Guard(RelList, static (thisObject, _) =>
                 {
                     var self = DomBindings.Bind<Element>(thisObject, RelList);
-                    return DomTokenListMembers.Project(self.Realm, self.Target, "rel", DomAttributeTokenList.Rel(self.Target));
+                    return DomTokenListMembers.Project(self.Realm, self.Target, "rel");
                 }),
                 DomFailures.Guard(RelList, static (thisObject, arguments) =>
                 {
@@ -332,8 +332,7 @@ internal static class DomManualInterfaces
     /// <c>Function.prototype.call</c> onto a <c>&lt;div&gt;</c> does in a browser — the member reads that
     /// element's own content attribute rather than raising.
     /// </remarks>
-    private static Func<JsValue, JsValue[], JsValue> Reflected<TElement>(ReflectedAttribute attribute)
-        where TElement : class
+    private static Func<JsValue, JsValue[], JsValue> Reflected(ReflectedAttribute attribute)
     {
         if (attribute.ReflectsUrl)
         {
@@ -343,24 +342,23 @@ internal static class DomManualInterfaces
             // makes for every generated `url` row and for no other.
             return DomFailures.Guard(attribute.Member, (thisObject, _) =>
             {
-                var self = DomBindings.Bind<TElement>(thisObject, attribute.Member);
+                var self = DomBindings.Bind<Element>(thisObject, attribute.Member);
                 return attribute.Get(self.Realm, self.Target);
             });
         }
 
         return DomFailures.Guard(attribute.Member, (thisObject, _) =>
         {
-            var self = DomBindings.Bind<TElement>(thisObject, attribute.Member);
+            var self = DomBindings.Bind<Element>(thisObject, attribute.Member);
             return attribute.Get(self.Target);
         });
     }
 
     /// <summary>The same member's setter.</summary>
-    private static Func<JsValue, JsValue[], JsValue> ReflectedSetter<TElement>(ReflectedAttribute attribute)
-        where TElement : class
-        => DomFailures.Guard(attribute.Member, (thisObject, arguments) =>
+    private static Func<JsValue, JsValue[], JsValue> ReflectedSetter(ReflectedAttribute attribute)
+        => DomFailures.GuardMutation(attribute.Member, (thisObject, arguments) =>
         {
-            var self = DomBindings.Bind<TElement>(thisObject, attribute.Member);
+            var self = DomBindings.Bind<Element>(thisObject, attribute.Member);
             return attribute.Set(self.Realm, self.Target, arguments);
         });
 

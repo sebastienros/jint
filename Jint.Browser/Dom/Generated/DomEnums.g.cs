@@ -96,18 +96,18 @@ internal static class DomEnums
         _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollLogicalPosition>(value, member),
     };
 
-    internal static global::Jint.Native.JsValue FromShadowRootMode(global::AngleSharp.Dom.ShadowRootMode value) => value switch
+    internal static global::Jint.Native.JsValue FromShadowRootMode(global::Jint.HtmlParser.ShadowRootMode value) => value switch
     {
-        global::AngleSharp.Dom.ShadowRootMode.Open => global::Jint.Native.JsString.Create("open"),
-        global::AngleSharp.Dom.ShadowRootMode.Closed => global::Jint.Native.JsString.Create("closed"),
+        global::Jint.HtmlParser.ShadowRootMode.Open => global::Jint.Native.JsString.Create("open"),
+        global::Jint.HtmlParser.ShadowRootMode.Closed => global::Jint.Native.JsString.Create("closed"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Dom.ShadowRootMode ToShadowRootMode(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::Jint.HtmlParser.ShadowRootMode ToShadowRootMode(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
     {
-        "open" => global::AngleSharp.Dom.ShadowRootMode.Open,
-        "closed" => global::AngleSharp.Dom.ShadowRootMode.Closed,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.ShadowRootMode>(value, member),
+        "open" => global::Jint.HtmlParser.ShadowRootMode.Open,
+        "closed" => global::Jint.HtmlParser.ShadowRootMode.Closed,
+        _ => DomConvert.BadEnumValue<global::Jint.HtmlParser.ShadowRootMode>(value, member),
     };
 
     internal static global::Jint.Native.JsValue FromTextTrackMode(global::AngleSharp.Media.Dom.TextTrackMode value) => value switch

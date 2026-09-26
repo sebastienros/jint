@@ -1325,12 +1325,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.title", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.title");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Title);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTitleMembers.Get(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.title", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.title");
-                    self.Target.Title = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.title"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTitleMembers.Set(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.title"));
                 }))
             .Accessor("visibilityState",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.visibilityState", static (thisObj, args) =>
@@ -1536,7 +1536,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.attachShadow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.attachShadow");
-                    return self.Realm.WrapNodeValue(self.Target.AttachShadow(global::Jint.Browser.Dom.DomEnums.ToShadowRootMode(global::Jint.Browser.Dom.DomConvert.DictionaryMember(args, 0, "mode"), "Element.attachShadow")));
+                    return global::Jint.Browser.Dom.DomShadowMembers.Attach(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Accessor("attributes",

@@ -27,7 +27,7 @@ internal abstract class DomCollectionAccessor
     /// The collection's current element count. Re-read on every operation, so a live view is live. The
     /// default is for an interface with a named getter and nothing indexed — <c>DOMStringMap</c>.
     /// </summary>
-    internal virtual uint Length(object target) => 0;
+    internal virtual uint Length(DomRealm realm, object target) => 0;
 
     /// <summary>
     /// Reads element <paramref name="index"/>. <see langword="false"/> means the collection has no own

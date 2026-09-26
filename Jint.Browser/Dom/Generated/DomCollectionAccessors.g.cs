@@ -14,7 +14,7 @@ internal sealed class DomAccessorAudioTrackList : DomCollectionAccessor
 {
     internal static readonly DomAccessorAudioTrackList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.IAudioTrackList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IAudioTrackList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -35,7 +35,7 @@ internal sealed class DomAccessorCSSPseudoElementList : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSPseudoElementList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.ICssPseudoElementList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssPseudoElementList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -56,7 +56,7 @@ internal sealed class DomAccessorCSSRuleList : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSRuleList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.ICssRuleList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssRuleList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -77,7 +77,7 @@ internal sealed class DomAccessorCSSStyleDeclaration : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSStyleDeclaration Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.ICssStyleDeclaration) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssStyleDeclaration) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -98,7 +98,7 @@ internal sealed class DomAccessorDOMStringList : DomCollectionAccessor
 {
     internal static readonly DomAccessorDOMStringList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.IStringList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStringList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -185,7 +185,7 @@ internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
 {
     internal static readonly DomAccessorDOMTokenList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -206,7 +206,7 @@ internal sealed class DomAccessorFileList : DomCollectionAccessor
 {
     internal static readonly DomAccessorFileList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Io.Dom.IFileList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Io.Dom.IFileList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -227,7 +227,7 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
 {
     internal static readonly DomAccessorHTMLFormElement Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -309,24 +309,16 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>HTMLSelectElement</c> answers indexed and named property lookups.</summary>
+/// <summary>Native select indexed properties use the authoritative option inventory.</summary>
 internal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor
 {
     internal static readonly DomAccessorHTMLSelectElement Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.GetCount(realm.CancellationToken);
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::Jint.HtmlParser.Element) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(collection[(int) index]);
-        return true;
+        var option = global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.Item(index, realm.CancellationToken);
+        value = realm.WrapNodeValue(option);
+        return option is not null;
     }
 }
 
@@ -335,7 +327,7 @@ internal sealed class DomAccessorMediaList : DomCollectionAccessor
 {
     internal static readonly DomAccessorMediaList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Css.Dom.IMediaList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.IMediaList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -355,7 +347,7 @@ internal sealed class DomAccessorMediaList : DomCollectionAccessor
 internal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor
 {
     internal static readonly DomAccessorNamedNodeMap Instance = new();
-    internal override uint Length(object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
         var item = ((Collections.DomNamedNodeMap) target).Item(index);
@@ -382,7 +374,7 @@ internal sealed class DomAccessorNodeList : DomCollectionAccessor
 {
     internal static readonly DomAccessorNodeList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -398,7 +390,7 @@ internal sealed class DomAccessorStyleSheetList : DomCollectionAccessor
 {
     internal static readonly DomAccessorStyleSheetList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.IStyleSheetList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStyleSheetList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -419,7 +411,7 @@ internal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor
 {
     internal static readonly DomAccessorTextTrackCueList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -440,7 +432,7 @@ internal sealed class DomAccessorTextTrackList : DomCollectionAccessor
 {
     internal static readonly DomAccessorTextTrackList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -461,7 +453,7 @@ internal sealed class DomAccessorVideoTrackList : DomCollectionAccessor
 {
     internal static readonly DomAccessorVideoTrackList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.IVideoTrackList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IVideoTrackList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
