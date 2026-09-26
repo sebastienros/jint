@@ -1168,9 +1168,261 @@
       "Unscopables": []
     },
     {
+      "DomName": "CSSFontFaceDescriptors",
+      "ClrTypeName": "Jint.Browser.Styling.NativeCssFontFaceDescriptors",
+      "ReceiverType": "global::Jint.Browser.Styling.NativeCssFontFaceDescriptors",
+      "Parent": "CSSStyleDeclaration",
+      "RootsAtEventTarget": false,
+      "HasInterfaceObject": true,
+      "Kind": 3,
+      "FieldName": "CSSFontFaceDescriptors",
+      "Group": "Css",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": "DomAccessorCSSStyleDeclaration.Instance",
+      "Members": [
+        {
+          "DomName": "src",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.src\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"src\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.src\");\nself.Target.SetProperty(\"src\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.src\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontFamily",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontFamily\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-family\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontFamily\");\nself.Target.SetProperty(\"font-family\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontFamily\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-family",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-family\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-family\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-family\");\nself.Target.SetProperty(\"font-family\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-family\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontStyle",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontStyle\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-style\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontStyle\");\nself.Target.SetProperty(\"font-style\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontStyle\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-style",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-style\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-style\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-style\");\nself.Target.SetProperty(\"font-style\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-style\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontWeight",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontWeight\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-weight\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontWeight\");\nself.Target.SetProperty(\"font-weight\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontWeight\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-weight",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-weight\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-weight\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-weight\");\nself.Target.SetProperty(\"font-weight\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-weight\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontStretch",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontStretch\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-stretch\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontStretch\");\nself.Target.SetProperty(\"font-stretch\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontStretch\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-stretch",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-stretch\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-stretch\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-stretch\");\nself.Target.SetProperty(\"font-stretch\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-stretch\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontWidth",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontWidth\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-width\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontWidth\");\nself.Target.SetProperty(\"font-width\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontWidth\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-width\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-width\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-width\");\nself.Target.SetProperty(\"font-width\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-width\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "unicodeRange",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.unicodeRange\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"unicode-range\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.unicodeRange\");\nself.Target.SetProperty(\"unicode-range\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.unicodeRange\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "unicode-range",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.unicode-range\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"unicode-range\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.unicode-range\");\nself.Target.SetProperty(\"unicode-range\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.unicode-range\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontFeatureSettings",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontFeatureSettings\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-feature-settings\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontFeatureSettings\");\nself.Target.SetProperty(\"font-feature-settings\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontFeatureSettings\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-feature-settings",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-feature-settings\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-feature-settings\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-feature-settings\");\nself.Target.SetProperty(\"font-feature-settings\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-feature-settings\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontVariationSettings",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontVariationSettings\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-variation-settings\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontVariationSettings\");\nself.Target.SetProperty(\"font-variation-settings\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontVariationSettings\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-variation-settings",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-variation-settings\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-variation-settings\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-variation-settings\");\nself.Target.SetProperty(\"font-variation-settings\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-variation-settings\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontNamedInstance",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontNamedInstance\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-named-instance\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontNamedInstance\");\nself.Target.SetProperty(\"font-named-instance\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontNamedInstance\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-named-instance",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-named-instance\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-named-instance\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-named-instance\");\nself.Target.SetProperty(\"font-named-instance\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-named-instance\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontDisplay",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontDisplay\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-display\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontDisplay\");\nself.Target.SetProperty(\"font-display\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontDisplay\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-display",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-display\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-display\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-display\");\nself.Target.SetProperty(\"font-display\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-display\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "fontLanguageOverride",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontLanguageOverride\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-language-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.fontLanguageOverride\");\nself.Target.SetProperty(\"font-language-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.fontLanguageOverride\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "font-language-override",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-language-override\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"font-language-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.font-language-override\");\nself.Target.SetProperty(\"font-language-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.font-language-override\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "ascentOverride",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.ascentOverride\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"ascent-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.ascentOverride\");\nself.Target.SetProperty(\"ascent-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.ascentOverride\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "ascent-override",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.ascent-override\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"ascent-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.ascent-override\");\nself.Target.SetProperty(\"ascent-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.ascent-override\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "descentOverride",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.descentOverride\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"descent-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.descentOverride\");\nself.Target.SetProperty(\"descent-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.descentOverride\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "descent-override",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.descent-override\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"descent-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.descent-override\");\nself.Target.SetProperty(\"descent-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.descent-override\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "lineGapOverride",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.lineGapOverride\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"line-gap-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.lineGapOverride\");\nself.Target.SetProperty(\"line-gap-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.lineGapOverride\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        },
+        {
+          "DomName": "line-gap-override",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.line-gap-override\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"line-gap-override\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssFontFaceDescriptors>(thisObj, \"CSSFontFaceDescriptors.line-gap-override\");\nself.Target.SetProperty(\"line-gap-override\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceDescriptors.line-gap-override\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Fonts 4 §12.1"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": true
+    },
+    {
       "DomName": "CSSFontFaceRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssFontFaceRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssFontFaceRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -1185,23 +1437,23 @@
         {
           "DomName": "family",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.family\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.family\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.family\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.family\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.family\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"font-family\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.family\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"font-family\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.family\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Family"
         },
         {
           "DomName": "featureSettings",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.featureSettings\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.featureSettings\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.featureSettings\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.featureSettings\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.featureSettings\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"font-feature-settings\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.featureSettings\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"font-feature-settings\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.featureSettings\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Features"
         },
         {
           "DomName": "getPropertyPriority",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.getPropertyPriority\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.getPropertyPriority\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.getPropertyPriority\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyPriority(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSFontFaceRule.getPropertyPriority\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssProperties.GetPropertyPriority"
@@ -1209,7 +1461,7 @@
         {
           "DomName": "getPropertyValue",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.getPropertyValue\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.getPropertyValue\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.getPropertyValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSFontFaceRule.getPropertyValue\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssProperties.GetPropertyValue"
@@ -1217,7 +1469,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.length\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.length\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssProperties.Length"
@@ -1225,7 +1477,7 @@
         {
           "DomName": "removeProperty",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.removeProperty\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.removeProperty\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.removeProperty\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSFontFaceRule.removeProperty\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssProperties.RemoveProperty"
@@ -1233,7 +1485,7 @@
         {
           "DomName": "setProperty",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.setProperty\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.setProperty\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.setProperty\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSFontFaceRule.setProperty\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"CSSFontFaceRule.setProperty\"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 2,
           "Origin": "ICssProperties.SetProperty"
@@ -1241,48 +1493,48 @@
         {
           "DomName": "src",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.src\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.src\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.src\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.src\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.src\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"src\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.src\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"src\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.src\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Source"
         },
         {
           "DomName": "stretch",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.stretch\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.stretch\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.stretch\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.stretch\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.stretch\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"font-stretch\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.stretch\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"font-stretch\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.stretch\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Stretch"
         },
         {
           "DomName": "style",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.style\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.style\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.style\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.style\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.style\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.style\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSFontFaceRule.style\"); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
-          "Origin": "ICssFontFaceRule.Style"
+          "Origin": "Fonts 4 §12.1 SameObject PutForwards=cssText"
         },
         {
           "DomName": "unicodeRange",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.unicodeRange\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.unicodeRange\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.unicodeRange\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.unicodeRange\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.unicodeRange\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"unicode-range\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.unicodeRange\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"unicode-range\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.unicodeRange\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Range"
         },
         {
           "DomName": "variant",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.variant\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.variant\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.variant\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.variant\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.variant\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"font-variant\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.variant\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"font-variant\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.variant\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Variant"
         },
         {
           "DomName": "weight",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.weight\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.weight\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSFontFaceRule.weight\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSFontFaceRule.weight\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.weight\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).GetPropertyValue(\"font-weight\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssFontFaceRule>(thisObj, \"CSSFontFaceRule.weight\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).SetProperty(\"font-weight\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSFontFaceRule.weight\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssFontFaceRule.Weight"
         }

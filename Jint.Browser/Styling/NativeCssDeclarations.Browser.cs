@@ -11,6 +11,7 @@ internal static class NativeCssDeclarations
 {
     private static readonly ConditionalWeakTable<Element, InlineDeclaration> Inline = new();
     private static readonly ConditionalWeakTable<CssDeclarationBlock, RuleDeclaration> Rules = new();
+    private static readonly ConditionalWeakTable<CssDeclarationBlock, NativeCssFontFaceDescriptors> FontFaces = new();
 
     internal static NativeCssDeclaration Of(DomRealm realm, Element element) =>
         Inline.GetValue(element, owner => new(realm, owner));
@@ -20,9 +21,12 @@ internal static class NativeCssDeclarations
     internal static NativeCssDeclaration Of(DomRealm realm, CssKeyframeRule rule) =>
         Rules.GetValue(rule.Style, block => new(realm, rule, block));
 
+    internal static NativeCssFontFaceDescriptors Of(DomRealm realm, CssFontFaceRule rule) =>
+        FontFaces.GetValue(rule.Style, block => new(realm, rule, block));
+
     private static CssValueWork Work(DomRealm realm) => new(realm.CancellationToken, realm.Engine.Constraints.Check);
 
-    private sealed class RuleDeclaration(DomRealm realm, CssRule rule, CssDeclarationBlock block) : NativeCssDeclaration
+    internal class RuleDeclaration(DomRealm realm, CssRule rule, CssDeclarationBlock block) : NativeCssDeclaration
     {
         internal override CssRule ParentRule => rule;
         internal override int Length => block.ResolveAll(Work(realm)).Length;
@@ -122,4 +126,10 @@ internal static class NativeCssDeclarations
             NativeCssStyleSheets.RetainInline(element, text, block, beforeWrite, CurrentWork(work));
         }
     }
+}
+
+// Fonts 4 §12.1: distinct WebIDL brand, sharing the rule's one descriptor store and work lane.
+internal sealed class NativeCssFontFaceDescriptors(DomRealm realm, CssFontFaceRule rule, CssDeclarationBlock block)
+    : NativeCssDeclarations.RuleDeclaration(realm, rule, block)
+{
 }
