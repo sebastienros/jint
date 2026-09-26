@@ -130,6 +130,17 @@ public sealed class MathExponentialTests
             .Should().Be(5d * double.Epsilon);
         double.IsFinite(CssMathExponential.Hypot([double.MaxValue / 2d, double.MaxValue / 2d], work))
             .Should().BeTrue();
+        // Exact binary64 inputs give a length 1.7976931348623155816e308
+        // (160-digit decimal evaluation), whose nearest double is one ULP
+        // below double.MaxValue. Scaling by the maximum falsely overflows.
+        const double nearMaximum = 1.797689170944583e308;
+        const double smallLeg = 3.775155583210863e305;
+        var expectedNearMaximum = System.Math.BitDecrement(double.MaxValue);
+        CssMathExponential.Hypot([nearMaximum, smallLeg], work).Should().Be(expectedNearMaximum);
+        MathTest.Parse("hypot(1.797689170944583e308, 3.775155583210863e305)", MathTest.Number)
+            .Value.GetNode(0).Numeric.Value.Should().Be(expectedNearMaximum);
+        CssMathExponential.Hypot([double.MaxValue, double.MaxValue], work)
+            .Should().Be(double.PositiveInfinity);
         Assert.Throws<ArgumentException>(() => CssMathExponential.Hypot([], work));
     }
 
@@ -184,7 +195,10 @@ public sealed class MathExponentialTests
             ("hypot(3em, 4em)", MathTest.Length, "hypot(3em, 4em)"),
             ("hypot(3%, 4px)", lengthPercentage, "hypot(3%, 4px)"),
             ("hypot(3%, 4%)", MathTest.RawPercentage, "hypot(3%, 4%)"),
-            ("log(1em / 1em, e)", MathTest.Number, "log(1em / 1em)")
+            ("log(1em / 1em, e)", MathTest.Number, "log(1em / 1em)"),
+            ("log(1em / 1em, 1 * e)", MathTest.Number, "log(1em / 1em)"),
+            ("log(1em / 1em, exp(1))", MathTest.Number, "log(1em / 1em)"),
+            ("log(1em / 1em, e + 0)", MathTest.Number, "log(1em / 1em)")
         })
         {
             var parsed = MathTest.Parse(source, context);

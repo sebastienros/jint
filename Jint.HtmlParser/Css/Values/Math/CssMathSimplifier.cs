@@ -85,6 +85,11 @@ internal static class CssMathSimplifier
                 target.Node(children[1]).Numeric.Kind == CssNumericKind.Number &&
                 target.Node(children[1]).Numeric.Value == 1)
                 children.RemoveAt(1);
+            if (node.Kind == CssMathNodeKind.Log && children.Count == 2 &&
+                target.Node(children[1]).Kind == CssMathNodeKind.Numeric &&
+                target.Node(children[1]).Numeric.Kind == CssNumericKind.Number &&
+                target.Node(children[1]).Numeric.Value == System.Math.E)
+                children.RemoveAt(1);
             if (node.Kind == CssMathNodeKind.Negate && target.Node(children[0]).Kind == CssMathNodeKind.Numeric)
             {
                 var original = target.Node(children[0]).Numeric;
@@ -311,7 +316,9 @@ internal static class CssMathSimplifier
         double value;
         if (kind == CssMathNodeKind.Hypot)
         {
+            work.CheckCancellation();
             var values = new double[children.Count];
+            work.CheckCancellation();
             for (var i = 0; i < children.Count; i++)
             {
                 work.Charge(1);

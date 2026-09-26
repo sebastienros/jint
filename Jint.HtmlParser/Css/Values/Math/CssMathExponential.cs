@@ -62,14 +62,17 @@ internal static class CssMathExponential
             work.CheckCancellation();
             return infinite ? double.PositiveInfinity : 0d;
         }
+        // Power-of-two scaling avoids rounding the final factor upward across
+        // double.MaxValue when the exact length is still representable.
+        var exponent = System.Math.ILogB(maximum);
         var squares = 0d;
         foreach (var value in values)
         {
             work.Charge(1);
-            var scaled = value / maximum;
-            squares += scaled * scaled;
+            var scaled = System.Math.ScaleB(value, -exponent);
+            squares = System.Math.FusedMultiplyAdd(scaled, scaled, squares);
         }
-        var result = maximum * System.Math.Sqrt(squares);
+        var result = System.Math.ScaleB(System.Math.Sqrt(squares), exponent);
         work.CheckCancellation();
         return result;
     }
