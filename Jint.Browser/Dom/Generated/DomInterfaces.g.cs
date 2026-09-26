@@ -1840,7 +1840,7 @@ internal static partial class DomInterfaces
 
         MutationRecord = Add(new DomInterfaceDefinition(
             "MutationRecord",
-            typeof(global::AngleSharp.Dom.IMutationRecord),
+            typeof(global::Jint.HtmlParser.MutationRecord),
             BuildMutationRecord,
             null,
             rootsAtEventTarget: false,

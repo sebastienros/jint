@@ -2161,56 +2161,56 @@ internal static partial class DomInterfaces
             .Accessor("addedNodes",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.addedNodes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.addedNodes");
-                    return self.Realm.Wrap(self.Target.Added);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.addedNodes");
+                    return global::Jint.Browser.Dom.DomMutationMembers.Nodes(self.Realm, self.Target.AddedNodes);
                 }))
             .Accessor("attributeName",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.attributeName", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.attributeName");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.attributeName");
                     return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeName);
                 }))
             .Accessor("attributeNamespace",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.attributeNamespace", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.attributeNamespace");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.attributeNamespace");
                     return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeNamespace);
                 }))
             .Accessor("nextSibling",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.nextSibling", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.nextSibling");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.nextSibling");
                     return self.Realm.WrapNodeValue(self.Target.NextSibling);
                 }))
             .Accessor("oldValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.oldValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.oldValue");
-                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.PreviousValue);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.oldValue");
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.OldValue);
                 }))
             .Accessor("previousSibling",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.previousSibling", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.previousSibling");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.previousSibling");
                     return self.Realm.WrapNodeValue(self.Target.PreviousSibling);
                 }))
             .Accessor("removedNodes",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.removedNodes", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.removedNodes");
-                    return self.Realm.Wrap(self.Target.Removed);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.removedNodes");
+                    return global::Jint.Browser.Dom.DomMutationMembers.Nodes(self.Realm, self.Target.RemovedNodes);
                 }))
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.target", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.target");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.target");
                     return self.Realm.WrapNodeValue(self.Target.Target);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("MutationRecord.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, "MutationRecord.type");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind switch { global::Jint.HtmlParser.MutationRecordKind.ChildList => "childList", global::Jint.HtmlParser.MutationRecordKind.Attributes => "attributes", global::Jint.HtmlParser.MutationRecordKind.CharacterData => "characterData", _ => throw new global::System.InvalidOperationException("Unknown mutation kind.") });
                 }))
             .Build();
 

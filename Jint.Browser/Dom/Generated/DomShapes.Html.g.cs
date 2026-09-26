@@ -2977,14 +2977,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.stepDown", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.stepDown");
-                    self.Target.StepDown(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1)); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomInputMembers.Step(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1), true);
                 }),
                 length: 0)
             .Method("stepUp",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.stepUp", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.stepUp");
-                    self.Target.StepUp(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1)); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomInputMembers.Step(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1), false);
                 }),
                 length: 0)
             .Accessor("type",
@@ -3036,23 +3036,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.valueAsDate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsDate");
-                    return global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.ValueAsDate);
+                    return global::Jint.Browser.Dom.DomInputMembers.Date(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.valueAsDate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsDate");
-                    self.Target.ValueAsDate = global::Jint.Browser.Dom.DomConvert.NullableTimestamp(args, 0); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomInputMembers.SetDate(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.At(args, 0));
                 }))
             .Accessor("valueAsNumber",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.valueAsNumber", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsNumber");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ValueAsNumber);
+                    return global::Jint.Browser.Dom.DomInputMembers.Number(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.valueAsNumber", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.valueAsNumber");
-                    self.Target.ValueAsNumber = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLInputElement.valueAsNumber"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomInputMembers.SetNumber(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLInputElement.valueAsNumber"));
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.width", static (thisObj, args) =>

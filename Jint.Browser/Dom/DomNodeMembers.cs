@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.Browser.Dom.Collections;
 using Jint.HtmlParser;
 using Jint.Native;
@@ -86,23 +85,7 @@ internal static class DomNodeMembers
         {
             return Value(self);
         }
-        var text = new StringBuilder();
-        var root = self.Node!;
-        var current = root.FirstChild;
-        while (current is not null)
-        {
-            if (current is Text data) text.Append(data.Data);
-            else if (current is CDataSection cdata) text.Append(cdata.Data);
-            if (current.FirstChild is { } child)
-            {
-                current = child;
-                continue;
-            }
-            while (current.NextSibling is null && !ReferenceEquals(current.ParentNode, root))
-                current = current.ParentNode!;
-            current = current.NextSibling;
-        }
-        return text.ToString();
+        return DomDescendantText.Read(self.Node!, self.DomRealm.NativeReadCheckpoint, self.DomRealm.CancellationToken);
     }
 
     internal static JsValue SetTextContent(DomNodeObject self, string value)

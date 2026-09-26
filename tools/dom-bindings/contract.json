@@ -9174,7 +9174,7 @@
         {
           "DomName": "stepDown",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.stepDown\");\nself.Target.StepDown(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.stepDown\");\nreturn global::Jint.Browser.Dom.DomInputMembers.Step(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1), true);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlInputElement.StepDown"
@@ -9182,7 +9182,7 @@
         {
           "DomName": "stepUp",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.stepUp\");\nself.Target.StepUp(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.stepUp\");\nreturn global::Jint.Browser.Dom.DomInputMembers.Step(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 1), false);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlInputElement.StepUp"
@@ -9230,16 +9230,16 @@
         {
           "DomName": "valueAsDate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsDate\");\nreturn global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.ValueAsDate);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsDate\");\nself.Target.ValueAsDate = global::Jint.Browser.Dom.DomConvert.NullableTimestamp(args, 0); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsDate\");\nreturn global::Jint.Browser.Dom.DomInputMembers.Date(self.Realm, self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsDate\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetDate(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.At(args, 0));",
           "Length": 0,
           "Origin": "IHtmlInputElement.ValueAsDate"
         },
         {
           "DomName": "valueAsNumber",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsNumber\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.ValueAsNumber);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsNumber\");\nself.Target.ValueAsNumber = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLInputElement.valueAsNumber\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsNumber\");\nreturn global::Jint.Browser.Dom.DomInputMembers.Number(self.Realm, self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.valueAsNumber\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetNumber(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLInputElement.valueAsNumber\"));",
           "Length": 0,
           "Origin": "IHtmlInputElement.ValueAsNumber"
         },
@@ -13065,7 +13065,7 @@
     {
       "DomName": "MutationRecord",
       "ClrTypeName": "AngleSharp.Dom.IMutationRecord",
-      "ReceiverType": "global::AngleSharp.Dom.IMutationRecord",
+      "ReceiverType": "global::Jint.HtmlParser.MutationRecord",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -13080,7 +13080,7 @@
         {
           "DomName": "addedNodes",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.addedNodes\");\nreturn self.Realm.Wrap(self.Target.Added);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.addedNodes\");\nreturn global::Jint.Browser.Dom.DomMutationMembers.Nodes(self.Realm, self.Target.AddedNodes);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.Added"
@@ -13088,7 +13088,7 @@
         {
           "DomName": "attributeName",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.attributeName\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeName);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.attributeName\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeName);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.AttributeName"
@@ -13096,7 +13096,7 @@
         {
           "DomName": "attributeNamespace",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.attributeNamespace\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeNamespace);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.attributeNamespace\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeNamespace);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.AttributeNamespace"
@@ -13104,7 +13104,7 @@
         {
           "DomName": "nextSibling",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.nextSibling\");\nreturn self.Realm.WrapNodeValue(self.Target.NextSibling);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.nextSibling\");\nreturn self.Realm.WrapNodeValue(self.Target.NextSibling);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.NextSibling"
@@ -13112,7 +13112,7 @@
         {
           "DomName": "oldValue",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.oldValue\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.PreviousValue);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.oldValue\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.OldValue);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.PreviousValue"
@@ -13120,7 +13120,7 @@
         {
           "DomName": "previousSibling",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.previousSibling\");\nreturn self.Realm.WrapNodeValue(self.Target.PreviousSibling);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.previousSibling\");\nreturn self.Realm.WrapNodeValue(self.Target.PreviousSibling);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.PreviousSibling"
@@ -13128,7 +13128,7 @@
         {
           "DomName": "removedNodes",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.removedNodes\");\nreturn self.Realm.Wrap(self.Target.Removed);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.removedNodes\");\nreturn global::Jint.Browser.Dom.DomMutationMembers.Nodes(self.Realm, self.Target.RemovedNodes);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.Removed"
@@ -13136,7 +13136,7 @@
         {
           "DomName": "target",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.target\");\nreturn self.Realm.WrapNodeValue(self.Target.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.target\");\nreturn self.Realm.WrapNodeValue(self.Target.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.Target"
@@ -13144,7 +13144,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, \"MutationRecord.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.MutationRecord>(thisObj, \"MutationRecord.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind switch { global::Jint.HtmlParser.MutationRecordKind.ChildList => \"childList\", global::Jint.HtmlParser.MutationRecordKind.Attributes => \"attributes\", global::Jint.HtmlParser.MutationRecordKind.CharacterData => \"characterData\", _ => throw new global::System.InvalidOperationException(\"Unknown mutation kind.\") });",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMutationRecord.Type"
