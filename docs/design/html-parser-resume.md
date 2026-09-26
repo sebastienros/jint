@@ -1,5 +1,9 @@
 # Jint.HtmlParser resume checkpoint
 
+**Resumed:** the subsequent goal continuation and updated objective prioritize actual production
+AngleSharp removal, fixing parser/native gaps as integration exposes them. The finalized state below
+is the starting checkpoint; see the implementation record for newly active owners.
+
 The user requested a token-budget pause, then asked to finalize the six retained chats and integrate
 their existing changes. That finite finalization pass is **complete**; all six chats are archived. The **original full project is
 not complete** and remains a later effort. Do not mistake completed implementation slices or archived
@@ -63,7 +67,8 @@ identities become available; do not bypass it with shell deletion. App computer-
 denied, so do not attempt a UI workaround. Git branches and chat history remain recoverable.
 
 No implementation/review task remains running. No new feature chats were started during finalization.
-The larger project remains paused for a later effort; its goal must not be marked complete.
+At this checkpoint the larger project was paused; the subsequent continuation resumed it.
+Its goal must not be marked complete until production replacement and all acceptance gates pass.
 
 ## Continuing the original project
 

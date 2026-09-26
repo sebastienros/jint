@@ -2,6 +2,40 @@
 
 ## Scope and workflow
 
+**Current continuation:** the full goal resumed after the finalized checkpoint. The user now explicitly
+prioritizes replacing production AngleSharp usage with the new library and fixing native gaps exposed
+by integration. Do not keep Browser migration waiting for every standalone feature to be finished.
+No PRs. Finalized/merged or abandoned chats are to be removed from active work; the available app tool
+archives rather than permanently deletes them, and managed worktree cleanup remains required.
+
+D7b1c native textarea is active in `3aad`, chat `01a0db32-26b3-7b90-a040-1a0f969affbc`, based on
+`016bb6c22`. It owns Node/Element/CharacterNodes/NodeCloner/HtmlElementState and textarea additions.
+A separate first commit also owns ShadowTree.cs/Shadow tests for registry and template-content stamp
+invalidation needed by serialization. It does not own parsers, Browser or event delivery.
+HTML serialization X3c is active in `5b44`, chat `01a0db35-8c1b-7f03-9fa1-5009f6ba68f5`.
+It owns new Serialization HTML/options/scalar files and tests, with only narrow work-stage additions.
+The native owner supplies the shadow stamp prerequisite separately; serializer code reads native state.
+
+The production Browser migration owner is active in `7b39`, chat `01a0db36-97d7-7b90-a3a0-bfaaa7404cf6`.
+It owns Browser, binding generator/contract, matching tests and inventory, project references and a
+signed internal Browser friend grant. First checkpoint replaces AngleSharp reflection in binding
+metadata; then core native wrapper identity, XML/XPath and actual callers switch together. XML parsed
+into a second tree and copied back to AngleSharp is prohibited. Incomplete cutover stays isolated until
+reviewed compilable checkpoints pass common tests; native workers implement exact demonstrated gaps.
+
+Astra preflight identified the HTML text-before-CDATA tokenizer boundary prerequisite. For example,
+`<svg><foreignObject><p><b></p>x<![CDATA[y]]>` needs preceding text to reconstruct an HTML formatting
+node before CDATA eligibility is decided. The scanner must flush Data text before markup and latch
+session-provided context at the next declaration boundary without altering suspended tokens. This
+narrow tokenizer prerequisite precedes H7a foreign content, followed by contextual fragments.
+
+CSS next-execution preflight recommends C6s var/env over immutable selected snapshots. Before dispatch,
+record output provenance/C1 projection, bounded expansion metrics, immutable environment lookup timing
+and exact index normalization, and explicit pending-input semantics. Use consuming-property animation
+taint eligibility, not old animation-name heuristics. Execution serves native property/CSSOM consumers;
+remaining decisions are not a reason to defer production integration work.
+
+
 **All six retained chats finalized at the user’s request on September 25.** The original project remains
 incomplete; Browser still uses AngleSharp. This pass integrated the already-started slices and archived their implementation chats, preserving
 future work and acceptance debt in the common worktree. No new feature work was started.
