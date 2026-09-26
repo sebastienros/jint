@@ -26,14 +26,16 @@ internal static class SelectorCompiler
         private readonly string _source;
         private readonly SelectorParseContext _context;
         private readonly CancellationToken _cancellation;
+        private readonly Action? _checkpoint;
         private int _work;
 
-        internal Worker(string source, SelectorParseContext context, CancellationToken cancellation)
+        internal Worker(string source, SelectorParseContext context, CancellationToken cancellation, Action? checkpoint = null)
         {
             _source = source;
             _sourceLength = source.Length;
             _context = context;
             _cancellation = cancellation;
+            _checkpoint = checkpoint;
         }
 
         internal CompiledSelector Compile(CssComponentValueList values)
@@ -56,7 +58,7 @@ internal static class SelectorCompiler
                     stack.RemoveAt(stack.Count - 1);
                     if (stack.Count == 0)
                     {
-                        _cancellation.ThrowIfCancellationRequested();
+                        Check();
                         return result;
                     }
                     stack[^1].Accept(result);
@@ -747,7 +749,14 @@ internal static class SelectorCompiler
 
         private void Poll()
         {
-            if ((++_work & 255) == 0) _cancellation.ThrowIfCancellationRequested();
+            if ((++_work & 255) == 0) Check();
+        }
+
+        private void Check()
+        {
+            _cancellation.ThrowIfCancellationRequested();
+            _checkpoint?.Invoke();
+            _cancellation.ThrowIfCancellationRequested();
         }
 
         private int ContainerEndOffset(CssComponentValue container, char closing)

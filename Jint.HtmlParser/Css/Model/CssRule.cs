@@ -93,15 +93,19 @@ internal sealed class CssStyleRule : CssRule
 
     internal void SetSelectorText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
+        => SetSelectorText(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void SetSelectorText(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var parser = new CssSyntaxParser(source, options, cancellationToken);
+            var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
             var values = parser.ParseComponentValues();
             var selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options?.Limits), cancellationToken).Compile(values);
-            var text = CssStyleSheet.SelectorText(source, values, parser, new Values.CssValueWork(cancellationToken));
-            cancellationToken.ThrowIfCancellationRequested();
+                new SelectorParseContext(limits: options?.Limits), cancellationToken, work.CheckCancellation).Compile(values);
+            var text = CssStyleSheet.SelectorText(source, values, parser, work);
+            work.CheckCancellation();
             _selector = selector;
             _selectorText = text;
             Changed();

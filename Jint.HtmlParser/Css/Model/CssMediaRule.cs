@@ -22,12 +22,16 @@ internal sealed class CssMediaRule : CssRule
 
     internal int InsertRule(string source, int index, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
+        => InsertRule(source, index, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal int InsertRule(string source, int index, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
         if ((uint) index > (uint) _rules.Count)
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
-        var rule = CssStyleSheet.ParseSingle(source, options, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        rule.Attach(ParentStyleSheet, this, new CssValueWork(cancellationToken));
+        var rule = CssStyleSheet.ParseSingle(source, options, work, cancellationToken);
+        rule.Attach(ParentStyleSheet, this, work);
+        work.CheckCancellation();
         _rules.Insert(index, rule);
         Changed();
         return index;

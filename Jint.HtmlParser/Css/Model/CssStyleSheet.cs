@@ -79,13 +79,17 @@ internal sealed class CssStyleSheet
 
     internal int InsertRule(string source, int index, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
+        => InsertRule(source, index, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal int InsertRule(string source, int index, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
         // CSSOM requires bounds to win over parse and completion failures.
         if ((uint) index > (uint) _rules.Count)
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
-        var rule = ParseSingle(source, options, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        rule.Attach(this, null, new CssValueWork(cancellationToken));
+        var rule = ParseSingle(source, options, work, cancellationToken);
+        rule.Attach(this, null, work);
+        work.CheckCancellation();
         _rules.Insert(index, rule);
         Changed();
         return index;
@@ -134,12 +138,15 @@ internal sealed class CssStyleSheet
     internal void Changed() => CssMutationStamp.Advance(ref _version);
 
     internal static CssRule ParseSingle(string source, CssParseOptions? options, CancellationToken cancellationToken)
+        => ParseSingle(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal static CssRule ParseSingle(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
-        var parser = new CssSyntaxParser(source, options, cancellationToken);
+        var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         CssRuleSyntax syntax;
         try { syntax = parser.ParseRule(); }
         catch (CssParseException) { throw new DomException("SyntaxError", "Exactly one valid CSS rule is required."); }
-        var work = new CssValueWork(cancellationToken);
         var rule = BuildRule(source, syntax, parser, options, work, cancellationToken) ??
             throw new DomException("SyntaxError", "The CSS rule is invalid or unknown.");
         work.CheckCancellation();
@@ -196,7 +203,7 @@ internal sealed class CssStyleSheet
         try
         {
             selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options?.Limits), cancellationToken).Compile(syntax.Prelude);
+                new SelectorParseContext(limits: options?.Limits), cancellationToken, work.CheckCancellation).Compile(syntax.Prelude);
         }
         catch (SelectorParseException) { return null; }
         var text = SelectorText(source, syntax.Prelude, parser, work);

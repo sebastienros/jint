@@ -81,11 +81,13 @@ internal sealed class CssMediaList
     }
 
     internal void AppendMedium(string source, CssParseOptions? options = null, CancellationToken cancellationToken = default)
+        => AppendMedium(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void AppendMedium(string source, CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var replacement = Parse(source, options, cancellationToken);
+        var replacement = Parse(source, options, work, cancellationToken);
         if (replacement.Count != 1) return;
         var query = replacement._queries[0];
-        var work = new CssValueWork(cancellationToken);
         foreach (var current in _queries)
         {
             work.Charge(current.Text.Length);
@@ -101,11 +103,13 @@ internal sealed class CssMediaList
     }
 
     internal void DeleteMedium(string source, CssParseOptions? options = null, CancellationToken cancellationToken = default)
+        => DeleteMedium(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void DeleteMedium(string source, CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var replacement = Parse(source, options, cancellationToken);
+        var replacement = Parse(source, options, work, cancellationToken);
         if (replacement.Count != 1) return;
         var text = replacement[0];
-        var work = new CssValueWork(cancellationToken);
         var next = new List<CssMediaQuery>();
         foreach (var current in _queries)
         {

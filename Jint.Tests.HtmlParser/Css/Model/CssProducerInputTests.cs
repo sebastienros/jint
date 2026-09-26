@@ -13,6 +13,41 @@ namespace Jint.Tests.HtmlParser.Css.Model;
 [TestFixture]
 public sealed class CssProducerInputTests
 {
+    [TestCase("sheet")]
+    [TestCase("group")]
+    [TestCase("selector")]
+    [TestCase("append-medium")]
+    [TestCase("delete-medium")]
+    public void BindingMutationWorkCanInterruptOneLargeTokenBeforePublication(string operation)
+    {
+        var sheet = CssStyleSheet.Parse("a { opacity:.25; } @media screen {}");
+        var rule = (CssStyleRule) sheet.Rules[0];
+        var group = (CssMediaRule) sheet.Rules[1];
+        var media = group.Media;
+        var before = sheet.Serialize();
+        var stamp = sheet.Stamp;
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 3) throw new OperationCanceledException();
+        });
+        var prefix = "/*" + new string('x', 20000) + "*/";
+        void Edit()
+        {
+            switch (operation)
+            {
+                case "sheet": sheet.InsertRule(prefix + "b {}", 0, null, work, work.Token); break;
+                case "group": group.InsertRule(prefix + "b {}", 0, null, work, work.Token); break;
+                case "selector": rule.SetSelectorText(prefix + "b", null, work, work.Token); break;
+                case "append-medium": media.AppendMedium(prefix + "print", null, work, work.Token); break;
+                case "delete-medium": media.DeleteMedium(prefix + "screen", null, work, work.Token); break;
+            }
+        }
+        Assert.Throws<OperationCanceledException>(Edit);
+        sheet.Stamp.Should().Be(stamp);
+        sheet.Serialize().Should().Be(before);
+    }
+
     [Test]
     public void SelectorAndDeclarationsConsumeTheSameSheetParseWithOriginalOffsets()
     {

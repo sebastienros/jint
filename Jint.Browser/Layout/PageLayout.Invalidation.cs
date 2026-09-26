@@ -1,8 +1,11 @@
-using AngleSharp.Css.Dom;
 using Jint.HtmlParser;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
+using Jint.Browser.Styling;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Model.Syntax;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Layout;
 
@@ -17,6 +20,8 @@ internal sealed partial class PageLayout
     private Element? _cachedFocus;
     private Element? _cachedPress;
     private bool? _supportedStyles;
+    private CssMutationStamp _cachedResources;
+    private (CssStyleSheet Sheet, CssMutationStamp Stamp)[] _cachedSheets = [];
     private bool _reuseDisabled;
     private int _mutationDepth;
 
@@ -56,6 +61,7 @@ internal sealed partial class PageLayout
         _cachedFocus = null;
         _cachedPress = null;
         _supportedStyles = null;
+        _cachedSheets = [];
         if (Version == ulong.MaxValue)
         {
             _reuseDisabled = true;
@@ -89,57 +95,49 @@ internal sealed partial class PageLayout
         var document = _runtime.Document;
         var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
         if (!ReferenceEquals(_cachedDocument, document) || _cachedNativeStamp != document?.MutationStamp || _cachedMedia != _runtime.Media
+            || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || StylesChanged()
             || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
             || !ReferenceEquals(_cachedPress, events.MousePressTarget))
         {
             Invalidate();
             _cachedDocument = document;
             _cachedNativeStamp = document?.MutationStamp ?? 0;
+            _cachedResources = document is null ? default : NativeCssStyleSheets.Stamp(document);
             _cachedMedia = _runtime.Media;
             _cachedUrl = url;
             _cachedFocus = events.FocusedElement;
             _cachedPress = events.MousePressTarget;
         }
 
-        // An import can finish without a call through our bindings. Inspect once per revision, not
-        // on unchanged reads. Imported sheets retain the established query-local behavior.
+        // Source installation and CSSOM edits are independent of the native DOM revision.
         return _supportedStyles ??= SupportsStyles(document);
     }
 
-    private static bool SupportsStyles(Document? document)
+    private bool SupportsStyles(Document? document)
     {
-        if (document is null)
+        if (document is null || NativeCssStyleSheets.RealmOf(document) is not { } realm) return false;
+        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
+        var revisions = new (CssStyleSheet Sheet, CssMutationStamp Stamp)[sheets.Count];
+        for (var i = 0; i < revisions.Length; i++)
         {
-            return false;
+            work.Charge(1);
+            revisions[i] = (sheets[i].Sheet, sheets[i].Sheet.Stamp);
         }
-
-        foreach (var sheet in document.StyleSheets)
-        {
-            if (sheet is not ICssStyleSheet css || HasImport(css.Rules))
-            {
-                return false;
-            }
-        }
+        work.CheckCancellation();
+        _cachedSheets = revisions;
+        _cachedResources = NativeCssStyleSheets.Stamp(document);
         return true;
     }
 
-    private static bool HasImport(ICssRuleList rules)
+    private bool StylesChanged()
     {
-        var pending = new Stack<ICssRuleList>();
-        pending.Push(rules);
-        while (pending.TryPop(out var list))
+        foreach (var (sheet, stamp) in _cachedSheets)
         {
-            foreach (var rule in list)
-            {
-                if (rule is ICssImportRule)
-                {
-                    return true;
-                }
-                if (rule is ICssGroupingRule group)
-                {
-                    pending.Push(group.Rules);
-                }
-            }
+            _runtime.Engine.Constraints.Check();
+            if (_cachedDocument is { } document && (_cachedNativeStamp != document.MutationStamp ||
+                _cachedResources != NativeCssStyleSheets.Stamp(document))) return true;
+            if (!stamp.CanReuse || sheet.Stamp != stamp) return true;
         }
         return false;
     }
