@@ -60,13 +60,15 @@ public abstract partial class Node
     // A clone is already valid by its source tree. Preserve the insertion's
     // assignment steps without repeating public ancestor validation.
     internal void AppendClonedChild(Node child, CancellationToken cancellationToken = default)
+        => AppendClonedChild(child, null, cancellationToken);
+    internal void AppendClonedChild(Node child, HtmlSelectWorkContext? context, CancellationToken cancellationToken)
     {
         using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child.OwnerDocument);
         LiveTraversalTracking.Insert(this, null, 1);
         LinkBefore(child, null);
         SlotAssignment.AfterInsertion(this, child, null);
         HtmlFormAssociation.Inserted(child);
-        HtmlSelectMutations.Inserted(child, markDocument: false, cancellationToken);
+        HtmlSelectMutations.InsertedWithWork(child, markDocument: false, context, cancellationToken);
         HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false, markDocument: false);
     }
 

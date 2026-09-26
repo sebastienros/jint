@@ -35,6 +35,15 @@ internal static class HtmlSelectAncestry
         }
         return new Context(null, sawOptgroup);
     }
+    internal static Element? GetNearestSelectWithWork(Element element, HtmlSelectWorkContext? context, CancellationToken token)
+    {
+        var work = new HtmlSelectWork(element.OwnerDocument?.SelectWorkProbe, context, token);
+        work.Check();
+        var result = GetContext(element, ref work).Select;
+        work.Check();
+        return result;
+    }
+
     internal static Element? GetNearestSelect(Element element, CancellationToken cancellationToken)
         => GetNearestSelect(element, null, cancellationToken);
 

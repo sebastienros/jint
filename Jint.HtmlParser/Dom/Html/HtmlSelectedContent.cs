@@ -8,20 +8,22 @@ internal static class HtmlSelectedContent
         internal void Apply() => Target.ReplaceChildren(Fragment);
     }
     internal static Update? PrepareUpdate(HtmlSelectState select, Element? option, CancellationToken token)
-        => PrepareUpdate(select.Element.GetSelectCore(token), option, token);
-    private static Update? PrepareUpdate(HtmlSelectCore select, Element? option, CancellationToken token)
+        => PrepareUpdateWithWork(select, option, (HtmlSelectWorkContext?) null, token);
+    internal static Update? PrepareUpdateWithWork(HtmlSelectState select, Element? option, HtmlSelectWorkContext? context, CancellationToken token)
+        => PrepareUpdateWithWork(select.Element.GetSelectCoreWithWork(context, token), option, context, token);
+    private static Update? PrepareUpdateWithWork(HtmlSelectCore select, Element? option, HtmlSelectWorkContext? context, CancellationToken token)
     {
-        var target = select.GetEnabledSelectedContent(token);
+        var target = select.GetEnabledSelectedContentWithWork(context, token);
         if (target is null || select.UpdatingSelectedContent) return null;
         if (option is null) return new Update(target, null);
         var fragment = option.OwnerDocument!.CreateDocumentFragment();
-        var work = new HtmlSelectWork(option.OwnerDocument.SelectWorkProbe, token);
+        var work = new HtmlSelectWork(option.OwnerDocument.SelectWorkProbe, context, token);
         work.Check();
         for (var child = option.FirstChild; child is not null; child = child.NextSibling)
         {
             work.Step();
-            var clone = NodeCloner.Clone(child, option.OwnerDocument, true, cancellationToken: token);
-            fragment.AppendClonedChild(clone, token);
+            var clone = NodeCloner.CloneWithWork(child, option.OwnerDocument, true, fallbackRegistry: null, context: context, cancellationToken: token);
+            fragment.AppendClonedChild(clone, context, token);
         }
         work.Check();
         return new Update(target, fragment);
@@ -36,34 +38,40 @@ internal static class HtmlSelectedContent
         finally { select.UpdatingSelectedContent = false; }
     }
     internal static void UpdateCurrent(HtmlSelectState select, CancellationToken token)
-        => UpdateCurrent(select.Element.GetSelectCore(token), token);
-    private static void UpdateCurrent(HtmlSelectCore select, CancellationToken token)
+        => UpdateCurrentWithWork(select, (HtmlSelectWorkContext?) null, token);
+    internal static void UpdateCurrentWithWork(HtmlSelectState select, HtmlSelectWorkContext? context, CancellationToken token)
+        => UpdateCurrentWithWork(select.Element.GetSelectCoreWithWork(context, token), context, token);
+    private static void UpdateCurrentWithWork(HtmlSelectCore select, HtmlSelectWorkContext? context, CancellationToken token)
     {
         Element? option = null;
-        foreach (var candidate in HtmlSelectCore.Enumerate(select.Element, token))
-            if (candidate.GetOptionCore(token).Selected) { option = candidate; break; }
-        var prepared = PrepareUpdate(select, option, token);
+        foreach (var candidate in HtmlSelectCore.EnumerateWithWork(select.Element, context, token))
+            if (candidate.GetOptionCoreWithWork(context, token).Selected) { option = candidate; break; }
+        var prepared = PrepareUpdateWithWork(select, option, context, token);
         token.ThrowIfCancellationRequested();
         Apply(select, prepared);
     }
     internal static void MaybeCloneOption(HtmlOptionState option, CancellationToken token)
-        => MaybeCloneOption(option.Element, token);
+        => MaybeCloneOptionWithWork(option, (HtmlSelectWorkContext?) null, token);
+    internal static void MaybeCloneOptionWithWork(HtmlOptionState option, HtmlSelectWorkContext? context, CancellationToken token)
+        => MaybeCloneOptionWithWork(option.Element, context, token);
     internal static void MaybeCloneOption(Element element, CancellationToken token)
+        => MaybeCloneOptionWithWork(element, (HtmlSelectWorkContext?) null, token);
+    internal static void MaybeCloneOptionWithWork(Element element, HtmlSelectWorkContext? context, CancellationToken token)
     {
-        var option = element.GetOptionCore(token);
+        var option = element.GetOptionCoreWithWork(context, token);
         if (!option.Selected || option.CachedNearestSelect is not { } owner) return;
-        var select = owner.GetSelectCore(token);
-        var prepared = PrepareUpdate(select, option.Element, token);
+        var select = owner.GetSelectCoreWithWork(context, token);
+        var prepared = PrepareUpdateWithWork(select, option.Element, context, token);
         token.ThrowIfCancellationRequested();
         Apply(select, prepared);
     }
-    internal static void TreeChanged(Node root, Node? oldParent, bool insertion)
+    internal static void TreeChanged(Node root, Node? oldParent, bool insertion, HtmlSelectWorkContext? context = null)
     {
         if (root.FirstChild is null &&
             root is not Element { NamespaceUri: Namespaces.Html, LocalName: "selectedcontent" } &&
             root is not Element { AttachedShadowRoot: not null }) return;
         // Capture before cloning can replace links inside this subtree.
-        var work = new HtmlSelectWork(root.OwnerDocument?.SelectWorkProbe, default);
+        var work = new HtmlSelectWork(root.OwnerDocument?.SelectWorkProbe, context, context?.Token ?? default);
         var selectedContents = new List<Element>();
         var pending = new Stack<Node>();
         pending.Push(root);
@@ -99,13 +107,13 @@ internal static class HtmlSelectedContent
                     if (html.LocalName is "option" or "selectedcontent") { view.SelectedContentDisabled = true; break; }
                 }
                 if (view.SelectedContentDisabled || firstSelect is null) continue;
-                var select = firstSelect.GetSelectCore();
+                var select = firstSelect.GetSelectCoreWithWork(context, context?.Token ?? default);
                 if (select.Multiple || select.UpdatingSelectedContent) continue;
-                UpdateCurrent(select, default);
-                ClearNonPrimary(select);
+                UpdateCurrentWithWork(select, context, context?.Token ?? default);
+                ClearNonPrimary(select, context);
             }
             else if (!insertion && !content.GetHtmlState()!.SelectedContentDisabled && nearest is null && oldSelect is not null)
-                UpdateCurrent(oldSelect.GetSelectCore(), default);
+                UpdateCurrentWithWork(oldSelect.GetSelectCoreWithWork(context, context?.Token ?? default), context, context?.Token ?? default);
         }
     }
     private static Element? InvalidateAncestors(Node? node)
@@ -119,11 +127,16 @@ internal static class HtmlSelectedContent
         }
         return nearest;
     }
-    private static void ClearNonPrimary(HtmlSelectCore select)
+    private static void ClearNonPrimary(HtmlSelectCore select, HtmlSelectWorkContext? context)
     {
         var candidates = new List<Element>();
-        foreach (var element in NodeTraversal.DescendantElements(select.Element, default))
-            if (element is { NamespaceUri: Namespaces.Html, LocalName: "selectedcontent" }) candidates.Add(element);
+        var work = new HtmlSelectWork(select.Element.OwnerDocument?.SelectWorkProbe, context, context?.Token ?? default);
+        for (var node = select.Element.FirstChild; node is not null; node = HtmlSelectMutations.Next(node, select.Element, false, ref work))
+        {
+            work.Step();
+            if (node is Element { NamespaceUri: Namespaces.Html, LocalName: "selectedcontent" } element) candidates.Add(element);
+        }
+        work.Check();
         select.UpdatingSelectedContent = true;
         try { for (var i = 1; i < candidates.Count; i++) candidates[i].ReplaceChildren(); }
         finally { select.UpdatingSelectedContent = false; }
