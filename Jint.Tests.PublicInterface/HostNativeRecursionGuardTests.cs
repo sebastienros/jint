@@ -530,6 +530,124 @@ public class HostNativeRecursionGuardTests
         }, maxStackSize: 1024 * 1024);
     }
 
+    /// <summary>
+    /// Recursions made of evaluations rather than of calls: each level hands source text back to the
+    /// evaluator, and the evaluator re-enters the interpreter without entering a function. The first four
+    /// never reach a function body at all, so none of the probes a function entry carries saw them, and a
+    /// direct eval (<c>var s = 'eval(s)'; eval(s)</c>) ended the host process with a native stack overflow on
+    /// every target framework. The <c>@@hasInstance</c> row is <c>eval</c> reached with no call expression in
+    /// the loop, which nothing else on that route probes either.
+    /// <para>
+    /// The two <c>Function</c> constructor rows were never broken — the function the constructor builds is
+    /// entered through an ordinary call, whose callee probes — and are here so the pair states the shape
+    /// that was: evaluating source text is guarded, whichever built-in hands it over.
+    /// </para>
+    /// </summary>
+    public static TestCases<string, string> EvaluatedSourceRecursions => new()
+    {
+        { "direct eval", "var s = 'eval(s)'; eval(s);" },
+        { "indirect eval", "var s = '(0, eval)(s)'; (0, eval)(s);" },
+        { "optional-call eval", "var s = 'eval?.(s)'; eval?.(s);" },
+        { "eval as a callback", "var s = '[s].forEach(eval)'; [s].forEach(eval);" },
+        { "eval as @@hasInstance", "var o = {}; Object.defineProperty(o, Symbol.hasInstance, { value: eval }); var s = 's instanceof o'; s instanceof o;" },
+        { "new Function", "var s = 'new Function(s)()'; new Function(s)();" },
+        { "Function.prototype.constructor", "var s = 'Function.prototype.constructor(s)()'; Function.prototype.constructor(s)();" },
+    };
+
+    [TestCaseSource(nameof(EvaluatedSourceRecursions))]
+    public void ARecursionThroughEvaluatedSourceRaisesACatchableErrorAndTheEngineRecovers(string route, string script)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine();
+            EvaluateCatching(engine, script).Should().Be("RangeError:Maximum call stack size exceeded");
+
+            engine.Evaluate("eval('6 * 7')").AsNumber().Should().Be(42);
+        }, maxStackSize: 1024 * 1024);
+    }
+
+    /// <summary>
+    /// The same recursions on the <see cref="Options.ConstraintOptions.MaxExecutionStackCount"/> lane, which
+    /// continues a call chain on a fresh thread when the stack runs low and throws once the call stack holds
+    /// more than the configured count. A direct eval is dispatched without a call-stack frame, so a recursion
+    /// made only of direct evals never grew that count: it hopped to a new thread at every exhaustion, leaving
+    /// the one below it blocked, and never threw — the host lost a thread per hop and the call never returned.
+    /// It counts as the call it is now, so the lane throws at its limit as it does for any other recursion.
+    /// <c>eval?.()</c> took the same frameless dispatch and hung the same way; the other rows push a frame per
+    /// level (the <c>EvalFunction</c>, <c>forEach</c>, the constructed function) and were bounded already.
+    /// <para>
+    /// The join ceiling is what reports the hop that never ends, and is never what passes a test: a bounded
+    /// recursion returns in well under a second. <c>@@hasInstance</c> is not a row: with no call expression in
+    /// its loop it never reaches this lane's check, which is the gap the property's documentation states for
+    /// every route into a function body other than a call.
+    /// </para>
+    /// </summary>
+    public static TestCases<string, string> CountedEvaluatedSourceRecursions => new()
+    {
+        { "direct eval", "var s = 'eval(s)'; eval(s);" },
+        { "indirect eval", "var s = '(0, eval)(s)'; (0, eval)(s);" },
+        { "optional-call eval", "var s = 'eval?.(s)'; eval?.(s);" },
+        { "eval as a callback", "var s = '[s].forEach(eval)'; [s].forEach(eval);" },
+        { "new Function", "var s = 'new Function(s)()'; new Function(s)();" },
+    };
+
+    [TestCaseSource(nameof(CountedEvaluatedSourceRecursions))]
+    public void OnTheExecutionStackCountLaneARecursionThroughEvaluatedSourceStopsAtTheCount(string route, string script)
+    {
+        _ = route;
+        DedicatedThread.Run(
+            () =>
+            {
+                using var engine = new Engine(options => options.Constraints.MaxExecutionStackCount = 500);
+                EvaluateCatching(engine, script).Should().Be("RangeError:Maximum call stack size exceeded");
+
+                engine.Evaluate("eval('6 * 7')").AsNumber().Should().Be(42);
+            },
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"'{route}' did not stop at the configured count within {TestBudgets.WedgeCeiling}; the lane is hopping threads without bound",
+            maxStackSize: 1024 * 1024);
+    }
+
+    /// <summary>
+    /// What the lane is <em>for</em>, through eval: a recursion deeper than the thread holds, but finite and
+    /// inside the configured count, continues on a fresh thread and returns its answer. It is what rules out
+    /// the other way to bound the rows above — probing eval under
+    /// <see cref="Options.ConstraintOptions.StackOverflowGuard"/> on this lane too. That probe sits a few
+    /// frames below the call expression's hop, so whichever of the two finds the stack low first decides, and
+    /// measured on .NET 10 it was the probe: this recursion threw where it used to return, while .NET Framework,
+    /// with other frame sizes, still hopped. Every level counts twice here (the function and the eval), which
+    /// the count leaves ample room for.
+    /// </summary>
+    public static TestCases<string, string> FiniteRecursionsThroughEval => new()
+    {
+        { "direct eval", "function f(n) { return n === 0 ? 0 : eval('f(n - 1)') + 1; } f(3000);" },
+        { "indirect eval", "function f(n) { return n === 0 ? 0 : (0, eval)('f(' + (n - 1) + ')') + 1; } f(3000);" },
+    };
+
+    [TestCaseSource(nameof(FiniteRecursionsThroughEval))]
+    public void OnTheExecutionStackCountLaneAFiniteRecursionThroughEvalDeeperThanTheThreadReturns(string route, string script)
+    {
+        _ = route;
+        DedicatedThread.Run(
+            () =>
+            {
+                using var engine = new Engine(options => options.Constraints.MaxExecutionStackCount = 100_000);
+                engine.Evaluate(script).AsNumber().Should().Be(3000);
+            },
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"'{route}' did not return within {TestBudgets.WedgeCeiling}",
+            maxStackSize: 1024 * 1024);
+    }
+
+    private static string EvaluateCatching(Engine engine, string script) => engine.Evaluate("""
+        var caught;
+        try {
+        """ + script + """
+        } catch (error) { caught = error; }
+        caught === undefined ? 'none' : caught.name + ':' + caught.message;
+        """).AsString();
+
     private sealed class RecursiveHostFunction : HostFunction
     {
         private readonly Engine _hostEngine;
