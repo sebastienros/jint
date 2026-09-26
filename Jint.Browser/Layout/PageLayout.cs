@@ -72,7 +72,7 @@ internal sealed partial class PageLayout
     }
 
     private FlatLayout.SizeQuery CreateSizes()
-        => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
+        => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document), _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
 
     /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
     internal FlatBox? ClientBoxOf(Element element)
@@ -103,7 +103,7 @@ internal sealed partial class PageLayout
 
         var viewport = _runtime.Viewport;
         var sizes = MeasureSizes();
-        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes);
+        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
 
         // A document that shrank under a scrolled page leaves the offset past its end, so the clamp is read
         // here rather than only written in ScrollTo: what a box answers must agree with what scrollY reads.
@@ -118,7 +118,7 @@ internal sealed partial class PageLayout
         }
 
         _scrollY = clamped;
-        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes);
+        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
         if (reuse)
         {
             _layout = layout;

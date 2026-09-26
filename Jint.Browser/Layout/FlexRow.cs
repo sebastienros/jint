@@ -45,16 +45,16 @@ internal static class FlexRow
         return alignment is null or "" or "normal" ? "stretch" : alignment;
     }
 
-    internal static double[] Widths(Element[] children, double available, CssCascade.Traversal? cascade)
+    internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade)
     {
-        var widths = new double[children.Length];
-        var growth = new double[children.Length];
-        var shrinkage = new double[children.Length];
+        var widths = new double[children.Count];
+        var growth = new double[children.Count];
+        var shrinkage = new double[children.Count];
         var basisTotal = 0d;
         var growthTotal = 0d;
         var shrinkFactorTotal = 0d;
         var shrinkageTotal = 0d;
-        for (var i = 0; i < children.Length; i++)
+        for (var i = 0; i < children.Count; i++)
         {
             var style = cascade?.LayoutOf(children[i]);
             var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
