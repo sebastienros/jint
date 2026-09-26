@@ -3,8 +3,20 @@ namespace Jint.HtmlParser;
 /// <summary>One native input mutation route, extended by later value-state families.</summary>
 internal static class HtmlInputStateChanges
 {
-    internal static void Initialize(Element element)
+    internal static HtmlInputValueState? PrepareInitialization(Element element, IReadOnlyList<Attr> attributes,
+        CancellationToken cancellationToken)
+        => element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
+            ? new HtmlInputValueState(element, attributes, cancellationToken) : null;
+
+    internal static void Initialize(Element element, HtmlInputValueState? prepared = null)
     {
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "input" })
+        {
+            var view = element.GetHtmlState()!;
+            if (prepared is not null) view.InitializeInputValue(prepared);
+            else if (view.ExistingInputValue is { } value) value.InitializeMetadata(default);
+            else _ = view.InputValue;
+        }
         var existing = element.ExistingCheckedState;
         if (HtmlCheckableState.Get(element) is not { } state) return;
         // A fresh component's constructor already saw the complete batch. An
@@ -17,11 +29,22 @@ internal static class HtmlInputStateChanges
         if (state.DefaultChecked) HtmlCheckednessAlgorithms.SetCore(state, true, false, default);
     }
 
+    // Capture the old mode/current value before the attribute is committed, even
+    // when nobody has requested the HTML view yet.
+    internal static void BeforeAttributeChanged(Element element, string? namespaceUri, string localName)
+    {
+        if (namespaceUri is null && localName is "type" or "value" or "multiple" or "readonly" &&
+            element is { NamespaceUri: Namespaces.Html, LocalName: "input" })
+            _ = element.GetHtmlState()!.InputValue;
+    }
+
     internal static void AttributeChanged(Element element, string? namespaceUri, string localName,
         string? oldValue, string? newValue)
     {
         if (namespaceUri is not null || element is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return;
         var state = HtmlCheckableState.Get(element)!;
+        var valueState = element.GetHtmlState()!.InputValue!;
+        valueState.AttributeChanged(localName, oldValue, newValue);
         switch (localName)
         {
             case "checked":
@@ -35,12 +58,13 @@ internal static class HtmlInputStateChanges
                 Trigger(state);
                 break;
             case "type":
-                state.Type = HtmlInputTypes.Parse(newValue);
-                if (HtmlInputTypes.Parse(oldValue) != state.Type)
+                var nextType = HtmlInputTypes.Parse(newValue);
+                valueState.TypeChanged(nextType, () =>
                 {
+                    state.Type = nextType;
                     Rekey(state);
                     Trigger(state);
-                }
+                });
                 break;
             case "required":
                 HtmlRadioGroupIndex.RequiredChanged(state, newValue is not null);

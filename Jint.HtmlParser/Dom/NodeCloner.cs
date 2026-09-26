@@ -96,6 +96,8 @@ internal static class NodeCloner
                     original.IsValue);
                 element.CopyAttributesFrom(original, document);
                 HtmlCheckednessAlgorithms.CopyCheckedness(original, element);
+                if (original is { NamespaceUri: Namespaces.Html, LocalName: "input" })
+                    element.GetHtmlState()!.InputValue!.CopyFrom(original.GetHtmlState()!.InputValue!);
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "textarea" })
                 {
                     element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!);
