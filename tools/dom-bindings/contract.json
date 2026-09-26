@@ -4575,7 +4575,7 @@
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"DOMStringList.item\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"DOMStringList.item\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IStringList.System.Collections.Generic.IReadOnlyList<System.String>.Item"
