@@ -54,8 +54,18 @@ internal static class NativeCssDeclarations
         private string? _source;
         private CssDeclarationBlock? _block;
         internal override CssRule? ParentRule => null;
-        private CssValueWork CurrentWork() => Work(element.OwnerDocument is { } document &&
-            NativeCssStyleSheets.RealmOf(document) is { } realm ? realm : creationRealm);
+        private CssValueWork CurrentWork()
+        {
+            var document = element.OwnerDocument;
+            var stamp = document?.MutationStamp;
+            var realm = document is not null && NativeCssStyleSheets.RealmOf(document) is { } host ? host : creationRealm;
+            return new(realm.CancellationToken, () =>
+            {
+                realm.Engine.Constraints.Check();
+                if (!ReferenceEquals(element.OwnerDocument, document) || stamp == ulong.MaxValue || document?.MutationStamp != stamp)
+                    throw new InvalidOperationException(NativeCssQuery.Invalidated);
+            });
+        }
         private string Source(CssValueWork work) => new DomReadWork(work.Charge, work.Token).Attribute(element, "style") ?? "";
         private CssDeclarationBlock Read(CssValueWork work)
         {
