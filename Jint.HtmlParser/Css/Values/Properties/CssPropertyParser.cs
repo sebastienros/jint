@@ -231,7 +231,7 @@ internal static class CssPropertyParser
         var last = values[end - 1].Span;
         var length = last.Start + last.Length - first.Start;
         work.CheckCancellation();
-        var text = input.Source.Substring(first.Start, length);
+        var text = input.SourceSlice(new CssSourceSpan(first.Start, length)).ToString();
         work.Charge(length);
         work.CheckCancellation();
         return text;

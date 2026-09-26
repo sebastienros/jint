@@ -10,6 +10,11 @@ Living HTML checks support the three flags, checked attribute presence, clone/re
 
 The root-wide explicit-form reset and intermediate owner-null requirement remain supported by https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#association-of-controls-and-forms . Preserve the unrelated div ID regression in the design; final-owner equality is not a substitute for the specified owner stores.
 
+**Ownership released on continuation from `0b9b921de`:** D6r6 and H8 are reviewed, integrated,
+validated and archived. The new D7b2 implementation owner has the explicit transfer of Element.cs,
+HtmlElementState.cs and NodeCloner.cs for its concrete hooks, along with the released native lifecycle
+files below. No separate H8 hook implementation is needed. Preserve all merged D6/H8 behavior.
+
 ## Exact ownership and integration sequence
 
 1. Wait for D6r6 exact-source integration and explicit release of Node.cs/Document.cs/CharacterNodes.cs. Use that common commit as the worker base; preserve notification scopes and weak-registration/normalization corrections.

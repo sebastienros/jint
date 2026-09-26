@@ -62,3 +62,22 @@ its text convenience entry retokenizes and must not be used per stylesheet child
 serialization needs an agreed seam before native rule serialization can claim completion. Shared
 C1 lexical serialization helpers are currently private; coordinate a bounded component serializer
 rather than creating another tokenizer or copying a second token grammar.
+
+## Approved declaration prerequisites (continuation)
+
+The declaration owner may extend `CssReferenceInput` to retain an owned source slice and `SourceOffset`.
+Component/occurrence/projected-origin spans remain original coordinates. A shared-work component
+factory copies only the first-to-last component hull (including intervening comments); empty components
+retain `string.Empty`. A bounds-checked `SourceSlice(originalSpan)` translates coordinates without
+rebasing components. Update the two reference/function opener scans to return original coordinates,
+and the property's `ValueText` reader. Preserve component/input provenance identities, synthetic EOF
+closer spans and mixed-source origins. Do not retain a sheet reference or clone the syntax tree.
+Test compact retention, nonzero offsets, escaped openers, nested references, empty values, mixed-source
+substitution, synthetic closers and cancellation.
+
+`UnimplementedGrammar` aborts a whole staged declaration edit before entries, order or stamp change.
+An internal incomplete-grammar exception carries the property name, blocker and original declaration
+span; it is not CSS invalidity or a DOM SyntaxError. Invalid supported declarations and unsupported
+names retain normal recovery. Accepted deferred references remain valid values. Setter precedence
+still removes for an empty value before checking priority, and rejects invalid nonempty priority
+before invoking grammar validation. No declaration stage may silently discard known missing grammars.
