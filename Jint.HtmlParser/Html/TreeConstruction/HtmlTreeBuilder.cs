@@ -104,8 +104,8 @@ internal sealed partial class HtmlTreeBuilder
         _context = context;
     }
 
-    internal bool HasToken => _hasToken;
-    internal bool AllowCData => _open.Count != 0 && Current.NamespaceUri != Namespaces.Html;
+    internal bool HasToken => _hasToken || _pendingFormElement is not null;
+    internal bool AllowCData => _open.Count != 0 && AdjustedCurrent.NamespaceUri != Namespaces.Html;
     internal long WorkCount => _work;
 
     internal void SetToken(HtmlToken token)
@@ -141,10 +141,15 @@ internal sealed partial class HtmlTreeBuilder
 
     internal HtmlParseStep Process(long quota, CancellationToken cancellationToken)
     {
-        if (!_hasToken) throw new InvalidOperationException("No tree token is pending.");
         _cancellationToken = cancellationToken;
         _remaining = quota;
         cancellationToken.ThrowIfCancellationRequested();
+        if (_pendingFormElement is not null)
+        {
+            AdvanceFormInsertion();
+            return new HtmlParseStep(HtmlParseStepKind.Yielded);
+        }
+        if (!_hasToken) throw new InvalidOperationException("No tree token is pending.");
         if (_token.Kind != HtmlTokenKind.Text && _mode == Mode.InTableText)
         {
             if (!FlushTableText()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
@@ -321,7 +326,7 @@ internal sealed partial class HtmlTreeBuilder
             element.InitializeParsedAttributes(attributes, _cancellationToken);
             Charge(attributeWork);
         }
-        InsertAt(location, element);
+        if (!DeferFormInsertion(element, location, parentOverride ?? _headInsertionOverride ?? CurrentParent)) InsertAt(location, element);
         Push(element);
         return element;
     }

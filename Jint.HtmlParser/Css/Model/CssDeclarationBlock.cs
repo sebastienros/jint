@@ -15,8 +15,15 @@ internal sealed class CssDeclarationBlock
     private CssDeclaration[] _entries = [];
     private ulong _version;
     private readonly CssDeclarationContext _context;
+    private CssRule? _owner;
 
     private CssDeclarationBlock(CssDeclarationContext context) => _context = context;
+
+    internal void AttachTo(CssRule owner)
+    {
+        if (_owner is not null) throw new InvalidOperationException("A declaration block already has an owner.");
+        _owner = owner;
+    }
 
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context = CssDeclarationContext.Style,
         CssParseOptions? options = null, CancellationToken cancellationToken = default)
@@ -53,7 +60,7 @@ internal sealed class CssDeclarationBlock
     {
         work.CheckCancellation();
         name = CssPropertyRegistry.NormalizeName(name, work);
-        if (name == "overflow") return OverflowValue(_entries, work);
+        if (Shorthand(name) is { } shorthand) return ShorthandValue(_entries, shorthand, work);
         var entry = Find(_entries, name, work);
         work.CheckCancellation();
         return entry is null || entry.PendingShorthand is not null ? "" : EntryValue(entry, work);
@@ -65,12 +72,15 @@ internal sealed class CssDeclarationBlock
     {
         work.CheckCancellation();
         name = CssPropertyRegistry.NormalizeName(name, work);
-        if (name == "overflow")
+        if (Shorthand(name) is { } shorthand)
         {
-            var x = Find(_entries, "overflow-x", work);
-            var y = Find(_entries, "overflow-y", work);
+            foreach (var longhand in shorthand.Longhands)
+            {
+                work.Charge(1);
+                if (Find(_entries, longhand, work) is not { IsImportant: true }) return "";
+            }
             work.CheckCancellation();
-            return x is { IsImportant: true } && y is { IsImportant: true } ? "important" : "";
+            return "important";
         }
         var entry = Find(_entries, name, work);
         work.CheckCancellation();
@@ -122,15 +132,14 @@ internal sealed class CssDeclarationBlock
         name = CssPropertyRegistry.NormalizeName(name, work);
         if (CssPropertyParser.NameFailure(name, _context) is { } failure)
             RequireCompleted(name, failure, default);
-        var oldValue = name == "overflow" ? OverflowValue(_entries, work) :
-            Find(_entries, name, work) is { } entryValue && entryValue.PendingShorthand is null
-                ? EntryValue(entryValue, work) : "";
+        var shorthand = Shorthand(name);
+        var oldValue = GetPropertyValue(name, work);
         var replacement = new List<CssDeclaration>(_entries.Length);
         var removed = false;
         foreach (var entry in _entries)
         {
             work.Charge(1);
-            if (CssSubstitutionArguments.Equals(entry.Name, name, work) || name == "overflow" && entry.Name is "overflow-x" or "overflow-y")
+            if (CssSubstitutionArguments.Equals(entry.Name, name, work) || shorthand is not null && shorthand.Longhands.Contains(entry.Name))
                 removed = true;
             else replacement.Add(entry);
         }
@@ -152,6 +161,7 @@ internal sealed class CssDeclarationBlock
         work.CheckCancellation();
         _entries = entries;
         CssMutationStamp.Advance(ref _version);
+        _owner?.Changed();
     }
 
     private static CssDeclaration[] Build(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
@@ -203,19 +213,23 @@ internal sealed class CssDeclarationBlock
         bool important, CssSourceSpan span, CssValueWork work, string? lexicalText = null,
         string termination = "", Dictionary<string, CssDeclaration>? winners = null)
     {
-        if (name != "overflow")
+        var shorthand = Shorthand(name);
+        if (shorthand is null)
         {
             InstallEntry(entries, new CssDeclaration(name, value, important, span, null, lexicalText, termination), work, winners);
             return;
         }
-        // Variables 1 §3.2: keep the shorthand's parsed value, shared by its pending longhands.
-        // https://drafts.csswg.org/css-variables-1/#variables-in-shorthands
+        // Variables 1 §3.2: one pending identity shared by all longhands until substitution.
         var pending = value.Kind == CssPropertyValueKind.Deferred
             ? new CssPendingShorthand(name, value, lexicalText!, termination) : null;
-        var x = pending is not null ? value : CssPropertyValue.Keyword(value.Text, value.Span);
-        var y = pending is not null ? value : CssPropertyValue.Keyword(value.SecondKeyword ?? value.Text, value.Span);
-        InstallEntry(entries, new CssDeclaration("overflow-x", x, important, span, pending), work, winners);
-        InstallEntry(entries, new CssDeclaration("overflow-y", y, important, span, pending), work, winners);
+        for (var i = 0; i < shorthand.Longhands.Count; i++)
+        {
+            work.Charge(1);
+            var expanded = pending is not null ? value : value.Kind == CssPropertyValueKind.Shorthand
+                ? value.Components[i] : CssPropertyValue.Keyword(
+                    i == 1 ? value.SecondKeyword ?? value.Text : value.Text, value.Span);
+            InstallEntry(entries, new CssDeclaration(shorthand.Longhands[i], expanded, important, span, pending), work, winners);
+        }
     }
 
     private static void InstallEntry(List<CssDeclaration> entries, CssDeclaration entry, CssValueWork work,
@@ -257,6 +271,7 @@ internal sealed class CssDeclarationBlock
         work.CheckCancellation();
         _entries = replacement;
         CssMutationStamp.Advance(ref _version);
+        _owner?.Changed();
     }
 
     private static CssDeclaration? Find(CssDeclaration[] entries, string name, CssValueWork work)
@@ -269,21 +284,44 @@ internal sealed class CssDeclarationBlock
         return null;
     }
 
-    private static string OverflowValue(CssDeclaration[] entries, CssValueWork work)
+    private static CssPropertyMetadata? Shorthand(string name) =>
+        CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } entry ? entry : null;
+
+    private static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
     {
-        var x = Find(entries, "overflow-x", work);
-        var y = Find(entries, "overflow-y", work);
-        if (x is null || y is null || x.IsImportant != y.IsImportant) return "";
-        if (x.PendingShorthand is { } pending)
-            return ReferenceEquals(pending, y.PendingShorthand)
-                ? CompleteLexicalValue(pending.LexicalSpecifiedText, pending.Termination, work) : "";
-        if (y.PendingShorthand is not null || x.Value.Kind == CssPropertyValueKind.Deferred ||
-            y.Value.Kind == CssPropertyValueKind.Deferred) return "";
-        var first = x.Value.Serialize();
-        var second = y.Value.Serialize();
-        if (first == second) return first;
-        // A CSS-wide keyword cannot be combined with another keyword in a shorthand.
-        return IsWide(first) || IsWide(second) ? "" : first + " " + second;
+        var first = Find(entries, shorthand.Longhands[0], work);
+        if (first is null) return "";
+        var values = new string[shorthand.Longhands.Count];
+        var pending = first.PendingShorthand;
+        for (var i = 0; i < values.Length; i++)
+        {
+            work.Charge(1);
+            var entry = Find(entries, shorthand.Longhands[i], work);
+            if (entry is null || entry.IsImportant != first.IsImportant) return "";
+            if (pending is not null)
+            {
+                if (!ReferenceEquals(pending, entry.PendingShorthand) || pending.Name != shorthand.Name) return "";
+            }
+            else if (entry.PendingShorthand is not null || entry.Value.Kind == CssPropertyValueKind.Deferred) return "";
+            else values[i] = entry.Value.Serialize();
+        }
+        if (pending is not null) return CompleteLexicalValue(pending.LexicalSpecifiedText, pending.Termination, work);
+        var allEqual = true;
+        var anyWide = false;
+        for (var i = 0; i < values.Length; i++)
+        {
+            work.Charge(values[i].Length);
+            allEqual &= CssSubstitutionArguments.Equals(values[i], values[0], work);
+            anyWide |= IsWide(values[i]);
+        }
+        if (anyWide) return allEqual ? values[0] : "";
+        work.CheckCancellation();
+        // Pair shorthands copy their first value when omitted. Flex-flow and flex do not.
+        var text = allEqual && shorthand.Grammar is CssPropertyGrammar.Overflow or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf
+            ? values[0] : string.Join(" ", values);
+        work.Charge(text.Length);
+        work.CheckCancellation();
+        return text;
     }
 
     private static bool IsWide(string value) => value is "initial" or "inherit" or "unset" or "revert" or "revert-layer" or "revert-rule";
@@ -323,21 +361,30 @@ internal sealed class CssDeclarationBlock
     {
         work.CheckCancellation();
         var builder = new StringBuilder();
-        var overflow = OverflowValue(_entries, work);
-        var overflowWritten = false;
+        var shorthandValues = new Dictionary<string, string>(StringComparer.Ordinal);
+        var written = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var metadata in CssPropertyRegistry.Completed.Values)
+        {
+            work.Charge(1);
+            if (metadata.Longhands.Count != 0)
+                shorthandValues.Add(metadata.Name, ShorthandValue(_entries, metadata, work));
+        }
         foreach (var entry in _entries)
         {
             work.Charge(1);
             var name = entry.Name;
-            string value;
-            if (name is "overflow-x" or "overflow-y" && overflow.Length != 0)
+            var value = entry.PendingShorthand is null ? EntryValue(entry, work) : "";
+            var skip = false;
+            foreach (var pair in shorthandValues)
             {
-                if (overflowWritten) continue;
-                overflowWritten = true;
-                name = "overflow";
-                value = overflow;
+                work.Charge(1);
+                if (pair.Value.Length == 0 || !CssPropertyRegistry.Completed[pair.Key].Longhands.Contains(name)) continue;
+                if (!written.Add(pair.Key)) { skip = true; break; }
+                name = pair.Key;
+                value = pair.Value;
+                break;
             }
-            else value = entry.PendingShorthand is null ? EntryValue(entry, work) : "";
+            if (skip) continue;
             if (builder.Length != 0) builder.Append(' ');
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work)).Append(": ");
             work.CheckCancellation();

@@ -5,13 +5,17 @@ namespace Jint.HtmlParser.Html;
 internal sealed partial class HtmlTreeBuilder
 {
     // HTML Standard §13.2.6.1, appropriate place for inserting a node
-    // (2026-09-22). Fragment root adjustment is added with H7b.
+    // (2026-09-25).
     private readonly record struct InsertionLocation(Node Parent, Node? Before);
 
-    // HTML Standard §13.2.6.1, adjusted insertion location. H7b adds the
+    // HTML Standard §13.2.6.1, adjusted insertion location. Apply the
     // root insertion target after the appropriate-place calculation.
     private InsertionLocation FindAdjustedInsertionLocation(Node? overrideTarget = null)
-        => FindAppropriatePlace(overrideTarget);
+    {
+        var location = FindAppropriatePlace(overrideTarget);
+        return _fragmentRoot is not null && ReferenceEquals(location.Parent, _fragmentRoot)
+            ? new InsertionLocation(_fragmentResult!, location.Before) : location;
+    }
 
     private InsertionLocation FindAppropriatePlace(Node? overrideTarget = null)
     {
@@ -47,6 +51,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private void InsertAt(InsertionLocation location, Node node)
     {
+        TrackInsertedRoot(node, location.Parent);
         if (location.Before is null)
         {
             location.Parent.AppendParsedChild(node);

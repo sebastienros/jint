@@ -287,7 +287,14 @@ internal sealed partial class HtmlTreeBuilder
             throw new InvalidOperationException("HTML insertion-mode reset lost its root.");
         // The nearest applicable HTML element is maintained with the open stack.
         // Repeated table closures must not scan the same unchanged ancestors.
-        var element = _open[_resetModeIndexes[^1]];
+        var rootCase = _resetModeIndexes[^1] == 0 && _fragmentContext is not null;
+        var element = rootCase ? _fragmentContext! : _open[_resetModeIndexes[^1]];
+        if (rootCase && (element.NamespaceUri != Namespaces.Html || element.LocalName is "td" or "th" or "head"))
+        {
+            _mode = Mode.InBody;
+            Charge(1);
+            return;
+        }
         Charge(1);
         switch (element.LocalName)
         {
@@ -305,7 +312,10 @@ internal sealed partial class HtmlTreeBuilder
             case "body": _mode = Mode.InBody; break;
             case "frameset": _mode = Mode.InFrameset; break;
             case "html": _mode = _head is null ? Mode.BeforeHead : Mode.AfterHead; break;
-            default: throw new InvalidOperationException("Unknown HTML insertion-mode reset element.");
+            default:
+                if (!rootCase) throw new InvalidOperationException("Unknown HTML insertion-mode reset element.");
+                _mode = Mode.InBody;
+                break;
         }
     }
 }

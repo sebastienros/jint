@@ -32,7 +32,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool ShouldUseForeignRules(HtmlToken token)
     {
         if (_open.Count == 0 || token.Kind == HtmlTokenKind.EndOfFile) return false;
-        var node = Current;
+        var node = AdjustedCurrent;
         if (node.NamespaceUri == Namespaces.Html) return false;
         if (token.Kind == HtmlTokenKind.StartTag)
         {
@@ -70,7 +70,7 @@ internal sealed partial class HtmlTreeBuilder
                     _foreignBreakout = true;
                     return true;
                 }
-                if (!TryInsertForeignTokenElement(Current.NamespaceUri!)) return true;
+                if (!TryInsertForeignTokenElement(AdjustedCurrent.NamespaceUri!)) return true;
                 if (_token.SelfClosing)
                 {
                     _acknowledgedSelfClosing = true;
