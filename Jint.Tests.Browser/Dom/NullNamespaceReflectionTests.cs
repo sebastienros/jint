@@ -116,6 +116,50 @@ public sealed class NullNamespaceReflectionTests
         budget.Checks.Should().Be(3);
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void DocumentReflectionCancelsDuringTargetLookup(bool bodyTarget, bool setter)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var checks = new CancelTargetLookup(cancellation);
+        using var engine = new Engine(options => options.AddConstraint(checks)
+            .AddConstraint(new Jint.Constraints.CancellationConstraint(cancellation.Token)));
+        DomBindings.Install(engine);
+        var document = Document.CreateHtml();
+        if (!bodyTarget)
+            for (var i = 0; i < 2048; i++) document.AppendChild(document.CreateComment("prefix"));
+        var html = document.CreateElement("html");
+        document.AppendChild(html);
+        if (bodyTarget)
+            for (var i = 0; i < 2048; i++) html.AppendChild(document.CreateComment("prefix"));
+        var body = document.CreateElement("body");
+        html.AppendChild(body);
+        var reflected = bodyTarget
+            ? ReflectedAttribute.Text("Document.bgColor", "bgcolor", target: ReflectedTarget.Body)
+            : ReflectedAttribute.Enumerated("Document.dir", "dir", ["ltr", "rtl", "auto"], "", "", ReflectedTarget.DocumentElement);
+        var realm = DomRealm.Of(engine);
+        Caught.Exception(() =>
+        {
+            if (setter) reflected.Set(realm, document, [JsString.Create("rtl")]);
+            else reflected.Get(realm, document);
+        }).Should().BeOfType<Jint.Runtime.ExecutionCanceledException>();
+        checks.Checks.Should().Be(2);
+        html.GetAttributeNS(null, "dir").Should().BeNull();
+        body.GetAttributeNS(null, "bgcolor").Should().BeNull();
+    }
+
+    private sealed class CancelTargetLookup(CancellationTokenSource cancellation) : Constraint
+    {
+        internal int Checks { get; private set; }
+        public override void Check()
+        {
+            if (++Checks == 2) cancellation.Cancel();
+        }
+        public override void Reset() { }
+    }
+
     private sealed class ReadBudget : Constraint
     {
         internal int Checks { get; private set; }

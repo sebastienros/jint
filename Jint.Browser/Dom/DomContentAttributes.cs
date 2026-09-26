@@ -10,7 +10,7 @@ internal static class DomContentAttributes
         var work = new DomReadWork(realm.Engine.Constraints.Check, realm.CancellationToken);
         work.Token.ThrowIfCancellationRequested();
         var value = work.Attribute(element, name);
-        work.Token.ThrowIfCancellationRequested();
+        work.Check();
         return value;
     }
 }

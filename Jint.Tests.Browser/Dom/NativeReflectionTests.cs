@@ -48,7 +48,8 @@ public sealed class NativeReflectionTests
         var realm = DomRealm.Of(engine);
 
         ReflectedAttribute.Text("HTMLElement.title", "title").Get(realm, target).AsString().Should().Be("ordinary");
-        budget.Checks.Should().Be(0);
+        // Only the final local attribute checkpoint runs; the document-wide base walk is still skipped.
+        budget.Checks.Should().Be(1);
         var failure = Caught.Exception(() => ReflectedAttribute.Url("HTMLImageElement.src", "src").Get(realm, target));
         failure.Should().BeOfType<ReadBudgetExceededException>();
         budget.Checks.Should().Be(3);

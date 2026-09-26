@@ -40,6 +40,17 @@ internal static class DomDocumentElements
             : null;
     }
 
+    internal static Element? Html(Document document, DomReadWork work)
+    {
+        for (var child = document.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is not Element element) continue;
+            return element is { NamespaceUri: Namespaces.Html, LocalName: "html" } ? element : null;
+        }
+        return null;
+    }
+
     /// <summary>HTML §3.1: the first HTML head child of the html element.</summary>
     internal static Element? Head(Document document)
     {
@@ -64,6 +75,18 @@ internal static class DomDocumentElements
         if (Html(document) is not { } html) return null;
         for (var child = html.FirstChild; child is not null; child = child.NextSibling)
         {
+            if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } element)
+                return element;
+        }
+        return null;
+    }
+
+    internal static Element? Body(Document document, DomReadWork work)
+    {
+        if (Html(document, work) is not { } html) return null;
+        for (var child = html.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
             if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } element)
                 return element;
         }

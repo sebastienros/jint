@@ -281,12 +281,19 @@ internal sealed class ReflectedAttribute
 
     /// <summary>The document-targeted getter with the calling realm's bounded attribute read.</summary>
     internal JsValue Get(DomRealm realm, Document document)
-        => Get(ElementIn(document), null, null, realm);
+    {
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Token.ThrowIfCancellationRequested();
+        return Get(ElementIn(document, work), null, null, realm, work);
+    }
 
     /// <summary>The same member's setter, which does nothing when the target element is absent.</summary>
     internal JsValue Set(DomRealm realm, Document document, JsValue[] arguments)
     {
-        var element = ElementIn(document);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Token.ThrowIfCancellationRequested();
+        var element = ElementIn(document, work);
+        work.Check();
         return element is null ? JsValue.Undefined : Set(realm, element, arguments);
     }
 
@@ -299,10 +306,10 @@ internal sealed class ReflectedAttribute
     /// AngleSharp's <c>Body</c> asks neither question, so <c>document.bgColor</c> on a document rooted at an
     /// XHTML <c>div</c> read the nested <c>body</c>'s attribute where the standard has no target at all.
     /// </remarks>
-    private Element? ElementIn(Document document) => _target switch
+    private Element? ElementIn(Document document, DomReadWork? work = null) => _target switch
     {
-        ReflectedTarget.DocumentElement => DomDocumentElements.Html(document),
-        ReflectedTarget.Body => DomDocumentElements.Body(document),
+        ReflectedTarget.DocumentElement => work is null ? DomDocumentElements.Html(document) : DomDocumentElements.Html(document, work),
+        ReflectedTarget.Body => work is null ? DomDocumentElements.Body(document) : DomDocumentElements.Body(document, work),
         _ => null,
     };
 
@@ -313,11 +320,12 @@ internal sealed class ReflectedAttribute
     private static string? CurrentBaseUri(Document? document)
         => document is null ? null : DomDocumentState.BaseUri(document);
 
-    private JsValue Get(Element? element, string? baseUri, string? documentUrl, DomRealm? realm = null)
+    private JsValue Get(Element? element, string? baseUri, string? documentUrl, DomRealm? realm = null, DomReadWork? work = null)
     {
-        var value = element is null ? null : realm is null
+        var value = element is null ? null : work is not null ? work.Attribute(element, _attribute) : realm is null
             ? element.GetAttributeNS(null, _attribute)
             : DomContentAttributes.Get(realm, element, _attribute);
+        work?.Check();
 
         switch (_kind)
         {
