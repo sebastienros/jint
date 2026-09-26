@@ -37,8 +37,11 @@ public sealed class SelectorElementStateTests
     public void DirtyCheckednessAndIndeterminatenessOverrideContentAttributes()
     {
         var input = Document.CreateHtml().CreateElement("input");
-        input.SetAttribute("type", "checkbox");
-        input.SetAttribute("checked", "");
+        input.InitializeParsedAttributes(new ParserAttribute[]
+        {
+            new(null, "type", null, "checkbox"), new(null, "checked", null, "")
+        }, default);
+        input.ExistingInputValueState.Should().BeNull();
         var state = HtmlCheckableState.Get(input)!;
         state.SetChecked(false, default);
         state.SetIndeterminate(true);
@@ -83,16 +86,23 @@ public sealed class SelectorElementStateTests
     {
         var document = Document.CreateHtml();
         var option = document.CreateElement("option");
-        option.InitializeParsedAttributes(new ParserAttribute[] { new(null, "selected", null, "false") }, default);
-        Matches(":checked", option).Should().BeTrue();
+        Matches(":checked", option).Should().BeFalse();
         option.ExistingOptionCore.Should().BeNull();
-        var core = option.GetOptionCore();
+        option.ExistingOptionState.Should().BeNull();
+        option.InitializeParsedAttributes(new ParserAttribute[] { new(null, "selected", null, "false") }, default);
+        var core = option.ExistingOptionCore!;
+        core.Should().NotBeNull();
+        Matches(":checked", option).Should().BeTrue();
+        option.ExistingOptionCore.Should().BeSameAs(core);
+        option.ExistingOptionState.Should().BeNull();
         core.SetSelected(false, default);
         Matches(":checked", option).Should().BeFalse();
         core.SetSelected(true, default);
         option.RemoveAttribute("selected");
         Matches(":checked", option).Should().BeTrue();
         Matches(":indeterminate", option).Should().BeFalse();
+        option.ExistingOptionCore.Should().BeSameAs(core);
+        option.ExistingOptionState.Should().BeNull();
     }
 
     [Test]
