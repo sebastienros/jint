@@ -68,6 +68,9 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
+        if (entry.Grammar is CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or
+            CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
+            return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.FlexBasis)
             return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.FlexFactor or CssPropertyGrammar.FlexDirection or

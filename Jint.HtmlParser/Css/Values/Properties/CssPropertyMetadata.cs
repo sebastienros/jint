@@ -10,7 +10,8 @@ internal enum CssPropertyGrammar
 {
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
     Sizing, FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
-    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color
+    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
+    WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -85,6 +86,12 @@ internal static class CssPropertyRegistry
         Shorthand("flex-flow", CssPropertyGrammar.FlexFlow, "row nowrap", ["flex-direction", "flex-wrap"]);
         Shorthand("place-items", CssPropertyGrammar.PlaceItems, "normal legacy", ["align-items", "justify-items"]);
         Shorthand("place-self", CssPropertyGrammar.PlaceSelf, "auto", ["align-self", "justify-self"]);
+        // CSS Text 4 §§3–5.1. Grammar/computed values only, independent of layout.
+        Add("white-space-collapse", CssPropertyGrammar.WhiteSpaceCollapse, "collapse", true);
+        Add("text-wrap-mode", CssPropertyGrammar.TextWrapMode, "wrap", true);
+        Add("white-space-trim", CssPropertyGrammar.WhiteSpaceTrim, "none");
+        Shorthand("white-space", CssPropertyGrammar.WhiteSpace, "normal",
+            ["white-space-collapse", "text-wrap-mode", "white-space-trim"]);
         return new System.Collections.ObjectModel.ReadOnlyDictionary<string, CssPropertyMetadata>(entries);
 
         void Shorthand(string name, CssPropertyGrammar grammar, string initial, string[] longhands) =>
