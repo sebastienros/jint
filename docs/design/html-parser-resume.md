@@ -39,8 +39,12 @@ producer; the other eighteen are generated DOM/HTML/SVG bindings. Earlier invent
 131, and 80 errors. Source-reviewed runtime, metadata, events, extraction, and finite media bindings
 are integrated in that isolated checkout; Browser runtime acceptance remains unrun. The native CSS
 demand correction is under review, including deferred-shorthand editing and white-space grammar fixes.
-Remaining legacy receiver types and production AngleSharp references still require removal before
-the replacement can be considered functional.
+That inventory is historical: the isolated Browser now builds successfully in Release net10 at
+`eedb918a5`, **zero warnings and errors** (`/private/tmp/native-browser-docs-net10-build.log`). Its own
+restored production assets contain no AngleSharp libraries; test-only provenance packages are separate.
+The first Browser test-project build reaches one obsolete XML-fixture import, with the reviewed native
+fixture replacement ready to integrate. Runtime acceptance and stylesheet lifecycle repairs remain;
+this production compile is not yet a functional-replacement or common-worktree pass.
 
 Subsequent isolated source progress: token-list caching, native receiver mappings and production
 package-reference removal are reviewed; stylesheet association/history still has open findings.
