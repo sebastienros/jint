@@ -645,8 +645,9 @@ public class HostNativeRecursionGuardTests
     /// <para>
     /// The join ceiling is what reports the hop that never ends, and is never what passes a test: a bounded
     /// recursion returns in well under a second. <c>@@hasInstance</c> is not a row: with no call expression in
-    /// its loop it never reaches this lane's check, which is the gap the property's documentation states for
-    /// every route into a function body other than a call.
+    /// its loop it never reaches this lane's count, and what bounds it instead is the operator's own probe
+    /// before any method but the intrinsic, which
+    /// <see cref="AHasInstanceMethodThatAsksInstanceofOfItsOwnTargetRaisesACatchableError"/> pins on both lanes.
     /// </para>
     /// </summary>
     public static TestCases<string, string> CountedEvaluatedSourceRecursions => new()
