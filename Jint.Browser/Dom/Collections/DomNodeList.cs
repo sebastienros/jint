@@ -19,6 +19,7 @@ internal sealed class DomChildNodeList : DomNodeList
     private static readonly ConditionalWeakTable<object, DomChildNodeList> Lists = new();
     private readonly Node? _parent;
     private readonly WeakReference<Node> _cursor = new(null!);
+    private readonly WeakReference<Document> _cursorDocument = new(null!);
     private int _cursorIndex;
     private ulong _cursorStamp;
 
@@ -40,7 +41,8 @@ internal sealed class DomChildNodeList : DomNodeList
         var stamp = document.MutationStamp;
         Node current;
         uint position;
-        if (stamp != ulong.MaxValue && _cursorStamp == stamp && index >= (uint) _cursorIndex && _cursor.TryGetTarget(out var remembered))
+        if (stamp != ulong.MaxValue && _cursorStamp == stamp && _cursorDocument.TryGetTarget(out var previousDocument)
+            && ReferenceEquals(previousDocument, document) && index >= (uint) _cursorIndex && _cursor.TryGetTarget(out var remembered))
         {
             current = remembered;
             position = (uint) _cursorIndex;
@@ -58,6 +60,7 @@ internal sealed class DomChildNodeList : DomNodeList
         }
         work.Check();
         _cursor.SetTarget(current);
+        _cursorDocument.SetTarget(document);
         _cursorIndex = (int) index;
         _cursorStamp = stamp;
         return current;

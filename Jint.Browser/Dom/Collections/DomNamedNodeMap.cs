@@ -19,31 +19,99 @@ internal sealed class DomNamedNodeMap(Element owner)
     internal Attr RemoveNamedItemNS(string? namespaceUri, string localName)
         => owner.RemoveAttributeNode(owner.GetAttributeNodeNS(namespaceUri, localName) ?? throw DomException.NotFound());
 
-    internal IReadOnlyList<string> SupportedNames()
+    internal IReadOnlyList<string> SupportedNames() => ReadNames(null, default);
+    internal IReadOnlyList<string> SupportedNames(DomRealm realm)
+        => ReadNames(realm.NativeReadCheckpoint, realm.CancellationToken);
+
+    private List<string> ReadNames(Action<int>? checkpoint, CancellationToken token)
     {
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
         var names = new List<string>(Length);
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var attribute in owner.Attributes)
+        for (uint index = 0; index < (uint) Length; index++)
         {
-            var name = attribute.Name;
-            if (Supports(name) && seen.Add(name)) names.Add(name);
+            work.Step();
+            var name = Name(owner.GetAttributeAt(index)!, work);
+            if (Supports(name, work) && seen.Add(name)) names.Add(name);
         }
+        work.Check();
         return names;
     }
 
-    internal bool HasSupportedName(string name)
+    internal bool HasSupportedName(string name) => HasSupportedName(name, new DomReadWork(null, default));
+    internal bool HasSupportedName(DomRealm realm, string name)
+        => HasSupportedName(name, new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken));
+
+    private bool HasSupportedName(string name, DomReadWork work)
     {
-        if (!Supports(name)) return false;
-        foreach (var attribute in owner.Attributes)
-            if (attribute.Name == name) return true;
+        work.Check();
+        if (!Supports(name, work)) { work.Check(); return false; }
+        for (uint index = 0; index < (uint) Length; index++)
+        {
+            work.Step();
+            if (!work.Equal(Name(owner.GetAttributeAt(index)!, work), name)) continue;
+            work.Check();
+            return true;
+        }
+        work.Check();
         return false;
     }
 
-    private bool Supports(string name)
+    internal Attr? GetNamedItem(DomRealm realm, string name)
     {
-        if (owner.NamespaceUri != Namespaces.Html || owner.OwnerDocument?.Kind != DocumentKind.Html) return true;
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        if (owner.NamespaceUri == Namespaces.Html && owner.OwnerDocument?.Kind == DocumentKind.Html)
+        {
+            for (var firstUpper = 0; firstUpper < name.Length; firstUpper++)
+            {
+                work.Step();
+                if (name[firstUpper] is not (>= 'A' and <= 'Z')) continue;
+                work.Check();
+                var buffer = name.ToCharArray();
+                work.Check();
+                for (var i = firstUpper; i < buffer.Length; i++)
+                {
+                    work.Step();
+                    var character = buffer[i];
+                    if (character is >= 'A' and <= 'Z') buffer[i] = (char) (character + ('a' - 'A'));
+                }
+                work.Check();
+                name = new string(buffer);
+                work.Check();
+                break;
+            }
+        }
+        for (uint index = 0; index < (uint) Length; index++)
+        {
+            work.Step();
+            var attribute = owner.GetAttributeAt(index)!;
+            if (!work.Equal(Name(attribute, work), name)) continue;
+            work.Check();
+            return attribute;
+        }
+        work.Check();
+        return null;
+    }
+
+    private bool Supports(string name, DomReadWork work)
+    {
+        var lowercaseOnly = owner.NamespaceUri == Namespaces.Html && owner.OwnerDocument?.Kind == DocumentKind.Html;
         foreach (var character in name)
-            if (character is >= 'A' and <= 'Z') return false;
+        {
+            work.Step();
+            if (lowercaseOnly && character is >= 'A' and <= 'Z') return false;
+        }
         return true;
+    }
+
+    private static string Name(Attr attribute, DomReadWork work)
+    {
+        if (attribute.Prefix is null) return attribute.LocalName;
+        work.Check();
+        var name = attribute.Name;
+        work.Check();
+        return name;
     }
 }

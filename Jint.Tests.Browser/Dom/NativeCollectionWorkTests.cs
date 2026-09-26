@@ -41,6 +41,50 @@ public sealed class NativeCollectionWorkTests
         list.ReadItem(2047, null, default).Should().BeSameAs(root.LastChild!.PreviousSibling);
     }
 
+    [Test]
+    public void NativeChildNodeCursorInvalidatesWhenAdoptedIntoAnotherDocumentWithTheSameStamp()
+    {
+        var source = Document.CreateHtml();
+        var root = source.CreateElement("div");
+        var first = source.CreateComment("first");
+        var second = source.CreateComment("second");
+        root.AppendChild(first);
+        root.AppendChild(second);
+        for (var i = 0; i < 32; i++) source.CreateElement("div").SetAttribute("data-padding", "");
+        var list = DomChildNodeList.Of(root);
+        list.ReadItem(1, null, default).Should().BeSameAs(second);
+        var stamp = source.MutationStamp;
+        var destination = Document.CreateHtml();
+        destination.AdoptNode(root);
+        root.AppendChild(first);
+        while (destination.MutationStamp < stamp)
+            destination.CreateElement("div").SetAttribute("data-padding", "");
+        destination.MutationStamp.Should().Be(stamp);
+        list.ReadItem(1, null, default).Should().BeSameAs(first);
+    }
+
+    [Test]
+    public void NamedAttributeReadsUseTheCurrentRealmBudget()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("div");
+        for (var i = 0; i < 2048; i++) root.SetAttribute("data-" + i, "");
+        root.SetAttribute("id", "last");
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        var realm = DomRealm.Of(engine);
+        var map = DomNamedNodeMap.Of(root);
+        probe.Remaining = 3;
+        Assert.Throws<OperationCanceledException>(() => map.SupportedNames(realm));
+        probe.Remaining = 3;
+        Assert.Throws<OperationCanceledException>(() => map.GetNamedItem(realm, "ID"));
+        probe.Remaining = 0;
+        map.GetNamedItem(realm, "ID").Should().BeSameAs(root.GetAttributeNode("id"));
+        map.HasSupportedName(realm, "ID").Should().BeFalse();
+        map.HasSupportedName(realm, "id").Should().BeTrue();
+        map.SupportedNames(realm).Should().HaveCount(2049);
+    }
+
     private sealed class EveryElement : DomElementFilter
     {
         internal override bool Matches(Element element) => true;
