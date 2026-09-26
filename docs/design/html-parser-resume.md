@@ -15,6 +15,7 @@ Current owners:
 | Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
 | Native CSS sheets/rules/media/declarations | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
 | Native select/option state and shared native mutation hooks | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
+| Internal input text/default value component | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
 | Pure native input numeric/temporal algorithms | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
 | Contextual HTML fragments and parser form-pointer hookup | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
 
@@ -23,8 +24,8 @@ Select owns narrow Element/HtmlElementState/Attr/Node/CharacterNodes/NodeCloner 
 helpers own new InputValues files only, and fragments own tokenizer/treebuilder/session paths.
 CSS model work must preserve named unfinished-grammar blockers, rather than accepting invalid or
 unimplemented declarations silently. Reviewed completed slices continue to land in common, and
-Browser changes remain in `414c` until the package builds and works. Reopening CSS leaves 67 completed
-chats archived and 23 completed checkouts awaiting managed archive identities; previous counts below
+Browser changes remain in `414c` until the package builds and works. Reopening CSS and input state leaves 66 completed
+chats archived and 22 completed checkouts awaiting managed archive identities; previous counts below
 refer to the finite checkpoint.
 
 **Latest user-directed finalization (September 25):** reviewed native checkedness/radio state,
