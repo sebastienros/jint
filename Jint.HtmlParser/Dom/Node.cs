@@ -283,13 +283,16 @@ public abstract partial class Node
             }
         }
 
-        var hadChildren = ChildCount != 0;
+        var removalLengths = HtmlTextAreaMutations.RemovalSuffixLengths(this);
+        var removalIndex = 0;
         while (FirstChild is { } child)
         {
             Detach(child, suppressRecord: true, suppressSemantic: true);
+            var remainingLength = removalLengths is null ? null :
+                (uint?) (removalIndex + 1 < removalLengths.Length ? removalLengths[removalIndex + 1] : 0);
+            HtmlTextAreaMutations.ChildrenChanged(this, knownApiLength: remainingLength);
+            removalIndex++;
         }
-
-        if (hadChildren) HtmlTextAreaMutations.ChildrenChanged(this);
 
         if (replacement is DocumentFragment && incoming.Count != 0)
         {

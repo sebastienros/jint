@@ -66,6 +66,7 @@ internal sealed class HtmlTextAreaState
         SetOrigin(HtmlValueChangeOrigin.NonUser);
         if (!string.Equals(previous, normalized, StringComparison.Ordinal))
         {
+            ClampSelection((uint) normalized.Length);
             SetSelectionRange((uint) normalized.Length, (uint) normalized.Length, null, CancellationToken.None);
         }
     }
@@ -92,7 +93,7 @@ internal sealed class HtmlTextAreaState
         ClampSelection((uint) normalized.Length);
     }
 
-    internal void ChildrenChanged(bool mayShorten, bool markDocument)
+    internal void ChildrenChanged(bool mayShorten, bool markDocument, uint? knownApiLength)
     {
         if (DirtyValue) return;
         mayShorten |= !_rawAlignedWithChildren;
@@ -105,9 +106,11 @@ internal sealed class HtmlTextAreaState
         // endpoint beyond the new value. Destructive steps clamp immediately.
         if (mayShorten && (_selection.Start != 0 || _selection.End != 0))
         {
-            ClampSelection((uint) GetValue(CancellationToken.None).Length);
+            ClampSelection(knownApiLength ?? (uint) GetValue(CancellationToken.None).Length);
         }
     }
+
+    internal bool NeedsRemovalLengths => !DirtyValue && (_selection.Start != 0 || _selection.End != 0);
 
     internal void CopyFrom(HtmlTextAreaState source)
     {
@@ -240,7 +243,7 @@ internal sealed class HtmlTextAreaState
     {
         ArgumentNullException.ThrowIfNull(value);
         if (_element.GetHtmlState()!.GetDisabledState(cancellationToken) != HtmlDisabledState.Enabled ||
-            _element.GetAttributeNode("readonly") is not null)
+            IsReadOnly(cancellationToken))
         {
             return false;
         }
@@ -323,6 +326,23 @@ internal sealed class HtmlTextAreaState
     }
 
     private static uint Clamp(uint value, uint length) => Math.Min(value, length);
+    private bool IsReadOnly(CancellationToken cancellationToken)
+    {
+        var work = new HtmlTextWork(cancellationToken);
+        work.Check();
+        foreach (var attribute in _element.Attributes)
+        {
+            work.Step();
+            if (attribute.NamespaceUri is null && attribute.LocalName == "readonly")
+            {
+                work.Check();
+                return true;
+            }
+        }
+
+        work.Check();
+        return false;
+    }
     private static HtmlSelectionDirection ParseDirection(string? value) => value switch
     {
         "forward" => HtmlSelectionDirection.Forward,

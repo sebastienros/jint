@@ -88,6 +88,19 @@ public class TextAreaStateTests
     }
 
     [Test]
+    public void ReplaceAllRemovalsClampBeforeReplacementInsertionAcrossCrLfBoundaries()
+    {
+        var (document, element, state) = Create();
+        element.AppendChild(document.CreateTextNode("AB\r"));
+        element.AppendChild(document.CreateTextNode("\nCD"));
+        state.GetValue(default).Should().Be("AB\nCD");
+        state.SetSelectionRange(4, 5, "forward", default);
+        element.ReplaceChildren(document.CreateTextNode("longer replacement"));
+        state.GetValue(default).Should().Be("longer replacement");
+        state.Selection.Should().Be(new HtmlTextSelection(0, 0, HtmlSelectionDirection.Forward));
+    }
+
+    [Test]
     public void FragmentInsertionAndCommentReplacementUseChildrenChangedSemantics()
     {
         var (document, element, state) = Create();
@@ -229,6 +242,16 @@ public class TextAreaStateTests
     }
 
     [Test]
+    public void ScriptValueShrinkClampsBeforeApplyingEndSelection()
+    {
+        var (_, _, state) = Create();
+        state.SetValue("abcdef", default);
+        state.SetSelectionRange(4, 5, "backward", default);
+        state.SetValue("", default);
+        state.Selection.Should().Be(new HtmlTextSelection(0, 0, HtmlSelectionDirection.None));
+    }
+
+    [Test]
     public void RangeReplacementPreservesEachEndpointIncludingRemovedEnd()
     {
         var (_, _, state) = Create();
@@ -320,7 +343,7 @@ public class TextAreaStateTests
         state.GetSelection(default).Start.Should().Be(2);
         state.SetEditingSelection(0, 1, "forward", default).Should().BeTrue();
         state.LastValueChangeOrigin.Should().Be(HtmlValueChangeOrigin.User);
-        element.SetAttribute("readonly", "");
+        element.SetAttributeNS(null, "readonly", "");
         state.ApplyUserValue("blocked", new HtmlTextSelection(0, 0, HtmlSelectionDirection.None), default)
             .Should().BeFalse();
         state.SetValue("script", default);
@@ -331,6 +354,20 @@ public class TextAreaStateTests
             .Should().BeFalse();
         state.SetSelectionRange(0, 1, null, default);
         document.MutationStamp.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public void ForeignNamespaceReadonlyDoesNotDisableUserEditing()
+    {
+        var (_, element, state) = Create();
+        element.SetAttributeNS("urn:other", "readonly", "");
+        state.ApplyUserValue("allowed", new HtmlTextSelection(7, 7, HtmlSelectionDirection.None), default)
+            .Should().BeTrue();
+        state.GetValue(default).Should().Be("allowed");
+        element.SetAttributeNS(null, "readonly", "");
+        state.ApplyUserValue("blocked", new HtmlTextSelection(0, 0, HtmlSelectionDirection.None), default)
+            .Should().BeFalse();
+        state.GetValue(default).Should().Be("allowed");
     }
 
     [Test]
