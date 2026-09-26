@@ -11,6 +11,7 @@ internal sealed class DomReadWork(Action<int>? checkpoint, CancellationToken tok
     {
         token.ThrowIfCancellationRequested();
         checkpoint?.Invoke(_pending);
+        token.ThrowIfCancellationRequested();
         _pending = 0;
     }
     internal void Step()
