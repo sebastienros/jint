@@ -163,10 +163,16 @@ internal static class SubresourceFetch
                 .SendForStreamAsync(client, snapshot, policy, cancellationToken, observation)
                 .ConfigureAwait(false);
 
+            // Freeze document metadata before observers or an awaited body can mutate a
+            // retained response. Each header sets the preference in order; the last wins,
+            // including an empty value. A comma inside a name is not a list separator.
+            var response = exchange.Response;
+            var defaultStyle = response.Headers.TryGetValues("Default-Style", out var styles)
+                ? styles.LastOrDefault() : null;
+
             // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
             observation?.FinalResponse(exchange);
 
-            var response = exchange.Response;
             var bytes = await ReadBoundedAsync(response, request.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
 
             // The body half of that same debt: a subresource reads its own bytes, so nothing else can hand
@@ -187,11 +193,6 @@ internal static class SubresourceFetch
                     "'" + final + "' answered " + status.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
             }
 
-            // CSSOM's preferred stylesheet set is response metadata, carried without engine or DOM state.
-            // Each header sets the preference in order. On a fresh document the last value wins,
-            // including an empty value; a comma inside the name is not a list separator.
-            var defaultStyle = response.Headers.TryGetValues("Default-Style", out var styles)
-                ? styles.LastOrDefault() : null;
             return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status,
                 response.Content.Headers.LastModified, defaultStyle);
         }
