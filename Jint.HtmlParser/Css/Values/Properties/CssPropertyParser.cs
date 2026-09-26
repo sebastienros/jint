@@ -70,6 +70,8 @@ internal static class CssPropertyParser
         var parts = Significant(input.Components, work);
         if (entry.Grammar == CssPropertyGrammar.FontWeight)
             return CssFontWeightPropertyParser.Parse(input, parts, work);
+        if (entry.Grammar == CssPropertyGrammar.FontSize)
+            return CssFontSizePropertyParser.Parse(parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or
             CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
             return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);

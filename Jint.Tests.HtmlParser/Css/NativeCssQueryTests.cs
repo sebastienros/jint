@@ -389,19 +389,19 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void FontDependentUnitRequiresAnExplicitMetricAndDoesNotBlockOtherProperties()
+    public void GlyphDependentUnitRequiresAnExplicitMetricAndDoesNotBlockOtherProperties()
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
-        var block = CssDeclarationBlock.Parse("width:2em;display:block");
+        var block = CssDeclarationBlock.Parse("width:2ch;display:block");
         var query = Query(document, [], [(target, block)]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
         Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "width", ref matching))!
-            .Blocker.Should().Be("C6:font-size");
+            .Blocker.Should().Be("C6:zero-advance");
         var work = new CssValueWork(default);
         query = new(document, [], [(target, block)], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, new NativeCssMetrics { FontSize = 20 });
+            CssEnvironmentSnapshot.Create([], work), work, new NativeCssMetrics { ZeroAdvance = 20 });
         query.GetProperty(target, "width", ref matching).Text.Should().Be("40px");
     }
 
@@ -410,7 +410,7 @@ public sealed class NativeCssQueryTests
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
-        var block = CssDeclarationBlock.Parse("display:block; width:2em");
+        var block = CssDeclarationBlock.Parse("display:block; width:2ch");
         var view = new NativeCssComputedStyle(Query(document, [], [(target, block)]), target,
             new SelectorMatchWork(document, default));
         view.GetPropertyValue("display").Should().Be("block");
