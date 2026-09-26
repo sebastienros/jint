@@ -7,6 +7,24 @@ public class SelectCheckpointTests
 {
     private sealed class CheckpointException : Exception;
 
+    [TestCase(512)]
+    [TestCase(549)]
+    public void ProducerBoundaryChecksDoNotCountCompletedWorkAgain(int completedUnits)
+    {
+        var observed = new List<int>();
+        var context = HtmlSelectWorkContext.Create(observed.Add, default)!;
+        var report = context.CreateCheckpointAdapter();
+        report(0);
+        report(256);
+        report(512);
+        if (completedUnits != 512) report(completedUnits);
+        report(completedUnits);
+        report(completedUnits);
+        context.Check();
+
+        observed.Should().Equal(0, 256, 512, completedUnits, completedUnits, completedUnits);
+    }
+
     [TestCase("option")]
     [TestCase("select")]
     public void FirstViewCheckpointInterruptsMetadataWithoutPublishingEnhancedState(string kind)

@@ -22,14 +22,14 @@ internal sealed class HtmlSelectWorkContext(Action<int> checkpoint, Cancellation
         if (_units != int.MaxValue) _units++;
         if ((_units & 255) == 0 || _units == int.MaxValue) Check();
     }
-    // A producer's work counter may restart between algorithms. Each report
-    // comes from real Step calls; map that completed work onto this invocation.
+    // Each adapter receives one producer invocation's cumulative work counter.
+    // Preparation boundaries can repeat a count without completing more work.
     internal Action<int> CreateCheckpointAdapter()
     {
         var previous = 0;
         return units =>
         {
-            var delta = units > previous ? units - previous : units;
+            var delta = units > previous ? units - previous : 0;
             previous = units;
             var before = _units;
             if (delta > 0) _units = delta > int.MaxValue - _units ? int.MaxValue : _units + delta;
