@@ -18,7 +18,10 @@ builds the complete index before publishing membership handles; completed metada
 an interrupted bootstrap remain valid caches. Warm incremental registration reserves member/checked
 capacity and checks before assigning membership. Checkedness operations stage peer identities and
 reserve capacity before a final check, then commit flags/exclusion without invoking caller code during
-partial commit. Predicates preserve the lazy nonradio boundary and do not create nonradio sidecars.
+partial commit. Known-size snapshot/peer-list allocations receive a real boundary checkpoint before
+allocation; peer-array copies and capacity growth likewise check the allocation they follow before
+starting the next allocation. A warm group can therefore cancel at zero source units before allocating
+storage for its many cached members. Predicates preserve the lazy nonradio boundary and do not create nonradio sidecars.
 
 The uninterruptible flag and index-handle commit loops consume already prepared identities. Structural
 DOM mutation hooks, defaultChecked attribute writes and Browser/clone consumer forwarding remain
@@ -27,5 +30,6 @@ separate work. This checkpoint does not claim every raw DOM entry is covered by 
 CheckedInvocationCheckpointTests uses real Action<int> callers without installing a document probe.
 It covers long metadata/tree/name scans, source-count tails, unpublished cold sidecars/indexes,
 original cancellation tokens, caller exceptions, atomic peer/constant flag operations and allocation-free
-warm queries. No builds or tests have been run for this source checkpoint: the coordinator owns the
+warm queries. A warm 20000-member regression asserts first-callback cancellation stays below 64 KiB
+allocation and preserves flags/group counts. No builds or tests have been run for this source checkpoint: the coordinator owns the
 serialized build slot. Fresh Release net10 validation is pending its explicit grant.

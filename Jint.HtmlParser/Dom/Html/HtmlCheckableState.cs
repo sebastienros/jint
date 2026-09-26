@@ -139,6 +139,7 @@ internal static class HtmlCheckableState
         if (!facts.Applies) return Array.Empty<Element>();
         var state = Get(element)!;
         if (state.Group is null) return Array.AsReadOnly(new[] { element });
+        work.Finish();
         var result = new List<Element>(facts.MemberCount);
         var root = state.Index!.Root;
         for (Node? current = root; current is not null; current = HtmlRadioGroupIndex.Next(current, root, ref work))

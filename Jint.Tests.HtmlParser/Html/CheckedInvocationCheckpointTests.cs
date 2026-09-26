@@ -104,12 +104,37 @@ public class CheckedInvocationCheckpointTests
         HtmlCheckableState.GetRadioGroupFacts(first, default).CheckedCount.Should().Be(size);
         var state = HtmlCheckableState.Get(first)!; var stamp = document.MutationStamp;
         using var cancellation = new CancellationTokenSource(); var counts = new List<int>();
-        var exception = Assert.Throws<OperationCanceledException>(() => state.SetChecked(true, n => { counts.Add(n); cancellation.Cancel(); }, cancellation.Token));
-        exception!.CancellationToken.Should().Be(cancellation.Token); counts.Should().Equal(Math.Min(size, 256));
+        var exception = Assert.Throws<OperationCanceledException>(() => state.SetChecked(true, n => { counts.Add(n); if (n > 0) cancellation.Cancel(); }, cancellation.Token));
+        exception!.CancellationToken.Should().Be(cancellation.Token); counts.Should().Equal(0, Math.Min(size, 256));
         state.DirtyCheckedness.Should().BeFalse(); HtmlCheckableState.GetRadioGroupFacts(first, default).CheckedCount.Should().Be(size);
         document.MutationStamp.Should().Be(stamp);
         Assert.Throws<InvalidOperationException>(() => state.SetChecked(true, _ => throw new InvalidOperationException("budget"), default));
         HtmlCheckableState.GetRadioGroupFacts(first, default).CheckedCount.Should().Be(size); document.MutationStamp.Should().Be(stamp);
+    }
+
+    [TestCase("snapshot")]
+    [TestCase("exclusion")]
+    public void WarmLargeGroupChecksBeforeKnownSizeAllocation(string operation)
+    {
+        var document = Document.CreateHtml(); var root = document.CreateElement("div");
+        for (var i = 0; i < 20000; i++) root.AppendParsedChild(Input(document, check: true));
+        var input = (Element) root.FirstChild!;
+        HtmlCheckableState.GetRadioGroupFacts(input, default).CheckedCount.Should().Be(20000);
+        var state = HtmlCheckableState.Get(input)!; var stamp = document.MutationStamp;
+        using var cancellation = new CancellationTokenSource(); var counts = new List<int>();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var exception = Assert.Throws<OperationCanceledException>(() =>
+        {
+            Action<int> checkpoint = n => { counts.Add(n); cancellation.Cancel(); };
+            if (operation == "snapshot") HtmlCheckableState.SnapshotRadioGroup(input, checkpoint, cancellation.Token);
+            else state.SetChecked(true, checkpoint, cancellation.Token);
+        });
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        allocated.Should().BeLessThan(65536);
+        exception!.CancellationToken.Should().Be(cancellation.Token); counts.Should().Equal(0);
+        state.DirtyCheckedness.Should().BeFalse();
+        HtmlCheckableState.GetRadioGroupFacts(input, default).CheckedCount.Should().Be(20000);
+        document.MutationStamp.Should().Be(stamp);
     }
 
     [TestCase("set")]

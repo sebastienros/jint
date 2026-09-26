@@ -40,13 +40,16 @@ internal static class HtmlCheckednessAlgorithms
             HtmlRadioGroupIndex.Ensure(state, ref work);
             if (state.Group is { } group)
             {
+                work.Finish();
                 var staged = new List<HtmlInputCheckedState>(group.Checked.Count);
                 foreach (var peer in group.Checked)
                 {
                     work.Step();
                     if (!ReferenceEquals(peer, state)) staged.Add(peer);
                 }
+                work.Finish();
                 peers = staged.ToArray();
+                work.Finish();
                 group.Checked.EnsureCapacity(group.Checked.Count + 1);
             }
         }
