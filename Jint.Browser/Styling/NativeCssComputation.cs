@@ -31,7 +31,7 @@ internal sealed partial class NativeCssQuery
     {
         metrics ??= _metrics;
         if (value.Kind == CssPropertyValueKind.Transform)
-            return ComputeTransform(name, value.Transform);
+            return ComputeTransform(name, value.Transform, metrics, percentageBasis);
         if (name == "font-weight" && value.Kind == CssPropertyValueKind.Keyword)
             return FontWeightNumber(value.Text == "bold" ? 700 : 400, value.Span);
         if (value.Kind == CssPropertyValueKind.FitContent)

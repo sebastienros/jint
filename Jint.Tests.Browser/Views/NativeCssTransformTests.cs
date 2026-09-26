@@ -6,6 +6,22 @@ using Browser = global::Jint.Browser.Browser;
 
 public sealed class NativeCssTransformTests
 {
+    [Test]
+    public async Task FontSizeDeclarationsAndMutationsReachEveryTransformComponent()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>html { font-size:12px } #parent { font-size:20px }</style>"
+            + "<div id=parent><span id=child style='translate:2em 10% 3rem;"
+            + "scale:calc(2em / 1px);rotate:calc(2em / 1px) 1 0 45deg'>a</span></div>");
+        var read = "(() => { const style = getComputedStyle(document.getElementById('child'));"
+            + "return [style.translate, style.scale, style.rotate].join('|'); })()";
+        (await page.EvaluateAsync<string>(read)).Should().Be("40px 10% 36px|40|40 1 0 45deg");
+        await page.EvaluateAsync("document.getElementById('parent').style.fontSize = '30px'");
+        (await page.EvaluateAsync<string>(read)).Should().Be("60px 10% 36px|60|60 1 0 45deg");
+        page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("translate", "0 -50%", "0px -50%")]
     [TestCase("translate", "-1in 20% 2px", "-96px 20% 2px")]
     [TestCase("rotate", "45deg 0 2 0", "y 45deg")]

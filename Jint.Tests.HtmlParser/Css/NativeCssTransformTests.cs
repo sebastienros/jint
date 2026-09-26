@@ -21,6 +21,7 @@ public sealed class NativeCssTransformTests
     [TestCase("rotate", "45deg 1 2 3", "1 2 3 45deg")]
     [TestCase("rotate", "0 0 0 45deg", "0 0 0 45deg")]
     [TestCase("rotate", "calc(1 + 1) 0 0 calc(.25turn)", "x 90deg")]
+    [TestCase("rotate", "x calc(2em / 1px * 1deg)", "x 40deg")]
     [TestCase("rotate", "0 0 -2 .5turn", "-180deg")]
     [TestCase("rotate", "0deg", "0deg")]
     [TestCase("scale", "-50% 200% 100%", "-0.5 2")]
@@ -35,9 +36,9 @@ public sealed class NativeCssTransformTests
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
-        var block = CssDeclarationBlock.Parse(name + ":" + declared);
+        var block = CssDeclarationBlock.Parse("font-size:20px;" + name + ":" + declared);
         var work = new CssValueWork(default);
-        var query = Query(document, [(target, block)], work, new NativeCssMetrics { FontSize = 20 });
+        var query = Query(document, [(target, block)], work);
         var matching = new SelectorMatchWork(document, default);
         var result = query.GetProperty(target, name, ref matching);
         result.Text.Should().Be(expected);
@@ -45,11 +46,11 @@ public sealed class NativeCssTransformTests
         block.GetPropertyValue(name, work).Should().NotBeEmpty();
     }
 
-    [TestCase("translate", "2em", "C6:font-size")]
-    [TestCase("translate", "calc(2em - 50%)", "C6:font-size")]
+    [TestCase("translate", "2ch", "C6:zero-advance")]
+    [TestCase("translate", "calc(2ch - 50%)", "C6:zero-advance")]
     [TestCase("translate", "2cqw", "C6:container-length")]
-    [TestCase("scale", "calc(2em / 1px)", "C6:font-size")]
-    [TestCase("rotate", "calc(2em / 1px) 0 0 45deg", "C6:font-size")]
+    [TestCase("scale", "calc(2ch / 1px)", "C6:zero-advance")]
+    [TestCase("rotate", "calc(2ch / 1px) 0 0 45deg", "C6:zero-advance")]
     public void MissingMetricsRemainNamedFailuresAndDoNotBlockUnrelatedReads(string name, string declared, string blocker)
     {
         var document = Document.CreateHtml();
@@ -60,6 +61,34 @@ public sealed class NativeCssTransformTests
         query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
         Action read = () => query.GetProperty(target, name, ref matching);
         read.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be(blocker);
+    }
+
+    [Test]
+    public void TransformTuplesUseTheElementsComputedFontAndTheActualRootFont()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        var parent = document.CreateElement("div");
+        var child = document.CreateElement("span");
+        document.AppendChild(root);
+        root.AppendChild(parent);
+        parent.AppendChild(child);
+        var rootBlock = CssDeclarationBlock.Parse("font-size:12px");
+        var parentBlock = CssDeclarationBlock.Parse("font-size:20px");
+        var childBlock = CssDeclarationBlock.Parse("translate:2em 10% 3rem;"
+            + "scale:calc(2em / 1px);rotate:calc(2em / 1px) 1 0 45deg");
+        var query = Query(document, [(root, rootBlock), (parent, parentBlock), (child, childBlock)],
+            new(default), new NativeCssMetrics { FontSize = 99, RootFontSize = 99 });
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(child, "translate", ref matching).Text.Should().Be("40px 10% 36px");
+        query.GetProperty(child, "scale", ref matching).Text.Should().Be("40");
+        query.GetProperty(child, "rotate", ref matching).Text.Should().Be("40 1 0 45deg");
+        // A fresh query after an inherited-font mutation recomputes every transform component.
+        parentBlock.SetProperty("font-size", "30px");
+        query = Query(document, [(root, rootBlock), (parent, parentBlock), (child, childBlock)], new(default));
+        query.GetProperty(child, "translate", ref matching).Text.Should().Be("60px 10% 36px");
+        query.GetProperty(child, "scale", ref matching).Text.Should().Be("60");
+        query.GetProperty(child, "rotate", ref matching).Text.Should().Be("60 1 0 45deg");
     }
 
     [TestCase("translate", "10px 20%", "none")]
@@ -91,13 +120,13 @@ public sealed class NativeCssTransformTests
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
-        var source = "translate:hypot(" + string.Join(", ", Enumerable.Repeat("1em, 1px", 4096)) + ")";
+        var source = "font-size:20px;translate:hypot(" + string.Join(", ", Enumerable.Repeat("1em, 1px", 4096)) + ")";
         var block = CssDeclarationBlock.Parse(source);
         using var cancellation = new CancellationTokenSource();
         var armed = false;
         var polls = 0;
         var work = new CssValueWork(cancellation.Token, () => { if (armed && ++polls == 8) cancellation.Cancel(); });
-        var query = Query(document, [(target, block)], work, new NativeCssMetrics { FontSize = 20 });
+        var query = Query(document, [(target, block)], work);
         var matching = new SelectorMatchWork(document, cancellation.Token);
         armed = true;
         Action read = () => query.GetProperty(target, "translate", ref matching);

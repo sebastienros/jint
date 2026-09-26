@@ -4,6 +4,7 @@ using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.Properties;
+using Jint.HtmlParser.Css.Values.Transforms;
 
 namespace Jint.Browser.Styling;
 
@@ -131,18 +132,34 @@ internal sealed partial class NativeCssQuery
             value = value.Components[0];
         }
         if (fontSize && value is { Kind: CssPropertyValueKind.Keyword, Text: "larger" or "smaller" }) result |= 1;
-        if (value.Kind == CssPropertyValueKind.Numeric)
-            Observe(value.Numeric.Kind, value.Numeric.Unit);
-        else if (value.Kind == CssPropertyValueKind.Math)
+        if (value.Kind == CssPropertyValueKind.Transform)
         {
-            for (var i = 0; i < value.Math.NodeCount; i++)
+            // Transform components cannot contain transforms: inspect the fixed tuple,
+            // including numerical rotation axes, without recursive envelope traversal.
+            var transform = value.Transform;
+            Inspect(transform.X);
+            Inspect(transform.Y);
+            Inspect(transform.Z);
+            if (transform.Kind == CssTransformKind.Rotate) Inspect(transform.Angle);
+        }
+        else Inspect(value);
+        return result;
+
+        void Inspect(CssPropertyValue component)
+        {
+            _work.Charge(1);
+            if (component.Kind == CssPropertyValueKind.Numeric)
+                Observe(component.Numeric.Kind, component.Numeric.Unit);
+            else if (component.Kind == CssPropertyValueKind.Math)
             {
-                _work.Charge(1);
-                var node = value.Math.GetNode(i);
-                if (node.Kind == CssMathNodeKind.Numeric) Observe(node.Numeric.Kind, node.Numeric.Unit);
+                for (var i = 0; i < component.Math.NodeCount; i++)
+                {
+                    _work.Charge(1);
+                    var node = component.Math.GetNode(i);
+                    if (node.Kind == CssMathNodeKind.Numeric) Observe(node.Numeric.Kind, node.Numeric.Unit);
+                }
             }
         }
-        return result;
 
         void Observe(CssNumericKind kind, CssUnit unit)
         {
