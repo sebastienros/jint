@@ -1,6 +1,7 @@
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.Browser.Dom;
+using Jint.Browser.CustomElements;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
@@ -177,7 +178,8 @@ internal static class FormSubmission
         // form ownership, so a control associated into this form by its `form` attribute is validated here and
         // one associated away from it is not. Reading `form.elements` instead would validate whatever
         // AngleSharp's own ownership rule put in it, and then submit a different set.
-        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, token: realm.CancellationToken,
+            customElements: CustomElementRegistry.Of(realm.Engine)))
         {
             if (!BrowserControlValidation.WillValidate(realm, element)
                 || BrowserControlValidation.Read(realm, element).IsValid)
