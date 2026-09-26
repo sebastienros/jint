@@ -23,13 +23,21 @@ public sealed class Element : Node
     internal HtmlOptionCore GetOptionCore(CancellationToken token = default)
         => GetOptionCoreWithWork((HtmlSelectWorkContext?) null, token);
     internal HtmlOptionCore GetOptionCoreWithWork(HtmlSelectWorkContext? context, CancellationToken token = default)
-        => _optionCore ??= new HtmlOptionCore(this, context, token);
+    {
+        var result = _optionCore ??= new HtmlOptionCore(this, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
+    }
     internal HtmlOptionCore InitializeOptionCore(bool selected)
         => _optionCore ??= new HtmlOptionCore(this, selected);
     internal HtmlSelectCore GetSelectCore(CancellationToken token = default)
         => GetSelectCoreWithWork((HtmlSelectWorkContext?) null, token);
     internal HtmlSelectCore GetSelectCoreWithWork(HtmlSelectWorkContext? context, CancellationToken token = default)
-        => _selectCore ??= new HtmlSelectCore(this, context, token);
+    {
+        var result = _selectCore ??= new HtmlSelectCore(this, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
+    }
     internal HtmlOptionCore? ExistingOptionCore => _optionCore;
     internal HtmlSelectCore? ExistingSelectCore => _selectCore;
     internal HtmlOptionState? ExistingOptionState => _htmlState?.ExistingOption;
@@ -161,6 +169,7 @@ public sealed class Element : Node
         }
         else if (existing is not null) existing.SetValue(value, context);
         else AppendNewAttribute(new Attr(OwnerDocument!, null, name, null, value), context);
+        HtmlSelectWork.Check(context, token);
     }
 
     public void SetAttribute(string name, string value)

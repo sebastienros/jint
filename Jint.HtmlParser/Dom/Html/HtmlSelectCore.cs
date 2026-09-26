@@ -160,7 +160,7 @@ internal sealed class HtmlSelectCore
         if (!selected && !Multiple && (_selected is null || ReferenceEquals(_selected, option.Element)) && DisplaySize == 1)
             foreach (var candidate in EnumerateWithWork(Element, context, token))
                 if (!HtmlDisabledness.IsOptionDisabledWithWork(candidate, context, token)) { fallback = candidate; break; }
-        token.ThrowIfCancellationRequested();
+        HtmlSelectWork.Check(context, token);
         option.Write(selected, true);
         if (selected) ExcludePeers(option);
         if (fallback is not null)
@@ -170,6 +170,7 @@ internal sealed class HtmlSelectCore
             _selected = fallback;
         }
         _known = true;
+        HtmlSelectWork.Check(context, token);
     }
     internal HtmlOptionAttributeSelection PrepareAttributeSelection(HtmlOptionCore option, bool selected,
         HtmlSelectWorkContext? context, CancellationToken token)

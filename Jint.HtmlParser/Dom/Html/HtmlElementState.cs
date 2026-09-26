@@ -51,8 +51,12 @@ internal sealed class HtmlElementState
     internal HtmlSelectState? GetSelectState(CancellationToken token)
         => GetSelectStateWithWork((HtmlSelectWorkContext?) null, token);
     internal HtmlSelectState? GetSelectStateWithWork(HtmlSelectWorkContext? context, CancellationToken token)
-        => Element is { NamespaceUri: Namespaces.Html, LocalName: "select" }
+    {
+        var result = Element is { NamespaceUri: Namespaces.Html, LocalName: "select" }
             ? _select ??= new HtmlSelectState(Element, context, token) : null;
+        HtmlSelectWork.Check(context, token);
+        return result;
+    }
     internal HtmlSelectState InitializeSelect(HtmlSelectMetadata metadata)
     {
         if (_select is null) _select = new HtmlSelectState(Element, metadata);
@@ -65,8 +69,12 @@ internal sealed class HtmlElementState
     internal HtmlOptionState? GetOptionState(CancellationToken token)
         => GetOptionStateWithWork((HtmlSelectWorkContext?) null, token);
     internal HtmlOptionState? GetOptionStateWithWork(HtmlSelectWorkContext? context, CancellationToken token)
-        => Element is { NamespaceUri: Namespaces.Html, LocalName: "option" }
+    {
+        var result = Element is { NamespaceUri: Namespaces.Html, LocalName: "option" }
             ? _option ??= new HtmlOptionState(Element, context, token) : null;
+        HtmlSelectWork.Check(context, token);
+        return result;
+    }
     internal HtmlOptionState InitializeOption(HtmlOptionMetadata metadata)
     {
         if (_option is null) _option = new HtmlOptionState(Element, metadata);
@@ -123,12 +131,16 @@ internal sealed class HtmlElementState
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetSelectStateWithWork(context, token);
+        var result = GetSelectStateWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal HtmlOptionState? GetOptionState(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetOptionStateWithWork(context, token);
+        var result = GetOptionStateWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
 }

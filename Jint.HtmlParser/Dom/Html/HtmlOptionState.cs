@@ -81,6 +81,7 @@ internal sealed class HtmlOptionState
     internal void SetSelectedWithWork(bool value, HtmlSelectWorkContext? context, CancellationToken token)
     {
         _core.SetSelectedWithWork(value, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal void Write(bool selected, bool dirty, bool markDocument = true)
         => _core.Write(selected, dirty, markDocument);
@@ -90,7 +91,9 @@ internal sealed class HtmlOptionState
     internal string GetValueWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return _value ?? GetTextWithWork(context, token);
+        var result = _value ?? GetTextWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal void SetValue(string value) { ArgumentNullException.ThrowIfNull(value); Element.SetAttribute("value", value); }
     internal string GetLabel(CancellationToken token)
@@ -98,7 +101,9 @@ internal sealed class HtmlOptionState
     internal string GetLabelWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return _label ?? GetTextWithWork(context, token);
+        var result = _label ?? GetTextWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal string GetSemanticLabel(CancellationToken token)
         => GetSemanticLabelWithWork((HtmlSelectWorkContext?) null, token);
@@ -133,7 +138,9 @@ internal sealed class HtmlOptionState
             node = HtmlSelectMutations.Next(node, Element, skip, ref work);
         }
         work.Check();
-        return text.ToString();
+        var result = text.ToString();
+        HtmlSelectWork.Check(context, token);
+        return result;
 
         void Append(char character)
         {
@@ -149,7 +156,9 @@ internal sealed class HtmlOptionState
     {
         ArgumentNullException.ThrowIfNull(value);
         token.ThrowIfCancellationRequested();
+        HtmlSelectWork.Check(context, token);
         Element.ReplaceChildren(value.Length == 0 ? null : Element.OwnerDocument!.CreateTextNode(value));
+        HtmlSelectWork.Check(context, token);
     }
     internal void ParserFinished(CancellationToken token)
         => ParserFinishedWithWork((HtmlSelectWorkContext?) null, token);
@@ -176,72 +185,92 @@ internal sealed class HtmlOptionState
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         RefreshMetadataWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal Element? GetForm(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetFormWithWork(context, token);
+        var result = GetFormWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal bool IsDisabled(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return IsDisabledWithWork(context, token);
+        var result = IsDisabledWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal int GetIndex(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetIndexWithWork(context, token);
+        var result = GetIndexWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal void SetSelected(bool value, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         SetSelectedWithWork(value, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal string GetValue(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetValueWithWork(context, token);
+        var result = GetValueWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal string GetLabel(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetLabelWithWork(context, token);
+        var result = GetLabelWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal string GetSemanticLabel(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetSemanticLabelWithWork(context, token);
+        var result = GetSemanticLabelWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal string GetText(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetTextWithWork(context, token);
+        var result = GetTextWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal void SetText(string value, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         SetTextWithWork(value, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal void ParserFinished(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         ParserFinishedWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal static Element Create(Document document, string text, string? value, bool defaultSelected, bool selected, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return CreateWithWork(document, text, value, defaultSelected, selected, context, token);
+        var result = CreateWithWork(document, text, value, defaultSelected, selected, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal void SetDefaultSelected(bool value, Action<int>? checkpoint, CancellationToken token)
     {

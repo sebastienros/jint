@@ -114,7 +114,8 @@ internal static class NodeCloner
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "textarea" })
                 {
-                    element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!, cancellationToken);
+                    element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!,
+                        context?.CreateCheckpointAdapter(), cancellationToken);
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "script" })
                 {

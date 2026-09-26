@@ -76,11 +76,14 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
             context?.Step();
             token.ThrowIfCancellationRequested();
             var last = options[^1];
+            HtmlSelectWork.Check(context, token);
             last.ParentNode!.RemoveChild(last);
+            HtmlSelectWork.Check(context, token);
             options = select.PrepareWithWork(context, token);
         }
         if (length > (uint) options.Count && length <= 100000)
             AppendBlankOptionsWithWork(length - (uint) options.Count, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     private void AppendBlankOptionsWithWork(uint count, HtmlSelectWorkContext? context, CancellationToken token)
     {
@@ -92,7 +95,9 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
             fragment.AppendClonedChild(select.Element.OwnerDocument.CreateElementNS(Namespaces.Html, "option"), context, token);
         }
         work.Check();
+        HtmlSelectWork.Check(context, token);
         select.Element.AppendChild(fragment);
+        HtmlSelectWork.Check(context, token);
     }
     internal int GetSelectedIndex(CancellationToken token)
         => GetSelectedIndexWithWork((HtmlSelectWorkContext?) null, token);
@@ -113,12 +118,16 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
         if (index >= (uint) count)
         {
             AppendBlankOptionsWithWork(index - (uint) count, context, token);
+            HtmlSelectWork.Check(context, token);
             select.Element.AppendChild(option);
+            HtmlSelectWork.Check(context, token);
         }
         else
         {
             var existing = ItemWithWork(index, context, token)!;
+            HtmlSelectWork.Check(context, token);
             existing.ParentNode!.ReplaceChild(option, existing);
+            HtmlSelectWork.Check(context, token);
         }
     }
     internal void Remove(int index, CancellationToken token)
@@ -127,7 +136,12 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
     {
         RequireOptions();
         var option = index < 0 ? null : ItemWithWork((uint) index, context, token);
-        option?.ParentNode!.RemoveChild(option);
+        if (option is not null)
+        {
+            HtmlSelectWork.Check(context, token);
+            option.ParentNode!.RemoveChild(option);
+            HtmlSelectWork.Check(context, token);
+        }
     }
     internal void Add(Element element, int? before, CancellationToken token)
         => AddWithWork(element, before, (HtmlSelectWorkContext?) null, token);
@@ -160,73 +174,91 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
             if (!descendant) throw new DomException("NotFoundError", "The reference element is not a descendant of this select.");
         }
         if (ReferenceEquals(element, before)) return;
+        HtmlSelectWork.Check(context, token);
         (before?.ParentNode ?? select.Element).InsertBefore(element, before);
+        HtmlSelectWork.Check(context, token);
     }
 
     internal int GetCount(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetCountWithWork(context, token);
+        var result = GetCountWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal Element? Item(uint index, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return ItemWithWork(index, context, token);
+        var result = ItemWithWork(index, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal Element? NamedItem(string name, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return NamedItemWithWork(name, context, token);
+        var result = NamedItemWithWork(name, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal IReadOnlyList<Element> Snapshot(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return SnapshotWithWork(context, token);
+        var result = SnapshotWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal void SetLength(uint length, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         SetLengthWithWork(length, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal int GetSelectedIndex(Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
-        return GetSelectedIndexWithWork(context, token);
+        var result = GetSelectedIndexWithWork(context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
     }
     internal void SetSelectedIndex(int value, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         SetSelectedIndexWithWork(value, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal void SetIndexed(uint index, Element? option, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         SetIndexedWithWork(index, option, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal void Remove(int index, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         RemoveWithWork(index, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal void Add(Element element, int? before, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         AddWithWork(element, before, context, token);
+        HtmlSelectWork.Check(context, token);
     }
     internal void Add(Element element, Element? before, Action<int>? checkpoint, CancellationToken token)
     {
         var context = HtmlSelectWorkContext.Create(checkpoint, token);
         context?.Check();
         AddWithWork(element, before, context, token);
+        HtmlSelectWork.Check(context, token);
     }
 }

@@ -22,6 +22,20 @@ internal sealed class HtmlSelectWorkContext(Action<int> checkpoint, Cancellation
         if (_units != int.MaxValue) _units++;
         if ((_units & 255) == 0 || _units == int.MaxValue) Check();
     }
+    // A producer's work counter may restart between algorithms. Each report
+    // comes from real Step calls; map that completed work onto this invocation.
+    internal Action<int> CreateCheckpointAdapter()
+    {
+        var previous = 0;
+        return units =>
+        {
+            var delta = units > previous ? units - previous : units;
+            previous = units;
+            var before = _units;
+            if (delta > 0) _units = delta > int.MaxValue - _units ? int.MaxValue : _units + delta;
+            if (delta == 0 || _units == int.MaxValue || (_units >> 8) != (before >> 8)) Check();
+        };
+    }
     internal void Check()
     {
         token.ThrowIfCancellationRequested();
@@ -35,7 +49,12 @@ internal struct HtmlSelectWork(HtmlSelectWorkProbe? probe, HtmlSelectWorkContext
     internal HtmlSelectWork(HtmlSelectWorkProbe? probe, CancellationToken token) : this(probe, null, token) { }
     private int _units;
     internal void Step() { probe?.Visit(); context?.Step(); if ((++_units & 255) == 0) Check(); }
-    internal void Check() { token.ThrowIfCancellationRequested(); context?.Check(); }
+    internal void Check() => Check(context, token);
+    internal static void Check(HtmlSelectWorkContext? context, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        context?.Check();
+    }
     internal static bool StringEquals(string? left, string right, ref HtmlSelectWork work)
     {
         if (left is null || left.Length != right.Length) return false;
