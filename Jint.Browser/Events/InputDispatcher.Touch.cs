@@ -287,7 +287,7 @@ internal static partial class InputDispatcher
             Mouse(target, "mousemove", options, cancelable: true);
 
             if (Mouse(target, "mousedown", options with { Buttons = 1 }, cancelable: true)
-                && NearestFocusable(hit) is { } focusTarget)
+                && NearestFocusable(dom, hit) is { } focusTarget)
             {
                 // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — a tap focuses what
                 // it lands on unless the page cancelled the mousedown, which is the rule a press follows too.

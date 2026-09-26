@@ -1,4 +1,5 @@
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Syntax;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -122,11 +123,6 @@ internal static class FormSubmission
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-form-reset — fire the
     /// cancelable <c>reset</c> event and, if it survives, run the reset algorithm on every control.
     /// </summary>
-    /// <remarks>
-    /// The default action is AngleSharp's <c>Element.Reset()</c>, which is the reset algorithm and
-    /// nothing else: it restores every control's value and checkedness to its default and fires nothing, so it
-    /// is exactly the half this one is missing.
-    /// </remarks>
     internal static void Reset(DomRealm realm, Element? form)
     {
         using var mutation = realm.MutateLayout();
@@ -144,13 +140,7 @@ internal static class FormSubmission
 
         if (target.DispatchEvent(resetEvent))
         {
-            // The default action is AngleSharp's, and its inventory is `form.elements` — AngleSharp's own
-            // ownership rule, which `Dom/divergences.md` records as the one half of #3939 the binding cannot
-            // reach. The file-input half deliberately walks the same collection rather than
-            // `HtmlFormOwner.ControlsOf`, so that both halves of one reset agree about which controls it is
-            // about; splitting them would clear an explicitly associated file input and leave the text input
-            // beside it alone.
-            form.Reset();
+            BrowserFormReset.Reset(realm, form);
             Dom.Files.FileTransferRealm.Of(realm.Engine).ResetForm(form);
         }
     }
@@ -189,14 +179,8 @@ internal static class FormSubmission
         // AngleSharp's own ownership rule put in it, and then submit a different set.
         foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
         {
-            if (element is not AngleSharp.Html.Dom.IValidation validation)
-            {
-                continue;
-            }
-
-            // Native validity is a required producer dependency. An unavailable model must not be
-            // swallowed as successful validation; this legacy interface cannot match a native Element.
-            if (!validation.WillValidate || validation.Validity.IsValid)
+            if (!BrowserControlValidation.WillValidate(realm, element)
+                || BrowserControlValidation.Read(realm, element).IsValid)
             {
                 continue;
             }
@@ -236,8 +220,19 @@ internal static class FormSubmission
     internal static bool IsSubmitButton(Element element)
         => element.NamespaceUri == Namespaces.Html && element.LocalName switch
         {
-            "button" => EventDom.ButtonType(element) == "submit",
+            "button" => IsSubmitButtonType(element),
             "input" => EventDom.InputType(element) is "submit" or "image",
             _ => false,
         };
+
+    // HTML's missing/invalid button type is Auto, including its command and select-child exclusions.
+    private static bool IsSubmitButtonType(Element button)
+    {
+        var type = button.GetAttributeNodeNS(null, "type")?.Value ?? string.Empty;
+        if (CssAscii.EqualsIgnoreCase(type, "submit")) return true;
+        if (CssAscii.EqualsIgnoreCase(type, "reset") || CssAscii.EqualsIgnoreCase(type, "button")) return false;
+        return !button.HasContentAttribute("command") && !button.HasContentAttribute("commandfor")
+            && button.ParentNode is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" };
+    }
+
 }

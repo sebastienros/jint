@@ -57,7 +57,7 @@ internal static class TextEditing
         }
         return element.LocalName == "textarea" || element.LocalName == "input"
             && EventDom.InputType(element) is "text" or "search" or "url" or "tel" or "password" or "email" or "number"
-            && element.GetHtmlState()!.InputValue!.GetEditingSelection(dom.CancellationToken) is not null;
+            && element.GetHtmlState()!.GetInputValueState(dom.CancellationToken)!.GetEditingSelection(dom.CancellationToken) is not null;
     }
 
     /// <summary>Whether the control holds one line, which is what makes <kbd>Enter</kbd> submit rather than insert.</summary>
@@ -408,7 +408,7 @@ internal static class TextEditing
 
     private static string ValueOf(DomRealm dom, Element element) => element switch
     {
-        { NamespaceUri: Namespaces.Html, LocalName: "input" } => element.GetHtmlState()!.InputValue!.GetValue(dom.CancellationToken),
+        { NamespaceUri: Namespaces.Html, LocalName: "input" } => element.GetHtmlState()!.GetInputValueState(dom.CancellationToken)!.GetValue(dom.CancellationToken),
         { NamespaceUri: Namespaces.Html, LocalName: "textarea" } => element.GetHtmlState()!.TextArea!.GetValue(dom.CancellationToken),
         { NamespaceUri: Namespaces.Html, LocalName: "select" } => element.GetHtmlState()!.GetSelectState(dom.CancellationToken)!.GetValue(dom.CancellationToken),
         _ => "",
@@ -431,7 +431,7 @@ internal static class TextEditing
         {
             _dom = dom;
             Element = element;
-            _input = element.GetHtmlState()?.InputValue;
+            _input = element.GetHtmlState()?.GetInputValueState(dom.CancellationToken);
             _textArea = element.GetHtmlState()?.TextArea;
         }
 
@@ -470,8 +470,8 @@ internal static class TextEditing
             var previous = Selection;
             var selection = new HtmlTextSelection((uint) caret, (uint) caret, HtmlSelectionDirection.None);
             var applied = _input is not null
-                ? _input.ApplyUserValue(value, selection, _dom.CancellationToken)
-                : _textArea!.ApplyUserValue(value, selection, _dom.CancellationToken);
+                ? _input.ApplyUserValue(value, selection, _dom.NativeReadCheckpoint, _dom.CancellationToken)
+                : _textArea!.ApplyUserValue(value, selection, _dom.NativeReadCheckpoint, _dom.CancellationToken);
             if (applied && previous != Selection) SelectionChange.Schedule(_dom, Element);
             return applied;
         }

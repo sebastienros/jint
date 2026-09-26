@@ -185,7 +185,7 @@ internal static class ActivationBehaviors
 
         switch (EventDom.ButtonType(button))
         {
-            case "submit":
+            case "submit" when FormSubmission.IsSubmitButton(button):
                 FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(button), button);
                 break;
             case "reset":
