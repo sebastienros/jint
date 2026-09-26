@@ -2,12 +2,47 @@
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Syntax;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Tests.HtmlParser.Css.Syntax;
 
 [TestFixture]
 public sealed class CssSyntaxListTests
 {
+    [TestCase("--x:f([\"x\\", "\n\"])")]
+    [TestCase("--x:f(/* note   ", "*/)")]
+    [TestCase("--x:url(foo\\", "\ufffd)")]
+    [TestCase("--x:red!important/* note   ", "")]
+    public void EofTerminationMetadataPreservesRawSourceAndComponentProvenance(string source, string expected)
+    {
+        var declaration = new CssSyntaxParser(source, null, default).ParseDeclarationList()[0];
+        declaration.ValueTermination.Should().Be(expected);
+        declaration.ValueSourceSpan.Start.Should().Be(4);
+        source.Substring(declaration.ValueSourceSpan.Start, declaration.ValueSourceSpan.Length)
+            .Should().Be(source.StartsWith("--x:red!", StringComparison.Ordinal) ? "red" : source[4..]);
+        declaration.Value[0].Span.Start.Should().Be(4);
+        if (declaration.Value[0].Kind == CssComponentKind.Function)
+            declaration.Value[0].IsClosed.Should().BeFalse();
+    }
+
+    [Test]
+    public void EofTerminationExcludesTheContainingRuleBlockAndPollsDeepRightmostChains()
+    {
+        const string source = "{ --x:f([";
+        var parser = new CssSyntaxParser(source, null, default);
+        var block = parser.ParseComponentValue();
+        var declaration = parser.ParseBlockContents(block)[0].Declarations[0];
+        declaration.ValueTermination.Should().Be("])");
+        block.IsClosed.Should().BeFalse();
+        var deep = string.Concat(Enumerable.Repeat("f(", 10_000));
+        var deepParser = new CssSyntaxParser(deep, null, default);
+        var values = deepParser.ParseComponentValues();
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        var work = new CssValueWork(cancellation.Token, () => { if (++calls == 2) cancellation.Cancel(); });
+        Assert.Throws<OperationCanceledException>(() => deepParser.ValueTermination(values, new CssSourceSpan(0, deep.Length), work));
+    }
+
     [TestCase("--x: /* first */ red /* last */;", " /* first */ red /* last */", false)]
     [TestCase("--x: /* only */;", " /* only */", false)]
     [TestCase("--x: /* only */ ! /* gap */ IMPORTANT /* tail */;", " /* only */ ", true)]

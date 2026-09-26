@@ -43,6 +43,27 @@ public sealed class CssDeclarationBlockTests
         block.Stamp.Should().Be(stamp);
     }
 
+    [TestCase("all", "V0:all-reset")]
+    [TestCase("margin", "V2:margin")]
+    [TestCase("width", "V2:width")]
+    public void PendingRemovalMetadataAbortsBeforeMutationAndBeforeInvalidPriority(string name, string blocker)
+    {
+        var block = CssDeclarationBlock.Parse("opacity:.5;overflow:hidden");
+        var before = block.CssText;
+        var stamp = block.Stamp;
+        var entry = block.GetDeclaration(0);
+        var remove = Assert.Throws<CssIncompleteGrammarException>(() => block.RemoveProperty(name))!;
+        remove.PropertyName.Should().Be(name);
+        remove.Blocker.Should().Be(blocker);
+        var setter = Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty(name, "", "bad"))!;
+        setter.Blocker.Should().Be(blocker);
+        block.RemoveProperty("made-up").Should().BeEmpty();
+        block.SetProperty("made-up", "", "bad");
+        block.CssText.Should().Be(before);
+        block.Stamp.Should().Be(stamp);
+        block.GetDeclaration(0).Should().BeSameAs(entry);
+    }
+
     [Test]
     public void PriorityOrderingAndValueImportanceRemainDistinct()
     {
@@ -145,8 +166,8 @@ public sealed class CssDeclarationBlockTests
     [TestCase("\u00a0", "\u00a0")]
     [TestCase("", " ")]
     [TestCase(" \t ", " ")]
-    [TestCase("/* note   ", "/* note   ")]
-    [TestCase("f(a   ", "f(a   ")]
+    [TestCase("/* note   ", "/* note   */")]
+    [TestCase("f(a   ", "f(a   )")]
     public void CustomValuesPreserveLexicalMeaningAndEmptyPresence(string source, string expected)
     {
         var suffix = source.Contains("/* note", StringComparison.Ordinal) || source.StartsWith("f(", StringComparison.Ordinal) ? "" : ";";
@@ -175,6 +196,59 @@ public sealed class CssDeclarationBlockTests
         Names(reparsed).Should().Equal(Names(block));
         reparsed.GetPropertyValue("--a b").Should().Be("green");
         reparsed.GetPropertyValue("--empty").Should().Be(" ");
+    }
+
+    [TestCase("f(a   ", "f(a   )")]
+    [TestCase("/* note   ", "/* note   */")]
+    [TestCase("\"hello", "\"hello\"")]
+    [TestCase("\"hello\\", "\"hello\\\n\"")]
+    [TestCase("foo\\", "foo\\\ufffd")]
+    [TestCase("#foo\\", "#foo\\\ufffd")]
+    [TestCase("1foo\\", "1foo\\\ufffd")]
+    [TestCase("url(foo", "url(foo)")]
+    [TestCase("url(foo   ", "url(foo   )")]
+    [TestCase("url(foo\\", "url(foo\\\ufffd)")]
+    [TestCase("f([\"x\\", "f([\"x\\\n\"])")]
+    public void EofRecoveryTerminatesCustomValuesBeforeEmbeddingOtherDeclarations(string source, string expected)
+    {
+        var block = CssDeclarationBlock.Parse("--x:" + source);
+        block.GetPropertyValue("--x").Should().Be(expected);
+        block.GetDeclaration(0).Value.References.Input.Source.Should().Be(source);
+        block.SetProperty("opacity", ".5");
+        var reparsed = CssDeclarationBlock.Parse(block.CssText);
+        reparsed.Count.Should().Be(2);
+        reparsed.GetPropertyValue("opacity").Should().Be("0.5");
+        reparsed.GetPropertyValue("--x").Should().Be(expected);
+        var assigned = CssDeclarationBlock.Parse("");
+        assigned.SetProperty("--x", source);
+        assigned.SetProperty("opacity", ".5");
+        CssDeclarationBlock.Parse(assigned.CssText).Count.Should().Be(2);
+    }
+
+    [TestCase("opacity", "var(--x", "var(--x)")]
+    [TestCase("overflow", "var(--x", "var(--x)")]
+    [TestCase("opacity", "var(--x)/* note   ", "var(--x)/* note   */")]
+    public void EofRecoveryAlsoTerminatesDeferredOrdinaryAndShorthandValues(string name, string source, string expected)
+    {
+        var block = CssDeclarationBlock.Parse(name + ":" + source);
+        block.GetPropertyValue(name).Should().Be(expected);
+        block.SetProperty("display", "block");
+        var reparsed = CssDeclarationBlock.Parse(block.CssText);
+        reparsed.GetPropertyValue(name).Should().Be(expected);
+        reparsed.GetPropertyValue("display").Should().Be("block");
+        var assigned = CssDeclarationBlock.Parse("");
+        assigned.SetProperty(name, source);
+        assigned.SetProperty("display", "block");
+        CssDeclarationBlock.Parse(assigned.CssText).GetPropertyValue("display").Should().Be("block");
+    }
+
+    [Test]
+    public void EofCommentAfterRemovedPriorityDoesNotReturnInTheValue()
+    {
+        var block = CssDeclarationBlock.Parse("--x:red!important/* note   ");
+        block.GetPropertyValue("--x").Should().Be("red");
+        block.CssText.Should().Be("--x: red !important;");
+        block.GetDeclaration(0).Termination.Should().BeEmpty();
     }
 
     [Test]
@@ -244,6 +318,26 @@ public sealed class CssDeclarationBlockTests
         var normalizationWork = new CssValueWork(normalizeCancellation.Token,
             () => { if (++normalizeCalls == 2) normalizeCancellation.Cancel(); });
         Assert.Throws<OperationCanceledException>(() => CssPropertyRegistry.NormalizeName(new string('A', 20_000), normalizationWork));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LongCommonPrefixLookupPollsDuringOrdinalComparison(bool priority)
+    {
+        var prefix = "--" + new string('a', 20_000);
+        var source = string.Join(';', Enumerable.Range(0, 100).Select(i => prefix + i.ToString("D3") + ":red"));
+        var block = CssDeclarationBlock.Parse(source);
+        var stamp = block.Stamp;
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        var work = new CssValueWork(cancellation.Token, () => { if (++calls == 3) cancellation.Cancel(); });
+        Assert.Throws<OperationCanceledException>(() =>
+        {
+            if (priority) block.GetPropertyPriority(prefix + "999", work);
+            else block.GetPropertyValue(prefix + "999", work);
+        });
+        block.Count.Should().Be(100);
+        block.Stamp.Should().Be(stamp);
     }
 
     [TestCase("all:initial", "V0:all-reset")]
