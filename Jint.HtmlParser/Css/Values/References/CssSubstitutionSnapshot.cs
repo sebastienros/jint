@@ -10,15 +10,20 @@ internal readonly struct CssSubstitutionBinding
     private readonly bool _animationTainted;
 
     private CssSubstitutionBinding(CssSubstitutionBindingKind kind, string name,
-        CssReferenceInput? input, CssSubstitutedValue? value, bool animationTainted, string? feature)
+        CssReferenceInput? input, CssSubstitutedValue? value, bool animationTainted, string? feature, CssSubstitutionSnapshot? scope = null)
     {
         Kind = kind;
         Name = name;
         _input = input;
         _value = value;
         _animationTainted = animationTainted;
+        Scope = scope;
         _feature = feature;
     }
+
+    internal CssSubstitutionSnapshot? Scope { get; }
+    internal CssSubstitutionBinding WithScope(CssSubstitutionSnapshot scope) =>
+        new(Kind, Name, _input, _value, _animationTainted, _feature, scope);
 
     internal CssSubstitutionBindingKind Kind { get; }
     internal string Name { get; }
@@ -55,16 +60,23 @@ internal readonly struct CssSubstitutionBinding
 internal sealed class CssSubstitutionSnapshot
 {
     private readonly CssSubstitutionBinding[] _bindings;
+    private readonly CssSubstitutionSnapshot? _parent;
     private readonly Dictionary<uint, List<int>> _buckets;
 
-    private CssSubstitutionSnapshot(CssSubstitutionBinding[] bindings, Dictionary<uint, List<int>> buckets)
+    private CssSubstitutionSnapshot(CssSubstitutionBinding[] bindings, Dictionary<uint, List<int>> buckets,
+        CssSubstitutionSnapshot? parent)
     {
         _bindings = bindings;
         _buckets = buckets;
+        _parent = parent;
     }
 
     internal static CssSubstitutionSnapshot Create(ReadOnlySpan<CssSubstitutionBinding> bindings,
-        CssValueWork work)
+        CssValueWork work) => CreateLayer(bindings, null, work);
+
+    // Immutable ancestry preserves the scope where an inherited variable was specified.
+    internal static CssSubstitutionSnapshot CreateLayer(ReadOnlySpan<CssSubstitutionBinding> bindings,
+        CssSubstitutionSnapshot? parent, CssValueWork work)
     {
         ArgumentNullException.ThrowIfNull(work);
         work.CheckCancellation();
@@ -96,7 +108,7 @@ internal sealed class CssSubstitutionSnapshot
             bucket.Add(i);
         }
         work.CheckCancellation();
-        return new CssSubstitutionSnapshot(copy, buckets);
+        return new CssSubstitutionSnapshot(copy, buckets, parent);
     }
 
     internal bool TryGet(string name, CssValueWork work, out CssSubstitutionBinding binding)
@@ -106,15 +118,17 @@ internal sealed class CssSubstitutionSnapshot
         CssSubstitutionArguments.RequireCustomName(name);
         work.CheckCancellation();
         var hash = CssSubstitutionArguments.Hash(name, work);
-        if (_buckets.TryGetValue(hash, out var bucket))
+        for (CssSubstitutionSnapshot? scope = this; scope is not null; scope = scope._parent)
         {
+            work.Charge(1);
+            if (!scope._buckets.TryGetValue(hash, out var bucket)) continue;
             foreach (var index in bucket)
             {
                 work.Charge(1);
-                var candidate = _bindings[index];
+                var candidate = scope._bindings[index];
                 if (!CssSubstitutionArguments.Equals(name, candidate.Name, work)) continue;
                 work.CheckCancellation();
-                binding = candidate;
+                binding = candidate.WithScope(scope);
                 return true;
             }
         }

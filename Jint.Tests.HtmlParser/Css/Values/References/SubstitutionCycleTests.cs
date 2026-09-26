@@ -50,4 +50,53 @@ public sealed class SubstitutionCycleTests
         var empty = CssSubstitutionBinding.Computed("--empty", SubstitutionFixture.Resolve("").Value, false);
         SubstitutionFixture.Resolve("var(--empty,red)", empty).Value.TokenCount.Should().Be(0);
     }
+
+    [Test]
+    public void InheritedSpecifiedAliasesResolveInTheirDefiningScope()
+    {
+        var work = new CssValueWork(default);
+        var parent = CssSubstitutionSnapshot.Create([
+            SubstitutionFixture.Specified("--base", "blue"),
+            SubstitutionFixture.Specified("--alias", "var(--base)")], work);
+        var child = CssSubstitutionSnapshot.CreateLayer([
+            SubstitutionFixture.Specified("--base", "red")], parent, work);
+        SubstitutionFixture.Identifier(Resolve("var(--alias)", child, work)).Should().Be("blue");
+        SubstitutionFixture.Identifier(Resolve("var(--base)", child, work)).Should().Be("red");
+    }
+
+    [Test]
+    public void SameNameAcrossScopesIsNeitherACycleNorASharedMemoEntry()
+    {
+        var work = new CssValueWork(default);
+        var parent = CssSubstitutionSnapshot.Create([
+            SubstitutionFixture.Specified("--a", "blue"),
+            SubstitutionFixture.Specified("--b", "var(--a)")], work);
+        var child = CssSubstitutionSnapshot.CreateLayer([
+            SubstitutionFixture.Specified("--a", "var(--b)")], parent, work);
+        SubstitutionFixture.Identifier(Resolve("var(--a)", child, work)).Should().Be("blue");
+
+        child = CssSubstitutionSnapshot.CreateLayer([
+            SubstitutionFixture.Specified("--a", "red")], parent, work);
+        var result = Resolve("var(--a) var(--b)", child, work);
+        result.Kind.Should().Be(CssSubstitutionResultKind.Tokens);
+        result.Value.Components[0].Token.Text.Should().Be("red");
+        result.Value.Components[2].Token.Text.Should().Be("blue");
+    }
+
+    [Test]
+    public void ParentCyclesStayInvalidAfterAChildOverridesOneParticipant()
+    {
+        var work = new CssValueWork(default);
+        var parent = CssSubstitutionSnapshot.Create([
+            SubstitutionFixture.Specified("--a", "var(--b)"),
+            SubstitutionFixture.Specified("--b", "var(--a)")], work);
+        var child = CssSubstitutionSnapshot.CreateLayer([
+            SubstitutionFixture.Specified("--a", "red")], parent, work);
+        SubstitutionFixture.Identifier(Resolve("var(--b,green)", child, work)).Should().Be("green");
+    }
+
+    private static CssSubstitutionResult Resolve(string source, CssSubstitutionSnapshot snapshot,
+        CssValueWork work) => CssSubstitutionExecutor.Resolve(SubstitutionFixture.Input(source), snapshot,
+            CssEnvironmentSnapshot.Create([], work),
+            new CssSubstitutionContext("width", CssReferenceUse.PropertyValue, true), work);
 }
