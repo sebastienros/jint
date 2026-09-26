@@ -142,7 +142,7 @@ internal sealed class FileTransferRealm
     private readonly Queue<InputFileState> _pendingChanges = new();
     private readonly HashSet<InputFileState> _queuedChanges = new();
     private readonly List<WeakReference<InputFileState>> _fileStates = [];
-    private int _fileAttachments;
+    private int _attachmentsUntilSweep = 64;
 
     internal JsFileList? InputFiles(Element input, bool create)
     {
@@ -258,6 +258,7 @@ internal sealed class FileTransferRealm
         if (_inputFiles.TryGetValue(input, out var current))
         {
             _queuedChanges.Remove(current);
+            current.Detached = true;
             current.Subscription.Dispose();
             current.Files.Changed -= current.Changed;
             _inputFiles.Remove(input);
@@ -310,17 +311,20 @@ internal sealed class FileTransferRealm
 
     private void PruneFileStates()
     {
-        if ((++_fileAttachments & 63) != 0) return;
-        for (var i = _fileStates.Count - 1; i >= 0; i--)
+        if (--_attachmentsUntilSweep > 0) return;
+        var survivors = 0;
+        for (var i = 0; i < _fileStates.Count; i++)
         {
             if ((i & 255) == 0) _engine.Constraints.Check();
-            if (!_fileStates[i].TryGetTarget(out var state)) { _fileStates.RemoveAt(i); continue; }
-            if (state.Input.TryGetTarget(out _)) continue;
+            var weak = _fileStates[i];
+            if (!weak.TryGetTarget(out var state) || state.Detached) continue;
+            if (state.Input.TryGetTarget(out _)) { _fileStates[survivors++] = weak; continue; }
             state.Files.Changed -= state.Changed;
             state.Subscription.Dispose();
             _queuedChanges.Remove(state);
-            _fileStates.RemoveAt(i);
         }
+        _fileStates.RemoveRange(survivors, _fileStates.Count - survivors);
+        _attachmentsUntilSweep = Math.Max(64, survivors);
     }
 
     private sealed class SelectedFileInvalidation(WeakReference<Element> input, JsFileList files, MutationSubscription subscription)
@@ -338,5 +342,8 @@ internal sealed class FileTransferRealm
     }
 
     private sealed record InputFileState(WeakReference<Element> Input, JsFileList Files,
-        MutationSubscription Subscription, bool External, Action Changed);
+        MutationSubscription Subscription, bool External, Action Changed)
+    {
+        internal bool Detached { get; set; }
+    }
 }
