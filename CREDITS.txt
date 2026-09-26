@@ -43,8 +43,8 @@ License:      CC BY 4.0, and BSD 3-Clause for the portions incorporated into sou
 Unicode CLDR
 -----
 Jint's Intl implementation embeds data derived from the Unicode Common Locale Data Repository (CLDR):
-likely subtags, week data, locale tag mappings, calendar preferences, metazones, and the compact, list,
-relative-time and unit patterns under Jint/Native/Intl/Data/.
+likely subtags, week data, locale tag mappings, calendar preferences, metazones, date/time patterns and
+names, and the compact, list, relative-time and unit patterns under Jint/Native/Intl/Data/.
 
 Website:      https://cldr.unicode.org/
 Copyright:    Copyright © 1991-2026 Unicode, Inc.
