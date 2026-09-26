@@ -17,7 +17,8 @@ public sealed partial class ProcessingInstruction
     // DOM §4.13: https://dom.spec.whatwg.org/#interface-processinginstruction.
     // Lazy parsing is unobservable, and lets the HTML parser charge/resume the
     // same native algorithm when inspecting a host-created marker.
-    private Dictionary<string, string>? _attributeMap;
+    private AttributeMap? _attributeMap;
+    private bool _attributeMapKnownEmpty;
     private List<string>? _attributeNames;
     private AttributeParser? _attributeParser;
     internal bool HasAttributeState => _attributeMap is not null || _attributeParser is not null;
@@ -43,7 +44,7 @@ public sealed partial class ProcessingInstruction
         ArgumentNullException.ThrowIfNull(name);
         EnsureAttributes(work);
         ChargeString(name, work);
-        return _attributeMap!.GetValueOrDefault(name);
+        return _attributeMap!.GetValueOrDefault(name, work);
     }
 
     /// <summary>Returns whether a case-sensitive pseudo-attribute exists.</summary>
@@ -53,7 +54,7 @@ public sealed partial class ProcessingInstruction
         ArgumentNullException.ThrowIfNull(name);
         EnsureAttributes(work);
         ChargeString(name, work);
-        return _attributeMap!.ContainsKey(name);
+        return _attributeMap!.ContainsKey(name, work);
     }
 
     /// <summary>Sets a pseudo-attribute and replaces data with the serialized attribute map.</summary>
@@ -64,8 +65,8 @@ public sealed partial class ProcessingInstruction
         ArgumentNullException.ThrowIfNull(value);
         EnsureAttributes(work);
         var map = CopyMap(work, out var names);
-        if (!map.ContainsKey(name)) names.Add(name);
-        map[name] = value;
+        if (!map.ContainsKey(name, work)) names.Add(name);
+        map.Set(name, value, work);
         UpdateDataFromAttributes(map, names, work);
     }
 
@@ -77,7 +78,17 @@ public sealed partial class ProcessingInstruction
         EnsureAttributes(work);
         ChargeString(name, work);
         var map = CopyMap(work, out var names);
-        if (map.Remove(name)) names.Remove(name);
+        if (map.Remove(name, work))
+        {
+            for (var i = 0; i < names.Count; i++)
+            {
+                work.Charge(1);
+                if (!AttributeMap.NamesEqual(names[i], name, work)) continue;
+                work.Charge(names.Count - i);
+                names.RemoveAt(i);
+                break;
+            }
+        }
         UpdateDataFromAttributes(map, names, work);
     }
 
@@ -87,7 +98,7 @@ public sealed partial class ProcessingInstruction
     {
         ValidateAttributeName(name, work);
         EnsureAttributes(work);
-        var present = _attributeMap!.ContainsKey(name);
+        var present = _attributeMap!.ContainsKey(name, work);
         if (!present && force != false) { SetAttribute(name, string.Empty, work); return true; }
         if (present && force != true) { RemoveAttribute(name, work); return false; }
         return present;
@@ -111,16 +122,16 @@ public sealed partial class ProcessingInstruction
         work.Charge(0);
     }
 
-    private Dictionary<string, string> CopyMap(ProcessingInstructionAttributeWork work, out List<string> names)
+    private AttributeMap CopyMap(ProcessingInstructionAttributeWork work, out List<string> names)
     {
-        foreach (var name in _attributeNames!) ChargeString(name, work);
-        var map = new Dictionary<string, string>(_attributeMap!, StringComparer.Ordinal);
+        var map = _attributeMap!.Copy(work);
+        work.Charge(_attributeNames!.Count);
         names = new List<string>(_attributeNames);
         work.Charge(0);
         return map;
     }
 
-    private void UpdateDataFromAttributes(Dictionary<string, string> map, List<string> names, ProcessingInstructionAttributeWork work)
+    private void UpdateDataFromAttributes(AttributeMap map, List<string> names, ProcessingInstructionAttributeWork work)
     {
         var data = new StringBuilder();
         foreach (var name in names)
@@ -128,7 +139,7 @@ public sealed partial class ProcessingInstruction
             ChargeString(name, work);
             if (data.Length != 0) data.Append(' ');
             data.Append(name).Append("=\"");
-            foreach (var c in map[name])
+            foreach (var c in map.GetValueOrDefault(name, work)!)
             {
                 work.Charge(1);
                 switch (c)
@@ -152,6 +163,7 @@ public sealed partial class ProcessingInstruction
     private void InvalidateAttributes()
     {
         _attributeMap = null;
+        _attributeMapKnownEmpty = false;
         _attributeNames = null;
         _attributeParser = null;
     }
@@ -174,12 +186,115 @@ public sealed partial class ProcessingInstruction
         cancellationToken.ThrowIfCancellationRequested();
         workUsed = 0;
         if (_attributeMap is not null) return true;
+        if (_attributeMapKnownEmpty)
+        {
+            _attributeMap = new AttributeMap();
+            _attributeNames = [];
+            return true;
+        }
         _attributeParser ??= new AttributeParser(_data);
         if (!_attributeParser.Advance(workQuota, cancellationToken, out workUsed)) return false;
         _attributeMap = _attributeParser.Map;
         _attributeNames = _attributeParser.Names;
         _attributeParser = null;
         return true;
+    }
+
+    // A precomputed key hash avoids Dictionary's implicit unbounded string
+    // hash. Collision/duplicate equality is polled and charged, including an
+    // equal long name. The dictionary update itself is an atomic native batch.
+    private sealed class AttributeMap
+    {
+        internal const uint HashStart = 2166136261;
+        internal static uint HashCharacter(uint hash, char c) => unchecked((hash ^ c) * 16777619);
+        private readonly record struct NameKey(string Name, uint Hash);
+        private sealed class NameComparer : IEqualityComparer<NameKey>
+        {
+            internal ProcessingInstructionAttributeWork Work;
+            public int GetHashCode(NameKey key) => unchecked((int) key.Hash);
+            public bool Equals(NameKey left, NameKey right) => NamesEqual(left.Name, right.Name, Work);
+        }
+
+        private readonly NameComparer _comparer = new();
+        private readonly Dictionary<NameKey, string> _values;
+        internal AttributeMap() => _values = new Dictionary<NameKey, string>(_comparer);
+        internal int Count => _values.Count;
+        internal AttributeMap Copy(ProcessingInstructionAttributeWork work)
+        {
+            var copy = new AttributeMap();
+            copy._comparer.Work = work;
+            try
+            {
+                foreach (var pair in _values) { work.Charge(1); copy._values.Add(pair.Key, pair.Value); }
+            }
+            finally { copy._comparer.Work = default; }
+            return copy;
+        }
+
+        private static NameKey Key(string name, ProcessingInstructionAttributeWork work)
+        {
+            var hash = HashStart;
+            for (var i = 0; i < name.Length; i++)
+            {
+                hash = HashCharacter(hash, name[i]);
+                if ((i & 255) == 255) work.Charge(256);
+            }
+            work.Charge(name.Length & 255);
+            return new NameKey(name, hash);
+        }
+
+        internal static bool NamesEqual(string left, string right, ProcessingInstructionAttributeWork work)
+        {
+            if (left.Length != right.Length) { work.Charge(1); return false; }
+            var pending = 0;
+            for (var i = 0; i < left.Length; i++)
+            {
+                pending++;
+                if (left[i] != right[i]) { work.Charge(pending); return false; }
+                if (pending == 256) { work.Charge(pending); pending = 0; }
+            }
+            work.Charge(pending);
+            return true;
+        }
+
+        internal bool TryAdd(string name, uint hash, string value, ProcessingInstructionAttributeWork work)
+        {
+            _comparer.Work = work;
+            try { return _values.TryAdd(new NameKey(name, hash), value); }
+            finally { _comparer.Work = default; }
+        }
+
+        internal bool ContainsKey(string name, ProcessingInstructionAttributeWork work)
+        {
+            var key = Key(name, work);
+            _comparer.Work = work;
+            try { return _values.ContainsKey(key); }
+            finally { _comparer.Work = default; }
+        }
+
+        internal string? GetValueOrDefault(string name, ProcessingInstructionAttributeWork work)
+        {
+            var key = Key(name, work);
+            _comparer.Work = work;
+            try { return _values.GetValueOrDefault(key); }
+            finally { _comparer.Work = default; }
+        }
+
+        internal void Set(string name, string value, ProcessingInstructionAttributeWork work)
+        {
+            var key = Key(name, work);
+            _comparer.Work = work;
+            try { _values[key] = value; }
+            finally { _comparer.Work = default; }
+        }
+
+        internal bool Remove(string name, ProcessingInstructionAttributeWork work)
+        {
+            var key = Key(name, work);
+            _comparer.Work = work;
+            try { return _values.Remove(key); }
+            finally { _comparer.Work = default; }
+        }
     }
 
     // https://www.w3.org/TR/xml-stylesheet/#NT-PseudoAtts. Each transition
@@ -191,18 +306,22 @@ public sealed partial class ProcessingInstruction
         private int _offset;
         private int _nameStart;
         private string _name = string.Empty;
+        private uint _nameHash;
+        private int _comparisonWork;
+        private CancellationToken _cancellationToken;
         private char _quote;
         private readonly StringBuilder _value = new();
         private readonly StringBuilder _entity = new();
         private int _referenceKind;
         private int _scalar;
         private bool _hasDigit;
-        internal Dictionary<string, string> Map { get; private set; } = new(StringComparer.Ordinal);
+        internal AttributeMap Map { get; private set; } = new();
         internal List<string> Names { get; private set; } = [];
 
         internal bool Advance(int quota, CancellationToken cancellationToken, out int used)
         {
             used = 0;
+            _cancellationToken = cancellationToken;
             while (_state != State.Done && used < quota)
             {
                 if ((used & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
@@ -213,8 +332,9 @@ public sealed partial class ProcessingInstruction
                     break;
                 }
                 var before = _offset;
+                _comparisonWork = 0;
                 Step();
-                used += Math.Max(1, _offset - before);
+                used += Math.Max(1, _offset - before) + _comparisonWork;
             }
             cancellationToken.ThrowIfCancellationRequested();
             return _state == State.Done;
@@ -229,13 +349,19 @@ public sealed partial class ProcessingInstruction
                     if (IsSpace(c)) { _offset++; break; }
                     _nameStart = _offset;
                     if (!TryReadScalar(source, ref _offset, out var first) || !IsNameStart(first)) { Fail(); break; }
+                    _nameHash = AttributeMap.HashStart;
+                    for (var i = _nameStart; i < _offset; i++) _nameHash = AttributeMap.HashCharacter(_nameHash, source[i]);
                     _state = State.Name;
                     break;
                 case State.Name:
                     var end = _offset;
                     if (TryReadScalar(source, ref end, out var scalar) && (IsNameStart(scalar) ||
                         scalar is '-' or '.' or >= '0' and <= '9' or 0xB7 or >= 0x300 and <= 0x36F or >= 0x203F and <= 0x2040))
-                    { _offset = end; break; }
+                    {
+                        for (var i = _offset; i < end; i++) _nameHash = AttributeMap.HashCharacter(_nameHash, source[i]);
+                        _offset = end;
+                        break;
+                    }
                     _name = source[_nameStart.._offset];
                     _state = State.Equals;
                     break;
@@ -253,7 +379,8 @@ public sealed partial class ProcessingInstruction
                     _offset++;
                     if (c == _quote)
                     {
-                        if (!Map.TryAdd(_name, _value.ToString())) { Fail(); break; }
+                        if (!Map.TryAdd(_name, _nameHash, _value.ToString(),
+                            new ProcessingInstructionAttributeWork(units => _comparisonWork += units, _cancellationToken))) { Fail(); break; }
                         Names.Add(_name); _state = State.Separator;
                     }
                     else if (c == '<') Fail();
@@ -311,7 +438,7 @@ public sealed partial class ProcessingInstruction
             _state = State.Value;
         }
 
-        private void Fail() { Map = new(StringComparer.Ordinal); Names = []; _state = State.Done; }
+        private void Fail() { Map = new(); Names = []; _state = State.Done; }
         private static bool IsSpace(char c) => c is ' ' or '\t' or '\n' or '\r';
     }
 }

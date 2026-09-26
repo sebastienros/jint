@@ -35,6 +35,17 @@ identity owns the ordered map; equal-value data replacement invalidates it, whil
 serialization preserves it. HTML inspection advances the same native parser in charged slices.
 Invalid syntax publishes an empty map, including invalid references or duplicate names.
 
+PI clone/import copies target and data only under the current DOM clone algorithm; its map begins
+empty, rather than being reconstructed from the copied data on first access. A small known-empty
+flag preserves lazy allocation. Subsequent data replacement, including an equal write, invokes the
+normal update-from-data semantics. This intentionally corrects the former Browser helper, which
+reparsed a clone on first attribute access; no WPT pass is claimed for that correction.
+
+PI name hashing is incremental during the native scan. Dictionary keys store that hash; collision
+and duplicate equality poll cancellation and charge every compared character. The dictionary
+operation is an atomic native batch and may exceed a requested quantum. Final string copies use
+before/after cancellation boundaries; they are not presented as preemptible CLR operations.
+
 Template identity owns insertion target/start/end marker slots. Fresh construction and cloning
 leave them null; adoption preserves their references. H6f follows current
 [template parsing](https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead),
@@ -48,3 +59,21 @@ Acceptance includes fresh Release tests on both shipped frameworks, reviewed pub
 and clean external PackageReference consumers built from the actual nupkg. Consumers prove
 defaults/recovery/context ownership/foreign fragments/inertness, bounded diagnostics, exact and
 over limits, and cancellation without internal access or a project reference.
+
+## Atomic native mutation boundary amendment
+
+Astra explicitly approved this amendment on 2026-09-25 after auditing existing native removal
+hooks. Parser-owned searches, snapshots, input scans and stack walks remain charged, resumable
+and cancellable. An existing coherent native DOM mutation is an atomic commit boundary: it can
+exceed the cooperative Drive quantum, with cancellation observed before and after the commit.
+The parser does not poll or yield halfway through range/iterator/slot/form/observer repair, promise
+a latency ceiling, or invent a per-descendant cost for opaque native work. Parser WorkCount
+counts the commit boundary only; it excludes that opaque internal mutation cost. Input and
+creation limits do not make atomic native mutations preemptible.
+
+Any exception escaping that boundary terminates the session and preserves the original exception
+identity. A post-commit cancellation or throwing native notification leaves a coherent DOM and
+a faulted parser that cannot resume or replay the committed operation. Cancellation before the
+commit changes nothing for that operation; previously committed operations are not rolled back.
+Browser must check its engine constraints before and after Drive. No general parser transaction
+framework or rollback layer is introduced.
