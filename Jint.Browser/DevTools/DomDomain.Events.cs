@@ -413,7 +413,7 @@ internal sealed partial class DomDomain
     /// <summary>Selectors use the same bounded native matcher as script queries.</summary>
     private IReadOnlyList<Element> Query(object node, string selector)
     {
-        if (node is not (Element or Document or DocumentFragment) || selector.Length == 0) return [];
+        if (node is not (Element or Jint.HtmlParser.Document or DocumentFragment) || selector.Length == 0) return [];
         try
         {
             return DomSelectors.QuerySelectorAll(Runtime(node).Dom, (NativeNode) node, selector);

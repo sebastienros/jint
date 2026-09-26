@@ -177,7 +177,8 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     protected override ValueTask<QuerySelectorResponse> QuerySelectorAsync(QuerySelectorRequest parameters, CommandContext context)
     {
         var node = RequireNodeId(parameters.NodeId);
-        var match = Query(node, parameters.Selector).FirstOrDefault();
+        var matches = Query(node, parameters.Selector);
+        var match = matches.Count == 0 ? null : matches[0];
 
         return new ValueTask<QuerySelectorResponse>(new QuerySelectorResponse { NodeId = match is null ? 0 : Push(match) });
     }
