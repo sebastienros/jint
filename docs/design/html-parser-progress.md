@@ -13,14 +13,19 @@ The user's demand-driven architecture direction is recorded in
 input value sidecars and derived select models are becoming lazy. Numeric helpers are demand-only,
 and cascade/computed-style work belongs in Browser. Required historical state is preserved.
 
-Latest common gate at `c4c71a95c`: **3,374/3,374** Release net10 non-corpus tests pass, zero failures/skips.
-Routine checks now target net10 only per user request; all supported TFMs remain a final gate.
-Lazy select views, numeric/temporal state, number editing, the public HTML facade, bounded shadow
-attachment and parser option completion are integrated. Paired HTML benchmark correctness checks
-pass for four complete trees and 256 cold/first/warm control workloads; no timing measurements yet.
-See `/private/tmp/jint-resumed-number-editor-net10.log` and
-`/private/tmp/jint-resumed-html-comparison-common.log`. The HTML/benchmark owner is archived after
-review, integration and common validation; its clean checkout is retained without a managed identity.
+Latest common gate at `053372065`: **3,452/3,452** Release net10 non-corpus tests pass, zero failures/skips
+(`/private/tmp/jint-resumed-checked-callbacks-net10.log`). All reviewed input, textarea, select and
+checkedness callback producers are integrated, along with native form-owner history/FACE categories
+and qualified-name mutation snapshots. The common gate caught and fixed allocation before a textarea
+cancellation checkpoint without relaxing its assertion. Select and input producer chats are archived;
+clean checkouts remain because no managed archive identities were returned. Current totals are
+71 archived completed chats and 27 retained completed checkouts.
+
+Routine checks target net10 only per user request; all supported TFMs remain a final gate. The native
+Browser integration build at `4313ab7a4` still fails with 259 errors and zero warnings, mostly pending
+coherent generated bindings, CSS and Events/DevTools consumers. Source-reviewed runtime/capability
+changes do not imply runtime acceptance. Evidence: `/private/tmp/native-browser-coherent-net10-build.log`.
+Paired HTML benchmark correctness passes for four trees and 256 control workloads; no timings yet.
 
 Earlier common gate at `0f7291a92`: **6,446/6,446** Release non-corpus tests pass across net8/net10,
 zero failures/skips (`/private/tmp/jint-resumed-lazy-checked-common.log`). Reviewed non-radio

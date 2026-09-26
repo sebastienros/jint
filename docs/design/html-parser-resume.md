@@ -18,17 +18,24 @@ editing use that same demand-created state (`e9c95b864`, `fbc35417c`, `1ef6fb2c7
 CSS cascade belongs to an on-demand Browser module. Ordinary parsing must not invoke
 numeric/temporal conversions or style computation.
 
-**Latest common gate: `c4c71a95c`, 3,374/3,374 net10.0 Release non-corpus tests**, zero failures/skips
-(`/private/tmp/jint-resumed-number-editor-net10.log`). This includes the public inert HTML facade
-(`984bb06e5`), bounded shadow attachment (`a8bec9104`), and option completion/EOF closure
-(`0d0d4cc3d`). Paired HTML benchmarks (`ce7010d0b`) pass correctness-only validation for four complete
-trees, count-preserving corruption probes, and 256 cold/first/warm control reads
+**Latest common gate: `053372065`, 3,452/3,452 net10.0 Release non-corpus tests**, zero failures/skips
+(`/private/tmp/jint-resumed-checked-callbacks-net10.log`). Input, textarea, select and checkedness
+invocation checkpoints are reviewed and integrated, including preallocation cancellation and repeated
+counter fixes. Native form-owner revisions/FACE category/parser exclusions and qualified-name mutation
+snapshots are integrated. Earlier combined gate passed 3,432/3,432 at `ac011d61e`
+(`/private/tmp/jint-resumed-native-callbacks-net10.log`). The original textarea allocation regression
+was corrected in production; its allocation assertion was preserved.
+
+Paired HTML benchmarks (`ce7010d0b`) pass correctness-only validation for four complete trees,
+count-preserving corruption probes, and 256 cold/first/warm control reads
 (`/private/tmp/jint-resumed-html-comparison-common.log`). No timings or speedup claim yet.
 
 Build contention prompted temporary serialization: implementation and source reviews continue, while
 the coordinator grants one Release net10 build/test slot at a time. Final cross-framework validation
-remains required. Native Browser still does not compile; its reviewed binding groups are being merged
-into the isolated runtime worktree. CSS and script-scheduling review corrections remain outstanding.
+remains required. Native Browser still does not compile: isolated runtime `4313ab7a4` reports
+259 errors and zero warnings (`/private/tmp/native-browser-coherent-net10-build.log`). Most await the
+coherent generated binding, CSS and Events/DevTools packets. Runtime script scheduling, FACE lifecycle,
+and scoped media/canvas/dialog behavior are source-reviewed; compilation and runtime acceptance remain.
 
 The shared DOM/PI changes preserve the XML corpus's exact prior failure-name multiset:
 4,022 total, 3,766 passing, 256 known failures, zero skips, both TFMs
@@ -70,8 +77,8 @@ Current owners:
 | Browser contract/generator/native binding consumers | `01a0dbf5-ad50-79d2-9253-109314f39e60` | `b78d` |
 | Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
 | Browser demand-driven CSS cascade and style consumers | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
-| Native select/option state and shared native mutation hooks | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
-| Lazy input state and numeric/temporal value integration | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
+| Native select/option state (complete, chat archived) | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
+| Lazy input/value/checkedness producers (complete, chat archived) | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
 | Pure numeric/temporal helpers (complete, chat archived) | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
 | CSS layout/color grammars (complete, chat archived) | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
 | HTML facade/option completion/paired benchmarks (complete, chat archived) | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
@@ -83,7 +90,7 @@ helpers own new InputValues files only, and fragments own tokenizer/treebuilder/
 CSS model work must preserve named unfinished-grammar blockers, rather than accepting invalid or
 unimplemented declarations silently. Reviewed completed slices continue to land in common, and
 Browser changes remain isolated until the package builds and works. After numeric-helper, CSS color
-and HTML facade/benchmark completion, 69 completed chats are archived and 25 completed checkouts await
+and HTML facade/benchmark completion, 71 completed chats are archived and 27 completed checkouts await
 managed archive identities. Root and the completed owners returned empty artifact lists; no invented identity or shell
 removal was used. Unfinished worktrees remain active. Previous counts below are historical.
 
