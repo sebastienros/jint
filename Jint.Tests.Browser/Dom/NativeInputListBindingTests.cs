@@ -51,8 +51,17 @@ public sealed class NativeInputListBindingTests
         root.AppendChild(input);
         for (var index = 0; index < 1024; index++) root.AppendChild(document.CreateElement("span"));
         using var cancellation = new CancellationTokenSource();
+        var checkpoints = 0;
+        var cancellationUnits = 0;
         Assert.Throws<OperationCanceledException>(() => DomInputMembers.List(input,
-            units => { if (units >= 256) cancellation.Cancel(); }, cancellation.Token));
+            units =>
+            {
+                if (++checkpoints != 2) return;
+                cancellationUnits = units;
+                cancellation.Cancel();
+            }, cancellation.Token));
+        checkpoints.Should().Be(2);
+        cancellationUnits.Should().BeGreaterThan(0);
         input.ExistingInputValueState.Should().BeNull();
     }
 }
