@@ -12,7 +12,7 @@ internal sealed partial class ParserDriver
     private readonly List<WeakReference<ResourceWatch>> _resourceWatchReferences = [];
     private readonly HashSet<Element> _pendingStyleCompletions = [];
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
-    private readonly Queue<(ResourceWatch Watch, MutationRecord Record, bool ImageDelegated)> _resourceRecords = new();
+    private readonly Queue<ResourceEnvelope> _resourceRecords = new();
     private readonly List<Element> _candidateShadowHosts = [];
     private readonly HashSet<Element> _inlineStyles = [];
     private readonly HashSet<Element> _changedScripts = [];
@@ -64,6 +64,20 @@ internal sealed partial class ParserDriver
         });
         var watch = new ResourceWatch(root, document, subscription);
         var weak = new WeakReference<ParserDriver>(this);
+        if (!imageSource)
+        {
+            subscription.CaptureHtmlMetaInsertions = true;
+            subscription.CreateCaptureWork = () =>
+            {
+                if (!weak.TryGetTarget(out var driver) || driver._disposed) return (null, default);
+                // Enlist both identities before any budget check can reject the preparation. A
+                // moved watched root can publish a ticket in its current document before retirement.
+                driver.EnlistNativeNotifications(watch.Document);
+                if ((watch.Root as Document ?? watch.Root.OwnerDocument) is { } current)
+                    driver.EnlistNativeNotifications(current);
+                return (driver._runtime.Dom.NativeReadCheckpoint, driver._runtime.Dom.CancellationToken);
+            };
+        }
         subscription.PendingRecord = pending =>
         {
             // Freeze cross-root order at arrival. No tree reads, fetch, CSS or script here.
@@ -85,7 +99,7 @@ internal sealed partial class ParserDriver
         var delegated = watch.Root is not Element && record.Kind == MutationRecordKind.Attributes &&
             record.Target is Element element && _resourceWatches.TryGetValue(element, out var imageWatch) &&
             imageWatch.Active && ReferenceEquals(imageWatch.Document, watch.Document);
-        _resourceRecords.Enqueue((watch, record, delegated));
+        _resourceRecords.Enqueue(new(watch, record, delegated));
     }
 
     private void RetireResourceWatch(ResourceWatch watch)
@@ -191,71 +205,94 @@ internal sealed partial class ParserDriver
 
     private void DrainResourceRecords()
     {
-        // The arrival queue preserves order across ordinary roots and nested page turns.
-        var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
-        var delivered = new HashSet<ResourceWatch>(ReferenceEqualityComparer.Instance);
-        while (_resourceRecords.TryDequeue(out var entry))
+        if (_drainingResourceRecords) return;
+        _drainingResourceRecords = true;
+        try
         {
-            var record = entry.Record;
-            _runtime.Engine.Constraints.Check();
-            if (entry.Watch.Active && delivered.Add(entry.Watch))
+            // The arrival queue preserves order across ordinary roots and nested page turns.
+            var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
+            var delivered = new HashSet<ResourceWatch>(ReferenceEqualityComparer.Instance);
+            while (TryActivateResourceRecord(out var entry))
             {
-                // Capture happens on arrival; transient observation ends at this safe delivery boundary.
-                foreach (var remaining in entry.Watch.Subscription.TakeRecordsForDelivery())
-                    CaptureResourceRecord(entry.Watch, remaining);
+                var facts = entry.Record.HtmlMetaInsertions;
+                while (_activeMetaCursor < facts.Count)
+                {
+                    _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
+                    _runtime.Engine.Constraints.Check();
+                    var fact = facts[_activeMetaCursor];
+                    NativeCssStyleSheets.SetDefaultStyle(_runtime.Dom.RealmOfDocument(fact.Document), fact.Document, fact.Content);
+                    // The selector fact committed; a later resource walk must not replay it on retry.
+                    _activeMetaCursor++;
+                }
+                ProcessResourceRecord(entry, seen, delivered);
+                _activeResourceRecord = null;
+                _activeMetaCursor = 0;
             }
-            if (!entry.Watch.Active)
-            {
-                if (record.Kind == MutationRecordKind.ChildList && record.TargetWasConnected)
-                    foreach (var removed in record.RemovedNodes) DisassociateResourceSubtree(removed, entry.Watch.Document, seen);
-                continue;
-            }
-            if (record.Kind == MutationRecordKind.ChildList)
-            {
-                if (!record.TargetWasConnected) continue;
-                if (record.Target is Element { NamespaceUri: Namespaces.Html, LocalName: "script" } script)
-                    ProcessResourceElement(script);
+        }
+        finally { _drainingResourceRecords = false; }
+    }
+
+    private void ProcessResourceRecord(ResourceEnvelope entry, HashSet<Node> seen, HashSet<ResourceWatch> delivered)
+    {
+        var record = entry.Record;
+        _runtime.Engine.Constraints.Check();
+        if (entry.Watch.Active && delivered.Add(entry.Watch))
+        {
+            // Capture happens on arrival; transient observation ends at this safe delivery boundary.
+            foreach (var remaining in entry.Watch.Subscription.TakeRecordsForDelivery())
+                CaptureResourceRecord(entry.Watch, remaining);
+        }
+        if (!entry.Watch.Active)
+        {
+            if (record.Kind == MutationRecordKind.ChildList && record.TargetWasConnected)
                 foreach (var removed in record.RemovedNodes) DisassociateResourceSubtree(removed, entry.Watch.Document, seen);
-                foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
-                if (record.Target is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
+            return;
+        }
+        if (record.Kind == MutationRecordKind.ChildList)
+        {
+            if (!record.TargetWasConnected) return;
+            if (record.Target is Element { NamespaceUri: Namespaces.Html, LocalName: "script" } script)
+                ProcessResourceElement(script);
+            foreach (var removed in record.RemovedNodes) DisassociateResourceSubtree(removed, entry.Watch.Document, seen);
+            foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
+            if (record.Target is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
+            {
+                NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
+                ProcessResourceElement(style);
+            }
+        }
+        else if (record.Kind == MutationRecordKind.CharacterData)
+        {
+            for (var parent = record.Target.ParentNode; parent is not null; parent = parent.ParentNode)
+            {
+                _runtime.Engine.Constraints.Check();
+                if (parent is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
                 {
                     NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
                     ProcessResourceElement(style);
+                    break;
                 }
             }
-            else if (record.Kind == MutationRecordKind.CharacterData)
+        }
+        else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
+            record.AttributeNamespace is null)
+        {
+            if (entry.Watch.Root is Element && !ReferenceEquals(element.OwnerDocument, entry.Watch.Document)) return;
+            // The element-owned image subscription captures this write as well. Its arrival is
+            // guaranteed before the native call returns; process it once, including failed requests.
+            if (entry.ImageDelegated) return;
+            if (element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
+                && (record.AttributeName != "src" || Attribute(element, "src") is null)) return;
+            if (element is { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg })
             {
-                for (var parent = record.Target.ParentNode; parent is not null; parent = parent.ParentNode)
+                if (record.AttributeName == "type")
                 {
-                    _runtime.Engine.Constraints.Check();
-                    if (parent is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
-                    {
-                        NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
-                        ProcessResourceElement(style);
-                        break;
-                    }
+                    NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, element);
+                    ProcessResourceElement(element);
                 }
+                // Media metadata is read by the producer; it must not replace authored CSSOM rules.
             }
-            else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
-                record.AttributeNamespace is null)
-            {
-                if (entry.Watch.Root is Element && !ReferenceEquals(element.OwnerDocument, entry.Watch.Document)) continue;
-                // The element-owned image subscription captures this write as well. Its arrival is
-                // guaranteed before the native call returns; process it once, including failed requests.
-                if (entry.ImageDelegated) continue;
-                if (element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
-                    && (record.AttributeName != "src" || Attribute(element, "src") is null)) continue;
-                if (element is { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg })
-                {
-                    if (record.AttributeName == "type")
-                    {
-                        NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, element);
-                        ProcessResourceElement(element);
-                    }
-                    // Media metadata is read by the producer; it must not replace authored CSSOM rules.
-                }
-                else ProcessResourceElement(element);
-            }
+            else ProcessResourceElement(element);
         }
     }
 

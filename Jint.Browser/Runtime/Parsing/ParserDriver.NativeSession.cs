@@ -97,6 +97,7 @@ internal sealed partial class ParserDriver
     {
         while (true)
         {
+            RecoverNativeMutationNotifications();
             _runtime.Engine.Constraints.Check();
             var step = insertion is null
                 ? parse.Session.Drive(4096, _cancellationToken)

@@ -49,14 +49,14 @@ internal static class DomFailures
 
         return (receiver, arguments) =>
         {
+            if (receiver is IDomWrapper wrapper)
+                Runtime.PageRuntime.Find(wrapper.DomRealm.Engine)?.Parser?.RecoverNativeMutationNotifications();
             PrepareCustomElements(receiver);
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-            try { return guarded(receiver, arguments); }
-            finally
-            {
-                CompleteNativeMutation(receiver);
-                DrainCustomElements(receiver);
-            }
+            var result = guarded(receiver, arguments);
+            CompleteNativeMutation(receiver);
+            DrainCustomElements(receiver);
+            return result;
         };
     }
 

@@ -438,6 +438,7 @@ internal sealed class PageRuntime
     {
         var runtime = new PageRuntime(engine, page, options, recorder, network, requests, emulation, documentUrl, referrer);
         _runtimes.Add(engine, runtime);
+        engine.Tasks.ConfigureTaskStart(() => runtime.Parser?.RecoverNativeMutationNotifications());
         return runtime;
     }
 

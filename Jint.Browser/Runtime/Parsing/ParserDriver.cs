@@ -95,6 +95,7 @@ internal sealed partial class ParserDriver : IDisposable
         _resourceWatches.Clear();
         _resourceWatchReferences.Clear();
         _pendingStyleCompletions.Clear();
+        ClearNativeRecovery();
         _resourceRecords.Clear();
         _candidateShadowHosts.Clear();
         _baton.Dispose();
@@ -744,6 +745,7 @@ internal sealed partial class ParserDriver : IDisposable
             // each script is bounded and a document is not failed for containing many. See PageBudget.
             using (_runtime.Budget.BeginTurn())
             {
+                RecoverNativeMutationNotifications();
                 using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
                 _runtime.Engine.Execute(text, source, ParsingFrom(line));
             }
@@ -1133,6 +1135,7 @@ internal sealed partial class ParserDriver : IDisposable
             // which is where a module's evaluation actually happens.
             using (_runtime.Budget.BeginTurn())
             {
+                RecoverNativeMutationNotifications();
                 using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
                 operation = _runtime.Engine.Modules.StartImport(specifier);
             }
