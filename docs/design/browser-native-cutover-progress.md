@@ -320,3 +320,28 @@ each write. Its native hook call sites and the principal parser scheduler remain
 under active migration, so this is a coordinated WIP checkpoint, not build or
 runtime clearance. No test was disabled. Awaiting reviewed Events integration
 to remove the current override diagnostic masking before the next census.
+
+### Native runtime and construction integration continues
+
+The production parser now drives the native incremental session directly. It
+retains script preparation flags, synchronous dynamic-script preparation before
+custom-element reactions, raw stylesheet resource installation, native frame
+contexts and the shared bounded subresource transport. Parser ingestion still
+keeps raw attribute and text state; enhanced controls and CSS are read on demand.
+
+Autonomous form-associated custom elements enable the existing native category
+when their definition attaches. Upgrade resets stored ownership after a successful
+constructor and before the custom state. Failed upgrades clear the category,
+owner, definition and reactions, including when a fatal engine constraint escapes.
+Customized built-ins retain their built-in category. Cloning/importing relies on
+normal upgrade rather than copying native category or owner history. This closes
+the native owner-history seam; it does not implement the existing unsupported
+formAssociatedCallback, formDisabledCallback, formResetCallback or
+formStateRestoreCallback lifecycle. An owner revision alone cannot reconstruct
+those callback payloads and their order.
+
+The fresh Release net10.0 Browser inventory at `4313ab7a4` completed with 259
+errors and zero warnings. Native parser and runtime dependencies compiled;
+remaining errors include generated consumers and CSS/DevTools integration plus
+analyzer repairs. The build remains unsuccessful and Browser regressions remain
+unrun. Source integration and corrections continue; this is not a final gate.
