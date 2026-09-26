@@ -11,7 +11,12 @@ internal sealed partial class ParserDriver
     // Resolve and capture DOM/environment inputs on the loop; transport completion carries no DOM or JsValue.
     internal Task<MediaResourceResponse> RequestMediaAsync(Element source, string requested,
         CancellationToken operationCancellation)
+        => RequestMediaAsync(source, requested, out _, operationCancellation);
+
+    internal Task<MediaResourceResponse> RequestMediaAsync(Element source, string requested,
+        out string selectedUrl, CancellationToken operationCancellation)
     {
+        selectedUrl = "";
         ObjectDisposedException.ThrowIf(_disposed, this);
         operationCancellation.ThrowIfCancellationRequested();
         _cancellationToken.ThrowIfCancellationRequested();
@@ -22,6 +27,9 @@ internal sealed partial class ParserDriver
         _runtime.Engine.Constraints.Check();
         operationCancellation.ThrowIfCancellationRequested();
         if (target is null) throw new InvalidOperationException("The media source is not a URL a page can load.");
+        selectedUrl = target.Serialize();
+        _runtime.Engine.Constraints.Check();
+        operationCancellation.ThrowIfCancellationRequested();
         if (DataUrl.Is(target))
         {
             if (!DataUrl.TryProcess(target, out var content))
