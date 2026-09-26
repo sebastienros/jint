@@ -104,12 +104,29 @@ Subsequent isolated gates supersede those focused failure inventories:
   is source-clear; its net10 rerun remains pending. Browser recovery wiring is separate.
 
 Native META capture through `a79485ce4` is now source-clear, including preallocated failed-prefix
-publication, textarea invalidation and deferred cross-document Range targets; focused tests are running
-in the isolated integration checkout. Native host-fact wiring through `79438c221` is source-clear;
+publication, textarea invalidation and deferred cross-document Range targets; its isolated net10 gate
+passes **195/195**, zero skipped (`/private/tmp/native-meta-mutation-range-net10-test.log`).
+Native host-fact wiring through `79438c221` is source-clear;
 ordinary candidates share document witnesses rather than accumulating quadratic observations. Browser
 file-history reconciliation must finish before seed capture and retain its cursor across cancellation;
-the producer and DOM/CSS consumers remain unfinished. Font-size finite scaling is source-clear through
-`7f180d98a`. Physical spacing, individual transforms and passive keyframes have separate owners.
+the producer through `cced7eb71` is source-clear, while DOM/CSS callsite wiring remains unfinished.
+Font-size finite scaling is source-clear through `7f180d98a`; the consolidated native control-facts,
+lexical and font-size gate passes **152/152**, zero skipped
+(`/private/tmp/native-control-facts-lexical-fontsize-net10-test.log`). Physical spacing, individual
+transforms, text alignment and passive classic keyframes are reviewed and integrating in `414c`.
+
+The first Browser META consumer gate passes **35/35**, zero skipped, at `157768a3b`
+(`/private/tmp/native-browser-meta-consumer-net10-test.log`). Subsequent source review found two
+uncovered boundary defects: unbracketed idle recovery needs a short recovery-only page budget, and
+task-start recovery must succeed before consuming a queued task. Repair `936bebcc8` is under review;
+that focused pass is not final consumer acceptance. Task FIFO and original failure recovery must be
+verified again after the repair.
+
+Transform lists/resolved matrices and native import rules now have dedicated Sol High worktrees.
+The approved import design uses incremental `MayContainImport` scanning and materializes a single real
+stylesheet only for candidate-bearing sources before dependency loading. Declaration values remain
+lazy, zero-import resources remain unmaterialized, and CSS queries never initiate network requests.
+The Browser import loading graph remains a separate consumer assignment.
 
 The benchmark project freshly compiles with zero warnings/errors at `1e6049eda`
 (`/private/tmp/native-benchmark-build.log`). AngleSharp dependencies are explicit benchmark-only
@@ -183,6 +200,8 @@ Current owners:
 | Native CSS supports grouping model and bindings | `01a0dcf9-5974-7d13-9ebf-e82b0d4ebf40` | `2187` |
 | Native individual transforms and Browser computation | `01a0dd07-2a1f-7d82-860e-46276a70de8a` | `529a` |
 | Native passive classic keyframes and CSSOM bindings | `01a0dd0d-ea51-7291-a2e6-4e0c5addd14a` | `280c` |
+| Native transform lists and Browser resolved matrices | `01a0dd22-35ab-7fa1-80ff-7151a2075073` | `6776` |
+| Native import rules and incremental cold discovery | `01a0dd23-5753-7e03-8c45-93553ca097cb` | `79cd` |
 | Browser-only task-drain deferral (common verified, chat archived) | `01a0dccf-f06a-7fc0-8b93-34b98f3e110e` | `6711`, retained without managed archive identity |
 | Native select/option state (complete, chat archived) | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
 | Lazy input/value/checkedness producers (complete, chat archived) | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
