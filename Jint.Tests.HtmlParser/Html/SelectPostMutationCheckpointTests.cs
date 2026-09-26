@@ -147,4 +147,30 @@ public class SelectPostMutationCheckpointTests
         state.GetSelectedIndex(default).Should().Be(0); ((Text) content.FirstChild!).Data.Should().Be("first");
         document.MutationStamp.Should().Be(stamp); textarea.GetHtmlState()!.TextArea!.DirtyValue.Should().BeFalse();
     }
+    [Test]
+    public void SelectedContentCloneChecksActualColdInputConstructionBeforeSelectionChanges()
+    {
+        var document = Document.CreateHtml(); var select = document.CreateElement("select"); document.AppendChild(select);
+        var content = document.CreateElement("selectedcontent"); select.AppendChild(content);
+        var first = document.CreateElement("option"); first.AppendChild(document.CreateTextNode("first")); select.AppendChild(first);
+        var second = document.CreateElement("option"); var input = document.CreateElement("input");
+        input.SetAttribute("value", new string('x', 1000000));
+        input.GetHtmlState()!.GetInputValueState(default)!.GetValue(default).Length.Should().Be(1000000);
+        second.AppendChild(input); select.AppendChild(second);
+        HtmlSelectedContent.MaybeCloneOption(first, default);
+        var state = select.GetHtmlState()!.Select!; state.GetSelectedIndex(default).Should().Be(0);
+        var stamp = document.MutationStamp;
+        var probe = new HtmlSelectWorkProbe(); document.SelectWorkProbe = probe;
+        using var cts = new CancellationTokenSource();
+        var reported = new List<int>();
+        Assert.Throws<OperationCanceledException>(() => state.SetSelectedIndex(1, units =>
+        {
+            reported.Add(units); if (units >= 256) cts.Cancel();
+        }, cts.Token));
+        probe.Units.Should().BeLessThan(256); // Attribute copying is small; the callback must come from construction.
+        reported.Max().Should().BeGreaterThanOrEqualTo(256);
+        reported.Zip(reported.Skip(1)).All(pair => pair.First <= pair.Second).Should().BeTrue();
+        state.GetSelectedIndex(default).Should().Be(0); ((Text) content.FirstChild!).Data.Should().Be("first");
+        document.MutationStamp.Should().Be(stamp); input.GetHtmlState()!.InputValue!.DirtyValue.Should().BeFalse();
+    }
 }

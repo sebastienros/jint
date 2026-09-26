@@ -109,7 +109,7 @@ internal static class NodeCloner
                     // attribute copy; its metadata and sanitizer poll this same token.
                     var stateWork = new HtmlSelectWork(document.SelectWorkProbe, context, cancellationToken);
                     stateWork.Step();
-                    element.GetHtmlState()!.GetInputValueState(cancellationToken)!
+                    element.GetHtmlState()!.GetInputValueState(context?.CreateCheckpointAdapter(), cancellationToken)!
                         .CopyFrom(inputValue);
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "textarea" })
