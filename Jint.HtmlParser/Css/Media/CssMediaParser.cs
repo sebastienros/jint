@@ -1,9 +1,9 @@
-using System.Globalization;
 using System.Text;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.Properties;
 
 namespace Jint.HtmlParser.Css.Media;
@@ -206,7 +206,7 @@ internal static class CssMediaParser
             if (feature is null) return Unknown(program, builder, source, parser, items, work);
             program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature));
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work));
-            if (value.Length != 0) builder.Append(": ").Append(ValueText(feature, value));
+            if (value.Length != 0) builder.Append(": ").Append(ValueText(feature));
             return true;
         }
         var operators = new List<(int Index, int Length, CssMediaComparison Comparison)>();
@@ -253,13 +253,13 @@ internal static class CssMediaParser
             if (feature2 is null) return Unknown(program, builder, source, parser, items, work);
         }
         program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature1));
-        if (reverse) builder.Append(ValueText(feature1, rangeValue)).Append(Operator(first.Comparison)).Append(rangeName);
-        else builder.Append(rangeName).Append(Operator(first.Comparison)).Append(ValueText(feature1, rangeValue));
+        if (reverse) builder.Append(ValueText(feature1)).Append(Operator(first.Comparison)).Append(rangeName);
+        else builder.Append(rangeName).Append(Operator(first.Comparison)).Append(ValueText(feature1));
         if (feature2 is not null)
         {
             program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature2));
             program.Add(new CssMediaInstruction(CssMediaOperation.And));
-            builder.Append(Operator(operators[1].Comparison)).Append(ValueText(feature2, last));
+            builder.Append(Operator(operators[1].Comparison)).Append(ValueText(feature2));
         }
         return true;
     }
@@ -289,20 +289,25 @@ internal static class CssMediaParser
         }
         if (name == "aspect-ratio")
         {
-            if (value.Length is not (1 or 3) || !Number(value[0], out var a) || a < 0) return null;
-            var b = 1.0;
-            if (value.Length == 3 && (!Delim(value[1], '/') || !Number(value[2], out b) || b < 0)) return null;
-            return new(name, comparison, a / b, CssUnit.None, null);
+            if (value.Length is not (1 or 3) || !Number(value[0], work, out var a) || a.Sign < 0) return null;
+            var b = CssNumber.FromValidatedToken("1", work);
+            if (value.Length == 3 && (!Delim(value[1], '/') || !Number(value[2], work, out b) || b.Sign < 0)) return null;
+            var numerator = CssMathNumbers.ParseFinite(a, CssUnit.None, work);
+            var denominator = CssMathNumbers.ParseFinite(b, CssUnit.None, work);
+            var spelling = CssMathSerializer.SerializeFiniteNumber(numerator, work) + " / " +
+                CssMathSerializer.SerializeFiniteNumber(denominator, work);
+            return new(name, comparison, numerator / denominator, CssUnit.None, null, spelling);
         }
         if (value.Length != 1 || value[0].Kind != CssComponentKind.Token) return null;
         var token = value[0].Token;
-        if (!double.TryParse(token.NumberText, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) || !double.IsFinite(number)) return null;
+        if (token.Kind is not (CssTokenKind.Number or CssTokenKind.Dimension)) return null;
+        var number = CssNumber.FromValidatedToken(token.NumberText, work);
         if (name is "width" or "height")
         {
-            if (token.Kind == CssTokenKind.Number && number == 0) return new(name, comparison, number, CssUnit.Px, null);
-            if (token.Kind != CssTokenKind.Dimension) return null;
+            if (token.Kind == CssTokenKind.Number)
+                return number.Sign == 0 ? NumericFeature(name, comparison, number, CssUnit.None, work) : null;
             var unit = CssUnits.Recognize(token.Unit, work);
-            if (unit is >= CssUnit.Px and <= CssUnit.Rem) return new(name, comparison, number, unit, null);
+            if (unit is >= CssUnit.Px and <= CssUnit.Rem) return NumericFeature(name, comparison, number, unit, work);
             if (unit.Category() == CssUnitCategory.Length)
                 throw new CssIncompleteRuleGrammarException("media", "R2:media-length-unit:" + token.Unit, token.Span);
             return null;
@@ -311,10 +316,20 @@ internal static class CssMediaParser
         {
             if (token.Kind != CssTokenKind.Dimension) return null;
             var unit = CssUnits.Recognize(token.Unit, work);
-            return unit.Category() == CssUnitCategory.Resolution ? new(name, comparison, number, unit, null) : null;
+            return unit.Category() == CssUnitCategory.Resolution ? NumericFeature(name, comparison, number, unit, work) : null;
         }
-        if (token.Kind != CssTokenKind.Number || !token.IsInteger || (name == "grid" && number is not (0 or 1))) return null;
-        return new(name, comparison, number, CssUnit.None, null);
+        if (token.Kind != CssTokenKind.Number || !token.IsInteger) return null;
+        if (name == "grid" && number.Sign != 0 && number.CompareTo(CssNumber.FromValidatedToken("1", work), work) != 0) return null;
+        return NumericFeature(name, comparison, number, CssUnit.None, work);
+    }
+
+    private static CssMediaFeature NumericFeature(string name, CssMediaComparison comparison,
+        CssNumber number, CssUnit unit, CssValueWork work)
+    {
+        var projected = CssMathNumbers.ParseFinite(number, CssUnit.None, work);
+        var spelling = CssMathSerializer.SerializeFiniteNumber(projected, work) +
+            (unit == CssUnit.None ? "" : unit.ToString().ToLowerInvariant());
+        return new(name, comparison, projected, unit, null, spelling);
     }
 
     private static string[]? Discrete(string name) => name switch
@@ -336,11 +351,7 @@ internal static class CssMediaParser
         "display-mode" or "scan" or "update" or "environment-blending" or "color-gamut" or "dynamic-range" or
         "inverted-colors" or "nav-controls" or "video-color-gamut" or "video-dynamic-range" or "ua-color-scheme";
 
-    private static string ValueText(CssMediaFeature feature, CssComponentValue[] value) => feature.Keyword ??
-        (feature.Name == "aspect-ratio" ? NumericText(value[0].Token) + " / " + (value.Length == 1 ? "1" : NumericText(value[2].Token)) :
-            NumericText(value[0].Token) + value[0].Token.Unit.ToLowerInvariant());
-    private static string NumericText(CssToken token) => double.Parse(token.NumberText, CultureInfo.InvariantCulture)
-        .ToString("G", CultureInfo.InvariantCulture);
+    private static string ValueText(CssMediaFeature feature) => feature.Keyword ?? feature.SpecifiedValue;
     private static string Operator(CssMediaComparison comparison) => comparison switch
     {
         CssMediaComparison.Equal => " = ",
@@ -376,11 +387,12 @@ internal static class CssMediaParser
         builder.Append(source, span.Start, span.Length);
         work.CheckCancellation();
     }
-    private static bool Number(CssComponentValue value, out double number)
+    private static bool Number(CssComponentValue value, CssValueWork work, out CssNumber number)
     {
-        number = 0;
-        return Token(value, CssTokenKind.Number) && double.TryParse(value.Token.NumberText, NumberStyles.Float,
-            CultureInfo.InvariantCulture, out number) && double.IsFinite(number);
+        number = default;
+        if (!Token(value, CssTokenKind.Number)) return false;
+        number = CssNumber.FromValidatedToken(value.Token.NumberText, work);
+        return true;
     }
     private static bool InParens(CssComponentValue value) => value.Kind == CssComponentKind.Function ||
         (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '(');

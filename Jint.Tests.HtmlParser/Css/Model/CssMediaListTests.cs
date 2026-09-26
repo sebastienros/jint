@@ -2,6 +2,8 @@
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Syntax;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Tests.HtmlParser.Css.Model;
 
@@ -80,6 +82,45 @@ public sealed class CssMediaListTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => CssMediaList.Parse("screen", cancellationToken: cancellation.Token));
+    }
+
+    [Test]
+    public void NumericGrammarUsesLexicalSignBeforeFiniteProjection()
+    {
+        CssMediaList.Parse("(width:1e-9999)").MediaText.Should().Be("not all");
+        CssMediaList.Parse("(width:-1e-9999)").MediaText.Should().Be("not all");
+        CssMediaList.Parse("(width:0e-9999)").MediaText.Should().Be("(width: 0)");
+        CssMediaList.Parse("(aspect-ratio:-1e-9999)").MediaText.Should().Be("not all");
+        CssMediaList.Parse("(aspect-ratio:1/-1e-9999)").MediaText.Should().Be("not all");
+    }
+
+    [Test]
+    public void NumericSerializationUsesTheSharedCssomDecimalPolicy()
+    {
+        var list = CssMediaList.Parse("(width:2.9802322387695312e-8px)");
+        list.MediaText.Should().Be("(width: 0px)");
+        CssMediaList.Parse("(width:1.23456789px)").MediaText.Should().Be("(width: 1.234568px)");
+        CssMediaList.Parse("(resolution:1e2dpi)").MediaText.Should().Be("(resolution: 100dpi)");
+        CssMediaList.Parse("(aspect-ratio:1.25/2)").MediaText.Should().Be("(aspect-ratio: 1.25 / 2)");
+    }
+
+    [Test]
+    public void NumericComponentScansChargeSharedWorkAndObserveCancellation()
+    {
+        var source = "(width:" + new string('0', 100_000) + "1px)";
+        var parser = new CssSyntaxParser(source, null, default);
+        var values = parser.ParseComponentValues();
+        var checkpoints = 0;
+        var list = CssMediaList.FromComponents(source, values, parser, new CssValueWork(default, () => checkpoints++));
+        list.MediaText.Should().Be("(width: 1px)");
+        checkpoints.Should().BeGreaterThan(40);
+        using var cancellation = new CancellationTokenSource();
+        checkpoints = 0;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            if (++checkpoints == 20) cancellation.Cancel();
+        });
+        Assert.Throws<OperationCanceledException>(() => CssMediaList.FromComponents(source, values, parser, work));
     }
 
     [Test]

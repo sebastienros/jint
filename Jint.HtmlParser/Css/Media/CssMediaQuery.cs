@@ -8,7 +8,7 @@ internal enum CssMediaOperation { Feature, Unknown, Not, And, Or }
 internal enum CssMediaComparison { Boolean, Equal, Less, LessEqual, Greater, GreaterEqual }
 
 internal sealed record CssMediaFeature(string Name, CssMediaComparison Comparison,
-    double Number, CssUnit Unit, string? Keyword)
+    double Number, CssUnit Unit, string? Keyword, string SpecifiedValue = "")
 {
     internal CssMediaTruth Evaluate(CssMediaEnvironment environment)
     {
