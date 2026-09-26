@@ -105,14 +105,14 @@ internal static class NodeCloner
                     element.GetHtmlState()!.GetOptionState(cancellationToken)!.CopyFrom(original.GetHtmlState()!.GetOptionState(cancellationToken)!);
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "select" })
                     element.GetHtmlState()!.GetSelectState(cancellationToken);
-                if (original is { NamespaceUri: Namespaces.Html, LocalName: "input" })
+                if (original.ExistingInputValueState is { } inputValue)
                 {
                     // Charge the cold state boundary independently of the preceding
                     // attribute copy; its metadata and sanitizer poll this same token.
                     var stateWork = new HtmlSelectWork(document.SelectWorkProbe, cancellationToken);
                     stateWork.Step();
                     element.GetHtmlState()!.GetInputValueState(cancellationToken)!
-                        .CopyFrom(original.GetHtmlState()!.GetInputValueState(cancellationToken)!);
+                        .CopyFrom(inputValue);
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "textarea" })
                 {
