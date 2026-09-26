@@ -2,6 +2,7 @@ using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.Events;
 
@@ -175,7 +176,12 @@ internal static class ViewInstaller
     private static JsObjectShape BuildCssNamespaceShape() => new JsObjectShape.Builder()
         .ToStringTag("CSS")
         .Method("escape", static (_, args) => JsCssNamespace.Escape(args), length: 1)
-        .Method("supports", static (_, args) => JsCssNamespace.Supports(args), length: 1)
+        .PerRealmSlot("supports", static owner =>
+        {
+            var realm = DomRealm.Of(owner.Engine, owner.CreationRealm);
+            return new ClrFunction(owner.Engine, realm.OwningRealm, "supports",
+                (_, args) => JsCssNamespace.Supports(realm, args), 1);
+        }, enumerable: true)
         .Build();
 
     /// <summary>https://w3c.github.io/geolocation/#geolocation_interface</summary>

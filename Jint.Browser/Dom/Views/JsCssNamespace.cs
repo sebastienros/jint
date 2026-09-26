@@ -1,8 +1,7 @@
 using System.Globalization;
 using System.Text;
-using AngleSharp.Css;
-using AngleSharp.Css.Dom;
-using AngleSharp.Css.Parser;
+using Jint.HtmlParser.Css.Conditions;
+using Jint.HtmlParser.Css.Values;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -25,16 +24,12 @@ namespace Jint.Browser.Dom.Views;
 /// <c>CSS</c> whose <c>supports</c> is <see langword="undefined"/> and fail on the <i>second</i> half.
 /// </para>
 /// <para>
-/// <b><c>supports</c> is AngleSharp.Css's own condition evaluator</b>, reached the only way the library
-/// exposes it: the condition is parsed as an <c>@supports</c> rule and
-/// <c>IConditionFunction.Check</c> answers it. So the set of properties this claims to support is exactly the
-/// set that library implements, which is also the set the cascade can act on — one answer rather than two.
+/// <b><c>supports</c> uses the native property and selector grammars.</b> Pending
+/// grammar answers false. A capability query does not execute a stylesheet or evaluate a DOM match.
 /// </para>
 /// </remarks>
 internal static class JsCssNamespace
 {
-    private static readonly CssParser _parser = new();
-
     /// <summary>
     /// https://drafts.csswg.org/cssom/#the-css.escape()-method — CSS's "serialize an identifier".
     /// </summary>
@@ -81,43 +76,17 @@ internal static class JsCssNamespace
     /// <summary>
     /// https://drafts.csswg.org/css-conditional-3/#dom-css-supports — the one-argument and two-argument forms.
     /// </summary>
-    /// <remarks>
-    /// The two-argument form is a declaration wrapped in parentheses, which is what the standard says it is;
-    /// a value carrying an unbalanced parenthesis therefore makes the whole condition unparseable and answers
-    /// <see langword="false"/>, where a browser reads the value with a proper value parser and answers the
-    /// same thing for a different reason.
-    /// </remarks>
-    internal static JsValue Supports(JsValue[] arguments)
+    internal static JsValue Supports(DomRealm realm, JsValue[] arguments)
     {
-        var condition = arguments.Length >= 2
-            ? "(" + TypeConverter.ToString(arguments.At(0)) + ":" + TypeConverter.ToString(arguments.At(1)) + ")"
-            : TypeConverter.ToString(arguments.At(0));
-
-        return JsBoolean.Create(IsSupported(condition));
-    }
-
-    private static bool IsSupported(string condition)
-    {
-        try
-        {
-            var sheet = _parser.ParseStyleSheet("@supports " + condition + " { }");
-
-            foreach (var rule in sheet.Rules)
-            {
-                if (rule is ICssSupportsRule supports)
-                {
-                    return supports.Condition.Check(new DefaultRenderDevice());
-                }
-            }
-        }
-        catch (Exception exception) when (exception is not JavaScriptException)
-        {
-            // A condition the parser cannot read is one this does not support, which is what the standard's
-            // "return false" step amounts to. AngleSharp raises rather than answering for some of them.
-            return false;
-        }
-
-        return false;
+        // WebIDL converts the arguments in order before starting native work.
+        var first = TypeConverter.ToString(arguments.At(0));
+        var second = arguments.Length >= 2 ? TypeConverter.ToString(arguments.At(1)) : null;
+        var token = realm.Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
+        var work = new CssValueWork(token, realm.Engine.Constraints.Check);
+        var result = second is null
+            ? CssSupports.EvaluateCondition(first, null, work)
+            : CssSupports.EvaluateDeclaration(first, second, null, work);
+        return JsBoolean.Create(result);
     }
 
     private static bool IsDigit(char character) => character >= '0' && character <= '9';
