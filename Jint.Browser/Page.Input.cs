@@ -475,8 +475,10 @@ public sealed partial class Page
                 return false;
             }
 
-            var option = select.Options.FirstOrDefault(o => string.Equals(o.Value, value, StringComparison.Ordinal))
-                ?? select.Options.FirstOrDefault(o => string.Equals(o.Text.Trim(), value, StringComparison.Ordinal));
+            var token = runtime.Dom.CancellationToken;
+            var options = select.GetHtmlState()!.GetSelectState(token)!.Options.Snapshot(token);
+            var option = options.FirstOrDefault(o => string.Equals(o.GetHtmlState()!.GetOptionState(token)!.GetValue(token), value, StringComparison.Ordinal))
+                ?? options.FirstOrDefault(o => string.Equals(o.GetHtmlState()!.GetOptionState(token)!.GetText(token), value, StringComparison.Ordinal));
 
             if (option is null)
             {

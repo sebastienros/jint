@@ -410,7 +410,7 @@ internal static class TextEditing
     {
         { NamespaceUri: Namespaces.Html, LocalName: "input" } => element.GetHtmlState()!.InputValue!.GetValue(dom.CancellationToken),
         { NamespaceUri: Namespaces.Html, LocalName: "textarea" } => element.GetHtmlState()!.TextArea!.GetValue(dom.CancellationToken),
-        IHtmlSelectElement select => select.Value ?? "",
+        { NamespaceUri: Namespaces.Html, LocalName: "select" } => element.GetHtmlState()!.GetSelectState(dom.CancellationToken)!.GetValue(dom.CancellationToken),
         _ => "",
     };
 

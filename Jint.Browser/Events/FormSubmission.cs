@@ -41,7 +41,7 @@ internal static class FormSubmission
     /// <param name="form">The form owner, or <see langword="null"/> when the button has none — in which case
     /// nothing happens at all, which is what a submit button outside a form does.</param>
     /// <param name="submitter">The button that started it, or <see langword="null"/> for the form itself.</param>
-    internal static void Submit(DomRealm realm, IHtmlFormElement? form, IHtmlElement? submitter)
+    internal static void Submit(DomRealm realm, Element? form, Element? submitter)
     {
         if (form is null || IsConstructingEntryList(realm, form))
         {
@@ -77,7 +77,7 @@ internal static class FormSubmission
     /// The lower half on its own: <c>form.submit()</c> submits without validating and without firing
     /// <c>submit</c> at all.
     /// </summary>
-    internal static void SubmitWithoutEvent(DomRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
+    internal static void SubmitWithoutEvent(DomRealm realm, Element form, Element? submitter)
     {
         var eventRealm = BrowserEventRealm.Of(realm.Engine);
         eventRealm.ActivationHost.SubmitForm(eventRealm, form, submitter);
@@ -88,7 +88,7 @@ internal static class FormSubmission
     /// as if <paramref name="submitterValue"/> had been clicked, validating first that it really is a submit
     /// button of this form.
     /// </summary>
-    internal static void RequestSubmit(DomRealm realm, IHtmlFormElement form, JsValue submitterValue)
+    internal static void RequestSubmit(DomRealm realm, Element form, JsValue submitterValue)
     {
         if (submitterValue.IsNullOrUndefined())
         {
@@ -96,7 +96,7 @@ internal static class FormSubmission
             return;
         }
 
-        if (submitterValue is not DomNodeObject { Node: IHtmlElement candidate } || !IsSubmitButton(candidate))
+        if (submitterValue is not DomNodeObject { Node: Element candidate } || !IsSubmitButton(candidate))
         {
             Throw.TypeError(realm.OwningRealm, "Failed to execute 'requestSubmit' on 'HTMLFormElement': The specified element is not a submit button.");
             return;
@@ -123,11 +123,11 @@ internal static class FormSubmission
     /// cancelable <c>reset</c> event and, if it survives, run the reset algorithm on every control.
     /// </summary>
     /// <remarks>
-    /// The default action is AngleSharp's <c>IHtmlFormElement.Reset()</c>, which is the reset algorithm and
+    /// The default action is AngleSharp's <c>Element.Reset()</c>, which is the reset algorithm and
     /// nothing else: it restores every control's value and checkedness to its default and fires nothing, so it
     /// is exactly the half this one is missing.
     /// </remarks>
-    internal static void Reset(DomRealm realm, IHtmlFormElement? form)
+    internal static void Reset(DomRealm realm, Element? form)
     {
         using var mutation = realm.MutateLayout();
         if (form is null)
@@ -173,7 +173,7 @@ internal static class FormSubmission
     /// with.
     /// </para>
     /// </remarks>
-    private static bool Validate(DomRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
+    private static bool Validate(DomRealm realm, Element form, Element? submitter)
     {
         if (form.HasContentAttribute("novalidate") || submitter?.HasContentAttribute("formnovalidate") == true)
         {
@@ -189,27 +189,15 @@ internal static class FormSubmission
         // AngleSharp's own ownership rule put in it, and then submit a different set.
         foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
         {
-            if (element is not IValidation validation)
+            if (element is not AngleSharp.Html.Dom.IValidation validation)
             {
                 continue;
             }
 
-            try
+            // Native validity is a required producer dependency. An unavailable model must not be
+            // swallowed as successful validation; this legacy interface cannot match a native Element.
+            if (!validation.WillValidate || validation.Validity.IsValid)
             {
-                // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#candidate-for-constraint-validation:
-                // a button, a disabled or readonly control, a control inside a disabled fieldset and an
-                // output are all barred from constraint validation, and `willValidate` is the one member that
-                // answers all of those at once. Without it every `<button type=button>` in the form would be
-                // examined, which is not what "the form's constraints" means.
-                if (!validation.WillValidate || validation.Validity.IsValid)
-                {
-                    continue;
-                }
-            }
-            catch (Exception)
-            {
-                // A validity model that cannot answer is not a reason to refuse a submission the page asked
-                // for; AngleSharp's raises for a control whose type it does not fully model.
                 continue;
             }
 
@@ -238,17 +226,18 @@ internal static class FormSubmission
     /// step 1's flag, read as the submission algorithm's own step 1: a <c>formdata</c> listener that submits
     /// the same form again must not recurse. The runtime owns the flag because it owns the entry list.
     /// </summary>
-    private static bool IsConstructingEntryList(DomRealm realm, IHtmlFormElement form)
+    private static bool IsConstructingEntryList(DomRealm realm, Element form)
         => PageRuntime.Find(realm.Engine)?.SubmittingForms.Contains(form) == true;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/forms.html#concept-submit-button — a button or input whose type
     /// makes it submit its form.
     /// </summary>
-    internal static bool IsSubmitButton(IHtmlElement element) => element switch
-    {
-        IHtmlButtonElement button => string.Equals(button.Type, "submit", StringComparison.Ordinal),
-        IHtmlInputElement input => input.Type is "submit" or "image",
-        _ => false,
-    };
+    internal static bool IsSubmitButton(Element element)
+        => element.NamespaceUri == Namespaces.Html && element.LocalName switch
+        {
+            "button" => EventDom.ButtonType(element) == "submit",
+            "input" => EventDom.InputType(element) is "submit" or "image",
+            _ => false,
+        };
 }
