@@ -230,6 +230,7 @@ internal sealed class PageRuntime
     // The same immutable record is assigned to the document before its parser runs.
     // It is available to new-document scripts before the document has been constructed.
     internal DomDocumentOrigin? DocumentCreationOrigin { get; set; }
+    internal string? DocumentCreationBaseUrl { get; set; }
 
     /// <summary>The document this engine is showing, or <see langword="null"/> before the first parse.</summary>
     /// <remarks>

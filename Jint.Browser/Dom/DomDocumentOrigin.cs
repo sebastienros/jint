@@ -23,6 +23,13 @@ internal sealed class DomDocumentOrigin
             : new DomDocumentOrigin(serialized, UrlParser.Parse(serialized)!.SerializeHost());
     }
 
+    // HTML's matches-about:blank permits a query and fragment; these do not change inheritance.
+    internal static bool InheritsCreator(string url)
+        => UrlParser.Parse(url) is { Scheme: "about", OpaquePath: "blank" or "srcdoc" };
+
+    internal static bool MatchesAboutBlank(string url)
+        => UrlParser.Parse(url) is { Scheme: "about", OpaquePath: "blank" };
+
     internal bool IsSameOrigin(DomDocumentOrigin other)
         => ReferenceEquals(this, other) || !IsOpaque && !other.IsOpaque && Serialized == other.Serialized;
 }

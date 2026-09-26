@@ -186,7 +186,7 @@ internal static class FrameWindows
             {
                 return false;
             }
-            if (ElementOf(current) is { } frame && frame.GetAttributeNS(null, "sandbox") is not null)
+            if (DomDocumentState.Of(current).ScriptsBlockedBySandbox)
             {
                 return false;
             }

@@ -56,6 +56,43 @@ public sealed class NativeDocumentMetadataTests
     }
 
     [Test]
+    public async Task NestedSandboxFlagsAreFrozenAndBlankVariantsInherit()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <iframe id=b src='about:blank?query#fragment'></iframe>
+            <iframe id=s sandbox srcdoc="<iframe id=n srcdoc='child'></iframe>"></iframe>
+            <iframe id=a sandbox='allow-same-origin' srcdoc='child'></iframe>
+            """, "https://creator.test/path");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var principal = runtime.Document!;
+            var blankFrame = DomDocumentReads.ById(runtime.Dom, principal, "b")!;
+            var blank = DomBrowsingContext.OfFrame(blankFrame)!.Active!;
+            DomDocumentMetadata.Origin(blank).Should().Be("https://creator.test");
+            DomDocumentState.FallbackBaseUri(blank).Should().Be("https://creator.test/path");
+            var sandboxFrame = DomDocumentReads.ById(runtime.Dom, principal, "s")!;
+            var sandbox = DomBrowsingContext.OfFrame(sandboxFrame)!.Active!;
+            var nestedFrame = DomDocumentReads.ById(runtime.Dom, sandbox, "n")!;
+            var nested = DomBrowsingContext.OfFrame(nestedFrame)!.Active!;
+            DomDocumentState.Of(sandbox).Origin.IsSameOrigin(DomDocumentState.Of(nested).Origin).Should().BeFalse();
+            DomDocumentState.Of(nested).HasSandboxedOrigin.Should().BeTrue();
+            DomDocumentState.Of(nested).ScriptsBlockedBySandbox.Should().BeTrue();
+            sandboxFrame.RemoveAttribute("sandbox");
+            var allowedFrame = DomDocumentReads.ById(runtime.Dom, principal, "a")!;
+            var allowed = DomBrowsingContext.OfFrame(allowedFrame)!.Active!;
+            allowedFrame.RemoveAttribute("sandbox");
+            DomDocumentState.Of(principal).Origin.IsSameOrigin(DomDocumentState.Of(allowed).Origin).Should().BeTrue();
+            FrameWindows.CanRunScripts(runtime, allowed).Should().BeFalse();
+            FrameWindows.CanRunScripts(runtime, sandbox).Should().BeFalse();
+            FrameWindows.For(runtime, nestedFrame).IsNull().Should().BeTrue();
+            return true;
+        });
+    }
+
+    [Test]
     public async Task ManufacturedDocumentsAndClonesUseTheAssociatedOriginAndParserUrl()
     {
         await using var browser = new Browser();

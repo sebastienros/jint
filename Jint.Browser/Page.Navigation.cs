@@ -486,8 +486,7 @@ public sealed partial class Page
 
         try
         {
-            var creatorOrigin = await _loop.PostAsync(_ => _load is { } load
-                ? Dom.DomDocumentState.Of(load.Document).Origin : Dom.DomDocumentOrigin.Opaque()).ConfigureAwait(false);
+            var creator = await _loop.PostAsync(CreationFactsOf).ConfigureAwait(false);
             var loaderId = NextLoaderId();
             _observer?.NavigationStarted(url, loaderId);
 
@@ -500,7 +499,7 @@ public sealed partial class Page
 
             await _loop.PostAsync(engine => Commit(
                 engine,
-                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId, CreatorOrigin: creatorOrigin))).ConfigureAwait(false);
+                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId, Creator: creator))).ConfigureAwait(false);
         }
         finally
         {
@@ -565,8 +564,7 @@ public sealed partial class Page
         }
 
         var href = target.Serialize();
-        var creatorOrigin = await _loop.PostAsync(_ => _load is { } load
-            ? Dom.DomDocumentState.Of(load.Document).Origin : Dom.DomDocumentOrigin.Opaque()).ConfigureAwait(false);
+        var creator = await _loop.PostAsync(CreationFactsOf).ConfigureAwait(false);
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL equal to the
         // current one with fragments excluded, and whose own fragment is non-null, keeps the document, the
@@ -632,7 +630,7 @@ public sealed partial class Page
                 NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
                 RedirectCount: redirectCount,
                 ContentType: contentType,
-                CreatorOrigin: creatorOrigin)));
+                Creator: creator)));
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -760,7 +758,7 @@ public sealed partial class Page
         var runtime = PageRuntime.Find(engine)!;
         runtime.NavigationType = request.NavigationType;
         runtime.NavigationRedirectCount = request.RedirectCount;
-        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType, request.CreatorOrigin);
+        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType, request.Creator);
 
         if (history == HistoryMode.Traverse)
         {
@@ -823,14 +821,14 @@ public sealed partial class Page
         Action<NavigationPhase>? onPhase,
         string loaderId,
         string contentType = Dom.DomContentType.Html,
-        Dom.DomDocumentOrigin? creatorOrigin = null)
+        DocumentCreationFacts? creator = null)
     {
         // The previous document goes first, and the page describes nothing until the new one exists. The
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
         // that throws leaves a page with no document rather than one describing a document that is gone.
         var previous = _load;
-        var creationOrigin = url is "about:blank" or "about:srcdoc"
-            ? creatorOrigin ?? Dom.DomDocumentOrigin.Opaque() : Dom.DomDocumentOrigin.FromUrl(url);
+        var creationOrigin = Dom.DomDocumentOrigin.InheritsCreator(url)
+            ? creator?.Origin ?? Dom.DomDocumentOrigin.Opaque() : Dom.DomDocumentOrigin.FromUrl(url);
         _load = null;
         _url = url;
         _referrer = referrer;
@@ -842,6 +840,7 @@ public sealed partial class Page
         runtime.DocumentUrl = url;
         runtime.Referrer = referrer;
         runtime.DocumentCreationOrigin = creationOrigin;
+        runtime.DocumentCreationBaseUrl = Dom.DomDocumentOrigin.InheritsCreator(url) ? creator?.BaseUrl : null;
         _loaderId = loaderId;
         CancelNetworkIdle();
 
@@ -874,6 +873,7 @@ public sealed partial class Page
         finally
         {
             runtime.DocumentCreationOrigin = null;
+            runtime.DocumentCreationBaseUrl = null;
             _observer?.DocumentLoadFinished();
         }
     }
@@ -1134,6 +1134,15 @@ public sealed partial class Page
         string? InlineContent = null,
         Exception? PreflightFailure = null);
 
+    private DocumentCreationFacts CreationFactsOf(Engine engine)
+        => _load is { } load
+            ? new DocumentCreationFacts(Dom.DomDocumentState.Of(load.Document).Origin,
+                Dom.DomDocumentState.BaseUri(load.Document, engine.Constraints.Check,
+                    PageRuntime.Find(engine)!.Cancellation?.Token ?? CancellationToken.None))
+            : new DocumentCreationFacts(Dom.DomDocumentOrigin.Opaque(), null);
+
+    private sealed record DocumentCreationFacts(Dom.DomDocumentOrigin Origin, string? BaseUrl);
+
     /// <summary>What the loop is handed once the document's bytes are in.</summary>
     private sealed record CommitRequest(
         string Url,
@@ -1147,7 +1156,7 @@ public sealed partial class Page
         int NavigationType = 0,
         int RedirectCount = 0,
         string ContentType = Dom.DomContentType.Html,
-        Dom.DomDocumentOrigin? CreatorOrigin = null);
+        DocumentCreationFacts? Creator = null);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

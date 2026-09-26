@@ -214,7 +214,9 @@ internal sealed partial class ParserDriver
         var creatorUrl = DomDocumentState.Of(owner).Url;
         var creatorBaseUrl = BaseUrlOf(owner);
         var creatorContext = DomBrowsingContext.Of(owner);
-        var sandboxedOrigin = HasSandboxedOrigin(frame);
+        var sandboxedOrigin = DomDocumentState.Of(owner).HasSandboxedOrigin || HasSandboxedOrigin(frame);
+        var scriptsBlockedBySandbox = DomDocumentState.Of(owner).ScriptsBlockedBySandbox
+            || Attribute(frame, "sandbox") is not null;
         var srcdoc = Attribute(frame, "srcdoc");
         var src = Attribute(frame, "src");
         var url = srcdoc is not null ? "about:srcdoc"
@@ -235,7 +237,7 @@ internal sealed partial class ParserDriver
         string markup;
         string contentType;
         DateTimeOffset? lastModified = null;
-        if (srcdoc is not null || url == "about:blank")
+        if (srcdoc is not null || DomDocumentOrigin.MatchesAboutBlank(url))
         {
             markup = srcdoc ?? "";
             contentType = DomContentType.Html;
@@ -251,12 +253,14 @@ internal sealed partial class ParserDriver
         var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html,
             contentType, new CustomElementRegistryIdentity(isScoped: false));
         DomDocumentMetadata.Initialize(document, sandboxedOrigin ? DomDocumentOrigin.Opaque()
-            : url is "about:blank" or "about:srcdoc" ? creatorOrigin : DomDocumentOrigin.FromUrl(url), lastModified);
+            : DomDocumentOrigin.InheritsCreator(url) ? creatorOrigin : DomDocumentOrigin.FromUrl(url), lastModified);
         var metadata = DomDocumentState.Of(document);
         metadata.Url = url;
         metadata.Referrer = creatorUrl;
         metadata.ReadyState = "loading";
-        if (url is "about:blank" or "about:srcdoc") metadata.AboutBaseUrl = creatorBaseUrl;
+        metadata.HasSandboxedOrigin = sandboxedOrigin;
+        metadata.ScriptsBlockedBySandbox = scriptsBlockedBySandbox;
+        if (DomDocumentOrigin.InheritsCreator(url)) metadata.AboutBaseUrl = creatorBaseUrl;
         if (DomBrowsingContext.OfFrame(frame) is { } context)
         {
             if (context.Active is { } previous && _resourceWatches.Remove(previous, out var watch)) watch.Subscription.Dispose();

@@ -20,6 +20,8 @@ internal sealed class DomDocumentState
     internal bool DesignModeEnabled { get; set; }
     internal DomDocumentOrigin Origin { get; set; } = DomDocumentOrigin.Opaque();
     internal DateTimeOffset? SourceLastModified { get; set; }
+    internal bool HasSandboxedOrigin { get; set; }
+    internal bool ScriptsBlockedBySandbox { get; set; }
 
     internal string Url { get; set; } = "about:blank";
     internal string Referrer { get; set; } = "";
@@ -101,7 +103,7 @@ internal sealed class DomDocumentState
     internal static string FallbackBaseUri(Document document)
     {
         var state = Of(document);
-        return state.Url is "about:blank" or "about:srcdoc" && state.AboutBaseUrl is { } aboutBase
+        return DomDocumentOrigin.InheritsCreator(state.Url) && state.AboutBaseUrl is { } aboutBase
             ? aboutBase : state.Url;
     }
 

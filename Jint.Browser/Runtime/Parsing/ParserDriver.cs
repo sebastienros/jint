@@ -99,6 +99,7 @@ internal sealed partial class ParserDriver : IDisposable
     {
         var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html, contentType, new CustomElementRegistryIdentity(isScoped: false));
         DomDocumentMetadata.Initialize(document, _runtime.DocumentCreationOrigin ?? DomDocumentOrigin.FromUrl(_url), lastModified);
+        DomDocumentState.Of(document).AboutBaseUrl = _runtime.DocumentCreationBaseUrl;
         var context = new DomBrowsingContext(document);
         _context = context;
         _runtime.Dom.AssociateContext(context);
