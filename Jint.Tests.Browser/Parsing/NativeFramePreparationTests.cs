@@ -23,19 +23,20 @@ public sealed class NativeFramePreparationTests
         var failure = await Caught.ExceptionAsync(() => page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
+            var parser = runtime.Parser!;
             var document = runtime.Document!;
             var frame = document.CreateElement("iframe");
             DomDocumentElements.Body(document)!.AppendChild(frame);
             probe.Checking = () =>
             {
-                if (!IsPreparing(runtime.Parser)) return;
+                if (!IsPreparing(parser)) return;
                 probe.Checking = null;
                 throw original;
             };
-            try { runtime.Parser.RecoverNativeMutationNotifications(); }
+            try { parser.RecoverNativeMutationNotifications(); }
             catch
             {
-                Pending(runtime.Parser).Cast<object>().Should().ContainSingle();
+                Pending(parser).Cast<object>().Should().ContainSingle();
                 DomBrowsingContext.OfFrame(frame).Should().BeNull();
                 retained = true;
                 throw;
@@ -61,18 +62,19 @@ public sealed class NativeFramePreparationTests
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
+            var parser = runtime.Parser!;
             var document = runtime.Document!;
             var body = DomDocumentElements.Body(document)!;
             body.AppendChild(document.CreateElement("iframe"));
             body.AppendChild(document.CreateElement("iframe"));
             probe.Checking = () =>
             {
-                if (!IsPreparing(runtime.Parser)) return;
+                if (!IsPreparing(parser)) return;
                 probe.Checking = null;
-                runtime.Parser.RecoverNativeMutationNotifications();
+                parser.RecoverNativeMutationNotifications();
                 reentered = true;
             };
-            runtime.Parser.RecoverNativeMutationNotifications();
+            parser.RecoverNativeMutationNotifications();
             return true;
         });
         reentered.Should().BeTrue();
@@ -92,6 +94,7 @@ public sealed class NativeFramePreparationTests
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
+            var parser = runtime.Parser!;
             var document = runtime.Document!;
             var frame = document.CreateElement("iframe");
             DomDocumentElements.Body(document)!.AppendChild(frame);
@@ -101,13 +104,13 @@ public sealed class NativeFramePreparationTests
             var adopted = false;
             probe.Checking = () =>
             {
-                if (!IsPreparing(runtime.Parser)) return;
+                if (!IsPreparing(parser)) return;
                 probe.Checking = null;
                 inert.AdoptNode(frame);
                 root.AppendChild(frame);
                 adopted = true;
             };
-            runtime.Parser.RecoverNativeMutationNotifications();
+            parser.RecoverNativeMutationNotifications();
             adopted.Should().BeTrue();
             frame.OwnerDocument.Should().BeSameAs(inert);
             DomBrowsingContext.OfFrame(frame).Should().BeNull();
