@@ -13,6 +13,13 @@ owners released their files; D7b2 now exclusively owns the required Element/Html
 hooks as well as the checkedness/form lifecycle files. CSS declarations do not own DOM, selectors,
 Browser or public facade files. No PRs. Historical finalization/cleanup counts below remain unchanged.
 
+**Script source metadata owner:** `631c`, chat `01a0dba6-8588-7262-8a1f-fdacf5bcc420`,
+implements source-unit-aware positions for parser-created scripts. Normal input chunks share primary
+coordinates; inserted input units retain separate coordinates, so inserted newlines cannot shift later
+primary-script locations. The anchor is immediately after the start tag; tags and content crossing
+units are explicitly mixed. Browser uses primary document lines and script-relative coordinates for
+generated/mixed text. No D7-owned DOM files are reserved by this worker.
+
 **Current continuation:** Browser checkpoint `92732c130` contains further native DOM adapters,
 retained navigation target state and host-budget Range wiring, still isolated with an incomplete build.
 Accessibility/extraction is delegated from that checkpoint to `68c5`, chat
