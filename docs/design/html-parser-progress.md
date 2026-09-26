@@ -3,7 +3,7 @@
 ## Scope and workflow
 
 **Active continuation after finalization:** the full goal resumed from `3c0f0ee75`. Production
-AngleSharp removal is the next integration objective. Three dedicated GPT-6 Sol High local-worktree
+AngleSharp removal is the next integration objective. Five dedicated GPT-6 Sol High local-worktree
 chats are active; Astra High owns design and review. No PRs.
 
 | Owner | Chat | Checkout / scope |
@@ -11,12 +11,27 @@ chats are active; Astra High owns design and review. No PRs.
 | Browser native runtime cutover | `01a0db4d-a396-7e33-a770-ace95e2ad537` | `414c`: Browser, binding contract/emitter and tests; narrow signed native friend grant |
 | H7a foreign-content tree construction | `01a0db4e-2f7a-7e52-bc1f-000fcb158552` | `0c31`: TreeConstruction/session and tests; consumes integrated tokenizer context seam |
 | C6s CSS substitution execution | `01a0db4c-ee87-7523-acc5-04bed9cd6e6e` | `2d15`: reviewed immutable var/env execution and direct component projection |
+| Tokenizer inserted-input prerequisite | `01a0db52-0817-7031-a745-86ed8aa618ba` | `7331`: HtmlInput/tokenizer markers and bounded reads; no session edits |
+| Native live Range and traversal | `01a0db52-af75-7971-9e0f-682e63ae96b0` | `e333`: LiveTraversal and Node/Document/Attr/CharacterNodes; preserves textarea/observer/shadow semantics |
 
 Browser owns the connected one-native-DOM identity switch, not an XML-to-AngleSharp conversion.
 Temporarily uncompilable worker commits stay isolated; common receives coherent tested checkpoints.
 Native gaps must name an actual caller/regression and go through their owner. Do not overlap parser,
 DOM, CSS or Browser ownership. H7a retains fragment/script and shadow/patch work as separate capabilities;
 C6s does not claim a complete property registry or cascade.
+
+Browser's actual ParserDriver requires a script-end host handoff and synchronous inserted-input driving.
+The tokenizer prerequisite is independent of H7: opaque insertion markers, constant-time slice splicing,
+ReadUntil boundaries without EOF recovery, pending-EOF writes and shared input/work/cancellation limits.
+H8 session work follows H7 ownership release and consumes this primitive. Its returned-request protocol
+must distinguish the pre-pop microtask checkpoint, preparation, nested pending blockers and later
+execution at zero nesting; stale completions and reentrant native driving are rejected. EOF inside an
+unterminated script is not an execution request. Browser retains scheduling and stylesheet readiness.
+
+D6 live tracking closes Range/iterator/TreeWalker consumer gaps. Its pre-removal repair is independent
+of observer suppression and the textarea-only suppressSemantic flag. Fragment destination offsets shift
+once by full inserted count; each removal still repairs endpoints and retains textarea intermediate
+clamps. No paired iterators, second range model, document-wide scans or JS callbacks inside mutations.
 
 **Latest user-directed finalization (September 25):** the four remaining implementation chats
 have completed their current checkpoints and are archived. All changes passed independent Astra review and are
