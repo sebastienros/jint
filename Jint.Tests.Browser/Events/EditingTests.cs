@@ -18,6 +18,30 @@ using Page = global::Jint.Browser.Page;
 public sealed class EditingTests
 {
     [Test]
+    public async Task AChangeListenerRefocusingTheControlKeepsTheNextEditBaseline()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<textarea id='t'></textarea><input id='other'>");
+        await page.EvaluateAsync(
+            """
+            const t = document.getElementById('t');
+            const other = document.getElementById('other');
+            window.changes = [];
+            t.addEventListener('change', () => {
+              changes.push(t.value);
+              if (changes.length === 1) t.focus();
+            });
+            t.focus();
+            """);
+        await BrowserTestAccess.DispatchKeyAsync(page, "x");
+        await page.EvaluateAsync("other.focus()");
+        await BrowserTestAccess.DispatchKeyAsync(page, "y");
+        await page.EvaluateAsync("t.blur()");
+        (await page.EvaluateAsync<string>("changes.join('|')")).Should().Be("x|xy");
+    }
+
+    [Test]
     public async Task AReadOnlyAttributeInAnotherNamespaceDoesNotBarTextareaEditing()
     {
         await using var browser = new Browser();
