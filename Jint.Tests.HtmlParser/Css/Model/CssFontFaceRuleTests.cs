@@ -159,12 +159,14 @@ public sealed class CssFontFaceRuleTests
         var name = new string('A', 16384);
         using var cancellation = new CancellationTokenSource();
         var polls = 0;
+        var allocatedCopyPolls = 0;
         long allocationBeforeCall = 0;
         var work = new CssValueWork(cancellation.Token, () =>
         {
             polls++;
             // Precharging name.Length cannot cancel here: the destination string does not yet exist.
-            if (GC.GetAllocatedBytesForCurrentThread() - allocationBeforeCall >= name.Length * sizeof(char))
+            if (GC.GetAllocatedBytesForCurrentThread() - allocationBeforeCall >= name.Length * sizeof(char)
+                && ++allocatedCopyPolls == 2)
                 cancellation.Cancel();
         });
         OperationCanceledException? failure = null;
@@ -173,8 +175,9 @@ public sealed class CssFontFaceRuleTests
         try { CssFontFaceDescriptorCatalog.NormalizeName(name, work); }
         catch (OperationCanceledException exception) { failure = exception; }
         failure.Should().NotBeNull();
-        // Entry plus the first charged chunk of the actual copy, rather than an exit-only poll.
-        polls.Should().Be(2);
+        // Entry plus two charged copy chunks. An exit-only check sees the allocation just once.
+        allocatedCopyPolls.Should().Be(2);
+        polls.Should().Be(3);
     }
 
     [Test]
