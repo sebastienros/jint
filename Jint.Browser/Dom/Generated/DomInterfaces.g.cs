@@ -180,7 +180,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>FileList</c> interface, projected from <c>Jint.Browser.Dom.Files.JsFileList</c>.</summary>
     internal static readonly DomInterfaceDefinition FileList;
 
-    /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomHtmlCollection<Jint.HtmlParser.Element></c>.</summary>
+    /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomHtmlCollection&lt;Jint.HtmlParser.Element&gt;</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAllCollection;
 
     /// <summary>The <c>HTMLElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
