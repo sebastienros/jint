@@ -1,5 +1,5 @@
 using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Native;
@@ -217,7 +217,7 @@ internal static class WindowInstaller
     }
 
     /// <summary>Installs the child global's Window brand and its independent event-handler slots.</summary>
-    internal static void InstallFrame(PageRuntime runtime, DomRealm dom, IDocument document)
+    internal static void InstallFrame(PageRuntime runtime, DomRealm dom, Document document)
     {
         var engine = runtime.Engine;
         var realm = dom.OwningRealm;
@@ -349,7 +349,7 @@ internal static class WindowInstaller
                     PageRuntime.Of(t, "name").WindowName = TypeConverter.ToString(args.At(0));
                     return JsValue.Undefined;
                 })
-            .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
+            .Accessor("origin", static (t, _) => JsString.Create(PageUrl.OriginOf(PageRuntime.Of(t, "origin").DocumentUrl)))
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
@@ -522,7 +522,7 @@ internal static class WindowInstaller
 
     private static JsValue GetComputedStyle(PageRuntime runtime, JsValue[] arguments)
     {
-        if (arguments.At(0) is not IDomWrapper { DomTarget: IElement element })
+        if (arguments.At(0) is not IDomWrapper { DomTarget: Element element })
         {
             Throw.TypeError(
                 runtime.Engine.Realm,
@@ -552,7 +552,7 @@ internal static class WindowInstaller
         // message is serialized now, in the caller's turn, and deserialized into the event later — so a
         // mutation between the two is not observed by the listener.
         var message = StructuredCloner.Clone(engine, realm, arguments.At(0), transferList: null);
-        var origin = JsString.Create(runtime.Document?.Origin ?? "");
+        var origin = JsString.Create(PageUrl.OriginOf(runtime.DocumentUrl));
 
         engine.Tasks.Post(() =>
         {

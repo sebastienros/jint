@@ -243,7 +243,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     /// </remarks>
     private IReadOnlyList<string> SupportedNames()
     {
-        var names = _accessor.SupportedNames(DomTarget);
+        var names = _accessor.SupportedNames(DomRealm, DomTarget);
 
         if (!ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) || names.Count == 0)
         {
@@ -321,7 +321,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
             return false;
         }
 
-        return _accessor.HasSupportedName(DomTarget, name);
+        return _accessor.HasSupportedName(DomRealm, DomTarget, name);
     }
 
     bool INamedPropertySupport.HasSupportedName(string name) => HasSupportedName(name);

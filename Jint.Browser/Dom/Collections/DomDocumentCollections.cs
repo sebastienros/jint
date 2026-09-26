@@ -34,10 +34,10 @@ internal static class DomDocumentCollections
             if (element.NamespaceUri != Namespaces.Html) return false;
             return kind switch
             {
-                "anchors" => element.LocalName == "a" && element.HasAttribute("name"),
+                "anchors" => element.LocalName == "a" && element.GetAttributeNS(null, "name") is not null,
                 "forms" => element.LocalName == "form",
                 "images" => element.LocalName == "img",
-                "links" => element.LocalName is "a" or "area" && element.HasAttribute("href"),
+                "links" => element.LocalName is "a" or "area" && element.GetAttributeNS(null, "href") is not null,
                 "scripts" => element.LocalName == "script",
                 "plugins" => element.LocalName == "embed",
                 "commands" => element.LocalName is "menuitem" or "button" or "a",
@@ -61,7 +61,7 @@ internal static class DomDocumentCollections
         {
             get
             {
-                if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+                ArgumentOutOfRangeException.ThrowIfNegative(index);
                 foreach (var element in Matches())
                 {
                     if (index-- == 0) return element;

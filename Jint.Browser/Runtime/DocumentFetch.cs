@@ -206,8 +206,10 @@ internal static class DocumentFetch
     /// response's <c>Content-Type</c> asks for, and the encoding to read it in.
     /// </summary>
     private static (string Text, string ContentType) Decode(byte[] bytes, PageResponse response, string url)
+        => Decode(bytes, response.Header("content-type"), url);
+
+    internal static (string Text, string ContentType) Decode(byte[] bytes, string? declared, string url)
     {
-        var declared = response.Header("content-type");
         var mime = declared is null ? null : MimeType.Parse(declared);
         var essence = mime?.Essence;
 
@@ -244,7 +246,7 @@ internal static class DocumentFetch
         // MIME essences are already lowercased. These types are text documents, not markup or scripts.
         if (essence is "text/plain" or "text/css" or "text/vtt" or "application/json" or "text/json"
             || essence.EndsWith("+json", StringComparison.Ordinal)
-            || AngleSharp.Io.MimeTypeNames.IsJavaScript(essence))
+            || JavaScriptMime.IsJavaScript(essence))
         {
             // The wrapper *is* the document HTML's read text asked for, so what is parsed from here is HTML
             // whatever the response said it was.

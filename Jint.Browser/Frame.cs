@@ -1,5 +1,6 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
 
 namespace Jint.Browser;
 
@@ -64,17 +65,20 @@ public sealed class Frame
 
     internal static Frame Detached(Page page) => new(page, parent: null, "about:blank", "", []);
 
-    internal static Frame Build(Page page, IDocument document, string url)
+    internal static Frame Build(Page page, PageRuntime runtime, Document document, string url)
     {
         // The list is handed to the main frame before it is filled, because a child needs the parent it is
         // being added to. Nothing outside this method sees either until both are complete.
         var children = new List<Frame>();
         var main = new Frame(page, parent: null, url, "", children);
 
-        foreach (var element in document.QuerySelectorAll("iframe, frame"))
+        foreach (var element in NodeTraversal.DescendantElements(document, runtime.Engine.Constraints.Check, runtime.Dom.CancellationToken))
         {
-            var source = element.GetAttribute("src");
-            var name = element is IHtmlInlineFrameElement inline ? inline.Name : element.GetAttribute("name");
+            if (element is not { NamespaceUri: Namespaces.Html, LocalName: "iframe" or "frame" }) continue;
+            var work = new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+            var source = work.Attribute(element, "src");
+            var name = work.Attribute(element, "name");
+            work.Check();
 
             children.Add(new Frame(page, main, source ?? "about:blank", name ?? "", []));
         }

@@ -28,7 +28,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     }
 
     /// <inheritdoc />
-    public override uint Length => (uint) _collection.Length;
+    public override uint Length => (uint) _collection.GetLength(DomRealm);
 
     /// <inheritdoc />
     protected override bool IgnoreNamedPropertiesInSet => true;
@@ -75,7 +75,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     /// whose length probe is a field read, and it stays where it is.
     /// </para>
     /// </remarks>
-    private Element? ElementAt(uint index) => _collection.GetItem(index) as Element;
+    private Element? ElementAt(uint index) => _collection.GetItem(DomRealm, index) as Element;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every
@@ -152,21 +152,25 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     /// </remarks>
     internal override JsValue NamedItem(string name)
     {
+        if (_collection.GetNamedItem(DomRealm, name) is { } specialized) return specialized;
         if (name.Length == 0)
         {
             return JsValue.Null;
         }
 
-        foreach (var candidate in _collection)
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
+        foreach (var candidate in _collection.Read(DomRealm))
         {
             var element = (Element) (Node) candidate;
-            if (string.Equals(element.GetAttribute("id"), name, StringComparison.Ordinal)
-                || (element.NamespaceUri == Namespaces.Html && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal)))
+            if (work.Equal(work.Attribute(element, "id"), name)
+                || (element.NamespaceUri == Namespaces.Html && work.Equal(work.Attribute(element, "name"), name)))
             {
+                work.Check();
                 return DomRealm.Wrap(element);
             }
         }
-
+        work.Check();
         return JsValue.Null;
     }
 
@@ -180,22 +184,26 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     {
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
 
-        foreach (var candidate in _collection)
+        foreach (var candidate in _collection.Read(DomRealm))
         {
             var element = (Element) (Node) candidate;
-            Add(names, element.GetAttribute("id"));
+            Add(names, work.Attribute(element, "id"));
 
             if (element.NamespaceUri == Namespaces.Html)
             {
-                Add(names, element.GetAttribute("name"));
+                Add(names, work.Attribute(element, "name"));
             }
         }
 
+        work.Check();
         return names;
 
         void Add(List<string> names, string? candidate)
         {
+            if (candidate is not null) foreach (var unused in candidate) work.Step();
             // The base class lists an ordinary own property itself, in property-bag order. Do not also
             // advertise a projected name for it, or enumeration and lookup would disagree.
             if (!string.IsNullOrEmpty(candidate)

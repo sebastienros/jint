@@ -275,7 +275,7 @@ internal sealed class FlatLayout
         }
     }
 
-    private static IReadOnlyList<Element> NativeChildren(Element parent, Action? checkpoint, CancellationToken token)
+    private static List<Element> NativeChildren(Element parent, Action? checkpoint, CancellationToken token)
     {
         var children = new List<Element>();
         var work = 0;

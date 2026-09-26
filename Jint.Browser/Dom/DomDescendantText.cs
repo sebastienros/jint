@@ -7,6 +7,12 @@ namespace Jint.Browser.Dom;
 internal static class DomDescendantText
 {
     internal static string Read(Node root, Action<int>? checkpoint, CancellationToken cancellationToken)
+        => ReadCore(root, checkpoint, cancellationToken, descendants: true);
+
+    internal static string ReadChildren(Node root, Action<int>? checkpoint, CancellationToken cancellationToken)
+        => ReadCore(root, checkpoint, cancellationToken, descendants: false);
+
+    private static string ReadCore(Node root, Action<int>? checkpoint, CancellationToken cancellationToken, bool descendants)
     {
         var work = new DomReadWork(checkpoint, cancellationToken);
         work.Check();
@@ -31,8 +37,8 @@ internal static class DomDescendantText
                     result.Append(data[offset]);
                 }
             }
-            if (node.FirstChild is { } child) { node = child; continue; }
-            while (node.NextSibling is null && !ReferenceEquals(node.ParentNode, root))
+            if (descendants && node.FirstChild is { } child) { node = child; continue; }
+            while (descendants && node.NextSibling is null && !ReferenceEquals(node.ParentNode, root))
             {
                 work.Step();
                 node = node.ParentNode!;

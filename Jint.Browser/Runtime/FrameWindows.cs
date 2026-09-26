@@ -184,7 +184,7 @@ internal static class FrameWindows
             {
                 return false;
             }
-            if (ElementOf(current) is { } frame && frame.HasAttribute("sandbox"))
+            if (ElementOf(current) is { } frame && frame.GetAttributeNS(null, "sandbox") is not null)
             {
                 return false;
             }

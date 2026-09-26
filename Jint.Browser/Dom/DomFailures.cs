@@ -52,8 +52,26 @@ internal static class DomFailures
             PrepareCustomElements(receiver);
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
             try { return guarded(receiver, arguments); }
-            finally { DrainCustomElements(receiver); }
+            finally
+            {
+                CompleteNativeMutation(receiver);
+                DrainCustomElements(receiver);
+            }
         };
+    }
+
+    private static void CompleteNativeMutation(JsValue receiver)
+    {
+        if (receiver is not IDomWrapper wrapper) return;
+        var node = wrapper.DomTarget switch
+        {
+            Node target => target,
+            DomRange range => range.Start.Container.Node,
+            _ => null,
+        };
+        var document = node as Document ?? node?.OwnerDocument;
+        if (node is not null && document is not null)
+            Runtime.PageRuntime.FindBrowsingContext(wrapper.DomRealm.Engine, document)?.Parser?.CompleteNativeMutation(node);
     }
 
     private static void PrepareCustomElements(JsValue receiver)

@@ -275,6 +275,8 @@ internal sealed class PageRuntime
     internal DomNodeObject? DocumentWrapper { get; private set; }
 
     /// <summary>The <c>&lt;script&gt;</c> whose text is running, for <c>document.currentScript</c>.</summary>
+    internal Parsing.ParserDriver? Parser { get; set; }
+
     internal Node? CurrentScript { get; set; }
 
     /// <summary><c>Window.prototype</c>, which is the global object's <c>[[Prototype]]</c>.</summary>
