@@ -13,8 +13,7 @@ internal sealed partial class ParserDriver
     private readonly HashSet<Element> _pendingStyleCompletions = [];
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
     private readonly Queue<ResourceEnvelope> _resourceRecords = new();
-    private readonly Queue<Element> _pendingFrameDocuments = new();
-    private readonly HashSet<Element> _pendingFrameDocumentSet = [];
+    private readonly Queue<PendingFrameDocument> _pendingFrameDocuments = new();
     private readonly List<Element> _candidateShadowHosts = [];
     private readonly HashSet<Element> _inlineStyles = [];
     private readonly HashSet<Element> _changedScripts = [];
@@ -35,6 +34,7 @@ internal sealed partial class ParserDriver
 
     private sealed class ResourceSource
     {
+        internal PendingFrameDocument? PendingFrame;
         internal string? Signature;
         internal object? StyleRequest;
         internal Document? StyleRequestDocument;
@@ -42,6 +42,15 @@ internal sealed partial class ParserDriver
         internal bool StyleLoaded;
         internal bool ModuleStarted;
         internal MutationSubscription? ScriptSubscription;
+    }
+
+    private sealed class PendingFrameDocument(Element frame, Document document, DomBrowsingContext context, ResourceSource source)
+    {
+        internal Element Frame { get; } = frame;
+        internal Document Document { get; } = document;
+        internal DomBrowsingContext Context { get; } = context;
+        internal ResourceSource Source { get; } = source;
+        internal bool Preparing;
     }
 
     private ResourceWatch WatchDocument(Document document) => WatchResourceRoot(document);
@@ -232,17 +241,39 @@ internal sealed partial class ParserDriver
             }
         }
         finally { _drainingResourceRecords = false; }
+        if (!_recoveringNativeNotifications) PumpPendingFrameDocuments();
+    }
+
+    private void PumpPendingFrameDocuments()
+    {
+        if (_pendingFrameDocuments.Count == 0 || _drainingResourceRecords || _recoveringNativeNotifications || _activeResourceRecord is not null) return;
         // A child parser must be able to deliver its own resources before running a script. Start
-        // frame documents after releasing the parent record's drain ownership, never on unwind.
-        // Remove before entering the child: its Drive can safely consume later frame requests.
-        while (_pendingFrameDocuments.TryPeek(out var frame))
+        // frame documents after releasing both recovery owners, never on failure unwind. Preparation
+        // retains the front entry until LoadFrame transfers it into a committed navigation.
+        while (true)
         {
             _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
             _runtime.Engine.Constraints.Check();
-            _pendingFrameDocuments.Dequeue();
-            _pendingFrameDocumentSet.Remove(frame);
-            LoadFrame(frame);
+            if (!_pendingFrameDocuments.TryPeek(out var pending) || pending.Preparing) return;
+            if (!CurrentFrameRequest(pending)) { CompleteFrameRequest(pending); continue; }
+            pending.Preparing = true;
+            try { LoadFrame(pending.Frame, pending); }
+            finally { pending.Preparing = false; }
         }
+    }
+
+    private bool CurrentFrameRequest(PendingFrameDocument pending)
+        => !_disposed && ReferenceEquals(pending.Source.PendingFrame, pending) &&
+            ReferenceEquals(pending.Frame.OwnerDocument, pending.Document) &&
+            ReferenceEquals(pending.Context.Active, pending.Document) &&
+            ReferenceEquals(PageRuntime.FindBrowsingContext(_runtime.Engine, pending.Document), _runtime);
+
+    private void CompleteFrameRequest(PendingFrameDocument pending)
+    {
+        if (_pendingFrameDocuments.TryPeek(out var front) && ReferenceEquals(front, pending))
+            _pendingFrameDocuments.Dequeue();
+        if (ReferenceEquals(pending.Source.PendingFrame, pending)) pending.Source.PendingFrame = null;
+        pending.Preparing = false;
     }
 
     private void ProcessResourceRecord(ResourceEnvelope entry, HashSet<Node> seen, HashSet<ResourceWatch> delivered)
@@ -402,7 +433,17 @@ internal sealed partial class ParserDriver
             case "iframe":
                 if (_drainingResourceRecords)
                 {
-                    if (_pendingFrameDocumentSet.Add(element)) _pendingFrameDocuments.Enqueue(element);
+                    if (element.OwnerDocument is { } document && DomBrowsingContext.Of(document) is { } context &&
+                        ReferenceEquals(PageRuntime.FindBrowsingContext(_runtime.Engine, document), _runtime))
+                    {
+                        var source = _resourceSources.GetValue(element, static _ => new ResourceSource());
+                        if (source.PendingFrame is not { } current || current.Preparing || !ReferenceEquals(current.Document, document))
+                        {
+                            var pending = new PendingFrameDocument(element, document, context, source);
+                            source.PendingFrame = pending;
+                            _pendingFrameDocuments.Enqueue(pending);
+                        }
+                    }
                 }
                 else LoadFrame(element);
                 return;
@@ -560,15 +601,22 @@ internal sealed partial class ParserDriver
         }
     }
 
-    private void LoadFrame(Element frame)
+    private void LoadFrame(Element frame, PendingFrameDocument? pending = null)
     {
-        if (!IsResourceConnected(frame)) return;
+        if (pending is not null && !CurrentFrameRequest(pending)) { CompleteFrameRequest(pending); return; }
+        var owner = pending?.Document ?? frame.OwnerDocument!;
+        if (DomBrowsingContext.Of(owner) is not { } creatorContext ||
+            !ReferenceEquals(PageRuntime.FindBrowsingContext(_runtime.Engine, owner), _runtime))
+        {
+            if (pending is not null) CompleteFrameRequest(pending);
+            return;
+        }
+        var ownerStamp = owner.MutationStamp;
+        if (!IsResourceConnected(frame)) { if (pending is not null) CompleteFrameRequest(pending); return; }
         // Freeze origin and sandbox facts before fetching can pump a later page turn.
-        var owner = frame.OwnerDocument!;
         var creatorOrigin = DomDocumentState.Of(owner).Origin;
         var creatorUrl = DomDocumentState.Of(owner).Url;
         var creatorBaseUrl = BaseUrlOf(owner);
-        var creatorContext = DomBrowsingContext.Of(owner);
         var sandboxedOrigin = DomDocumentState.Of(owner).HasSandboxedOrigin || HasSandboxedOrigin(frame);
         var scriptsBlockedBySandbox = DomDocumentState.Of(owner).ScriptsBlockedBySandbox
             || Attribute(frame, "sandbox") is not null;
@@ -578,6 +626,19 @@ internal sealed partial class ParserDriver
             : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, creatorBaseUrl);
         var signature = srcdoc is not null ? "srcdoc:" + srcdoc : "src:" + (url ?? "invalid:" + src);
         var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
+        _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
+        _runtime.Engine.Constraints.Check();
+        if (pending is not null && !CurrentFrameRequest(pending) || !ReferenceEquals(frame.OwnerDocument, owner) ||
+            !ReferenceEquals(creatorContext.Active, owner))
+        {
+            if (pending is not null) CompleteFrameRequest(pending);
+            return;
+        }
+        if (ownerStamp == ulong.MaxValue || owner.MutationStamp != ownerStamp)
+            throw new InvalidOperationException("The frame changed during navigation preparation.");
+        // No callback between consuming pending work and committing its navigation signature.
+        // A later fetch or parser failure belongs to the started request and is never replayed.
+        if (pending is not null) CompleteFrameRequest(pending);
         if (source.Signature == signature) return;
         source.Signature = signature;
         // HTML's iframe processing leaves the initial about:blank document active when parsing src

@@ -43,6 +43,7 @@ internal sealed partial class ParserDriver
             DrainResourceRecords();
         }
         finally { _recoveringNativeNotifications = false; }
+        PumpPendingFrameDocuments();
     }
 
     private bool TryActivateResourceRecord(out ResourceEnvelope entry)
@@ -63,8 +64,9 @@ internal sealed partial class ParserDriver
         _pendingNativeDocumentSet.Clear();
         _activeResourceRecord = null;
         _activeMetaCursor = 0;
+        foreach (var pending in _pendingFrameDocuments)
+            if (ReferenceEquals(pending.Source.PendingFrame, pending)) pending.Source.PendingFrame = null;
         _pendingFrameDocuments.Clear();
-        _pendingFrameDocumentSet.Clear();
     }
 
     private static void ClearCapturedDocuments(ResourceEnvelope entry)
