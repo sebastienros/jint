@@ -8,11 +8,15 @@ internal static class CssFontFaceDescriptorCatalog
     internal static string NormalizeName(string name, CssValueWork work)
     {
         ArgumentNullException.ThrowIfNull(name);
-        work.Charge(name.Length);
-        var result = string.Create(name.Length, name, static (target, source) =>
+        work.CheckCancellation();
+        var result = string.Create(name.Length, (Name: name, Work: work), static (target, state) =>
         {
+            var source = state.Name;
             for (var i = 0; i < source.Length; i++)
+            {
+                state.Work.Charge(1);
                 target[i] = source[i] is >= 'A' and <= 'Z' ? (char) (source[i] + 32) : source[i];
+            }
         });
         work.CheckCancellation();
         return result;
