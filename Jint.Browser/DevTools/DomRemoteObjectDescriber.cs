@@ -1,5 +1,5 @@
 using System.Text;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.DevTools.Domains;
 using Jint.Native;
@@ -22,7 +22,7 @@ namespace Jint.Browser.DevTools;
 /// </para>
 /// <para>
 /// <b>It runs nothing.</b> The description is read from the node's own name, its <c>id</c> and <c>class</c>
-/// content attributes and its interface — all of them CLR reads on AngleSharp's tree, none of them a
+/// content attributes and its interface — all of them CLR reads on the native tree, none of them a
 /// script-visible accessor. That is the promise every describing path in the protocol keeps, and a describer
 /// is held to it exactly as the engine's own inspector is.
 /// </para>
@@ -54,7 +54,7 @@ internal sealed class DomRemoteObjectDescriber : RemoteObjectDescriber
         {
             Subtype = "node",
             ClassName = wrapper.Definition.Name,
-            Description = Describe(wrapper.Node),
+            Description = Describe(wrapper.DomRealm, wrapper.DomTarget),
         };
 
         return true;
@@ -66,30 +66,71 @@ internal sealed class DomRemoteObjectDescriber : RemoteObjectDescriber
     /// </summary>
     /// <remarks>
     /// The tag name is lower-cased for an HTML element and left alone otherwise, which is what makes an SVG
-    /// <c>clipPath</c> read as itself; AngleSharp's <c>LocalName</c> already answers that distinction.
+    /// <c>clipPath</c> read as itself; Native <c>LocalName</c> already answers that distinction.
     /// </remarks>
-    internal static string Describe(INode node)
+    internal static string Describe(DomRealm realm, object node)
     {
-        if (node is not IElement element)
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        if (node is not Element element)
         {
-            return node.NodeName;
+            var name = DomNodeMembers.Name(node);
+            work.Check();
+            return name;
         }
-
-        var builder = new StringBuilder(element.LocalName);
-
-        if (element.Id is { Length: > 0 } id)
+        var builder = new StringBuilder();
+        Append(builder, element.LocalName, 0, element.LocalName.Length, work);
+        if (work.Attribute(element, "id") is { Length: > 0 } id)
         {
-            builder.Append('#').Append(id);
+            builder.Append('#');
+            Append(builder, id, 0, id.Length, work);
         }
-
-        foreach (var name in element.ClassList)
+        var classes = work.Attribute(element, "class") ?? "";
+        var tokens = new List<(int Start, int Length)>();
+        var start = 0;
+        for (var i = 0; i <= classes.Length; i++)
         {
-            if (name.Length != 0)
+            work.Step();
+            if (i != classes.Length && classes[i] is not (' ' or '\t' or '\n' or '\r' or '\f')) continue;
+            var length = i - start;
+            if (length > 0)
             {
-                builder.Append('.').Append(name);
+                var duplicate = false;
+                foreach (var token in tokens)
+                {
+                    work.Step();
+                    if (token.Length != length) continue;
+                    var same = true;
+                    for (var j = 0; j < length; j++)
+                    {
+                        work.Step();
+                        if (classes[token.Start + j] == classes[start + j]) continue;
+                        same = false;
+                        break;
+                    }
+                    if (same) { duplicate = true; break; }
+                }
+                if (!duplicate)
+                {
+                    tokens.Add((start, length));
+                    builder.Append('.');
+                    Append(builder, classes, start, length, work);
+                }
             }
+            start = i + 1;
         }
+        work.Check();
+        var result = builder.ToString();
+        work.Check();
+        return result;
+    }
 
-        return builder.ToString();
+    private static void Append(StringBuilder builder, string text, int start, int length, DomReadWork work)
+    {
+        for (var i = start; i < start + length; i++)
+        {
+            work.Step();
+            builder.Append(text[i]);
+        }
     }
 }

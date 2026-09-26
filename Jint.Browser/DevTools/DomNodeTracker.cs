@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Runtime;
 
@@ -13,7 +12,7 @@ namespace Jint.Browser.DevTools;
 /// <para>
 /// <b>A <c>nodeId</c> is a document's and a <c>backendNodeId</c> is a page's.</b> The first is minted when a
 /// node is sent to a client and is thrown away with the document, which is Chrome's own split; the second is
-/// keyed on the AngleSharp object in a <see cref="ConditionalWeakTable{TKey,TValue}"/>, so a node keeps the
+/// keyed on the native node or attribute object in a <see cref="ConditionalWeakTable{TKey,TValue}"/>, so a node keeps the
 /// same identifier for as long as it exists whether or not anything else remembers it.
 /// </para>
 /// <para>
@@ -36,8 +35,8 @@ namespace Jint.Browser.DevTools;
 /// same reason the remote-object table is seeded from a serial.
 /// </para>
 /// <para>
-/// <b>Mutations arrive through AngleSharp and are delivered on the engine's queue.</b> One
-/// <c>MutationObserver</c> over the whole document, registered when a client first enables the domain and
+/// <b>Mutations arrive through native subscriptions and are delivered on the engine's queue.</b> One
+/// <c>MutationSubscription</c> over the whole document, registered when a client first enables the domain and
 /// again for each document after it, parks its records; one job per batch turns them into
 /// <c>childNodeInserted</c>, <c>childNodeRemoved</c>, <c>attributeModified</c> and their kind. That is the
 /// same lane <c>Observers/MutationObserverLane</c> delivers a page's own observers on, so a client and a
@@ -47,29 +46,24 @@ namespace Jint.Browser.DevTools;
 /// Everything here runs on the page loop.
 /// </para>
 /// </remarks>
-internal sealed class DomNodeTracker
+internal sealed class DomNodeTracker : IDisposable
 {
     private static int _serial;
 
-    private readonly ConditionalWeakTable<INode, Identifier> _backendIds = new();
-    private readonly Dictionary<int, INode> _byNodeId = [];
-    private readonly Dictionary<INode, int> _nodeIds = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<int, INode> _byBackendId = [];
-    private readonly List<IMutationRecord> _records = [];
-    private readonly Action _deliver;
+    private readonly ConditionalWeakTable<object, Identifier> _backendIds = new();
+    private readonly Dictionary<int, object> _byNodeId = [];
+    private readonly Dictionary<object, int> _nodeIds = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<int, object> _byBackendId = [];
 
     private readonly object _domainGate = new();
     private DomDomain[] _domains = [];
 
-    private MutationObserver? _observer;
+    private MutationSubscription? _observer;
     private PageRuntime? _runtime;
-    private IDocument? _observed;
+    private Document? _observed;
     private bool _scheduled;
 
-    internal DomNodeTracker()
-    {
-        _deliver = Deliver;
-    }
+    void IDisposable.Dispose() => DocumentReplaced();
 
     /// <summary>Whether at least one attachment has the domain enabled, which is what arms the observer.</summary>
     private bool Wanted
@@ -112,8 +106,9 @@ internal sealed class DomNodeTracker
     /// <c>backendNodeId</c> are never the same number — which makes a client that confused the two fail
     /// loudly rather than resolve to the wrong node.
     /// </remarks>
-    internal int BackendIdOf(INode node)
+    internal int BackendIdOf(object node)
     {
+        if (node is not (Node or Attr)) throw new ArgumentException("Expected a native node or attribute.", nameof(node));
         if (!_backendIds.TryGetValue(node, out var identifier))
         {
             identifier = new Identifier(Interlocked.Increment(ref _serial));
@@ -125,8 +120,9 @@ internal sealed class DomNodeTracker
     }
 
     /// <summary>The identifier <paramref name="node"/> is addressed by in this document, minting one.</summary>
-    internal int IdOf(INode node)
+    internal int IdOf(object node)
     {
+        if (node is not (Node or Attr)) throw new ArgumentException("Expected a native node or attribute.", nameof(node));
         if (_nodeIds.TryGetValue(node, out var existing))
         {
             return existing;
@@ -145,13 +141,13 @@ internal sealed class DomNodeTracker
     /// what answers it: describing a node is not the same as pushing one, so a client that only ever
     /// describes never grows a node table.
     /// </remarks>
-    internal int KnownIdOf(INode node) => _nodeIds.TryGetValue(node, out var id) ? id : 0;
+    internal int KnownIdOf(object node) => _nodeIds.TryGetValue(node, out var id) ? id : 0;
 
     /// <summary>The node <paramref name="nodeId"/> names, or <see langword="null"/>.</summary>
-    internal INode? ByNodeId(int nodeId) => _byNodeId.TryGetValue(nodeId, out var node) ? node : null;
+    internal object? ByNodeId(int nodeId) => _byNodeId.TryGetValue(nodeId, out var node) ? node : null;
 
     /// <summary>The node <paramref name="backendNodeId"/> names, or <see langword="null"/>.</summary>
-    internal INode? ByBackendId(int backendNodeId)
+    internal object? ByBackendId(int backendNodeId)
         => _byBackendId.TryGetValue(backendNodeId, out var node) ? node : null;
 
     /// <summary>
@@ -162,9 +158,9 @@ internal sealed class DomNodeTracker
         _byNodeId.Clear();
         _nodeIds.Clear();
         _byBackendId.Clear();
-        _records.Clear();
+        _scheduled = false;
 
-        _observer?.Disconnect();
+        _observer?.Dispose();
         _observer = null;
         _observed = null;
         _runtime = null;
@@ -183,63 +179,42 @@ internal sealed class DomNodeTracker
             return;
         }
 
-        _observer?.Disconnect();
-
-        // Every flag on, because a client that enabled the domain wants the whole document: AngleSharp
-        // resolves each of them itself and none of its own defaulting runs when all are passed.
-        _observer = new MutationObserver(OnRecords);
-        _observer.Connect(
-            document,
-            childList: true,
-            subtree: true,
-            attributes: true,
-            characterData: true,
-            attributeOldValue: false,
-            characterDataOldValue: false,
-            attributeFilter: null);
+        _observer?.Dispose();
+        _scheduled = false;
+        _observer = new MutationSubscription { PendingRecord = OnRecords };
+        _observer.Observe(document, new MutationObserverOptions
+        {
+            ChildList = true,
+            Subtree = true,
+            Attributes = true,
+            CharacterData = true,
+            AttributeOldValue = false,
+            CharacterDataOldValue = false,
+        });
 
         _observed = document;
     }
 
     /// <summary>
-    /// What AngleSharp calls, synchronously, from inside the mutation. Nothing but bookkeeping happens here —
+    /// What the native subscription calls, synchronously, from inside the mutation. Nothing but bookkeeping happens here —
     /// no script runs, and no protocol event is written — so re-entering the DOM operation that is still
     /// running is safe.
     /// </summary>
-    private void OnRecords(IEnumerable<IMutationRecord> records, MutationObserver source)
+    private void OnRecords(MutationSubscription source)
     {
-        foreach (var record in records)
-        {
-            _records.Add(record);
-        }
-
-        if (_records.Count == 0 || _scheduled || _runtime is not { } runtime)
-        {
-            return;
-        }
-
+        if (_scheduled || _runtime is not { } runtime || !ReferenceEquals(source, _observer)) return;
         _scheduled = true;
-        runtime.Engine.AddToEventLoop(_deliver, EventLoopJobKind.Task);
+        // DOM's observer checkpoint, shared with script observers. A queued job for a replaced
+        // document must neither drain the new subscription nor clear its scheduling flag.
+        runtime.Engine.AddToEventLoop(() => Deliver(source), EventLoopJobKind.Microtask);
     }
 
-    private void Deliver()
+    private void Deliver(MutationSubscription source)
     {
+        if (!ReferenceEquals(source, _observer)) return;
         _scheduled = false;
-
-        if (_records.Count == 0)
-        {
-            return;
-        }
-
-        // A copy, because a listener a domain's event reaches cannot mutate the DOM — nothing here runs
-        // script — but a record arriving while this runs belongs to the next batch all the same.
-        var batch = _records.ToArray();
-        _records.Clear();
-
-        foreach (var domain in Volatile.Read(ref _domains))
-        {
-            domain.Mutated(batch);
-        }
+        var batch = source.TakeRecordsForDelivery();
+        foreach (var domain in Volatile.Read(ref _domains)) domain.Mutated(batch);
     }
 
     /// <summary>One node's backend identifier, boxed so the weak table can hold it.</summary>

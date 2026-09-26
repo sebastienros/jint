@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 using Jint.Browser.Extraction;
 using Jint.Browser.Runtime;
@@ -102,5 +102,5 @@ internal sealed class JintDomain : JintDomainBase
     };
 
     /// <summary>The document showing, read straight off the runtime because this is the loop thread.</summary>
-    private IDocument? Document() => PageRuntime.Find(_target.Runtime.Engine)?.Document;
+    private Document? Document() => PageRuntime.Find(_target.Runtime.Engine)?.Document;
 }
