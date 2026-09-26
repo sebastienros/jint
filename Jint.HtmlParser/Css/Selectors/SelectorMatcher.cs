@@ -97,6 +97,35 @@ internal static partial class SelectorMatcher
         cancellationToken.ThrowIfCancellationRequested();
     }
 
+    // CSS Conditional 4 §2.1: inspect capabilities without manufacturing a DOM node.
+    internal static bool Supports(CompiledSelector program, Values.CssValueWork work)
+    {
+        work.CheckCancellation();
+        var supported = program.Branches.Count == 1;
+        var pending = new Stack<CompiledSelector>();
+        pending.Push(program);
+        while (pending.TryPop(out var current))
+        {
+            supported &= current.Branches.Count != 0;
+            foreach (var branch in current.Branches)
+            {
+                work.Charge(1);
+                foreach (var compound in branch.Compounds)
+                {
+                    work.Charge(1);
+                    foreach (var predicate in compound.Predicates)
+                    {
+                        work.Charge(1);
+                        supported &= IsImplemented(predicate) && predicate.Kind != PredicateKind.WebkitUnknownPseudoElement;
+                        if (predicate.Arguments is not null) pending.Push(predicate.Arguments);
+                    }
+                }
+            }
+        }
+        work.CheckCancellation();
+        return supported;
+    }
+
     private static bool IsImplemented(Predicate predicate) => predicate.Kind switch
     {
         PredicateKind.Id or PredicateKind.Class or PredicateKind.Attribute or

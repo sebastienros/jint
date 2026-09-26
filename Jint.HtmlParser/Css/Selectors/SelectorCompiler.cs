@@ -1,5 +1,6 @@
 using System.Numerics;
 using Jint.HtmlParser.Css.Syntax;
+using Jint.HtmlParser.Css.Values;
 using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
 using ComplexSelector = Jint.HtmlParser.Css.Selectors.CompiledSelector.Complex;
 
@@ -20,6 +21,16 @@ internal static class SelectorCompiler
         return compiler.Compile(values);
     }
 
+    // CSS Conditional 4: one complex selector, without forgiving-list recovery.
+    internal static CompiledSelector CompileSupports(string source, CssComponentValueList values,
+        CssParseOptions? options, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var result = new Worker(source, new SelectorParseContext(limits: options?.Limits), work.Token, supportsWork: work).Compile(values);
+        work.CheckCancellation();
+        return result;
+    }
+
     internal sealed class Worker
     {
         private readonly int _sourceLength;
@@ -28,9 +39,12 @@ internal static class SelectorCompiler
         private readonly CancellationToken _cancellation;
         private readonly Action? _checkpoint;
         private int _work;
+        private readonly CssValueWork? _supportsWork;
 
-        internal Worker(string source, SelectorParseContext context, CancellationToken cancellation, Action? checkpoint = null)
+        internal Worker(string source, SelectorParseContext context, CancellationToken cancellation,
+            Action? checkpoint = null, CssValueWork? supportsWork = null)
         {
+            _supportsWork = supportsWork;
             _source = source;
             _sourceLength = source.Length;
             _context = context;
@@ -40,7 +54,7 @@ internal static class SelectorCompiler
 
         internal CompiledSelector Compile(CssComponentValueList values)
         {
-            var stack = new List<Frame> { new(values, false, false, false, true, _sourceLength) };
+            var stack = new List<Frame> { new(values, false, false, false, true, _sourceLength, singleBranch: _supportsWork is not null) };
             while (stack.Count != 0)
             {
                 Poll();
@@ -69,7 +83,7 @@ internal static class SelectorCompiler
                     for (var i = stack.Count - 1; i >= 0; i--)
                     {
                         Poll();
-                        if (!stack[i].Forgiving) continue;
+                        if (_supportsWork is not null || !stack[i].Forgiving) continue;
                         forgiving = i;
                         break;
                     }
@@ -261,7 +275,7 @@ internal static class SelectorCompiler
                 f.Pending = new Pending(kind, span);
                 var pseudoElementContext = (kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not) &&
                     (f.PseudoElementContext || compound.PseudoElement);
-                child = new Frame(args, kind is PredicateKind.Is or PredicateKind.Where,
+                child = new Frame(args, _supportsWork is null && (kind is PredicateKind.Is or PredicateKind.Where),
                     kind == PredicateKind.Has, kind != PredicateKind.Has && f.InsideHas,
                     false, argumentEnd,
                     compoundOnly: pseudoElementContext || kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
@@ -749,6 +763,7 @@ internal static class SelectorCompiler
 
         private void Poll()
         {
+            _supportsWork?.Charge(1);
             if ((++_work & 255) == 0) Check();
         }
 
