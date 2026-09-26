@@ -27,7 +27,9 @@ Astra preflight identified the HTML text-before-CDATA tokenizer boundary prerequ
 `<svg><foreignObject><p><b></p>x<![CDATA[y]]>` needs preceding text to reconstruct an HTML formatting
 node before CDATA eligibility is decided. The scanner must flush Data text before markup and latch
 session-provided context at the next declaration boundary without altering suspended tokens. This
-narrow tokenizer prerequisite precedes H7a foreign content, followed by contextual fragments.
+narrow tokenizer prerequisite precedes H7a foreign content, followed by contextual fragments. It is now
+active in `dc57`, chat `01a0db38-75c8-72b2-a01f-8fdeddf59284`, with exclusive tokenizer files/tests.
+The session/foreign tree consumer comes after its reviewed integration; no native or Browser overlap.
 
 CSS next-execution preflight recommends C6s var/env over immutable selected snapshots. Before dispatch,
 record output provenance/C1 projection, bounded expansion metrics, immutable environment lookup timing
