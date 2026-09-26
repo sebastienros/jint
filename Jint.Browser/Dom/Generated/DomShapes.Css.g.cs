@@ -145,27 +145,27 @@ internal static partial class DomInterfaces
             .Accessor("cssRules",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSGroupingRule.cssRules", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, "CSSGroupingRule.cssRules");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, "CSSGroupingRule.cssRules");
                     return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Method("deleteRule",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSGroupingRule.deleteRule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, "CSSGroupingRule.deleteRule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, "CSSGroupingRule.deleteRule");
                     global::Jint.Browser.Styling.NativeCssBindings.DeleteRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSGroupingRule.deleteRule")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("insertRule",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSGroupingRule.insertRule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, "CSSGroupingRule.insertRule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, "CSSGroupingRule.insertRule");
                     return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSGroupingRule.insertRule"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CSSGroupingRule.insertRule")));
                 }),
                 length: 2)
             .Accessor("rules",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSGroupingRule.rules", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, "CSSGroupingRule.rules");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, "CSSGroupingRule.rules");
                     return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Build();
@@ -178,13 +178,8 @@ internal static partial class DomInterfaces
             .Accessor("conditionText",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSConditionRule.conditionText", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, "CSSConditionRule.conditionText");
-                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.MediaText(self.Realm, self.Target.Media));
-                }),
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSConditionRule.conditionText", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, "CSSConditionRule.conditionText");
-                    global::Jint.Browser.Styling.NativeCssBindings.SetMediaText(self.Realm, self.Target.Media, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSConditionRule.conditionText")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssConditionRule>(thisObj, "CSSConditionRule.conditionText");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.ConditionText(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -3614,6 +3609,13 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CSSSupportsRule")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("matches",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSSupportsRule.matches", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssSupportsRule>(thisObj, "CSSSupportsRule.matches");
+                    self.Realm.Engine.Constraints.Check();
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches);
+                }))
             .Build();
 
     /// <summary>The members of <c>CSSViewTransitionRule</c>.</summary>

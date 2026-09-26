@@ -42,10 +42,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSColorProfileRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSColorProfileRule;
 
-    /// <summary>The <c>CSSGroupingRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
+    /// <summary>The <c>CSSGroupingRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssGroupingRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSGroupingRule;
 
-    /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
+    /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssConditionRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSConditionRule;
 
     /// <summary>The <c>CSSContainerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -126,7 +126,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSStyleSheet</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleSheet</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleSheet;
 
-    /// <summary>The <c>CSSSupportsRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSSupportsRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssSupportsRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSSupportsRule;
 
     /// <summary>The <c>CSSViewTransitionRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -653,7 +653,7 @@ internal static partial class DomInterfaces
 
         CSSGroupingRule = Add(new DomInterfaceDefinition(
             "CSSGroupingRule",
-            typeof(global::Jint.HtmlParser.Css.Model.CssMediaRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssGroupingRule),
             BuildCSSGroupingRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -662,7 +662,7 @@ internal static partial class DomInterfaces
 
         CSSConditionRule = Add(new DomInterfaceDefinition(
             "CSSConditionRule",
-            typeof(global::Jint.HtmlParser.Css.Model.CssMediaRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssConditionRule),
             BuildCSSConditionRule,
             CSSGroupingRule,
             rootsAtEventTarget: false,
@@ -908,7 +908,7 @@ internal static partial class DomInterfaces
 
         CSSSupportsRule = Add(new DomInterfaceDefinition(
             "CSSSupportsRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssSupportsRule),
             BuildCSSSupportsRule,
             CSSConditionRule,
             rootsAtEventTarget: false,
