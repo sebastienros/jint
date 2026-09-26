@@ -36,6 +36,7 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
     private readonly string _attribute;
     private string? _indexedSource;
     private TokenSlice[]? _indexedTokens;
+    private string?[]? _indexedStrings;
 
     private DomAttributeTokenList(Element element, string attribute)
     {
@@ -87,9 +88,19 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
         {
             var read = Index(work);
             if (index >= (uint) read.Tokens.Length) return null;
-            var result = read.Tokens[(int) index].Materialize(read.Proof.Value!, work);
+            var itemIndex = (int) index;
+            // Allocate privately before the final check. An interrupted copy publishes nothing.
+            var strings = _indexedStrings ?? new string?[read.Tokens.Length];
+            var result = strings[itemIndex] ?? read.Tokens[itemIndex].Materialize(read.Proof.Value!, work);
             work.Check();
-            if (read.Proof.IsCurrent) return result;
+            if (!read.Proof.IsCurrent) continue;
+            // A checkpoint may have reentered a read and installed another current index.
+            if (ReferenceEquals(_indexedTokens, read.Tokens) && ReferenceEquals(_indexedSource, read.Proof.Value))
+            {
+                _indexedStrings ??= strings;
+                _indexedStrings[itemIndex] = result;
+            }
+            return result;
         }
     }
 
@@ -250,6 +261,7 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
             work.Check();
             // No callback follows this validation or the completed-index publication.
             if (!proof.IsCurrent) continue;
+            if (!ReferenceEquals(_indexedTokens, tokens)) _indexedStrings = null;
             _indexedSource = proof.Value;
             _indexedTokens = tokens;
             return new TokenRead(proof, tokens);

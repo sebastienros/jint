@@ -132,10 +132,13 @@ Constructors remain illegal. No context, cue, dummy node or legacy-to-native cas
 The raw null-namespace attribute remains authoritative. Token-list views and raw `value` reads do not
 parse tokens. The first token demand builds an ordered unique index of offset, length and incremental
 hash slices, keyed by the immutable raw string's reference. Only that source and the completed slices
-remain on the list; comparers, temporary sets, work callbacks and realms are not retained. Repeated
+remain on the list until indexed item exposure; comparers, temporary sets, work callbacks and realms are not retained. Repeated
 `length` and indexed iteration reuse this index after a bounded current-attribute lookup. Character
 scanning, duplicate comparison and token substring copying check actual work; a whole-source token can
-reuse the immutable string without copying it.
+reuse the immutable string without copying it. The first indexed item exposure lazily materializes and
+caches that item's immutable string after the final source check, so later reads reuse it. View, raw
+value, length and contains accesses do not populate the exposed-string cache. Interrupted materialization
+publishes nothing, and a new source index discards the old strings.
 
 After the final host check, reads validate the captured native Attr's owner and value reference before
 publishing or returning. Absence uses a native per-element attribute-structure identity allocated only

@@ -289,6 +289,53 @@ public sealed class NativeAttributeTokenReadTests
     }
 
     [Test]
+    public void ExposedIndexedStringIsReusedAndDirectMutationInvalidatesIt()
+    {
+        var element = Document.CreateHtml().CreateElement("div");
+        var raw = "prefix " + new string('x', 8192);
+        element.SetAttributeNS(null, "class", raw);
+        var list = DomAttributeTokenList.Of(element, "class");
+        list.ReadLength(null, default).Should().Be(2);
+        var charged = 0;
+        var first = list.ReadItem(1, units => charged += units, default);
+        charged.Should().BeGreaterThan(8192);
+        charged = 0;
+        list.ReadItem(1, units => charged += units, default).Should().BeSameAs(first);
+        charged.Should().BeLessThan(256);
+        element.GetAttributeNodeNS(null, "class")!.Value = "prefix fresh";
+        list.ReadItem(1, null, default).Should().Be("fresh");
+        element.GetAttributeNodeNS(null, "class")!.Value = raw;
+        list.ReadItem(1, null, default).Should().NotBeSameAs(first);
+    }
+
+    [Test]
+    public void WarmExposedStringRechecksSourceAfterFinalCheckpoint()
+    {
+        static DomAttributeTokenList Create()
+        {
+            var element = Document.CreateHtml().CreateElement("div");
+            element.SetAttributeNS(null, "class", "prefix old");
+            var list = DomAttributeTokenList.Of(element, "class");
+            list.ReadItem(1, null, default).Should().Be("old");
+            return list;
+        }
+        var baselineChecks = 0;
+        Create().ReadItem(1, _ => baselineChecks++, default).Should().Be("old");
+        var list = Create();
+        var checks = 0;
+        var changed = false;
+        void Check(int units)
+        {
+            if (++checks != baselineChecks || changed) return;
+            changed = true;
+            list.Element.SetAttributeNS(null, "class", "prefix fresh");
+        }
+        list.ReadItem(1, Check, default).Should().Be("fresh");
+        changed.Should().BeTrue();
+        list.ReadItem(1, null, default).Should().Be("fresh");
+    }
+
+    [Test]
     public void WarmLongIndexedTokenCopyChecksActualCharacterWork()
     {
         var element = Document.CreateHtml().CreateElement("div");
@@ -299,7 +346,13 @@ public sealed class NativeAttributeTokenReadTests
         Caught.Exception(() => list.ReadItem(1,
             units => { if (units >= 256) cancellation.Cancel(); }, cancellation.Token))
             .Should().BeOfType<OperationCanceledException>();
-        list.ReadItem(1, null, default).Should().Be(new string('x', 8192));
+        var charged = 0;
+        var first = list.ReadItem(1, units => charged += units, default);
+        first.Should().Be(new string('x', 8192));
+        charged.Should().BeGreaterThan(8192);
+        charged = 0;
+        list.ReadItem(1, units => charged += units, default).Should().BeSameAs(first);
+        charged.Should().BeLessThan(256);
     }
 
     [Test]
