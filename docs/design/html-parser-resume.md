@@ -7,6 +7,14 @@ references, standalone parsing entry points, and equivalent paired benchmark acc
 conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
+**Latest independent common integration: `8b296d34d`.** The internal Browser task-drain deferral
+(`49cf7e5c0`) is reviewed and integrated. Fresh common Release/net10 gates pass **11/11** internal
+task-deferral cases and **3/3** unsigned public host-contract cases, zero failures/skips
+(`/private/tmp/jint-common-task-drain-net10.log`, `/private/tmp/jint-common-public-task-drain-net10.log`).
+The public focused command uses `-p:RunsPublicApiBaselines=false` to avoid its automatic all-TFM build;
+the final full framework/API baseline gate must run normally. The feature chat is archived. Its clean
+`6711` checkout is retained because its `list_artifacts` returned no managed archive identity.
+
 **Build feedback amendment (user request):** routine implementation builds and tests now target
 Release `net10.0` only. Validate every supported target framework at the final integration gate;
 this defers the other framework legs, not their acceptance requirement. Never use `--no-build`.
@@ -112,7 +120,7 @@ Current owners:
 | Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
 | Browser demand-driven CSS cascade and style consumers | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
 | Native CSS nesting and bounded parent-reference evaluation | `01a0dcba-a79a-78c3-bf32-08d08a406acb` | `cc99` |
-| Browser-only task-drain deferral, preserving generic Engine behavior | `01a0dccf-f06a-7fc0-8b93-34b98f3e110e` | `6711` |
+| Browser-only task-drain deferral (common verified, chat archived) | `01a0dccf-f06a-7fc0-8b93-34b98f3e110e` | `6711`, retained without managed archive identity |
 | Native select/option state (complete, chat archived) | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
 | Lazy input/value/checkedness producers (complete, chat archived) | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
 | Pure numeric/temporal helpers (complete, chat archived) | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
