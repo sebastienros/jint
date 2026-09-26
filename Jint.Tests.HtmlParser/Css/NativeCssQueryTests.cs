@@ -651,6 +651,9 @@ public sealed class NativeCssQueryTests
         Query(document, sheets.ToArray()).GetProperty(target, "opacity", ref matching).Text.Should().Be("0.75");
         retained.Disabled = true;
         NativeCssStyleSheets.Get(document, work)[1].Sheet.Disabled.Should().BeTrue();
+        link.SetAttribute("disabled", "");
+        link.RemoveAttribute("disabled");
+        NativeCssStyleSheets.Get(document, work)[1].Sheet.Disabled.Should().BeFalse();
         style.SetAttribute("type", "text/plain");
         NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
     }

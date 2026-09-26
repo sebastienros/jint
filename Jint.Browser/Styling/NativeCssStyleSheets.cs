@@ -113,6 +113,7 @@ internal static partial class NativeCssStyleSheets
         }
         else resources.Owners.Add(owner, new Resource(text, attachment));
         CssMutationStamp.Advance(ref resources.Version);
+        AssociateOwner(document, owner, work);
         work.CheckCancellation();
     }
 
@@ -120,6 +121,22 @@ internal static partial class NativeCssStyleSheets
         Documents.TryGetValue(document, out var resources) ? new(resources.Version) : new(0);
 
     internal static IReadOnlyList<NativeCssSheet> Get(Document document, CssValueWork work, bool includeShadow = false)
+    {
+        return Get(document, document, work, includeShadow);
+    }
+
+    internal static IReadOnlyList<NativeCssSheet> Get(ShadowRoot root, CssValueWork work)
+    {
+        for (Node? node = root.Host; node is not null; node = node.ParentNode ?? (node as ShadowRoot)?.Host)
+        {
+            work.Charge(1);
+            if (node is Document document) return Get(root, document, work, includeShadow: false);
+        }
+        work.CheckCancellation();
+        return Array.Empty<NativeCssSheet>();
+    }
+
+    private static IReadOnlyList<NativeCssSheet> Get(Node root, Document document, CssValueWork work, bool includeShadow)
     {
         var result = new List<NativeCssSheet>();
         var resources = Documents.GetValue(document, static _ => new Resources());
@@ -136,7 +153,7 @@ internal static partial class NativeCssStyleSheets
         var parsing = CssValueWork.Guard(work, Verify);
         // DOM order, rather than load completion order, owns stylesheet order.
         var pending = new Stack<Node>();
-        pending.Push(document);
+        pending.Push(root);
         while (pending.TryPop(out var node))
         {
             work.Charge(1);
@@ -181,6 +198,7 @@ internal static partial class NativeCssStyleSheets
                     entry!.NativeStamp = documentStamp;
                     known = true;
                 }
+                if (known && entry is not null) AssociateOwner(document, element, work);
                 if (known && entry is { } resource)
                 {
                     if (resource.Sheet is null)
@@ -188,6 +206,7 @@ internal static partial class NativeCssStyleSheets
                         var sheet = CssStyleSheet.Parse(resource.Source, null, parsing, work.Token);
                         sheet.SetAttachment(resource.Attachment);
                         Verify();
+                        sheet.Disabled = resource.Disabled;
                         resource.Sheet = sheet;
                         resource.Replaced = false;
                     }
@@ -208,19 +227,30 @@ internal static partial class NativeCssStyleSheets
                     if (element.NamespaceUri == Namespaces.Html && element.LocalName == "link")
                     {
                         var disabled = ownerWork.Attribute(element, "disabled") is not null;
-                        if (resource.DisabledSource != disabled)
+                        if (resource.DisabledDirty || resource.DisabledSource != disabled)
                         {
                             Verify();
                             resource.Sheet.Disabled = disabled;
                             resource.DisabledSource = disabled;
+                            resource.DisabledDirty = false;
                         }
                     }
+                    ObserveDisabled(element, resource);
                     result.Add(new(resource.Sheet, NativeCssOrigin.Author));
                 }
             }
         }
         Verify();
         return result.AsReadOnly();
+    }
+
+    private static void ObserveDisabled(Element owner, Resource resource)
+    {
+        if (owner.LocalName != "link" || owner.NamespaceUri != Namespaces.Html || resource.DisabledSubscription is not null) return;
+        var subscription = new MutationSubscription();
+        subscription.Observe(owner, new MutationObserverOptions { Attributes = true, AttributeFilter = ["disabled"] });
+        subscription.PendingRecord = pending => { pending.TakeRecords(); resource.DisabledDirty = true; };
+        resource.DisabledSubscription = subscription;
     }
 
     private static string ReadText(Element owner, CssValueWork work) =>
@@ -256,9 +286,10 @@ internal static partial class NativeCssStyleSheets
     private sealed class Resources
     {
         internal ulong Version;
+        internal NativeCssSheetSets? Sets;
         internal ConditionalWeakTable<Element, Resource> Owners { get; } = new();
     }
-    private sealed class Resource(string source, CssStyleSheetAttachment attachment)
+    internal sealed class Resource(string source, CssStyleSheetAttachment attachment)
     {
         internal string Source = source;
         internal CssStyleSheetAttachment Attachment = attachment;
@@ -267,5 +298,9 @@ internal static partial class NativeCssStyleSheets
         internal ulong? NativeStamp;
         internal string? MediaSource;
         internal bool? DisabledSource;
+        internal bool DisabledDirty;
+        internal bool Disabled;
+        internal bool Associated;
+        internal MutationSubscription? DisabledSubscription;
     }
 }

@@ -13,9 +13,9 @@ namespace Jint.Browser.Styling;
 internal static partial class NativeCssStyleSheets
 {
     private static readonly ConditionalWeakTable<Document, WeakReference<DomRealm>> Hosts = new();
-    private static readonly ConditionalWeakTable<Document, NativeCssStyleSheetList> Lists = new();
+    private static readonly ConditionalWeakTable<Node, NativeCssStyleSheetList> Lists = new();
 
-    internal static NativeCssStyleSheetList ListOf(DomRealm realm, Document document) =>
+    internal static NativeCssStyleSheetList ListOf(DomRealm realm, Node document) =>
         Lists.GetValue(document, owner => new(realm, owner));
 
     internal static Jint.HtmlParser.Css.Model.CssStyleSheet? SheetOf(DomRealm realm, Element owner)
@@ -36,6 +36,15 @@ internal static partial class NativeCssStyleSheets
         Hosts.Remove(document);
         Hosts.Add(document, new(realm));
     }
+
+    internal static void AssociateOwner(DomRealm realm, Element owner)
+    {
+        if (owner.OwnerDocument is { } document)
+            AssociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+    }
+
+    internal static void SetDefaultStyle(DomRealm realm, Document document, string name) =>
+        SetDefaultStyle(document, name, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
 
     internal static DomRealm? RealmOf(Document document) =>
         Hosts.TryGetValue(document, out var reference) && reference.TryGetTarget(out var realm) ? realm : null;
@@ -91,10 +100,20 @@ internal static partial class NativeCssStyleSheets
 }
 
 // CSSOM §6.2: stable list identity, with its members reconciled only when read.
-internal sealed class NativeCssStyleSheetList(DomRealm realm, Document document)
+internal sealed class NativeCssStyleSheetList(DomRealm realm, Node root)
 {
-    private IReadOnlyList<NativeCssSheet> Read() => NativeCssStyleSheets.Get(document,
-        new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+    private IReadOnlyList<NativeCssSheet> Read()
+    {
+        var document = root as Document ?? root.OwnerDocument;
+        var host = document is not null ? NativeCssStyleSheets.RealmOf(document) ?? realm : realm;
+        var work = new CssValueWork(host.CancellationToken, host.Engine.Constraints.Check);
+        return root switch
+        {
+            Document owner => NativeCssStyleSheets.Get(owner, work),
+            ShadowRoot shadow => NativeCssStyleSheets.Get(shadow, work),
+            _ => throw new ArgumentException("A stylesheet list needs a Document or ShadowRoot.", nameof(root))
+        };
+    }
     internal int Length => Read().Count;
     internal Jint.HtmlParser.Css.Model.CssStyleSheet? Item(int index)
     {

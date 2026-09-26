@@ -36,11 +36,38 @@ internal static class NativeCssBindings
             sheet.Disabled = disabled;
         }
     }
+    internal static NativeCssStyleSetList StyleSheetSets(DomRealm realm, Document document)
+    {
+        realm.Engine.Constraints.Check();
+        return NativeCssStyleSheets.SetsOf(document).Names;
+    }
+    internal static string? SelectedStyleSheetSet(DomRealm realm, Document document) => NativeCssStyleSheets.SetsOf(document).Selected(Work(realm));
+    internal static void SetSelectedStyleSheetSet(DomRealm realm, Document document, string? name) => NativeCssStyleSheets.SetsOf(document).SetSelected(name, Work(realm));
+    internal static string? LastStyleSheetSet(DomRealm realm, Document document) => NativeCssStyleSheets.SetsOf(document).Last(Work(realm));
+    internal static string PreferredStyleSheetSet(DomRealm realm, Document document) => NativeCssStyleSheets.SetsOf(document).Preferred(Work(realm));
+    internal static void EnableStyleSheetsForSet(DomRealm realm, Document document, string? name) => NativeCssStyleSheets.SetsOf(document).EnableForSet(name, Work(realm));
+    internal static int Length(DomRealm realm, NativeCssStyleSetList list) => list.Read(Work(realm)).Count;
+    internal static string? Item(DomRealm realm, NativeCssStyleSetList list, int index)
+    {
+        var names = list.Read(Work(realm));
+        return (uint) index < (uint) names.Count ? names[index] : null;
+    }
+    internal static bool Contains(DomRealm realm, NativeCssStyleSetList list, string name)
+    {
+        var work = Work(realm);
+        foreach (var entry in list.Read(work))
+            if (Jint.HtmlParser.Css.Values.References.CssSubstitutionArguments.Equals(entry, name, work)) return true;
+        return false;
+    }
     internal static string CssText(DomRealm realm, CssRule rule) => CssRuleSerializer.Serialize(rule, Work(realm));
     internal static string? Href(CssStyleSheet sheet) => sheet.Attachment.OwnerNode is Element { LocalName: "style" }
         ? null : sheet.Attachment.SourceUrl?.AbsoluteUri;
-    internal static string? Title(DomRealm realm, CssStyleSheet sheet) => sheet.Attachment.OwnerNode is Element owner
-        ? new DomReadWork(Work(realm).Charge, realm.CancellationToken).Attribute(owner, "title") : null;
+    internal static string? Title(DomRealm realm, CssStyleSheet sheet)
+    {
+        if (sheet.Attachment.OwnerNode is not Element owner || owner.TreeShadowRoot is not null) return null;
+        var title = new DomReadWork(Work(realm).Charge, realm.CancellationToken).Attribute(owner, "title");
+        return string.IsNullOrEmpty(title) ? null : title;
+    }
     internal static Node? OwnerNode(CssStyleSheet sheet) => sheet.Attachment.OwnerNode;
     internal static CssRule? OwnerRule(CssStyleSheet sheet) => sheet.Attachment.ImportOwner;
     internal static CssStyleSheet? ParentStyleSheet(CssStyleSheet sheet) => sheet.Attachment.ImportOwner?.ParentStyleSheet;
