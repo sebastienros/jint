@@ -15,12 +15,12 @@ public sealed class NativeCssBindingTests
         dom.Bool("html.disabled && html.sheet.disabled").Should().BeTrue();
         dom.Execute("html.sheet.disabled=false;");
         dom.Bool("!html.disabled").Should().BeTrue();
-        dom.Text("svg.media").Should().BeNull();
-        dom.Text("svg.type").Should().BeNull();
+        dom.Text("svg.media").Should().BeEmpty();
+        dom.Text("svg.type").Should().BeEmpty();
         dom.Execute("var conversions=0; svg.media={toString(){conversions++; return 'SCREEN'}}; svg.type='text/css';");
         dom.Bool("conversions===1 && svg.media==='SCREEN' && svg.getAttribute('media')==='SCREEN' && svg.type==='text/css'").Should().BeTrue();
         dom.Execute("svg.removeAttribute('media');");
-        dom.Text("svg.media").Should().BeNull();
+        dom.Text("svg.media").Should().BeEmpty();
     }
 
     [Test]

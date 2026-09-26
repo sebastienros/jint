@@ -84,7 +84,7 @@ public sealed class DocumentHostHookTests
                 fixture.Url("/page/index.html"), fixture.Url("/page/index.html"), "", "complete", "true", ""));
 
         (await fixture.Page.EvaluateAsync<string>("detachedDuringParse"))
-            .Should().Be("about:blank|about:blank|about:blank||loading|true|");
+            .Should().Be("about:blank|about:blank|about:blank||complete|true|");
 
         (await fixture.Page.EvaluateAsync<string>("pageCookieAfterSecondaryWrites"))
             .Should().Be("page=kept", "secondary documents have no access to the page's cookie jar");
