@@ -18,10 +18,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>ApplicationCache</c> interface, projected from <c>AngleSharp.Browser.Dom.IApplicationCache</c>.</summary>
     internal static readonly DomInterfaceDefinition ApplicationCache;
 
-    /// <summary>The <c>Node</c> interface, projected from <c>AngleSharp.Dom.INode</c>.</summary>
+    /// <summary>The <c>Node</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
     internal static readonly DomInterfaceDefinition Node;
 
-    /// <summary>The <c>Attr</c> interface, projected from <c>AngleSharp.Dom.IAttr</c>.</summary>
+    /// <summary>The <c>Attr</c> interface, projected from <c>Jint.HtmlParser.Attr</c>.</summary>
     internal static readonly DomInterfaceDefinition Attr;
 
     /// <summary>The <c>AudioTrack</c> interface, projected from <c>AngleSharp.Media.Dom.IAudioTrack</c>.</summary>
@@ -141,10 +141,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CaretPosition</c> interface, projected from <c>AngleSharp.Css.Dom.ICaretPosition</c>.</summary>
     internal static readonly DomInterfaceDefinition CaretPosition;
 
-    /// <summary>The <c>CharacterData</c> interface, projected from <c>AngleSharp.Dom.ICharacterData</c>.</summary>
+    /// <summary>The <c>CharacterData</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
     internal static readonly DomInterfaceDefinition CharacterData;
 
-    /// <summary>The <c>Comment</c> interface, projected from <c>AngleSharp.Dom.IComment</c>.</summary>
+    /// <summary>The <c>Comment</c> interface, projected from <c>Jint.HtmlParser.Comment</c>.</summary>
     internal static readonly DomInterfaceDefinition Comment;
 
     /// <summary>The <c>DOMException</c> interface, projected from <c>AngleSharp.Dom.IDomException</c>.</summary>
@@ -162,16 +162,16 @@ internal static partial class DomInterfaces
     /// <summary>The <c>DOMTokenList</c> interface, projected from <c>AngleSharp.Dom.ITokenList</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMTokenList;
 
-    /// <summary>The <c>Document</c> interface, projected from <c>AngleSharp.Dom.IDocument</c>.</summary>
+    /// <summary>The <c>Document</c> interface, projected from <c>Jint.HtmlParser.Document</c>.</summary>
     internal static readonly DomInterfaceDefinition Document;
 
-    /// <summary>The <c>DocumentFragment</c> interface, projected from <c>AngleSharp.Dom.IDocumentFragment</c>.</summary>
+    /// <summary>The <c>DocumentFragment</c> interface, projected from <c>Jint.HtmlParser.DocumentFragment</c>.</summary>
     internal static readonly DomInterfaceDefinition DocumentFragment;
 
-    /// <summary>The <c>DocumentType</c> interface, projected from <c>AngleSharp.Dom.IDocumentType</c>.</summary>
+    /// <summary>The <c>DocumentType</c> interface, projected from <c>Jint.HtmlParser.DocumentType</c>.</summary>
     internal static readonly DomInterfaceDefinition DocumentType;
 
-    /// <summary>The <c>Element</c> interface, projected from <c>AngleSharp.Dom.IElement</c>.</summary>
+    /// <summary>The <c>Element</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition Element;
 
     /// <summary>The <c>File</c> interface, projected from <c>AngleSharp.Io.Dom.IFile</c>.</summary>
@@ -183,229 +183,229 @@ internal static partial class DomInterfaces
     /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlAllCollection</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAllCollection;
 
-    /// <summary>The <c>HTMLElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlElement</c>.</summary>
+    /// <summary>The <c>HTMLElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLElement;
 
-    /// <summary>The <c>HTMLAnchorElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlAnchorElement</c>.</summary>
+    /// <summary>The <c>HTMLAnchorElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAnchorElement;
 
-    /// <summary>The <c>HTMLAreaElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlAreaElement</c>.</summary>
+    /// <summary>The <c>HTMLAreaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAreaElement;
 
-    /// <summary>The <c>HTMLMediaElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMediaElement</c>.</summary>
+    /// <summary>The <c>HTMLMediaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMediaElement;
 
-    /// <summary>The <c>HTMLAudioElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlAudioElement</c>.</summary>
+    /// <summary>The <c>HTMLAudioElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAudioElement;
 
-    /// <summary>The <c>HTMLBRElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlBreakRowElement</c>.</summary>
+    /// <summary>The <c>HTMLBRElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLBRElement;
 
-    /// <summary>The <c>HTMLBaseElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlBaseElement</c>.</summary>
+    /// <summary>The <c>HTMLBaseElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLBaseElement;
 
-    /// <summary>The <c>HTMLBodyElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlBodyElement</c>.</summary>
+    /// <summary>The <c>HTMLBodyElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLBodyElement;
 
-    /// <summary>The <c>HTMLButtonElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlButtonElement</c>.</summary>
+    /// <summary>The <c>HTMLButtonElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLButtonElement;
 
-    /// <summary>The <c>HTMLCanvasElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlCanvasElement</c>.</summary>
+    /// <summary>The <c>HTMLCanvasElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCanvasElement;
 
     /// <summary>The <c>HTMLCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlCollection`1</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCollection;
 
-    /// <summary>The <c>HTMLCommandElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlCommandElement</c>.</summary>
+    /// <summary>The <c>HTMLCommandElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCommandElement;
 
-    /// <summary>The <c>HTMLDataElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlDataElement</c>.</summary>
+    /// <summary>The <c>HTMLDataElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLDataElement;
 
-    /// <summary>The <c>HTMLDataListElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlDataListElement</c>.</summary>
+    /// <summary>The <c>HTMLDataListElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLDataListElement;
 
-    /// <summary>The <c>HTMLDetailsElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlDetailsElement</c>.</summary>
+    /// <summary>The <c>HTMLDetailsElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLDetailsElement;
 
-    /// <summary>The <c>HTMLDialogElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlDialogElement</c>.</summary>
+    /// <summary>The <c>HTMLDialogElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLDialogElement;
 
-    /// <summary>The <c>HTMLDivElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlDivElement</c>.</summary>
+    /// <summary>The <c>HTMLDivElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLDivElement;
 
-    /// <summary>The <c>HTMLDocument</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlDocument</c>.</summary>
+    /// <summary>The <c>HTMLDocument</c> interface, projected from <c>Jint.HtmlParser.Document</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLDocument;
 
-    /// <summary>The <c>HTMLEmbedElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlEmbedElement</c>.</summary>
+    /// <summary>The <c>HTMLEmbedElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLEmbedElement;
 
-    /// <summary>The <c>HTMLFieldSetElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlFieldSetElement</c>.</summary>
+    /// <summary>The <c>HTMLFieldSetElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLFieldSetElement;
 
     /// <summary>The <c>HTMLFormControlsCollection</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlFormControlsCollection</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLFormControlsCollection;
 
-    /// <summary>The <c>HTMLFormElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlFormElement</c>.</summary>
+    /// <summary>The <c>HTMLFormElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLFormElement;
 
-    /// <summary>The <c>HTMLHRElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlHrElement</c>.</summary>
+    /// <summary>The <c>HTMLHRElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLHRElement;
 
-    /// <summary>The <c>HTMLHeadElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlHeadElement</c>.</summary>
+    /// <summary>The <c>HTMLHeadElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLHeadElement;
 
-    /// <summary>The <c>HTMLHeadingElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlHeadingElement</c>.</summary>
+    /// <summary>The <c>HTMLHeadingElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLHeadingElement;
 
-    /// <summary>The <c>HTMLHtmlElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlHtmlElement</c>.</summary>
+    /// <summary>The <c>HTMLHtmlElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLHtmlElement;
 
-    /// <summary>The <c>HTMLIFrameElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlInlineFrameElement</c>.</summary>
+    /// <summary>The <c>HTMLIFrameElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLIFrameElement;
 
-    /// <summary>The <c>HTMLImageElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlImageElement</c>.</summary>
+    /// <summary>The <c>HTMLImageElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLImageElement;
 
-    /// <summary>The <c>HTMLInputElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlInputElement</c>.</summary>
+    /// <summary>The <c>HTMLInputElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLInputElement;
 
-    /// <summary>The <c>HTMLKeygenElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlKeygenElement</c>.</summary>
+    /// <summary>The <c>HTMLKeygenElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLKeygenElement;
 
-    /// <summary>The <c>HTMLLIElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlListItemElement</c>.</summary>
+    /// <summary>The <c>HTMLLIElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLLIElement;
 
-    /// <summary>The <c>HTMLLabelElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlLabelElement</c>.</summary>
+    /// <summary>The <c>HTMLLabelElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLLabelElement;
 
-    /// <summary>The <c>HTMLLegendElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlLegendElement</c>.</summary>
+    /// <summary>The <c>HTMLLegendElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLLegendElement;
 
-    /// <summary>The <c>HTMLLinkElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlLinkElement</c>.</summary>
+    /// <summary>The <c>HTMLLinkElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLLinkElement;
 
-    /// <summary>The <c>HTMLMapElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMapElement</c>.</summary>
+    /// <summary>The <c>HTMLMapElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMapElement;
 
-    /// <summary>The <c>HTMLMarqueeElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMarqueeElement</c>.</summary>
+    /// <summary>The <c>HTMLMarqueeElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMarqueeElement;
 
-    /// <summary>The <c>HTMLMenuElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMenuElement</c>.</summary>
+    /// <summary>The <c>HTMLMenuElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMenuElement;
 
-    /// <summary>The <c>HTMLMenuItemElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMenuItemElement</c>.</summary>
+    /// <summary>The <c>HTMLMenuItemElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMenuItemElement;
 
-    /// <summary>The <c>HTMLMetaElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMetaElement</c>.</summary>
+    /// <summary>The <c>HTMLMetaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMetaElement;
 
-    /// <summary>The <c>HTMLMeterElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlMeterElement</c>.</summary>
+    /// <summary>The <c>HTMLMeterElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLMeterElement;
 
-    /// <summary>The <c>HTMLModElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlModElement</c>.</summary>
+    /// <summary>The <c>HTMLModElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLModElement;
 
-    /// <summary>The <c>HTMLOListElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlOrderedListElement</c>.</summary>
+    /// <summary>The <c>HTMLOListElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLOListElement;
 
-    /// <summary>The <c>HTMLObjectElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlObjectElement</c>.</summary>
+    /// <summary>The <c>HTMLObjectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLObjectElement;
 
-    /// <summary>The <c>HTMLOptGroupElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlOptionsGroupElement</c>.</summary>
+    /// <summary>The <c>HTMLOptGroupElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLOptGroupElement;
 
-    /// <summary>The <c>HTMLOptionElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlOptionElement</c>.</summary>
+    /// <summary>The <c>HTMLOptionElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLOptionElement;
 
     /// <summary>The <c>HTMLOptionsCollection</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlOptionsCollection</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLOptionsCollection;
 
-    /// <summary>The <c>HTMLOutputElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlOutputElement</c>.</summary>
+    /// <summary>The <c>HTMLOutputElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLOutputElement;
 
-    /// <summary>The <c>HTMLParagraphElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlParagraphElement</c>.</summary>
+    /// <summary>The <c>HTMLParagraphElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLParagraphElement;
 
-    /// <summary>The <c>HTMLParamElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlParamElement</c>.</summary>
+    /// <summary>The <c>HTMLParamElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLParamElement;
 
-    /// <summary>The <c>HTMLPictureElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlPictureElement</c>.</summary>
+    /// <summary>The <c>HTMLPictureElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLPictureElement;
 
-    /// <summary>The <c>HTMLPreElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlPreElement</c>.</summary>
+    /// <summary>The <c>HTMLPreElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLPreElement;
 
-    /// <summary>The <c>HTMLProgressElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlProgressElement</c>.</summary>
+    /// <summary>The <c>HTMLProgressElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLProgressElement;
 
-    /// <summary>The <c>HTMLQuoteElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlQuoteElement</c>.</summary>
+    /// <summary>The <c>HTMLQuoteElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLQuoteElement;
 
-    /// <summary>The <c>HTMLScriptElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlScriptElement</c>.</summary>
+    /// <summary>The <c>HTMLScriptElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLScriptElement;
 
-    /// <summary>The <c>HTMLSelectElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlSelectElement</c>.</summary>
+    /// <summary>The <c>HTMLSelectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLSelectElement;
 
-    /// <summary>The <c>HTMLSlotElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlSlotElement</c>.</summary>
+    /// <summary>The <c>HTMLSlotElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLSlotElement;
 
-    /// <summary>The <c>HTMLSourceElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlSourceElement</c>.</summary>
+    /// <summary>The <c>HTMLSourceElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLSourceElement;
 
-    /// <summary>The <c>HTMLSpanElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlSpanElement</c>.</summary>
+    /// <summary>The <c>HTMLSpanElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLSpanElement;
 
-    /// <summary>The <c>HTMLStyleElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlStyleElement</c>.</summary>
+    /// <summary>The <c>HTMLStyleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLStyleElement;
 
-    /// <summary>The <c>HTMLTableCaptionElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableCaptionElement</c>.</summary>
+    /// <summary>The <c>HTMLTableCaptionElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableCaptionElement;
 
-    /// <summary>The <c>HTMLTableCellElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableCellElement</c>.</summary>
+    /// <summary>The <c>HTMLTableCellElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableCellElement;
 
-    /// <summary>The <c>HTMLTableColElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableColumnElement</c>.</summary>
+    /// <summary>The <c>HTMLTableColElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableColElement;
 
-    /// <summary>The <c>HTMLTableElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableElement</c>.</summary>
+    /// <summary>The <c>HTMLTableElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableElement;
 
-    /// <summary>The <c>HTMLTableRowElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableRowElement</c>.</summary>
+    /// <summary>The <c>HTMLTableRowElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableRowElement;
 
-    /// <summary>The <c>HTMLTableSectionElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableSectionElement</c>.</summary>
+    /// <summary>The <c>HTMLTableSectionElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableSectionElement;
 
-    /// <summary>The <c>HTMLTemplateElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTemplateElement</c>.</summary>
+    /// <summary>The <c>HTMLTemplateElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTemplateElement;
 
-    /// <summary>The <c>HTMLTextAreaElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTextAreaElement</c>.</summary>
+    /// <summary>The <c>HTMLTextAreaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTextAreaElement;
 
-    /// <summary>The <c>HTMLTimeElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTimeElement</c>.</summary>
+    /// <summary>The <c>HTMLTimeElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTimeElement;
 
-    /// <summary>The <c>HTMLTitleElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTitleElement</c>.</summary>
+    /// <summary>The <c>HTMLTitleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTitleElement;
 
-    /// <summary>The <c>HTMLTrackElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTrackElement</c>.</summary>
+    /// <summary>The <c>HTMLTrackElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTrackElement;
 
-    /// <summary>The <c>HTMLUListElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlUnorderedListElement</c>.</summary>
+    /// <summary>The <c>HTMLUListElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLUListElement;
 
-    /// <summary>The <c>HTMLUnknownElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlUnknownElement</c>.</summary>
+    /// <summary>The <c>HTMLUnknownElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLUnknownElement;
 
-    /// <summary>The <c>HTMLVideoElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlVideoElement</c>.</summary>
+    /// <summary>The <c>HTMLVideoElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLVideoElement;
 
     /// <summary>The <c>History</c> interface, projected from <c>AngleSharp.Browser.Dom.IHistory</c>.</summary>
     internal static readonly DomInterfaceDefinition History;
 
-    /// <summary>The <c>Location</c> interface, projected from <c>AngleSharp.Dom.ILocation</c>.</summary>
+    /// <summary>The <c>Location</c> interface, projected from <c>Jint.Browser.Dom.DomLocation</c>.</summary>
     internal static readonly DomInterfaceDefinition Location;
 
     /// <summary>The <c>MediaController</c> interface, projected from <c>AngleSharp.Media.Dom.IMediaController</c>.</summary>
@@ -426,7 +426,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>MutationRecord</c> interface, projected from <c>AngleSharp.Dom.IMutationRecord</c>.</summary>
     internal static readonly DomInterfaceDefinition MutationRecord;
 
-    /// <summary>The <c>NamedNodeMap</c> interface, projected from <c>AngleSharp.Dom.INamedNodeMap</c>.</summary>
+    /// <summary>The <c>NamedNodeMap</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomNamedNodeMap</c>.</summary>
     internal static readonly DomInterfaceDefinition NamedNodeMap;
 
     /// <summary>The <c>Navigator</c> interface, projected from <c>AngleSharp.Browser.Dom.INavigator</c>.</summary>
@@ -435,46 +435,46 @@ internal static partial class DomInterfaces
     /// <summary>The <c>NodeIterator</c> interface, projected from <c>AngleSharp.Dom.INodeIterator</c>.</summary>
     internal static readonly DomInterfaceDefinition NodeIterator;
 
-    /// <summary>The <c>NodeList</c> interface, projected from <c>AngleSharp.Dom.INodeList</c>.</summary>
+    /// <summary>The <c>NodeList</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomNodeList</c>.</summary>
     internal static readonly DomInterfaceDefinition NodeList;
 
-    /// <summary>The <c>ProcessingInstruction</c> interface, projected from <c>AngleSharp.Dom.IProcessingInstruction</c>.</summary>
+    /// <summary>The <c>ProcessingInstruction</c> interface, projected from <c>Jint.HtmlParser.ProcessingInstruction</c>.</summary>
     internal static readonly DomInterfaceDefinition ProcessingInstruction;
 
-    /// <summary>The <c>PseudoElement</c> interface, projected from <c>AngleSharp.Dom.IPseudoElement</c>.</summary>
+    /// <summary>The <c>PseudoElement</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
     internal static readonly DomInterfaceDefinition PseudoElement;
 
     /// <summary>The <c>Range</c> interface, projected from <c>AngleSharp.Dom.IRange</c>.</summary>
     internal static readonly DomInterfaceDefinition Range;
 
-    /// <summary>The <c>SVGElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgElement</c>.</summary>
+    /// <summary>The <c>SVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGElement;
 
-    /// <summary>The <c>SVGCircleElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgCircleElement</c>.</summary>
+    /// <summary>The <c>SVGCircleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGCircleElement;
 
-    /// <summary>The <c>SVGDescElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgDescriptionElement</c>.</summary>
+    /// <summary>The <c>SVGDescElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGDescElement;
 
-    /// <summary>The <c>SVGForeignObjectElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgForeignObjectElement</c>.</summary>
+    /// <summary>The <c>SVGForeignObjectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGForeignObjectElement;
 
-    /// <summary>The <c>SVGSVGElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgSvgElement</c>.</summary>
+    /// <summary>The <c>SVGSVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGSVGElement;
 
-    /// <summary>The <c>SVGStyleElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgStyleElement</c>.</summary>
+    /// <summary>The <c>SVGStyleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGStyleElement;
 
-    /// <summary>The <c>SVGTitleElement</c> interface, projected from <c>AngleSharp.Svg.Dom.ISvgTitleElement</c>.</summary>
+    /// <summary>The <c>SVGTitleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGTitleElement;
 
-    /// <summary>The <c>ShadowRoot</c> interface, projected from <c>AngleSharp.Dom.IShadowRoot</c>.</summary>
+    /// <summary>The <c>ShadowRoot</c> interface, projected from <c>Jint.HtmlParser.ShadowRoot</c>.</summary>
     internal static readonly DomInterfaceDefinition ShadowRoot;
 
     /// <summary>The <c>StyleSheetList</c> interface, projected from <c>AngleSharp.Dom.IStyleSheetList</c>.</summary>
     internal static readonly DomInterfaceDefinition StyleSheetList;
 
-    /// <summary>The <c>Text</c> interface, projected from <c>AngleSharp.Dom.IText</c>.</summary>
+    /// <summary>The <c>Text</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
     internal static readonly DomInterfaceDefinition Text;
 
     /// <summary>The <c>TextTrack</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrack</c>.</summary>
@@ -531,7 +531,7 @@ internal static partial class DomInterfaces
 
         Node = Add(new DomInterfaceDefinition(
             "Node",
-            typeof(global::AngleSharp.Dom.INode),
+            typeof(global::Jint.HtmlParser.Node),
             BuildNode,
             null,
             rootsAtEventTarget: true,
@@ -561,7 +561,7 @@ internal static partial class DomInterfaces
 
         Attr = Add(new DomInterfaceDefinition(
             "Attr",
-            typeof(global::AngleSharp.Dom.IAttr),
+            typeof(global::Jint.HtmlParser.Attr),
             BuildAttr,
             Node,
             rootsAtEventTarget: true,
@@ -953,7 +953,7 @@ internal static partial class DomInterfaces
 
         CharacterData = Add(new DomInterfaceDefinition(
             "CharacterData",
-            typeof(global::AngleSharp.Dom.ICharacterData),
+            typeof(global::Jint.HtmlParser.Node),
             BuildCharacterData,
             Node,
             rootsAtEventTarget: true,
@@ -962,7 +962,7 @@ internal static partial class DomInterfaces
 
         Comment = Add(new DomInterfaceDefinition(
             "Comment",
-            typeof(global::AngleSharp.Dom.IComment),
+            typeof(global::Jint.HtmlParser.Comment),
             BuildComment,
             CharacterData,
             rootsAtEventTarget: true,
@@ -980,7 +980,7 @@ internal static partial class DomInterfaces
 
         DOMImplementation = Add(new DomInterfaceDefinition(
             "DOMImplementation",
-            typeof(global::AngleSharp.Dom.IImplementation),
+            typeof(global::Jint.Browser.Dom.DomImplementation),
             BuildDOMImplementation,
             null,
             rootsAtEventTarget: false,
@@ -999,7 +999,7 @@ internal static partial class DomInterfaces
 
         DOMStringMap = Add(new DomInterfaceDefinition(
             "DOMStringMap",
-            typeof(global::AngleSharp.Dom.IStringMap),
+            typeof(global::Jint.Browser.Dom.Collections.DomStringMapAdapter),
             BuildDOMStringMap,
             null,
             rootsAtEventTarget: false,
@@ -1009,7 +1009,7 @@ internal static partial class DomInterfaces
 
         DOMTokenList = Add(new DomInterfaceDefinition(
             "DOMTokenList",
-            typeof(global::AngleSharp.Dom.ITokenList),
+            typeof(global::Jint.Browser.Dom.Collections.DomAttributeTokenList),
             BuildDOMTokenList,
             null,
             rootsAtEventTarget: false,
@@ -1019,7 +1019,7 @@ internal static partial class DomInterfaces
 
         Document = Add(new DomInterfaceDefinition(
             "Document",
-            typeof(global::AngleSharp.Dom.IDocument),
+            typeof(global::Jint.HtmlParser.Document),
             BuildDocument,
             Node,
             rootsAtEventTarget: true,
@@ -1028,7 +1028,7 @@ internal static partial class DomInterfaces
 
         DocumentFragment = Add(new DomInterfaceDefinition(
             "DocumentFragment",
-            typeof(global::AngleSharp.Dom.IDocumentFragment),
+            typeof(global::Jint.HtmlParser.DocumentFragment),
             BuildDocumentFragment,
             Node,
             rootsAtEventTarget: true,
@@ -1037,7 +1037,7 @@ internal static partial class DomInterfaces
 
         DocumentType = Add(new DomInterfaceDefinition(
             "DocumentType",
-            typeof(global::AngleSharp.Dom.IDocumentType),
+            typeof(global::Jint.HtmlParser.DocumentType),
             BuildDocumentType,
             Node,
             rootsAtEventTarget: true,
@@ -1046,7 +1046,7 @@ internal static partial class DomInterfaces
 
         Element = Add(new DomInterfaceDefinition(
             "Element",
-            typeof(global::AngleSharp.Dom.IElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildElement,
             Node,
             rootsAtEventTarget: true,
@@ -1083,7 +1083,7 @@ internal static partial class DomInterfaces
 
         HTMLElement = Add(new DomInterfaceDefinition(
             "HTMLElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLElement,
             Element,
             rootsAtEventTarget: true,
@@ -1092,7 +1092,7 @@ internal static partial class DomInterfaces
 
         HTMLAnchorElement = Add(new DomInterfaceDefinition(
             "HTMLAnchorElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlAnchorElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLAnchorElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1101,7 +1101,7 @@ internal static partial class DomInterfaces
 
         HTMLAreaElement = Add(new DomInterfaceDefinition(
             "HTMLAreaElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlAreaElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLAreaElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1110,7 +1110,7 @@ internal static partial class DomInterfaces
 
         HTMLMediaElement = Add(new DomInterfaceDefinition(
             "HTMLMediaElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMediaElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMediaElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1131,7 +1131,7 @@ internal static partial class DomInterfaces
 
         HTMLAudioElement = Add(new DomInterfaceDefinition(
             "HTMLAudioElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlAudioElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLAudioElement,
             HTMLMediaElement,
             rootsAtEventTarget: true,
@@ -1140,7 +1140,7 @@ internal static partial class DomInterfaces
 
         HTMLBRElement = Add(new DomInterfaceDefinition(
             "HTMLBRElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlBreakRowElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLBRElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1149,7 +1149,7 @@ internal static partial class DomInterfaces
 
         HTMLBaseElement = Add(new DomInterfaceDefinition(
             "HTMLBaseElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlBaseElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLBaseElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1158,7 +1158,7 @@ internal static partial class DomInterfaces
 
         HTMLBodyElement = Add(new DomInterfaceDefinition(
             "HTMLBodyElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlBodyElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLBodyElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1167,7 +1167,7 @@ internal static partial class DomInterfaces
 
         HTMLButtonElement = Add(new DomInterfaceDefinition(
             "HTMLButtonElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlButtonElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLButtonElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1176,7 +1176,7 @@ internal static partial class DomInterfaces
 
         HTMLCanvasElement = Add(new DomInterfaceDefinition(
             "HTMLCanvasElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlCanvasElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLCanvasElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1185,7 +1185,7 @@ internal static partial class DomInterfaces
 
         HTMLCollection = Add(new DomInterfaceDefinition(
             "HTMLCollection",
-            typeof(global::AngleSharp.Dom.IHtmlCollection<>),
+            typeof(global::Jint.Browser.Dom.Collections.DomHtmlCollection<>),
             DomManualShapes.HtmlCollection,
             null,
             rootsAtEventTarget: false,
@@ -1194,7 +1194,7 @@ internal static partial class DomInterfaces
 
         HTMLCommandElement = Add(new DomInterfaceDefinition(
             "HTMLCommandElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlCommandElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLCommandElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1203,7 +1203,7 @@ internal static partial class DomInterfaces
 
         HTMLDataElement = Add(new DomInterfaceDefinition(
             "HTMLDataElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlDataElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLDataElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1212,7 +1212,7 @@ internal static partial class DomInterfaces
 
         HTMLDataListElement = Add(new DomInterfaceDefinition(
             "HTMLDataListElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlDataListElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLDataListElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1221,7 +1221,7 @@ internal static partial class DomInterfaces
 
         HTMLDetailsElement = Add(new DomInterfaceDefinition(
             "HTMLDetailsElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlDetailsElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLDetailsElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1230,7 +1230,7 @@ internal static partial class DomInterfaces
 
         HTMLDialogElement = Add(new DomInterfaceDefinition(
             "HTMLDialogElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlDialogElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLDialogElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1239,7 +1239,7 @@ internal static partial class DomInterfaces
 
         HTMLDivElement = Add(new DomInterfaceDefinition(
             "HTMLDivElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlDivElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLDivElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1248,7 +1248,7 @@ internal static partial class DomInterfaces
 
         HTMLDocument = Add(new DomInterfaceDefinition(
             "HTMLDocument",
-            typeof(global::AngleSharp.Html.Dom.IHtmlDocument),
+            typeof(global::Jint.HtmlParser.Document),
             BuildHTMLDocument,
             Document,
             rootsAtEventTarget: true,
@@ -1257,7 +1257,7 @@ internal static partial class DomInterfaces
 
         HTMLEmbedElement = Add(new DomInterfaceDefinition(
             "HTMLEmbedElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlEmbedElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLEmbedElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1266,7 +1266,7 @@ internal static partial class DomInterfaces
 
         HTMLFieldSetElement = Add(new DomInterfaceDefinition(
             "HTMLFieldSetElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlFieldSetElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLFieldSetElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1284,7 +1284,7 @@ internal static partial class DomInterfaces
 
         HTMLFormElement = Add(new DomInterfaceDefinition(
             "HTMLFormElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlFormElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLFormElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1294,7 +1294,7 @@ internal static partial class DomInterfaces
 
         HTMLHRElement = Add(new DomInterfaceDefinition(
             "HTMLHRElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlHrElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLHRElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1303,7 +1303,7 @@ internal static partial class DomInterfaces
 
         HTMLHeadElement = Add(new DomInterfaceDefinition(
             "HTMLHeadElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlHeadElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLHeadElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1312,7 +1312,7 @@ internal static partial class DomInterfaces
 
         HTMLHeadingElement = Add(new DomInterfaceDefinition(
             "HTMLHeadingElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlHeadingElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLHeadingElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1321,7 +1321,7 @@ internal static partial class DomInterfaces
 
         HTMLHtmlElement = Add(new DomInterfaceDefinition(
             "HTMLHtmlElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlHtmlElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLHtmlElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1330,7 +1330,7 @@ internal static partial class DomInterfaces
 
         HTMLIFrameElement = Add(new DomInterfaceDefinition(
             "HTMLIFrameElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlInlineFrameElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLIFrameElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1339,7 +1339,7 @@ internal static partial class DomInterfaces
 
         HTMLImageElement = Add(new DomInterfaceDefinition(
             "HTMLImageElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlImageElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLImageElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1348,7 +1348,7 @@ internal static partial class DomInterfaces
 
         HTMLInputElement = Add(new DomInterfaceDefinition(
             "HTMLInputElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlInputElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLInputElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1357,7 +1357,7 @@ internal static partial class DomInterfaces
 
         HTMLKeygenElement = Add(new DomInterfaceDefinition(
             "HTMLKeygenElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlKeygenElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLKeygenElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1366,7 +1366,7 @@ internal static partial class DomInterfaces
 
         HTMLLIElement = Add(new DomInterfaceDefinition(
             "HTMLLIElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlListItemElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLLIElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1375,7 +1375,7 @@ internal static partial class DomInterfaces
 
         HTMLLabelElement = Add(new DomInterfaceDefinition(
             "HTMLLabelElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlLabelElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLLabelElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1384,7 +1384,7 @@ internal static partial class DomInterfaces
 
         HTMLLegendElement = Add(new DomInterfaceDefinition(
             "HTMLLegendElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlLegendElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLLegendElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1393,7 +1393,7 @@ internal static partial class DomInterfaces
 
         HTMLLinkElement = Add(new DomInterfaceDefinition(
             "HTMLLinkElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlLinkElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLLinkElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1402,7 +1402,7 @@ internal static partial class DomInterfaces
 
         HTMLMapElement = Add(new DomInterfaceDefinition(
             "HTMLMapElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMapElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMapElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1411,7 +1411,7 @@ internal static partial class DomInterfaces
 
         HTMLMarqueeElement = Add(new DomInterfaceDefinition(
             "HTMLMarqueeElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMarqueeElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMarqueeElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1420,7 +1420,7 @@ internal static partial class DomInterfaces
 
         HTMLMenuElement = Add(new DomInterfaceDefinition(
             "HTMLMenuElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMenuElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMenuElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1429,7 +1429,7 @@ internal static partial class DomInterfaces
 
         HTMLMenuItemElement = Add(new DomInterfaceDefinition(
             "HTMLMenuItemElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMenuItemElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMenuItemElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1438,7 +1438,7 @@ internal static partial class DomInterfaces
 
         HTMLMetaElement = Add(new DomInterfaceDefinition(
             "HTMLMetaElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMetaElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMetaElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1447,7 +1447,7 @@ internal static partial class DomInterfaces
 
         HTMLMeterElement = Add(new DomInterfaceDefinition(
             "HTMLMeterElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlMeterElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLMeterElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1456,7 +1456,7 @@ internal static partial class DomInterfaces
 
         HTMLModElement = Add(new DomInterfaceDefinition(
             "HTMLModElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlModElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLModElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1465,7 +1465,7 @@ internal static partial class DomInterfaces
 
         HTMLOListElement = Add(new DomInterfaceDefinition(
             "HTMLOListElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlOrderedListElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLOListElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1474,7 +1474,7 @@ internal static partial class DomInterfaces
 
         HTMLObjectElement = Add(new DomInterfaceDefinition(
             "HTMLObjectElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlObjectElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLObjectElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1483,7 +1483,7 @@ internal static partial class DomInterfaces
 
         HTMLOptGroupElement = Add(new DomInterfaceDefinition(
             "HTMLOptGroupElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlOptionsGroupElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLOptGroupElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1492,7 +1492,7 @@ internal static partial class DomInterfaces
 
         HTMLOptionElement = Add(new DomInterfaceDefinition(
             "HTMLOptionElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlOptionElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLOptionElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1510,7 +1510,7 @@ internal static partial class DomInterfaces
 
         HTMLOutputElement = Add(new DomInterfaceDefinition(
             "HTMLOutputElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlOutputElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLOutputElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1519,7 +1519,7 @@ internal static partial class DomInterfaces
 
         HTMLParagraphElement = Add(new DomInterfaceDefinition(
             "HTMLParagraphElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlParagraphElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLParagraphElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1528,7 +1528,7 @@ internal static partial class DomInterfaces
 
         HTMLParamElement = Add(new DomInterfaceDefinition(
             "HTMLParamElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlParamElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLParamElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1537,7 +1537,7 @@ internal static partial class DomInterfaces
 
         HTMLPictureElement = Add(new DomInterfaceDefinition(
             "HTMLPictureElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlPictureElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLPictureElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1546,7 +1546,7 @@ internal static partial class DomInterfaces
 
         HTMLPreElement = Add(new DomInterfaceDefinition(
             "HTMLPreElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlPreElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLPreElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1555,7 +1555,7 @@ internal static partial class DomInterfaces
 
         HTMLProgressElement = Add(new DomInterfaceDefinition(
             "HTMLProgressElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlProgressElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLProgressElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1564,7 +1564,7 @@ internal static partial class DomInterfaces
 
         HTMLQuoteElement = Add(new DomInterfaceDefinition(
             "HTMLQuoteElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlQuoteElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLQuoteElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1573,7 +1573,7 @@ internal static partial class DomInterfaces
 
         HTMLScriptElement = Add(new DomInterfaceDefinition(
             "HTMLScriptElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlScriptElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLScriptElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1582,7 +1582,7 @@ internal static partial class DomInterfaces
 
         HTMLSelectElement = Add(new DomInterfaceDefinition(
             "HTMLSelectElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlSelectElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLSelectElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1592,7 +1592,7 @@ internal static partial class DomInterfaces
 
         HTMLSlotElement = Add(new DomInterfaceDefinition(
             "HTMLSlotElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlSlotElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLSlotElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1601,7 +1601,7 @@ internal static partial class DomInterfaces
 
         HTMLSourceElement = Add(new DomInterfaceDefinition(
             "HTMLSourceElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlSourceElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLSourceElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1610,7 +1610,7 @@ internal static partial class DomInterfaces
 
         HTMLSpanElement = Add(new DomInterfaceDefinition(
             "HTMLSpanElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlSpanElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLSpanElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1619,7 +1619,7 @@ internal static partial class DomInterfaces
 
         HTMLStyleElement = Add(new DomInterfaceDefinition(
             "HTMLStyleElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlStyleElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLStyleElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1628,7 +1628,7 @@ internal static partial class DomInterfaces
 
         HTMLTableCaptionElement = Add(new DomInterfaceDefinition(
             "HTMLTableCaptionElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableCaptionElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTableCaptionElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1637,7 +1637,7 @@ internal static partial class DomInterfaces
 
         HTMLTableCellElement = Add(new DomInterfaceDefinition(
             "HTMLTableCellElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableCellElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTableCellElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1646,7 +1646,7 @@ internal static partial class DomInterfaces
 
         HTMLTableColElement = Add(new DomInterfaceDefinition(
             "HTMLTableColElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableColumnElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTableColElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1655,7 +1655,7 @@ internal static partial class DomInterfaces
 
         HTMLTableElement = Add(new DomInterfaceDefinition(
             "HTMLTableElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTableElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1664,7 +1664,7 @@ internal static partial class DomInterfaces
 
         HTMLTableRowElement = Add(new DomInterfaceDefinition(
             "HTMLTableRowElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableRowElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTableRowElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1673,7 +1673,7 @@ internal static partial class DomInterfaces
 
         HTMLTableSectionElement = Add(new DomInterfaceDefinition(
             "HTMLTableSectionElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableSectionElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTableSectionElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1682,7 +1682,7 @@ internal static partial class DomInterfaces
 
         HTMLTemplateElement = Add(new DomInterfaceDefinition(
             "HTMLTemplateElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTemplateElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTemplateElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1691,7 +1691,7 @@ internal static partial class DomInterfaces
 
         HTMLTextAreaElement = Add(new DomInterfaceDefinition(
             "HTMLTextAreaElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTextAreaElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTextAreaElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1700,7 +1700,7 @@ internal static partial class DomInterfaces
 
         HTMLTimeElement = Add(new DomInterfaceDefinition(
             "HTMLTimeElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTimeElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTimeElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1709,7 +1709,7 @@ internal static partial class DomInterfaces
 
         HTMLTitleElement = Add(new DomInterfaceDefinition(
             "HTMLTitleElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTitleElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTitleElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1718,7 +1718,7 @@ internal static partial class DomInterfaces
 
         HTMLTrackElement = Add(new DomInterfaceDefinition(
             "HTMLTrackElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTrackElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLTrackElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1734,7 +1734,7 @@ internal static partial class DomInterfaces
 
         HTMLUListElement = Add(new DomInterfaceDefinition(
             "HTMLUListElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlUnorderedListElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLUListElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1743,7 +1743,7 @@ internal static partial class DomInterfaces
 
         HTMLUnknownElement = Add(new DomInterfaceDefinition(
             "HTMLUnknownElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlUnknownElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLUnknownElement,
             HTMLElement,
             rootsAtEventTarget: true,
@@ -1752,7 +1752,7 @@ internal static partial class DomInterfaces
 
         HTMLVideoElement = Add(new DomInterfaceDefinition(
             "HTMLVideoElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlVideoElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildHTMLVideoElement,
             HTMLMediaElement,
             rootsAtEventTarget: true,
@@ -1770,7 +1770,7 @@ internal static partial class DomInterfaces
 
         Location = Add(new DomInterfaceDefinition(
             "Location",
-            typeof(global::AngleSharp.Dom.ILocation),
+            typeof(global::Jint.Browser.Dom.DomLocation),
             BuildLocation,
             null,
             rootsAtEventTarget: false,
@@ -1849,7 +1849,7 @@ internal static partial class DomInterfaces
 
         NamedNodeMap = Add(new DomInterfaceDefinition(
             "NamedNodeMap",
-            typeof(global::AngleSharp.Dom.INamedNodeMap),
+            typeof(global::Jint.Browser.Dom.Collections.DomNamedNodeMap),
             BuildNamedNodeMap,
             null,
             rootsAtEventTarget: false,
@@ -1868,7 +1868,7 @@ internal static partial class DomInterfaces
 
         NodeIterator = Add(new DomInterfaceDefinition(
             "NodeIterator",
-            typeof(global::AngleSharp.Dom.INodeIterator),
+            typeof(global::Jint.HtmlParser.DomNodeIterator),
             BuildNodeIterator,
             null,
             rootsAtEventTarget: false,
@@ -1893,7 +1893,7 @@ internal static partial class DomInterfaces
 
         NodeList = Add(new DomInterfaceDefinition(
             "NodeList",
-            typeof(global::AngleSharp.Dom.INodeList),
+            typeof(global::Jint.Browser.Dom.Collections.DomNodeList),
             BuildNodeList,
             null,
             rootsAtEventTarget: false,
@@ -1903,7 +1903,7 @@ internal static partial class DomInterfaces
 
         ProcessingInstruction = Add(new DomInterfaceDefinition(
             "ProcessingInstruction",
-            typeof(global::AngleSharp.Dom.IProcessingInstruction),
+            typeof(global::Jint.HtmlParser.ProcessingInstruction),
             BuildProcessingInstruction,
             CharacterData,
             rootsAtEventTarget: true,
@@ -1912,7 +1912,7 @@ internal static partial class DomInterfaces
 
         PseudoElement = Add(new DomInterfaceDefinition(
             "PseudoElement",
-            typeof(global::AngleSharp.Dom.IPseudoElement),
+            typeof(global::Jint.HtmlParser.Node),
             BuildPseudoElement,
             Element,
             rootsAtEventTarget: true,
@@ -1921,7 +1921,7 @@ internal static partial class DomInterfaces
 
         Range = Add(new DomInterfaceDefinition(
             "Range",
-            typeof(global::AngleSharp.Dom.IRange),
+            typeof(global::Jint.HtmlParser.DomRange),
             BuildRange,
             null,
             rootsAtEventTarget: false,
@@ -1937,7 +1937,7 @@ internal static partial class DomInterfaces
 
         SVGElement = Add(new DomInterfaceDefinition(
             "SVGElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGElement,
             Element,
             rootsAtEventTarget: true,
@@ -1946,7 +1946,7 @@ internal static partial class DomInterfaces
 
         SVGCircleElement = Add(new DomInterfaceDefinition(
             "SVGCircleElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgCircleElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGCircleElement,
             SVGElement,
             rootsAtEventTarget: true,
@@ -1955,7 +1955,7 @@ internal static partial class DomInterfaces
 
         SVGDescElement = Add(new DomInterfaceDefinition(
             "SVGDescElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgDescriptionElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGDescElement,
             SVGElement,
             rootsAtEventTarget: true,
@@ -1964,7 +1964,7 @@ internal static partial class DomInterfaces
 
         SVGForeignObjectElement = Add(new DomInterfaceDefinition(
             "SVGForeignObjectElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgForeignObjectElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGForeignObjectElement,
             SVGElement,
             rootsAtEventTarget: true,
@@ -1973,7 +1973,7 @@ internal static partial class DomInterfaces
 
         SVGSVGElement = Add(new DomInterfaceDefinition(
             "SVGSVGElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgSvgElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGSVGElement,
             SVGElement,
             rootsAtEventTarget: true,
@@ -1982,7 +1982,7 @@ internal static partial class DomInterfaces
 
         SVGStyleElement = Add(new DomInterfaceDefinition(
             "SVGStyleElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgStyleElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGStyleElement,
             SVGElement,
             rootsAtEventTarget: true,
@@ -1991,7 +1991,7 @@ internal static partial class DomInterfaces
 
         SVGTitleElement = Add(new DomInterfaceDefinition(
             "SVGTitleElement",
-            typeof(global::AngleSharp.Svg.Dom.ISvgTitleElement),
+            typeof(global::Jint.HtmlParser.Element),
             BuildSVGTitleElement,
             SVGElement,
             rootsAtEventTarget: true,
@@ -2000,7 +2000,7 @@ internal static partial class DomInterfaces
 
         ShadowRoot = Add(new DomInterfaceDefinition(
             "ShadowRoot",
-            typeof(global::AngleSharp.Dom.IShadowRoot),
+            typeof(global::Jint.HtmlParser.ShadowRoot),
             BuildShadowRoot,
             DocumentFragment,
             rootsAtEventTarget: true,
@@ -2019,7 +2019,7 @@ internal static partial class DomInterfaces
 
         Text = Add(new DomInterfaceDefinition(
             "Text",
-            typeof(global::AngleSharp.Dom.IText),
+            typeof(global::Jint.HtmlParser.Node),
             BuildText,
             CharacterData,
             rootsAtEventTarget: true,
@@ -2075,7 +2075,7 @@ internal static partial class DomInterfaces
 
         TreeWalker = Add(new DomInterfaceDefinition(
             "TreeWalker",
-            typeof(global::AngleSharp.Dom.ITreeWalker),
+            typeof(global::Jint.HtmlParser.DomTreeWalker),
             BuildTreeWalker,
             null,
             rootsAtEventTarget: false,

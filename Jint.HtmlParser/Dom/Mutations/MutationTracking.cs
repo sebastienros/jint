@@ -16,8 +16,10 @@ internal static class MutationTracking
         }
 
         MutationMatches? matches = null;
+        Node root = target;
         for (var ancestor = target; ancestor is not null; ancestor = ancestor.ParentNode)
         {
+            root = ancestor;
             if (ancestor.MutationRegistrations is not { } registrations)
             {
                 continue;
@@ -36,6 +38,18 @@ internal static class MutationTracking
                     kind == MutationRecordKind.Attributes && options.AttributeOldValue ||
                     kind == MutationRecordKind.CharacterData && options.CharacterDataOldValue);
             }
+        }
+
+        if (kind == MutationRecordKind.ChildList && matches is not null)
+        {
+            // Reuse the observer match's ordinary ancestor walk. Resolve only a
+            // shadow root's host chain, without widening observer matching across it.
+            while (root is ShadowRoot shadow)
+            {
+                root = shadow.Host;
+                while (root.ParentNode is { } parent) root = parent;
+            }
+            matches.TargetWasConnected = root is Document;
         }
 
         return matches;
@@ -154,7 +168,7 @@ internal static class MutationTracking
         foreach (var entry in matches.Entries)
         {
             entry.Subscription.Queue(new MutationRecord(MutationRecordKind.ChildList, target,
-                added, removed, previousSibling, nextSibling));
+                added, removed, previousSibling, nextSibling, targetWasConnected: matches.TargetWasConnected));
         }
     }
 }
@@ -164,6 +178,7 @@ internal sealed class MutationMatches
     private readonly List<MutationMatch> _entries = [];
     internal IReadOnlyList<MutationMatch> Entries => _entries;
     internal bool NeedsOldValue { get; private set; }
+    internal bool TargetWasConnected { get; set; }
 
     internal void Add(MutationSubscription subscription, bool oldValue)
     {

@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -34,13 +34,14 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     private readonly Dictionary<string, CustomElementDefinition> _byName = new(StringComparer.Ordinal);
     private readonly Dictionary<ObjectInstance, CustomElementDefinition> _byConstructor = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, PromiseCapability> _whenDefined = new(StringComparer.Ordinal);
-    private readonly ConditionalWeakTable<IElement, CustomElementRecord> _records = new();
+    private readonly ConditionalWeakTable<Element, CustomElementRecord> _records = new();
     private bool _definitionIsRunning;
 
     internal CustomElementRegistry(PageRuntime runtime, ObjectInstance prototype, HostInterfaceObject interfaceObject)
         : base(runtime.Engine)
     {
         _runtime = runtime;
+        runtime.Engine.Disposed += (_, _) => ReleaseNativeSubscriptions();
         InterfaceObject = interfaceObject;
         _checkpoint = RunCheckpoint;
         Prototype = prototype;
@@ -248,7 +249,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// </summary>
     internal JsValue Upgrade(JsValue[] arguments)
     {
-        if (arguments.At(0) is not IDomWrapper { DomTarget: INode node })
+        if (arguments.At(0) is not IDomWrapper { DomTarget: Node node })
         {
             Throw.TypeError(
                 _runtime.Engine._mainRealm,
@@ -285,7 +286,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// since a valid custom element name may not be extended.
     /// </para>
     /// </remarks>
-    internal CustomElementDefinition? Lookup(IDocument? document, string? namespaceUri, string localName, string? isValue)
+    internal CustomElementDefinition? Lookup(Document? document, string? namespaceUri, string localName, string? isValue)
     {
         if (_byName.Count == 0)
         {
@@ -299,7 +300,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
             return null;
         }
 
-        if (namespaceUri is not null && !string.Equals(namespaceUri, HtmlNamespace, StringComparison.Ordinal))
+        if (!string.Equals(namespaceUri, HtmlNamespace, StringComparison.Ordinal))
         {
             return null;
         }
@@ -432,23 +433,23 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
             return null;
         }
 
-        IElement probe;
+        Element probe;
 
         try
         {
             probe = document.CreateElement(localName);
         }
-        catch (AngleSharp.Dom.DomException)
+        catch (Jint.HtmlParser.DomException)
         {
             return null;
         }
 
-        if (probe is AngleSharp.Html.Dom.IHtmlUnknownElement)
+        if (ReferenceEquals(DomTypeMap.For(probe), DomInterfaces.HTMLUnknownElement))
         {
             return null;
         }
 
-        return DomManualInterfaces.For(probe) ?? DomTypeMap.For(probe.GetType());
+        return DomTypeMap.For(probe);
     }
 
     private void ThrowDomException(string member, string name, string detail)

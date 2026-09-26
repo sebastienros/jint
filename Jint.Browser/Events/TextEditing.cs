@@ -1,7 +1,5 @@
-﻿using System.Globalization;
-using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+﻿using System.Runtime.CompilerServices;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.WebApi.Events;
@@ -45,28 +43,31 @@ internal static class TextEditing
     /// The value a control had when it was focused, so <c>change</c> can fire on the way out exactly when the
     /// user changed something — https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps.
     /// </summary>
-    private static readonly ConditionalWeakTable<IElement, EditSnapshot> _valuesAtFocus = new();
+    private static readonly ConditionalWeakTable<Element, EditSnapshot> _valuesAtFocus = new();
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#do-not-apply — the input types whose value is text a
     /// user types, plus <c>&lt;textarea&gt;</c>, which is the whole of what this version edits.
     /// </summary>
-    internal static bool IsEditable(IElement element) => element switch
+    internal static bool IsEditable(DomRealm dom, Element element)
     {
-        IHtmlTextAreaElement textArea => !textArea.IsDisabled && !textArea.IsReadOnly,
-        IHtmlInputElement input => !input.IsDisabled && !input.IsReadOnly && input.Type is
-            "text" or "search" or "url" or "tel" or "password" or "email" or "number",
-        _ => false,
-    };
+        if (element.NamespaceUri != Namespaces.Html || EventDom.Disabled(dom, element) || element.HasContentAttribute("readonly"))
+        {
+            return false;
+        }
+        return element.LocalName == "textarea" || element.LocalName == "input"
+            && EventDom.InputType(element) is "text" or "search" or "url" or "tel" or "password" or "email" or "number"
+            && element.GetHtmlState()!.InputValue!.GetEditingSelection(dom.CancellationToken) is not null;
+    }
 
     /// <summary>Whether the control holds one line, which is what makes <kbd>Enter</kbd> submit rather than insert.</summary>
-    internal static bool IsSingleLine(IElement element) => element is IHtmlInputElement;
+    internal static bool IsSingleLine(Element element) => EventDom.IsHtml(element, "input");
 
-    internal static void RememberValueAtFocus(IElement element)
+    internal static void RememberValueAtFocus(DomRealm dom, Element element)
     {
-        if (IsEditable(element) || element is IHtmlSelectElement)
+        if (IsEditable(dom, element) || EventDom.IsHtml(element, "select"))
         {
-            _valuesAtFocus.AddOrUpdate(element, new EditSnapshot(ValueOf(element)));
+            _valuesAtFocus.AddOrUpdate(element, new EditSnapshot(ValueOf(dom, element)));
         }
     }
 
@@ -74,30 +75,30 @@ internal static class TextEditing
     /// https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps step 3's first clause: a
     /// control whose value the user changed since it was focused fires <c>change</c> on the way out.
     /// </summary>
-    internal static void FireChangeIfEdited(DomRealm dom, IElement element)
+    internal static void FireChangeIfEdited(DomRealm dom, Element element)
     {
-        if (Changed(element))
+        var changed = Changed(dom, element);
+        _valuesAtFocus.Remove(element);
+        if (changed)
         {
             FireChange(dom, element);
         }
-
-        _valuesAtFocus.Remove(element);
     }
 
     /// <summary>
     /// The same verdict, for a control that keeps focus: <kbd>Enter</kbd> in a single-line control commits the
     /// value, which is why a browser fires <c>change</c> there and not again when focus later leaves.
     /// </summary>
-    internal static void CommitChange(DomRealm dom, IElement element)
+    internal static void CommitChange(DomRealm dom, Element element)
     {
-        if (!Changed(element))
+        if (!Changed(dom, element))
         {
             return;
         }
 
         // Re-armed rather than removed, because the control is still focused and the next edit has to be able
         // to fire a second change.
-        _valuesAtFocus.AddOrUpdate(element, new EditSnapshot(ValueOf(element)));
+        _valuesAtFocus.AddOrUpdate(element, new EditSnapshot(ValueOf(dom, element)));
         FireChange(dom, element);
     }
 
@@ -116,9 +117,9 @@ internal static class TextEditing
     /// <see langword="true"/> when the key was consumed by the editor, so the caller knows not to treat it as
     /// anything else.
     /// </returns>
-    internal static bool HandleKeyDown(DomRealm dom, IElement element, in KeyOptions options, bool allowInsertion)
+    internal static bool HandleKeyDown(DomRealm dom, Element element, in KeyOptions options, bool allowInsertion)
     {
-        if (!IsEditable(element))
+        if (!IsEditable(dom, element))
         {
             return false;
         }
@@ -198,7 +199,7 @@ internal static class TextEditing
         var start = control.Start;
         var end = control.End;
 
-        if (MaxLengthOf(control.Element) is { } maximum)
+        if (MaxLengthOf(dom, control.Element) is { } maximum)
         {
             var room = maximum - (value.Length - (end - start));
 
@@ -209,7 +210,7 @@ internal static class TextEditing
 
             if (text.Length > room)
             {
-                text = text.Substring(0, room);
+                text = text.Substring(0, (int) room);
             }
         }
 
@@ -218,8 +219,10 @@ internal static class TextEditing
             return true;
         }
 
-        control.Value = string.Concat(value.AsSpan(0, start), text, value.AsSpan(end));
-        control.SetSelection(start + text.Length);
+        if (!control.ApplyUserValue(string.Concat(value.AsSpan(0, start), text, value.AsSpan(end)), start + text.Length))
+        {
+            return true;
+        }
 
         FireInput(dom, control.Element, inputType, JsString.Create(text));
         return true;
@@ -261,8 +264,10 @@ internal static class TextEditing
             return true;
         }
 
-        control.Value = string.Concat(value.AsSpan(0, start), value.AsSpan(end));
-        control.SetSelection(start);
+        if (!control.ApplyUserValue(string.Concat(value.AsSpan(0, start), value.AsSpan(end)), start))
+        {
+            return true;
+        }
 
         FireInput(dom, control.Element, inputType, JsValue.Null);
         return true;
@@ -358,29 +363,21 @@ internal static class TextEditing
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#attr-fe-maxlength, read off the
     /// content attribute rather than through AngleSharp, which answers for an absent one.
     /// </summary>
-    private static int? MaxLengthOf(IElement element)
-    {
-        var raw = element.GetAttribute("maxlength");
-
-        return raw is not null
-            && int.TryParse(raw.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var value)
-            && value >= 0
-                ? value
-                : null;
-    }
+    private static long? MaxLengthOf(DomRealm dom, Element element)
+        => HtmlTextControlAttributes.GetMaximumAllowedLength(element, dom.NativeReadCheckpoint, dom.CancellationToken);
 
     /// <summary>
     /// https://w3c.github.io/input-events/#event-type-beforeinput — cancelable, so a listener can refuse the
     /// edit. Returns whether the edit may proceed.
     /// </summary>
-    internal static bool FireBeforeInput(DomRealm dom, IElement element, string inputType, JsValue data)
+    internal static bool FireBeforeInput(DomRealm dom, Element element, string inputType, JsValue data)
         => FireInputEvent(dom, element, "beforeinput", inputType, data, cancelable: true);
 
     /// <summary>https://w3c.github.io/input-events/#event-type-input — not cancelable; the edit already happened.</summary>
-    internal static void FireInput(DomRealm dom, IElement element, string inputType, JsValue data)
+    internal static void FireInput(DomRealm dom, Element element, string inputType, JsValue data)
         => FireInputEvent(dom, element, "input", inputType, data, cancelable: false);
 
-    private static bool FireInputEvent(DomRealm dom, IElement element, string type, string inputType, JsValue data, bool cancelable)
+    private static bool FireInputEvent(DomRealm dom, Element element, string type, string inputType, JsValue data, bool cancelable)
     {
         var realm = BrowserEventRealm.Of(dom.Engine);
 
@@ -402,17 +399,17 @@ internal static class TextEditing
     }
 
     /// <summary>Whether the value moved since the control was focused, for a control that recorded one.</summary>
-    private static bool Changed(IElement element)
+    private static bool Changed(DomRealm dom, Element element)
         => _valuesAtFocus.TryGetValue(element, out var snapshot)
-            && !string.Equals(snapshot.Value, ValueOf(element), StringComparison.Ordinal);
+            && !string.Equals(snapshot.Value, ValueOf(dom, element), StringComparison.Ordinal);
 
-    private static void FireChange(DomRealm dom, IElement element)
+    private static void FireChange(DomRealm dom, Element element)
         => ActivationBehaviors.Fire(dom.WrapNode(element), "change", bubbles: true, composed: false);
 
-    private static string ValueOf(IElement element) => element switch
+    private static string ValueOf(DomRealm dom, Element element) => element switch
     {
-        IHtmlInputElement input => input.Value ?? "",
-        IHtmlTextAreaElement textArea => textArea.Value ?? "",
+        { NamespaceUri: Namespaces.Html, LocalName: "input" } => element.GetHtmlState()!.InputValue!.GetValue(dom.CancellationToken),
+        { NamespaceUri: Namespaces.Html, LocalName: "textarea" } => element.GetHtmlState()!.TextArea!.GetValue(dom.CancellationToken),
         IHtmlSelectElement select => select.Value ?? "",
         _ => "",
     };
@@ -423,102 +420,60 @@ internal static class TextEditing
         internal string Value { get; } = value;
     }
 
-    /// <summary>
-    /// One text control's value and selection, whichever of the two AngleSharp interfaces backs it, with both
-    /// offsets clamped to the value on every read.
-    /// </summary>
+    /// <summary>Editing reads and mutations over the control's authoritative native state.</summary>
     internal readonly struct TextControl
     {
         private readonly DomRealm _dom;
-        private readonly IHtmlInputElement? _input;
-        private readonly IHtmlTextAreaElement? _textArea;
+        private readonly HtmlInputValueState? _input;
+        private readonly HtmlTextAreaState? _textArea;
 
-        internal TextControl(DomRealm dom, IElement element)
+        internal TextControl(DomRealm dom, Element element)
         {
             _dom = dom;
             Element = element;
-            _input = element as IHtmlInputElement;
-            _textArea = element as IHtmlTextAreaElement;
+            _input = element.GetHtmlState()?.InputValue;
+            _textArea = element.GetHtmlState()?.TextArea;
         }
 
-        internal IElement Element { get; }
-
-        internal string Value
-        {
-            get => _input is not null ? _input.Value ?? "" : _textArea?.Value ?? "";
-            set
-            {
-                if (_input is not null)
-                {
-                    _input.Value = value;
-                }
-                else if (_textArea is not null)
-                {
-                    _textArea.Value = value;
-                }
-            }
-        }
-
-        internal int Start => Math.Clamp(_input?.SelectionStart ?? _textArea?.SelectionStart ?? 0, 0, Value.Length);
-
-        internal int End => Math.Clamp(_input?.SelectionEnd ?? _textArea?.SelectionEnd ?? 0, Start, Value.Length);
-
+        internal Element Element { get; }
+        internal string Value => _input is not null
+            ? _input.GetValue(_dom.CancellationToken)
+            : _textArea!.GetValue(_dom.CancellationToken);
+        private HtmlTextSelection Selection => _input is not null
+            ? _input.GetEditingSelection(_dom.CancellationToken)!.Value
+            : _textArea!.GetEditingSelection(_dom.CancellationToken);
+        internal int Start => (int) Selection.Start;
+        internal int End => (int) Selection.End;
         internal bool IsCollapsed => Start == End;
-
-        /// <summary>
-        /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-textarea-input-selectiondirection —
-        /// <c>backward</c> puts the caret at the start, anything else at the end.
-        /// </summary>
-        private bool IsBackward => string.Equals(Direction, "backward", StringComparison.Ordinal);
-
-        /// <summary>What the control answers for <c>selectionDirection</c>, whichever interface backs it.</summary>
-        private string? Direction => _input?.SelectionDirection ?? _textArea?.SelectionDirection;
-
-        /// <summary>The end the caret is at, which is the one <kbd>Shift</kbd> moves.</summary>
+        private bool IsBackward => Selection.Direction == HtmlSelectionDirection.Backward;
         internal int Focus => IsBackward ? Start : End;
-
-        /// <summary>The other end, which <kbd>Shift</kbd> extends from.</summary>
         internal int Anchor => IsBackward ? End : Start;
 
         internal void SetSelection(int caret) => SetSelection(caret, caret, "none");
 
-        /// <summary>
-        /// Moves the selection, and schedules a <c>selectionchange</c> at the control when it really moved —
-        /// https://w3c.github.io/selection-api/#selectionchange-event, which says a text control's selection
-        /// schedules one "in either extent or direction".
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// The comparison is against what the control answers <i>afterwards</i> rather than against the
-        /// arguments, because the clamping is this file's: a move the clamp turns into no move at all is not
-        /// one a page should hear about.
-        /// </para>
-        /// <para>
-        /// <b>The direction compared is <see cref="IsBackward"/> and not the string.</b> This file's whole
-        /// model of direction is which end the caret is at — "backward puts the caret at the start, anything
-        /// else at the end" — and the string cannot be compared anyway: AngleSharp answers <c>forward</c> for
-        /// a control nothing has selected in, where HTML says <c>none</c> (the divergence table in
-        /// <c>Dom/AGENTS.md</c>), so every first caret key in a control would otherwise look like a change of
-        /// direction and fire.
-        /// </para>
-        /// </remarks>
         internal void SetSelection(int start, int end, string direction)
         {
-            var length = Value.Length;
-            var from = Math.Clamp(start, 0, length);
-            var to = Math.Clamp(end, from, length);
+            var previous = Selection;
+            var changed = _input is not null
+                ? _input.SetEditingSelection((uint) start, (uint) end, direction, _dom.CancellationToken)
+                : _textArea!.SetEditingSelection((uint) start, (uint) end, direction, _dom.CancellationToken);
+            if (changed && previous != Selection) SelectionChange.Schedule(_dom, Element);
+        }
 
-            var wasStart = Start;
-            var wasEnd = End;
-            var wasBackward = IsBackward;
-
-            _input?.Select(from, to, direction);
-            _textArea?.Select(from, to, direction);
-
-            if (wasStart != Start || wasEnd != End || wasBackward != IsBackward)
+        // HTML user edits commit value, dirty state, origin and caret together; script value setters are separate.
+        internal bool ApplyUserValue(string value, int caret)
+        {
+            if (_input is not null && _input.GetEditingSelection(_dom.CancellationToken) is null)
             {
-                SelectionChange.Schedule(_dom, Element);
+                return false;
             }
+            var previous = Selection;
+            var selection = new HtmlTextSelection((uint) caret, (uint) caret, HtmlSelectionDirection.None);
+            var applied = _input is not null
+                ? _input.ApplyUserValue(value, selection, _dom.CancellationToken)
+                : _textArea!.ApplyUserValue(value, selection, _dom.CancellationToken);
+            if (applied && previous != Selection) SelectionChange.Schedule(_dom, Element);
+            return applied;
         }
     }
 }

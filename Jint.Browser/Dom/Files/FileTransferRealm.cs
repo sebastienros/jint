@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Events;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.WebApi.DomException;
@@ -13,7 +13,7 @@ internal sealed class FileTransferRealm
     private static readonly ConditionalWeakTable<Engine, FileTransferRealm> _realms = new();
 
     private readonly Engine _engine;
-    private readonly ConditionalWeakTable<IHtmlInputElement, InputFileState> _inputFiles = new();
+    private readonly ConditionalWeakTable<Element, InputFileState> _inputFiles = new();
     private ObjectInstance? _fileListPrototype;
     private HostInterfaceObject? _fileListInterface;
     private ObjectInstance? _dataTransferPrototype;
@@ -26,7 +26,11 @@ internal sealed class FileTransferRealm
     private FileTransferRealm(Engine engine)
     {
         _engine = engine;
+        engine.Disposed += (_, _) => Release();
     }
+
+    internal static FileTransferRealm? IfCreated(Engine engine)
+        => _realms.TryGetValue(engine, out var realm) ? realm : null;
 
     internal static FileTransferRealm Of(Engine engine)
         => _realms.GetValue(engine, static e => new FileTransferRealm(e));
@@ -135,223 +139,160 @@ internal sealed class FileTransferRealm
         return new JsDataTransferItem(_engine, _dataTransferItemPrototype!, data, type);
     }
 
-    internal JsFileList? InputFiles(IHtmlInputElement input, bool create)
+    private readonly Queue<InputFileState> _pendingChanges = new();
+    private readonly HashSet<InputFileState> _queuedChanges = new();
+    private readonly List<WeakReference<MutationSubscription>> _subscriptions = [];
+
+    internal JsFileList? InputFiles(Element input, bool create)
     {
-        if (!IsFileInput(input))
-        {
-            ClearInput(input, preserveList: false);
-            return null;
-        }
-
-        if (_inputFiles.TryGetValue(input, out var state))
-        {
-            return state.Files;
-        }
-
-        if (!create)
-        {
-            return null;
-        }
-
-        return Attach(input, NewFileList());
+        FlushChanges();
+        if (!IsFileInput(input)) return null;
+        if (_inputFiles.TryGetValue(input, out var state)) return state.Files;
+        return create ? Attach(input, NewFileList()) : null;
     }
 
-    internal void SetInputFiles(IHtmlInputElement input, JsFileList files)
+    internal void SetInputFiles(Element input, JsFileList files)
     {
-        using var mutation = DomRealm.Of(_engine).MutateLayout();
-        if (!IsFileInput(input))
-        {
-            return;
-        }
-
+        FlushChanges();
+        if (!IsFileInput(input)) return;
         Detach(input);
         _ = Attach(input, files, external: true);
+        input.OwnerDocument!.MarkMutation();
     }
 
-    internal JsValue InputValue(IHtmlInputElement input)
+    internal JsValue InputValue(Element input)
     {
+        _engine.Constraints.Check();
         if (IsFileInput(input))
         {
             var files = InputFiles(input, create: true)!;
-            return JsString.Create(files.Length == 0 ? string.Empty : @"C:\fakepath\" + files.Files[0].Name);
+            return JsString.Create(files.Length == 0 ? "" : @"C:\fakepath\" + files.Files[0].Name);
         }
-
-        return JsString.Create(input.Value);
+        return JsString.Create(input.GetHtmlState()!.InputValue!.GetValue(DomRealm.Of(_engine).CancellationToken));
     }
 
-    internal JsValue SetInputValue(IHtmlInputElement input, string value)
+    internal JsValue SetInputValue(Element input, string value)
     {
-        using var mutation = DomRealm.Of(_engine).MutateLayout();
+        FlushChanges();
+        var realm = DomRealm.Of(_engine);
+        _engine.Constraints.Check();
         if (!IsFileInput(input))
         {
-            input.Value = value;
+            var state = input.GetHtmlState()!.InputValue!;
+            var selection = state.Selection;
+            state.SetValue(value, realm.NativeReadCheckpoint, realm.CancellationToken);
+            if (selection != state.Selection) SelectionChange.Schedule(realm, input);
             return JsValue.Undefined;
         }
-
         if (value.Length != 0)
         {
-            return DomFailures.Refuse(
-                _engine,
-                "HTMLInputElement.value",
-                DomExceptionNames.InvalidState,
+            return DomFailures.Refuse(_engine, "HTMLInputElement.value", DomExceptionNames.InvalidState,
                 "This input element accepts a filename, which may only be programmatically set to the empty string.");
         }
-
         ClearInput(input, preserveList: true);
-        input.Value = string.Empty;
         return JsValue.Undefined;
     }
 
-    internal JsValue SetInputType(IHtmlInputElement input, string type)
+    internal JsValue SetInputType(Element input, string type)
     {
-        using var mutation = DomRealm.Of(_engine).MutateLayout();
-        var wasFile = IsFileInput(input);
-        input.Type = type;
-        if (wasFile != IsFileInput(input))
-        {
-            ClearInput(input, preserveList: false);
-        }
-
+        input.SetAttribute("type", type);
+        FlushChanges();
         return JsValue.Undefined;
     }
 
-    internal void ResetForm(IHtmlFormElement form)
+    internal void ResetForm(Element form)
     {
-        foreach (var element in form.Elements)
+        var realm = DomRealm.Of(_engine);
+        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
         {
-            if (element is IHtmlInputElement input && IsFileInput(input))
-            {
-                ClearInput(input, preserveList: true);
-            }
+            if (IsFileInput(element)) ClearInput(element, preserveList: true);
         }
     }
 
-    internal static void ResetCopiedInputs(INode node)
+    private JsFileList Attach(Element input, JsFileList files, bool external = false)
     {
-        if (node is IHtmlInputElement input)
+        var subscription = input.OwnerDocument!.ObserveMutations(input,
+            new MutationObserverOptions { Attributes = true, AttributeOldValue = true, AttributeFilter = ["type"] });
+        var state = new InputFileState(new WeakReference<Element>(input), files, subscription, external);
+        subscription.PendingRecord = _ =>
         {
-            ResetCopiedInput(input);
-        }
-
-        foreach (var descendant in node.Descendants<IHtmlInputElement>())
-        {
-            ResetCopiedInput(descendant);
-        }
-
-        static void ResetCopiedInput(IHtmlInputElement input)
-        {
-            if (IsFileInput(input))
-            {
-                input.Files?.Clear();
-                input.Value = string.Empty;
-            }
-        }
-    }
-
-    private JsFileList Attach(IHtmlInputElement input, JsFileList files, bool external = false)
-    {
-        var weakInput = new WeakReference<IHtmlInputElement>(input);
-        void Mirror()
-        {
-            if (weakInput.TryGetTarget(out var target))
-            {
-                MirrorToAngleSharp(target, files);
-            }
-            else
-            {
-                files.Changed -= Mirror;
-            }
-        }
-
-        var state = new InputFileState(files, Mirror, external);
+            // Trusted scheduling: no script runs inside native attribute mutation.
+            if (_queuedChanges.Add(state)) _pendingChanges.Enqueue(state);
+        };
+        _subscriptions.Add(new WeakReference<MutationSubscription>(subscription));
         _inputFiles.Add(input, state);
-        files.Changed += Mirror;
-        Mirror();
         return files;
     }
 
-    internal void AttributeChanged(IElement element, string name)
+    internal void FlushChanges()
     {
-        if (element is IHtmlInputElement input
-            && string.Equals(name, "type", StringComparison.OrdinalIgnoreCase)
-            && _inputFiles.TryGetValue(input, out _)
-            && !IsFileInput(input))
+        while (_pendingChanges.TryDequeue(out var state))
         {
-            ClearInput(input, preserveList: false);
+            if (!_queuedChanges.Remove(state)) continue;
+            var records = state.Subscription.TakeRecordsForDelivery();
+            if (!state.Input.TryGetTarget(out var input)) continue;
+            for (var i = 0; i < records.Count; i++)
+            {
+                _engine.Constraints.Check();
+                var nextType = i + 1 < records.Count ? records[i + 1].OldValue : input.GetAttribute("type");
+                if ((HtmlInputTypes.Parse(records[i].OldValue) == HtmlInputType.File)
+                    != (HtmlInputTypes.Parse(nextType) == HtmlInputType.File))
+                {
+                    ClearInput(input, preserveList: false);
+                    break;
+                }
+            }
         }
     }
 
-    private void Detach(IHtmlInputElement input)
+    private void Detach(Element input)
     {
         if (_inputFiles.TryGetValue(input, out var current))
         {
-            current.Files.Changed -= current.Mirror;
+            _queuedChanges.Remove(current);
+            current.Subscription.Dispose();
             _inputFiles.Remove(input);
         }
     }
 
-    private void ClearInput(IHtmlInputElement input, bool preserveList)
+    private void ClearInput(Element input, bool preserveList)
     {
-        using var mutation = DomRealm.Of(_engine).MutateLayout();
-        if (_inputFiles.TryGetValue(input, out var state))
+        if (!_inputFiles.TryGetValue(input, out var state)) return;
+        var hadFiles = state.Files.Length != 0;
+        if (state.External)
         {
-            if (state.External)
-            {
-                Detach(input);
-                input.Files?.Clear();
-                input.Value = string.Empty;
-                if (preserveList && IsFileInput(input))
-                {
-                    _ = Attach(input, NewFileList());
-                }
-            }
-            else
-            {
-                state.Files.Clear();
-                if (!preserveList)
-                {
-                    Detach(input);
-                }
-            }
+            Detach(input);
+            if (preserveList && IsFileInput(input)) _ = Attach(input, NewFileList());
         }
         else
         {
-            input.Files?.Clear();
+            state.Files.Clear();
+            if (!preserveList) Detach(input);
         }
+        if (hadFiles) input.OwnerDocument!.MarkMutation();
     }
 
-    private void MirrorToAngleSharp(IHtmlInputElement input, JsFileList files)
+    private bool IsFileInput(Element input)
     {
-        using var mutation = DomRealm.Of(_engine).MutateLayout();
-        var target = input.Files;
-        if (target is null)
-        {
-            input.Value = string.Empty;
-            return;
-        }
-
-        target.Clear();
-        foreach (var file in files.Files)
-        {
-            target.Add(new AngleSharpFileAdapter(file));
-        }
-
-        input.Value = files.Length == 0 ? string.Empty : @"C:\fakepath\" + files.Files[0].Name;
+        if (input is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return false;
+        var realm = DomRealm.Of(_engine);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        return HtmlInputTypes.Parse(work.Attribute(input, "type")) == HtmlInputType.File;
     }
 
-    private static bool IsFileInput(IHtmlInputElement input)
-        => string.Equals(input.Type, "file", StringComparison.OrdinalIgnoreCase);
+    private void Release()
+    {
+        foreach (var weak in _subscriptions)
+        {
+            if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
+        }
+        _subscriptions.Clear();
+        _pendingChanges.Clear();
+        _queuedChanges.Clear();
+        _inputFiles.Clear();
+    }
 
-    private sealed record InputFileState(
-        JsFileList Files,
-        Action Mirror,
-        bool External);
-}
-
-/// <summary>Tracks file-upload state transitions for connected and disconnected inputs.</summary>
-internal sealed class FileInputAttributeObserver(Runtime.PageRuntime runtime) : IAttributeObserver
-{
-    /// <inheritdoc />
-    public void NotifyChange(IElement host, string name, string? value)
-        => FileTransferRealm.Of(runtime.Engine).AttributeChanged(host, name);
+    private sealed record InputFileState(WeakReference<Element> Input, JsFileList Files,
+        MutationSubscription Subscription, bool External);
 }

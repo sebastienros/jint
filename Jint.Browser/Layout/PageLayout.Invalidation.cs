@@ -1,5 +1,5 @@
 using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
@@ -10,11 +10,12 @@ internal sealed partial class PageLayout
 {
     private FlatLayout.SizeQuery? _sizes;
     private FlatLayout? _layout;
-    private IDocument? _cachedDocument;
+    private Document? _cachedDocument;
     private PageMediaEnvironment? _cachedMedia;
+    private ulong _cachedNativeStamp;
     private string? _cachedUrl;
-    private IElement? _cachedFocus;
-    private IElement? _cachedPress;
+    private Element? _cachedFocus;
+    private Element? _cachedPress;
     private bool? _supportedStyles;
     private bool _reuseDisabled;
     private int _mutationDepth;
@@ -76,7 +77,7 @@ internal sealed partial class PageLayout
     {
         // ConfigureEngine can install arbitrary native writers, converters and selector services.
         // Keep its existing contract, without requiring hosts to adopt a new invalidation API.
-        if (_reuseDisabled || _mutationDepth != 0 || _runtime.ReadyState != "complete"
+        if (_runtime.Document?.MutationStamp == ulong.MaxValue || _reuseDisabled || _mutationDepth != 0 || _runtime.ReadyState != "complete"
             || _runtime.Options.EngineConfiguration.Count != 0 || CssRuleUsage.IsTrackingDocument(_runtime.Document))
         {
             _sizes = null;
@@ -86,13 +87,14 @@ internal sealed partial class PageLayout
 
         var events = BrowserEventRealm.Of(_runtime.Engine);
         var document = _runtime.Document;
-        var url = document?.Url;
-        if (!ReferenceEquals(_cachedDocument, document) || _cachedMedia != _runtime.Media
+        var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
+        if (!ReferenceEquals(_cachedDocument, document) || _cachedNativeStamp != document?.MutationStamp || _cachedMedia != _runtime.Media
             || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
             || !ReferenceEquals(_cachedPress, events.MousePressTarget))
         {
             Invalidate();
             _cachedDocument = document;
+            _cachedNativeStamp = document?.MutationStamp ?? 0;
             _cachedMedia = _runtime.Media;
             _cachedUrl = url;
             _cachedFocus = events.FocusedElement;
@@ -104,7 +106,7 @@ internal sealed partial class PageLayout
         return _supportedStyles ??= SupportsStyles(document);
     }
 
-    private static bool SupportsStyles(IDocument? document)
+    private static bool SupportsStyles(Document? document)
     {
         if (document is null)
         {

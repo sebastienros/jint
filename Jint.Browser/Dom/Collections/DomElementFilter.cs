@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
@@ -8,7 +8,7 @@ namespace Jint.Browser.Dom.Collections;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It is an object with a method rather than a <c>Func&lt;IElement, bool&gt;</c> so that a read costs one
+/// It is an object with a method rather than a <c>Func&lt;Element, bool&gt;</c> so that a read costs one
 /// virtual call per element and <b>no allocation</b>. A closure would be allocated per read wherever the
 /// predicate depends on something read from the tree at the moment of the read — which is every one of them:
 /// <c>getElementsByClassName</c>'s comparison is ASCII case-insensitive exactly while the root's node
@@ -37,12 +37,12 @@ internal abstract class DomElementFilter
     }
 
     /// <summary>Whether <paramref name="element"/> is in the collection.</summary>
-    internal abstract bool Matches(IElement element);
+    internal abstract bool Matches(Element element);
 
     private sealed class NothingFilter : DomElementFilter
     {
         internal override bool MatchesNothing => true;
 
-        internal override bool Matches(IElement element) => false;
+        internal override bool Matches(Element element) => false;
     }
 }

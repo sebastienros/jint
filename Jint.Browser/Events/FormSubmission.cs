@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -176,19 +175,19 @@ internal static class FormSubmission
     /// </remarks>
     private static bool Validate(DomRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
     {
-        if (form.HasAttribute("novalidate") || submitter?.HasAttribute("formnovalidate") == true)
+        if (form.HasContentAttribute("novalidate") || submitter?.HasContentAttribute("formnovalidate") == true)
         {
             return true;
         }
 
-        List<IElement>? invalid = null;
+        List<Element>? invalid = null;
 
         // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#statically-validate-the-constraints:
         // "let controls be a list of all the submittable elements whose form owner is form, in tree order" —
         // form ownership, so a control associated into this form by its `form` attribute is validated here and
         // one associated away from it is not. Reading `form.elements` instead would validate whatever
         // AngleSharp's own ownership rule put in it, and then submit a different set.
-        foreach (var element in HtmlFormOwner.ControlsOf(form))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
         {
             if (element is not IValidation validation)
             {

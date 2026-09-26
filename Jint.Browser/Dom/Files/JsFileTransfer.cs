@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -98,7 +97,7 @@ internal sealed class JsDataTransfer : ObjectInstance
         "none", "copy", "copyLink", "copyMove", "link", "linkMove", "move", "all", "uninitialized",
     };
 
-    private IElement? _dragImage;
+    private Element? _dragImage;
     private int _hotspotX;
     private int _hotspotY;
     private JsValue? _types;
@@ -193,7 +192,7 @@ internal sealed class JsDataTransfer : ObjectInstance
 
     internal JsValue SetDragImage(JsValue[] arguments)
     {
-        _dragImage = DomBindings.Argument<IElement>(arguments, 0, "DataTransfer.setDragImage");
+        _dragImage = DomBindings.Argument<Element>(arguments, 0, "DataTransfer.setDragImage");
         _hotspotX = DomConvert.RequiredInt32(arguments, 1, "DataTransfer.setDragImage");
         _hotspotY = DomConvert.RequiredInt32(arguments, 2, "DataTransfer.setDragImage");
         return JsValue.Undefined;
@@ -514,10 +513,10 @@ internal sealed class JsDataTransferItem : ObjectInstance
 /// <summary>The generated HTMLInputElement.files accessor delegates here.</summary>
 internal static class FileTransferMembers
 {
-    internal static JsValue InputFiles(DomRealm realm, IHtmlInputElement input)
+    internal static JsValue InputFiles(DomRealm realm, Element input)
         => FileTransferRealm.Of(realm.Engine).InputFiles(input, create: true) ?? JsValue.Null;
 
-    internal static JsValue SetInputFiles(DomRealm realm, IHtmlInputElement input, JsValue[] arguments)
+    internal static JsValue SetInputFiles(DomRealm realm, Element input, JsValue[] arguments)
     {
         var value = arguments.At(0);
         if (value.IsNullOrUndefined())
@@ -535,10 +534,10 @@ internal static class FileTransferMembers
         return JsValue.Undefined;
     }
 
-    internal static JsValue InputValue(DomRealm realm, IHtmlInputElement input)
+    internal static JsValue InputValue(DomRealm realm, Element input)
         => FileTransferRealm.Of(realm.Engine).InputValue(input);
 
-    internal static JsValue SetInputValue(DomRealm realm, IHtmlInputElement input, JsValue[] arguments)
+    internal static JsValue SetInputValue(DomRealm realm, Element input, JsValue[] arguments)
     {
         var value = DomConvert.At(arguments, 0);
         return FileTransferRealm.Of(realm.Engine).SetInputValue(
@@ -546,7 +545,7 @@ internal static class FileTransferMembers
             value.IsNull() ? "" : TypeConverter.ToString(value));
     }
 
-    internal static JsValue SetInputType(DomRealm realm, IHtmlInputElement input, JsValue[] arguments)
+    internal static JsValue SetInputType(DomRealm realm, Element input, JsValue[] arguments)
         => FileTransferRealm.Of(realm.Engine).SetInputType(
             input,
             DomConvert.RequiredText(arguments, 0, "HTMLInputElement.type"));

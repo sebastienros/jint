@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Object;
@@ -139,8 +139,8 @@ internal sealed partial class CustomElementRegistry
         _pendingPrefix = null;
 
         var element = prefix is null
-            ? document!.CreateElement(definition.LocalName)
-            : document!.CreateElement(HtmlNamespace, prefix + ":" + definition.LocalName);
+            ? document!.CreateElement(definition.LocalName, definition.IsAutonomous ? null : definition.Name)
+            : document!.CreateElementNS(HtmlNamespace, prefix + ":" + definition.LocalName, definition.IsAutonomous ? null : definition.Name);
         var record = RecordFor(element);
 
         record.Definition = definition;
@@ -164,7 +164,7 @@ internal sealed partial class CustomElementRegistry
     /// element in the failed state — which is what keeps <c>document.createElement</c> from throwing at a
     /// page that only asked for an element.
     /// </remarks>
-    internal JsValue ConstructAutonomous(CustomElementDefinition definition, IDocument document, string localName, string? prefix = null)
+    internal JsValue ConstructAutonomous(CustomElementDefinition definition, Document document, string localName, string? prefix = null)
     {
         var enclosing = _pendingPrefix;
         _pendingPrefix = prefix;
@@ -173,13 +173,13 @@ internal sealed partial class CustomElementRegistry
         {
             var constructed = _runtime.Engine.Construct(definition.Constructor, [], definition.Constructor, null);
 
-            if (constructed is not DomNodeObject { Node: IElement element }
+            if (constructed is not DomNodeObject { Node: Element element }
                 || !string.Equals(element.LocalName, localName, StringComparison.Ordinal)
-                || !string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
-                || !ReferenceEquals(element.Owner, document)
-                || element.Attributes.Length > 0
-                || element.ChildNodes.Length > 0
-                || element.Parent is not null)
+                || !string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
+                || !ReferenceEquals(element.OwnerDocument, document)
+                || element.AttributeCount > 0
+                || element.FirstChild is not null
+                || element.ParentNode is not null)
             {
                 var engine = _runtime.Engine;
                 var error = engine._mainRealm.Intrinsics.DomException.CreateException(

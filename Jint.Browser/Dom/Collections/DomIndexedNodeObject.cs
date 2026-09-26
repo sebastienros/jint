@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -37,7 +37,7 @@ internal sealed class DomIndexedNodeObject : DomNodeObject
 {
     private readonly DomCollectionAccessor _accessor;
 
-    internal DomIndexedNodeObject(DomRealm realm, DomInterfaceDefinition definition, INode node, DomCollectionAccessor accessor)
+    internal DomIndexedNodeObject(DomRealm realm, DomInterfaceDefinition definition, Node node, DomCollectionAccessor accessor)
         : base(realm, definition, node)
     {
         _accessor = accessor;

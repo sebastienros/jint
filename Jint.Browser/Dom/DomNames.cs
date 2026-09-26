@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
@@ -400,9 +400,9 @@ internal static class DomNames
 
         private bool Accepts(IDomWrapper wrapper) => On switch
         {
-            Receiver.Document => wrapper.DomTarget is IDocument,
-            Receiver.Implementation => wrapper.DomTarget is IImplementation,
-            _ => wrapper.DomTarget is IElement,
+            Receiver.Document => wrapper.DomTarget is Document,
+            Receiver.Implementation => wrapper.DomTarget is DomImplementation,
+            _ => wrapper.DomTarget is Element,
         };
     }
 }

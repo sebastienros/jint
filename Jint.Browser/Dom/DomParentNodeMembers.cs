@@ -1,145 +1,55 @@
-using AngleSharp.Dom;
-using Jint.Browser.Runtime;
+using Jint.HtmlParser;
 using Jint.Native;
-using Jint.Runtime;
 
 namespace Jint.Browser.Dom;
 
-/// <summary>The DOM §4.2.6 mutation methods AngleSharp does not expose.</summary>
+/// <summary>DOM §4.2.6's variadic mutations over the native tree.</summary>
 internal static class DomParentNodeMembers
 {
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-parentnode-replacechildren — replace every child and queue one
-    /// child-list mutation record for the replacement.
-    /// </summary>
-    internal static JsValue ReplaceChildren(DomRealm realm, INode parent, JsValue[] arguments)
+    internal static JsValue Append(DomRealm realm, Node parent, JsValue[] arguments)
     {
-        var replacement = ConvertNodes(realm, parent, arguments);
-        Validate(parent, replacement);
-
-        var removed = parent.ChildNodes.ToArray();
-        var added = replacement switch
+        if (ConvertNodes(realm, parent, arguments, "append") is { } node)
         {
-            null => [],
-            IDocumentFragment fragment => fragment.ChildNodes.ToArray(),
-            _ => [replacement],
-        };
-
-        var lane = PageRuntime.Find(realm.Engine)?.MutationObservers;
-        lane?.BeginReplaceAll(parent);
-
-        try
-        {
-            while (parent.FirstChild is { } child)
-            {
-                parent.RemoveChild(child);
-            }
-
-            if (replacement is not null)
-            {
-                parent.AppendChild(replacement);
-            }
-
-            lane?.CompleteReplaceAll(parent, added, removed);
+            parent.AppendChild(node);
         }
-        catch
-        {
-            lane?.CancelReplaceAll(parent);
-            throw;
-        }
-
         return JsValue.Undefined;
     }
 
-    /// <summary>DOM's "convert nodes into a node" algorithm.</summary>
-    private static INode? ConvertNodes(DomRealm realm, INode parent, JsValue[] arguments)
+    internal static JsValue Prepend(DomRealm realm, Node parent, JsValue[] arguments)
     {
-        if (arguments.Length == 0)
+        if (ConvertNodes(realm, parent, arguments, "prepend") is { } node)
         {
-            return null;
+            parent.InsertBefore(node, parent.FirstChild);
         }
+        return JsValue.Undefined;
+    }
 
-        var document = parent as IDocument ?? parent.Owner!;
-        var nodes = DomConvert.NodeOrTextRest(realm, parent, arguments, 0, "ParentNode.replaceChildren");
+    /// <summary>https://dom.spec.whatwg.org/#dom-parentnode-replacechildren</summary>
+    internal static JsValue ReplaceChildren(DomRealm realm, Node parent, JsValue[] arguments)
+    {
+        // Native replace-all validates before removing children and publishes one mutation record.
+        parent.ReplaceChildren(ConvertNodes(realm, parent, arguments, "replaceChildren"));
+        return JsValue.Undefined;
+    }
 
-        if (nodes.Length == 1)
+    internal static Node? ConvertNodes(DomRealm realm, Node parent, JsValue[] arguments, string operation)
+    {
+        var member = (parent switch
         {
-            return nodes[0];
-        }
-
-        var fragment = document.CreateDocumentFragment();
-        foreach (var node in nodes)
-        {
-            fragment.AppendChild(node);
-        }
-
+            Document => "Document.",
+            DocumentFragment => "DocumentFragment.",
+            DocumentType => "DocumentType.",
+            Text or CDataSection or Comment or ProcessingInstruction => "CharacterData.",
+            _ => "Element.",
+        }) + operation;
+        var nodes = DomConvert.NodeOrTextRest(realm, parent, arguments, 0, member);
+        if (nodes.Length == 0) return null;
+        if (nodes.Length == 1) return nodes[0].Node ?? throw DomException.Hierarchy();
+        var fragment = (parent as Document ?? parent.OwnerDocument!).CreateDocumentFragment();
+        realm.CreationRealmOf(fragment);
+        // Append in argument order. A later Attr refusal leaves the preceding nodes moved,
+        // as DOM's convert-nodes algorithm requires. Do not preflight this union.
+        foreach (var identity in nodes) fragment.AppendChild(identity.Node ?? throw DomException.Hierarchy());
         return fragment;
     }
-
-    /// <summary>DOM's replace-all pre-insertion validity check, with the parent's old children excluded.</summary>
-    private static void Validate(INode parent, INode? replacement)
-    {
-        if (replacement is null)
-        {
-            return;
-        }
-
-        for (INode? ancestor = parent; ancestor is not null; ancestor = ancestor.Parent ?? (ancestor as IShadowRoot)?.Host)
-        {
-            if (ReferenceEquals(ancestor, replacement))
-            {
-                Refuse();
-            }
-        }
-
-        if (replacement.NodeType is not (NodeType.DocumentFragment or NodeType.DocumentType or NodeType.Element
-            or NodeType.Text or NodeType.ProcessingInstruction or NodeType.Comment))
-        {
-            Refuse();
-        }
-
-        if (parent is not IDocument)
-        {
-            if (replacement.NodeType == NodeType.DocumentType)
-            {
-                Refuse();
-            }
-
-            return;
-        }
-
-        var elements = 0;
-        var doctypes = 0;
-        var sawElement = false;
-        IEnumerable<INode> nodes = replacement is IDocumentFragment fragment
-            ? fragment.ChildNodes
-            : [replacement];
-
-        foreach (var node in nodes)
-        {
-            switch (node.NodeType)
-            {
-                case NodeType.Element:
-                    sawElement = true;
-                    if (++elements > 1)
-                    {
-                        Refuse();
-                    }
-
-                    break;
-                case NodeType.DocumentType:
-                    if (sawElement || ++doctypes > 1)
-                    {
-                        Refuse();
-                    }
-
-                    break;
-                case NodeType.Text:
-                    Refuse();
-                    break;
-            }
-        }
-    }
-
-    private static void Refuse() => throw new AngleSharp.Dom.DomException(DomError.HierarchyRequest);
 }

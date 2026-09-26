@@ -428,7 +428,8 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>The document's serialized markup, including the doctype.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> ContentAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance) ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { Document: { } document } runtime
+            ? Dom.DomHtmlMarkupFormatter.OuterHtml(runtime.Dom, document) : "");
 
     /// <summary>The document's title.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>

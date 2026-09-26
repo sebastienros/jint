@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -31,17 +31,21 @@ namespace Jint.Browser.CustomElements;
 /// </remarks>
 internal sealed partial class CustomElementRegistry
 {
-    private List<IElement> _elementQueue = [];
+    private List<Element> _elementQueue = [];
     private readonly Action _checkpoint;
     private bool _scheduled;
 
     /// <summary>The record <paramref name="element"/> already has, or <see langword="null"/>.</summary>
-    internal CustomElementRecord? TryGetRecord(IElement element)
+    internal CustomElementRecord? TryGetRecord(Element element)
         => _records.TryGetValue(element, out var record) ? record : null;
 
     /// <summary>The record <paramref name="element"/> has, created on first use.</summary>
-    internal CustomElementRecord RecordFor(IElement element)
-        => _records.GetValue(element, static _ => new CustomElementRecord());
+    internal CustomElementRecord RecordFor(Element element)
+    {
+        var record = _records.GetValue(element, static _ => new CustomElementRecord());
+        ObserveAttributes(element, record);
+        return record;
+    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#concept-try-upgrade — look up a definition
@@ -53,21 +57,21 @@ internal sealed partial class CustomElementRegistry
     /// document holds, or one a member just made in a <c>createHTMLDocument</c>, finds no definition however
     /// many the page has defined. See <see cref="Lookup"/>.
     /// </remarks>
-    internal void TryUpgrade(IElement element)
+    internal void TryUpgrade(Element element)
     {
         if (_byName.Count == 0 || StateOf(element) != CustomElementState.Undefined)
         {
             return;
         }
 
-        if (Lookup(element.Owner, DomNamespaces.Of(element), element.LocalName, IsValueOf(element)) is { } definition)
+        if (Lookup(element.OwnerDocument, element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
         {
             EnqueueUpgrade(element, definition);
         }
     }
 
     /// <summary>Tries to upgrade every element of <paramref name="root"/>'s subtree, in tree order.</summary>
-    internal void UpgradeSubtree(INode root)
+    internal void UpgradeSubtree(Node root)
     {
         if (_byName.Count == 0)
         {
@@ -99,7 +103,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>Adds a reaction to <paramref name="element"/>'s queue and puts it on the element queue.</summary>
-    private void Enqueue(IElement element, CustomElementRecord record, in CustomElementReaction reaction)
+    private void Enqueue(Element element, CustomElementRecord record, in CustomElementReaction reaction)
     {
         record.Reactions.Enqueue(reaction);
 
@@ -115,7 +119,7 @@ internal sealed partial class CustomElementRegistry
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#enqueue-a-custom-element-upgrade-reaction.
     /// </summary>
-    private void EnqueueUpgrade(IElement element, CustomElementDefinition definition)
+    private void EnqueueUpgrade(Element element, CustomElementDefinition definition)
         => Enqueue(element, RecordFor(element), new CustomElementReaction(CustomElementReactionKind.Upgrade, definition, null, null, null));
 
     /// <summary>
@@ -123,14 +127,14 @@ internal sealed partial class CustomElementRegistry
     /// which is a no-op unless the element is custom and the definition has the callback.
     /// </summary>
     private void EnqueueCallback(
-        IElement element,
+        Element element,
         CustomElementRecord record,
         CustomElementReactionKind kind,
         string? name = null,
         string? oldValue = null,
         string? newValue = null,
-        IDocument? oldDocument = null,
-        IDocument? newDocument = null)
+        Document? oldDocument = null,
+        Document? newDocument = null)
     {
         if (record.State != CustomElementState.Custom || record.Definition is not { } definition)
         {
@@ -187,6 +191,12 @@ internal sealed partial class CustomElementRegistry
     /// </remarks>
     internal void Drain()
     {
+        if (Environment.CurrentManagedThreadId != _runtime.LoopThreadId)
+        {
+            Schedule();
+            return;
+        }
+        FlushNativeMutations();
         if (_elementQueue.Count == 0)
         {
             return;
@@ -239,7 +249,7 @@ internal sealed partial class CustomElementRegistry
         Drain();
     }
 
-    private void Invoke(IElement element, in CustomElementReaction reaction)
+    private void Invoke(Element element, in CustomElementReaction reaction)
     {
         if (reaction.Kind == CustomElementReactionKind.Upgrade)
         {
@@ -319,7 +329,7 @@ internal sealed partial class CustomElementRegistry
     /// element, then <c>connectedCallback</c> — because those reactions go on the element's own queue, which
     /// the drain that is running this upgrade continues into.
     /// </remarks>
-    internal void Upgrade(IElement element, CustomElementDefinition definition)
+    internal void Upgrade(Element element, CustomElementDefinition definition)
     {
         var record = RecordFor(element);
 
@@ -424,7 +434,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>Remembers the current value of every observed attribute, so the next change has an old one.</summary>
-    private static void Snapshot(IElement element, CustomElementRecord record, CustomElementDefinition definition)
+    private static void Snapshot(Element element, CustomElementRecord record, CustomElementDefinition definition)
     {
         if (definition.ObservedAttributes.Length == 0)
         {
@@ -440,7 +450,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>DOM's custom element state for an element that has no record of its own yet.</summary>
-    internal CustomElementState StateOf(IElement element)
+    internal CustomElementState StateOf(Element element)
     {
         if (_records.TryGetValue(element, out var record))
         {
@@ -454,43 +464,42 @@ internal sealed partial class CustomElementRegistry
     /// Whether an element could ever become custom: an HTML element whose local name is a valid custom
     /// element name, or one carrying an <c>is</c>.
     /// </summary>
-    private static bool IsPotentiallyCustom(IElement element)
-        => string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
-        && (CustomElementNames.IsValid(element.LocalName) || element.HasAttribute("is"));
+    private static bool IsPotentiallyCustom(Element element)
+        => string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
+        && (CustomElementNames.IsValid(element.LocalName) || element.IsValue is not null);
 
     /// <summary>
     /// The element's <c>is</c> value: the one creation recorded, and otherwise the content attribute — which
     /// is what a parser-created element has, there being no hook on the parser's element creation.
     /// </summary>
-    private string? IsValueOf(IElement element)
+    private string? IsValueOf(Element element)
     {
         if (_records.TryGetValue(element, out var record) && record.IsValue is { } recorded)
         {
             return recorded;
         }
 
-        var attribute = element.GetAttribute("is");
-        return string.IsNullOrEmpty(attribute) ? null : attribute;
+        return element.IsValue;
     }
 
     /// <summary>Whether <paramref name="element"/> would be one of <paramref name="definition"/>'s candidates.</summary>
-    private bool Matches(IElement element, CustomElementDefinition definition)
-        => string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
+    private bool Matches(Element element, CustomElementDefinition definition)
+        => string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
         && string.Equals(element.LocalName, definition.LocalName, StringComparison.Ordinal)
         && StateOf(element) == CustomElementState.Undefined
         && (definition.IsAutonomous || string.Equals(IsValueOf(element), definition.Name, StringComparison.Ordinal));
 
     /// <summary>https://dom.spec.whatwg.org/#connected, shadow-including.</summary>
-    private static bool IsConnected(INode node)
+    private static bool IsConnected(Node node)
     {
-        for (INode? current = node; current is not null;)
+        for (Node? current = node; current is not null;)
         {
-            if (current is IDocument)
+            if (current is Document)
             {
                 return true;
             }
 
-            current = current is IShadowRoot shadow ? shadow.Host : current.Parent;
+            current = current is ShadowRoot shadow ? shadow.Host : current.ParentNode;
         }
 
         return false;
@@ -502,25 +511,25 @@ internal sealed partial class CustomElementRegistry
     /// pushed in reverse so that popping gives tree order. Nothing it calls runs script — a walk only ever
     /// enqueues — so the tree cannot change under it.
     /// </remarks>
-    private static void Walk(INode root, Action<IElement> visit)
+    private void Walk(Node root, Action<Element> visit)
     {
-        var pending = new Stack<INode>();
+        var pending = new Stack<Node>();
         pending.Push(root);
-
-        while (pending.Count > 0)
+        while (pending.TryPop(out var node))
         {
-            var node = pending.Pop();
-
-            if (node is IElement element)
+            _runtime.Engine.Constraints.Check();
+            if (node is Element element)
             {
                 visit(element);
-            }
 
-            var children = node.ChildNodes;
-            for (var i = children.Length - 1; i >= 0; i--)
-            {
-                pending.Push(children[i]);
             }
+            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
+            {
+                _runtime.Engine.Constraints.Check();
+                pending.Push(child);
+            }
+            // Shadow-including tree order visits the shadow tree before the host's light children.
+            if (node is Element { AttachedShadowRoot: { } shadow }) pending.Push(shadow);
         }
     }
 }

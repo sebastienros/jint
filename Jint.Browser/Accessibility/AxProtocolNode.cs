@@ -23,7 +23,7 @@ internal sealed record AxProtocolProperty(string Name, AxProtocolValue Value);
 /// </summary>
 /// <remarks>
 /// It exists here rather than in <c>Jint.DevTools</c> because this package does not reference that one:
-/// the accessibility tree is computed over AngleSharp's DOM alone, and the protocol domain that serves it
+/// the accessibility tree is computed over the native DOM alone, and the protocol domain that serves it
 /// maps this record onto its generated <c>AXNode</c> in one statement. <c>backendDOMNodeId</c> is therefore
 /// always <see langword="null"/> here — only a session that owns a DOM node registry can fill it in.
 /// </remarks>

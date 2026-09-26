@@ -279,13 +279,7 @@ internal static class WindowInstaller
             return JsValue.Null;
         }
 
-        var wrapper = runtime.Dom.Wrap(document.Location);
-        if (wrapper is ObjectInstance instance && !LocationInstaller.IsInstalled(instance))
-        {
-            LocationInstaller.Attach(runtime, instance);
-        }
-
-        return wrapper;
+        return runtime.Location;
     }
 
     internal static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)

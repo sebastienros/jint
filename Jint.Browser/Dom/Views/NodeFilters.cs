@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -46,7 +46,7 @@ internal static class NodeFilters
     /// The filter argument, or <see langword="null"/> when it was absent — which the traversal reads as
     /// "accept everything <c>whatToShow</c> let through".
     /// </summary>
-    internal static NodeFilter? From(DomRealm realm, JsValue value, string member)
+    internal static TraversalFilter? From(DomRealm realm, JsValue value, string member)
     {
         if (value.IsNullOrUndefined())
         {
@@ -64,7 +64,7 @@ internal static class NodeFilters
         return null;
     }
 
-    private static FilterResult Invoke(DomRealm realm, JsValue filter, INode node)
+    private static ushort Invoke(DomRealm realm, JsValue filter, DomNodeIdentity node)
     {
         var callbackRealm = (filter as ObjectInstance)?.CreationRealm ?? realm.OwningRealm;
         using var scope = new RealmScope(realm.Engine, callbackRealm);
@@ -77,17 +77,17 @@ internal static class NodeFilters
             Throw.TypeError(callbackRealm, "Failed to execute 'acceptNode' on 'NodeFilter': the filter is neither a function nor an object with an acceptNode method.");
         }
 
-        var answer = realm.Engine.Call(callable!, filter, [realm.WrapNode(node)]);
+        var answer = realm.Engine.Call(callable!, filter, [realm.WrapIdentity(node)]);
 
         return TypeConverter.ToUint32(answer) switch
         {
-            Reject => FilterResult.Reject,
-            Skip => FilterResult.Skip,
-            Accept => FilterResult.Accept,
+            Reject => (ushort) Reject,
+            Skip => (ushort) Skip,
+            Accept => (ushort) Accept,
 
             // https://dom.spec.whatwg.org/#concept-node-filter step 5: anything but FILTER_ACCEPT and
             // FILTER_REJECT is FILTER_SKIP, so an unknown number does not accept by accident.
-            _ => FilterResult.Skip,
+            _ => (ushort) Skip,
         };
     }
 }

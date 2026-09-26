@@ -154,7 +154,7 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
 
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
-        var item = ((global::AngleSharp.Dom.IStringMap) target)[name];
+        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];
         if (item is null)
         {
             value = global::Jint.Native.JsValue.Undefined;
@@ -169,13 +169,13 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
 
     internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)
     {
-        ((global::AngleSharp.Dom.IStringMap) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);
+        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);
         return true;
     }
 
     internal override bool TryDeleteNamed(object target, string name)
     {
-        ((global::AngleSharp.Dom.IStringMap) target).Remove(name);
+        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);
         return true;
     }
 }
@@ -185,11 +185,11 @@ internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
 {
     internal static readonly DomAccessorDOMTokenList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.ITokenList) target).Length;
+    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.ITokenList) target;
+        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;
         if (index >= (uint) collection.Length)
         {
             value = global::Jint.Native.JsValue.Undefined;
@@ -227,11 +227,11 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
 {
     internal static readonly DomAccessorHTMLFormElement Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Html.Dom.IHtmlFormElement) target).Length;
+    internal override uint Length(object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
+        var collection = (global::Jint.HtmlParser.Element) target;
         if (index >= (uint) collection.Length)
         {
             value = global::Jint.Native.JsValue.Undefined;
@@ -246,7 +246,7 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
 
     internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
     {
-        var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
+        var collection = (global::Jint.HtmlParser.Element) target;
         var length = collection.Length;
         var names = new global::System.Collections.Generic.List<string>(length);
         for (var i = 0; i < length; i++)
@@ -279,7 +279,7 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
             return false;
         }
 
-        var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
+        var collection = (global::Jint.HtmlParser.Element) target;
         var length = collection.Length;
         for (var i = 0; i < length; i++)
         {
@@ -297,7 +297,7 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
 
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
-        var item = ((global::AngleSharp.Html.Dom.IHtmlFormElement) target)[name];
+        var item = ((global::Jint.HtmlParser.Element) target)[name];
         if (item is null)
         {
             value = global::Jint.Native.JsValue.Undefined;
@@ -314,11 +314,11 @@ internal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor
 {
     internal static readonly DomAccessorHTMLSelectElement Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Html.Dom.IHtmlSelectElement) target).Length;
+    internal override uint Length(object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Html.Dom.IHtmlSelectElement) target;
+        var collection = (global::Jint.HtmlParser.Element) target;
         if (index >= (uint) collection.Length)
         {
             value = global::Jint.Native.JsValue.Undefined;
@@ -351,69 +351,29 @@ internal sealed class DomAccessorMediaList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>NamedNodeMap</c> answers indexed and named property lookups.</summary>
+/// <summary>Native attribute-list indexed and named reads.</summary>
 internal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor
 {
     internal static readonly DomAccessorNamedNodeMap Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.INamedNodeMap) target).Length;
-
+    internal override uint Length(object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(collection[(int) index]);
-        return true;
+        var item = ((Collections.DomNamedNodeMap) target).Item(index);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
-
     internal override bool HasNamedGetter => true;
-
     internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
-    {
-        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        var length = collection.Length;
-        var names = new global::System.Collections.Generic.List<string>(length);
-        for (var i = 0; i < length; i++)
-        {
-            names.Add(collection[i]!.Name);
-        }
-
-        return names;
-    }
-
+        => ((Collections.DomNamedNodeMap) target).SupportedNames();
     internal override bool HasSupportedName(object target, string name)
-    {
-        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        var length = collection.Length;
-        for (var i = 0; i < length; i++)
-        {
-            if (string.Equals(collection[i]!.Name, name, global::System.StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
+        => ((Collections.DomNamedNodeMap) target).HasSupportedName(name);
     internal override bool AreNamesEnumerable => false;
-
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
-        var item = ((global::AngleSharp.Dom.INamedNodeMap) target)[name];
-        if (item is null)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(item);
-        return true;
+        var map = (Collections.DomNamedNodeMap) target;
+        var item = map.HasSupportedName(name) ? map.GetNamedItem(name) : null;
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
 }
 
@@ -422,19 +382,14 @@ internal sealed class DomAccessorNodeList : DomCollectionAccessor
 {
     internal static readonly DomAccessorNodeList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.INodeList) target).Length;
+    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.INodeList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(collection[(int) index]);
-        return true;
+        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;
+        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);
+        return item is not null;
     }
 }
 
