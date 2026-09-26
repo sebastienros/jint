@@ -66,7 +66,7 @@ internal sealed class DomRealm
         _creationRealms = principal?._creationRealms ?? new();
         // Creation associations are weak and permanent (DOM's create-node/adoption rules). Reuse one
         // callback per realm rather than allocating a closure for every node visited, including hits.
-        _creationRealmFactory = _ => this;
+        _creationRealmFactory = EstablishCreationRealm;
         _contexts = principal?._contexts ?? new();
         if (principal is null)
         {
@@ -279,8 +279,6 @@ internal sealed class DomRealm
         _creationRealms.GetValue(document, _creationRealmFactory);
         if (!associated)
         {
-            // Register only the actual realm/document metadata; CSS remains demand-driven.
-            global::Jint.Browser.Styling.NativeCssStyleSheets.Associate(this, document);
             RecordSubtree(document);
         }
         if (associatedGlobal)
@@ -301,6 +299,13 @@ internal sealed class DomRealm
         AssociateDocument(document, associatedGlobal: true);
     }
 
+    private DomRealm EstablishCreationRealm(object value)
+    {
+        if (value is Document document)
+            global::Jint.Browser.Styling.NativeCssStyleSheets.Associate(this, document);
+        return this;
+    }
+
     internal bool TryGetDocumentRealm(Document document, out DomRealm? realm)
         => _creationRealms.TryGetValue(document, out realm);
 
@@ -311,7 +316,7 @@ internal sealed class DomRealm
             return realm;
         }
         realm = DomBrowsingContext.Of(document) is { } context && _contexts.TryGetValue(context, out var contextRealm) ? contextRealm : this;
-        _creationRealms.GetValue(document, _ => realm);
+        _creationRealms.GetValue(document, realm._creationRealmFactory);
         return realm;
     }
 
@@ -326,7 +331,7 @@ internal sealed class DomRealm
         if (node is Document document)
         {
             var documentRealm = DomBrowsingContext.Of(document) is { } context && _contexts.TryGetValue(context, out var contextRealm) ? contextRealm : this;
-            _creationRealms.GetValue(document, _ => documentRealm);
+            _creationRealms.GetValue(document, documentRealm._creationRealmFactory);
             return documentRealm;
         }
         var realm = node.OwnerDocument is { } owner ? RealmOfDocument(owner) : this;
