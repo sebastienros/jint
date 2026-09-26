@@ -1,10 +1,10 @@
 #nullable enable
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
+using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
 using Jint.HtmlParser;
-using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Tests.Browser.Views;
@@ -117,37 +117,78 @@ public sealed class NativeCssConsumerTests
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<style id='source'>#box { display:block; width:10px; height:20px; }</style><div id='box'></div>");
+        await page.SetContentAsync("""
+            <style id='source'>#box { display:block; width:10px; height:20px; flex-basis:auto; flex-grow:0; flex-shrink:0; }</style>
+            <link id='extra' rel='stylesheet' href='data:text/css,'>
+            <div style='display:flex'><div id='box'></div></div>
+            """);
+        (await page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        // Install read-only diagnostics; measuring inside RunOnLoopAsync intentionally cannot reuse
+        // queries. All measurements below instead use the ordinary public evaluation lane.
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
             var document = runtime.Document!;
-            var target = DomDocumentReads.ById(runtime.Dom, document, "box")!;
-            var owner = DomDocumentReads.ById(runtime.Dom, document, "source")!;
-            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(10);
-            var warmed = runtime.Layout.MeasureSizes();
-            runtime.Layout.MeasureSizes().Should().BeSameAs(warmed);
-            var stamp = document.MutationStamp;
-            var sheet = NativeCssStyleSheets.SheetOf(runtime.Dom, owner)!;
-            ((CssStyleRule) sheet.Rules[0]).Style.SetProperty("width", "25px");
-            document.MutationStamp.Should().Be(stamp);
-            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(25);
-            runtime.Layout.MeasureSizes().Should().NotBeSameAs(warmed);
-            ((Text) owner.FirstChild!).Data = "#box { display:block; width:40px; height:20px; }";
-            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(40);
-
-            var link = document.CreateElement("link");
-            link.SetAttribute("rel", "stylesheet");
-            document.DocumentElement!.AppendChild(link);
-            var work = new CssValueWork(default);
-            NativeCssStyleSheets.Install(document, link, "#box { width:50px; }", "", "", work);
-            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(50);
-            stamp = document.MutationStamp;
-            NativeCssStyleSheets.Install(document, link, "#box { width:60px; }", "", "", work);
-            document.MutationStamp.Should().Be(stamp);
-            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(60);
+            FlatLayout.SizeQuery? previous = null;
+            var queries = 0;
+            engine.SetValue("queryStamp", () =>
+            {
+                var current = runtime.Layout.MeasureSizes();
+                if (!ReferenceEquals(previous, current))
+                {
+                    previous = current;
+                    queries++;
+                }
+                return queries;
+            });
+            engine.SetValue("nativeStamp", () => document.MutationStamp.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return true;
         });
+        (await page.EvaluateAsync<string>("""
+            [document.getElementById('box').clientWidth, queryStamp(), queryStamp()].join(',')
+            """)).Should().Be("10,1,1");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const before = queryStamp(), nativeBefore = nativeStamp();
+                document.getElementById('source').sheet.cssRules[0].style.width = '25px';
+                const width = document.getElementById('box').clientWidth, after = queryStamp();
+                return [width, before !== after, after === queryStamp(), nativeBefore === nativeStamp()].join(',');
+            })()
+            """)).Should().Be("25,true,true,true");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const before = queryStamp();
+                document.getElementById('source').firstChild.data =
+                    '#box { display:block; width:40px; height:20px; flex-basis:auto; flex-grow:0; flex-shrink:0; }';
+                const width = document.getElementById('box').clientWidth, after = queryStamp();
+                return [width, before !== after, after === queryStamp()].join(',');
+            })()
+            """)).Should().Be("40,true,true");
+
+        foreach (var width in new[] { 50, 60 })
+        {
+            await page.EvaluateAsync<int>("globalThis.previousQueryStamp = queryStamp()");
+            // Each explicit native install is a separate mutation scope. This proves post-operation
+            // refresh and reuse; the scope itself conservatively invalidates the retained query.
+            await page.RunOnLoopAsync(engine =>
+            {
+                var runtime = PageRuntime.Find(engine)!;
+                var document = runtime.Document!;
+                var link = DomDocumentReads.ById(runtime.Dom, document, "extra")!;
+                NativeCssStyleSheets.SheetOf(runtime.Dom, link).Should().NotBeNull();
+                var stamp = document.MutationStamp;
+                NativeCssStyleSheets.Install(document, link, "#box { width:" + width + "px; }", "", "", new CssValueWork(default));
+                document.MutationStamp.Should().Be(stamp);
+                return true;
+            });
+            (await page.EvaluateAsync<string>("""
+                (() => {
+                    const width = document.getElementById('box').clientWidth, after = queryStamp();
+                    return [width, previousQueryStamp !== after, after === queryStamp()].join(',');
+                })()
+                """)).Should().Be(width + ",true,true");
+        }
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]
