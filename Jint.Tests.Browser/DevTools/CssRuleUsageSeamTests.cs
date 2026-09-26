@@ -1,6 +1,7 @@
 #nullable enable
 
 using Jint.Browser.Dom.Views;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.DevTools;
@@ -40,8 +41,9 @@ public sealed class CssRuleUsageSeamTests
 
         var recorded = await page.RunOnLoopAsync(engine =>
         {
-            var document = PageRuntime.Find(engine)!.Document!;
-            var box = document.GetElementById("box")!;
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var box = DomDocumentReads.ById(runtime.Dom, document, "box")!;
 
             CssRuleUsage.IsTracking.Should().BeFalse("no client has asked for coverage");
 
@@ -71,8 +73,9 @@ public sealed class CssRuleUsageSeamTests
 
         var (whileArmed, afterDisarm) = await page.RunOnLoopAsync(engine =>
         {
-            var document = PageRuntime.Find(engine)!.Document!;
-            var box = document.GetElementById("box")!;
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var box = DomDocumentReads.ById(runtime.Dom, document, "box")!;
 
             var tracker = new CssRuleUsageTracker();
             tracker.Rebind(document);
@@ -90,7 +93,7 @@ public sealed class CssRuleUsageSeamTests
                 CssRuleUsage.Disarm(tracker);
                 CssRuleUsage.IsTracking.Should().BeFalse();
 
-                CssCascade.Of(document.GetElementById("box")!).Should().NotBeNull();
+                CssCascade.Of(DomDocumentReads.ById(runtime.Dom, document, "box")!).Should().NotBeNull();
                 return (armed.Length, tracker.TakeDelta().Length);
             }
             finally

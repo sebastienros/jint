@@ -76,7 +76,7 @@ public sealed class FocusTests
         }, CancellationToken.None);
         Action read = () => FocusController.IsFocusable(realm, element, work);
         read.Should().ThrowExactly<OperationCanceledException>();
-        checks.Should().Equal(0, 256, "the second check must occur in a bounded attribute batch rather than after the scan");
+        checks.Should().Equal(new[] { 0, 256 }, "the second check must occur in a bounded attribute batch rather than after the scan");
     }
 
     [Test]
