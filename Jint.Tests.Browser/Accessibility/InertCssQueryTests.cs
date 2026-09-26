@@ -65,6 +65,24 @@ public sealed class InertCssQueryTests
     }
 
     [Test]
+    public void DeepCompletedStyleChainsScaleLinearlyWithDepth()
+    {
+        static int Checks(int depth)
+        {
+            var html = new System.Text.StringBuilder();
+            for (var i = 0; i < depth; i++) html.Append("<div><style></style>");
+            for (var i = 0; i < depth; i++) html.Append("</div>");
+            var checks = 0;
+            ContentDom.Parse(html.ToString(), checkpoint: () => checks++);
+            return checks;
+        }
+        var single = Checks(512);
+        var doubled = Checks(1024);
+        // Fixed completion/rounding overhead is bounded; no owner-to-root scan grows with depth.
+        doubled.Should().BeLessThanOrEqualTo(single * 2 + 16);
+    }
+
+    [Test]
     public void LongInertStyleSourceCopyPollsCancellationAtParserCompletion()
     {
         // The long source produces repeated bounded checks during completion registration.

@@ -38,6 +38,14 @@ internal static partial class ContentDom
     // or parse CSS here. This is a completion boundary, not a query-time repair or a live mutation hook.
     private static void InstallCompletedStyles(Document document, CssValueWork work)
     {
+        var stamp = document.MutationStamp;
+        var parentWork = work;
+        work = CssValueWork.Guard(parentWork, () =>
+        {
+            parentWork.CheckCancellation();
+            if (stamp == ulong.MaxValue || stamp != document.MutationStamp)
+                throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        });
         var pending = new Stack<Node>();
         pending.Push(document);
         while (pending.TryPop(out var node))
@@ -47,7 +55,7 @@ internal static partial class ContentDom
             { work.Charge(1); pending.Push(child); }
             if (node is not Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } owner) continue;
             var text = DomDescendantText.Read(owner, work.Charge, work.Token);
-            NativeCssStyleSheets.Install(document, owner, text, "", "", work);
+            NativeCssStyleSheets.Install(document, owner, text, "", "", work, verifiedRoot: document);
         }
         work.CheckCancellation();
     }

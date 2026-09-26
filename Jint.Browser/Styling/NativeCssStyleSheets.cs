@@ -90,8 +90,20 @@ internal static partial class NativeCssStyleSheets
     }
 
     internal static void Install(Document document, Element owner, string text, string sourceUrl,
-        string baseUrl, CssValueWork work)
+        string baseUrl, CssValueWork work, Document? verifiedRoot = null)
     {
+        if (verifiedRoot is not null)
+        {
+            if (!ReferenceEquals(verifiedRoot, document)) throw new ArgumentException("A verified root belongs to another document.", nameof(verifiedRoot));
+            var stamp = document.MutationStamp;
+            var parentWork = work;
+            work = CssValueWork.Guard(parentWork, () =>
+            {
+                parentWork.CheckCancellation();
+                if (stamp == ulong.MaxValue || stamp != document.MutationStamp || !ReferenceEquals(owner.OwnerDocument, document))
+                    throw new InvalidOperationException(NativeCssQuery.Invalidated);
+            });
+        }
         if (!ReferenceEquals(owner.OwnerDocument, document))
             throw new ArgumentException("A stylesheet owner belongs to another document.", nameof(owner));
         work.CheckCancellation();
@@ -115,7 +127,7 @@ internal static partial class NativeCssStyleSheets
         }
         else resources.Owners.Add(owner, new Resource(text, attachment));
         CssMutationStamp.Advance(ref resources.Version);
-        AssociateOwner(document, owner, work);
+        AssociateOwner(document, owner, work, verifiedRoot);
         work.CheckCancellation();
     }
 
