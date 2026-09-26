@@ -2,6 +2,7 @@ using System.Globalization;
 using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
+using Jint.HtmlParser.Css.Values.Transforms;
 
 namespace Jint.HtmlParser.Css.Values.Properties;
 
@@ -68,6 +69,8 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
+        if (entry.Grammar is CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale)
+            return CssTransformParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar == CssPropertyGrammar.FontWeight)
             return CssFontWeightPropertyParser.Parse(input, parts, work);
         if (entry.Grammar == CssPropertyGrammar.FontSize)

@@ -1,25 +1,29 @@
 using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
+using Jint.HtmlParser.Css.Values.Transforms;
 
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform }
 
 internal sealed class CssPropertyValue
 {
     private readonly CssColorValue? _color;
+    private readonly CssTransformValue? _transform;
     private readonly CssNumericAtom _numeric;
     private readonly CssMathValue? _math;
     private readonly CssReferenceProgram? _references;
     private readonly IReadOnlyList<CssPropertyValue>? _components;
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
-        CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null)
+        CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null,
+        CssTransformValue? transform = null)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
         _color = color; _references = references; SecondKeyword = second; _components = components;
+        _transform = transform;
     }
     internal CssPropertyValueKind Kind { get; }
     internal string Text { get; }
@@ -28,6 +32,9 @@ internal sealed class CssPropertyValue
     internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent
         ? _components! : throw new InvalidOperationException();
     internal CssColorValue Color => Kind == CssPropertyValueKind.Color ? _color! : throw new InvalidOperationException();
+    internal CssTransformValue Transform => Kind == CssPropertyValueKind.Transform ? _transform! : throw new InvalidOperationException();
+    internal static CssPropertyValue TransformValue(CssTransformValue transform, string text) =>
+        new(CssPropertyValueKind.Transform, text, transform.Span, transform: transform);
     internal CssNumericAtom Numeric => Kind == CssPropertyValueKind.Numeric ? _numeric : throw new InvalidOperationException();
     internal CssMathValue Math => Kind == CssPropertyValueKind.Math ? _math! : throw new InvalidOperationException();
     internal CssReferenceProgram References => Kind is CssPropertyValueKind.Deferred or CssPropertyValueKind.Custom
