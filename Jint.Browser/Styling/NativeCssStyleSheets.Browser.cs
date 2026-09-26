@@ -43,6 +43,15 @@ internal static partial class NativeCssStyleSheets
             AssociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
     }
 
+    internal static void PrepareOwner(DomRealm realm, Element owner)
+    {
+        if (owner.OwnerDocument is { } document)
+            PrepareOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+    }
+
+    internal static void DisassociateOwner(DomRealm realm, Document document, Element owner) =>
+        DisassociateOwner(document, owner, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+
     internal static void SetDefaultStyle(DomRealm realm, Document document, string name) =>
         SetDefaultStyle(document, name, new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
 

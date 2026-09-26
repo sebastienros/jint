@@ -108,7 +108,7 @@ public sealed class NativeCssSheetSetTests
     }
 
     [Test]
-    public void RootListsExcludeNestedShadowAndTemplateContentAndKeepReconnectedIdentity()
+    public void RootListsExcludeNestedShadowAndTemplateContentAndRecreateStyleAssociations()
     {
         var document = Document.CreateHtml();
         var work = new CssValueWork(default);
@@ -120,7 +120,7 @@ public sealed class NativeCssSheetSetTests
         style.AppendChild(document.CreateTextNode("span {display:block}"));
         shadow.AppendChild(style);
         NativeCssStyleSheets.AssociateOwner(document, style, work);
-        var nestedHost = document.CreateElement("b");
+        var nestedHost = document.CreateElement("section");
         shadow.AppendChild(nestedHost);
         var nested = ShadowTree.Attach(nestedHost, new(ShadowRootMode.Open), default);
         var nestedStyle = document.CreateElement("style");
@@ -131,10 +131,13 @@ public sealed class NativeCssSheetSetTests
         NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
         NativeCssStyleSheets.SetsOf(document).NamesOf(work).Should().BeEmpty();
         var retained = NativeCssStyleSheets.Get(shadow, work).Single().Sheet;
+        NativeCssStyleSheets.DisassociateOwner(document, style, work);
         host.ParentNode!.RemoveChild(host);
         NativeCssStyleSheets.Get(shadow, work).Should().BeEmpty();
+        retained.Attachment.OwnerNode.Should().BeNull();
         document.AppendChild(host);
-        NativeCssStyleSheets.Get(shadow, work).Single().Sheet.Should().BeSameAs(retained);
+        NativeCssStyleSheets.AssociateOwner(document, style, work);
+        NativeCssStyleSheets.Get(shadow, work).Single().Sheet.Should().NotBeSameAs(retained);
     }
 
     [Test]
@@ -159,6 +162,166 @@ public sealed class NativeCssSheetSetTests
             first.SetAttribute("title", "changed");
         });
         Assert.Throws<InvalidOperationException>(() => sets.NamesOf(reentrant));
+    }
+
+    [Test]
+    public void SetNamesUseCurrentDomOrderEvenWhenFetchesAssociateInReverseOrder()
+    {
+        var document = Document.CreateHtml();
+        var work = new CssValueWork(default);
+        var root = document.CreateElement("html");
+        document.AppendChild(root);
+        var a = Link("a");
+        var b = Link("b");
+        root.AppendChild(a);
+        root.AppendChild(b);
+        NativeCssStyleSheets.PrepareOwner(document, a, work);
+        NativeCssStyleSheets.PrepareOwner(document, b, work);
+        NativeCssStyleSheets.Install(document, b, "", "", "", work);
+        NativeCssStyleSheets.Install(document, a, "", "", "", work);
+        var sets = NativeCssStyleSheets.SetsOf(document);
+        sets.NamesOf(work).Should().Equal("a", "b");
+        root.InsertBefore(b, a);
+        sets.NamesOf(work).Should().Equal("b", "a");
+        sets.Preferred(work).Should().Be("b");
+
+        Element Link(string title)
+        {
+            var link = document.CreateElement("link");
+            link.SetAttribute("rel", "stylesheet");
+            link.SetAttribute("title", title);
+            return link;
+        }
+    }
+
+    [Test]
+    public void ImmediateDisabledTransitionsCannotOverwriteANewerCssomAssignment()
+    {
+        var document = Document.CreateHtml();
+        var link = document.CreateElement("link");
+        link.SetAttribute("rel", "stylesheet");
+        document.AppendChild(link);
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, link, "", "", "", work);
+        var sheet = NativeCssStyleSheets.Get(document, work).Single().Sheet;
+        link.SetAttribute("disabled", "");
+        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", "");
+        sheet.Disabled.Should().BeTrue();
+        sheet.Disabled = false;
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeFalse();
+        link.RemoveAttribute("disabled");
+        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", null);
+        sheet.Disabled.Should().BeFalse();
+        sheet.Disabled = true;
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeTrue();
+    }
+
+    [Test]
+    public void LightweightLinkHistoryPrecedesEligibilityAndSuccessfulFetchAssociation()
+    {
+        var document = Document.CreateHtml();
+        var link = document.CreateElement("link");
+        document.AppendChild(link);
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.AssociateOwner(document, link, work);
+        link.SetAttribute("disabled", "");
+        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", "");
+        link.RemoveAttribute("disabled");
+        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", null);
+        link.SetAttribute("rel", "alternate stylesheet");
+        link.SetAttribute("title", "alternate");
+        var sets = NativeCssStyleSheets.SetsOf(document);
+        NativeCssStyleSheets.AssociateOwner(document, link, work);
+        sets.NamesOf(work).Should().BeEmpty();
+        NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
+        NativeCssStyleSheets.Install(document, link, "", "", "", work);
+        sets.NamesOf(work).Should().Equal("alternate");
+        sets.Preferred(work).Should().Be("alternate");
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeFalse();
+    }
+
+    [Test]
+    public void InterruptedAssociationLeavesHistoryUnpublishedAndCanRetry()
+    {
+        var baseline = Setup();
+        var checks = 0;
+        NativeCssStyleSheets.AssociateOwner(baseline.Document, baseline.Style, new CssValueWork(default, () => checks++));
+        var pending = Setup();
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.AssociateOwner(pending.Document, pending.Style,
+            new CssValueWork(cancellation.Token, () => { if (++calls == checks) cancellation.Cancel(); })));
+        var work = new CssValueWork(default);
+        var sets = NativeCssStyleSheets.SetsOf(pending.Document);
+        sets.Preferred(work).Should().BeEmpty();
+        sets.NamesOf(work).Should().BeEmpty();
+        NativeCssStyleSheets.AssociateOwner(pending.Document, pending.Style, work);
+        sets.Preferred(work).Should().Be("a");
+        sets.NamesOf(work).Should().Equal("a");
+
+        static (Document Document, Element Style) Setup()
+        {
+            var document = Document.CreateHtml();
+            var style = document.CreateElement("style");
+            style.SetAttribute("title", "a");
+            document.AppendChild(style);
+            NativeCssStyleSheets.PrepareOwner(document, style, new CssValueWork(default));
+            return (document, style);
+        }
+    }
+
+    [Test]
+    public void ReentrantHistoryAndDirectSheetFlagChangesVetoStaleSelection()
+    {
+        var document = Document.CreateHtml();
+        var work = new CssValueWork(default);
+        Style(document, "a", work);
+        Style(document, "b", work);
+        var sets = NativeCssStyleSheets.SetsOf(document);
+        var changed = false;
+        Assert.Throws<InvalidOperationException>(() => sets.SetSelected("a", new CssValueWork(default, () =>
+        {
+            if (changed) return;
+            changed = true;
+            sets.SetDefaultStyle("b", work);
+        })));
+        sets.Last(work).Should().BeNull();
+        sets.Preferred(work).Should().Be("b");
+        var sheet = NativeCssStyleSheets.Get(document, work)[0].Sheet;
+        var checks = 0;
+        sets.SetSelected("b", new CssValueWork(default, () => checks++));
+        sets.SetSelected("a", work);
+        var calls = 0;
+        Assert.Throws<InvalidOperationException>(() => sets.SetSelected("b", new CssValueWork(default, () =>
+        {
+            if (++calls == checks) sheet.Disabled = true;
+        })));
+        sets.Last(work).Should().Be("a");
+        sheet.Disabled.Should().BeTrue();
+    }
+
+    [Test]
+    public void RemovedOwnerHistoryDoesNotAddToLiveReadWork()
+    {
+        var document = Document.CreateHtml();
+        var work = new CssValueWork(default);
+        Style(document, "survivor", work);
+        var sets = NativeCssStyleSheets.SetsOf(document);
+        var before = Checks();
+        for (var i = 0; i < 1000; i++)
+        {
+            var removed = Style(document, "removed", work);
+            NativeCssStyleSheets.DisassociateOwner(document, removed, work);
+            removed.ParentNode!.RemoveChild(removed);
+        }
+        Checks().Should().Be(before);
+
+        int Checks()
+        {
+            var calls = 0;
+            sets.NamesOf(new CssValueWork(default, () => calls++)).Should().Equal("survivor");
+            return calls;
+        }
     }
 
     private static Element Style(Document document, string title, CssValueWork work)

@@ -27,13 +27,13 @@ internal static class NativeCssBindings
     }
     internal static CssRuleList Rules(DomRealm realm, CssStyleSheet sheet) => Reconcile(realm, sheet).Rules;
     internal static bool StyleDisabled(DomRealm realm, Element owner) =>
-        NativeCssStyleSheets.SheetOf(realm, owner)?.Disabled ?? false;
+        NativeCssStyleSheets.AssociatedOwner(owner, Work(realm)) is { } resource && NativeCssStyleSheets.DisabledOf(resource);
     internal static void SetStyleDisabled(DomRealm realm, Element owner, bool disabled)
     {
-        if (NativeCssStyleSheets.SheetOf(realm, owner) is { } sheet)
+        if (NativeCssStyleSheets.AssociatedOwner(owner, Work(realm)) is { } resource)
         {
             realm.Engine.Constraints.Check();
-            sheet.Disabled = disabled;
+            NativeCssStyleSheets.SetDisabled(resource, disabled);
         }
     }
     internal static NativeCssStyleSetList StyleSheetSets(DomRealm realm, Document document)

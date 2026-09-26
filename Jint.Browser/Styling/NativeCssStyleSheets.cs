@@ -107,6 +107,7 @@ internal static partial class NativeCssStyleSheets
         };
         if (resources.Owners.TryGetValue(owner, out var entry))
         {
+            entry.Loaded = true;
             entry.Source = text;
             entry.Attachment = attachment;
             entry.Replaced = true;
@@ -199,9 +200,10 @@ internal static partial class NativeCssStyleSheets
                     entry!.NativeStamp = documentStamp;
                     known = true;
                 }
-                if (known && entry is not null) AssociateOwner(document, element, work);
+                if (known && entry is not null) AssociateOwner(document, element, work, element.TreeShadowRoot ?? (Node) document);
                 if (known && entry is { } resource)
                 {
+                    if (element.LocalName == "link" && !resource.Loaded) continue;
                     if (resource.Sheet is null)
                     {
                         var sheet = CssStyleSheet.Parse(resource.Source, null, parsing, work.Token);
@@ -250,7 +252,11 @@ internal static partial class NativeCssStyleSheets
         if (owner.LocalName != "link" || owner.NamespaceUri != Namespaces.Html || resource.DisabledSubscription is not null) return;
         var subscription = new MutationSubscription();
         subscription.Observe(owner, new MutationObserverOptions { Attributes = true, AttributeFilter = ["disabled"] });
-        subscription.PendingRecord = pending => { pending.TakeRecords(); resource.DisabledDirty = true; };
+        subscription.PendingRecord = pending =>
+        {
+            pending.TakeRecords();
+            if (resource.DisabledObservedStamp != owner.OwnerDocument?.MutationStamp) resource.DisabledDirty = true;
+        };
         resource.DisabledSubscription = subscription;
     }
 
@@ -300,8 +306,11 @@ internal static partial class NativeCssStyleSheets
         internal string? MediaSource;
         internal bool? DisabledSource;
         internal bool DisabledDirty;
+        internal ulong? DisabledObservedStamp;
         internal bool Disabled;
         internal bool Associated;
+        internal bool Loaded = true;
+        internal bool ExplicitlyEnabled;
         internal MutationSubscription? DisabledSubscription;
     }
 }
