@@ -87,6 +87,19 @@ public class AsyncModuleLoaderTests
         loader.AskedFor("module").Should().Be(0);
     }
 
+    [Test]
+    public void RetirementRefusesDynamicImportInsideTheCurrentScriptBeforeCallingTheLoader()
+    {
+        var loader = new DeferredModuleLoader();
+        using var engine = CreateEngine(loader);
+        engine.SetValue("retire", new Action(() => engine.Advanced.Retire()));
+
+        engine.Execute("retire(); globalThis.result = import('module');");
+
+        loader.AskedFor("module").Should().Be(0);
+        engine.GetValue("result").Should().NotBeNull();
+    }
+
     /// <summary>
     /// A loader that hands every request to the test and finishes nothing by itself, so a test can prove the
     /// engine really does carry on without the answer.

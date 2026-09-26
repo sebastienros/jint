@@ -235,7 +235,7 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
         {
             try
             {
-                observer.Callback.Call(observer, [entryList, observer, callbackOptions]);
+                _engine.Call((ICallable) observer.Callback, observer, [entryList, observer, callbackOptions], expression: null);
             }
             finally
             {

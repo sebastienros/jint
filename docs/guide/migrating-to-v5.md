@@ -6953,6 +6953,9 @@ called from another thread, and is a no-op after disposal.
 
 Worker connections ended by retirement report `ParentRetired` or `WorkerRetired`, rather than the
 snapshot-restore reasons `ParentRestored` and `WorkerRestored`.
+Retirement and disposal can synchronously invoke host worker, cancellation and stream callbacks
+while serializing lifecycle cleanup. Do not block those callbacks waiting for another thread to
+call `Retire` or `Dispose` on the same engine; arrange such work after the callback returns.
 
 Retiring an engine is terminal; use `RestoreGlobalSnapshot` only when the same engine must
 continue serving a trusted cycle.

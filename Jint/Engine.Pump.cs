@@ -402,7 +402,10 @@ public partial class Engine
         using var ownership = EnterHostCall();
         if (IsRetired)
         {
-            FinishRetirement();
+            if (ownership.IsEntryRoot)
+            {
+                FinishRetirement();
+            }
             return false;
         }
 
@@ -453,7 +456,10 @@ public partial class Engine
 
                 if (IsRetired)
                 {
-                    FinishRetirement();
+                    if (ownership.IsEntryRoot)
+                    {
+                        FinishRetirement();
+                    }
                     return false;
                 }
                 state = InspectScheduledWork();

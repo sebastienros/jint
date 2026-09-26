@@ -271,6 +271,65 @@ public class EngineRetirementTests
     }
 
     [Test]
+    public void NestedScheduledWorkWaitDoesNotFinishRetirementBeforeTheScriptReturns()
+    {
+        var manager = new LockManager();
+        using var holder = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        using var waiter = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        holder.SetValue("retireAndWait", new Action(() =>
+        {
+            holder.Advanced.Retire();
+            holder.Tasks.WaitForScheduledWork(TimeSpan.Zero).Should().BeFalse();
+        }));
+
+        holder.Execute("retireAndWait(); navigator.locks.request('late', () => new Promise(() => {}));");
+        waiter.Execute("var granted = false; navigator.locks.request('late', () => { granted = true; });");
+        waiter.Tasks.ProcessTasks();
+
+        waiter.Evaluate("granted").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void NestedPromiseDrainDoesNotFinishRetirementBeforeTheScriptReturns()
+    {
+        var manager = new LockManager();
+        using var holder = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        using var waiter = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        holder.SetValue("retireAndDrain", new Action(() =>
+        {
+            var pending = holder.Tasks.RegisterPromise().Promise;
+            holder.Advanced.Retire();
+            Invoking(() => pending.UnwrapIfPromise(TimeSpan.FromMilliseconds(1)))
+                .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        }));
+
+        holder.Execute("retireAndDrain(); navigator.locks.request('late', () => new Promise(() => {}));");
+        waiter.Execute("var granted = false; navigator.locks.request('late', () => { granted = true; });");
+        waiter.Tasks.ProcessTasks();
+
+        waiter.Evaluate("granted").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void RetirementInAnObserverDoesNotRefuseTheRestOfTheCurrentDelivery()
+    {
+        using var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
+        var calls = new List<string>();
+        engine.SetValue("retire", new Action(() => engine.Advanced.Retire()));
+        engine.SetValue("record", new Action<string>(calls.Add));
+        engine.Execute("""
+            new PerformanceObserver(() => { retire(); record('first'); }).observe({ type: 'mark' });
+            new PerformanceObserver(() => { record('second'); }).observe({ type: 'mark' });
+            performance.mark('one');
+            """);
+
+        engine.Tasks.ProcessTasks();
+
+        calls.Should().Equal("first", "second");
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
+    }
+
+    [Test]
     public void RetirementAtAMicrotaskCheckpointReleasesResourcesAfterTheTask()
     {
         var manager = new LockManager();

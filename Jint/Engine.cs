@@ -142,7 +142,9 @@ public sealed partial class Engine : IDisposable
     private int _disposed;
     private int _retired;
     private int _retirementFinished;
-    // net8.0 cannot use System.Threading.Lock; keep one gate across Retire and Dispose.
+    // Use the same monitor on every target to serialize Retire and Dispose. Teardown invokes host-owned
+    // cancellation and disposal callbacks while holding it; those callbacks must not join another thread
+    // that is entering the same engine's lifecycle methods.
 #pragma warning disable MA0158
     private readonly object _lifecycleLock = new();
 #pragma warning restore MA0158
@@ -3412,7 +3414,6 @@ public sealed partial class Engine : IDisposable
 
             while (!isSettled(state))
             {
-                if (IsRetired) FinishRetirement();
                 ThrowIfRetired();
                 // The caller's token is checked before any work is run, so an already-cancelled token
                 // fails the wait rather than being masked by a drain that happens to settle the
@@ -3421,7 +3422,6 @@ public sealed partial class Engine : IDisposable
 
                 RunAvailableContinuations();
 
-                if (IsRetired) FinishRetirement();
                 ThrowIfRetired();
 
                 if (isSettled(state))

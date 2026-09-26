@@ -47,6 +47,8 @@ public partial class Engine
         /// Pending promise waits fail, while scheduled-work waits and task processing stop without throwing.
         /// This method may briefly own an idle engine. Await any active async operation before calling
         /// <see cref="Engine.Dispose"/>; disposal must follow the active entry's return.
+        /// Teardown can invoke host worker, cancellation and stream callbacks synchronously. Such callbacks
+        /// must not wait for another thread to call Retire or Dispose on this engine.
         /// </remarks>
         public void Retire()
         {
