@@ -165,6 +165,32 @@ public sealed class NativeCssImportSourceTests
     }
 
     [Test]
+    public void MetadataInterruptionDoesNotReplayACompletedReplacementOverALaterCssomEdit()
+    {
+        var (document, owner) = Owner();
+        NativeCssStyleSheets.Install(document, owner, "p{color:red}", "https://css.test/a.css", "https://css.test/", _work);
+        var sheet = NativeCssStyleSheets.EnsureSheet(NativeCssStyleSheets.CaptureImportSource(document, owner, _work)!, _work);
+        var previous = sheet.Rules[0];
+        NativeCssStyleSheets.Install(document, owner, "p{color:blue}", "https://css.test/b.css", "https://css.test/other/", _work);
+        var source = NativeCssStyleSheets.CaptureImportSource(document, owner, _work)!;
+        CssRule? edited = null;
+        var failure = new InvalidOperationException("metadata interrupted after replacement committed");
+        Assert.Throws<InvalidOperationException>(() => NativeCssStyleSheets.EnsureSheet(source, new CssValueWork(default, () =>
+        {
+            if (ReferenceEquals(sheet.Rules[0], previous)) return;
+            sheet.InsertRule("span{color:green}", 1);
+            edited = sheet.Rules[1];
+            throw failure;
+        })))!.Should().BeSameAs(failure);
+        source.Resource.Replaced.Should().BeFalse();
+        sheet.Attachment.SourceUrl!.AbsoluteUri.Should().Be("https://css.test/b.css");
+        sheet.Attachment.BaseUrl!.AbsoluteUri.Should().Be("https://css.test/other/");
+        NativeCssStyleSheets.Get(document, _work).Single().Sheet.Should().BeSameAs(sheet);
+        sheet.Rules.Count.Should().Be(2);
+        sheet.Rules[1].Should().BeSameAs(edited);
+    }
+
+    [Test]
     public void ConnectivityWalkChargesDeepOwnersAndObservesCancellationInsideTheWalk()
     {
         var (document, owner) = DeepOwner(8192);
@@ -175,9 +201,9 @@ public sealed class NativeCssImportSourceTests
         Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.CaptureImportConnectivity(source,
             new CssValueWork(cancellation.Token, () =>
             {
-                if (++checks == 2) cancellation.Cancel();
+                if (++checks == 3) cancellation.Cancel();
             })));
-        checks.Should().Be(2, "the ancestor walk must charge work before its terminal callback");
+        checks.Should().Be(3, "entry and two 4096-node chunks must poll before the terminal callback");
         source.Resource.Sheet.Should().BeNull();
     }
 

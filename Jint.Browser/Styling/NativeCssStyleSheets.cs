@@ -209,7 +209,16 @@ internal static partial class NativeCssStyleSheets
         var cold = resource.Sheet is null;
         var sheet = resource.Sheet ?? CssStyleSheet.Parse(source.Source, null, guarded, guarded.Token);
         if (!cold && resource.Replaced)
+        {
             sheet.ReplaceText(source.Source, null, guarded, guarded.Token);
+            // ReplaceText already passed its final guarded callback and committed. Record that
+            // progress before any fallible metadata read, so recovery cannot replay the source
+            // over a CSSOM edit made by a later callback on this same sheet.
+            if (!IsCurrent(source) || !ReferenceEquals(resource.Sheet, sheet)) throw new CssImportSourceStaleException();
+            sheet.SetAttachment(source.Attachment);
+            resource.Replaced = false;
+            source.Materialized(sheet);
+        }
         while (true)
         {
             // Source identity does not change for mutable owner metadata. Read media under a
