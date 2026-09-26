@@ -65,7 +65,7 @@ internal static class ActivationBehaviors
         // nothing either — otherwise the toggle would happen with no activation behaviour left to roll it
         // back. HTML reaches the same place by never letting a click at a disabled control be dispatched at
         // all; the events here are still dispatched, and this is what keeps the state right.
-        if (wrapper.Node is not Element input || !EventDom.IsHtml(input, "input") || EventDom.Disabled(input, wrapper.DomRealm.CancellationToken))
+        if (wrapper.Node is not Element input || !EventDom.IsHtml(input, "input") || EventDom.Disabled(wrapper.DomRealm, input))
         {
             return;
         }
@@ -178,7 +178,7 @@ internal static class ActivationBehaviors
     /// <summary>https://html.spec.whatwg.org/multipage/form-elements.html#the-button-element.</summary>
     private static void RunButton(DomNodeObject wrapper, Element button)
     {
-        if (EventDom.Disabled(button, wrapper.DomRealm.CancellationToken))
+        if (EventDom.Disabled(wrapper.DomRealm, button))
         {
             return;
         }
@@ -197,7 +197,7 @@ internal static class ActivationBehaviors
     /// <summary>https://html.spec.whatwg.org/multipage/input.html#input-activation-behavior.</summary>
     private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, Element input, JsEvent ev)
     {
-        if (EventDom.Disabled(input, wrapper.DomRealm.CancellationToken))
+        if (EventDom.Disabled(wrapper.DomRealm, input))
         {
             return;
         }

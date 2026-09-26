@@ -62,7 +62,7 @@ internal static class FocusController
             return DomDocumentElements.Body(document);
         }
 
-        return ReferenceEquals(owner, document) ? focused : DomDocumentElements.Body(document);
+        return ReferenceEquals(owner, document) ? RetargetToDocument(focused, document) : DomDocumentElements.Body(document);
     }
 
     /// <summary>
@@ -78,7 +78,7 @@ internal static class FocusController
     internal static void Focus(DomRealm dom, Element element)
     {
         if (!IsInAPageDocument(dom, element) || element.OwnerDocument is not { } document
-            || !IsConnectedTo(element, document) || !IsFocusable(element))
+            || !IsConnectedTo(element, document) || !IsFocusable(dom, element))
         {
             return;
         }
@@ -188,9 +188,9 @@ internal static class FocusController
     /// element is focusable when its kind makes it so or when it carries a valid <c>tabindex</c>, and when it
     /// is neither disabled nor hidden by the <c>hidden</c> content attribute.
     /// </summary>
-    internal static bool IsFocusable(Element element)
+    internal static bool IsFocusable(DomRealm dom, Element element)
     {
-        if (IsDisabled(element) || element.HasAttribute("hidden") || element.HasAttribute("inert"))
+        if (EventDom.Disabled(dom, element) || element.HasAttribute("hidden") || element.HasAttribute("inert"))
         {
             return false;
         }
@@ -208,9 +208,9 @@ internal static class FocusController
     /// element takes part in <kbd>Tab</kbd> traversal, which a negative <c>tabindex</c> opts out of while
     /// leaving the element focusable by other means.
     /// </summary>
-    internal static bool IsTabbable(Element element)
+    internal static bool IsTabbable(DomRealm dom, Element element)
     {
-        if (!IsFocusable(element))
+        if (!IsFocusable(dom, element))
         {
             return false;
         }
@@ -255,7 +255,7 @@ internal static class FocusController
 
         foreach (var element in NodeTraversal.DescendantElements(document, () => dom.NativeReadCheckpoint(256), dom.CancellationToken))
         {
-            if (!IsTabbable(element))
+            if (!IsTabbable(dom, element))
             {
                 continue;
             }
@@ -303,7 +303,7 @@ internal static class FocusController
 
         foreach (var element in NodeTraversal.DescendantElements(document, () => dom.NativeReadCheckpoint(256), dom.CancellationToken))
         {
-            if (element.HasAttribute("autofocus") && IsFocusable(element))
+            if (element.HasAttribute("autofocus") && IsFocusable(dom, element))
             {
                 Focus(dom, element);
                 return;
@@ -335,8 +335,6 @@ internal static class FocusController
         };
     }
 
-    private static bool IsDisabled(Element element) => EventDom.Disabled(element);
-
     /// <summary>
     /// Whether <paramref name="element"/> belongs to a document this page is showing — its own, or one of a
     /// child navigable's.
@@ -351,6 +349,22 @@ internal static class FocusController
     /// </remarks>
     private static bool IsInAPageDocument(DomRealm dom, Element element)
         => PageRuntime.FindBrowsingContext(dom.Engine, element.OwnerDocument) is not null;
+
+    // DOM retargeting keeps the real focused node in the interaction store and exposes its outer host.
+    private static Element? RetargetToDocument(Element focused, Document document)
+    {
+        var target = focused;
+        for (Node? current = focused; current is not null; current = current.ParentNode)
+        {
+            if (current is ShadowRoot { Host: { } host })
+            {
+                target = host;
+                current = host;
+            }
+            if (ReferenceEquals(current, document)) return target;
+        }
+        return null;
+    }
 
     private sealed class FocusUpdateState
     {

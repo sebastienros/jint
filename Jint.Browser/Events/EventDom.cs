@@ -1,3 +1,4 @@
+using Jint.Browser.Dom;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Syntax;
 
@@ -16,6 +17,9 @@ internal static class EventDom
             { } type when CssAscii.EqualsIgnoreCase(type, "button") => "button",
             _ => "submit",
         };
+
+    internal static bool Disabled(DomRealm dom, Element element)
+        => HtmlDisabledness.GetState(element, dom.NativeReadCheckpoint, dom.CancellationToken) == HtmlDisabledState.Disabled;
 
     internal static bool Disabled(Element element, CancellationToken cancellationToken = default)
         => HtmlDisabledness.GetState(element, cancellationToken) == HtmlDisabledState.Disabled;
