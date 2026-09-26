@@ -10,8 +10,8 @@ internal static class HtmlFormOwner
 
     // Include image inputs and images for submission/default-button callers. The
     // form.elements collection separately applies the listed-controls filter.
-    internal static IEnumerable<Element> ControlsOf(Element form, Action<int>? checkpoint = null, CancellationToken token = default,
-        CustomElementRegistry? customElements = null)
+    internal static IEnumerable<Element> ControlsOf(Element form, Action<int>? checkpoint = null, CustomElementRegistry? customElements = null,
+        CancellationToken token = default)
     {
         var work = new DomReadWork(checkpoint, token);
         work.Check();

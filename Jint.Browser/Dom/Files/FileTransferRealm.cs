@@ -207,7 +207,7 @@ internal sealed class FileTransferRealm
     internal void ResetForm(Element form)
     {
         var realm = DomRealm.Of(_engine);
-        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken, CustomElements.CustomElementRegistry.Of(_engine)))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, CustomElements.CustomElementRegistry.Of(_engine), realm.CancellationToken))
         {
             if (IsFileInput(element)) ClearInput(element, preserveList: true);
         }
