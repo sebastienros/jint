@@ -122,6 +122,15 @@ public abstract partial class Node
     // precedes link changes so a failed insertion leaves both trees intact.
     public Node AppendChild(Node child) => InsertBefore(child, null);
 
+    internal void EnsurePreInsert(Node child, Node? referenceChild)
+    {
+        EnsureContainer();
+        if (child is ShadowRoot) throw DomException.Hierarchy();
+        if (referenceChild is not null && !ReferenceEquals(referenceChild.ParentNode, this)) throw DomException.NotFound();
+        RejectAncestor(child);
+        ValidateInsertion(CollectIncoming(child), referenceChild, null);
+    }
+
     public Node InsertBefore(Node child, Node? referenceChild)
     {
         ArgumentNullException.ThrowIfNull(child);
