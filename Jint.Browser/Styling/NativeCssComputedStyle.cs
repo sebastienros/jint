@@ -5,7 +5,7 @@ namespace Jint.Browser.Styling;
 
 // A read-only view for one synchronous Browser query. A live script wrapper creates a fresh
 // query on each read; traversal callers share this view only while its snapshots are current.
-internal sealed class NativeCssComputedStyle(NativeCssQuery query, Element element, SelectorMatchWork matching, Action? witness = null, NativeCssReadContext? readContext = null)
+internal sealed partial class NativeCssComputedStyle(NativeCssQuery query, Element element, SelectorMatchWork matching, Action? witness = null)
 {
     private SelectorMatchWork _matching = matching;
     internal Jint.HtmlParser.Css.Values.CssValueWork Work => query.Work;
@@ -15,13 +15,18 @@ internal sealed class NativeCssComputedStyle(NativeCssQuery query, Element eleme
         query.Verify();
         witness?.Invoke();
     }
-    internal NativeCssReadContext? ReadContext { get; } = readContext;
     internal Element Element { get; } = element;
     internal string GetPropertyValue(string name) => query.GetProperty(Element, name, ref _matching).Text;
     internal NativeCssProperty GetProperty(string name) => query.GetProperty(Element, name, ref _matching);
     internal NativeCssProperty GetNormalizedProperty(string name) => query.GetNormalizedProperty(Element, name, ref _matching);
     internal bool HasPropertyInput(string name) => query.HasPropertyInput(Element, name, ref _matching);
-    internal NativeCssComputedStyle For(Element target) => new(query, target, _matching, witness, ReadContext);
+    internal NativeCssComputedStyle For(Element target)
+    {
+        var view = new NativeCssComputedStyle(query, target, _matching, witness);
+        CopyBrowserReadContext(view);
+        return view;
+    }
+    partial void CopyBrowserReadContext(NativeCssComputedStyle view);
     internal string GetPropertyPriority(string name)
     {
         query.GetProperty(Element, name, ref _matching);

@@ -21,6 +21,8 @@
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.Query.cs" Link="Styling\NativeCssStyleSheets.Query.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.cs" Link="Styling\NativeCssQuery.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Container.cs" Link="Styling\NativeCssQuery.Container.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Variables.cs" Link="Styling\NativeCssQuery.Variables.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQueryDiagnostics.cs" Link="Styling\NativeCssQueryDiagnostics.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssComputation.cs" Link="Styling\NativeCssComputation.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssTransforms.cs" Link="Styling\NativeCssTransforms.cs" />
