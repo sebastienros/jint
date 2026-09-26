@@ -2,38 +2,40 @@
 
 ## Scope and workflow
 
-**Active continuation after finalization:** the full goal resumed from `3c0f0ee75`. Production
-AngleSharp removal is the next integration objective. Five dedicated GPT-6 Sol High local-worktree
-chats are active; Astra High owns design and review. No PRs.
+**Latest user-directed wrap-up (September 25):** the five implementation chats reached saved
+checkpoints. All mergeable changes passed independent Astra High review and common Release validation.
+Common implementation HEAD is `10f8ee2ac`; production Browser still uses AngleSharp. No new feature
+work or PRs were started during this finalization pass. Full replacement/performance acceptance remains.
 
-| Owner | Chat | Checkout / scope |
+| Checkpoint | Source commits | Common commits / disposition |
 | --- | --- | --- |
-| Browser native runtime cutover | `01a0db4d-a396-7e33-a770-ace95e2ad537` | `414c`: Browser, binding contract/emitter and tests; narrow signed native friend grant |
-| H7a foreign-content tree construction | `01a0db4e-2f7a-7e52-bc1f-000fcb158552` | `0c31`: TreeConstruction/session and tests; consumes integrated tokenizer context seam |
-| C6s CSS substitution execution | `01a0db4c-ee87-7523-acc5-04bed9cd6e6e` | `2d15`: reviewed immutable var/env execution and direct component projection |
-| Tokenizer inserted-input prerequisite | `01a0db52-0817-7031-a745-86ed8aa618ba` | `7331`: HtmlInput/tokenizer markers and bounded reads; no session edits |
-| Native live Range and traversal | `01a0db52-af75-7971-9e0f-682e63ae96b0` | `e333`: LiveTraversal and Node/Document/Attr/CharacterNodes; preserves textarea/observer/shadow semantics |
+| H7a foreign-content tree construction | `1a70fa588` | `c32b9ba2d`; chat archived |
+| Tokenizer inserted-input boundaries | `35770d0e2` | `6dda5f7d7`; chat archived |
+| C6s CSS var/env substitution execution | `a91bcdd29`, `4c9997c2b` | `b65500bbc`, `198870baf`; chat archived |
+| Explicit generator type selection | `632db0093` | `60e4454e5`; generated existing contract unchanged |
+| D6r2–r5 live Range/traversal and corrections | `26614c167`, `2608427ed`, `a0cecf889`, `2ab8c12cb`, `d4ac3df8e`, `798958a6a` | `fbef2a152`, `9ff205c4b`, `099755b11`, `c458996f4`, `3372c1013`, `10f8ee2ac` |
+| Incomplete Browser runtime migration | `233d0aa6a` | Unmerged; clean `414c` worktree/chat retained |
+| Unfinished D6r6 notification/publication draft | `386302865d1f5c92faf9e35bee5904b1e4edeaa9` | Excluded; `e333` chat/worktree retained; stash anchored by `codex/native-live-traversal-d6r6-draft` |
 
-Browser owns the connected one-native-DOM identity switch, not an XML-to-AngleSharp conversion.
-Temporarily uncompilable worker commits stay isolated; common receives coherent tested checkpoints.
-Native gaps must name an actual caller/regression and go through their owner. Do not overlap parser,
-DOM, CSS or Browser ownership. H7a retains fragment/script and shadow/patch work as separate capabilities;
-C6s does not claim a complete property registry or cascade.
+Fresh common evidence: **3,864/3,864 non-corpus parser tests**, **44/44 Browser contract/identity tests**,
+and XML corpus **3,766/4,022 passed with the same 256 existing debt failures**, all across net8/net10.
+Logs: `/private/tmp/jint-wrapup-combined-parser.log`, `/private/tmp/jint-wrapup-browser-contract.log`,
+`/private/tmp/jint-wrapup-combined-xml.log`. All 256 XML failure names match the previous common run.
+Source trees match reviewed workers. No new timing or speedup claim.
 
-Browser's actual ParserDriver requires a script-end host handoff and synchronous inserted-input driving.
-The tokenizer prerequisite is independent of H7: opaque insertion markers, constant-time slice splicing,
-ReadUntil boundaries without EOF recovery, pending-EOF writes and shared input/work/cancellation limits.
-H8 session work follows H7 ownership release and consumes this primitive. Its returned-request protocol
-must distinguish the pre-pop microtask checkpoint, preparation, nested pending blockers and later
-execution at zero nesting; stale completions and reentrant native driving are rejected. EOF inside an
-unterminated script is not an execution request. Browser retains scheduling and stylesheet readiness.
+Review corrections bound dynamic CSS header expansion before flattening, retain immutable substitution
+ownership and exact diagnostic origins, normalize many short text runs in linear sibling work, and
+bound weak endpoint/iterator cleanup with constant-time endpoint removal. H7a preserves foreign
+namespace adjustment, integration points, creation metadata and resumable end-name comparisons.
+D6r6 public notification/API work and Browser script/session integration are still unfinished.
 
-D6 live tracking closes Range/iterator/TreeWalker consumer gaps. Its pre-removal repair is independent
-of observer suppression and the textarea-only suppressSemantic flag. Fragment destination offsets shift
-once by full inserted count; each removal still repairs endpoints and retains textarea intermediate
-clamps. No paired iterators, second range model, document-wide scans or JS callbacks inside mutations.
+Sixty completed chats are archived. Sixteen completed clean worktrees remain because the app exposes
+no managed identities; the two unfinished worktrees are retained separately. Exact chat IDs, recovery
+instructions and cleanup inventory are in [the resume checkpoint](html-parser-resume.md).
 
-**Latest user-directed finalization (September 25):** the four remaining implementation chats
+### Earlier four-chat finalization
+
+**Earlier user-directed finalization (September 25):** the four remaining implementation chats
 have completed their current checkpoints and are archived. All changes passed independent Astra review and are
 integrated in the common worktree through `ed2578918`. Browser still uses AngleSharp; this finite
 wrap-up does not complete the original project. No PRs or performance timings were created.
@@ -115,7 +117,7 @@ future work and acceptance debt in the common worktree. No new feature work was 
   primitive comparisons. `/private/tmp/jint-finalize-benchmark-validation.log`. Task archived. Timings
   and full HTML/CSS/Browser comparison remain project-level acceptance work; no speedup claim.
 
-### Latest resumed integrations
+### Earlier resumed integrations
 
 - Numeric policy: source `d1cfff5b9` + `24321b557` integrated as `9eeecd86e` + `5b6253947`;
   approval/evidence clarification `51c6c3120`. Astra review clear. Root independently retrieved the
@@ -182,9 +184,8 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Fifty-seven completed tasks have now been archived; forty-four worktrees are gone.
-  Thirteen clean completed checkouts remain pending managed cleanup because attached identities are absent:
-  `ff28`, `a768`, `ba36`, `ad95`, `aebc`, `4983`, `b0f9`, `b0b0`, `4cb4`, `7b39`, `dc57`, `3aad`, `5b44`.
+  Current cleanup counts and exact retained identities are maintained at the top of this record
+  and in `html-parser-resume.md`; historical checkpoint counts below are not current totals.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -192,6 +193,11 @@ the earlier repository direction to retain AngleSharp.
 
 | Task | Identity | State |
 | --- | --- | --- |
+| H7a foreign-content construction | `01a0db4e-2f7a-7e52-bc1f-000fcb158552` | Reviewed/integrated, tested; archived; managed cleanup pending |
+| Tokenizer inserted-input boundaries | `01a0db52-0817-7031-a745-86ed8aa618ba` | Reviewed/integrated, tested; archived; managed cleanup pending |
+| C6s CSS substitution execution | `01a0db4c-ee87-7523-acc5-04bed9cd6e6e` | Reviewed/integrated, tested; archived; managed cleanup pending |
+| Browser native runtime cutover | `01a0db4d-a396-7e33-a770-ace95e2ad537` | Generator integrated; unfinished runtime `233d0aa6a` retained in `414c` |
+| Native live Range/traversal | `01a0db52-af75-7971-9e0f-682e63ae96b0` | D6r2–r5 integrated/tested; unfinished D6r6 draft retained in e333 |
 | Browser explicit binding contract | `01a0db36-97d7-7b90-a3a0-bfaaa7404cf6` | Reviewed/integrated, 44 common binding tests pass; archived; managed cleanup pending |
 | Tokenizer context prerequisite | `01a0db38-75c8-72b2-a01f-8fdeddf59284` | Reviewed/integrated; archived; managed cleanup pending |
 | Native textarea and shadow stamps | `01a0db32-26b3-7b90-a040-1a0f969affbc` | Reviewed corrections integrated; archived; managed cleanup pending |
@@ -543,7 +549,7 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `7776b504e`, `1ea70953e`: reviewed H5b pending table text/foster insertion and
   resumable diagnostic correction (source `659c22ab5`, `56b2c300a`).
 
-## Latest integration and cleanup checkpoint
+## Earlier integration and cleanup checkpoint
 
 - Native shadow roots and reviewed adoption/custom-name corrections: `2adc25415`,
   `7c7cc9765` (sources `6da427a66`, `4664260dc`). Both framework API snapshots record
@@ -684,7 +690,7 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - H6b's additive performance correction `bde7cb0fb` is under independent re-review. The exact
   middle-stack and absent-formatting-subject regression shapes are required complexity gates.
 
-## Current checkpoint
+## Earlier checkpoint
 
 - `83e4fd32b`, `c76e1e0b8`: reviewed adoption agency and additive work correction. Independent
   checks covered 5,000 malformed cases and quota equivalence; the finalized task was archived and
