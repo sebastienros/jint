@@ -73,6 +73,7 @@ public sealed class BrowserSelectorControlHelperTests
         BrowserSelectorSemanticRevision.Read(fixture.Document).Should().Be(2UL);
     }
 
+    [TestCase(1)]
     [TestCase(2)]
     [TestCase(3)]
     [TestCase(4)]
@@ -89,15 +90,70 @@ public sealed class BrowserSelectorControlHelperTests
         input.SetAttribute("type", "file");
         using var cancellation = new CancellationTokenSource();
         var checks = 0;
-        var work = new DomReadWork(_ =>
+        Action<int> checkpoint = _ =>
         {
             if (++checks == cancelAt) cancellation.Cancel();
-        }, cancellation.Token);
-        Assert.Throws<OperationCanceledException>(() => files.InputFiles(input, work));
+        };
+        Assert.Throws<OperationCanceledException>(() => BrowserSelectorControlFacts.PrepareControlFactsRead(
+            DomRealm.Of(fixture.Engine), checkpoint, cancellation.Token));
         // Retry must detach the obsolete selection even though the current type is file again.
+        BrowserSelectorControlFacts.PrepareControlFactsRead(DomRealm.Of(fixture.Engine), null, default);
         files.InputFiles(input, new DomReadWork(null, default)).Should().BeNull();
         shared.Length.Should().Be(1, "clearing an input must preserve its externally assigned list");
         files.InputFiles(input, create: true)!.Length.Should().Be(0);
+    }
+
+    [Test]
+    public void PreparationRejectsNestedQueriesEvenAfterTakingQueueOwnership()
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file>");
+        var input = ContentDom.ElementById(fixture.Document, "i")!;
+        var realm = DomRealm.Of(fixture.Engine);
+        var files = FileTransferRealm.Of(fixture.Engine);
+        files.SetInputFiles(input, files.NewFileList());
+        input.SetAttribute("type", "text");
+        Action prepare = () => BrowserSelectorControlFacts.PrepareControlFactsRead(realm,
+            _ => BrowserSelectorControlFacts.PrepareControlFactsRead(realm, null, default), default);
+        prepare.Should().Throw<InvalidOperationException>().WithMessage(Jint.HtmlParser.Css.Selectors.SelectorMatchWork.AlreadyActive);
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, null, default);
+        files.InputFiles(input, create: false).Should().BeNull();
+    }
+
+    [Test]
+    public void PreparationDrainsChangesEnqueuedByItsFinalCheckpoint()
+    {
+        using var fixture = DomTestFixture.Create("<input id=first type=file><input id=last type=file>");
+        var first = ContentDom.ElementById(fixture.Document, "first")!;
+        var last = ContentDom.ElementById(fixture.Document, "last")!;
+        var realm = DomRealm.Of(fixture.Engine);
+        var files = FileTransferRealm.Of(fixture.Engine);
+        files.SetInputFiles(first, files.NewFileList());
+        files.SetInputFiles(last, files.NewFileList());
+        first.SetAttribute("type", "text");
+        var checks = 0;
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, _ =>
+        {
+            // Before/after the drain and the one record, followed by the empty-queue checkpoint.
+            if (++checks == 5)
+            {
+                last.SetAttribute("type", "text");
+                last.SetAttribute("type", "file");
+            }
+        }, default);
+        checks.Should().BeGreaterThan(5);
+        files.InputFiles(last, new DomReadWork(null, default)).Should().BeNull();
+    }
+
+    [Test]
+    public void ColdPreparationDoesNotCreateFileStateOrInvokeACheckpoint()
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file>");
+        FileTransferRealm.IfCreated(fixture.Engine).Should().BeNull();
+        var checks = 0;
+        BrowserSelectorControlFacts.PrepareControlFactsRead(DomRealm.Of(fixture.Engine), _ => checks++, default);
+        FileTransferRealm.IfCreated(fixture.Engine).Should().BeNull();
+        checks.Should().Be(0);
+        ContentDom.ElementById(fixture.Document, "i")!.ExistingInputValueState.Should().BeNull();
     }
 
     [Test]

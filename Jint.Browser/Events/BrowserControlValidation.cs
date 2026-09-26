@@ -185,7 +185,9 @@ internal static class BrowserControlValidation
         }
         if (state.Type == HtmlInputType.File)
         {
-            var files = Dom.Files.FileTransferRealm.Of(realm.Engine).InputFiles(element, work);
+            var fileRealm = Dom.Files.FileTransferRealm.IfCreated(realm.Engine);
+            var files = nativeCheckpointFactory is null ? fileRealm?.InputFiles(element, create: false)
+                : fileRealm?.InputFiles(element, work);
             return required && (files is null || files.Length == 0) ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         }
         // Unimplemented native value families throw here. They never become a successful validity result.

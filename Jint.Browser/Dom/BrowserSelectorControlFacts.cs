@@ -9,6 +9,11 @@ internal sealed class BrowserSelectorControlFacts : ISelectorControlFacts
 {
     internal static ISelectorControlFactsFactory Factory { get; } = new ControlFactsFactory();
 
+    // DOM/CSS callers invoke this before capturing any work, environment or query seed. An untouched
+    // engine pays only a weak-table lookup; reconciliation uses the operation's existing budget.
+    internal static void PrepareControlFactsRead(DomRealm realm, Action<int>? checkpoint, CancellationToken token)
+        => Files.FileTransferRealm.IfCreated(realm.Engine)?.PrepareControlFactsRead(checkpoint, token);
+
     private readonly DomRealm _realm;
     private readonly Document _document;
     private readonly ulong _stamp;

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Selectors;
 using Jint.Browser.Events;
 using Jint.Native;
 using Jint.Native.Object;
@@ -141,6 +142,8 @@ internal sealed class FileTransferRealm
 
     private readonly Queue<InputFileState> _pendingChanges = new();
     private readonly HashSet<InputFileState> _queuedChanges = new();
+    private InputFileState? _activeState;
+    private bool _flushing;
     private readonly List<WeakReference<InputFileState>> _fileStates = [];
     private int _attachmentsUntilSweep = 64;
 
@@ -154,20 +157,37 @@ internal sealed class FileTransferRealm
         return Attach(input, NewFileList());
     }
 
-    // Event-free selector/validation reads share their actual invocation work with pending type cleanup.
-    // This path does not create a file list and does not run an independent Engine checkpoint.
+    internal void PrepareControlFactsRead(Action<int>? checkpoint, CancellationToken token)
+    {
+        if (_flushing) throw new InvalidOperationException(SelectorMatchWork.AlreadyActive);
+        if (_activeState is null && _pendingChanges.Count == 0) return;
+        FlushChanges(new DomReadWork(checkpoint, token));
+    }
+
+    private void RequirePreparedRead()
+    {
+        if (_flushing) throw new InvalidOperationException(SelectorMatchWork.AlreadyActive);
+        if (_activeState is not null || _pendingChanges.Count != 0)
+            throw new InvalidOperationException(SelectorMatchWork.Invalidated);
+    }
+
+    // Preparation happened before the selector captured its stamps. This path is a pure read:
+    // discovering fresh pending history invalidates the invocation instead of refreshing its view.
     internal JsFileList? InputFiles(Element input, DomReadWork work)
     {
+        RequirePreparedRead();
         work.Check();
-        FlushChanges(work);
+        RequirePreparedRead();
         if (input is not { NamespaceUri: Namespaces.Html, LocalName: "input" }
             || HtmlInputTypes.Parse(work.Attribute(input, "type")) != HtmlInputType.File)
         {
             work.Check();
+            RequirePreparedRead();
             return null;
         }
         var result = _inputFiles.TryGetValue(input, out var state) ? state.Files : null;
         work.Check();
+        RequirePreparedRead();
         return result;
     }
 
@@ -256,50 +276,69 @@ internal sealed class FileTransferRealm
 
     private void FlushChanges(DomReadWork? work)
     {
-        while (_pendingChanges.TryPeek(out var state))
+        if (_flushing) throw new InvalidOperationException(SelectorMatchWork.AlreadyActive);
+        _flushing = true;
+        try
         {
-            work?.Step();
-            if (!_queuedChanges.Contains(state))
+            while (true)
             {
-                _pendingChanges.Dequeue();
-                continue;
-            }
-            work?.Check();
-            if (!_queuedChanges.Contains(state)) continue;
-            // Transfer drained history into the still-queued state before any throwing checkpoint.
-            // A cancelled read resumes this batch rather than losing file/text/file transitions.
-            var records = state.PendingRecords ??= state.Subscription.TakeRecordsForDelivery();
-            work?.Check();
-            if (!state.Input.TryGetTarget(out var input) || records.Count == 0)
-            {
-                _pendingChanges.Dequeue();
-                _queuedChanges.Remove(state);
-                state.PendingRecords = null;
-                continue;
-            }
-            while (state.PendingRecordIndex < records.Count)
-            {
-                var i = state.PendingRecordIndex;
-                if (work is null) _engine.Constraints.Check();
-                else { work.Step(); work.Check(); }
-                var nextType = i + 1 < records.Count ? records[i + 1].OldValue
-                    : work is null ? ReadInputType(input) : work.Attribute(input, "type");
-                if ((HtmlInputTypes.Parse(records[i].OldValue) == HtmlInputType.File)
-                    != (HtmlInputTypes.Parse(nextType) == HtmlInputType.File))
+                // Dequeue transfers ownership into a durable envelope before any throwing check.
+                if (_activeState is null && !_pendingChanges.TryDequeue(out _activeState))
                 {
-                    ClearInput(input, preserveList: false);
-                    state.PendingRecordIndex = records.Count;
                     work?.Check();
-                    break;
+                    // Keep the reentrancy guard armed through the final callback. A callback may
+                    // enqueue more work; it must be reconciled before callers capture their seeds.
+                    if (_pendingChanges.Count == 0) break;
+                    continue;
                 }
-                state.PendingRecordIndex++;
+                var state = _activeState!;
+                work?.Step();
+                if (!_queuedChanges.Contains(state))
+                {
+                    CompleteActiveState(state);
+                    continue;
+                }
+                work?.Check();
+                if (!_queuedChanges.Contains(state)) continue;
+                // No callback separates the destructive drain from durable ownership of its result.
+                var records = state.PendingRecords ??= state.Subscription.TakeRecordsForDelivery();
+                work?.Check();
+                if (!state.Input.TryGetTarget(out var input) || records.Count == 0)
+                {
+                    CompleteActiveState(state);
+                    continue;
+                }
+                while (state.PendingRecordIndex < records.Count)
+                {
+                    var record = records[state.PendingRecordIndex];
+                    if (work is null) _engine.Constraints.Check();
+                    else { work.Step(); work.Check(); }
+                    if (_inputFiles.TryGetValue(input, out var attached) && ReferenceEquals(attached, state)
+                        && (HtmlInputTypes.Parse(record.OldValue) == HtmlInputType.File)
+                        != (HtmlInputTypes.Parse(record.AttributeNewValue) == HtmlInputType.File))
+                    {
+                        ClearInput(input, preserveList: false);
+                    }
+                    // Commit the record before post-commit checks. Retrying never repeats a clear
+                    // against a replacement assignment made after this state was detached.
+                    state.PendingRecordIndex++;
+                    work?.Check();
+                }
+                state.PendingRecords = null;
+                state.PendingRecordIndex = 0;
+                // The active envelope remains until the next drain is empty, covering records
+                // appended by checkpoints while this immutable batch was being examined.
             }
-            state.PendingRecords = null;
-            state.PendingRecordIndex = 0;
-            // Keep the envelope queued until a subsequent drain is empty: callbacks may have
-            // appended new type changes while the completed batch was being examined.
         }
-        work?.Check();
+        finally { _flushing = false; }
+    }
+
+    private void CompleteActiveState(InputFileState state)
+    {
+        _queuedChanges.Remove(state);
+        state.PendingRecords = null;
+        state.PendingRecordIndex = 0;
+        _activeState = null;
     }
 
     private void Detach(Element input)
@@ -356,6 +395,7 @@ internal sealed class FileTransferRealm
         _fileStates.Clear();
         _pendingChanges.Clear();
         _queuedChanges.Clear();
+        _activeState = null;
         _inputFiles.Clear();
     }
 

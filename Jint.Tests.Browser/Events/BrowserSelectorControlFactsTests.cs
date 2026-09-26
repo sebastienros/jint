@@ -1,5 +1,6 @@
 using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
+using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Selectors;
@@ -87,6 +88,47 @@ public sealed class BrowserSelectorControlFactsTests
         change = () => BrowserControlValidation.SetCustomValidity(input, "invalid now");
         Action read = () => source.Read(input, SelectorControlFactMask.Validity, ref work);
         read.Should().Throw<InvalidOperationException>().WithMessage(SelectorMatchWork.Invalidated);
+    }
+
+    [Test]
+    public void FirstPreparedReadReconcilesFileHistoryBeforeCapturingTheSelectorView()
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file required>");
+        var input = ContentDom.ElementById(fixture.Document, "i")!;
+        var realm = DomRealm.Of(fixture.Engine);
+        var files = FileTransferRealm.Of(fixture.Engine);
+        var shared = files.NewFileList();
+        shared.Add(new Jint.WebApi.Files.JsFile(fixture.Engine, new byte[] { 1 }, "text/plain", "old.txt", 0));
+        files.SetInputFiles(input, shared);
+        input.SetAttribute("type", "text");
+        input.SetAttribute("type", "file");
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, realm.NativeReadCheckpoint, realm.CancellationToken);
+        var stamp = fixture.Document.MutationStamp;
+        var revision = BrowserSelectorSemanticRevision.Read(fixture.Document);
+        var source = BrowserSelectorControlFacts.Factory.Create(realm, fixture.Document, revision);
+        var work = new SelectorMatchWork(input, default, fixture.Engine.Constraints.Check);
+        source.Read(input, SelectorControlFactMask.Validity, ref work).Validity.Should().Be(SelectorControlValidity.Invalid);
+        fixture.Document.MutationStamp.Should().Be(stamp);
+        BrowserSelectorSemanticRevision.Read(fixture.Document).Should().Be(revision);
+        files.InputFiles(input, new DomReadWork(null, default)).Should().BeNull();
+        shared.Length.Should().Be(1);
+    }
+
+    [Test]
+    public void UnpreparedFileReadRejectsRatherThanRefreshingCapturedRevisions()
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file>");
+        var input = ContentDom.ElementById(fixture.Document, "i")!;
+        var files = FileTransferRealm.Of(fixture.Engine);
+        files.SetInputFiles(input, files.NewFileList());
+        input.SetAttribute("type", "text");
+        input.SetAttribute("type", "file");
+        var stamp = fixture.Document.MutationStamp;
+        var revision = BrowserSelectorSemanticRevision.Read(fixture.Document);
+        Action read = () => files.InputFiles(input, new DomReadWork(null, default));
+        read.Should().Throw<InvalidOperationException>().WithMessage(SelectorMatchWork.Invalidated);
+        fixture.Document.MutationStamp.Should().Be(stamp);
+        BrowserSelectorSemanticRevision.Read(fixture.Document).Should().Be(revision);
     }
 
     [Test]
