@@ -100,7 +100,7 @@ public sealed class NativeMediaLoadTests
     }
 
     private static Element MediaElement(Engine engine)
-        => (Element) ((DomNodeObject) engine.Evaluate("document.getElementById('media')")).Node;
+        => (Element) ((DomNodeObject) engine.Evaluate("document.getElementById('media')")).Node!;
 
     [Test]
     public async Task OverlappingLoadsInvalidateOldQueuedMediaEvents()

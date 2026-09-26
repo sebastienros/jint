@@ -1,4 +1,5 @@
-using AngleSharp.Xml.Parser;
+using Jint.HtmlParser;
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 
 namespace Jint.Tests.Browser.Dom;
@@ -34,12 +35,12 @@ public sealed class HtmlSerializationTests
     public void XmlMarkupGettersPreserveNativeNamesEmptyTagsAndNonbreakingSpaces()
     {
         using var fixture = DomTestFixture.Create("<main></main>");
-        using var xml = new XmlParser().ParseDocument(
+        var xml = MarkupParser.ParseXml(
             "<root xmlns='urn:root' xmlns:p='urn:p'><p:leaf/></root>");
         var root = xml.DocumentElement!;
-        root.FirstElementChild!.SetAttribute("data", "\u00a0");
-        var nativeInner = root.InnerHtml;
-        var nativeOuter = root.OuterHtml;
+        ContentDom.Children(root).First().SetAttribute("data", "\u00a0");
+        var nativeInner = DomHtmlMarkupFormatter.InnerHtml(DomRealm.Of(fixture.Engine), root);
+        var nativeOuter = DomHtmlMarkupFormatter.OuterHtml(DomRealm.Of(fixture.Engine), root);
         fixture.Engine.SetValue("xml", DomBindings.Wrap(fixture.Engine, xml));
         fixture.Text("xml.documentElement.innerHTML").Should().Be(nativeInner);
         fixture.Text("xml.documentElement.outerHTML").Should().Be(nativeOuter);
