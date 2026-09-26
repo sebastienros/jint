@@ -1,4 +1,6 @@
 #nullable enable
+using System.Collections;
+using System.Reflection;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
@@ -16,13 +18,18 @@ public sealed class SelectorControlFactsTests
     {
         internal ulong Revision;
         internal int Creates;
+        internal int RevisionReads;
         internal readonly List<(Element Element, SelectorControlFactMask Mask)> Reads = [];
         internal SelectorControlFacts Facts;
         internal ReadFacts? OnRead;
         internal Action? OnCreate;
         internal readonly object Context = new();
         internal SelectorEnvironment Seed(Document document) => new(document, null, null, null, this, Context, Revision);
-        public ulong ReadRevision(object context, Document document) => Revision;
+        public ulong ReadRevision(object context, Document document)
+        {
+            RevisionReads++;
+            return Revision;
+        }
         public ISelectorControlFacts Create(object context, Document document, ulong capturedRevision)
         {
             context.Should().BeSameAs(Context);
@@ -93,6 +100,58 @@ public sealed class SelectorControlFactsTests
             SelectorControlFactMask.ReadWrite, SelectorControlFactMask.Range, SelectorControlFactMask.PlaceholderShown,
             SelectorControlFactMask.Validity);
         factory.Reads[^1].Element.Should().BeSameAs(second);
+    }
+
+    private static int Witnesses(ref SelectorMatchWork work)
+        => (typeof(SelectorMatchWork.Cell).GetField("_observations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(work.EnsureCell()) as ICollection)?.Count ?? 0;
+
+    [Test]
+    public void CandidateReadsKeepObservationStorageConstantAndVerificationLinear()
+    {
+        static int Count(int candidates)
+        {
+            var document = Document.CreateHtml();
+            var root = document.CreateElement("main");
+            document.AppendChild(root);
+            for (var i = 0; i < candidates; i++) root.AppendChild(document.CreateElement("input"));
+            var factory = new Factory { Facts = new(Validity: SelectorControlValidity.Valid) };
+            var work = new SelectorMatchWork(root, default);
+            SelectorMatcher.QuerySelectorAll(Parse(":valid"), root, factory.Seed(document), ref work)
+                .Should().HaveCount(candidates);
+            // Each Verify scans these witnesses. Candidate count must not grow that scan;
+            // the document stamp also covers adoption of any detached/ordinary candidate.
+            Witnesses(ref work).Should().Be(0);
+            factory.Reads.Should().HaveCount(candidates);
+            return factory.RevisionReads;
+        }
+        var small = Count(128);
+        small.Should().BeGreaterThan(128);
+        Count(256).Should().BeLessThan(small * 3);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AdditionalDocumentsRemainGuardedWithoutOneWitnessPerCandidate(bool adopt)
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("main");
+        document.AppendChild(root);
+        var other = Document.CreateHtml();
+        var candidates = Enumerable.Range(0, 128).Select(_ => other.CreateElement("input")).ToArray();
+        var factory = new Factory { Facts = new(Validity: SelectorControlValidity.Valid) };
+        var work = new SelectorMatchWork(root, default);
+        work.Enter(root, null, factory.Seed(document));
+        try
+        {
+            foreach (var candidate in candidates)
+                work.ReadControlFacts(candidate, SelectorControlFactMask.Validity).Validity.Should().Be(SelectorControlValidity.Valid);
+            Witnesses(ref work).Should().Be(1); // One extra document, not 128 element identities.
+            if (adopt) Document.CreateHtml().AdoptNode(candidates[0]);
+            else candidates[0].SetAttribute("id", "changed");
+            Assert.Throws<InvalidOperationException>(() => work.VerifyRead())!.Message.Should().Be(SelectorMatchWork.Invalidated);
+        }
+        finally { work.Exit(); }
     }
 
     [TestCase((int) SelectorControlValidity.NotApplicable, false, false)]

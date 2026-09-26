@@ -154,7 +154,13 @@ internal struct SelectorMatchWork
         Verify();
         if (_controlSeed.ControlFactsFactory is null)
             throw new InvalidOperationException("Selector control state requires host control facts.");
-        Observe(element);
+        // Ordinary candidates are already covered by a captured document stamp. Adoption
+        // marks the old document too, so it does not require retaining every candidate.
+        // Only an additional document (or an ownerless node) needs another witness.
+        var document = element.OwnerDocument;
+        if (document is null) Observe(element);
+        else if (!ReferenceEquals(document, _document) && !ReferenceEquals(document, _controlSeed.Document))
+            Observe(document);
         return EnsureCell().ReadControlFacts(element, requested, ref this);
     }
 
