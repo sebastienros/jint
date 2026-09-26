@@ -82,6 +82,7 @@ internal sealed class CssImportRule : CssRule
         VerifyGraph();
         if (StyleSheet is not null || sheet.Attachment.OwnerNode is not null || sheet.Attachment.ImportOwner is not null)
             throw new InvalidOperationException("The import or candidate child already has an owner.");
+        work.Token.ThrowIfCancellationRequested();
         StyleSheet = sheet;
         publication.Commit();
         Changed();
