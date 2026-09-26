@@ -205,7 +205,7 @@ internal sealed partial class ParserDriver
 
     private void DrainResourceRecords()
     {
-        if (_drainingResourceRecords) return;
+        if (_drainingResourceRecords || _activeResourceRecord is null && _resourceRecords.Count == 0) return;
         _drainingResourceRecords = true;
         try
         {

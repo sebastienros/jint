@@ -23,7 +23,8 @@ internal sealed partial class ParserDriver
     /// <summary>Recovers native scheduling only on a healthy, already budgeted page entry.</summary>
     internal void RecoverNativeMutationNotifications()
     {
-        if (_disposed || _recoveringNativeNotifications) return;
+        if (_disposed || _recoveringNativeNotifications ||
+            _pendingNativeDocuments.Count == 0 && _activeResourceRecord is null && _resourceRecords.Count == 0) return;
         _recoveringNativeNotifications = true;
         try
         {
