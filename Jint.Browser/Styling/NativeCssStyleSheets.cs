@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using Jint.HtmlParser;
 using Jint.Browser.Dom;
@@ -120,7 +121,7 @@ internal static partial class NativeCssStyleSheets
     internal static CssMutationStamp Stamp(Document document) =>
         Documents.TryGetValue(document, out var resources) ? new(resources.Version) : new(0);
 
-    internal static IReadOnlyList<NativeCssSheet> Get(Document document, CssValueWork work, bool includeShadow = false)
+    internal static ReadOnlyCollection<NativeCssSheet> Get(Document document, CssValueWork work, bool includeShadow = false)
     {
         return Get(document, document, work, includeShadow);
     }

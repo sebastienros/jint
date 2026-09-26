@@ -282,7 +282,7 @@ internal sealed partial class NativeCssQuery
         return state;
     }
 
-    private void Add(State state, NativeCssSource source)
+    private static void Add(State state, NativeCssSource source)
     {
         state.Sources.Add(source);
     }
