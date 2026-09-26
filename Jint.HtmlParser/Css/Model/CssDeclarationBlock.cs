@@ -32,7 +32,7 @@ internal sealed class CssDeclarationBlock
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
+        var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
         return FromDeclarations(source, syntax, context, options?.Limits.MaxNestingDepth ?? 0,
             work);
     }

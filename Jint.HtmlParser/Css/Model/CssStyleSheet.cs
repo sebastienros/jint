@@ -39,7 +39,7 @@ internal sealed class CssStyleSheet
     internal static CssStyleSheet Parse(string source, CssParseOptions? options, CssValueWork work,
         CancellationToken cancellationToken)
     {
-        var parser = new CssSyntaxParser(source, options, cancellationToken);
+        var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         var syntax = parser.ParseStyleSheet();
         var sheet = new CssStyleSheet();
         foreach (var item in syntax)

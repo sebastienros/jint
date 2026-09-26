@@ -9,15 +9,18 @@ internal sealed partial class CssSyntaxParser
     private readonly int _maxTokenCharacters;
     private readonly int _maxNestingDepth;
     private readonly CancellationToken _cancellationToken;
+    private readonly Action? _checkpoint;
     private readonly int _sourceLength;
     private readonly string _eofRecoverySuffix = string.Empty;
     private int _index;
     private int _work;
 
-    internal CssSyntaxParser(string source, CssParseOptions? options, CancellationToken cancellationToken)
+    internal CssSyntaxParser(string source, CssParseOptions? options, CancellationToken cancellationToken,
+        Action? checkpoint = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         _source = source;
+        _checkpoint = checkpoint;
         _tokens = new List<CssToken>();
         cancellationToken.ThrowIfCancellationRequested();
         var limits = options?.Limits ?? ParseLimits.Unbounded;
@@ -33,7 +36,7 @@ internal sealed partial class CssSyntaxParser
                 limits.MaxInputCharacters, source.Length);
         }
 
-        var tokenizer = new CssTokenizer(source, limits.MaxTokenCharacters, _diagnostics, cancellationToken);
+        var tokenizer = new CssTokenizer(source, limits.MaxTokenCharacters, _diagnostics, cancellationToken, checkpoint: checkpoint);
         while (true)
         {
             var token = tokenizer.Next();
@@ -41,6 +44,7 @@ internal sealed partial class CssSyntaxParser
             _tokens.Add(token);
         }
         _eofRecoverySuffix = tokenizer.EofRecoverySuffix;
+        _checkpoint?.Invoke();
     }
 
     internal string ValueTermination(CssComponentValueList components, CssSourceSpan retainedSpan,
@@ -48,9 +52,10 @@ internal sealed partial class CssSyntaxParser
         CssValueTermination.Create(components, retainedSpan, _sourceLength, _eofRecoverySuffix, work);
 
     private CssSyntaxParser(List<CssToken> tokens, int sourceLength, int maxTokenCharacters,
-        int maxNestingDepth, ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken)
+        int maxNestingDepth, ParseDiagnosticCollector? diagnostics, Action? checkpoint, CancellationToken cancellationToken)
     {
         _source = string.Empty;
+        _checkpoint = checkpoint;
         _tokens = tokens;
         _sourceLength = sourceLength;
         _maxTokenCharacters = maxTokenCharacters;
@@ -245,14 +250,19 @@ internal sealed partial class CssSyntaxParser
 
     private void PollCancellation()
     {
-        if ((++_work & 255) == 0) _cancellationToken.ThrowIfCancellationRequested();
+        if ((++_work & 255) == 0)
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            _checkpoint?.Invoke();
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
     }
 
     private List<CssComponentValue> RetokenizeUnicodeRangeValue(int start, int end)
     {
         var tokenizer = new CssTokenizer(_source.Substring(start, end - start),
             _maxTokenCharacters, _diagnostics, _cancellationToken,
-            allowUnicodeRanges: true, baseOffset: start);
+            allowUnicodeRanges: true, baseOffset: start, checkpoint: _checkpoint);
         var tokens = new List<CssToken>();
         while (true)
         {
@@ -261,7 +271,7 @@ internal sealed partial class CssSyntaxParser
             tokens.Add(token);
         }
         var parser = new CssSyntaxParser(tokens, end, _maxTokenCharacters,
-            _maxNestingDepth, _diagnostics, _cancellationToken);
+            _maxNestingDepth, _diagnostics, _checkpoint, _cancellationToken);
         return parser.ConsumeAllComponents();
     }
 

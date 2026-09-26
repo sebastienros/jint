@@ -293,6 +293,46 @@ public sealed class NativeCssQueryTests
         ((CssStyleRule) fetched.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.5");
     }
 
+    [Test]
+    public void LazySheetLexingChecksTheHostBeforeFinishingOneLargeToken()
+    {
+        var options = new CssParseOptions { Limits = new ParseLimits { MaxTokenCharacters = 2048 } };
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 2) throw new OperationCanceledException();
+        });
+        Assert.Throws<OperationCanceledException>(() => CssStyleSheet.Parse(
+            new string('a', 8192) + " { display:block; }", options, work, default));
+        checks.Should().Be(2);
+    }
+
+    [Test]
+    public void InlineAttributesParseOnlyWhenTheirElementIsDemandedAndWritesInvalidateViews()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("div");
+        document.AppendChild(root);
+        var target = document.CreateElement("div");
+        root.AppendChild(target);
+        target.SetAttribute("style", "opacity:.5");
+        var unrelated = document.CreateElement("div");
+        root.AppendChild(unrelated);
+        unrelated.SetAttribute("style", "border-image:pending");
+        var work = new CssValueWork(default);
+        var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+        var view = new NativeCssComputedStyle(query, target, new SelectorMatchWork(document, default));
+        view.GetPropertyValue("opacity").Should().Be("0.5");
+        target.SetAttribute("style", "opacity:.75");
+        Assert.Throws<InvalidOperationException>(() => view.GetPropertyValue("opacity"))!
+            .Message.Should().Be(NativeCssQuery.Invalidated);
+        query = new(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+        view = new(query, target, new SelectorMatchWork(document, default));
+        view.GetPropertyValue("opacity").Should().Be("0.75");
+    }
+
     private static NativeCssQuery Query(Document document, NativeCssSheet[] sheets,
         (Element Element, CssDeclarationBlock Block)[]? inline = null)
     {
