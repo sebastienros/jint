@@ -415,8 +415,14 @@ internal static class TextEditing
 
     /// <summary>Whether the value moved since the control was focused, for a control that recorded one.</summary>
     private static bool Changed(DomRealm dom, Element element)
-        => _valuesAtFocus.TryGetValue(element, out var snapshot)
-            && !string.Equals(snapshot.Value, ValueOf(dom, element), StringComparison.Ordinal);
+    {
+        if (!_valuesAtFocus.TryGetValue(element, out var snapshot)) return false;
+        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
+        work.Check();
+        var changed = !work.Equal(ValueOf(dom, element), snapshot.Value);
+        work.Check();
+        return changed;
+    }
 
     private static void FireChange(DomRealm dom, Element element)
         => ActivationBehaviors.Fire(dom.WrapNode(element), "change", bubbles: true, composed: false);
