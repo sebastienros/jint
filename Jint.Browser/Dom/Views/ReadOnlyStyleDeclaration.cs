@@ -34,10 +34,12 @@ internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
 
     internal override string GetPropertyValue(string propertyName)
     {
-        var property = Current().GetProperty(propertyName);
+        var style = Current();
+        var property = style.GetProperty(propertyName);
         var document = _element.OwnerDocument;
         var host = document is null ? null : NativeCssStyleSheets.RealmOf(document);
         var current = host is null ? null : PageRuntime.FindBrowsingContext(host.Engine, document);
+        if (property.Name == "transform") return ResolvedStyle.Transform(style, property, _element, current);
         return property.Source is null && property.Text == "auto" && property.Name is "width" or "height" && current is not null
             ? ResolvedStyle.ValueOf(property.Name, _element, current) ?? property.Text : property.Text;
     }

@@ -69,6 +69,8 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
+        if (entry.Grammar == CssPropertyGrammar.TransformList)
+            return CssTransformListParser.Parse(parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale)
             return CssTransformParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar == CssPropertyGrammar.FontWeight)
@@ -100,6 +102,7 @@ internal static class CssPropertyParser
             CssPropertyGrammar.Position => "static relative absolute sticky fixed",
             CssPropertyGrammar.PointerEvents => "auto none visiblepainted visiblefill visiblestroke visible painted fill stroke all bounding-box",
             CssPropertyGrammar.BoxSizing => "content-box border-box",
+            CssPropertyGrammar.TransformBox => "content-box border-box fill-box stroke-box view-box",
             _ => "visible hidden clip scroll auto overlay"
         };
         if (parts.Count < 1 || parts.Count > (entry.Grammar == CssPropertyGrammar.Overflow ? 2 : 1)) return Invalid();

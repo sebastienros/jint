@@ -101,7 +101,7 @@ public sealed class TransformPropertyGrammarTests
             .Should().Be(CssPropertyStatus.UnimplementedGrammar);
         CssPropertyRegistry.Completed[name].Inherited.Should().BeFalse();
         CssPropertyRegistry.Completed[name].InitialValue.Should().Be("none");
-        CssPropertyParser.Parse("transform", "translate(1px)").Status.Should().Be(CssPropertyStatus.UnimplementedGrammar);
+        CssPropertyParser.Parse("transform", "translate(1px)").Status.Should().Be(CssPropertyStatus.Valid);
     }
 
     [Test]

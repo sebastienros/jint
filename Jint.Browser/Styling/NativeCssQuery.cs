@@ -539,7 +539,9 @@ internal sealed partial class NativeCssQuery
         return null;
     }
 
-    private void Verify()
+    internal CssValueWork Work => _work;
+
+    internal void Verify()
     {
         VerifyControlFactsSeed();
         _work.CheckCancellation();

@@ -35,6 +35,7 @@ namespace Jint.Browser.Layout;
 /// </remarks>
 internal sealed partial class PageLayout
 {
+    internal PageLayoutDiagnostics? Diagnostics { get; set; }
     private readonly PageRuntime _runtime;
     private readonly Action _scrollJob;
 
@@ -63,6 +64,7 @@ internal sealed partial class PageLayout
     /// <summary>Shares current measurements where all writers are tracked; otherwise starts a fresh query.</summary>
     internal FlatLayout.SizeQuery MeasureSizes()
     {
+        Diagnostics?.SizeQueryRequested();
         if (!CanReuse())
         {
             return CreateSizes();
@@ -227,4 +229,11 @@ internal sealed partial class PageLayout
             ActivationBehaviors.Fire(document, "scroll", bubbles: true, composed: false);
         }
     }
+}
+
+// Opt-in per-page counters for source regression tests, with no callbacks or ambient collector.
+internal sealed class PageLayoutDiagnostics
+{
+    internal long SizeQueryRequests { get; private set; }
+    internal void SizeQueryRequested() => SizeQueryRequests++;
 }

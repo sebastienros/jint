@@ -79,8 +79,8 @@ internal static class CssTransformParser
         return Accepted(new(CssTransformKind.Rotate, x, y, z, span, angle.Value), work);
     }
 
-    private static CssPropertyResult Numeric(CssComponentValue part, CssMathProduction production,
-        int maximumDepth, CssValueWork work)
+    internal static CssPropertyResult Numeric(CssComponentValue part, CssMathProduction production,
+        int maximumDepth, CssValueWork work, bool functionAngle = false, int ancestorDepth = 0, CssMathRange range = default)
     {
         work.CheckCancellation();
         if (part.Kind == CssComponentKind.Token &&
@@ -96,7 +96,8 @@ internal static class CssTransformParser
             {
                 CssMathProduction.Number => token.Kind == CssTokenKind.Number,
                 CssMathProduction.NumberOrPercentage => token.Kind is CssTokenKind.Number or CssTokenKind.Percentage,
-                CssMathProduction.Angle => token.Kind == CssTokenKind.Dimension && unit.Category() == CssUnitCategory.Angle,
+                CssMathProduction.Angle => token.Kind == CssTokenKind.Dimension && unit.Category() == CssUnitCategory.Angle ||
+                    functionAngle && token.Kind == CssTokenKind.Number && number.Sign == 0,
                 _ => token.Kind == CssTokenKind.Dimension && unit.Category() == CssUnitCategory.Length ||
                     token.Kind == CssTokenKind.Number && number.Sign == 0 ||
                     production == CssMathProduction.LengthPercentage && token.Kind == CssTokenKind.Percentage
@@ -107,6 +108,11 @@ internal static class CssTransformParser
             {
                 kind = CssNumericKind.Dimension;
                 unit = CssUnit.Px;
+            }
+            if (production == CssMathProduction.Angle && kind == CssNumericKind.Number)
+            {
+                kind = CssNumericKind.Dimension;
+                unit = CssUnit.Deg;
             }
             var finite = CssMathNumbers.ParseFinite(number, CssUnit.None, work);
             if (production == CssMathProduction.NumberOrPercentage && kind == CssNumericKind.Percentage)
@@ -119,7 +125,7 @@ internal static class CssTransformParser
         }
         var percentages = production == CssMathProduction.LengthPercentage ? CssMathPercentageMode.Length :
             production == CssMathProduction.NumberOrPercentage ? CssMathPercentageMode.Raw : CssMathPercentageMode.Forbidden;
-        var math = CssMathParser.ParseMath(part, new(production, percentages, maximumNestingDepth: maximumDepth), work);
+        var math = CssMathParser.ParseMath(part, new(production, percentages, range, maximumNestingDepth: maximumDepth, ancestorNestingDepth: ancestorDepth), work);
         if (math.Status == CssMathParseStatus.RequiresLaterGrammar)
             return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "math:" + math.PendingFunction);
         if (math.Status != CssMathParseStatus.Match) return Invalid();

@@ -4,6 +4,11 @@ namespace Jint.HtmlParser.Css.Values.Math;
 
 internal static class CssMathNumbers
 {
+    // CSS Values 4 §10.12: normalize only a completed top-level calculation.
+    internal static double NormalizeTopLevel(double number) => double.IsNaN(number) ? 0 :
+        double.IsPositiveInfinity(number) ? double.MaxValue :
+        double.IsNegativeInfinity(number) ? -double.MaxValue : number;
+
     internal static readonly double AngleLimit = System.Math.ScaleB(360d, 1014);
 
     // CSS Values 4 §10.10.1 and §10.9.2, Editor's Draft 20 August 2026.

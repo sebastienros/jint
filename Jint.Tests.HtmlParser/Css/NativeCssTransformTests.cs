@@ -13,6 +13,12 @@ namespace Jint.Tests.HtmlParser.Css;
 
 public sealed class NativeCssTransformTests
 {
+    [TestCase("transform", "translate(2em, 10%) translateZ(3rem)", "translate(40px, 10%) translateZ(48px)")]
+    [TestCase("transform", "rotate(.25turn) scale(50%, 200%)", "rotate(90deg) scale(0.5, 2)")]
+    [TestCase("transform", "translateX(calc(2em - 50%))", "translateX(calc(-50% + 40px))")]
+    [TestCase("transform", "perspective(.25px)", "perspective(0.25px)")]
+    [TestCase("transform", "perspective(calc(-2px))", "perspective(0px)")]
+    [TestCase("transform", "none", "none")]
     [TestCase("translate", "-1in 20% 2pt", "-96px 20% 2.666667px")]
     [TestCase("translate", "calc(-10px + 20%) 0", "calc(20% - 10px)")]
     [TestCase("translate", "calc(2em - 50%) -3vw", "calc(-50% + 40px) -24px")]
@@ -42,10 +48,13 @@ public sealed class NativeCssTransformTests
         var matching = new SelectorMatchWork(document, default);
         var result = query.GetProperty(target, name, ref matching);
         result.Text.Should().Be(expected);
-        result.Value!.Kind.Should().Be(declared == "none" ? CssPropertyValueKind.Keyword : CssPropertyValueKind.Transform);
+        result.Value!.Kind.Should().Be(declared == "none" ? CssPropertyValueKind.Keyword :
+            name == "transform" ? CssPropertyValueKind.TransformList : CssPropertyValueKind.Transform);
         block.GetPropertyValue(name, work).Should().NotBeEmpty();
     }
 
+    [TestCase("transform", "translateX(2ch)", "C6:zero-advance")]
+    [TestCase("transform", "scaleX(calc(2ch / 1px))", "C6:zero-advance")]
     [TestCase("translate", "2ch", "C6:zero-advance")]
     [TestCase("translate", "calc(2ch - 50%)", "C6:zero-advance")]
     [TestCase("translate", "2cqw", "C6:container-length")]
@@ -76,21 +85,25 @@ public sealed class NativeCssTransformTests
         var rootBlock = CssDeclarationBlock.Parse("font-size:12px");
         var parentBlock = CssDeclarationBlock.Parse("font-size:20px");
         var childBlock = CssDeclarationBlock.Parse("translate:2em 10% 3rem;"
-            + "scale:calc(2em / 1px);rotate:calc(2em / 1px) 1 0 45deg");
+            + "scale:calc(2em / 1px);rotate:calc(2em / 1px) 1 0 45deg;"
+            + "transform:translate(2em, 10%) translateZ(3rem) scale(calc(2em / 1px))");
         var query = Query(document, [(root, rootBlock), (parent, parentBlock), (child, childBlock)],
             new(default), new NativeCssMetrics { FontSize = 99, RootFontSize = 99 });
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(child, "translate", ref matching).Text.Should().Be("40px 10% 36px");
         query.GetProperty(child, "scale", ref matching).Text.Should().Be("40");
         query.GetProperty(child, "rotate", ref matching).Text.Should().Be("40 1 0 45deg");
+        query.GetProperty(child, "transform", ref matching).Text.Should().Be("translate(40px, 10%) translateZ(36px) scale(40)");
         // A fresh query after an inherited-font mutation recomputes every transform component.
         parentBlock.SetProperty("font-size", "30px");
         query = Query(document, [(root, rootBlock), (parent, parentBlock), (child, childBlock)], new(default));
         query.GetProperty(child, "translate", ref matching).Text.Should().Be("60px 10% 36px");
         query.GetProperty(child, "scale", ref matching).Text.Should().Be("60");
+        query.GetProperty(child, "transform", ref matching).Text.Should().Be("translate(60px, 10%) translateZ(36px) scale(60)");
         query.GetProperty(child, "rotate", ref matching).Text.Should().Be("60 1 0 45deg");
     }
 
+    [TestCase("transform", "translate(10px, 20%)", "none")]
     [TestCase("translate", "10px 20%", "none")]
     [TestCase("rotate", "x 45deg", "none")]
     [TestCase("scale", "2", "none")]

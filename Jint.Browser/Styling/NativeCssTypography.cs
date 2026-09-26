@@ -142,6 +142,15 @@ internal sealed partial class NativeCssQuery
             Inspect(transform.Z);
             if (transform.Kind == CssTransformKind.Rotate) Inspect(transform.Angle);
         }
+        else if (value.Kind == CssPropertyValueKind.TransformList)
+        {
+            var list = value.TransformList;
+            for (var i = 0; i < list.Count; i++)
+            {
+                _work.Charge(1);
+                foreach (var argument in list[i].Arguments) Inspect(argument);
+            }
+        }
         else Inspect(value);
         return result;
 

@@ -13,7 +13,7 @@ internal enum CssPropertyGrammar
     FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
-    TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale
+    TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -100,10 +100,12 @@ internal static class CssPropertyRegistry
         Add("text-align-all", CssPropertyGrammar.TextAlignAll, "start", true);
         Add("text-align-last", CssPropertyGrammar.TextAlignLast, "auto", true);
         Shorthand("text-align", CssPropertyGrammar.TextAlign, "start", ["text-align-all", "text-align-last"]);
-        // CSS Transforms 2 §5. Individual computed values; no transform-list grammar.
+        // CSS Transforms 2 §5 and §12; Transforms 1 §6.
         Add("translate", CssPropertyGrammar.Translate, "none");
         Add("rotate", CssPropertyGrammar.Rotate, "none");
         Add("scale", CssPropertyGrammar.Scale, "none");
+        Add("transform", CssPropertyGrammar.TransformList, "none");
+        Add("transform-box", CssPropertyGrammar.TransformBox, "view-box");
         Add("align-items", CssPropertyGrammar.AlignItems, "normal");
         Add("align-self", CssPropertyGrammar.AlignSelf, "auto");
         Add("justify-items", CssPropertyGrammar.JustifyItems, "legacy");

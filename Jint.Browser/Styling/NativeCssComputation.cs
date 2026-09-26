@@ -30,6 +30,8 @@ internal sealed partial class NativeCssQuery
         double? percentageBasis = null)
     {
         metrics ??= _metrics;
+        if (value.Kind == CssPropertyValueKind.TransformList)
+            return ComputeTransformList(value.TransformList, metrics);
         if (value.Kind == CssPropertyValueKind.Transform)
             return ComputeTransform(name, value.Transform, metrics, percentageBasis);
         if (name == "font-weight" && value.Kind == CssPropertyValueKind.Keyword)
@@ -131,11 +133,7 @@ internal sealed partial class NativeCssQuery
 
     private CssPropertyValue Number(string name, CssMathNumeric numeric)
     {
-        var number = numeric.Value;
-        // Values 4 §10.12: NaN becomes zero at the top level; infinities clamp to supported range.
-        if (double.IsNaN(number)) number = 0;
-        else if (double.IsPositiveInfinity(number)) number = double.MaxValue;
-        else if (double.IsNegativeInfinity(number)) number = -double.MaxValue;
+        var number = CssMathNumbers.NormalizeTopLevel(numeric.Value);
         if (name == "opacity") number = System.Math.Clamp(number, 0, 1);
         else if (name == "font-weight") number = System.Math.Clamp(number, 1, 1000);
         else if (name is "width" or "height" or "min-width" or "min-height" or "max-width" or "max-height" or

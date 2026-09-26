@@ -8,6 +8,12 @@ namespace Jint.Browser.Styling;
 internal sealed class NativeCssComputedStyle(NativeCssQuery query, Element element, SelectorMatchWork matching)
 {
     private SelectorMatchWork _matching = matching;
+    internal Jint.HtmlParser.Css.Values.CssValueWork Work => query.Work;
+    internal void VerifyRead()
+    {
+        _matching.VerifyRead();
+        query.Verify();
+    }
     internal Element Element { get; } = element;
     internal string GetPropertyValue(string name) => query.GetProperty(Element, name, ref _matching).Text;
     internal NativeCssProperty GetProperty(string name) => query.GetProperty(Element, name, ref _matching);

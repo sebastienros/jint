@@ -6,12 +6,13 @@ using Jint.HtmlParser.Css.Values.Transforms;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList }
 
 internal sealed class CssPropertyValue
 {
     private readonly CssColorValue? _color;
     private readonly CssTransformValue? _transform;
+    private readonly CssTransformList? _transformList;
     private readonly CssNumericAtom _numeric;
     private readonly CssMathValue? _math;
     private readonly CssReferenceProgram? _references;
@@ -19,11 +20,11 @@ internal sealed class CssPropertyValue
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
         CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null,
-        CssTransformValue? transform = null)
+        CssTransformValue? transform = null, CssTransformList? transformList = null)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
         _color = color; _references = references; SecondKeyword = second; _components = components;
-        _transform = transform;
+        _transform = transform; _transformList = transformList;
     }
     internal CssPropertyValueKind Kind { get; }
     internal string Text { get; }
@@ -35,6 +36,9 @@ internal sealed class CssPropertyValue
     internal CssTransformValue Transform => Kind == CssPropertyValueKind.Transform ? _transform! : throw new InvalidOperationException();
     internal static CssPropertyValue TransformValue(CssTransformValue transform, string text) =>
         new(CssPropertyValueKind.Transform, text, transform.Span, transform: transform);
+    internal CssTransformList TransformList => Kind == CssPropertyValueKind.TransformList ? _transformList! : throw new InvalidOperationException();
+    internal static CssPropertyValue TransformListValue(CssTransformList list, string text) =>
+        new(CssPropertyValueKind.TransformList, text, list.Span, transformList: list);
     internal CssNumericAtom Numeric => Kind == CssPropertyValueKind.Numeric ? _numeric : throw new InvalidOperationException();
     internal CssMathValue Math => Kind == CssPropertyValueKind.Math ? _math! : throw new InvalidOperationException();
     internal CssReferenceProgram References => Kind is CssPropertyValueKind.Deferred or CssPropertyValueKind.Custom
