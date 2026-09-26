@@ -312,19 +312,33 @@ internal sealed class FileTransferRealm
     private void PruneFileStates()
     {
         if (--_attachmentsUntilSweep > 0) return;
+        CompactFileStates(_engine.Constraints.Check);
+    }
+
+    internal void CompactFileStates(Action checkpoint)
+    {
         var survivors = 0;
-        for (var i = 0; i < _fileStates.Count; i++)
+        var consumed = 0;
+        try
         {
-            if ((i & 255) == 0) _engine.Constraints.Check();
-            var weak = _fileStates[i];
-            if (!weak.TryGetTarget(out var state) || state.Detached) continue;
-            if (state.Input.TryGetTarget(out _)) { _fileStates[survivors++] = weak; continue; }
-            state.Files.Changed -= state.Changed;
-            state.Subscription.Dispose();
-            _queuedChanges.Remove(state);
+            for (; consumed < _fileStates.Count; consumed++)
+            {
+                if ((consumed & 255) == 0) checkpoint();
+                var weak = _fileStates[consumed];
+                if (!weak.TryGetTarget(out var state) || state.Detached) continue;
+                if (state.Input.TryGetTarget(out _)) { _fileStates[survivors++] = weak; continue; }
+                state.Files.Changed -= state.Changed;
+                state.Subscription.Dispose();
+                _queuedChanges.Remove(state);
+            }
         }
-        _fileStates.RemoveRange(survivors, _fileStates.Count - survivors);
-        _attachmentsUntilSweep = Math.Max(64, survivors);
+        finally
+        {
+            // Keep the compacted prefix and every unvisited entry if a budget check
+            // interrupts the sweep. Discard only the gap already processed.
+            _fileStates.RemoveRange(survivors, consumed - survivors);
+            _attachmentsUntilSweep = Math.Max(64, _fileStates.Count);
+        }
     }
 
     private sealed class SelectedFileInvalidation(WeakReference<Element> input, JsFileList files, MutationSubscription subscription)

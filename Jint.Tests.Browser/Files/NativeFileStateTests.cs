@@ -2,6 +2,7 @@ using Jint.Browser.Dom.Files;
 using Jint.HtmlParser;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Collections;
 
 namespace Jint.Tests.Browser.Files;
 
@@ -85,5 +86,44 @@ public sealed class NativeFileStateTests
         input.SetAttribute("type", "file");
         realm.SetInputFiles(input, list);
         return new WeakReference<Element>(input);
+    }
+
+    [Test]
+    public void AnInterruptedFileStateCompactionRetainsEachLiveOwnerOnceAcrossRetry()
+    {
+        using var fixture = DomTestFixture.Create("");
+        var realm = FileTransferRealm.Of(fixture.Engine);
+        var list = realm.NewFileList();
+        var live = PopulateCompactionOwners(fixture.Document, realm, list);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var checks = 0;
+        Assert.Throws<OperationCanceledException>(() => realm.CompactFileStates(() =>
+        {
+            if (++checks == 2) throw new OperationCanceledException();
+        }));
+        var states = (ICollection) typeof(FileTransferRealm).GetField("_fileStates", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(realm)!;
+        states.Count.Should().Be(live.Length);
+        realm.CompactFileStates(() => { });
+        states.Count.Should().Be(live.Length);
+        GC.KeepAlive(live);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static Element[] PopulateCompactionOwners(Document document, FileTransferRealm realm, JsFileList list)
+    {
+        var transient = new Element[64];
+        var live = new Element[384];
+        for (var i = 0; i < transient.Length + live.Length; i++)
+        {
+            var input = document.CreateElement("input");
+            input.SetAttribute("type", "file");
+            realm.SetInputFiles(input, list);
+            if (i < transient.Length) transient[i] = input;
+            else live[i - transient.Length] = input;
+        }
+        GC.KeepAlive(transient);
+        return live;
     }
 }
