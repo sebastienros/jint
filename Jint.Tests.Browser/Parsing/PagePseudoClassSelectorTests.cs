@@ -722,7 +722,7 @@ public sealed class PagePseudoClassSelectorTests
                 getComputedStyle(details).color,
               ].join('|');
             })()
-            """)).Should().Be("true|true|details|details|1|details:closed|rgba(1, 2, 3, 1)");
+            """)).Should().Be("true|true|details|details|1|details:closed|rgb(1, 2, 3)");
     }
     /// <summary>
     /// HTML §4.16.3 matches <c>:in-range</c> and <c>:out-of-range</c> only against an element which is a
@@ -1050,7 +1050,7 @@ public sealed class PagePseudoClassSelectorTests
               <input type="radio" name="one" id="oneA"><input type="radio" name="one" id="oneB">
               <input type="radio" name="two" id="twoA" checked><input type="radio" name="two" id="twoB">
               <input type="radio" id="nameless">
-              <input type="radio" name="ONE" id="caseless">
+              <input type="radio" name="ONE" id="differentCase">
               <form id="form"><input type="radio" name="one" id="owned" checked></form>
               <input type="checkbox" id="checkbox">
               <progress id="noValue"></progress>
@@ -1061,19 +1061,19 @@ public sealed class PagePseudoClassSelectorTests
 
         (await page.EvaluateAsync<string>("""
             (() => {
-              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'caseless', 'owned', 'checkbox',
+              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'differentCase', 'owned', 'checkbox',
                 'noValue', 'emptyValue', 'withValue'];
               const read = () => ids.map(id => id + ':' + document.getElementById(id).matches(':indeterminate')).join(',');
               const before = read();
               oneB.checked = true;
               const afterChecking = oneA.matches(':indeterminate') + ':' + oneB.matches(':indeterminate')
-                + ':' + caseless.matches(':indeterminate');
+                + ':' + differentCase.matches(':indeterminate');
               checkbox.indeterminate = true;
               return before + '|' + afterChecking + '|' + checkbox.matches(':indeterminate');
             })()
             """)).Should().Be(
-            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,caseless:true,owned:false," +
-            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:false|true");
+            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,differentCase:true,owned:false," +
+            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:true|true");
     }
 
     /// <summary>
