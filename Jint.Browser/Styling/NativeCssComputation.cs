@@ -30,6 +30,8 @@ internal sealed partial class NativeCssQuery
         double? percentageBasis = null)
     {
         metrics ??= _metrics;
+        if (value.Kind == CssPropertyValueKind.Transform)
+            return ComputeTransform(name, value.Transform);
         if (name == "font-weight" && value.Kind == CssPropertyValueKind.Keyword)
             return FontWeightNumber(value.Text == "bold" ? 700 : 400, value.Span);
         if (value.Kind == CssPropertyValueKind.FitContent)
@@ -71,7 +73,7 @@ internal sealed partial class NativeCssQuery
         if (root.Kind == CssMathNodeKind.Numeric) return Number(name, root.Numeric);
         if (name == "font-size")
             throw new CssIncompleteGrammarException(name, "C6:unresolved-font-size-calculation", value.Span);
-        if (name is "opacity" or "z-index" or "flex-grow" or "flex-shrink" or "font-weight")
+        if (name is "opacity" or "z-index" or "flex-grow" or "flex-shrink" or "font-weight" or "scale" or "rotate")
             throw new CssIncompleteGrammarException(name, "C6:unresolved-number-calculation", value.Span);
         return CssPropertyValue.Calculation(simplified, CssMathSerializer.SerializeSpecified(simplified, _work));
     }
