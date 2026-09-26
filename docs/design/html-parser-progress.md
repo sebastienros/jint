@@ -2,9 +2,9 @@
 
 ## Scope and workflow
 
-**Resumed after the September 25 checkpoint.** The [pause record](html-parser-resume.md)
-retains the stopped state and recovery details; the newer integration evidence below supersedes its
-HEADs and pending-review status. The full goal remains incomplete; Browser still uses AngleSharp.
+**Paused again at the user’s request on September 25.** The updated [resume checkpoint](html-parser-resume.md)
+is authoritative for current commits, retained tasks, review handoffs and validation. The full goal
+remains incomplete; Browser still uses AngleSharp. No new features should start until resumed.
 
 ### Latest resumed integrations
 
@@ -43,20 +43,20 @@ HEADs and pending-review status. The full goal remains incomplete; Browser still
   Every failure is a pending required case, one of the three unreviewed `pr-xml-*` cases, or the census.
   Per TFM: 1,820 required passes, 127 pending, three optional observed, zero adapter debt, 24 optional
   verified, zero harness/mismatch failures, OUTPUT 344 compared/42 pending. No required-pass gain.
-  `/private/tmp/jint-weekly-policy-guard-integrated.log`. The remaining three larger source policies
-  are being independently audited; no implementation packet has been approved yet.
-- H6e framesets is ready for independent review in `ad95` at `95519f45d`. Frameset chain is
-  `150faca00`, `7cb1f9922`, `95519f45d`; the interleaved adoption commits are already integrated.
-  Owner reports 21 focused/1,430 non-corpus cases per TFM passing. None of these frameset commits
-  is integrated yet. Subsequent HTML IsValue capture stays with this same exclusive owner and has
-  not started; the actual native signature is available in common `190f59aa9`.
-- CSS trig `3f7a25b58` review found a canonical conversion defect for exact turn/grad quarter turns.
-  Correction `6c552a0fd` is under re-review; no epsilon matching is authorized. Owner reports fresh
-  builds and 71 focused/1,422 non-corpus cases per TFM passing. All trig commits remain unmerged.
-- V0c1 `69d73b681` review found four blockers: declaration-value restrictions at each argument
-  boundary (ordinary containers exempt), free-form argument wrapping, nested early spread discovery,
-  and reserved env names in static metadata. Sol is correcting them separately. Earlier 56 focused/
-  1,421 non-corpus passing tests did not cover those defects; no merge yet. No timings or PRs.
+  `/private/tmp/jint-weekly-policy-guard-integrated.log`. The remaining three source policies now have
+  an independently approved packet; worker `dd367c16a` awaits implementation review and common tests.
+- Trig source `db97abc02`, `3f7a25b58`, `6c552a0fd` integrated through `d43915da9` after Astra
+  re-review. Exact turn/grad quarter turns survive canonical conversion without epsilon matching.
+  Common fresh Release non-corpus suite: 2,986/2,986. Task archived; clean `ba36` cleanup pending.
+- H6e framesets source `150faca00`, `7cb1f9922`, `95519f45d` integrated through `e4e72d0e9` after
+  independent review. Latest common non-corpus suite **3,022/3,022**, zero failures/skips, net8/net10:
+  `/private/tmp/jint-framesets-integrated.log`. Task archived; clean `ad95` cleanup pending.
+- TreeConstruction ownership transferred to dedicated HTML IsValue task in `aebc`. Worker
+  `ef64460e2` is clean and locally tested but awaits independent review/integration.
+- V0c1 corrections through `2896d3e3d` remain unmerged; the last provisional-wrapper fix still needs
+  re-review. Dedicated exponential math task in `4cb4` has checkpointed all five functions at `f33b09c67`. Neither
+  slice is common functionality yet. All active tasks were asked to checkpoint and stop for this pause.
+
 
 
 The requested package replaces AngleSharp in Jint.Browser with a new API for HTML,
@@ -73,8 +73,8 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Forty-five completed tasks have now been archived; forty-three worktrees are gone.
-  XPath `ff28` and native/XML IsValue `a768` remain pending managed cleanup as described above.
+  Forty-seven completed tasks have now been archived; forty-three worktrees are gone.
+  XPath `ff28`, native/XML IsValue `a768`, trig `ba36` and framesets `ad95` remain pending managed cleanup.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -130,11 +130,13 @@ the earlier repository direction to retain AngleSharp.
 | X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Reviewed, integrated and common tests pass; task archived, worktree cleanup pending attachment identity |
 | C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Reviewed, integrated and tested; archived, worktree removed |
 | V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Reviewed, integrated and tested; archived, worktree removed |
-| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Integrated and tested; archived; follow-up adoption ownership defect recorded in resume checkpoint |
-| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Final framesets95519f45d in review; isolated adoption fixes integrated and tested |
+| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Integrated/tested/archived; follow-up adoption ownership corrections also integrated |
+| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Reviewed/integrated through e4e72d0e9; tested/archived; managed cleanup pending |
 | Native/XML creation-time IsValue | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Reviewed, integrated, tested; archived; managed checkout cleanup pending |
-| V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Dedicated Sol implementation in ba36 |
-| V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Dedicated Sol implementation in 4983 |
+| V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Reviewed/integrated through d43915da9; tested/archived; managed cleanup pending |
+| V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Checkpoint 2896d3e3d retained in 4983; final correction re-review pending |
+| V0b3c CSS exponential math | `01a0db10-f9d2-7501-872f-fcfe719fdbbb` | Clean checkpoint f33b09c67 in 4cb4; independent review/integration pending |
+| HTML creation-time IsValue | `01a0db13-f920-7580-8392-b5798ebd7d93` | Clean checkpoint ef64460e2 in aebc; independent review/integration pending |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
