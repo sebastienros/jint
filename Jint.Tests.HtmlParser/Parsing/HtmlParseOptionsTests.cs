@@ -34,10 +34,10 @@ public class HtmlParseOptionsTests
     }
 
     [Test]
-    public void SurfaceIsInternalAndAllOptionsAreInitOnly()
+    public void SurfaceIsPublicAndAllOptionsAreInitOnly()
     {
-        typeof(HtmlParseOptions).IsNotPublic.Should().BeTrue();
-        var properties = typeof(HtmlParseOptions).GetProperties(BindingFlags.NonPublic | BindingFlags.Instance);
+        typeof(HtmlParseOptions).IsPublic.Should().BeTrue();
+        var properties = typeof(HtmlParseOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         properties.Select(property => property.Name).Should().BeEquivalentTo(
             nameof(HtmlParseOptions.ScriptingEnabled), nameof(HtmlParseOptions.Limits),
             nameof(HtmlParseOptions.Diagnostics));
