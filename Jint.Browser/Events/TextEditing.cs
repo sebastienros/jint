@@ -77,12 +77,12 @@ internal static class TextEditing
     /// </summary>
     internal static void FireChangeIfEdited(DomRealm dom, Element element)
     {
-        if (Changed(dom, element))
+        var changed = Changed(dom, element);
+        _valuesAtFocus.Remove(element);
+        if (changed)
         {
             FireChange(dom, element);
         }
-
-        _valuesAtFocus.Remove(element);
     }
 
     /// <summary>
