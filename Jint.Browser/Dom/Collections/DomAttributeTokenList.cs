@@ -6,28 +6,19 @@ namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
 /// <a href="https://dom.spec.whatwg.org/#interface-domtokenlist">DOM §7.1</a>'s token set over an element's
-/// content attribute, for the one attribute AngleSharp reflects no <c>ITokenList</c> for.
+/// current native content attribute.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is not a second token list.</b> Every member a page reaches is still
+/// <b>The raw attribute is the storage.</b> Every member a page reaches is still
 /// <see cref="DomTokenListMembers"/>' — the validation steps, <c>toggle</c>'s three-state <c>force</c>,
 /// <c>replace</c>, <c>supports</c>, the update steps and the stringifier — and this supplies only the token
-/// set those members read and write, which for every other <c>DOMTokenList</c> in this package is
-/// AngleSharp's own. It exists because
-/// <a href="https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement">SVG 2 §16.2</a> gives
-/// <c>SVGAElement</c> a <c>rel</c>/<c>relList</c> pair and AngleSharp builds a bare
-/// <c>AngleSharp.Svg.Dom.SvgElement</c> for an SVG <c>&lt;a&gt;</c> with no interface of its own and no
-/// public way to build a list over an arbitrary attribute: <c>ClassList</c> and the three
-/// <c>RelationList</c>s are the only members in the pinned assemblies that answer one, and every
-/// implementation of the interface is <c>internal</c>. <c>Dom/divergences.md</c> records it, and
-/// <c>DomStringMapAdapter</c> is the same shape of answer for <c>DOMStringMap</c>.
+/// set those members read and write. Work, token scanning and duplicate comparisons belong to one
+/// invocation, and no callback or realm is retained by the list.
 /// </para>
 /// <para>
-/// <b>The attribute is the storage, and it is read on every access.</b> Nothing is cached between calls, so
-/// the list is live against a page that writes the content attribute directly, an
-/// <c>Element.setAttribute</c> from anywhere, and the parser — which is what AngleSharp's own list is, and
-/// what §7.1 requires of one.
+/// <b>The source is read on every access.</b> The list stays live against direct native attribute writes,
+/// script mutation and adoption; no serialized token set becomes another authoritative store.
 /// </para>
 /// </remarks>
 internal sealed class DomAttributeTokenList : IEnumerable<string>
@@ -37,13 +28,14 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
     /// <a href="https://webidl.spec.whatwg.org/#SameObject"><c>[SameObject]</c></a> holds:
     /// <c>svgA.relList === svgA.relList</c>. The wrapper cache keys on the CLR object, so one instance per
     /// element is all the identity needs. A <see cref="ConditionalWeakTable{TKey,TValue}"/> rather than a
-    /// field for the reason every other table over an AngleSharp object here has one: this assembly cannot
-    /// add a field to <c>SvgElement</c>.
+    /// parser field, so ordinary raw elements allocate no Browser token-list state.
     /// </summary>
     private static readonly ConditionalWeakTable<Element, Dictionary<string, DomAttributeTokenList>> _lists = new();
 
     private readonly Element _element;
     private readonly string _attribute;
+    private string? _indexedSource;
+    private TokenSlice[]? _indexedTokens;
 
     private DomAttributeTokenList(Element element, string attribute)
     {
@@ -84,23 +76,21 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
         => ReadLength(new DomReadWork(checkpoint, token));
 
     internal int ReadLength(DomReadWork work)
-    {
-        var count = 0;
-        foreach (var unused in Slices(work)) count++;
-        return count;
-    }
+        => Index(work).Tokens.Length;
 
     internal string? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
         => ReadItem(index, new DomReadWork(checkpoint, token));
 
     internal string? ReadItem(uint index, DomReadWork work)
     {
-        foreach (var slice in Slices(work))
+        while (true)
         {
-            if (index-- != 0) continue;
-            return slice.Materialize();
+            var read = Index(work);
+            if (index >= (uint) read.Tokens.Length) return null;
+            var result = read.Tokens[(int) index].Materialize(read.Proof.Value!, work);
+            work.Check();
+            if (read.Proof.IsCurrent) return result;
         }
-        return null;
     }
 
     internal bool ReadContains(string token, Action<int>? checkpoint, CancellationToken cancellationToken)
@@ -108,8 +98,19 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
 
     internal bool ReadContains(string token, DomReadWork work)
     {
-        foreach (var slice in Slices(work)) if (slice.Matches(token, work)) return true;
-        return false;
+        while (true)
+        {
+            var read = Index(work);
+            var result = false;
+            foreach (var slice in read.Tokens)
+            {
+                if (!slice.Matches(read.Proof.Value!, token, work)) continue;
+                result = true;
+                break;
+            }
+            work.Check();
+            if (read.Proof.IsCurrent) return result;
+        }
     }
 
     internal string ReadValue(Action<int>? checkpoint, CancellationToken token)
@@ -117,10 +118,13 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
 
     internal string ReadValue(DomReadWork work)
     {
-        work.Check();
-        var value = work.Attribute(_element, _attribute) ?? "";
-        work.Check();
-        return value;
+        while (true)
+        {
+            work.Check();
+            var proof = Capture(work);
+            work.Check();
+            if (proof.IsCurrent) return proof.Value ?? "";
+        }
     }
 
     internal IEnumerable<string> Read(Action<int>? checkpoint, CancellationToken token)
@@ -128,14 +132,39 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
 
     internal IEnumerable<string> Read(DomReadWork work)
     {
-        foreach (var slice in Slices(work)) yield return slice.Materialize();
+        var read = Index(work);
+        // One enumeration observes one immutable invocation source; indexed JS iteration
+        // calls ReadItem anew and therefore observes subsequent attribute mutations.
+        try
+        {
+            foreach (var slice in read.Tokens)
+            {
+                work.Step();
+                yield return slice.Materialize(read.Proof.Value!, work);
+            }
+        }
+        finally { work.Check(); }
     }
 
     internal List<string> ReadSnapshot(DomReadWork work)
+        => ReadSnapshot(work, out _);
+
+    internal List<string> ReadSnapshot(DomReadWork work, out SourceProof proof)
     {
-        var result = new List<string>();
-        foreach (var token in Read(work)) result.Add(token);
-        return result;
+        while (true)
+        {
+            var read = Index(work);
+            var result = new List<string>(read.Tokens.Length);
+            foreach (var slice in read.Tokens)
+            {
+                work.Step();
+                result.Add(slice.Materialize(read.Proof.Value!, work));
+            }
+            work.Check();
+            if (!read.Proof.IsCurrent) continue;
+            proof = read.Proof;
+            return result;
+        }
     }
 
     internal List<string> ReadSnapshot(Action<int>? checkpoint, CancellationToken token)
@@ -210,71 +239,141 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
     /// </summary>
     private List<string> Tokens() => ReadSnapshot(new DomReadWork(null, default));
 
-    private IEnumerable<TokenSlice> Slices(DomReadWork work)
+    private TokenRead Index(DomReadWork work)
     {
-        work.Check();
-        var declared = work.Attribute(_element, _attribute) ?? "";
-        var seen = new HashSet<TokenSlice>(new SliceComparer(work));
-        var start = -1;
-        uint hash = 2166136261;
-        try
+        while (true)
         {
-            for (var position = 0; position <= declared.Length; position++)
-            {
-                if (position < declared.Length)
-                {
-                    work.Step();
-                    var c = declared[position];
-                    if (c is not ('\t' or '\n' or '\f' or '\r' or ' '))
-                    {
-                        if (start < 0) { start = position; hash = 2166136261; }
-                        hash = unchecked((hash ^ c) * 16777619);
-                        continue;
-                    }
-                }
-                if (start < 0) continue;
-                var slice = new TokenSlice(declared, start, position - start, hash);
-                start = -1;
-                if (seen.Add(slice)) yield return slice;
-            }
+            work.Check();
+            var proof = Capture(work);
+            var tokens = _indexedTokens is not null && ReferenceEquals(_indexedSource, proof.Value)
+                ? _indexedTokens : Build(proof.Value ?? "", work);
+            work.Check();
+            // No callback follows this validation or the completed-index publication.
+            if (!proof.IsCurrent) continue;
+            _indexedSource = proof.Value;
+            _indexedTokens = tokens;
+            return new TokenRead(proof, tokens);
         }
-        finally { work.Check(); }
     }
 
-    private readonly struct TokenSlice(string source, int start, int length, uint hash)
+    private SourceProof Capture(DomReadWork work)
     {
-        private readonly string _source = source;
+        // A present Attr itself proves the source. Only a miss demands the native
+        // structure token, followed by another bounded lookup under that token.
+        var attribute = FindAttribute(work);
+        if (attribute is not null) return new SourceProof(_element, attribute, attribute.Value, null);
+        while (true)
+        {
+            var structure = _element.GetAttributeStructureIdentity();
+            attribute = FindAttribute(work);
+            if (attribute is not null) return new SourceProof(_element, attribute, attribute.Value, null);
+            if (ReferenceEquals(structure, _element.ExistingAttributeStructureIdentity))
+                return new SourceProof(_element, null, null, structure);
+        }
+    }
+
+    private Attr? FindAttribute(DomReadWork work)
+    {
+        while (true)
+        {
+            var structure = _element.ExistingAttributeStructureIdentity;
+            var restart = false;
+            for (uint index = 0; index < (uint) _element.AttributeCount; index++)
+            {
+                work.Step();
+                var attribute = _element.GetAttributeAt(index);
+                if (attribute is null) { restart = true; break; }
+                var matches = attribute.NamespaceUri is null && work.Equal(attribute.LocalName, _attribute);
+                if (!ReferenceEquals(attribute.OwnerElement, _element)) { restart = true; break; }
+                if (matches) return attribute;
+                if (!ReferenceEquals(structure, _element.ExistingAttributeStructureIdentity)) { restart = true; break; }
+            }
+            if (!restart) return null;
+        }
+    }
+
+    internal readonly struct SourceProof(Element element, Attr? attribute, string? value, object? structure)
+    {
+        internal string? Value { get; } = value;
+        internal bool IsCurrent => attribute is not null
+            ? ReferenceEquals(attribute.OwnerElement, element) && ReferenceEquals(attribute.Value, Value)
+            : ReferenceEquals(element.ExistingAttributeStructureIdentity, structure);
+    }
+
+    private readonly record struct TokenRead(SourceProof Proof, TokenSlice[] Tokens);
+
+    private static TokenSlice[] Build(string declared, DomReadWork work)
+    {
+        if (declared.Length == 0) return [];
+        var seen = new HashSet<TokenSlice>(new SliceComparer(declared, work));
+        var tokens = new List<TokenSlice>();
+        var start = -1;
+        uint hash = 2166136261;
+        for (var position = 0; position <= declared.Length; position++)
+        {
+            if (position < declared.Length)
+            {
+                work.Step();
+                var c = declared[position];
+                if (c is not ('\t' or '\n' or '\f' or '\r' or ' '))
+                {
+                    if (start < 0) { start = position; hash = 2166136261; }
+                    hash = unchecked((hash ^ c) * 16777619);
+                    continue;
+                }
+            }
+            if (start < 0) continue;
+            var slice = new TokenSlice(start, position - start, hash);
+            start = -1;
+            if (seen.Add(slice)) tokens.Add(slice);
+        }
+        return tokens.ToArray();
+    }
+
+    private readonly struct TokenSlice(int start, int length, uint hash)
+    {
         private readonly int _start = start;
         internal int Length { get; } = length;
         internal uint Hash { get; } = hash;
-        internal string Materialize() => _source.Substring(_start, Length);
-        internal bool Matches(string token, DomReadWork work)
+        internal string Materialize(string source, DomReadWork work)
+        {
+            if (_start == 0 && Length == source.Length) return source;
+            return string.Create(Length, (source, start: _start, work), static (span, state) =>
+            {
+                for (var i = 0; i < span.Length; i++)
+                {
+                    state.work.Step();
+                    span[i] = state.source[state.start + i];
+                }
+            });
+        }
+        internal bool Matches(string source, string token, DomReadWork work)
         {
             work.Step();
             if (Length != token.Length) return false;
             for (var i = 0; i < Length; i++)
             {
                 work.Step();
-                if (_source[_start + i] != token[i]) return false;
+                if (source[_start + i] != token[i]) return false;
             }
             return true;
         }
-        internal bool Matches(TokenSlice other, DomReadWork work)
+        internal bool Matches(string source, TokenSlice other, DomReadWork work)
         {
             work.Step();
             if (Length != other.Length) return false;
             for (var i = 0; i < Length; i++)
             {
                 work.Step();
-                if (_source[_start + i] != other._source[other._start + i]) return false;
+                if (source[_start + i] != source[other._start + i]) return false;
             }
             return true;
         }
     }
 
-    private sealed class SliceComparer(DomReadWork work) : IEqualityComparer<TokenSlice>
+    private sealed class SliceComparer(string source, DomReadWork work) : IEqualityComparer<TokenSlice>
     {
-        public bool Equals(TokenSlice x, TokenSlice y) => x.Matches(y, work);
+        public bool Equals(TokenSlice x, TokenSlice y) => x.Matches(source, y, work);
         public int GetHashCode(TokenSlice value) => unchecked((int) value.Hash);
     }
 

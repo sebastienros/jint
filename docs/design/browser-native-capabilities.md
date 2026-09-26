@@ -125,3 +125,25 @@ type; it cannot be instantiated or subclassed. Generated members check the inter
 argument coercion, followed by a defensive `NotSupportedError` continuation that no actual receiver can
 reach. Prototype objects and objects forged with those prototypes fail the ordinary receiver check.
 Constructors remain illegal. No context, cue, dummy node or legacy-to-native cast is introduced.
+
+
+## Native attribute token reads
+
+The raw null-namespace attribute remains authoritative. Token-list views and raw `value` reads do not
+parse tokens. The first token demand builds an ordered unique index of offset, length and incremental
+hash slices, keyed by the immutable raw string's reference. Only that source and the completed slices
+remain on the list; comparers, temporary sets, work callbacks and realms are not retained. Repeated
+`length` and indexed iteration reuse this index after a bounded current-attribute lookup. Character
+scanning, duplicate comparison and token substring copying check actual work; a whole-source token can
+reuse the immutable string without copying it.
+
+After the final host check, reads validate the captured native Attr's owner and value reference before
+publishing or returning. Absence uses a native per-element attribute-structure identity allocated only
+when an absence proof is demanded. Append, removal, replacement, parsed attachment and copying clear
+that identity without allocating its successor; value changes and adoption preserve it. Ordinary
+parsing creates no token-list state or proof object. A checkpoint that mutates the source causes a
+retry with the same invocation work and cancellation token. Interrupted builds publish no partial index.
+Mutation consumers validate the same source proof immediately before their single attribute write.
+A direct CLR enumeration captures one immutable invocation source; JavaScript indexed iteration makes
+a new live read for each item. Deterministic tests cover work scaling, cold and warm reads, cancellation,
+direct Attr replacement and removal, absent versus empty attributes, and final-checkpoint mutation.
