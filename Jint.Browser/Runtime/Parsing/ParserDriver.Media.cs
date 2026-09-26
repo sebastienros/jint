@@ -26,22 +26,22 @@ internal sealed partial class ParserDriver
         var target = url is null ? null : UrlParser.Parse(url);
         _runtime.Engine.Constraints.Check();
         operationCancellation.ThrowIfCancellationRequested();
-        if (target is null) throw new InvalidOperationException("The media source is not a URL a page can load.");
+        if (target is null) throw new MediaSourceException("The media source is not a URL a page can load.");
         selectedUrl = target.Serialize();
         _runtime.Engine.Constraints.Check();
         operationCancellation.ThrowIfCancellationRequested();
         if (DataUrl.Is(target))
         {
             if (!DataUrl.TryProcess(target, out var content))
-                throw new InvalidOperationException("The media source is not a valid data URL.");
+                throw new MediaSourceException("The media source is not a valid data URL.");
             _runtime.Engine.Constraints.Check();
             operationCancellation.ThrowIfCancellationRequested();
             if (content.Body.LongLength > _maxBytes)
-                throw new InvalidOperationException("The media source exceeds BrowserOptions.MaxSubresourceBytes.");
+                throw new MediaSourceException("The media source exceeds BrowserOptions.MaxSubresourceBytes.");
             return Task.FromResult(new MediaResourceResponse(content.Body, target.Serialize(), content.MimeType.Serialize()));
         }
         if (!PageUrl.IsNetworkScheme(target))
-            throw new InvalidOperationException("The media source has a scheme a page cannot load.");
+            throw new MediaSourceException("The media source has a scheme a page cannot load.");
         var documentUrl = UrlParser.Parse(DomDocumentState.Of(document).Url);
         var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects,
             RequestInitiator.Subresource, _runtime.Emulation.EffectiveUserAgent, PageRequestKind.Other);
@@ -75,3 +75,5 @@ internal sealed partial class ParserDriver
 }
 
 internal readonly record struct MediaResourceResponse(byte[] Bytes, string Url, string? ContentType);
+
+internal sealed class MediaSourceException(string message) : Exception(message);
