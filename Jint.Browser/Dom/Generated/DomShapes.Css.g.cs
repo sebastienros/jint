@@ -2930,6 +2930,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.right");
                     self.Target.SetProperty("right", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.right")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("rotate",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rotate", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.rotate");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("rotate"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.rotate", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.rotate");
+                    self.Target.SetProperty("rotate", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.rotate")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("rubyAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rubyAlign", static (thisObj, args) =>
                 {
@@ -2962,6 +2973,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.rubyPosition");
                     self.Target.SetProperty("ruby-position", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.rubyPosition")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("scale",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scale", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.scale");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("scale"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scale", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.scale");
+                    self.Target.SetProperty("scale", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.scale")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("scrollbar3dLightColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbar3dLightColor", static (thisObj, args) =>
@@ -3398,6 +3420,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.transitionTimingFunction");
                     self.Target.SetProperty("transition-timing-function", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transitionTimingFunction")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("translate",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.translate", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.translate");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("translate"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.translate", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.translate");
+                    self.Target.SetProperty("translate", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.translate")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("unicodeBidi",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.unicodeBidi", static (thisObj, args) =>
