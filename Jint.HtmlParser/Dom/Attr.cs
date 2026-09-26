@@ -47,7 +47,7 @@ public sealed class Attr
         {
             ArgumentNullException.ThrowIfNull(value);
             var owner = OwnerElement;
-            if (owner is not null) HtmlInputStateChanges.BeforeAttributeChanged(owner, NamespaceUri, LocalName);
+            if (owner is not null) HtmlInputStateChanges.BeforeAttributeChanged(owner, NamespaceUri, LocalName, value);
             var oldValue = _value;
             var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
                 LocalName, NamespaceUri);

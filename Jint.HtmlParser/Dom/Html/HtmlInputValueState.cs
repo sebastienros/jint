@@ -212,7 +212,7 @@ internal sealed class HtmlInputValueState
         var oldRelevantValue = IsAvailable ? GetValue(default) : null;
         var nextMode = HtmlInputTypes.Info(nextType).ValueMode;
         var enteredSelection = !HasSelectionApi && HtmlInputTypes.Info(nextType).HasSelectionApi;
-        var nextAvailable = IsSupportedType(nextType) && (IsAvailable || oldMode != HtmlInputValueMode.Value && nextMode == HtmlInputValueMode.Value);
+        var nextAvailable = IsSupportedType(nextType) && (IsAvailable || oldMode != HtmlInputValueMode.Value);
         var candidate = nextMode == HtmlInputValueMode.Value && nextAvailable
             ? oldMode == HtmlInputValueMode.Value ? _value! : GetDefaultValue(default) : null;
         // Prepare the sanitizer before semantic mutation, publish it at its specified step.

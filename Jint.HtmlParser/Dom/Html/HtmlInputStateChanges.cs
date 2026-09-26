@@ -5,17 +5,15 @@ internal static class HtmlInputStateChanges
 {
     internal static HtmlInputValueState? PrepareInitialization(Element element, IReadOnlyList<Attr> attributes,
         CancellationToken cancellationToken)
-        => element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
+        => element.ExistingInputValueState is not null
             ? new HtmlInputValueState(element, attributes, cancellationToken) : null;
 
     internal static void Initialize(Element element, HtmlInputValueState? prepared = null)
     {
-        if (element is { NamespaceUri: Namespaces.Html, LocalName: "input" })
+        if (element.ExistingInputValueState is { } value)
         {
-            var view = element.GetHtmlState()!;
-            if (prepared is not null) view.InitializeInputValue(prepared);
-            else if (view.ExistingInputValue is { } value) value.InitializeMetadata(default);
-            else _ = view.InputValue;
+            if (prepared is not null) value.InitializeFrom(prepared);
+            else value.InitializeMetadata(default);
         }
         var existing = element.ExistingCheckedState;
         if (HtmlCheckableState.Get(element) is not { } state) return;
@@ -29,12 +27,18 @@ internal static class HtmlInputStateChanges
         if (state.DefaultChecked) HtmlCheckednessAlgorithms.SetCore(state, true, false, default);
     }
 
-    // Capture the old mode/current value before the attribute is committed, even
-    // when nobody has requested the HTML view yet.
-    internal static void BeforeAttributeChanged(Element element, string? namespaceUri, string localName)
+    // Initial/default reflection is reconstructible from the current attributes.
+    // A real type transition or email multiple toggle can lose sanitation history,
+    // so conservatively materialize those before publication, even without a reader.
+    internal static void BeforeAttributeChanged(Element element, string? namespaceUri, string localName,
+        string? newValue)
     {
-        if (namespaceUri is null && localName is "type" or "value" or "multiple" or "readonly" &&
-            element is { NamespaceUri: Namespaces.Html, LocalName: "input" })
+        if (namespaceUri is not null || element is not { NamespaceUri: Namespaces.Html, LocalName: "input" } ||
+            element.ExistingInputValueState is not null || localName is not ("type" or "multiple")) return;
+        var oldType = element.ExistingCheckedState?.Type ?? HtmlInputTypes.Parse(element.GetAttributeNS(null, "type"));
+        if (localName == "type" && oldType != HtmlInputTypes.Parse(newValue) ||
+            localName == "multiple" && oldType == HtmlInputType.Email &&
+            (element.GetAttributeNodeNS(null, "multiple") is null) != (newValue is null))
             _ = element.GetHtmlState()!.InputValue;
     }
 
@@ -43,8 +47,8 @@ internal static class HtmlInputStateChanges
     {
         if (namespaceUri is not null || element is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return;
         var state = HtmlCheckableState.Get(element)!;
-        var valueState = element.GetHtmlState()!.InputValue!;
-        valueState.AttributeChanged(localName, oldValue, newValue);
+        var valueState = element.ExistingInputValueState;
+        valueState?.AttributeChanged(localName, oldValue, newValue);
         switch (localName)
         {
             case "checked":
@@ -59,12 +63,21 @@ internal static class HtmlInputStateChanges
                 break;
             case "type":
                 var nextType = HtmlInputTypes.Parse(newValue);
-                valueState.TypeChanged(nextType, () =>
+                if (valueState is not null)
+                {
+                    valueState.TypeChanged(nextType, () =>
+                    {
+                        state.Type = nextType;
+                        Rekey(state);
+                        Trigger(state);
+                    });
+                }
+                else if (HtmlInputTypes.Parse(oldValue) != nextType)
                 {
                     state.Type = nextType;
                     Rekey(state);
                     Trigger(state);
-                });
+                }
                 break;
             case "required":
                 HtmlRadioGroupIndex.RequiredChanged(state, newValue is not null);
