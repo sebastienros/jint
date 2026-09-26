@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-09-19
-anchors: 1268
+anchors: 1269
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -908,6 +908,7 @@ ecma402 sec-intl.collator.prototype.compare
 ecma402 sec-intl.collator.prototype.resolvedoptions
 ecma402 sec-intl.collator.supportedlocalesof
 ecma402 sec-intl.datetimeformat
+ecma402 sec-intl.datetimeformat-internal-slots
 ecma402 sec-intl.datetimeformat.prototype.format
 ecma402 sec-intl.datetimeformat.prototype.formatRange
 ecma402 sec-intl.datetimeformat.prototype.resolvedoptions
