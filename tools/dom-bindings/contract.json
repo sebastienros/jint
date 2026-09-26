@@ -3964,8 +3964,8 @@
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, \"StyleSheet.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, \"StyleSheet.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, \"StyleSheet.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Disabled);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, \"StyleSheet.disabled\");\nself.Target.Disabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IStyleSheet.IsDisabled"
         },
@@ -13370,7 +13370,7 @@
         {
           "DomName": "filter",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.filter\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.filter\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"

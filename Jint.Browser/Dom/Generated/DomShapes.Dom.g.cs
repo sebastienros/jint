@@ -347,12 +347,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Disabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("StyleSheet.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Disabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.href", static (thisObj, args) =>
@@ -2314,7 +2314,7 @@ internal static partial class DomInterfaces
             .Accessor("filter",
                 global::Jint.Browser.Dom.DomFailures.Guard("NodeIterator.filter", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, "NodeIterator.filter");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, "NodeIterator.filter");
                     return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);
                 }))
             .Method("nextNode",

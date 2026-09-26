@@ -6,6 +6,17 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeCssBindingTests
 {
     [Test]
+    public void StylesheetDisabledIsTheActualNativeFlag()
+    {
+        using var dom = Create("a { color:red }");
+        dom.Bool("!sheet.disabled").Should().BeTrue();
+        dom.Execute("sheet.disabled=true;");
+        dom.Bool("sheet.disabled").Should().BeTrue();
+        dom.Execute("sheet.disabled=false;");
+        dom.Bool("!sheet.disabled && sheet.cssRules.length===1").Should().BeTrue();
+    }
+
+    [Test]
     public void StyleRuleListsAreEmptyStableAliasesWithDistinctOwners()
     {
         using var dom = Create("a { color:red } b { color:blue }");
