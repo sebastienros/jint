@@ -449,14 +449,14 @@ internal static partial class InputDispatcher
         }
 
         var dom = runtime.Dom;
-        var focused = FocusController.ActiveElement(BrowserEventRealm.Of(dom.Engine), document);
+        var focused = FocusController.InteractionTarget(BrowserEventRealm.Of(dom.Engine), document);
 
         if (focused is null)
         {
             return;
         }
 
-        if (TextEditing.IsEditable(focused))
+        if (TextEditing.IsEditable(dom, focused))
         {
             TextEditing.Insert(dom, new TextEditing.TextControl(dom, focused), text, "insertText");
             return;
@@ -503,7 +503,7 @@ internal static partial class InputDispatcher
 
         var dom = runtime.Dom;
         var realm = BrowserEventRealm.Of(dom.Engine);
-        var focused = FocusController.ActiveElement(realm, document);
+        var focused = FocusController.InteractionTarget(realm, document);
 
         if (focused is null)
         {
@@ -568,7 +568,7 @@ internal static partial class InputDispatcher
                 MoveFocus(dom, document, focused, backwards: (options.Modifiers & EventModifiers.Shift) != EventModifiers.None);
                 return;
 
-            case "Enter" when EventDom.IsHtml(focused, "input") && TextEditing.IsEditable(focused):
+            case "Enter" when EventDom.IsHtml(focused, "input") && TextEditing.IsEditable(dom, focused):
                 // The value is committed by the press, so `change` fires here rather than waiting for focus to
                 // leave — which is what a page listening for it on a search box is written against.
                 TextEditing.CommitChange(dom, focused);

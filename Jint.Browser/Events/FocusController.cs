@@ -65,6 +65,15 @@ internal static class FocusController
         return ReferenceEquals(owner, document) ? RetargetToDocument(focused, document) : DomDocumentElements.Body(document);
     }
 
+    // User input reaches the actual focused control; document.activeElement is a retargeted exposure.
+    internal static Element? InteractionTarget(BrowserEventRealm realm, Document document)
+    {
+        var exposed = ActiveElement(realm, document);
+        return realm.FocusedElement is { } focused
+            && PageRuntime.FindBrowsingContext(realm.Engine, focused.OwnerDocument) is not null
+                ? focused : exposed;
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-focus — the focusing steps, plus the focus
     /// update steps that fire the four events.
@@ -155,7 +164,7 @@ internal static class FocusController
 
         if (next is not null)
         {
-            TextEditing.RememberValueAtFocus(next);
+            TextEditing.RememberValueAtFocus(dom, next);
 
             var gaining = dom.WrapNode(next);
             Fire(dom, gaining, "focus", bubbles: false, related: previous);

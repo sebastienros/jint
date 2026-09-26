@@ -29,6 +29,25 @@ public sealed class FocusTests
             """)).Should().Be("host:BODY");
     }
 
+    [TestCase("open")]
+    [TestCase("closed")]
+    public async Task KeyboardInputReachesTheFocusedShadowControl(string mode)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='host'></div>");
+        await page.EvaluateAsync(
+            $$"""
+            const shadow = document.getElementById('host').attachShadow({ mode: '{{mode}}' });
+            window.shadowInput = document.createElement('input');
+            shadow.appendChild(shadowInput);
+            shadowInput.focus();
+            """);
+        await BrowserTestAccess.DispatchKeyAsync(page, "x");
+        (await page.EvaluateAsync<string>("document.activeElement.id + ':' + shadowInput.value"))
+            .Should().Be("host:x");
+    }
+
     [Test]
     public async Task DetachedInputCannotTakeFocus()
     {
