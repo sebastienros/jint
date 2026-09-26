@@ -27,6 +27,7 @@ internal sealed partial class ParserDriver
     private sealed class ResourceSource
     {
         internal string? Signature;
+        internal object? StyleRequest;
         internal bool ModuleStarted;
         internal MutationSubscription? ScriptSubscription;
     }
@@ -181,41 +182,61 @@ internal sealed partial class ParserDriver
 
     private void LoadStyleSheet(Element link)
     {
-        if (!IsResourceConnected(link)) return;
+        var source = _resourceSources.GetValue(link, static _ => new ResourceSource());
+        if (!IsResourceConnected(link)) { InvalidateStyleRequest(source); return; }
         var document = link.OwnerDocument!;
         var href = Attribute(link, "href");
-        if (string.IsNullOrEmpty(href)) return;
+        if (string.IsNullOrEmpty(href)) { InvalidateStyleRequest(source); return; }
         var relations = Attribute(link, "rel") ?? "";
         if (!relations.Split([' ', '\t', '\r', '\n', '\f'], StringSplitOptions.RemoveEmptyEntries)
             .Any(value => value.Equals("stylesheet", StringComparison.OrdinalIgnoreCase)))
         {
+            InvalidateStyleRequest(source);
             var refused = PageUrl.Resolve(href, BaseUrlOf(link.OwnerDocument!)) ?? href;
             _requests.RecordNotFetched(refused, RequestInitiator.Subresource, PageRequestKind.Other,
                 "a <link rel=\"" + relations + "\"> is not fetched: only a stylesheet is");
             return;
         }
         var url = PageUrl.Resolve(href, BaseUrlOf(document));
-        var source = _resourceSources.GetValue(link, static _ => new ResourceSource());
-        if (source.Signature == url) return;
+        if (source.Signature == url && source.StyleRequest is not null) return;
+        var request = new object();
+        source.StyleRequest = request;
         source.Signature = url;
-        if (url is null) { FailSubresource(link, href, "The stylesheet URL is invalid."); return; }
-        var fetched = FetchBytes(url, link, "stylesheet", PageRequestKind.Stylesheet,
-            mayPump: !_runtime.Engine.IsEvaluationInProgress);
-        if (fetched is not { } body) return;
-        // A parser-blocking fetch pumps tasks. A moved, replaced or reconfigured link must
-        // not publish the old request as its current sheet or receive that request's load event.
-        if (!CurrentStyleSheetSource(link, document, source, url))
+        if (url is null)
         {
-            if (source.Signature == url) source.Signature = null;
+            FailSubresource(link, href, "The stylesheet URL is invalid.",
+                () => ReferenceEquals(source.StyleRequest, request));
+            return;
+        }
+        bool Current() => CurrentStyleSheetSource(link, document, source, request, url);
+        void Failed(string message)
+        {
+            if (!Current()) return;
+            // A failed current request can be retried. Keep its identity until a replacement
+            // starts so its queued error still belongs to this request.
+            source.Signature = null;
+            FailSubresource(link, url, message, Current);
+        }
+        var fetched = FetchBytes(url, link, "stylesheet", PageRequestKind.Stylesheet,
+            mayPump: !_runtime.Engine.IsEvaluationInProgress, onFailure: Failed);
+        if (fetched is not { } body || !Current())
+        {
+            if (ReferenceEquals(source.StyleRequest, request)) source.Signature = null;
             return;
         }
         var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200)
             .Text(DomDocumentState.Of(document).CharacterSet);
         NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), link, text, body.Url);
-        StyleSheetProcessed(link);
+        if (Current()) QueueResourceEvent(link, "load", afterParse: false, Current);
     }
 
-    private bool CurrentStyleSheetSource(Element link, Document document, ResourceSource source, string url)
+    private static void InvalidateStyleRequest(ResourceSource source)
+    {
+        source.StyleRequest = null;
+        source.Signature = null;
+    }
+
+    private bool CurrentStyleSheetSource(Element link, Document document, ResourceSource source, object request, string url)
     {
         var work = new CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check);
         var reads = new DomReadWork(work.Charge, _cancellationToken);
@@ -223,14 +244,14 @@ internal sealed partial class ParserDriver
         {
             var stamp = document.MutationStamp;
             if (stamp == ulong.MaxValue) throw new InvalidOperationException(NativeCssQuery.Invalidated);
-            if (!ReferenceEquals(link.OwnerDocument, document)) return false;
+            if (!ReferenceEquals(source.StyleRequest, request) || !ReferenceEquals(link.OwnerDocument, document)) return false;
             var connected = IsResourceConnected(link);
             var eligible = NativeCssStyleSheets.EligibleOwner(link, reads, work);
             var currentUrl = PageUrl.Resolve(reads.Attribute(link, "href") ?? "", BaseUrlOf(document));
             work.CheckCancellation();
             if (stamp != document.MutationStamp) continue;
             return ReferenceEquals(link.OwnerDocument, document) && connected && eligible &&
-                source.Signature == url && currentUrl == url;
+                ReferenceEquals(source.StyleRequest, request) && currentUrl == url;
         }
     }
 

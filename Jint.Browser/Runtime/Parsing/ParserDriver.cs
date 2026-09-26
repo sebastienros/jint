@@ -39,7 +39,7 @@ internal sealed partial class ParserDriver : IDisposable
     private bool _tokenizing;
     private int _pendingResourceEvents;
     private TaskCompletionSource? _resourceEventsCompleted;
-    private Queue<(Element Element, string Type, bool AfterParse)>? _deferredResourceEvents;
+    private Queue<(Element Element, string Type, bool AfterParse, Func<bool>? IsCurrent)>? _deferredResourceEvents;
 
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
@@ -229,7 +229,8 @@ internal sealed partial class ParserDriver : IDisposable
     /// really does wait for one, and <c>AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet</c>
     /// pins that its <c>load</c> arrives while it does.
     /// </param>
-    private void QueueResourceEvent(Element element, string type, bool afterParse)
+    /// <param name="isCurrent">Whether the request still owns this event when it is delivered.</param>
+    private void QueueResourceEvent(Element element, string type, bool afterParse, Func<bool>? isCurrent = null)
     {
         if (_cancellationToken.IsCancellationRequested)
         {
@@ -242,23 +243,23 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         // The processor assigns link.Sheet after the styling service returns, before the next hand-off.
-        _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse));
+        _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse, isCurrent));
     }
 
-    private void DeliverResourceEvent(Element element, string type, bool afterParse)
+    private void DeliverResourceEvent(Element element, string type, bool afterParse, Func<bool>? isCurrent)
     {
         // Engine.Execute drains tasks even for a script inserted by another script. Resource events must
         // wait for the outermost script element to return and restore document.currentScript first — and an
         // image's for the tokenizer as well, for the reason QueueResourceEvent gives.
         if (_runtime.CurrentScript is not null || (afterParse && _tokenizing))
         {
-            (_deferredResourceEvents ??= new()).Enqueue((element, type, afterParse));
+            (_deferredResourceEvents ??= new()).Enqueue((element, type, afterParse, isCurrent));
             return;
         }
 
         try
         {
-            if (!_cancellationToken.IsCancellationRequested)
+            if (!_cancellationToken.IsCancellationRequested && (isCurrent?.Invoke() ?? true))
             {
                 if (type == "load" && IsHtml(element, "iframe") && element is { } frame)
                 {
@@ -306,7 +307,7 @@ internal sealed partial class ParserDriver : IDisposable
                 continue;
             }
 
-            _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(entry.Element, entry.Type, entry.AfterParse));
+            _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(entry.Element, entry.Type, entry.AfterParse, entry.IsCurrent));
         }
     }
 
@@ -475,24 +476,30 @@ internal sealed partial class ParserDriver : IDisposable
         Element source,
         string what,
         PageRequestKind kind,
-        bool mayPump)
+        bool mayPump,
+        Action<string>? onFailure = null)
     {
+        void Failed(string message)
+        {
+            if (onFailure is null) FailSubresource(source, url, message);
+            else onFailure(message);
+        }
         var target = UrlParser.Parse(url);
 
         if (target is null)
         {
-            FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
+            Failed("'" + url + "' is not a URL a page can load.");
             return null;
         }
 
         if (DataUrl.Is(target))
         {
-            return FetchDataUrl(target, source, url, what);
+            return FetchDataUrl(target, url, what, Failed);
         }
 
         if (!PageUrl.IsNetworkScheme(target))
         {
-            FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
+            Failed("'" + url + "' is not a URL a page can load.");
             return null;
         }
 
@@ -538,13 +545,13 @@ internal sealed partial class ParserDriver : IDisposable
         }
         catch (OperationCanceledException)
         {
-            FailSubresource(source, url, "The " + what + " '" + url + "' did not answer within "
+            Failed("The " + what + " '" + url + "' did not answer within "
                 + _timeout.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seconds.");
             return null;
         }
         catch (Exception exception)
         {
-            FailSubresource(source, url, "The " + what + " '" + url + "' could not be loaded: " + exception.Message);
+            Failed("The " + what + " '" + url + "' could not be loaded: " + exception.Message);
             return null;
         }
     }
@@ -568,19 +575,17 @@ internal sealed partial class ParserDriver : IDisposable
     /// <see cref="SubresourceFetch"/> checks it over the wire; a page may not escape it by inlining.
     /// </para>
     /// </remarks>
-    private FetchedBody? FetchDataUrl(UrlRecord target, Element source, string url, string what)
+    private FetchedBody? FetchDataUrl(UrlRecord target, string url, string what, Action<string> failed)
     {
         if (!DataUrl.TryProcess(target, out var content))
         {
-            FailSubresource(source, url, "The " + what + " '" + url + "' is not a valid data: URL.");
+            failed("The " + what + " '" + url + "' is not a valid data: URL.");
             return null;
         }
 
         if (content.Body.LongLength > _maxBytes)
         {
-            FailSubresource(
-                source,
-                url,
+            failed(
                 "The " + what + " '" + url + "' carries more than the "
                     + _maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     + " bytes a page may load.");
@@ -630,12 +635,12 @@ internal sealed partial class ParserDriver : IDisposable
     /// https://html.spec.whatwg.org/multipage/webappapis.html — a resource that failed to load fires
     /// <c>error</c> at the element that asked for it, and the page carries on loading.
     /// </summary>
-    private void FailSubresource(Element source, string url, string message)
+    private void FailSubresource(Element source, string url, string message, Func<bool>? isCurrent = null)
     {
         Report(PageErrorKind.ReportedError, message, url);
         if (IsHtml(source, "link"))
         {
-            QueueResourceEvent(source, "error", afterParse: false);
+            QueueResourceEvent(source, "error", afterParse: false, isCurrent);
         }
         else if (IsHtml(source, "img") || IsHtml(source, "input"))
         {
