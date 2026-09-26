@@ -33,7 +33,7 @@ internal sealed partial class NativeCssQuery
     private readonly ulong _documentStamp;
     private readonly CssMutationStamp _resourceStamp;
     private readonly NativeCssSheet[] _sheets;
-    private readonly CssMutationStamp[] _sheetStamps;
+    private readonly CssStyleSheetRevisionSnapshot _sheetRevisions;
     private readonly Dictionary<Element, (CssDeclarationBlock Block, CssMutationStamp Stamp)> _inline = new();
     private readonly Dictionary<Element, State> _states = new();
     private readonly Dictionary<string, CssPropertyValue> _initialValues = new(StringComparer.Ordinal);
@@ -64,14 +64,15 @@ internal sealed partial class NativeCssQuery
         _work = work;
         _readInlineAttributes = readInlineAttributes;
         _sheets = new NativeCssSheet[sheets.Count];
-        _sheetStamps = new CssMutationStamp[sheets.Count];
+        var roots = new CssStyleSheet[sheets.Count];
         for (var i = 0; i < sheets.Count; i++)
         {
             work.Charge(1);
             if (!Enum.IsDefined(sheets[i].Origin)) throw new ArgumentException("Invalid CSS origin.", nameof(sheets));
             _sheets[i] = sheets[i];
-            _sheetStamps[i] = sheets[i].Sheet.Stamp;
+            roots[i] = sheets[i].Sheet;
         }
+        _sheetRevisions = CssStyleSheetRevisionSnapshot.Capture(roots, work);
         foreach (var item in inline)
         {
             work.Charge(1);
@@ -304,7 +305,8 @@ internal sealed partial class NativeCssQuery
             _work.Charge(1);
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
             if (origin == NativeCssOrigin.Author &&
-                !ReferenceEquals(rule.ParentStyleSheet?.Attachment.OwnerNode?.TreeShadowRoot, element.TreeShadowRoot))
+                !ReferenceEquals((rule.ParentStyleSheet?.Attachment.OwnerNode ??
+                    rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot, element.TreeShadowRoot))
                 continue;
             _diagnostics?.RuleAttempted(element, rule);
             if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
@@ -549,25 +551,23 @@ internal sealed partial class NativeCssQuery
 
     internal void Verify()
     {
-        VerifyControlFactsSeed();
-        _work.CheckCancellation();
-        VerifyControlFactsSeed();
-        if (!_resourceStamp.CanReuse || NativeCssStyleSheets.Stamp(_document) != _resourceStamp ||
+        var inlineCount = _inline.Count;
+        _work.Charge(inlineCount);
+        // The graph's final host checkpoint precedes every witness comparison. A later callback
+        // could mutate a sheet or native document that an earlier comparison already accepted.
+        var current = _sheetRevisions.IsCurrent(_work);
+        if (!current || _inline.Count != inlineCount || !_resourceStamp.CanReuse || NativeCssStyleSheets.Stamp(_document) != _resourceStamp ||
             _documentStamp == ulong.MaxValue || _document.MutationStamp != _documentStamp)
             throw new InvalidOperationException(Invalidated);
-        for (var i = 0; i < _sheets.Length; i++)
-        {
-            _work.Charge(1);
-            if (!_sheetStamps[i].CanReuse || _sheets[i].Sheet.Stamp != _sheetStamps[i])
-                throw new InvalidOperationException(Invalidated);
-        }
+        VerifyControlFactsSeed();
+        var compared = 0;
         foreach (var inline in _inline.Values)
         {
-            _work.Charge(1);
+            if ((compared++ & 1023) == 0) _work.Token.ThrowIfCancellationRequested();
             if (!inline.Stamp.CanReuse || inline.Block.Stamp != inline.Stamp)
                 throw new InvalidOperationException(Invalidated);
         }
-        VerifyControlFactsSeed();
+        _work.Token.ThrowIfCancellationRequested();
     }
 
     private void VerifyControlFactsSeed()
