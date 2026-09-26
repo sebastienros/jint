@@ -5,10 +5,11 @@ namespace Jint.HtmlParser;
 /// <summary>HTML §4.10.10 option selectedness, dirtiness and HTML-aware text.</summary>
 internal sealed class HtmlOptionState
 {
-    internal HtmlOptionState(Element element, CancellationToken token = default)
+    internal HtmlOptionState(Element element, CancellationToken token = default) : this(element, null, token) { }
+    internal HtmlOptionState(Element element, HtmlSelectWorkContext? context, CancellationToken token = default)
     {
         Element = element;
-        RefreshMetadata(token);
+        RefreshMetadataWithWork(context, token);
         _core = element.InitializeOptionCore(DefaultSelected);
     }
     internal HtmlOptionState(Element element, HtmlOptionMetadata metadata)
@@ -30,8 +31,10 @@ internal sealed class HtmlOptionState
         state.SelectedPosition(Element) >= 0 ? state : null;
     internal int SelectedPosition => SelectionIndexOwner?.SelectedPosition(Element) ?? -1;
     internal void RefreshMetadata(CancellationToken token)
+        => RefreshMetadataWithWork((HtmlSelectWorkContext?) null, token);
+    internal void RefreshMetadataWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
-        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
+        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, context, token);
         work.Check();
         ApplyMetadata(HtmlOptionMetadata.Read(Element.Attributes, ref work));
     }
@@ -55,12 +58,18 @@ internal sealed class HtmlOptionState
         => HtmlSelectWork.StringEquals(_id, name, ref work) || HtmlSelectWork.StringEquals(_name, name, ref work);
     internal Element? CachedNearestSelect { get => _core.CachedNearestSelect; set => _core.CachedNearestSelect = value; }
     internal Element? GetForm(CancellationToken token)
-        => HtmlSelectAncestry.GetNearestSelect(Element, token) is { } select ? HtmlFormState.GetOwner(select) : null;
-    internal bool IsDisabled(CancellationToken token) => HtmlDisabledness.IsOptionDisabled(Element, token);
+        => GetFormWithWork((HtmlSelectWorkContext?) null, token);
+    internal Element? GetFormWithWork(HtmlSelectWorkContext? context, CancellationToken token)
+        => HtmlSelectAncestry.GetNearestSelectWithWork(Element, context, token) is { } select ? HtmlFormState.GetOwner(select) : null;
+    internal bool IsDisabled(CancellationToken token)
+        => IsDisabledWithWork((HtmlSelectWorkContext?) null, token);
+    internal bool IsDisabledWithWork(HtmlSelectWorkContext? context, CancellationToken token) => HtmlDisabledness.IsOptionDisabledWithWork(Element, context, token);
     internal int GetIndex(CancellationToken token)
+        => GetIndexWithWork((HtmlSelectWorkContext?) null, token);
+    internal int GetIndexWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
-        var select = HtmlSelectAncestry.GetNearestSelect(Element, token);
-        return select is null ? 0 : Math.Max(0, select.GetHtmlState()!.GetSelectState(token)!.IndexOf(Element, token));
+        var select = HtmlSelectAncestry.GetNearestSelectWithWork(Element, context, token);
+        return select is null ? 0 : Math.Max(0, select.GetHtmlState()!.GetSelectStateWithWork(context, token)!.IndexOfWithWork(Element, context, token));
     }
     internal void SetDefaultSelected(bool value)
     {
@@ -68,32 +77,42 @@ internal sealed class HtmlOptionState
         else Element.RemoveAttributeNS(null, "selected");
     }
     internal void SetSelected(bool value, CancellationToken token)
+        => SetSelectedWithWork(value, (HtmlSelectWorkContext?) null, token);
+    internal void SetSelectedWithWork(bool value, HtmlSelectWorkContext? context, CancellationToken token)
     {
-        _core.SetSelected(value, token);
+        _core.SetSelectedWithWork(value, context, token);
     }
     internal void Write(bool selected, bool dirty, bool markDocument = true)
         => _core.Write(selected, dirty, markDocument);
     internal void CopyFrom(HtmlOptionState source) => _core.CopyFrom(source._core);
     internal string GetValue(CancellationToken token)
+        => GetValueWithWork((HtmlSelectWorkContext?) null, token);
+    internal string GetValueWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return _value ?? GetText(token);
+        return _value ?? GetTextWithWork(context, token);
     }
     internal void SetValue(string value) { ArgumentNullException.ThrowIfNull(value); Element.SetAttribute("value", value); }
     internal string GetLabel(CancellationToken token)
+        => GetLabelWithWork((HtmlSelectWorkContext?) null, token);
+    internal string GetLabelWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return _label ?? GetText(token);
+        return _label ?? GetTextWithWork(context, token);
     }
     internal string GetSemanticLabel(CancellationToken token)
+        => GetSemanticLabelWithWork((HtmlSelectWorkContext?) null, token);
+    internal string GetSemanticLabelWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        return string.IsNullOrEmpty(_label) ? GetText(token) : _label;
+        return string.IsNullOrEmpty(_label) ? GetTextWithWork(context, token) : _label;
     }
     internal void SetLabel(string value) { ArgumentNullException.ThrowIfNull(value); Element.SetAttribute("label", value); }
     internal string GetText(CancellationToken token)
+        => GetTextWithWork((HtmlSelectWorkContext?) null, token);
+    internal string GetTextWithWork(HtmlSelectWorkContext? context, CancellationToken token)
     {
-        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
+        var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, context, token);
         work.Check();
         var text = new StringBuilder();
         var pendingSpace = false;
@@ -125,25 +144,124 @@ internal sealed class HtmlOptionState
         }
     }
     internal void SetText(string value, CancellationToken token)
+        => SetTextWithWork(value, (HtmlSelectWorkContext?) null, token);
+    internal void SetTextWithWork(string value, HtmlSelectWorkContext? context, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(value);
         token.ThrowIfCancellationRequested();
         Element.ReplaceChildren(value.Length == 0 ? null : Element.OwnerDocument!.CreateTextNode(value));
     }
-    internal void ParserFinished(CancellationToken token) => HtmlSelectedContent.MaybeCloneOption(this, token);
-    internal static Element Create(Document document, string text, string? value, bool defaultSelected,
-        bool selected, CancellationToken token)
+    internal void ParserFinished(CancellationToken token)
+        => ParserFinishedWithWork((HtmlSelectWorkContext?) null, token);
+    internal void ParserFinishedWithWork(HtmlSelectWorkContext? context, CancellationToken token) => HtmlSelectedContent.MaybeCloneOptionWithWork(this, context, token);
+    internal static Element Create(Document document, string text, string? value, bool defaultSelected, bool selected, CancellationToken token)
+        => CreateWithWork(document, text, value, defaultSelected, selected, (HtmlSelectWorkContext?) null, token);
+    internal static Element CreateWithWork(Document document, string text, string? value, bool defaultSelected, bool selected, HtmlSelectWorkContext? context, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(text);
         token.ThrowIfCancellationRequested();
         var option = document.CreateElementNS(Namespaces.Html, "option");
-        var state = option.GetHtmlState()!.GetOptionState(token)!;
-        state.SetText(text, token);
+        var state = option.GetHtmlState()!.GetOptionStateWithWork(context, token)!;
+        state.SetTextWithWork(text, context, token);
         if (value is not null) state.SetValue(value);
         state.SetDefaultSelected(defaultSelected);
         // Option's fourth argument overrides attribute initialization without dirtiness.
         state.Write(selected, false);
         return option;
+    }
+
+    internal void RefreshMetadata(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        RefreshMetadataWithWork(context, token);
+    }
+    internal Element? GetForm(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetFormWithWork(context, token);
+    }
+    internal bool IsDisabled(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return IsDisabledWithWork(context, token);
+    }
+    internal int GetIndex(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetIndexWithWork(context, token);
+    }
+    internal void SetSelected(bool value, Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        SetSelectedWithWork(value, context, token);
+    }
+    internal string GetValue(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetValueWithWork(context, token);
+    }
+    internal string GetLabel(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetLabelWithWork(context, token);
+    }
+    internal string GetSemanticLabel(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetSemanticLabelWithWork(context, token);
+    }
+    internal string GetText(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetTextWithWork(context, token);
+    }
+    internal void SetText(string value, Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        SetTextWithWork(value, context, token);
+    }
+    internal void ParserFinished(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        ParserFinishedWithWork(context, token);
+    }
+    internal static Element Create(Document document, string text, string? value, bool defaultSelected, bool selected, Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return CreateWithWork(document, text, value, defaultSelected, selected, context, token);
+    }
+    internal void SetDefaultSelected(bool value, Action<int>? checkpoint, CancellationToken token)
+    {
+        // The operation context is transient even when only cancellation is supplied.
+        var context = new HtmlSelectWorkContext(checkpoint ?? (static _ => { }), token);
+        context.Check();
+        if (!_core.DirtySelectedness && DefaultSelected != value)
+            context.AttributeSelection = CachedNearestSelect is { } select
+                ? select.GetSelectCoreWithWork(context, token).PrepareAttributeSelection(_core, value, context, token)
+                : new HtmlOptionAttributeSelection(null, _core, value, null);
+        Element.SetSelectAttribute("selected", value ? string.Empty : null, context, token);
+    }
+    internal void SetValue(string value, Action<int>? checkpoint, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        Element.SetSelectAttribute("value", value, HtmlSelectWorkContext.Create(checkpoint, token), token);
+    }
+    internal void SetLabel(string value, Action<int>? checkpoint, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        Element.SetSelectAttribute("label", value, HtmlSelectWorkContext.Create(checkpoint, token), token);
     }
 }

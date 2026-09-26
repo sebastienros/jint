@@ -49,8 +49,10 @@ internal sealed class HtmlElementState
     private HtmlSelectState? _select;
     internal HtmlSelectState? Select => GetSelectState(default);
     internal HtmlSelectState? GetSelectState(CancellationToken token)
+        => GetSelectStateWithWork((HtmlSelectWorkContext?) null, token);
+    internal HtmlSelectState? GetSelectStateWithWork(HtmlSelectWorkContext? context, CancellationToken token)
         => Element is { NamespaceUri: Namespaces.Html, LocalName: "select" }
-            ? _select ??= new HtmlSelectState(Element, token) : null;
+            ? _select ??= new HtmlSelectState(Element, context, token) : null;
     internal HtmlSelectState InitializeSelect(HtmlSelectMetadata metadata)
     {
         if (_select is null) _select = new HtmlSelectState(Element, metadata);
@@ -61,8 +63,10 @@ internal sealed class HtmlElementState
     private HtmlOptionState? _option;
     internal HtmlOptionState? Option => GetOptionState(default);
     internal HtmlOptionState? GetOptionState(CancellationToken token)
+        => GetOptionStateWithWork((HtmlSelectWorkContext?) null, token);
+    internal HtmlOptionState? GetOptionStateWithWork(HtmlSelectWorkContext? context, CancellationToken token)
         => Element is { NamespaceUri: Namespaces.Html, LocalName: "option" }
-            ? _option ??= new HtmlOptionState(Element, token) : null;
+            ? _option ??= new HtmlOptionState(Element, context, token) : null;
     internal HtmlOptionState InitializeOption(HtmlOptionMetadata metadata)
     {
         if (_option is null) _option = new HtmlOptionState(Element, metadata);
@@ -80,6 +84,9 @@ internal sealed class HtmlElementState
 
     internal HtmlDisabledState GetDisabledState(CancellationToken cancellationToken)
         => HtmlDisabledness.GetState(Element, cancellationToken);
+
+    internal HtmlDisabledState GetDisabledStateWithWork(HtmlSelectWorkContext? context, CancellationToken token)
+        => HtmlDisabledness.GetStateWithWork(Element, context, token);
 
     internal Element? FirstLegend(ref HtmlDisabledWork work)
     {
@@ -110,5 +117,18 @@ internal sealed class HtmlElementState
     {
         _firstLegend = null;
         _firstLegendKnown = false;
+    }
+
+    internal HtmlSelectState? GetSelectState(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetSelectStateWithWork(context, token);
+    }
+    internal HtmlOptionState? GetOptionState(Action<int>? checkpoint, CancellationToken token)
+    {
+        var context = HtmlSelectWorkContext.Create(checkpoint, token);
+        context?.Check();
+        return GetOptionStateWithWork(context, token);
     }
 }
