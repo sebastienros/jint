@@ -29,7 +29,9 @@ time; it never resurrects an earlier candidate.
 This is the initial integration checkpoint. Origin/importance/inline/specificity/source-order
 selection, inheritance/defaulting, origin/rule rollback, deferred values, media filtering,
 source identity and invalidation have actual-source tests in `Jint.Tests.HtmlParser`.
-Computed numeric conversion and color dependencies are still being implemented. Layer
+Typed numeric computation converts absolute/viewport/font-metric lengths and simplifies the
+shared math graph on demand. Unresolved percentage bases stay typed percentages/calculations;
+font metrics must be supplied explicitly. Color dependencies are still being integrated. Layer
 rollback is explicitly pending. Browser call sites have not switched to this producer yet;
 the source harness is not evidence that `getComputedStyle`, layout or protocol coverage
 already use it. Used geometry belongs to Browser layout, not CSS syntax or validators.

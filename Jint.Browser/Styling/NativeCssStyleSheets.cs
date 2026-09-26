@@ -47,6 +47,16 @@ internal static partial class NativeCssStyleSheets
     {
         var result = new List<NativeCssSheet>();
         if (!Documents.TryGetValue(document, out var resources)) return result;
+        var revision = new CssMutationStamp(resources.Version);
+        var documentStamp = document.MutationStamp;
+        void Verify()
+        {
+            work.CheckCancellation();
+            if (!revision.CanReuse || resources.Version != revision.Value ||
+                documentStamp == ulong.MaxValue || document.MutationStamp != documentStamp)
+                throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        }
+        Verify();
         // DOM order, rather than load completion order, owns stylesheet order.
         var pending = new Stack<Node>();
         pending.Push(document);
@@ -57,13 +67,16 @@ internal static partial class NativeCssStyleSheets
             {
                 if (entry.Sheet is null)
                 {
-                    entry.Sheet = CssStyleSheet.Parse(entry.Source, null, work, work.Token);
-                    entry.Sheet.SetAttachment(entry.Attachment);
+                    var sheet = CssStyleSheet.Parse(entry.Source, null, work, work.Token);
+                    sheet.SetAttachment(entry.Attachment);
+                    Verify();
+                    entry.Sheet = sheet;
                     entry.Replaced = false;
                 }
                 else if (entry.Replaced)
                 {
                     entry.Sheet.ReplaceText(entry.Source, null, work, work.Token);
+                    Verify();
                     entry.Sheet.SetAttachment(entry.Attachment);
                     entry.Replaced = false;
                 }
@@ -75,7 +88,7 @@ internal static partial class NativeCssStyleSheets
                 pending.Push(child);
             }
         }
-        work.CheckCancellation();
+        Verify();
         return result.AsReadOnly();
     }
 

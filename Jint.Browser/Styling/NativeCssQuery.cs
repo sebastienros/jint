@@ -21,7 +21,7 @@ internal sealed record NativeCssProperty(string Name, string Text, CssPropertyVa
 
 // CSS Cascade 5 §§6–7 and Variables 1 §3. One synchronous, immutable-input query.
 // Matching retains specified candidates; only GetProperty and explicit enumeration compute values.
-internal sealed class NativeCssQuery
+internal sealed partial class NativeCssQuery
 {
     internal const string Invalidated = "The native CSS query was invalidated by mutation.";
     private readonly Document _document;
@@ -32,6 +32,7 @@ internal sealed class NativeCssQuery
     private readonly Dictionary<Element, (CssDeclarationBlock Block, CssMutationStamp Stamp)> _inline = new();
     private readonly Dictionary<Element, State> _states = new();
     private readonly CssMediaEnvironment _media;
+    private readonly NativeCssMetrics _metrics;
     private readonly SelectorEnvironment _selectors;
     private readonly CssEnvironmentSnapshot _environment;
     private readonly CssValueWork _work;
@@ -39,12 +40,13 @@ internal sealed class NativeCssQuery
     internal NativeCssQuery(Document document, IReadOnlyList<NativeCssSheet> sheets,
         IReadOnlyList<(Element Element, CssDeclarationBlock Block)> inline,
         CssMediaEnvironment media, in SelectorEnvironment selectors,
-        CssEnvironmentSnapshot environment, CssValueWork work)
+        CssEnvironmentSnapshot environment, CssValueWork work, NativeCssMetrics? metrics = null)
     {
         _document = document;
         _documentStamp = document.MutationStamp;
         _resourceStamp = NativeCssStyleSheets.Stamp(document);
         _media = media;
+        _metrics = metrics ?? new NativeCssMetrics();
         _selectors = selectors;
         _environment = environment;
         _work = work;
@@ -79,6 +81,7 @@ internal sealed class NativeCssQuery
             var failure = CssPropertyParser.NameFailure(name, CssDeclarationContext.Style);
             if (failure is { Status: CssPropertyStatus.UnimplementedGrammar })
                 throw new CssIncompleteGrammarException(name, failure.Value.Blocker!, default);
+            Verify();
             return new(name, "", null, null, NativeCssDisposition.Initial);
         }
         if (metadata.Longhands.Count != 0)
@@ -104,14 +107,11 @@ internal sealed class NativeCssQuery
             _work.Charge(1);
             var state = StateOf(current, ref matching);
             if (state.Computed.TryGetValue(name, out result!)) break;
-            var candidate = Winner(state, name);
-            var value = candidate?.Declaration.Value;
+            var candidate = Winner(state, name, ref matching, substitute: true);
+            var value = candidate is { WasSubstituted: true } ? candidate.Resolved : candidate?.Declaration.Value;
             var disposition = NativeCssDisposition.Cascaded;
-            if (value?.Kind == CssPropertyValueKind.Deferred)
-            {
-                value = Substitute(state, candidate!, name, ref matching);
-                if (value is null) disposition = NativeCssDisposition.InvalidAtComputedValue;
-            }
+            if (candidate is { WasSubstituted: true, Resolved: null })
+                disposition = NativeCssDisposition.InvalidAtComputedValue;
             var inherit = value is null ? metadata.Inherited : value.Kind == CssPropertyValueKind.Keyword &&
                 (value.Text == "inherit" || value.Text == "unset" && metadata.Inherited);
             if (inherit && current.ParentNode is Element parent)
@@ -127,6 +127,7 @@ internal sealed class NativeCssQuery
                 value = CssPropertyParser.Parse(name, metadata.InitialValue).Value;
                 if (disposition != NativeCssDisposition.InvalidAtComputedValue) disposition = NativeCssDisposition.Initial;
             }
+            value = Compute(name, value);
             result = new(name, value.Serialize(), value, candidate?.Source, disposition);
             state.Computed.Add(name, result);
             break;
@@ -151,23 +152,43 @@ internal sealed class NativeCssQuery
 
     internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, ref SelectorMatchWork matching)
     {
+        var own = StateOf(element, ref matching);
+        if (own.Enumeration is { } cached) return cached;
         var result = new List<NativeCssProperty>();
+        var ordinary = new List<string>();
         foreach (var entry in CssPropertyRegistry.Completed.Values)
         {
             _work.Charge(1);
-            if (entry.Longhands.Count == 0) result.Add(GetProperty(element, entry.Name, ref matching));
+            if (entry.Longhands.Count == 0) ordinary.Add(entry.Name);
         }
-        Variables(StateOf(element, ref matching), ref matching);
+        ordinary.Sort(CompareNames);
+        foreach (var name in ordinary) result.Add(GetProperty(element, name, ref matching));
+        Variables(own, ref matching);
         var names = new HashSet<string>(new Names(_work));
-        for (var state = StateOf(element, ref matching); state is not null; state = state.Parent)
+        for (var state = own; state is not null; state = state.Parent)
             foreach (var name in state.Candidates.Keys)
             {
                 _work.Charge(1);
                 if (name.StartsWith("--", StringComparison.Ordinal)) names.Add(name);
             }
-        foreach (var name in names) result.Add(Custom(element, name, ref matching));
+        var custom = names.ToList();
+        _work.Charge(custom.Count);
+        custom.Sort(CompareNames);
+        foreach (var name in custom) result.Add(Custom(element, name, ref matching));
         Verify();
-        return result.AsReadOnly();
+        return own.Enumeration = result.AsReadOnly();
+    }
+
+    private int CompareNames(string left, string right)
+    {
+        var length = System.Math.Min(left.Length, right.Length);
+        for (var i = 0; i < length; i++)
+        {
+            _work.Charge(1);
+            var result = left[i].CompareTo(right[i]);
+            if (result != 0) return result;
+        }
+        return left.Length.CompareTo(right.Length);
     }
 
     private State StateOf(Element element, ref SelectorMatchWork matching)
@@ -223,7 +244,7 @@ internal sealed class NativeCssQuery
         return comparison != 0 ? comparison : left.Source.Order.CompareTo(right.Source.Order);
     }
 
-    private Candidate? Winner(State state, string name)
+    private Candidate? Winner(State state, string name, ref SelectorMatchWork matching, bool substitute = false)
     {
         if (!state.Candidates.TryGetValue(name, out var candidates)) return null;
         var excludedOrigins = new bool[3];
@@ -234,19 +255,21 @@ internal sealed class NativeCssQuery
             var origin = (int) candidate.Source.Origin;
             if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block)) continue;
             var value = candidate.Declaration.Value;
-            if (value.Kind == CssPropertyValueKind.Keyword && value.Text == "revert")
+            var deferred = substitute && value.Kind == CssPropertyValueKind.Deferred;
+            if (deferred) value = Substitute(state, candidate, name, ref matching);
+            if (value?.Kind == CssPropertyValueKind.Keyword && value.Text == "revert")
             {
                 for (var i = origin; i < excludedOrigins.Length; i++) excludedOrigins[i] = true;
                 continue;
             }
-            if (value.Kind == CssPropertyValueKind.Keyword && value.Text == "revert-rule")
+            if (value?.Kind == CssPropertyValueKind.Keyword && value.Text == "revert-rule")
             {
                 excludedRules.Add(candidate.Source.Block);
                 continue;
             }
-            if (value.Kind == CssPropertyValueKind.Keyword && value.Text == "revert-layer")
+            if (value?.Kind == CssPropertyValueKind.Keyword && value.Text == "revert-layer")
                 throw new CssIncompleteGrammarException(name, "C6:revert-layer", value.Span);
-            return candidate;
+            return deferred ? candidate with { Resolved = value, WasSubstituted = true } : candidate;
         }
         return null;
     }
@@ -271,7 +294,7 @@ internal sealed class NativeCssQuery
             {
                 _work.Charge(1);
                 if (!name.StartsWith("--", StringComparison.Ordinal)) continue;
-                var candidate = Winner(current, name);
+                var candidate = Winner(current, name, ref matching);
                 if (candidate is null) continue;
                 var value = candidate.Declaration.Value;
                 if (value.Kind == CssPropertyValueKind.Custom)
@@ -300,7 +323,7 @@ internal sealed class NativeCssQuery
             if (result.Kind == CssSubstitutionResultKind.Tokens)
                 text = CssSyntaxSerializer.SerializeComponents(result.Value.Components, _work);
         }
-        var property = new NativeCssProperty(name, text, null, Winner(state, name)?.Source, NativeCssDisposition.Cascaded);
+        var property = new NativeCssProperty(name, text, null, Winner(state, name, ref matching)?.Source, NativeCssDisposition.Cascaded);
         Verify();
         state.Computed.Add(name, property);
         return property;
@@ -363,12 +386,14 @@ internal sealed class NativeCssQuery
         }
     }
 
-    private sealed record Candidate(CssDeclaration Declaration, NativeCssSource Source);
+    private sealed record Candidate(CssDeclaration Declaration, NativeCssSource Source,
+        CssPropertyValue? Resolved = null, bool WasSubstituted = false);
     private sealed class State(Element element, CssValueWork work)
     {
         internal Element Element { get; } = element;
         internal State? Parent;
         internal CssSubstitutionSnapshot? Variables;
+        internal IReadOnlyList<NativeCssProperty>? Enumeration;
         internal Dictionary<string, List<Candidate>> Candidates { get; } = new(new Names(work));
         internal Dictionary<string, NativeCssProperty> Computed { get; } = new(new Names(work));
         internal Dictionary<CssPendingShorthand, CssDeclaration[]?> Shorthands { get; } = new(ReferenceEqualityComparer.Instance);

@@ -58,6 +58,18 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
+    public void VariableFallbackWideKeywordRollsBackTheOrigin()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var ua = CssStyleSheet.Parse("div { display:block; }");
+        var author = CssStyleSheet.Parse("div { display:var(--missing,revert); }");
+        var query = Query(document, [new(ua, NativeCssOrigin.UserAgent), new(author, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+    }
+
+    [Test]
     public void CustomVariablesKeepDefiningScopeAndDoNotRetokenize()
     {
         var document = Document.CreateHtml();
@@ -147,6 +159,75 @@ public sealed class NativeCssQueryTests
         // An installation never invokes a pending property validator during HTML parsing.
         NativeCssStyleSheets.Install(document, owner, "div { background:red; }", "", "", work);
         Assert.Throws<CssIncompleteGrammarException>(() => NativeCssStyleSheets.Get(document, work));
+    }
+
+    [TestCase("width:1in", "width", "96px")]
+    [TestCase("height:25vh", "height", "192px")]
+    [TestCase("width:calc(10vw + 4px)", "width", "106.4px")]
+    [TestCase("width:calc(50% + 4px)", "width", "calc(50% + 4px)")]
+    [TestCase("width:calc(-2px)", "width", "0px")]
+    [TestCase("width:20%", "width", "20%")]
+    [TestCase("opacity:150%", "opacity", "1")]
+    [TestCase("opacity:calc(25% * 2)", "opacity", "0.5")]
+    [TestCase("opacity:calc(-1)", "opacity", "0")]
+    [TestCase("z-index:calc(2.5)", "z-index", "3")]
+    public void ComputationUsesTypedNumbersAndKeepsPercentageBases(string declarations, string name, string expected)
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var block = CssDeclarationBlock.Parse(declarations);
+        var query = Query(document, [], [(target, block)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, name, ref matching).Text.Should().Be(expected);
+    }
+
+    [Test]
+    public void FontDependentUnitRequiresAnExplicitMetricAndDoesNotBlockOtherProperties()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var block = CssDeclarationBlock.Parse("width:2em;display:block");
+        var query = Query(document, [], [(target, block)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "width", ref matching))!
+            .Blocker.Should().Be("C6:font-size");
+        var work = new CssValueWork(default);
+        query = new(document, [], [(target, block)], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, new NativeCssMetrics { FontSize = 20 });
+        query.GetProperty(target, "width", ref matching).Text.Should().Be("40px");
+    }
+
+    [Test]
+    public void ComputedViewDefersEnumerationAndRetainsSnapshotGuards()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var block = CssDeclarationBlock.Parse("display:block; width:2em");
+        var view = new NativeCssComputedStyle(Query(document, [], [(target, block)]), target,
+            new SelectorMatchWork(document, default));
+        view.GetPropertyValue("display").Should().Be("block");
+        view.CssText.Should().BeEmpty();
+        Assert.Throws<CssIncompleteGrammarException>(() => _ = view.Length);
+        block.SetProperty("display", "none");
+        Assert.Throws<InvalidOperationException>(() => view.GetPropertyValue("display"));
+    }
+
+    [Test]
+    public void DeepInheritanceDoesNotUseTheClrCallStack()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("div");
+        var target = root;
+        for (var i = 0; i < 10_000; i++)
+        {
+            var child = document.CreateElement("span");
+            target.AppendParsedChild(child);
+            target = child;
+        }
+        var query = Query(document, [], [(root, CssDeclarationBlock.Parse("visibility:hidden"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
     }
 
     private static NativeCssQuery Query(Document document, NativeCssSheet[] sheets,
