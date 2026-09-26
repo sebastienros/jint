@@ -242,6 +242,22 @@ internal static class CssMathSerializer
             Append(builder, ")", work);
             return;
         }
+        AppendFiniteNumber(builder, value, work);
+        if (numeric.Kind == CssNumericKind.Percentage) Append(builder, "%", work);
+        else if (numeric.Kind == CssNumericKind.Dimension) Append(builder, UnitName(numeric.Unit), work);
+    }
+
+    internal static string SerializeFiniteNumber(double value, CssValueWork work)
+    {
+        if (!double.IsFinite(value)) throw new ArgumentOutOfRangeException(nameof(value));
+        var builder = new StringBuilder();
+        AppendFiniteNumber(builder, value, work);
+        work.CheckCancellation();
+        return builder.ToString();
+    }
+
+    private static void AppendFiniteNumber(StringBuilder builder, double value, CssValueWork work)
+    {
         if (value == 0) value = 0;
         Span<char> scratch = stackalloc char[384];
         work.CheckCancellation();
@@ -262,8 +278,6 @@ internal static class CssMathSerializer
             work.Charge(length);
             if (grows) work.CheckCancellation();
         }
-        if (numeric.Kind == CssNumericKind.Percentage) Append(builder, "%", work);
-        else if (numeric.Kind == CssNumericKind.Dimension) Append(builder, UnitName(numeric.Unit), work);
     }
 
     private static readonly string[] UnitNames = Enum.GetValues<CssUnit>()
