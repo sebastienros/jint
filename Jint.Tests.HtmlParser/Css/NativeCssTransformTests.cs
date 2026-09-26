@@ -22,7 +22,7 @@ public sealed class NativeCssTransformTests
     [TestCase("rotate", "0 0 0 45deg", "0 0 0 45deg")]
     [TestCase("rotate", "calc(1 + 1) 0 0 calc(.25turn)", "x 90deg")]
     [TestCase("rotate", "0 0 -2 .5turn", "-180deg")]
-    [TestCase("rotate", "0", "0deg")]
+    [TestCase("rotate", "0deg", "0deg")]
     [TestCase("scale", "-50% 200% 100%", "-0.5 2")]
     [TestCase("scale", "calc(50% * 2)", "1")]
     [TestCase("scale", "calc(-2 * .25) 1 2", "-0.5 1 2")]

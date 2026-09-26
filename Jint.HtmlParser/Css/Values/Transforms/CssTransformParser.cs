@@ -39,8 +39,8 @@ internal static class CssTransformParser
         CssSourceSpan span, CssValueWork work)
     {
         if (parts.Count is not (1 or 2 or 4)) return Invalid();
-        // Try complete productions: a leading zero can be either an angle or an axis.
-        // Prefer canonical axis-before-angle order when both ends are unitless zero.
+        // CSS Transforms 2 §5 requires an angle, including at zero. Try both complete
+        // productions while keeping the three numeric axis components together.
         var first = RotateAt(parts, parts.Count - 1, maximumDepth, span, work);
         if (first.Status == CssPropertyStatus.Valid || parts.Count == 1) return first;
         var last = RotateAt(parts, 0, maximumDepth, span, work);
@@ -96,18 +96,17 @@ internal static class CssTransformParser
             {
                 CssMathProduction.Number => token.Kind == CssTokenKind.Number,
                 CssMathProduction.NumberOrPercentage => token.Kind is CssTokenKind.Number or CssTokenKind.Percentage,
-                CssMathProduction.Angle => token.Kind == CssTokenKind.Dimension && unit.Category() == CssUnitCategory.Angle ||
-                    token.Kind == CssTokenKind.Number && number.Sign == 0,
+                CssMathProduction.Angle => token.Kind == CssTokenKind.Dimension && unit.Category() == CssUnitCategory.Angle,
                 _ => token.Kind == CssTokenKind.Dimension && unit.Category() == CssUnitCategory.Length ||
                     token.Kind == CssTokenKind.Number && number.Sign == 0 ||
                     production == CssMathProduction.LengthPercentage && token.Kind == CssTokenKind.Percentage
             };
             if (!admissible) return Invalid();
             var kind = atom.Kind;
-            if (kind == CssNumericKind.Number && production is CssMathProduction.Angle or CssMathProduction.Length or CssMathProduction.LengthPercentage)
+            if (kind == CssNumericKind.Number && production is CssMathProduction.Length or CssMathProduction.LengthPercentage)
             {
                 kind = CssNumericKind.Dimension;
-                unit = production == CssMathProduction.Angle ? CssUnit.Deg : CssUnit.Px;
+                unit = CssUnit.Px;
             }
             var finite = CssMathNumbers.ParseFinite(number, CssUnit.None, work);
             if (production == CssMathProduction.NumberOrPercentage && kind == CssNumericKind.Percentage)
