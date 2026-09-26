@@ -171,6 +171,13 @@ internal static class FormSubmission
             return true;
         }
 
+        return CheckValidity(realm, form);
+    }
+
+    /// <summary>HTML form.checkValidity(): validate owned controls even when submission validation is bypassed.</summary>
+    /// <remarks>https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-cva-checkvalidity</remarks>
+    internal static bool CheckValidity(DomRealm realm, Element form)
+    {
         List<Element>? invalid = null;
 
         // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#statically-validate-the-constraints:
@@ -197,7 +204,7 @@ internal static class FormSubmission
 
         foreach (var control in invalid)
         {
-            var ev = realm.Engine._mainRealm.Intrinsics.Event.CreateTrustedEvent(
+            var ev = realm.OwningRealm.Intrinsics.Event.CreateTrustedEvent(
                 JsString.Create("invalid"),
                 new EventInit(Bubbles: false, Cancelable: true, Composed: false));
 
