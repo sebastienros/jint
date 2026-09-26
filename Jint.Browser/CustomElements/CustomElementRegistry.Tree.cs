@@ -108,6 +108,7 @@ internal sealed partial class CustomElementRegistry
                     // The next record's old value is this mutation's new value, including removals.
                     for (var j = i + 1; j < records.Count; j++)
                     {
+                        if ((j & 255) == 0) _runtime.Engine.Constraints.Check();
                         var next = records[j];
                         if (ReferenceEquals(next.Target, element) && next.AttributeName == name
                             && next.AttributeNamespace == mutation.AttributeNamespace)

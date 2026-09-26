@@ -1,6 +1,5 @@
 using System.Text;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Object;
@@ -57,7 +56,7 @@ internal static class FormSubmitter
     /// <param name="runtime">The page runtime the form belongs to.</param>
     /// <param name="form">The form to submit.</param>
     /// <param name="submitter">The element that caused the submission, or <see langword="null"/>.</param>
-    internal static void Submit(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
+    internal static void Submit(PageRuntime runtime, Element form, Element? submitter)
     {
         if (runtime.SubmittingForms.Contains(form))
         {
@@ -67,15 +66,20 @@ internal static class FormSubmitter
         Navigate(runtime, form, submitter);
     }
 
-    private static void Navigate(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
+    private static void Navigate(PageRuntime runtime, Element form, Element? submitter)
     {
-        var action = Attribute(submitter, "formaction") ?? form.GetAttribute("action");
+        var work = new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+        work.Check();
+        string? Attribute(Element? element, string name) => element is null ? null : work.Attribute(element, name);
+        var action = Attribute(submitter, "formaction") ?? Attribute(form, "action");
         if (string.IsNullOrEmpty(action))
         {
             action = runtime.DocumentUrl;
         }
 
-        var target = PageUrl.Parse(action!, runtime.DocumentUrl);
+        var target = PageUrl.Parse(action!, DomDocumentState.BaseUri(form.OwnerDocument!,
+            runtime.Engine.Constraints.Check, runtime.Dom.CancellationToken));
+        work.Check();
         if (target is null)
         {
             runtime.Recorder.Add(
@@ -85,8 +89,10 @@ internal static class FormSubmitter
             return;
         }
 
-        var method = (Attribute(submitter, "formmethod") ?? form.GetAttribute("method") ?? "get").ToLowerInvariant();
-        var enctype = Normalize(Attribute(submitter, "formenctype") ?? form.GetAttribute("enctype"));
+        var rawMethod = Attribute(submitter, "formmethod") ?? Attribute(form, "method");
+        var method = work.EqualAsciiIgnoreCase(rawMethod, "post") ? "post"
+            : work.EqualAsciiIgnoreCase(rawMethod, "dialog") ? "dialog" : "get";
+        var enctype = Normalize(Attribute(submitter, "formenctype") ?? Attribute(form, "enctype"));
 
         if (string.Equals(method, "dialog", StringComparison.Ordinal))
         {
@@ -105,7 +111,7 @@ internal static class FormSubmitter
 
         // target=_blank opens a new page in a browser; there is no page-opening seam in this version, so
         // every target loads here and the page is told rather than left wondering.
-        var frameTarget = Attribute(submitter, "formtarget") ?? form.GetAttribute("target");
+        var frameTarget = Attribute(submitter, "formtarget") ?? Attribute(form, "target");
         if (!string.IsNullOrEmpty(frameTarget)
             && !string.Equals(frameTarget, "_self", StringComparison.OrdinalIgnoreCase))
         {
@@ -168,7 +174,7 @@ internal static class FormSubmitter
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-form-data-set,
     /// including the <c>formdata</c> event a script may amend the result in.
     /// </summary>
-    internal static List<FormDataEntry>? ConstructEntryList(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
+    internal static List<FormDataEntry>? ConstructEntryList(PageRuntime runtime, Element form, Element? submitter)
     {
         if (!runtime.SubmittingForms.Add(form))
         {
@@ -183,12 +189,9 @@ internal static class FormSubmitter
             // image inputs and decides ownership by AngleSharp's rule rather than the standard's. The walk is
             // over the form's whole tree in tree order, so a control outside the form that the `form`
             // attribute associated with it contributes, and one inside it that points elsewhere does not.
-            foreach (var element in HtmlFormOwner.ControlsOf(form))
+            foreach (var element in HtmlFormOwner.ControlsOf(form, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
             {
-                if (element is IHtmlElement html)
-                {
-                    Append(runtime, entries, html, submitter);
-                }
+                Append(runtime, entries, element, submitter);
             }
 
             return FireFormData(runtime, form, entries);
@@ -199,172 +202,99 @@ internal static class FormSubmitter
         }
     }
 
-    private static void Append(PageRuntime runtime, List<FormDataEntry> entries, IHtmlElement element, IElement? submitter)
+    private static void Append(PageRuntime runtime, List<FormDataEntry> entries, Element element, Element? submitter)
     {
-        // Step 5.1: a control inside a datalist is a suggestion, not a submission.
-        if (element.Closest("datalist") is not null)
+        var realm = runtime.Dom;
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        for (var parent = element.ParentNode; parent is not null; parent = parent.ParentNode)
         {
+            work.Step();
+            if (parent is Element { NamespaceUri: Namespaces.Html, LocalName: "datalist" }) return;
+        }
+        if (element is not { NamespaceUri: Namespaces.Html, LocalName: "input" or "button" or "select" or "textarea" }
+            || HtmlDisabledness.GetState(element, realm.NativeReadCheckpoint, realm.CancellationToken) == HtmlDisabledState.Disabled)
             return;
-        }
-
-        if (element is IHtmlInputElement or IHtmlButtonElement or IHtmlSelectElement or IHtmlTextAreaElement)
-        {
-            if (IsDisabled(element))
-            {
-                return;
-            }
-        }
-        else
-        {
-            // Output, fieldset, object and the rest of form.elements are not submittable.
-            return;
-        }
-
-        // Step 5.5: a button contributes only when it is the submitter.
-        if (element is IHtmlButtonElement && !ReferenceEquals(element, submitter))
-        {
-            return;
-        }
-
-        // Creating an entry converts every name to a scalar value string, including file controls.
-        // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#create-an-entry
-        var rawName = element.GetAttribute("name");
+        if (element.LocalName == "button" && !ReferenceEquals(element, submitter)) return;
+        var rawName = work.Attribute(element, "name");
         var name = rawName is null ? null : UrlCharacters.ToScalarValueString(rawName);
-
-        if (element is IHtmlInputElement input)
+        if (element.LocalName == "input")
         {
-            var type = (input.GetAttribute("type") ?? "text").ToLowerInvariant();
-
+            var type = HtmlInputTypes.Parse(work.Attribute(element, "type"));
             switch (type)
             {
-                case "submit" or "reset" or "button":
-                    if (!ReferenceEquals(element, submitter))
-                    {
-                        return;
-                    }
-
+                case HtmlInputType.Submit or HtmlInputType.Reset or HtmlInputType.Button:
+                    if (!ReferenceEquals(element, submitter)) return;
                     break;
-
-                case "checkbox" or "radio":
-                    if (!input.IsChecked)
-                    {
-                        return;
-                    }
-
+                case HtmlInputType.Checkbox or HtmlInputType.Radio:
+                    if (!element.GetHtmlState()!.CheckedState!.Checked) return;
                     break;
-
-                case "image":
-                    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-entry-list
-                    // step 5.2: the selected image contributes x then y even when it has no name.
+                case HtmlInputType.Image:
                     if (ReferenceEquals(element, submitter))
                     {
                         var prefix = string.IsNullOrEmpty(name) ? "" : name + ".";
-
-                        // The coordinate is the input activation behaviour's — Events/ActivationBehaviors
-                        // selects it, out of a pointer inside an available image or out of nothing at all —
-                        // and it is kept per element because a FormData built long after that click, or a
-                        // requestSubmit that never was a click, reads it right here.
-                        var (x, y) = Events.BrowserEventRealm.Of(runtime.Engine).SelectedImageCoordinate(input);
+                        var (x, y) = Events.BrowserEventRealm.Of(runtime.Engine).SelectedImageCoordinate(element);
                         entries.Add(new FormDataEntry(prefix + "x", JsString.Create(x.ToString(System.Globalization.CultureInfo.InvariantCulture))));
                         entries.Add(new FormDataEntry(prefix + "y", JsString.Create(y.ToString(System.Globalization.CultureInfo.InvariantCulture))));
                     }
-
                     return;
-
-                case "file":
-                    if (string.IsNullOrEmpty(name))
+                case HtmlInputType.File:
+                    if (string.IsNullOrEmpty(name)) return;
+                    var files = Dom.Files.FileTransferRealm.Of(runtime.Engine).InputFiles(element, false);
+                    if (files is { Length: > 0 })
                     {
-                        return;
-                    }
-
-                    var selectedFiles = Dom.Files.FileTransferRealm.Of(runtime.Engine).InputFiles(input, create: false);
-                    if (selectedFiles is { Length: > 0 })
-                    {
-                        foreach (var file in selectedFiles.Files)
+                        foreach (var file in files.Files)
                         {
-                            entries.Add(new FormDataEntry(name!, file));
+                            work.Step();
+                            entries.Add(new FormDataEntry(name, file));
                         }
-
-                        return;
                     }
-
-                    // "If there are no selected files, then append an entry with an empty File object" —
-                    // which is what makes a server see the field at all.
-                    entries.Add(new FormDataEntry(name!, EmptyFile(runtime)));
+                    else entries.Add(new FormDataEntry(name, EmptyFile(runtime)));
                     return;
             }
-
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name)) return;
+            var value = element.GetHtmlState()!.InputValue!.GetValue(realm.CancellationToken);
+            if (type == HtmlInputType.Hidden && work.EqualAsciiIgnoreCase(name, "_charset_")) value = "UTF-8";
+            entries.Add(StringEntry(name, value));
+            AppendDirection(realm, entries, element, work);
+            return;
+        }
+        if (string.IsNullOrEmpty(name)) return;
+        if (element.LocalName == "select")
+        {
+            var options = element.GetHtmlState()!.Select!.SelectedOptions.Snapshot(realm.CancellationToken);
+            work.Check();
+            foreach (var option in options)
             {
-                return;
+                work.Step();
+                if (!HtmlDisabledness.IsOptionDisabled(option, realm.NativeReadCheckpoint, realm.CancellationToken))
+                    entries.Add(StringEntry(name, option.GetHtmlState()!.Option!.GetValue(realm.CancellationToken)));
             }
-
-            // A checkbox with no value attribute submits "on".
-            var value = type is "checkbox" or "radio"
-                ? input.GetAttribute("value") ?? "on"
-                : input.Value ?? "";
-
-            // This browser submits UTF-8; a constructor also uses HTML's default UTF-8 encoding.
-            // Only hidden controls receive the substitution, without changing their DOM value.
-            if (type == "hidden" && Ascii.EqualsIgnoreCase(name, "_charset_"))
-            {
-                value = "UTF-8";
-            }
-
-            entries.Add(StringEntry(name!, value));
-            AppendDirection(entries, element);
             return;
         }
-
-        if (string.IsNullOrEmpty(name))
+        if (element.LocalName == "textarea")
         {
+            entries.Add(StringEntry(name, DomTextAreaMembers.Value(realm, element)));
+            AppendDirection(realm, entries, element, work);
             return;
         }
-
-        if (element is IHtmlSelectElement select)
-        {
-            foreach (var option in select.Options)
-            {
-                if (option.IsSelected && !option.IsDisabled)
-                {
-                    entries.Add(StringEntry(name!, option.Value ?? ""));
-                }
-            }
-
-            return;
-        }
-
-        if (element is IHtmlTextAreaElement textArea)
-        {
-            // The textarea API value has LF newlines. CRLF normalization belongs to the submission
-            // encoding, after formdata listeners have observed and amended this entry list.
-            entries.Add(StringEntry(name!, textArea.Value ?? ""));
-            AppendDirection(entries, element);
-            return;
-        }
-
-        if (element is IHtmlButtonElement button)
-        {
-            entries.Add(StringEntry(name!, button.Value ?? ""));
-        }
+        entries.Add(StringEntry(name, work.Attribute(element, "value") ?? ""));
     }
 
-    private static void AppendDirection(List<FormDataEntry> entries, IHtmlElement element)
+    private static void AppendDirection(DomRealm realm, List<FormDataEntry> entries, Element element, DomReadWork work)
     {
-        // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-entry-list
-        // Step 5.11 runs after the control's value and before the formdata event.
-        if (HtmlDirectionality.IsAutoDirectionalityControl(element)
-            && element.GetAttribute("dirname") is { Length: > 0 } name)
-        {
-            entries.Add(StringEntry(UrlCharacters.ToScalarValueString(name), HtmlDirectionality.Of(element)));
-        }
+        // HTML entry-list construction step 5.11: dirname follows the control's value.
+        if (HtmlDirectionality.IsAutoDirectionalityControl(element, realm.NativeReadCheckpoint, realm.CancellationToken)
+            && work.Attribute(element, "dirname") is { Length: > 0 } name)
+            entries.Add(StringEntry(UrlCharacters.ToScalarValueString(name),
+                HtmlDirectionality.Of(element, realm.NativeReadCheckpoint, realm.CancellationToken)));
     }
 
     /// <summary>
     /// Step 6: a <c>formdata</c> event carrying a <c>FormData</c> over the entries, which a listener may
     /// add to, delete from or rewrite before the request is built.
     /// </summary>
-    private static List<FormDataEntry> FireFormData(PageRuntime runtime, IHtmlFormElement form, List<FormDataEntry> entries)
+    private static List<FormDataEntry> FireFormData(PageRuntime runtime, Element form, List<FormDataEntry> entries)
     {
         if (runtime.Dom.WrapNode(form) is not { } target)
         {
@@ -385,32 +315,6 @@ internal static class FormSubmitter
 
         // The list the listeners left behind, which is the one the request is built from.
         return [.. formData.Entries];
-    }
-
-    private static bool IsDisabled(IElement element)
-    {
-        if (element.HasAttribute("disabled"))
-        {
-            return true;
-        }
-
-        // A control inside a disabled fieldset is disabled too, unless it is inside that fieldset's first
-        // legend — https://html.spec.whatwg.org/multipage/form-elements.html#concept-fieldset-disabled.
-        for (var parent = element.ParentElement; parent is not null; parent = parent.ParentElement)
-        {
-            if (parent is not IHtmlFieldSetElement fieldSet || !fieldSet.HasAttribute("disabled"))
-            {
-                continue;
-            }
-
-            var legend = fieldSet.QuerySelector("legend");
-            if (legend is null || !legend.Contains(element))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static JsFile EmptyFile(PageRuntime runtime)
@@ -477,12 +381,6 @@ internal static class FormSubmitter
             "text/plain" => "text/plain",
             _ => "application/x-www-form-urlencoded",
         };
-    }
-
-    private static string? Attribute(IElement? submitter, string name)
-    {
-        var value = submitter?.GetAttribute(name);
-        return string.IsNullOrEmpty(value) ? null : value;
     }
 
     /// <summary>

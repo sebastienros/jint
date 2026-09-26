@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
@@ -75,7 +75,7 @@ internal sealed partial class PageLayout
         => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
 
     /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
-    internal FlatBox? ClientBoxOf(IElement element)
+    internal FlatBox? ClientBoxOf(Element element)
     {
         var sizes = MeasureSizes();
         FlatBox? box = sizes.HasBox(element) ? sizes.Place(element) : null;
@@ -158,7 +158,7 @@ internal sealed partial class PageLayout
     /// first row can leave every descendant outside the viewport, so a client clicks the container's empty
     /// row instead of its contents. With <c>nearest</c>, a box spanning both viewport edges stays put.
     /// </remarks>
-    internal void ScrollIntoView(IElement element, string block)
+    internal void ScrollIntoView(Element element, string block)
     {
         var layout = Current();
         if (layout.DocumentBoxOf(element) is not { } box)

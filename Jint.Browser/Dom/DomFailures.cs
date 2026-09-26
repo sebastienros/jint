@@ -90,6 +90,7 @@ internal static class DomFailures
         if (receiver is IDomWrapper wrapper)
         {
             CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.Drain();
+            Files.FileTransferRealm.IfCreated(wrapper.DomRealm.Engine)?.FlushChanges();
         }
     }
 

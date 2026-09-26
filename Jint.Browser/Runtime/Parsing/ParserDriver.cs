@@ -168,8 +168,7 @@ internal sealed class ParserDriver : IDisposable
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new FrameAttributeObserver(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new Dom.Files.FileInputAttributeObserver(_runtime));
+            ;
 
         // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled
         // — the scripting service is simply not registered, which is how AngleSharp is told a document has
