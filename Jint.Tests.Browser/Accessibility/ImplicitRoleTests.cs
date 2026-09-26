@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 
 namespace Jint.Tests.Browser.Accessibility;
@@ -142,8 +142,8 @@ public sealed class ImplicitRoleTests
     [TestCaseSource(nameof(Rows))]
     public void MapsTheElementToTheRoleHtmlAamNames(string html, string expected)
     {
-        using var document = PageFixture.Parse(html);
-        var element = document.GetElementById("t")!;
+        var document = PageFixture.Parse(html);
+        var element = ContentDom.ElementById(document, "t")!;
 
         ImplicitRole.For(element).Should().Be(expected);
     }
@@ -151,28 +151,28 @@ public sealed class ImplicitRoleTests
     [Test]
     public void MapsBrAndAHiddenInputToNoRoleAtAll()
     {
-        using var document = PageFixture.Parse("<br id=b><wbr id=w><input id=i type=hidden>");
+        var document = PageFixture.Parse("<br id=b><wbr id=w><input id=i type=hidden>");
 
-        ImplicitRole.For(document.GetElementById("b")!).Should().BeNull();
-        ImplicitRole.For(document.GetElementById("w")!).Should().BeNull();
-        ImplicitRole.For(document.GetElementById("i")!).Should().BeNull();
+        ImplicitRole.For(ContentDom.ElementById(document, "b")!).Should().BeNull();
+        ImplicitRole.For(ContentDom.ElementById(document, "w")!).Should().BeNull();
+        ImplicitRole.For(ContentDom.ElementById(document, "i")!).Should().BeNull();
     }
 
     [Test]
     public void TreatsMetadataContentAsProducingNoNode()
     {
-        using var document = PageFixture.Parse("<head><title>t</title></head><body><script id=s></script><style id=y></style><template id=p></template></body>");
+        var document = PageFixture.Parse("<head><title>t</title></head><body><script id=s></script><style id=y></style><template id=p></template></body>");
 
         foreach (var id in new[] { "s", "y", "p" })
         {
-            ImplicitRole.IsMetadataContent(document.GetElementById(id)!).Should().BeTrue();
+            ImplicitRole.IsMetadataContent(ContentDom.ElementById(document, id)!).Should().BeTrue();
         }
     }
 
     [Test]
     public void AnExplicitRoleOverridesTheImplicitOne()
     {
-        using var document = PageFixture.Parse("<div id=t role=button>x</div>");
+        var document = PageFixture.Parse("<div id=t role=button>x</div>");
         var root = AccessibilityTree.Build(document);
 
         Find(root, "button").Should().NotBeNull();
@@ -186,8 +186,8 @@ public sealed class ImplicitRoleTests
         AriaRoles.Explicit("BUTTON").Should().Be("button");
         AriaRoles.Explicit(null).Should().BeNull();
 
-        using var document = PageFixture.Parse("<nav id=t role=nonsense></nav>");
-        AccessibleName.ResolveRole(document.GetElementById("t")!).Should().Be("navigation");
+        var document = PageFixture.Parse("<nav id=t role=nonsense></nav>");
+        AccessibleName.ResolveRole(ContentDom.ElementById(document, "t")!).Should().Be("navigation");
     }
 
     [Test]
