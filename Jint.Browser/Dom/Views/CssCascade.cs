@@ -23,12 +23,12 @@ internal static class CssCascade
         private SelectorMatchWork _matching = matching;
 
         internal static Traversal? For(Document? document, StyleScope scope = StyleScope.All,
-            NativeCssQueryDiagnostics? diagnostics = null, CancellationToken cancellationToken = default,
-            Action? checkpoint = null)
+            NativeCssQueryDiagnostics? diagnostics = null, Action? checkpoint = null,
+            CancellationToken cancellationToken = default)
         {
             if (document is null) return null;
             var input = NativeCssStyleSheets.RealmOf(document) is { } realm
-                ? NativeCssStyleSheets.CreateQuery(document, realm, diagnostics, cancellationToken, checkpoint)
+                ? NativeCssStyleSheets.CreateQuery(document, realm, diagnostics, checkpoint, cancellationToken)
                 : NativeCssStyleSheets.CreateInertQuery(document, new CssValueWork(cancellationToken, checkpoint), checkpoint, diagnostics);
             return new(input.Query, input.Matching);
         }

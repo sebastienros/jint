@@ -67,8 +67,8 @@ internal static partial class NativeCssStyleSheets
     }
 
     internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateQuery(Document document, DomRealm realm,
-        NativeCssQueryDiagnostics? diagnostics = null, CancellationToken cancellationToken = default,
-        Action? checkpoint = null)
+        NativeCssQueryDiagnostics? diagnostics = null, Action? checkpoint = null,
+        CancellationToken cancellationToken = default)
     {
         var token = cancellationToken.CanBeCanceled ? cancellationToken : realm.CancellationToken;
         void Check()

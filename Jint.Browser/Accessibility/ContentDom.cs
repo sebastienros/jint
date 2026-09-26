@@ -11,8 +11,8 @@ namespace Jint.Browser.Accessibility;
 internal static partial class ContentDom
 {
     /// <summary>Parses inert HTML for the engine-free content algorithms.</summary>
-    internal static Document Parse(string html, HtmlParseOptions? options = null, CancellationToken cancellationToken = default,
-        Action? checkpoint = null)
+    internal static Document Parse(string html, HtmlParseOptions? options = null, Action? checkpoint = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(html);
         var document = Document.CreateHtml();
