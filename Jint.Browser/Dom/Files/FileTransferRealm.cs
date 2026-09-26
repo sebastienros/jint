@@ -141,20 +141,23 @@ internal sealed class FileTransferRealm
 
     private readonly Queue<InputFileState> _pendingChanges = new();
     private readonly HashSet<InputFileState> _queuedChanges = new();
-    private readonly List<WeakReference<MutationSubscription>> _subscriptions = [];
     private readonly List<WeakReference<InputFileState>> _fileStates = [];
+    private int _fileAttachments;
 
     internal JsFileList? InputFiles(Element input, bool create)
     {
         FlushChanges();
         if (!IsFileInput(input)) return null;
         if (_inputFiles.TryGetValue(input, out var state)) return state.Files;
-        return create ? Attach(input, NewFileList()) : null;
+        if (!create) return null;
+        PruneFileStates();
+        return Attach(input, NewFileList());
     }
 
     internal void SetInputFiles(Element input, JsFileList files)
     {
         FlushChanges();
+        PruneFileStates();
         if (!IsFileInput(input)) return;
         Detach(input);
         _ = Attach(input, files, external: true);
@@ -215,10 +218,8 @@ internal sealed class FileTransferRealm
         var subscription = input.OwnerDocument!.ObserveMutations(input,
             new MutationObserverOptions { Attributes = true, AttributeOldValue = true, AttributeFilter = ["type"] });
         var weakInput = new WeakReference<Element>(input);
-        Action changed = () =>
-        {
-            if (weakInput.TryGetTarget(out var selectedInput)) selectedInput.OwnerDocument!.MarkMutation();
-        };
+        var invalidation = new SelectedFileInvalidation(weakInput, files, subscription);
+        Action changed = invalidation.Changed;
         var state = new InputFileState(weakInput, files, subscription, external, changed);
         files.Changed += changed;
         _fileStates.Add(new WeakReference<InputFileState>(state));
@@ -227,7 +228,6 @@ internal sealed class FileTransferRealm
             // Trusted scheduling: no script runs inside native attribute mutation.
             if (_queuedChanges.Add(state)) _pendingChanges.Enqueue(state);
         };
-        _subscriptions.Add(new WeakReference<MutationSubscription>(subscription));
         _inputFiles.Add(input, state);
         return files;
     }
@@ -294,19 +294,47 @@ internal sealed class FileTransferRealm
 
     private void Release()
     {
-        foreach (var weak in _subscriptions)
-        {
-            if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
-        }
-        _subscriptions.Clear();
         foreach (var weak in _fileStates)
         {
-            if (weak.TryGetTarget(out var state)) state.Files.Changed -= state.Changed;
+            if (weak.TryGetTarget(out var state))
+            {
+                state.Files.Changed -= state.Changed;
+                state.Subscription.Dispose();
+            }
         }
         _fileStates.Clear();
         _pendingChanges.Clear();
         _queuedChanges.Clear();
         _inputFiles.Clear();
+    }
+
+    private void PruneFileStates()
+    {
+        if ((++_fileAttachments & 63) != 0) return;
+        for (var i = _fileStates.Count - 1; i >= 0; i--)
+        {
+            if ((i & 255) == 0) _engine.Constraints.Check();
+            if (!_fileStates[i].TryGetTarget(out var state)) { _fileStates.RemoveAt(i); continue; }
+            if (state.Input.TryGetTarget(out _)) continue;
+            state.Files.Changed -= state.Changed;
+            state.Subscription.Dispose();
+            _queuedChanges.Remove(state);
+            _fileStates.RemoveAt(i);
+        }
+    }
+
+    private sealed class SelectedFileInvalidation(WeakReference<Element> input, JsFileList files, MutationSubscription subscription)
+    {
+        internal void Changed()
+        {
+            if (input.TryGetTarget(out var selectedInput)) selectedInput.OwnerDocument!.MarkMutation();
+            else
+            {
+                // A shared DataTransfer list can outlive every input it was assigned to.
+                files.Changed -= Changed;
+                subscription.Dispose();
+            }
+        }
     }
 
     private sealed record InputFileState(WeakReference<Element> Input, JsFileList Files,
