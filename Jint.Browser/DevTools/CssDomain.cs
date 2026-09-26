@@ -1,8 +1,8 @@
 using Jint.Browser.Styling;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
-using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Properties;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
