@@ -17,7 +17,7 @@ public sealed class MutationRecord
         IReadOnlyList<Node>? removedNodes = null, Node? previousSibling = null, Node? nextSibling = null,
         string? attributeName = null, string? attributeNamespace = null, string? oldValue = null,
         bool targetWasConnected = false, string? attributeQualifiedName = null,
-        string? attributePreviousQualifiedName = null, string? attributeNewValue = null)
+        string? attributePreviousQualifiedName = null, string? attributeNewValue = null, IReadOnlyList<HtmlMetaInsertion>? htmlMetaInsertions = null)
     {
         Kind = kind;
         Target = target;
@@ -30,6 +30,7 @@ public sealed class MutationRecord
         AttributeQualifiedName = attributeQualifiedName;
         AttributePreviousQualifiedName = attributePreviousQualifiedName;
         AttributeNewValue = attributeNewValue;
+        HtmlMetaInsertions = htmlMetaInsertions ?? Array.Empty<HtmlMetaInsertion>();
         OldValue = oldValue;
         TargetWasConnected = targetWasConnected;
     }
@@ -53,4 +54,5 @@ public sealed class MutationRecord
     // The actual value at this transition, or null for removal; never today's attribute lookup.
     // Internal host history only, not a public MutationObserver field.
     internal string? AttributeNewValue { get; }
+    internal IReadOnlyList<HtmlMetaInsertion> HtmlMetaInsertions { get; }
 }

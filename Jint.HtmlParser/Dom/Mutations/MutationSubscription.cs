@@ -14,6 +14,21 @@ public sealed class MutationSubscription : IDisposable
 
     // Trusted host scheduling only; the native mutation stack never invokes script.
     internal Action<MutationSubscription>? PendingRecord { get; set; }
+    private bool _captureHtmlMetaInsertions;
+    internal bool CaptureHtmlMetaInsertions
+    {
+        get => _captureHtmlMetaInsertions;
+        set
+        {
+            _captureHtmlMetaInsertions = value;
+            if (!value) return;
+            foreach (var registration in _registrations)
+                if (registration.Target.TryGetTarget(out var target))
+                    (target as Document ?? target.OwnerDocument!).MarkHtmlMetaCapturePresent();
+        }
+    }
+    // Trusted budget facts for one native preparation only; no author code or DOM reentry.
+    internal Func<(Action<int>? Checkpoint, CancellationToken Token)>? CreateCaptureWork { get; set; }
 
     public void Observe(Node target, MutationObserverOptions options)
     {
@@ -72,6 +87,8 @@ public sealed class MutationSubscription : IDisposable
         {
             Disconnect();
             PendingRecord = null;
+            CreateCaptureWork = null;
+            CaptureHtmlMetaInsertions = false;
             _disposed = true;
         }
     }

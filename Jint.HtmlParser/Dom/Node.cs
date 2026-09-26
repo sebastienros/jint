@@ -172,17 +172,25 @@ public abstract partial class Node
             }
 
             MutationTracking.QueueChildList(child, (IReadOnlyList<Node>?) null, incoming.Many, null, null);
-            LiveTraversalTracking.Insert(this, referenceChild, (uint) incoming.Count);
-            for (var i = 0; i < incoming.Count; i++)
+            var matches = destinationDocument.MayCaptureHtmlMetaInsertions
+                ? MutationTracking.Match(this, MutationRecordKind.ChildList) : null;
+            var capture = HtmlMetaInsertionCapture.Reserve(this, matches, incoming.Count,
+                previous: previousSibling, next: referenceChild);
+            try
             {
-                var node = incoming[i];
-                Adopt(node, destinationDocument);
-                InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true, suppressLiveInsertion: true);
+                if (capture is null) LiveTraversalTracking.Insert(this, referenceChild, (uint) incoming.Count);
+                for (var i = 0; i < incoming.Count; i++)
+                {
+                    var node = incoming[i];
+                    Adopt(node, destinationDocument);
+                    InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true,
+                        suppressLiveInsertion: capture is null, insertionCapture: capture);
+                }
+                HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
+                capture?.MarkPublished();
+                MutationTracking.QueueChildList(this, incoming.Many, null, previousSibling, referenceChild, capture is null ? null : matches, capture?.Facts);
             }
-
-            HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
-
-            MutationTracking.QueueChildList(this, incoming.Many, null, previousSibling, referenceChild);
+            catch { capture?.PublishFailure(); throw; }
         }
         else
         {
@@ -246,27 +254,38 @@ public abstract partial class Node
                 MutationTracking.QueueChildList(child, (IReadOnlyList<Node>?) null, incoming.Many, null, null);
             }
 
-            LiveTraversalTracking.Insert(this, anchor, (uint) incoming.Count);
-            for (var i = 0; i < incoming.Count; i++)
+            var capture = HtmlMetaInsertionCapture.ReserveWithRemovedNode(this, targetMatches, incoming.Count,
+                removed ? oldChild : null, previous, anchor);
+            try
             {
-                var node = incoming[i];
-                Adopt(node, destinationDocument);
-                InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true, suppressLiveInsertion: true);
+                if (capture is null) LiveTraversalTracking.Insert(this, anchor, (uint) incoming.Count);
+                for (var i = 0; i < incoming.Count; i++)
+                {
+                    var node = incoming[i];
+                    Adopt(node, destinationDocument);
+                    InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true,
+                        suppressLiveInsertion: capture is null, insertionCapture: capture);
+                }
+                if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
+                capture?.MarkPublished();
+                if (targetMatches is not null)
+                    MutationTracking.QueueChildList(this, incoming.Many,
+                        removed ? new[] { oldChild } : null, previous, anchor, targetMatches, capture?.Facts);
             }
-
-            if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
-
-            if (targetMatches is not null)
-            {
-                MutationTracking.QueueChildList(this, incoming.Many,
-                    removed ? new[] { oldChild } : null, previous, anchor, targetMatches);
-            }
+            catch { capture?.PublishFailure(); throw; }
         }
         else
         {
-            InsertValidated(child, anchor, suppressRecord: true);
-            MutationTracking.QueueChildList(this, child, removed ? oldChild : null,
-                previous, anchor, targetMatches);
+            var capture = HtmlMetaInsertionCapture.ReserveWithRemovedNode(this, targetMatches, 1,
+                removed ? oldChild : null, previous, anchor);
+            try
+            {
+                InsertValidated(child, anchor, suppressRecord: true, insertionCapture: capture);
+                capture?.MarkPublished();
+                MutationTracking.QueueChildList(this, child, removed ? oldChild : null,
+                    previous, anchor, targetMatches, capture?.Facts);
+            }
+            catch { capture?.PublishFailure(); throw; }
         }
 
         return oldChild;
@@ -331,34 +350,40 @@ public abstract partial class Node
                 incoming.Many, null, null);
         }
 
-        for (var i = 0; i < incoming.Count; i++)
+        var capture = HtmlMetaInsertionCapture.Reserve(this, targetMatches, incoming.Count, removed);
+        try
         {
-            var node = incoming[i];
-            if (replacement is not DocumentFragment)
+            for (var i = 0; i < incoming.Count; i++)
             {
-                Detach(node);
+                var node = incoming[i];
+                if (replacement is not DocumentFragment)
+                {
+                    Detach(node);
+                }
+                Adopt(node, destinationDocument);
+                InsertValidated(node, null, suppressRecord: true, suppressSemantic: true, insertionCapture: capture);
             }
-            Adopt(node, destinationDocument);
-            InsertValidated(node, null, suppressRecord: true, suppressSemantic: true);
-        }
 
-        if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
+            if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
 
-        if (targetMatches is not null && (incoming.Count != 0 || removed is { Count: > 0 }))
-        {
-            if (replacement is DocumentFragment)
+            capture?.MarkPublished();
+            if (targetMatches is not null && (incoming.Count != 0 || removed is { Count: > 0 }))
             {
-                MutationTracking.QueueChildList(this, incoming.Many, removed, null, null, targetMatches);
-            }
-            else if (incoming.Count != 0)
-            {
-                MutationTracking.QueueChildList(this, new[] { incoming[0] }, removed, null, null, targetMatches);
-            }
-            else
-            {
-                MutationTracking.QueueChildList(this, (IReadOnlyList<Node>?) null, removed, null, null, targetMatches);
+                if (replacement is DocumentFragment)
+                {
+                    MutationTracking.QueueChildList(this, incoming.Many, removed, null, null, targetMatches, capture?.Facts);
+                }
+                else if (incoming.Count != 0)
+                {
+                    MutationTracking.QueueChildList(this, new[] { incoming[0] }, removed, null, null, targetMatches, capture?.Facts);
+                }
+                else
+                {
+                    MutationTracking.QueueChildList(this, (IReadOnlyList<Node>?) null, removed, null, null, targetMatches, capture?.Facts);
+                }
             }
         }
+        catch { capture?.PublishFailure(); throw; }
     }
 
     internal void AdoptInto(Document destination)
@@ -621,20 +646,37 @@ public abstract partial class Node
     }
 
     private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false,
-        bool suppressSemantic = false, bool suppressLiveInsertion = false)
+        bool suppressSemantic = false, bool suppressLiveInsertion = false,
+        HtmlMetaInsertionCapture? insertionCapture = null)
     {
         using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!);
-        if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
-        LinkBefore(node, referenceChild);
-        (this as Document ?? _ownerDocument!).MarkMutation();
-        SlotAssignment.AfterInsertion(this, node, referenceChild);
-        HtmlFormAssociation.Inserted(node);
-        HtmlSelectMutations.Inserted(node);
-        if (!suppressSemantic) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
-        if (!suppressRecord)
+        var matches = suppressRecord || !(this as Document ?? _ownerDocument!).MayCaptureHtmlMetaInsertions
+            ? null : MutationTracking.Match(this, MutationRecordKind.ChildList);
+        var ownCapture = suppressRecord ? null : HtmlMetaInsertionCapture.Reserve(this, matches, 1,
+            previous: previousSibling, next: referenceChild);
+        var capture = insertionCapture ?? ownCapture;
+        try
         {
-            MutationTracking.QueueChildList(this, node, null, previousSibling, referenceChild);
+            capture?.Prepare(this, node);
+            if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
+            LinkBefore(node, referenceChild);
+            capture?.Committed(node);
+            (this as Document ?? _ownerDocument!).MarkMutation();
+            SlotAssignment.AfterInsertion(this, node, referenceChild);
+            HtmlFormAssociation.Inserted(node);
+            HtmlSelectMutations.Inserted(node);
+            if (!suppressSemantic) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
+            if (!suppressRecord)
+            {
+                ownCapture?.MarkPublished();
+                MutationTracking.QueueChildList(this, node, null, previousSibling, referenceChild, ownCapture is null ? null : matches, ownCapture?.Facts);
+            }
+        }
+        catch
+        {
+            ownCapture?.PublishFailure();
+            throw;
         }
     }
 
@@ -677,6 +719,13 @@ public abstract partial class Node
                 if (current.Node.MutationRegistrations is not null)
                 {
                     current.Owner.MarkMutationRegistrationsPresent();
+                    if (oldDocument?.MayCaptureHtmlMetaInsertions == true)
+                    {
+                        var registrations = current.Node.MutationRegistrations;
+                        for (var i = 0; i < registrations.Count; i++)
+                            if (registrations[i].Registration.Subscription.CaptureHtmlMetaInsertions)
+                                current.Owner.MarkHtmlMetaCapturePresent();
+                    }
                 }
 
                 oldDocument?.MarkMutation();

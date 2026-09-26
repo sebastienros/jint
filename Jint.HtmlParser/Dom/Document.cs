@@ -16,7 +16,7 @@ internal enum DocumentMode
 }
 
 /// <summary>The owner and root of a native document tree.</summary>
-public sealed class Document : Node
+public sealed partial class Document : Node
 {
     private static readonly IReadOnlyList<XmlSkippedEntity> EmptySkippedXmlEntities =
         Array.AsReadOnly(Array.Empty<XmlSkippedEntity>());
