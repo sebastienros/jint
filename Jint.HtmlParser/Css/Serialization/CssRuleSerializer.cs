@@ -96,6 +96,16 @@ internal static class CssRuleSerializer
                 builder.Append('}');
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
+            else if (rule is CssFontFaceRule fontFace)
+            {
+                // Fonts 4 §12.1; serialize the declaration block, including font-display.
+                var declarations = fontFace.Style.Serialize(work);
+                builder.Append("@font-face { ").Append(declarations);
+                work.Charge(declarations.Length);
+                if (declarations.Length != 0) builder.Append(' ');
+                builder.Append('}');
+                ranges?.Add(rule, new CssTextRange(start, builder.Length));
+            }
             else if (rule is CssStyleRule style)
             {
                 // Finite nesting checkpoint: retain validated author text. CSS Nesting §6's

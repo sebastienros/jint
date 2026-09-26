@@ -258,7 +258,7 @@ internal sealed class CssStyleSheet
         var root = BuildShallow(source, syntax, parser, options, work, cancellationToken);
         if (root is null) return null;
         var pending = new Stack<(CssRule Owner, CssComponentValue Block)>();
-        if (syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
+        if (root is not CssFontFaceRule && syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
         while (pending.TryPop(out var item))
         {
             work.Charge(1);
@@ -282,7 +282,7 @@ internal sealed class CssStyleSheet
                 if (child is null) continue;
                 if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
-                if (entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
+                if (child is not CssFontFaceRule && entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
             }
         }
         return root;
@@ -296,6 +296,23 @@ internal sealed class CssStyleSheet
         {
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
             if (name == "import") return CssImportRule.Parse(source, syntax, parser, work);
+            if (name == "font-face")
+            {
+                if (syntax.Block is not { } descriptorBlock) return null;
+                foreach (var value in syntax.Prelude)
+                {
+                    work.Charge(1);
+                    if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace) return null;
+                }
+                var declarations = new List<CssDeclarationSyntax>();
+                foreach (var item in parser.ParseBlockContents(descriptorBlock))
+                {
+                    work.Charge(1);
+                    if (item.Kind == CssBlockItemKind.Declaration) declarations.Add(item.Declaration);
+                }
+                return new CssFontFaceRule(CssDeclarationBlock.FromDeclarations(source, declarations,
+                    CssDeclarationContext.FontFace, options?.Limits.MaxNestingDepth ?? 0, work), syntax.Span);
+            }
             if (name == "media")
                 return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
             if (name == "keyframes")
@@ -315,7 +332,7 @@ internal sealed class CssStyleSheet
             {
                 "namespace" => "R1",
                 "container" or "scope" or "starting-style" or "layer" => "R2",
-                "font-face" or "font-feature-values" or "font-palette-values" => "R4",
+                "font-feature-values" or "font-palette-values" => "R4",
                 "page" or "counter-style" => "R5",
                 "property" or "view-transition" or "position-try" or "color-profile" => "R6",
                 "document" or "viewport" => "R7",

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jint.HtmlParser.Css.Values.Descriptors;
 using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
@@ -27,6 +28,7 @@ internal static class CssPropertyParser
         CssDeclarationContext context, CssValueWork work)
     {
         if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
+        if (context == CssDeclarationContext.FontFace) return CssFontFaceDescriptorParser.Parse(name, input, work);
         work.Charge(name.Length);
         name = CssPropertyRegistry.NormalizeName(name, work);
         var ordinary = context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe;
@@ -127,6 +129,7 @@ internal static class CssPropertyParser
     // particular, removal must not invent the longhand/reset membership of a pending shorthand.
     internal static CssPropertyResult? NameFailure(string normalizedName, CssDeclarationContext context)
     {
+        if (context == CssDeclarationContext.FontFace) return CssFontFaceDescriptorCatalog.NameFailure(normalizedName);
         var ordinary = context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe;
         if (normalizedName.Length > 2 && normalizedName.StartsWith("--", StringComparison.Ordinal))
             return ordinary ? null : CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);

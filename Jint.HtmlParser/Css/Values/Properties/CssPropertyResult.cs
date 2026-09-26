@@ -1,4 +1,5 @@
 using Jint.HtmlParser.Css.Values.Colors;
+using Jint.HtmlParser.Css.Values.Descriptors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
 using Jint.HtmlParser.Css.Values.Transforms;
@@ -6,10 +7,11 @@ using Jint.HtmlParser.Css.Values.Transforms;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor }
 
 internal sealed class CssPropertyValue
 {
+    private readonly CssFontFaceDescriptorValue? _descriptor;
     private readonly CssColorValue? _color;
     private readonly CssTransformValue? _transform;
     private readonly CssTransformList? _transformList;
@@ -20,12 +22,14 @@ internal sealed class CssPropertyValue
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
         CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null,
-        CssTransformValue? transform = null, CssTransformList? transformList = null)
+        CssTransformValue? transform = null, CssTransformList? transformList = null, CssFontFaceDescriptorValue? descriptor = null)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
         _color = color; _references = references; SecondKeyword = second; _components = components;
-        _transform = transform; _transformList = transformList;
+        _transform = transform; _transformList = transformList; _descriptor = descriptor;
     }
+    internal CssFontFaceDescriptorValue DescriptorValue => Kind == CssPropertyValueKind.Descriptor ? _descriptor! : throw new InvalidOperationException();
+    internal static CssPropertyValue Descriptor(CssFontFaceDescriptorValue value) => new(CssPropertyValueKind.Descriptor, value.Text, default, descriptor: value);
     internal CssPropertyValueKind Kind { get; }
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
