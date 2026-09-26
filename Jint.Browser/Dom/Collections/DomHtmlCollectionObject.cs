@@ -20,6 +20,9 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
 {
     private readonly DomHtmlCollection<T> _collection;
     private List<string> _names = [];
+    private WeakReference<Document>? _countOwner;
+    private ulong _countStamp;
+    private uint _count;
 
     internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, DomHtmlCollection<T> collection)
         : base(realm, definition, collection)
@@ -28,7 +31,44 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     }
 
     /// <inheritdoc />
-    public override uint Length => (uint) _collection.GetLength(DomRealm);
+    public override uint Length
+    {
+        get
+        {
+            while (true)
+            {
+                DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                DomRealm.Engine.Constraints.Check();
+                DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                if (!_collection.TryGetCountWitness(out var owner, out var stamp))
+                    return (uint) _collection.GetLength(DomRealm);
+
+                if (_countOwner is not null && _countOwner.TryGetTarget(out var cachedOwner)
+                    && ReferenceEquals(owner, cachedOwner) && stamp == _countStamp)
+                {
+                    var count = _count;
+                    DomRealm.Engine.Constraints.Check();
+                    DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                    if (_collection.TryGetCountWitness(out var afterOwner, out var afterStamp)
+                        && ReferenceEquals(owner, afterOwner) && stamp == afterStamp)
+                        return count;
+                    continue;
+                }
+
+                _countOwner = null;
+                var computed = (uint) _collection.GetLength(DomRealm);
+                DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                if (!_collection.TryGetCountWitness(out var finalOwner, out var finalStamp)) return computed;
+                // Host checks may mutate or reenter. Publish only a count measured under one witness;
+                // adoption changes the identity even if the two documents happen to have equal stamps.
+                if (!ReferenceEquals(owner, finalOwner) || stamp != finalStamp) continue;
+                _countOwner = new WeakReference<Document>(owner!);
+                _countStamp = stamp;
+                _count = computed;
+                return computed;
+            }
+        }
+    }
 
     /// <inheritdoc />
     protected override bool IgnoreNamedPropertiesInSet => true;

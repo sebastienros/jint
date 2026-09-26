@@ -63,6 +63,8 @@ public sealed class LiveCollectionIterationTests
 
     private sealed class CountingCollection(DomHtmlCollection<Element> source) : DomHtmlCollection<Element>
     {
+        internal override bool TryGetCountWitness(out Document? document, out ulong stamp)
+            => source.TryGetCountWitness(out document, out stamp);
         internal int LengthReads { get; private set; }
         internal long CountVisits { get; private set; }
         internal long IndexVisits { get; private set; }

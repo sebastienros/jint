@@ -9,6 +9,13 @@ internal sealed class DomChildHtmlCollection(Node root) : DomHtmlCollection<Elem
     private static readonly ConditionalWeakTable<Node, DomChildHtmlCollection> Collections = new();
     internal static DomChildHtmlCollection Of(Node root) => Collections.GetValue(root, static node => new(node));
 
+    internal override bool TryGetCountWitness(out Document? document, out ulong stamp)
+    {
+        document = root as Document ?? root.OwnerDocument;
+        stamp = document?.MutationStamp ?? ulong.MaxValue;
+        return document is not null && stamp != ulong.MaxValue;
+    }
+
     internal override int Length
     {
         get

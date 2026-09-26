@@ -8,6 +8,14 @@ namespace Jint.Browser.Dom.Collections;
 internal abstract class DomHtmlCollection<T> : IEnumerable<T> where T : Node
 {
     internal abstract int Length { get; }
+    // Opt-in proof that every membership change advances this document's stamp. Unknown sources
+    // (including GenericDomHtmlCollection) cannot offer this proof and remain uncached.
+    internal virtual bool TryGetCountWitness(out Document? document, out ulong stamp)
+    {
+        document = null;
+        stamp = 0;
+        return false;
+    }
     internal virtual T? GetItem(uint index)
     {
         foreach (var candidate in this)
