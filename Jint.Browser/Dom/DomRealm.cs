@@ -48,6 +48,7 @@ internal sealed class DomRealm
     private readonly DomRealm _principal;
     private readonly ConditionalWeakTable<Realm, DomRealm> _secondaryRealms = new();
     private readonly ConditionalWeakTable<object, DomRealm> _creationRealms;
+    private readonly ConditionalWeakTable<object, DomRealm>.CreateValueCallback _creationRealmFactory;
     private readonly ConditionalWeakTable<DomBrowsingContext, DomRealm> _contexts;
     private readonly ConditionalWeakTable<Element, AriaElementReflection.Cache> _ariaCaches = new();
     private Dictionary<string, JsString>? _htmlUppercasedTagNames;
@@ -63,6 +64,9 @@ internal sealed class DomRealm
         _principal = principal ?? this;
         _wrappers = principal?._wrappers ?? new();
         _creationRealms = principal?._creationRealms ?? new();
+        // Creation associations are weak and permanent (DOM's create-node/adoption rules). Reuse one
+        // callback per realm rather than allocating a closure for every node visited, including hits.
+        _creationRealmFactory = _ => this;
         _contexts = principal?._contexts ?? new();
         if (principal is null)
         {
@@ -272,7 +276,7 @@ internal sealed class DomRealm
         {
             AssociateContext(context);
         }
-        _creationRealms.GetValue(document, _ => this);
+        _creationRealms.GetValue(document, _creationRealmFactory);
         if (!associated)
         {
             RecordSubtree(document);
@@ -324,7 +328,7 @@ internal sealed class DomRealm
             return documentRealm;
         }
         var realm = node.OwnerDocument is { } owner ? RealmOfDocument(owner) : this;
-        return _creationRealms.GetValue(node, _ => realm);
+        return _creationRealms.GetValue(node, realm._creationRealmFactory);
     }
 
     internal DomRealm CreationRealmOf(Attr attribute)
@@ -362,7 +366,13 @@ internal sealed class DomRealm
                 {
                     work.Step();
                     var attribute = element.GetAttributeAt(i)!;
-                    _creationRealms.GetValue(attribute, _ => node.OwnerDocument is { } owner ? RealmOfDocument(owner) : this);
+                    if (!_creationRealms.TryGetValue(attribute, out _))
+                    {
+                        // A new attribute uses the current document, even when its element was adopted
+                        // from another realm. Previously recorded attributes keep their original brand.
+                        var realm = node.OwnerDocument is { } owner ? RealmOfDocument(owner) : this;
+                        _creationRealms.GetValue(attribute, realm._creationRealmFactory);
+                    }
                 }
                 if (element.AttachedShadowRoot is { } shadow)
                 {

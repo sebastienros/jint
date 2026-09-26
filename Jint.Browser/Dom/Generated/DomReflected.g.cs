@@ -179,6 +179,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLButtonElementFormAction =
         ReflectedAttribute.Url("HTMLButtonElement.formAction", "formaction", documentUrlWhenEmpty: true);
 
+    /// <summary><c>HTMLButtonElement.formEncType</c> reflects <c>formenctype</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLButtonElementFormEncType =
+        ReflectedAttribute.Enumerated("HTMLButtonElement.formEncType", "formenctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], missing: "", invalid: "application/x-www-form-urlencoded");
+
     /// <summary><c>HTMLButtonElement.formEnctype</c> reflects <c>formenctype</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLButtonElementFormEnctype =
         ReflectedAttribute.Enumerated("HTMLButtonElement.formEnctype", "formenctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], missing: "", invalid: "application/x-www-form-urlencoded");
@@ -247,6 +251,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLElementEnterKeyHint =
         ReflectedAttribute.Enumerated("HTMLElement.enterKeyHint", "enterkeyhint", ["enter", "done", "go", "next", "previous", "search", "send"], missing: "", invalid: null);
 
+    /// <summary><c>HTMLElement.hidden</c> reflects <c>hidden</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLElementHidden =
+        ReflectedAttribute.Boolean("HTMLElement.hidden", "hidden");
+
     /// <summary><c>HTMLElement.inputMode</c> reflects <c>inputmode</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLElementInputMode =
         ReflectedAttribute.Enumerated("HTMLElement.inputMode", "inputmode", ["none", "text", "tel", "url", "email", "numeric", "decimal", "search"], missing: "", invalid: null);
@@ -310,6 +318,18 @@ internal static class DomReflected
     /// <summary><c>HTMLFormElement.autocomplete</c> reflects <c>autocomplete</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLFormElementAutocomplete =
         ReflectedAttribute.Enumerated("HTMLFormElement.autocomplete", "autocomplete", ["on", "off"], missing: "on", invalid: null);
+
+    /// <summary><c>HTMLFormElement.encoding</c> reflects <c>enctype</c> as an enumerated.</summary>
+    internal static readonly ReflectedAttribute HTMLFormElementEncoding =
+        ReflectedAttribute.Enumerated("HTMLFormElement.encoding", "enctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], "application/x-www-form-urlencoded", "application/x-www-form-urlencoded");
+
+    /// <summary><c>HTMLFormElement.enctype</c> reflects <c>enctype</c> as an enumerated.</summary>
+    internal static readonly ReflectedAttribute HTMLFormElementEnctype =
+        ReflectedAttribute.Enumerated("HTMLFormElement.enctype", "enctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], "application/x-www-form-urlencoded", "application/x-www-form-urlencoded");
+
+    /// <summary><c>HTMLFormElement.method</c> reflects <c>method</c> as an enumerated.</summary>
+    internal static readonly ReflectedAttribute HTMLFormElementMethod =
+        ReflectedAttribute.Enumerated("HTMLFormElement.method", "method", ["get", "post", "dialog"], "get", "get");
 
     /// <summary><c>HTMLFormElement.name</c> reflects <c>name</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLFormElementName =
@@ -507,6 +527,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLInputElementDefaultChecked =
         ReflectedAttribute.Boolean("HTMLInputElement.defaultChecked", "checked");
 
+    /// <summary><c>HTMLInputElement.defaultValue</c> reflects <c>value</c> as a text.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementDefaultValue =
+        ReflectedAttribute.Text("HTMLInputElement.defaultValue", "value");
+
     /// <summary><c>HTMLInputElement.dirName</c> reflects <c>dirname</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLInputElementDirName =
         ReflectedAttribute.Text("HTMLInputElement.dirName", "dirname");
@@ -518,6 +542,10 @@ internal static class DomReflected
     /// <summary><c>HTMLInputElement.formAction</c> reflects <c>formaction</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLInputElementFormAction =
         ReflectedAttribute.Url("HTMLInputElement.formAction", "formaction", documentUrlWhenEmpty: true);
+
+    /// <summary><c>HTMLInputElement.formEncType</c> reflects <c>formenctype</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormEncType =
+        ReflectedAttribute.Enumerated("HTMLInputElement.formEncType", "formenctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], missing: "", invalid: "application/x-www-form-urlencoded");
 
     /// <summary><c>HTMLInputElement.formEnctype</c> reflects <c>formenctype</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLInputElementFormEnctype =
@@ -894,6 +922,10 @@ internal static class DomReflected
     /// <summary><c>HTMLProgressElement.max</c> reflects <c>max</c> as a limited double.</summary>
     internal static readonly ReflectedAttribute HTMLProgressElementMax =
         ReflectedAttribute.Numeric("HTMLProgressElement.max", "max", ReflectedKind.LimitedDouble, 1);
+
+    /// <summary><c>HTMLProgressElement.value</c> reflects <c>value</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLProgressElementValue =
+        ReflectedAttribute.Numeric("HTMLProgressElement.value", "value", ReflectedKind.Double, 0);
 
     /// <summary><c>HTMLQuoteElement.cite</c> reflects <c>cite</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLQuoteElementCite =

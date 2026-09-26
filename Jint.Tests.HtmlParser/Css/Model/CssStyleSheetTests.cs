@@ -59,7 +59,7 @@ public sealed class CssStyleSheetTests
         Assert.Throws<DomException>(() => sheet.InsertRule("@media all {}", -1))!.Name.Should().Be("IndexSizeError");
         Assert.Throws<DomException>(() => sheet.InsertRule("a {} b {}", 0))!.Name.Should().Be("SyntaxError");
         Assert.Throws<DomException>(() => sheet.InsertRule("@unknown;", 0))!.Name.Should().Be("SyntaxError");
-        Assert.Throws<CssIncompleteGrammarException>(() => sheet.InsertRule("a {color:red}", 0))!.PropertyName.Should().Be("color");
+        Assert.Throws<CssIncompleteGrammarException>(() => sheet.InsertRule("a {border-color:red}", 0))!.PropertyName.Should().Be("border-color");
         Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("@supports (x:y) {}", 0))!.Blocker.Should().Be("R2:supports");
         Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("a { & b {} }", 0))!.Blocker.Should().Be("C2:nesting-selector-context");
         Assert.Throws<DomException>(() => sheet.DeleteRule(1))!.Name.Should().Be("IndexSizeError");

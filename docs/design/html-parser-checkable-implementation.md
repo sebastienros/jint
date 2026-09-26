@@ -136,3 +136,30 @@ Fresh Release broad non-corpus native run: 4,240 succeeded, zero failures or ski
 Both builds compile with warnings treated as errors; no --no-build was used. The local multi-source
 NuGet configuration required a per-command RestoreSources override to the public NuGet source.
 No WPT execution, Browser cutover, public partial Input API, benchmark or PR is claimed.
+
+## Demand boundary for non-radio checkedness
+
+The reviewed C1 amendment keeps all radio state eager to retain peer-exclusion history. Non-radio
+inputs, including untouched checkboxes, remain cold during parsed initialization, unrelated/derived
+attribute changes, insertion and form-owner changes, group-index construction, applicable selector
+reads, and cold clone/import. No new field widens Element. A bounded read-only type classifier checks
+applicability before allocating a component. Attribute predicates derive clean defaults while no
+component exists; every explicit flag mutation materializes the same authoritative three-flag store.
+
+An absent component proves there has been no explicit flag write or radio exclusion. First semantic
+materialization loads Checked from actual unqualified checked-attribute presence, with dirty and
+indeterminate false, after metadata preparation and before publication. This is logical initial
+state, not a query-time SetCore repair or document mutation. Radio initialization still invokes the
+existing equal-true group algorithm; equality never suppresses peer exclusion. Once created, a
+component is retained even on leaving radio or returning to default flags. A clean radio loser with
+a checked attribute therefore remains unchecked across later type/move/owner transitions.
+
+CheckedLazyStateTests covers real parser allocation boundaries, all non-radio predicates, logical
+initialization and cancellation, index isolation, reflected attribute forms, clone/import/adoption,
+explicit flags on text inputs, radio loser history and seeded cold/warm mutation worlds. Existing
+oracle, dense membership, lifetime and original cancellation ceilings remain in force. Clone's cold
+source allocation test now tests a materialized source and cancellation inside its cold target,
+since a cold non-radio clone deliberately has no checkedness constructor work to cancel.
+
+C1 verification: the fresh Release broad native suite passed 6,070 tests across net8.0 and
+net10.0 (3,035 per framework), excluding Corpus and Conformance. No WPT or benchmark claim.

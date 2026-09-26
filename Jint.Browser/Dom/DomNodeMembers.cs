@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.Browser.Dom.Collections;
 using Jint.HtmlParser;
 using Jint.Native;
@@ -35,7 +34,9 @@ internal static class DomNodeMembers
     internal static JsValue ChildNodes(DomNodeObject self)
         => self.DomRealm.Wrap(DomChildNodeList.Of(self.DomTarget), DomInterfaces.NodeList);
 
-    internal static string Name(DomNodeObject self) => self.DomTarget switch
+    internal static string Name(DomNodeObject self) => Name(self.DomTarget);
+
+    internal static string Name(object target) => target switch
     {
         Attr attribute => attribute.Name,
         Document => "#document",
@@ -51,7 +52,9 @@ internal static class DomNodeMembers
         _ => throw new InvalidOperationException("Unknown native Node kind."),
     };
 
-    internal static string? Value(DomNodeObject self) => self.DomTarget switch
+    internal static string? Value(DomNodeObject self) => Value(self.DomTarget);
+
+    internal static string? Value(object target) => target switch
     {
         Attr attribute => attribute.Value,
         Text text => text.Data,
@@ -71,7 +74,6 @@ internal static class DomNodeMembers
             case Comment comment: comment.Data = value; break;
             case ProcessingInstruction instruction:
                 instruction.Data = value;
-                DomProcessingInstructionAttributes.DataChanged(instruction);
                 break;
         }
         return JsValue.Undefined;
@@ -83,23 +85,7 @@ internal static class DomNodeMembers
         {
             return Value(self);
         }
-        var text = new StringBuilder();
-        var root = self.Node!;
-        var current = root.FirstChild;
-        while (current is not null)
-        {
-            if (current is Text data) text.Append(data.Data);
-            else if (current is CDataSection cdata) text.Append(cdata.Data);
-            if (current.FirstChild is { } child)
-            {
-                current = child;
-                continue;
-            }
-            while (current.NextSibling is null && !ReferenceEquals(current.ParentNode, root))
-                current = current.ParentNode!;
-            current = current.NextSibling;
-        }
-        return text.ToString();
+        return DomDescendantText.Read(self.Node!, self.DomRealm.NativeReadCheckpoint, self.DomRealm.CancellationToken);
     }
 
     internal static JsValue SetTextContent(DomNodeObject self, string value)
@@ -115,7 +101,7 @@ internal static class DomNodeMembers
     internal static JsValue CloneNode(DomNodeObject self, JsValue[] arguments)
     {
         return self.Attribute is { } attribute
-            ? self.DomRealm.WrapNodeValue(attribute.Clone())
+            ? self.DomRealm.Wrap(attribute.Clone())
             : CustomElements.CustomElementCreation.CloneNode(self.DomRealm, self.Node!, arguments);
     }
 

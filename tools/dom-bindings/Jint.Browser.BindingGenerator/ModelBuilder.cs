@@ -1407,7 +1407,7 @@ internal sealed class ModelBuilder
                 return;
             }
 
-            builder.Append("    internal override uint Length(object target) => (uint) ((").Append(target).Append(") target).").Append(length.Name).Append(";\n\n");
+            builder.Append("    internal override uint Length(DomRealm realm, object target) => (uint) ((").Append(target).Append(") target).").Append(length.Name).Append(";\n\n");
             builder.Append("    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n");
             builder.Append("        var collection = (").Append(target).Append(") target;\n");
             builder.Append("        if (index >= (uint) collection.").Append(length.Name).Append(")\n        {\n");

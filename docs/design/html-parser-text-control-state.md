@@ -142,9 +142,11 @@ value. Selection is one common `HtmlTextSelection` component with UTF-16 offsets
 and origin data are retained even when no Browser exists. Read-only default reflection does not create
 a second default string; attributes/child text remain authoritative for defaults.
 
-Fresh stored/raw values start empty, dirty false and origin NonUser. The input creation path then
-applies its complete initial attribute batch and current sanitizer; factory-created inputs follow the
-same rule with no attributes. Lazy view allocation must never replay initialization or lose stateful
+Fresh stored/raw values are observationally initialized with dirty false and origin NonUser, using
+the complete initial attribute batch and current sanitizer. Physical sanitization and value-sidecar
+allocation may wait until first semantic observation or before a history-sensitive mutation, as
+specified in [the demand boundary amendment](html-parser-demand-boundary.md). Factory-created inputs
+follow the same rule with no attributes. Lazy allocation must never replay or lose stateful
 type/attribute operations that happened before the first view read. Changes to value, dirty/origin,
 user validity or selection advance the owning document's mutation stamp before the next query, even
 when no content attribute changed; no fabricated DOM MutationRecord accompanies those state writes.

@@ -22,13 +22,18 @@ internal readonly struct HtmlInputNumericConstraints
 
     internal static HtmlInputNumericConstraints Create(HtmlInputType type, string? minimum, string? maximum,
         string? step, string? defaultValue, CancellationToken cancellationToken = default)
+        => Create(type, minimum, maximum, step, defaultValue, null, cancellationToken);
+
+    internal static HtmlInputNumericConstraints Create(HtmlInputType type, string? minimum, string? maximum,
+        string? step, string? defaultValue, Action<long>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var applies = type is HtmlInputType.Number or HtmlInputType.Range || HtmlInputTemporalSyntax.IsTemporal(type);
         if (!applies) return new(type, false, null, null, null, default);
-        var parsedMinimum = ParseAttribute(type, minimum, cancellationToken);
-        var parsedMaximum = ParseAttribute(type, maximum, cancellationToken);
-        var @base = parsedMinimum ?? ParseAttribute(type, defaultValue, cancellationToken)
+        var parsedMinimum = ParseAttribute(type, minimum, ref work);
+        var parsedMaximum = ParseAttribute(type, maximum, ref work);
+        var @base = parsedMinimum ?? ParseAttribute(type, defaultValue, ref work)
             ?? HtmlInputDecimal.FromDouble(type == HtmlInputType.Week ? -259200000 : 0);
         if (type == HtmlInputType.Range)
         {
@@ -39,8 +44,8 @@ internal readonly struct HtmlInputNumericConstraints
         if (!string.Equals(step, "any", StringComparison.OrdinalIgnoreCase))
         {
             var stepValue = type is HtmlInputType.Time or HtmlInputType.DateTimeLocal ? 60d : 1d;
-            if (step is not null && HtmlInputNumberSyntax.TryParsePrefix(step, out var parsed,
-                cancellationToken: cancellationToken) && parsed > 0) stepValue = parsed;
+            if (step is not null && HtmlInputNumberSyntax.TryGetNumber(step, false, out var parsed,
+                ref work) == HtmlInputNumericParseResult.Success && parsed > 0) stepValue = parsed;
             var scale = type switch
             {
                 HtmlInputType.Date => 86400000,
@@ -54,15 +59,23 @@ internal readonly struct HtmlInputNumericConstraints
         return new(type, true, parsedMinimum, parsedMaximum, allowedStep, @base);
     }
 
-    private static HtmlInputDecimal? ParseAttribute(HtmlInputType type, string? source, CancellationToken token)
-        => source is not null && TryParse(type, source, out var number, token)
+    private static HtmlInputDecimal? ParseAttribute(HtmlInputType type, string? source, ref HtmlInputValueWork work)
+        => source is not null && TryParse(type, source, out var number, ref work)
             ? HtmlInputDecimal.FromDouble(number) : null;
 
     internal static bool TryParse(HtmlInputType type, string source, out double number, CancellationToken cancellationToken = default)
+        => TryParse(type, source, out number, null, cancellationToken);
+    internal static bool TryParse(HtmlInputType type, string source, out double number, Action<long>? checkpoint,
+        CancellationToken cancellationToken)
+    {
+        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return TryParse(type, source, out number, ref work);
+    }
+    private static bool TryParse(HtmlInputType type, string source, out double number, ref HtmlInputValueWork work)
     {
         if (type is HtmlInputType.Number or HtmlInputType.Range)
-            return HtmlInputNumberSyntax.TryParsePrefix(source, out number, cancellationToken: cancellationToken);
-        return HtmlInputTemporalSyntax.TryGetNumber(type, source, out number, cancellationToken) == HtmlInputNumericParseResult.Success;
+            return HtmlInputNumberSyntax.TryGetNumber(source, false, out number, ref work) == HtmlInputNumericParseResult.Success;
+        return HtmlInputTemporalSyntax.TryGetNumber(type, source, out number, ref work) == HtmlInputNumericParseResult.Success;
     }
 
     internal HtmlInputNumericFacts GetFacts(string value, CancellationToken cancellationToken = default)
@@ -126,7 +139,7 @@ internal readonly struct HtmlInputNumericConstraints
         if ((Minimum is { } minimum && Maximum is { } maximum && minimum.CompareTo(maximum) > 0) || !HasGridPoint())
             return new(HtmlInputStepStatus.Unchanged, null);
         work.Step(); work.Check();
-        var before = HtmlInputDecimal.FromDouble(TryParse(Type, value, out var number, cancellationToken) ? number : 0);
+        var before = HtmlInputDecimal.FromDouble(TryParse(Type, value, out var number, ref work) ? number : 0);
         work.Step(); work.Check();
         var candidate = IsMismatch(before)
             ? down ? AlignDown(before) : AlignUp(before)

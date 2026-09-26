@@ -1501,7 +1501,7 @@ internal static partial class DomInterfaces
 
         HTMLOptionsCollection = Add(new DomInterfaceDefinition(
             "HTMLOptionsCollection",
-            typeof(global::AngleSharp.Html.Dom.IHtmlOptionsCollection),
+            typeof(global::Jint.Browser.Dom.DomSelectOptionsCollection),
             BuildHTMLOptionsCollection,
             HTMLCollection,
             rootsAtEventTarget: false,
@@ -1840,7 +1840,7 @@ internal static partial class DomInterfaces
 
         MutationRecord = Add(new DomInterfaceDefinition(
             "MutationRecord",
-            typeof(global::AngleSharp.Dom.IMutationRecord),
+            typeof(global::Jint.HtmlParser.MutationRecord),
             BuildMutationRecord,
             null,
             rootsAtEventTarget: false,
@@ -2100,7 +2100,7 @@ internal static partial class DomInterfaces
 
         ValidityState = Add(new DomInterfaceDefinition(
             "ValidityState",
-            typeof(global::AngleSharp.Html.Dom.IValidityState),
+            typeof(global::Jint.Browser.Dom.DomValidityState),
             BuildValidityState,
             null,
             rootsAtEventTarget: false,

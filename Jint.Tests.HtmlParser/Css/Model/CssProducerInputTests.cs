@@ -44,7 +44,7 @@ public sealed class CssProducerInputTests
     [Test]
     public void KnownPendingDeclarationSurfacesFromAValidatedSelectorBody()
     {
-        const string source = ".target { display:block; color:red; }";
+        const string source = ".target { display:block; border-color:red; }";
         var parser = new CssSyntaxParser(source, null, default);
         var syntax = parser.ParseStyleSheet()[0];
         var selector = new SelectorCompiler.Worker(source, new SelectorParseContext(), default).Compile(syntax.Prelude);
@@ -52,8 +52,8 @@ public sealed class CssProducerInputTests
         var body = parser.ParseBlockContents(syntax.Block!.Value);
         var failure = Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.FromDeclarations(source,
             body[0].Declarations, CssDeclarationContext.Style, 0, new CssValueWork(default)))!;
-        failure.PropertyName.Should().Be("color");
-        failure.Blocker.Should().Be("V1:color");
-        failure.Span.Start.Should().Be(source.IndexOf("color", StringComparison.Ordinal));
+        failure.PropertyName.Should().Be("border-color");
+        failure.Blocker.Should().Be("V1:border-color");
+        failure.Span.Start.Should().Be(source.IndexOf("border-color", StringComparison.Ordinal));
     }
 }
