@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -181,7 +180,7 @@ internal static class FormSubmission
             return true;
         }
 
-        List<IElement>? invalid = null;
+        List<Element>? invalid = null;
 
         // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#statically-validate-the-constraints:
         // "let controls be a list of all the submittable elements whose form owner is form, in tree order" —

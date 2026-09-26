@@ -1,7 +1,5 @@
-﻿using System.Globalization;
-using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+﻿using System.Runtime.CompilerServices;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.WebApi.Events;
@@ -45,13 +43,13 @@ internal static class TextEditing
     /// The value a control had when it was focused, so <c>change</c> can fire on the way out exactly when the
     /// user changed something — https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps.
     /// </summary>
-    private static readonly ConditionalWeakTable<IElement, EditSnapshot> _valuesAtFocus = new();
+    private static readonly ConditionalWeakTable<Element, EditSnapshot> _valuesAtFocus = new();
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#do-not-apply — the input types whose value is text a
     /// user types, plus <c>&lt;textarea&gt;</c>, which is the whole of what this version edits.
     /// </summary>
-    internal static bool IsEditable(IElement element) => element switch
+    internal static bool IsEditable(Element element) => element switch
     {
         IHtmlTextAreaElement textArea => !textArea.IsDisabled && !textArea.IsReadOnly,
         IHtmlInputElement input => !input.IsDisabled && !input.IsReadOnly && input.Type is
@@ -60,9 +58,9 @@ internal static class TextEditing
     };
 
     /// <summary>Whether the control holds one line, which is what makes <kbd>Enter</kbd> submit rather than insert.</summary>
-    internal static bool IsSingleLine(IElement element) => element is IHtmlInputElement;
+    internal static bool IsSingleLine(Element element) => element is IHtmlInputElement;
 
-    internal static void RememberValueAtFocus(IElement element)
+    internal static void RememberValueAtFocus(Element element)
     {
         if (IsEditable(element) || element is IHtmlSelectElement)
         {
@@ -74,7 +72,7 @@ internal static class TextEditing
     /// https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps step 3's first clause: a
     /// control whose value the user changed since it was focused fires <c>change</c> on the way out.
     /// </summary>
-    internal static void FireChangeIfEdited(DomRealm dom, IElement element)
+    internal static void FireChangeIfEdited(DomRealm dom, Element element)
     {
         if (Changed(element))
         {
@@ -88,7 +86,7 @@ internal static class TextEditing
     /// The same verdict, for a control that keeps focus: <kbd>Enter</kbd> in a single-line control commits the
     /// value, which is why a browser fires <c>change</c> there and not again when focus later leaves.
     /// </summary>
-    internal static void CommitChange(DomRealm dom, IElement element)
+    internal static void CommitChange(DomRealm dom, Element element)
     {
         if (!Changed(element))
         {
@@ -116,7 +114,7 @@ internal static class TextEditing
     /// <see langword="true"/> when the key was consumed by the editor, so the caller knows not to treat it as
     /// anything else.
     /// </returns>
-    internal static bool HandleKeyDown(DomRealm dom, IElement element, in KeyOptions options, bool allowInsertion)
+    internal static bool HandleKeyDown(DomRealm dom, Element element, in KeyOptions options, bool allowInsertion)
     {
         if (!IsEditable(element))
         {
@@ -209,7 +207,7 @@ internal static class TextEditing
 
             if (text.Length > room)
             {
-                text = text.Substring(0, room);
+                text = text.Substring(0, (int) room);
             }
         }
 
@@ -358,29 +356,21 @@ internal static class TextEditing
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#attr-fe-maxlength, read off the
     /// content attribute rather than through AngleSharp, which answers for an absent one.
     /// </summary>
-    private static int? MaxLengthOf(IElement element)
-    {
-        var raw = element.GetAttribute("maxlength");
-
-        return raw is not null
-            && int.TryParse(raw.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var value)
-            && value >= 0
-                ? value
-                : null;
-    }
+    private static long? MaxLengthOf(Element element)
+        => HtmlTextControlAttributes.GetMaximumAllowedLength(element, CancellationToken.None);
 
     /// <summary>
     /// https://w3c.github.io/input-events/#event-type-beforeinput — cancelable, so a listener can refuse the
     /// edit. Returns whether the edit may proceed.
     /// </summary>
-    internal static bool FireBeforeInput(DomRealm dom, IElement element, string inputType, JsValue data)
+    internal static bool FireBeforeInput(DomRealm dom, Element element, string inputType, JsValue data)
         => FireInputEvent(dom, element, "beforeinput", inputType, data, cancelable: true);
 
     /// <summary>https://w3c.github.io/input-events/#event-type-input — not cancelable; the edit already happened.</summary>
-    internal static void FireInput(DomRealm dom, IElement element, string inputType, JsValue data)
+    internal static void FireInput(DomRealm dom, Element element, string inputType, JsValue data)
         => FireInputEvent(dom, element, "input", inputType, data, cancelable: false);
 
-    private static bool FireInputEvent(DomRealm dom, IElement element, string type, string inputType, JsValue data, bool cancelable)
+    private static bool FireInputEvent(DomRealm dom, Element element, string type, string inputType, JsValue data, bool cancelable)
     {
         var realm = BrowserEventRealm.Of(dom.Engine);
 
@@ -402,14 +392,14 @@ internal static class TextEditing
     }
 
     /// <summary>Whether the value moved since the control was focused, for a control that recorded one.</summary>
-    private static bool Changed(IElement element)
+    private static bool Changed(Element element)
         => _valuesAtFocus.TryGetValue(element, out var snapshot)
             && !string.Equals(snapshot.Value, ValueOf(element), StringComparison.Ordinal);
 
-    private static void FireChange(DomRealm dom, IElement element)
+    private static void FireChange(DomRealm dom, Element element)
         => ActivationBehaviors.Fire(dom.WrapNode(element), "change", bubbles: true, composed: false);
 
-    private static string ValueOf(IElement element) => element switch
+    private static string ValueOf(Element element) => element switch
     {
         IHtmlInputElement input => input.Value ?? "",
         IHtmlTextAreaElement textArea => textArea.Value ?? "",
@@ -433,7 +423,7 @@ internal static class TextEditing
         private readonly IHtmlInputElement? _input;
         private readonly IHtmlTextAreaElement? _textArea;
 
-        internal TextControl(DomRealm dom, IElement element)
+        internal TextControl(DomRealm dom, Element element)
         {
             _dom = dom;
             Element = element;
@@ -441,7 +431,7 @@ internal static class TextEditing
             _textArea = element as IHtmlTextAreaElement;
         }
 
-        internal IElement Element { get; }
+        internal Element Element { get; }
 
         internal string Value
         {

@@ -11,6 +11,27 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class ActivationBehaviorTests
 {
+    [Test]
+    public async Task CanceledRadioActivationDoesNotRestoreAPeerMovedToAnotherGroup()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='a' type='radio' name='g' checked><input id='b' type='radio' name='g'>");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const a = document.getElementById('a');
+              const b = document.getElementById('b');
+              b.addEventListener('click', e => {
+                a.name = 'other';
+                e.preventDefault();
+              });
+              b.click();
+              return [a.checked, b.checked].join(',');
+            })()
+            """)).Should().Be("false,false");
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-click — <c>click()</c> fires a synthetic
     /// pointer event <b>with the not trusted flag set</b>, and its activation behaviour still runs. Trust
@@ -220,6 +241,24 @@ public sealed class ActivationBehaviorTests
         (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
         (await page.EvaluateAsync<string>("[document.getElementById('d').open, window.log.join('|')].join(',')"))
             .Should().Be("false,toggle:true|toggle:false");
+    }
+
+    [Test]
+    public async Task RepeatedSummaryActivationQueuesOneToggleWithTheFinalState()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<details id='d'><summary id='s'>More</summary></details>");
+        await page.EvaluateAsync(
+            """
+            window.toggles = [];
+            const d = document.getElementById('d');
+            d.addEventListener('toggle', () => toggles.push(d.open));
+            document.getElementById('s').click();
+            document.getElementById('s').click();
+            """);
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await page.EvaluateAsync<string>("toggles.join(',')")).Should().Be("false");
     }
 
     [Test]

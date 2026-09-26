@@ -7,6 +7,51 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class FocusTests
 {
+    [Test]
+    public async Task DetachedInputCannotTakeFocus()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='a'>");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const a = document.getElementById('a');
+              a.focus();
+              const detached = document.createElement('input');
+              let seen = 0;
+              detached.addEventListener('focus', () => seen++);
+              detached.focus();
+              return document.activeElement.id + ':' + seen;
+            })()
+            """)).Should().Be("a:0");
+    }
+
+    [Test]
+    public async Task FocusListenerRedirectsFocusWithoutFinishingTheSupersededTransition()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='a'><input id='b'><input id='c'>");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const a = document.getElementById('a');
+              const b = document.getElementById('b');
+              const c = document.getElementById('c');
+              const seen = [];
+              for (const type of ['blur', 'focusout', 'focus', 'focusin']) {
+                document.addEventListener(type, e => seen.push(type + ':' + e.target.id), true);
+              }
+              a.focus();
+              seen.length = 0;
+              b.addEventListener('focus', () => c.focus());
+              b.focus();
+              return document.activeElement.id + '|' + seen.join(',');
+            })()
+            """)).Should().Be("c|blur:a,focusout:a,focus:b,blur:b,focusout:b,focus:c,focusin:c");
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps — the old chain first, so
     /// <c>blur</c> then <c>focusout</c>, then the new chain's <c>focus</c> then <c>focusin</c>. The first two
