@@ -298,7 +298,7 @@ internal sealed class CssStyleSheet
             if (name == "import") return CssImportRule.Parse(source, syntax, parser, work);
             if (name == "font-face")
             {
-                if (syntax.Block is not { } descriptorBlock) return null;
+                if (syntax.Block is not { } descriptorBlock || nestingParent is not null) return null;
                 foreach (var value in syntax.Prelude)
                 {
                     work.Charge(1);
