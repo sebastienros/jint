@@ -16,7 +16,8 @@ public sealed class MutationRecord
     internal MutationRecord(MutationRecordKind kind, Node target, IReadOnlyList<Node>? addedNodes = null,
         IReadOnlyList<Node>? removedNodes = null, Node? previousSibling = null, Node? nextSibling = null,
         string? attributeName = null, string? attributeNamespace = null, string? oldValue = null,
-        bool targetWasConnected = false, string? attributeQualifiedName = null)
+        bool targetWasConnected = false, string? attributeQualifiedName = null,
+        string? attributePreviousQualifiedName = null)
     {
         Kind = kind;
         Target = target;
@@ -27,6 +28,7 @@ public sealed class MutationRecord
         AttributeName = attributeName;
         AttributeNamespace = attributeNamespace;
         AttributeQualifiedName = attributeQualifiedName;
+        AttributePreviousQualifiedName = attributePreviousQualifiedName;
         OldValue = oldValue;
         TargetWasConnected = targetWasConnected;
     }
@@ -46,4 +48,5 @@ public sealed class MutationRecord
     internal bool TargetWasConnected { get; }
     // Immutable host metadata for qualified-name protocols; DOM attributeName remains localName.
     internal string? AttributeQualifiedName { get; }
+    internal string? AttributePreviousQualifiedName { get; }
 }

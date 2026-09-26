@@ -65,7 +65,9 @@ internal static class HtmlTextAreaMutations
             length = checked(length + count);
         }
 
-        work.Check();
+        // The length pass can be O(1) for one large text node. Check the
+        // caller after those actual visits, before allocating its copy buffer.
+        work.Finish();
         var result = new char[checked((int) length)];
         var offset = 0;
         for (var child = element.FirstChild; child is not null; child = child.NextSibling)
@@ -79,7 +81,9 @@ internal static class HtmlTextAreaMutations
             }
         }
 
-        work.Check();
+        // The caller can observe the copy-buffer allocation before a second
+        // large allocation creates the immutable result.
+        work.Finish();
         var text = new string(result);
         work.Check();
         return text;

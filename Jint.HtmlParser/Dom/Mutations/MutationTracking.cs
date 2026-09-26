@@ -113,7 +113,7 @@ internal static class MutationTracking
     }
 
     internal static void QueueAttribute(Element target, Attr attribute,
-        string? oldValue, MutationMatches? matches = null)
+        string? oldValue, MutationMatches? matches = null, Attr? replaced = null)
     {
         matches ??= Match(target, MutationRecordKind.Attributes, attribute.LocalName, attribute.NamespaceUri);
         if (matches is null || matches.Entries.Count == 0)
@@ -124,11 +124,14 @@ internal static class MutationTracking
         // Capture the actual qualified name only when records are needed. Attr.Name reuses LocalName
         // when unprefixed; a prefixed name is built once and shared by all interested subscriptions.
         var qualifiedName = attribute.Name;
+        var previousQualifiedName = replaced is not null && !string.Equals(replaced.Prefix, attribute.Prefix, StringComparison.Ordinal)
+            ? replaced.Name : null;
         foreach (var entry in matches.Entries)
         {
             entry.Subscription.Queue(new MutationRecord(MutationRecordKind.Attributes, target,
                 attributeName: attribute.LocalName, attributeNamespace: attribute.NamespaceUri,
-                oldValue: entry.OldValue ? oldValue : null, attributeQualifiedName: qualifiedName));
+                oldValue: entry.OldValue ? oldValue : null, attributeQualifiedName: qualifiedName,
+                attributePreviousQualifiedName: previousQualifiedName));
         }
     }
 

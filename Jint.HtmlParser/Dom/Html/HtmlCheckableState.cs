@@ -10,15 +10,33 @@ internal static class HtmlCheckableState
         return element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
             ? element.GetHtmlState()!.CheckedState : null;
     }
+    internal static HtmlInputCheckedState? Get(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var wasWarm = element.ExistingCheckedState is not null;
+        var result = Get(element, ref work);
+        if (wasWarm || result is null) work.Finish();
+        return result;
+    }
     internal static HtmlInputCheckedState? Get(Element element, ref HtmlCheckedWork work)
     {
         return element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
             ? element.GetHtmlState()!.GetCheckedState(ref work) : null;
     }
     internal static bool IsRadio(Element element)
+        => IsRadio(element, null, default);
+    internal static bool IsRadio(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, default);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = IsRadioCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static bool IsRadioCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         return Type(element, ref work) == HtmlInputType.Radio;
     }
     internal static HtmlInputType? Type(Element element, ref HtmlCheckedWork work)
@@ -50,9 +68,18 @@ internal static class HtmlCheckableState
     }
 
     internal static HtmlRadioGroupFacts GetRadioGroupFacts(Element element, CancellationToken cancellationToken)
+        => GetRadioGroupFacts(element, null, cancellationToken);
+    internal static HtmlRadioGroupFacts GetRadioGroupFacts(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, cancellationToken);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = GetRadioGroupFactsCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static HtmlRadioGroupFacts GetRadioGroupFactsCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         return Facts(element, ref work);
     }
 
@@ -69,10 +96,19 @@ internal static class HtmlCheckableState
     }
 
     internal static bool SameRadioGroup(Element first, Element second, CancellationToken cancellationToken)
+        => SameRadioGroup(first, second, null, cancellationToken);
+    internal static bool SameRadioGroup(Element first, Element second, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        var work = new HtmlCheckedWork(first.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = SameRadioGroupCore(first, second, ref work);
+        work.Finish();
+        return result;
+    }
+    private static bool SameRadioGroupCore(Element first, Element second, ref HtmlCheckedWork work)
     {
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
-        var work = new HtmlCheckedWork(first.OwnerDocument?.CheckedWorkProbe, cancellationToken);
         work.Check();
         if (Type(first, ref work) != HtmlInputType.Radio || Type(second, ref work) != HtmlInputType.Radio) return false;
         if (ReferenceEquals(first, second)) return true;
@@ -82,9 +118,18 @@ internal static class HtmlCheckableState
     }
 
     internal static IReadOnlyList<Element> SnapshotRadioGroup(Element element, CancellationToken cancellationToken)
+        => SnapshotRadioGroup(element, null, cancellationToken);
+    internal static IReadOnlyList<Element> SnapshotRadioGroup(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, cancellationToken);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = SnapshotRadioGroupCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static IReadOnlyList<Element> SnapshotRadioGroupCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         var facts = Facts(element, ref work);
         return Snapshot(element, facts, ref work);
     }
@@ -94,6 +139,7 @@ internal static class HtmlCheckableState
         if (!facts.Applies) return Array.Empty<Element>();
         var state = Get(element)!;
         if (state.Group is null) return Array.AsReadOnly(new[] { element });
+        work.Finish();
         var result = new List<Element>(facts.MemberCount);
         var root = state.Index!.Root;
         for (Node? current = root; current is not null; current = HtmlRadioGroupIndex.Next(current, root, ref work))
@@ -106,9 +152,18 @@ internal static class HtmlCheckableState
     }
 
     internal static Element? FirstCheckedRadio(Element element, CancellationToken cancellationToken)
+        => FirstCheckedRadio(element, null, cancellationToken);
+    internal static Element? FirstCheckedRadio(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, cancellationToken);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = FirstCheckedRadioCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static Element? FirstCheckedRadioCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         var facts = Facts(element, ref work);
         if (!facts.Applies || facts.CheckedCount == 0) return null;
         var state = Get(element)!;
@@ -126,16 +181,34 @@ internal static class HtmlCheckableState
     }
 
     internal static bool MatchesChecked(Element element)
+        => MatchesChecked(element, null, default);
+    internal static bool MatchesChecked(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, default);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = MatchesCheckedCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static bool MatchesCheckedCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         if (Type(element, ref work) is not (HtmlInputType.Checkbox or HtmlInputType.Radio)) return false;
         return element.ExistingCheckedState?.Checked ?? DefaultChecked(element, ref work);
     }
     internal static bool MatchesUnchecked(Element element, CancellationToken cancellationToken)
+        => MatchesUnchecked(element, null, cancellationToken);
+    internal static bool MatchesUnchecked(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, cancellationToken);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = MatchesUncheckedCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static bool MatchesUncheckedCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         var type = Type(element, ref work);
         var state = element.ExistingCheckedState;
         var matches = type switch
@@ -149,9 +222,18 @@ internal static class HtmlCheckableState
         return matches;
     }
     internal static bool MatchesIndeterminate(Element element, CancellationToken cancellationToken)
+        => MatchesIndeterminate(element, null, cancellationToken);
+    internal static bool MatchesIndeterminate(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, cancellationToken);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = MatchesIndeterminateCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static bool MatchesIndeterminateCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         var matches = Type(element, ref work) switch
         {
             HtmlInputType.Checkbox => element.ExistingCheckedState?.Indeterminate ?? false,
@@ -162,9 +244,18 @@ internal static class HtmlCheckableState
         return matches;
     }
     internal static bool MatchesDefaultCheckable(Element element)
+        => MatchesDefaultCheckable(element, null, default);
+    internal static bool MatchesDefaultCheckable(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
-        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, default);
+        var work = new HtmlCheckedWork(element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        var result = MatchesDefaultCheckableCore(element, ref work);
+        work.Finish();
+        return result;
+    }
+    private static bool MatchesDefaultCheckableCore(Element element, ref HtmlCheckedWork work)
+    {
+        ArgumentNullException.ThrowIfNull(element);
         return Type(element, ref work) is HtmlInputType.Checkbox or HtmlInputType.Radio && DefaultChecked(element, ref work);
     }
 }

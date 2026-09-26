@@ -17,7 +17,10 @@ Submission threads the same counter through value preparation, actual wrap/colum
 hard-wrap counting/copying. Text-control length/column/wrap reads now flush short tails, and attribute
 iteration uses actual indexed attributes. Child text collection counts child visits and actual
 character copies; its old no-op character-accounting loop in the O(1) length pass was removed, so
-the budget checks no longer execute a fake source preflight. User editing keeps its established
+the budget checks no longer execute a fake source preflight. The length phase flushes its actual
+child-visit count before allocating a copy buffer, and the copy phase flushes before allocating the
+immutable string. Those allocation boundaries can repeat the same actual count in a subsequent
+final tail; they do not invent character visits for an O(1) length read. User editing keeps its established
 shared ancestry/normalization/comparison cadence and receives the corrected actual collection work.
 
 Textarea defaultValue writes and raw DOM child-mutation hooks still use the existing core DOM
