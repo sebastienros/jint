@@ -25,7 +25,8 @@ internal sealed class DomDocumentOrigin
 
     // HTML's matches-about:blank permits a query and fragment; these do not change inheritance.
     internal static bool InheritsCreator(string url)
-        => UrlParser.Parse(url) is { Scheme: "about", OpaquePath: "blank" or "srcdoc" };
+        => UrlParser.Parse(url) is { Scheme: "about" } parsed
+            && (parsed.OpaquePath == "blank" || parsed is { OpaquePath: "srcdoc", Query: null });
 
     internal static bool MatchesAboutBlank(string url)
         => UrlParser.Parse(url) is { Scheme: "about", OpaquePath: "blank" };

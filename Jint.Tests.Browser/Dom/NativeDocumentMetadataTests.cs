@@ -92,6 +92,66 @@ public sealed class NativeDocumentMetadataTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FrameCreationFactsPrecedeTheFetchPumpAndLaterAdoption(bool sandboxed)
+    {
+        var bodyReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var response = new LoopbackResponse
+        {
+            Body = "<p>child</p>",
+            WriteBodyAsync = async (stream, token) =>
+            {
+                await bodyReleased.Task.WaitAsync(token);
+                await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes("<p>child</p>"), token);
+            },
+        }.With("Content-Type", "text/html");
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/child", _ => response)
+            .MapHtml("/", """
+                <script>
+                setTimeout(() => {
+                    window.savedFrame = document.getElementById('f');
+                    savedFrame.removeAttribute('sandbox');
+                    hostOtherDocument.adoptNode(savedFrame);
+                    releaseFrameBody();
+                }, 0);
+                </script>
+                """ + "<iframe id=f " + (sandboxed ? "sandbox " : "") + "src=/child></iframe>"));
+        fixture.Page.Observe(new FetchPumpObserver(bodyReleased));
+        try
+        {
+            await fixture.Page.NavigateAsync(fixture.Url("/")).WaitAsync(Jint.Tests.TestBudgets.WedgeCeiling);
+            await fixture.Page.RunOnLoopAsync(engine =>
+            {
+                var runtime = PageRuntime.Find(engine)!;
+                var frame = DomBindings.Bind<Element>(engine.GetValue("savedFrame"), "metadata regression").Target;
+                var child = DomBrowsingContext.OfFrame(frame)!.Active!;
+                var metadata = DomDocumentState.Of(child);
+                metadata.HasSandboxedOrigin.Should().Be(sandboxed);
+                metadata.ScriptsBlockedBySandbox.Should().Be(sandboxed);
+                metadata.Origin.IsOpaque.Should().Be(sandboxed);
+                frame.OwnerDocument.Should().NotBeSameAs(runtime.Document);
+                if (!sandboxed)
+                    metadata.Origin.IsSameOrigin(DomDocumentState.Of(runtime.Document!).Origin).Should().BeTrue();
+                return true;
+            });
+        }
+        finally
+        {
+            bodyReleased.TrySetResult();
+        }
+    }
+
+    private sealed class FetchPumpObserver(TaskCompletionSource release) : IPageObserver
+    {
+        public void DocumentCreated(PageRuntime runtime, string loaderId)
+        {
+            runtime.Engine.SetValue("releaseFrameBody", (Action) (() => release.TrySetResult()));
+            runtime.Engine.SetValue("hostOtherDocument", runtime.Dom.WrapNodeValue(Document.CreateHtml()));
+        }
+    }
+
     [Test]
     public async Task ManufacturedDocumentsAndClonesUseTheAssociatedOriginAndParserUrl()
     {
@@ -205,5 +265,8 @@ public sealed class NativeDocumentMetadataTests
         DomDocumentOrigin.FromUrl("https://EXAMPLE.test:443/a").IsSameOrigin(
             DomDocumentOrigin.FromUrl("https://example.test/b")).Should().BeTrue();
         DomDocumentOrigin.Opaque().IsSameOrigin(DomDocumentOrigin.Opaque()).Should().BeFalse();
+        DomDocumentOrigin.InheritsCreator("about:blank?query#fragment").Should().BeTrue();
+        DomDocumentOrigin.InheritsCreator("about:srcdoc#fragment").Should().BeTrue();
+        DomDocumentOrigin.InheritsCreator("about:srcdoc?query").Should().BeFalse();
     }
 }
