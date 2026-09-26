@@ -148,7 +148,7 @@ public sealed partial class Page : IAsyncDisposable
             return;
         }
 
-        ReportTitle(PageRuntime.Find(engine)?.Document?.Title ?? "");
+        ReportTitle(PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
     }
 
     /// <summary>Tells the watcher the title, if it has moved since the last time it was told.</summary>
@@ -434,7 +434,7 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>The document's title.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> TitleAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.Title ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
 
     /// <summary>Runs the page until it has nothing left to do, or until <paramref name="timeout"/> runs out.</summary>
     /// <param name="timeout">The ceiling on how long to keep pumping.</param>
@@ -714,8 +714,7 @@ public sealed partial class Page : IAsyncDisposable
 
         try
         {
-            load.Document.Dispose();
-            (load.Context as IDisposable)?.Dispose();
+            load.Context.Dispose();
         }
         catch (Exception)
         {

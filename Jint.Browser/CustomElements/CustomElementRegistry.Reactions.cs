@@ -371,7 +371,7 @@ internal sealed partial class CustomElementRegistry
 
         try
         {
-            if (definition.DisableShadow && element.ShadowRoot is not null)
+            if (definition.DisableShadow && element.AttachedShadowRoot is not null)
             {
                 var engine = _runtime.Engine;
                 var error = engine._mainRealm.Intrinsics.DomException.CreateException(

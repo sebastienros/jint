@@ -1,0 +1,275 @@
+using System.Runtime.CompilerServices;
+using Jint.Browser.Dom;
+using Jint.HtmlParser;
+
+namespace Jint.Browser.Runtime.Parsing;
+
+internal sealed partial class ParserDriver
+{
+    private readonly Dictionary<Document, ResourceWatch> _resourceWatches = new();
+    private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
+    private readonly HashSet<Element> _inlineStyles = [];
+    private bool _processingResources;
+
+    private sealed class ResourceWatch(Document document, MutationSubscription subscription)
+    {
+        internal Document Document { get; } = document;
+        internal MutationSubscription Subscription { get; } = subscription;
+        internal bool Posted;
+        internal bool Deferred;
+    }
+
+    private sealed class ResourceSource
+    {
+        internal string? Signature;
+        internal bool ModuleStarted;
+    }
+
+    private ResourceWatch WatchDocument(Document document)
+    {
+        if (_resourceWatches.TryGetValue(document, out var existing)) return existing;
+        var subscription = document.ObserveMutations(document, new MutationObserverOptions
+        {
+            ChildList = true,
+            Attributes = true,
+            Subtree = true,
+            AttributeFilter = ["src", "srcdoc", "srcset", "sizes", "href", "rel", "type", "media"]
+        });
+        var watch = new ResourceWatch(document, subscription);
+        var weak = new WeakReference<ParserDriver>(this);
+        subscription.PendingRecord = _ =>
+        {
+            // Native mutation only signals work. No script, fetch, tree read or style calculation.
+            if (!weak.TryGetTarget(out var driver)) { watch.Subscription.Dispose(); return; }
+            if (!driver._disposed) driver.QueueResourceDrain(watch);
+        };
+        _resourceWatches.Add(document, watch);
+        return watch;
+    }
+
+    private void QueueResourceDrain(ResourceWatch watch)
+    {
+        if (watch.Posted) return;
+        watch.Posted = true;
+        _runtime.Engine.Tasks.Post(() =>
+        {
+            watch.Posted = false;
+            if (_disposed || _nativeParses.ContainsKey(watch.Document)) return;
+            if (_processingResources) { watch.Deferred = true; return; }
+            DrainResourceRecords(watch);
+            InstallInlineStyles(watch.Document);
+        });
+    }
+
+    private void ProcessResourceRecords(NativeParse parse) => DrainResourceRecords(WatchDocument(parse.Document));
+
+    private void DrainResourceRecords(ResourceWatch watch)
+    {
+        if (_processingResources) return;
+        _processingResources = true;
+        try
+        {
+            var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
+            foreach (var record in watch.Subscription.TakeRecordsForDelivery())
+            {
+                _runtime.Engine.Constraints.Check();
+                if (record.Kind == MutationRecordKind.ChildList)
+                {
+                    if (!record.TargetWasConnected) continue;
+                    foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
+                }
+                else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
+                    record.AttributeNamespace is null)
+                    ProcessResourceElement(element);
+            }
+        }
+        finally
+        {
+            _processingResources = false;
+            foreach (var pending in _resourceWatches.Values)
+            {
+                _runtime.Engine.Constraints.Check();
+                if (!pending.Deferred) continue;
+                pending.Deferred = false;
+                QueueResourceDrain(pending);
+            }
+        }
+    }
+
+    private void ProcessResources(Document document)
+    {
+        ProcessResourceSubtree(document, new HashSet<Node>(ReferenceEqualityComparer.Instance));
+        InstallInlineStyles(document);
+    }
+
+    private void ProcessResourceSubtree(Node root, HashSet<Node> seen)
+    {
+        var pending = new Stack<Node>();
+        pending.Push(root);
+        var steps = 0;
+        while (pending.TryPop(out var node))
+        {
+            if ((++steps & 255) == 0) _runtime.Engine.Constraints.Check();
+            // Added-node records overlap within one parser slice. Visit each real node once.
+            if (!seen.Add(node)) continue;
+            if (node is Element element) ProcessResourceElement(element);
+            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
+            {
+                if ((++steps & 255) == 0) _runtime.Engine.Constraints.Check();
+                pending.Push(child);
+            }
+        }
+        _runtime.Engine.Constraints.Check();
+    }
+
+    private void ProcessResourceElement(Element element)
+    {
+        if (element.NamespaceUri != Namespaces.Html) return;
+        switch (element.LocalName)
+        {
+            case "style":
+                _inlineStyles.Add(element);
+                return;
+            case "link":
+                LoadStyleSheet(element);
+                return;
+            case "iframe":
+                LoadFrame(element);
+                return;
+            case "img":
+                FetchImage(element, Attribute(element, "src") ?? "");
+                return;
+            case "input" when HtmlInputTypes.Parse(Attribute(element, "type")) == HtmlInputType.Image:
+                FetchImage(element, Attribute(element, "src") ?? "");
+                return;
+            case "script":
+                // The HTML tokenizer's own request prepares parser-inserted scripts.
+                if (_xmlParsingDocuments.Contains(element.OwnerDocument!))
+                    element.GetHtmlState()!.Script!.AlreadyStarted = true;
+                else if (!element.GetHtmlState()!.Script!.ParserInserted) PrepareDynamicScript(element);
+                return;
+        }
+    }
+
+    private bool IsResourceConnected(Element element)
+        => ShadowTree.GetRoot(element, composed: true, _runtime.Dom.NativeReadCheckpoint, _cancellationToken) is Document;
+
+    private void InstallInlineStyles(Document document)
+    {
+        foreach (var style in _inlineStyles.ToArray())
+        {
+            if (!ReferenceEquals(style.OwnerDocument, document)) continue;
+            _inlineStyles.Remove(style);
+            if (IsResourceConnected(style))
+                global::Jint.Browser.Styling.NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), style,
+                    TextOf(style), DomDocumentState.Of(document).Url);
+        }
+    }
+
+    private void LoadStyleSheet(Element link)
+    {
+        if (!IsResourceConnected(link)) return;
+        var href = Attribute(link, "href");
+        if (string.IsNullOrEmpty(href)) return;
+        var relations = Attribute(link, "rel") ?? "";
+        if (!relations.Split([' ', '\t', '\r', '\n', '\f'], StringSplitOptions.RemoveEmptyEntries)
+            .Any(value => value.Equals("stylesheet", StringComparison.OrdinalIgnoreCase)))
+        {
+            var refused = PageUrl.Resolve(href, BaseUrlOf(link.OwnerDocument!)) ?? href;
+            _requests.RecordNotFetched(refused, RequestInitiator.Subresource, PageRequestKind.Other,
+                "a <link rel=\"" + relations + "\"> is not fetched: only a stylesheet is");
+            return;
+        }
+        var url = PageUrl.Resolve(href, BaseUrlOf(link.OwnerDocument!));
+        var source = _resourceSources.GetValue(link, static _ => new ResourceSource());
+        if (source.Signature == url) return;
+        source.Signature = url;
+        if (url is null) { FailSubresource(link, href, "The stylesheet URL is invalid."); return; }
+        var fetched = FetchBytes(url, link, "stylesheet", PageRequestKind.Stylesheet,
+            mayPump: !_runtime.Engine.IsEvaluationInProgress);
+        if (fetched is not { } body) return;
+        var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200)
+            .Text(DomDocumentState.Of(link.OwnerDocument!).CharacterSet);
+        global::Jint.Browser.Styling.NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(link.OwnerDocument!), link, text, body.Url);
+        StyleSheetProcessed(link);
+    }
+
+    private void LoadFrame(Element frame)
+    {
+        if (!IsResourceConnected(frame)) return;
+        var srcdoc = Attribute(frame, "srcdoc");
+        var src = Attribute(frame, "src");
+        var url = srcdoc is not null ? "about:srcdoc"
+            : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, BaseUrlOf(frame.OwnerDocument!));
+        var signature = srcdoc is not null ? "srcdoc:" + srcdoc : "src:" + url;
+        var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
+        if (source.Signature == signature) return;
+        source.Signature = signature;
+        if (url is null) { FailSubresource(frame, src ?? "", "The frame URL is invalid."); return; }
+        var ceiling = _runtime.Options.MaxFrameDocuments;
+        if (ceiling <= 0 || _frameDocuments >= ceiling)
+        {
+            _requests.RecordNotFetched(url, RequestInitiator.Subresource, PageRequestKind.Frame,
+                "The frame document limit has been reached.");
+            return;
+        }
+        _frameDocuments++;
+        string markup;
+        string contentType;
+        if (srcdoc is not null || url == "about:blank")
+        {
+            markup = srcdoc ?? "";
+            contentType = DomContentType.Html;
+        }
+        else
+        {
+            if (FetchBytes(url, frame, "frame document", PageRequestKind.Frame,
+                    mayPump: !_runtime.Engine.IsEvaluationInProgress) is not { } body) return;
+            (markup, contentType) = DocumentFetch.Decode(body.Bytes, body.ContentType, body.Url);
+            url = body.Url;
+        }
+        var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html,
+            contentType, new CustomElementRegistryIdentity(isScoped: false));
+        var metadata = DomDocumentState.Of(document);
+        metadata.Url = url;
+        metadata.Referrer = DomDocumentState.Of(frame.OwnerDocument!).Url;
+        metadata.ReadyState = "loading";
+        if (url is "about:blank" or "about:srcdoc") metadata.AboutBaseUrl = BaseUrlOf(frame.OwnerDocument!);
+        if (DomBrowsingContext.OfFrame(frame) is { } context)
+        {
+            if (context.Active is { } previous && _resourceWatches.Remove(previous, out var watch)) watch.Subscription.Dispose();
+            context.Activate(document);
+        }
+        else context = new DomBrowsingContext(document, DomBrowsingContext.Of(frame.OwnerDocument!), frame);
+        var dom = FrameWindows.DocumentRealm(_runtime, document);
+        dom.AssociateContext(context);
+        Parse(document, markup, isSrcdoc: srcdoc is not null);
+        dom.RecordSubtree(document);
+        QueueResourceEvent(frame, "load", afterParse: true);
+    }
+
+    private void PrepareDynamicScript(Element script)
+    {
+        var flags = script.GetHtmlState()!.Script!;
+        if (flags.AlreadyStarted || !IsResourceConnected(script)) return;
+        var type = ScriptType(script);
+        var src = Attribute(script, "src");
+        if (type == NativeScriptType.Data || src is null && TextOf(script).Length == 0) return;
+        flags.AlreadyStarted = true;
+        flags.PreparationTimeDocument = script.OwnerDocument;
+        if (!_runtime.ScriptingEnabled || IsFrameDocument(script.OwnerDocument!) && !CanRunFrame(script.OwnerDocument!)) return;
+        if (type == NativeScriptType.ImportMap) { ReadImportMapEarly(script.OwnerDocument!); return; }
+        if (type == NativeScriptType.Module)
+        {
+            // The existing child-frame capability is classic scripting; the engine's module
+            // map is shared and cannot evaluate a child module in the principal realm.
+            if (IsFrameDocument(script.OwnerDocument!)) return;
+            if (_runtime.Modules is { } modules) RunModule(modules, script);
+            return;
+        }
+        if (Attribute(script, "nomodule") is not null) return;
+        if (src is null) RunNativeClassic(script, null);
+        else if (src.Length == 0) FireAt(script, "error");
+        else if (FetchScriptSource(script, mayPump: false) is { } body) RunNativeClassic(script, body);
+    }
+}

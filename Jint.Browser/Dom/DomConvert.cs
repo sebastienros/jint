@@ -83,8 +83,6 @@ internal static class DomConvert
     /// a frame with no browsing context yet. It is <c>null</c> rather than <c>undefined</c> because that is
     /// what Web IDL's <c>WindowProxy?</c> is, and a page tests it (<c>if (iframe.contentWindow)</c>).
     /// </remarks>
-    internal static JsValue Window(DomRealm realm, AngleSharp.Dom.IWindow? window)
-        => window is null ? JsValue.Null : realm.Hooks.Window(realm, window);
 
     /// <summary>
     /// A WebIDL <c>any</c> return. AngleSharp types a handful of members as <c>object</c>, and what comes back

@@ -125,7 +125,7 @@ public sealed partial class Page
         var captured = await _loop.PostAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine);
-            if (runtime?.Document?.QuerySelector(selector) is not IHtmlFormElement form)
+            if (runtime?.Document is not { } document || Dom.DomSelectors.QuerySelector(runtime.Dom, document, selector) is not Jint.HtmlParser.Element { NamespaceUri: Jint.HtmlParser.Namespaces.Html, LocalName: "form" } form)
             {
                 return null;
             }
@@ -859,7 +859,7 @@ public sealed partial class Page
             });
 
             _load = load;
-            _mainFrame = Frame.Build(this, load.Document, url);
+            _mainFrame = Frame.Build(this, runtime, load.Document, url);
             return null;
         }
         finally
@@ -893,7 +893,7 @@ public sealed partial class Page
         }
 
         observer.Phase(phase, loaderId);
-        ReportTitle(runtime.Document?.Title ?? "");
+        ReportTitle(Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document));
 
         if (phase == NavigationPhase.Loaded)
         {
