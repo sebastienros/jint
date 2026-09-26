@@ -344,6 +344,58 @@ public class ShadowOwnershipTests
     }
 
     [Test]
+    public void ShadowRegistrySetterInvalidatesOnlyOnIdentityChange()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var child = document.CreateTextNode("kept");
+        root.AppendChild(child);
+        var scoped = new CustomElementRegistryIdentity(true);
+        var other = new CustomElementRegistryIdentity(true);
+        var stamp = document.MutationStamp;
+
+        root.SetCustomElementRegistry(scoped);
+        root.CustomElementRegistry.Should().BeSameAs(scoped);
+        document.MutationStamp.Should().BeGreaterThan(stamp);
+        stamp = document.MutationStamp;
+        root.SetCustomElementRegistry(scoped);
+        document.MutationStamp.Should().Be(stamp);
+        root.SetCustomElementRegistry(other);
+        document.MutationStamp.Should().BeGreaterThan(stamp);
+        stamp = document.MutationStamp;
+        root.SetCustomElementRegistry(null);
+        root.CustomElementRegistry.Should().BeNull();
+        document.MutationStamp.Should().BeGreaterThan(stamp);
+        root.Host.Should().BeSameAs(host);
+        root.FirstChild.Should().BeSameAs(child);
+        root.ChildCount.Should().Be(1);
+    }
+
+    [Test]
+    public void DeclarativeTemplateContentSwapInvalidatesOnlyAfterSuccess()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var template = document.CreateElement("template");
+        var original = template.TemplateContent;
+        var stamp = document.MutationStamp;
+
+        ShadowTree.SetDeclarativeTemplateContent(template, root, true);
+        document.MutationStamp.Should().BeGreaterThan(stamp);
+        template.TemplateContent.Should().BeSameAs(root);
+        root.Declarative.Should().BeTrue();
+        root.KeepCustomElementRegistryNull.Should().BeTrue();
+        original.Should().NotBeSameAs(root);
+
+        stamp = document.MutationStamp;
+        Assert.Throws<InvalidOperationException>(() => ShadowTree.SetDeclarativeTemplateContent(template, root, false));
+        document.MutationStamp.Should().Be(stamp);
+        template.TemplateContent.Should().BeSameAs(root);
+    }
+
+    [Test]
     public void HostObserversDoNotSeeRootMutationsButRootObserversDo()
     {
         var document = Document.CreateHtml();

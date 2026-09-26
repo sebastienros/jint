@@ -48,7 +48,12 @@ internal sealed class ShadowRoot : DocumentFragment
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
     internal bool KeepCustomElementRegistryNull { get; private set; }
 
-    internal void SetCustomElementRegistry(CustomElementRegistryIdentity? registry) => CustomElementRegistry = registry;
+    internal void SetCustomElementRegistry(CustomElementRegistryIdentity? registry)
+    {
+        if (ReferenceEquals(CustomElementRegistry, registry)) return;
+        CustomElementRegistry = registry;
+        OwnerDocument!.MarkMutation();
+    }
     internal void SetDeclarative(bool value) => Declarative = value;
     internal void SetKeepCustomElementRegistryNull(bool value) => KeepCustomElementRegistryNull = value;
     internal void SetAvailableToElementInternals(bool value) => AvailableToElementInternals = value;
@@ -171,6 +176,7 @@ internal static class ShadowTree
         root.SetDeclarative(true);
         root.SetAvailableToElementInternals(true);
         root.SetKeepCustomElementRegistryNull(keepCustomElementRegistryNull);
+        template.OwnerDocument!.MarkMutation();
     }
 
     private static bool IsValidShadowHostName(string name)
