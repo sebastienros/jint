@@ -40,13 +40,18 @@ internal static class BrowserOutputValue
             node = node.NextSibling;
         }
         work.Check();
-        return text.ToString();
+        token.ThrowIfCancellationRequested();
+        var result = text.ToString();
+        work.Check();
+        token.ThrowIfCancellationRequested();
+        return result;
     }
 
     internal static string GetDefaultValue(Element output, Action<int>? checkpoint, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         checkpoint?.Invoke(1);
+        token.ThrowIfCancellationRequested();
         return Defaults.TryGetValue(output, out var saved) ? saved.Value : GetValue(output, checkpoint, token);
     }
 
