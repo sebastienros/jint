@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Jint.Browser.CustomElements;
 using Jint.Browser.Dom.Collections;
 using Jint.HtmlParser;
 using Jint.Native;
@@ -49,15 +48,13 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
 
     internal IEnumerable<Element> Elements(bool images, DomReadWork work)
     {
-        var registry = CustomElementRegistry.Of(realm.Engine);
         work.Check();
-        foreach (var element in HtmlFormOwner.ControlsOf(form, checkpoint: _ => work.Check(), customElements: registry, token: work.Token))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, checkpoint: _ => work.Check(), token: work.Token))
         {
             work.Step();
             var eligible = images
                 ? element is { NamespaceUri: Namespaces.Html, LocalName: "img" }
-                : (HtmlFormOwner.IsListed(element)
-                    || registry?.TryGetRecord(element) is { State: CustomElementState.Custom, FormAssociated: true })
+                : HtmlFormOwner.IsListed(element)
                   && !(element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
                       && HtmlInputTypes.Parse(work.Attribute(element, "type")) == HtmlInputType.Image);
             if (!eligible) continue;
