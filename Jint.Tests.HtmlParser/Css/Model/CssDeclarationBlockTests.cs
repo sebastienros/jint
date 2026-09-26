@@ -30,22 +30,22 @@ public sealed class CssDeclarationBlockTests
         var text = block.CssText;
         var stamp = block.Stamp;
         var entry = block.GetDeclaration(0);
-        const string replacement = "display:block;width:1px;opacity:1";
+        const string replacement = "display:block;min-width:1px;opacity:1";
         var exception = Assert.Throws<CssIncompleteGrammarException>(() => block.ReplaceText(replacement))!;
-        exception.PropertyName.Should().Be("width");
-        exception.Blocker.Should().Be("V2:width");
-        exception.Span.Start.Should().Be(replacement.IndexOf("width", StringComparison.Ordinal));
+        exception.PropertyName.Should().Be("min-width");
+        exception.Blocker.Should().Be("V2:min-width");
+        exception.Span.Start.Should().Be(replacement.IndexOf("min-width", StringComparison.Ordinal));
         block.CssText.Should().Be(text);
         block.Stamp.Should().Be(stamp);
         block.GetDeclaration(0).Should().BeSameAs(entry);
         Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.Parse(replacement));
-        Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty("width", "1px"));
+        Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty("min-width", "1px"));
         block.Stamp.Should().Be(stamp);
     }
 
     [TestCase("all", "V0:all-reset")]
     [TestCase("margin", "V2:margin")]
-    [TestCase("width", "V2:width")]
+    [TestCase("min-width", "V2:min-width")]
     public void PendingRemovalMetadataAbortsBeforeMutationAndBeforeInvalidPriority(string name, string blocker)
     {
         var block = CssDeclarationBlock.Parse("opacity:.5;overflow:hidden");
@@ -69,7 +69,7 @@ public sealed class CssDeclarationBlockTests
     {
         var block = CssDeclarationBlock.Parse("opacity:.5!important; overflow:hidden");
         var stamp = block.Stamp;
-        block.SetProperty("width", "1px", "bad"); // rejected before the pending width grammar
+        block.SetProperty("min-width", "1px", "bad"); // rejected before the pending min-width grammar
         block.SetProperty("opacity", "1", " important");
         block.SetProperty("opacity", "1!important");
         block.SetProperty("--x", "red !important");
@@ -272,7 +272,7 @@ public sealed class CssDeclarationBlockTests
     [Test]
     public void KeyframeImportanceDropsAtTheContextBoundary()
     {
-        var block = CssDeclarationBlock.Parse("opacity:.5!important;display:block;width:1px!important", CssDeclarationContext.Keyframe);
+        var block = CssDeclarationBlock.Parse("opacity:.5!important;display:block;min-width:1px!important", CssDeclarationContext.Keyframe);
         block.CssText.Should().Be("display: block;");
         var stamp = block.Stamp;
         block.SetProperty("opacity", "1", "important");

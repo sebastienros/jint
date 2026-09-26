@@ -121,19 +121,30 @@ internal static class HtmlInputTextOperations
     }
     internal static bool ApplyUserValue(HtmlInputValueState state, string value, HtmlTextSelection selection,
         CancellationToken cancellationToken)
+        => ApplyUserValue(state, value, selection, null, cancellationToken);
+
+    internal static bool ApplyUserValue(HtmlInputValueState state, string value, HtmlTextSelection selection,
+        Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(value);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!state.HasTextBuffer || state.ReadOnly ||
-            state.Element.GetHtmlState()!.GetDisabledState(cancellationToken) != HtmlDisabledState.Enabled) return false;
-        var prepared = state.Sanitize(value, cancellationToken);
-        var changed = !string.Equals(state.GetValue(cancellationToken), prepared, StringComparison.Ordinal);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check();
+        work.Step();
+        if (!state.HasTextBuffer || state.ReadOnly) { work.Finish(); return false; }
+        var disabledWork = new HtmlDisabledWork(cancellationToken, checkpoint, work.Steps);
+        var disabled = HtmlDisabledness.GetState(state.Element, ref disabledWork);
+        work.ContinueFrom(disabledWork.Steps);
+        if (disabled != HtmlDisabledState.Enabled) { work.Finish(); return false; }
+        var prepared = state.Sanitize(value, ref work);
+        var changed = !work.StringEquals(state.GetValue(cancellationToken), prepared);
+        work.Step();
         var next = Normalize(selection.Start, selection.End, DirectionString(selection.Direction), (uint) prepared.Length);
-        cancellationToken.ThrowIfCancellationRequested();
+        // All scans, comparison and constraint callbacks precede the coherent commit.
+        work.Finish();
         if (changed)
         {
-            state.CommitValue(prepared, HtmlValueChangeOrigin.User);
+            state.CommitValue(prepared, HtmlValueChangeOrigin.User, changed: true);
             state.SetDirty(true);
             state.ClampSelection((uint) prepared.Length);
         }

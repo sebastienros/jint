@@ -112,9 +112,15 @@ internal sealed class HtmlTextAreaState
 
     internal bool NeedsRemovalLengths => !DirtyValue && (_selection.Start != 0 || _selection.End != 0);
 
-    internal void CopyFrom(HtmlTextAreaState source)
+    internal void CopyFrom(HtmlTextAreaState source, CancellationToken cancellationToken = default)
+        => CopyFrom(source, null, cancellationToken);
+
+    internal void CopyFrom(HtmlTextAreaState source, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        _rawValue = source.GetRawValue(CancellationToken.None);
+        ArgumentNullException.ThrowIfNull(source);
+        var raw = source.GetRawValue(checkpoint, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        _rawValue = raw;
         _rawFromChildren = false;
         _rawAlignedWithChildren = false;
         DirtyValue = source.DirtyValue;
@@ -240,33 +246,50 @@ internal sealed class HtmlTextAreaState
     }
 
     internal bool ApplyUserValue(string value, HtmlTextSelection selection, CancellationToken cancellationToken)
+        => ApplyUserValue(value, selection, null, cancellationToken);
+
+    internal bool ApplyUserValue(string value, HtmlTextSelection selection, Action<int>? checkpoint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(value);
-        if (_element.GetHtmlState()!.GetDisabledState(cancellationToken) != HtmlDisabledState.Enabled ||
-            IsReadOnly(cancellationToken))
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check();
+        var disabledWork = new HtmlDisabledWork(cancellationToken, checkpoint, work.Steps);
+        var disabled = HtmlDisabledness.GetState(_element, ref disabledWork);
+        work.ContinueFrom(disabledWork.Steps);
+        if (disabled != HtmlDisabledState.Enabled || IsReadOnly(ref work))
         {
+            work.Finish();
             return false;
         }
-
-        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(value, cancellationToken);
-        var old = GetValue(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!string.Equals(old, normalized, StringComparison.Ordinal))
+        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(value, ref work);
+        var old = _apiRevision == _rawRevision && _apiValue is { } cached ? cached
+            : HtmlTextSanitizer.NormalizeTextAreaValue(_rawFromChildren
+                ? HtmlTextAreaMutations.CollectChildText(_element, ref work) : _rawValue, ref work);
+        var changed = !work.StringEquals(old, normalized);
+        var rawChanged = changed && !_rawFromChildren && !work.StringEquals(_rawValue, value);
+        work.Step();
+        var next = NormalizeSelection(selection, (uint) normalized.Length);
+        work.Finish();
+        if (changed)
         {
-            SetRawValue(value, normalized);
+            SetRawValue(value, normalized, rawChanged);
             SetDirty(true);
             SetOrigin(HtmlValueChangeOrigin.User);
             ClampSelection((uint) normalized.Length);
         }
-
-        SetSelection(NormalizeSelection(selection, (uint) normalized.Length));
+        SetSelection(next);
         return true;
     }
 
     private string GetRawValue(CancellationToken cancellationToken)
+        => GetRawValue(null, cancellationToken);
+
+    private string GetRawValue(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!_rawFromChildren) return _rawValue;
-        var value = GetDefaultValue(cancellationToken);
+        var value = HtmlTextAreaMutations.CollectChildText(_element, checkpoint, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _rawValue = value;
         _rawFromChildren = false;
@@ -274,10 +297,12 @@ internal sealed class HtmlTextAreaState
     }
 
     private void SetRawValue(string raw, string normalized)
+        => SetRawValue(raw, normalized, !_rawFromChildren && !string.Equals(_rawValue, raw, StringComparison.Ordinal));
+
+    private void SetRawValue(string raw, string normalized, bool changed)
     {
         // A clean lazy child projection already denotes this raw text. Resolving it
         // during reset is a representation change, not a value mutation.
-        var changed = !_rawFromChildren && !string.Equals(_rawValue, raw, StringComparison.Ordinal);
         _rawValue = raw;
         _rawFromChildren = false;
         _rawAlignedWithChildren = false;
@@ -326,9 +351,8 @@ internal sealed class HtmlTextAreaState
     }
 
     private static uint Clamp(uint value, uint length) => Math.Min(value, length);
-    private bool IsReadOnly(CancellationToken cancellationToken)
+    private bool IsReadOnly(ref HtmlTextWork work)
     {
-        var work = new HtmlTextWork(cancellationToken);
         work.Check();
         foreach (var attribute in _element.Attributes)
         {
