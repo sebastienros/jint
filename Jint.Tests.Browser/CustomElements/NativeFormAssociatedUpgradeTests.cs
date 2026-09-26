@@ -46,6 +46,38 @@ public sealed class NativeFormAssociatedUpgradeTests
     }
 
     [Test]
+    public async Task FatalConstraintDuringUpgradeClearsCategoryWithoutBecomingAReportedScriptError()
+    {
+        var probe = new FatalProbe();
+        await using var browser = new Browser(new BrowserOptions().ConfigureEngine(options => options.AddConstraint(probe)));
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<form><x-fatal id='x'></x-fatal></form>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "x")!;
+            engine.SetValue("armFatalConstraint", () => probe.Armed = true);
+            Assert.Throws<OperationCanceledException>(() => engine.Execute("""
+                class Fatal extends HTMLElement {
+                    static formAssociated = true;
+                    constructor() { super(); armFatalConstraint(); this.id = 'after'; }
+                }
+                customElements.define('x-fatal', Fatal);
+                """));
+            probe.Armed = false;
+            var record = CustomElementRegistry.Of(engine)!.TryGetRecord(element)!;
+            record.State.Should().Be(CustomElementState.Failed);
+            record.Definition.Should().BeNull();
+            record.FormAssociated.Should().BeFalse();
+            record.Reactions.Should().BeEmpty();
+            HtmlFormState.IsFormAssociated(element).Should().BeFalse();
+            HtmlFormState.GetOwner(element).Should().BeNull();
+            return true;
+        });
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task FreshAutonomousCategoryAssociatesOnInsertionButCustomizedBuiltinKeepsItsCategory()
     {
         await using var browser = new Browser();
@@ -72,4 +104,14 @@ public sealed class NativeFormAssociatedUpgradeTests
             return true;
         });
     }
+    private sealed class FatalProbe : Constraint
+    {
+        internal bool Armed;
+        public override void Check()
+        {
+            if (Armed) throw new OperationCanceledException();
+        }
+        public override void Reset() { }
+    }
+
 }
