@@ -77,14 +77,15 @@ internal static partial class NativeCssStyleSheets
             {
                 var ownerWork = new DomReadWork(work.Charge, work.Token);
                 var type = ownerWork.Attribute(element, "type");
+                var embedded = element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg;
                 if (element.NamespaceUri == Namespaces.Html && element.LocalName == "link" &&
                     !HasStyleSheetRelation(ownerWork.Attribute(element, "rel"), work))
                     continue;
-                if (element.NamespaceUri == Namespaces.Html && element.LocalName is "style" or "link" &&
+                if ((embedded || element.NamespaceUri == Namespaces.Html && element.LocalName == "link") &&
                     !string.IsNullOrEmpty(type) && !ownerWork.EqualAsciiIgnoreCase(type, "text/css"))
                     continue;
                 var known = resources.Owners.TryGetValue(element, out var entry);
-                if (element.NamespaceUri == Namespaces.Html && element.LocalName == "style" &&
+                if (embedded &&
                     (!known || entry!.NativeStamp != documentStamp))
                 {
                     var text = ReadText(element, work);
@@ -130,6 +131,16 @@ internal static partial class NativeCssStyleSheets
                         resource.Sheet.Media.SetMediaText(media, null, parsing, work.Token);
                         Verify();
                         resource.MediaSource = media;
+                    }
+                    if (element.NamespaceUri == Namespaces.Html && element.LocalName == "link")
+                    {
+                        var disabled = ownerWork.Attribute(element, "disabled") is not null;
+                        if (resource.DisabledSource != disabled)
+                        {
+                            Verify();
+                            resource.Sheet.Disabled = disabled;
+                            resource.DisabledSource = disabled;
+                        }
                     }
                     result.Add(new(resource.Sheet, NativeCssOrigin.Author));
                 }
@@ -182,5 +193,6 @@ internal static partial class NativeCssStyleSheets
         internal bool Replaced;
         internal ulong? NativeStamp;
         internal string? MediaSource;
+        internal bool? DisabledSource;
     }
 }

@@ -425,6 +425,39 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
+    public void SvgStyleSourcesParticipateAndLinkDisabledAttributesStayLive()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        document.AppendChild(target);
+        var style = document.CreateElementNS(Namespaces.Svg, "style");
+        style.AppendChild(document.CreateTextNode("div { opacity:.25; }"));
+        target.AppendChild(style);
+        var link = document.CreateElement("link");
+        link.SetAttribute("rel", "stylesheet");
+        link.SetAttribute("disabled", "");
+        target.AppendChild(link);
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, link, "div { opacity:.75; }", "", "", work);
+        var sheets = NativeCssStyleSheets.Get(document, work);
+        sheets.Count.Should().Be(2);
+        var retained = sheets[1].Sheet;
+        retained.Disabled.Should().BeTrue();
+        var matching = new SelectorMatchWork(document, default);
+        Query(document, sheets.ToArray()).GetProperty(target, "opacity", ref matching).Text.Should().Be("0.25");
+        link.RemoveAttribute("disabled");
+        sheets = NativeCssStyleSheets.Get(document, work);
+        sheets[1].Sheet.Should().BeSameAs(retained);
+        retained.Disabled.Should().BeFalse();
+        matching = new(document, default);
+        Query(document, sheets.ToArray()).GetProperty(target, "opacity", ref matching).Text.Should().Be("0.75");
+        retained.Disabled = true;
+        NativeCssStyleSheets.Get(document, work)[1].Sheet.Disabled.Should().BeTrue();
+        style.SetAttribute("type", "text/plain");
+        NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
+    }
+
+    [Test]
     public void ShadowInheritanceUsesHostAndSlotWhileAuthorSheetsKeepTheirTreeScope()
     {
         var document = Document.CreateHtml();

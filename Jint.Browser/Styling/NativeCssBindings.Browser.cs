@@ -26,6 +26,16 @@ internal static class NativeCssBindings
         return sheet;
     }
     internal static CssRuleList Rules(DomRealm realm, CssStyleSheet sheet) => Reconcile(realm, sheet).Rules;
+    internal static bool StyleDisabled(DomRealm realm, Element owner) =>
+        NativeCssStyleSheets.SheetOf(realm, owner)?.Disabled ?? false;
+    internal static void SetStyleDisabled(DomRealm realm, Element owner, bool disabled)
+    {
+        if (NativeCssStyleSheets.SheetOf(realm, owner) is { } sheet)
+        {
+            realm.Engine.Constraints.Check();
+            sheet.Disabled = disabled;
+        }
+    }
     internal static string CssText(DomRealm realm, CssRule rule) => CssRuleSerializer.Serialize(rule, Work(realm));
     internal static string? Href(CssStyleSheet sheet) => sheet.Attachment.OwnerNode is Element { LocalName: "style" }
         ? null : sheet.Attachment.SourceUrl?.AbsoluteUri;
