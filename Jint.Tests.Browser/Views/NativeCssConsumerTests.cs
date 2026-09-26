@@ -166,6 +166,8 @@ public sealed class NativeCssConsumerTests
             style.AppendChild(document.CreateTextNode("span { opacity:.5; }"));
             shadow.AppendChild(style);
             shadow.AppendChild(document.CreateElement("span"));
+            // Raw native fixture insertion has completed; publish its actual source before sweeping.
+            NativeCssStyleSheets.Install(runtime.Dom, style, "span { opacity:.5; }", "");
             var tracker = new CssRuleUsageTracker();
             tracker.Rebind(document);
             tracker.Sweep();
