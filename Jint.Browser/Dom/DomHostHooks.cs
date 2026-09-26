@@ -1,5 +1,5 @@
 using System.Buffers;
-using AdjacentPosition = AngleSharp.Dom.AdjacentPosition;
+using AdjacentPosition = Jint.Browser.Dom.DomAdjacentPosition;
 using Element = Jint.HtmlParser.Element;
 using Document = Jint.HtmlParser.Document;
 using Namespaces = Jint.HtmlParser.Namespaces;

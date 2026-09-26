@@ -151,7 +151,7 @@ internal static class FileSelection
     /// <remarks>
     /// <b>AngleSharp's table, plus three registrations it predates.</b> There is no standard mapping from an
     /// extension to a type — a browser asks the platform, which answers differently on each of them — so a
-    /// fixed table is what makes this answer the same everywhere, and <c>AngleSharp.Io.MimeTypeNames</c> is
+    /// fixed table is what makes this answer the same everywhere, and <c>FileMimeTypes</c> is
     /// the one already in the dependency set. It answers <see cref="DefaultType"/> for
     /// <c>.json</c>, <c>.csv</c> and <c>.md</c>, which are three of the commonest things a form uploads, so
     /// their IANA registrations are supplied here: RFC 8259, RFC 4180 and RFC 7763. This is a gap in a
@@ -179,7 +179,7 @@ internal static class FileSelection
             return supplement;
         }
 
-        var mime = AngleSharp.Io.MimeTypeNames.FromExtension(extension);
+        var mime = FileMimeTypes.FromExtension(extension);
         return string.IsNullOrEmpty(mime) ? DefaultType : mime;
     }
 
