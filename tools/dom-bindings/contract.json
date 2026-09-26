@@ -5891,8 +5891,8 @@
         {
           "DomName": "innerText",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.innerText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetInnerText());",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.innerText\");\nself.Target.SetInnerText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Element.innerText\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.innerText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomInnerText.Get(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.innerText\");\nreturn global::Jint.Browser.Dom.DomInnerText.Set(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Element.innerText\"));",
           "Length": 0,
           "Origin": "ElementExtensions.GetInnerText"
         },
@@ -7718,7 +7718,7 @@
         {
           "DomName": "command",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.command\");\nreturn self.Realm.WrapNodeValue(self.Target.Command);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCommandElement.command\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.Command(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlCommandElement.Command"
@@ -9330,7 +9330,7 @@
         {
           "DomName": "labels",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.labels\");\nreturn self.Realm.Wrap(self.Target.Labels);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.labels\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.KeygenLabels(self.Target), global::Jint.Browser.Dom.DomInterfaces.NodeList);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlKeygenElement.Labels"
@@ -9746,8 +9746,8 @@
         {
           "DomName": "loop",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMarqueeElement.loop\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Loop);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMarqueeElement.loop\");\nself.Target.Loop = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLMarqueeElement.loop\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMarqueeElement.loop\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.GetMarqueeLoop(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMarqueeElement.loop\");\nreturn global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.SetMarqueeLoop(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLMarqueeElement.loop\"));",
           "Length": 0,
           "Origin": "IHtmlMarqueeElement.Loop"
         },
@@ -9866,7 +9866,7 @@
         {
           "DomName": "command",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.command\");\nreturn self.Realm.WrapNodeValue(self.Target.Command);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMenuItemElement.command\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.Command(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMenuItemElement.Command"

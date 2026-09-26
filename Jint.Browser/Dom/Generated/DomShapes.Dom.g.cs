@@ -1754,12 +1754,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.innerText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.innerText");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetInnerText());
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomInnerText.Get(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.innerText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.innerText");
-                    self.Target.SetInnerText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.innerText")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomInnerText.Set(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.innerText"));
                 }))
             .Method("insertAdjacentElement",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.insertAdjacentElement", static (thisObj, args) =>

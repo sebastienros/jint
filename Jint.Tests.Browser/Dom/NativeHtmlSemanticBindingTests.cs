@@ -3,6 +3,27 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeHtmlSemanticBindingTests
 {
     [Test]
+    public void LegacyCommandAndMarqueeBindingsUseReviewedNativeAlgorithms()
+    {
+        using var dom = DomTestFixture.Create("<div id=target></div><command id=c command=target></command><marquee id=m loop='+0002suffix'></marquee>");
+        dom.Execute("var c=document.getElementById('c'), m=document.getElementById('m');");
+        dom.Bool("c.command===document.getElementById('target') && m.loop===2").Should().BeTrue();
+        dom.Execute("m.loop=0; var conversions=0; m.loop={valueOf(){conversions++;return 3}};");
+        dom.Bool("conversions===1 && m.loop===3 && m.getAttribute('loop')==='3'").Should().BeTrue();
+        dom.Execute("c.setAttribute('command',''); m.removeAttribute('loop');");
+        dom.Bool("c.command===null && m.loop===-1").Should().BeTrue();
+    }
+
+    [Test]
+    public void InnerTextSetterUsesActualTextAndBreakNodes()
+    {
+        using var dom = DomTestFixture.Create("<div id=e hidden><span>before</span></div>");
+        dom.Execute("var e=document.getElementById('e'); e.innerText='a\\r\\nb\\nc';");
+        dom.Bool("e.childNodes.length===5 && e.childNodes[0].nodeValue==='a' && e.childNodes[1].localName==='br' && e.childNodes[2].nodeValue==='b' && e.childNodes[3].localName==='br' && e.childNodes[4].nodeValue==='c'").Should().BeTrue();
+        dom.Text("e.innerText").Should().Be("abc");
+    }
+
+    [Test]
     public void RetainedLegacyAttributesReflectRawContentWithoutEnhancedState()
     {
         using var dom = DomTestFixture.Create("<menu id=m type=popup label=commands><menuitem id=item checked default icon=raw-path type=checkbox></menuitem></menu><keygen id=k challenge=token keytype=rsa>");

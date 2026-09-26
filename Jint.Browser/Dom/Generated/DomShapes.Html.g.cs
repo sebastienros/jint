@@ -1489,7 +1489,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.command", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCommandElement.command");
-                    return self.Realm.WrapNodeValue(self.Target.Command);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.Command(self.Realm, self.Target));
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCommandElement.disabled", static (thisObj, args) =>
@@ -3158,7 +3158,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.KeygenLabels(self.Target), global::Jint.Browser.Dom.DomInterfaces.NodeList);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.name", static (thisObj, args) =>
@@ -3544,12 +3544,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.loop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.loop");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Loop);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.GetMarqueeLoop(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMarqueeElement.loop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMarqueeElement.loop");
-                    self.Target.Loop = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLMarqueeElement.loop"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.SetMarqueeLoop(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLMarqueeElement.loop"));
                 }))
             .Accessor("scrollAmount",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollAmount", static (thisObj, args) =>
@@ -3668,7 +3668,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.command", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMenuItemElement.command");
-                    return self.Realm.WrapNodeValue(self.Target.Command);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.BrowserLegacyHtmlMembers.Command(self.Realm, self.Target));
                 }))
             .Accessor("default",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMenuItemElement.default", static (thisObj, args) =>
