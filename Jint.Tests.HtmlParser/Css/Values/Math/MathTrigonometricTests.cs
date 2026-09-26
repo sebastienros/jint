@@ -200,7 +200,7 @@ public sealed class MathTrigonometricTests
         MathTest.Parse($"atan({literal})", MathTest.Angle).Value.GetNode(0).Numeric.Value
             .Should().Be(90d);
         MathTest.Parse("sin(pow(1,))", MathTest.Number).Status
-            .Should().Be(CssMathParseStatus.RequiresLaterGrammar);
+            .Should().Be(CssMathParseStatus.NoMatch);
     }
 
     [Test]

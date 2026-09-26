@@ -120,6 +120,12 @@ internal static class CssMathSimplifier
             {
                 mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, trigonometric);
             }
+            else if (node.Kind is CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                     CssMathNodeKind.Log or CssMathNodeKind.Exp &&
+                     TryFoldExponential(target, children, node.Kind, work, out var exponential))
+            {
+                mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, exponential);
+            }
             else if (node.Kind == CssMathNodeKind.Clamp &&
                      (target.Node(children[0]).Kind == CssMathNodeKind.AbsentBound ||
                       target.Node(children[2]).Kind == CssMathNodeKind.AbsentBound))
@@ -291,6 +297,50 @@ internal static class CssMathSimplifier
             CssMathNodeKind.Atan2;
         result = new CssMathNumeric(value, angle ? CssNumericKind.Dimension : CssNumericKind.Number,
             angle ? CssUnit.Deg : CssUnit.None, first.Numeric.Span);
+        return true;
+    }
+
+    private static bool TryFoldExponential(CssMathBuilder target, List<int> children,
+        CssMathNodeKind kind, CssValueWork work, out CssMathNumeric result)
+    {
+        result = default;
+        var first = target.Node(children[0]);
+        if (first.Kind != CssMathNodeKind.Numeric ||
+            first.Numeric.Kind == CssNumericKind.Percentage ||
+            first.Numeric.Kind == CssNumericKind.Dimension && !IsAbsolute(first.Numeric.Unit)) return false;
+        double value;
+        if (kind == CssMathNodeKind.Hypot)
+        {
+            var values = new double[children.Count];
+            for (var i = 0; i < children.Count; i++)
+            {
+                work.Charge(1);
+                var child = target.Node(children[i]);
+                if (child.Kind != CssMathNodeKind.Numeric || child.Numeric.Kind != first.Numeric.Kind ||
+                    child.Numeric.Unit != first.Numeric.Unit) return false;
+                values[i] = child.Numeric.Value;
+            }
+            value = CssMathExponential.Hypot(values, work);
+        }
+        else if (kind is CssMathNodeKind.Pow or CssMathNodeKind.Log && children.Count == 2)
+        {
+            var second = target.Node(children[1]);
+            if (second.Kind != CssMathNodeKind.Numeric || second.Numeric.Kind != CssNumericKind.Number)
+                return false;
+            value = kind == CssMathNodeKind.Pow ?
+                CssMathExponential.Pow(first.Numeric.Value, second.Numeric.Value, work) :
+                CssMathExponential.Log(first.Numeric.Value, second.Numeric.Value, work);
+        }
+        else value = kind switch
+        {
+            CssMathNodeKind.Sqrt => CssMathExponential.Sqrt(first.Numeric.Value, work),
+            CssMathNodeKind.Log => CssMathExponential.Log(first.Numeric.Value, null, work),
+            CssMathNodeKind.Exp => CssMathExponential.Exp(first.Numeric.Value, work),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        };
+        result = new CssMathNumeric(value,
+            kind == CssMathNodeKind.Hypot ? first.Numeric.Kind : CssNumericKind.Number,
+            kind == CssMathNodeKind.Hypot ? first.Numeric.Unit : CssUnit.None, first.Numeric.Span);
         return true;
     }
 

@@ -30,6 +30,11 @@ internal static class CssMathSerializer
             CssMathNodeKind.Acos => "acos(",
             CssMathNodeKind.Atan => "atan(",
             CssMathNodeKind.Atan2 => "atan2(",
+            CssMathNodeKind.Pow => "pow(",
+            CssMathNodeKind.Sqrt => "sqrt(",
+            CssMathNodeKind.Hypot => "hypot(",
+            CssMathNodeKind.Log => "log(",
+            CssMathNodeKind.Exp => "exp(",
             _ => "calc("
         };
         Append(builder, outerFunction, work);
@@ -88,6 +93,11 @@ internal static class CssMathSerializer
                     case CssMathNodeKind.Acos: Append(builder, frame.IsTop ? "" : "acos(", work); break;
                     case CssMathNodeKind.Atan: Append(builder, frame.IsTop ? "" : "atan(", work); break;
                     case CssMathNodeKind.Atan2: Append(builder, frame.IsTop ? "" : "atan2(", work); break;
+                    case CssMathNodeKind.Pow: Append(builder, frame.IsTop ? "" : "pow(", work); break;
+                    case CssMathNodeKind.Sqrt: Append(builder, frame.IsTop ? "" : "sqrt(", work); break;
+                    case CssMathNodeKind.Hypot: Append(builder, frame.IsTop ? "" : "hypot(", work); break;
+                    case CssMathNodeKind.Log: Append(builder, frame.IsTop ? "" : "log(", work); break;
+                    case CssMathNodeKind.Exp: Append(builder, frame.IsTop ? "" : "exp(", work); break;
                     case CssMathNodeKind.Sum:
                     case CssMathNodeKind.Product:
                         if (!frame.IsTop && !frame.Unwrap) Append(builder, "(", work);
@@ -104,7 +114,9 @@ internal static class CssMathSerializer
                          CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
                          CssMathNodeKind.Abs or CssMathNodeKind.Sign or CssMathNodeKind.Sin or
                          CssMathNodeKind.Cos or CssMathNodeKind.Tan or CssMathNodeKind.Asin or
-                         CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2))
+                         CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 or
+                         CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                         CssMathNodeKind.Log or CssMathNodeKind.Exp))
                     Append(builder, ")", work);
                 stack.Pop();
                 continue;
@@ -145,7 +157,9 @@ internal static class CssMathSerializer
                          CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
                          CssMathNodeKind.Abs or CssMathNodeKind.Sign or CssMathNodeKind.Sin or
                          CssMathNodeKind.Cos or CssMathNodeKind.Tan or CssMathNodeKind.Asin or
-                         CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2)
+                         CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 or
+                         CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                         CssMathNodeKind.Log or CssMathNodeKind.Exp)
                     Append(builder, ", ", work);
             }
             frame.Position++;
@@ -154,7 +168,9 @@ internal static class CssMathSerializer
                     CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
                     CssMathNodeKind.Abs or CssMathNodeKind.Sign or CssMathNodeKind.Sin or
                     CssMathNodeKind.Cos or CssMathNodeKind.Tan or CssMathNodeKind.Asin or
-                    CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2) &&
+                    CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 or
+                    CssMathNodeKind.Pow or CssMathNodeKind.Sqrt or CssMathNodeKind.Hypot or
+                    CssMathNodeKind.Log or CssMathNodeKind.Exp) &&
                 value.GetNode(childIndex).Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product,
                 denominator));
         }

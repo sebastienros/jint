@@ -29,28 +29,26 @@ public sealed class MathFunctionCensusTests
     }
 
     [Test]
-    public void PendingFunctionsStayExplicitEvenWhenNested()
+    public void AllFunctionsAreImplementedEvenWhenNested()
     {
         foreach (var name in Third)
         {
-            var result = MathTest.Parse($"calc(1 + {name}(2))", MathTest.Number);
-            result.Status.Should().Be(CssMathParseStatus.RequiresLaterGrammar, name);
-            result.PendingFunction.Should().Be(CssMathParser.Recognize(name));
-            Assert.Throws<InvalidOperationException>(() => _ = result.Value);
+            var argument = name is "pow" ? "2, 3" : name is "hypot" ? "2, 3" : "2";
+            var result = MathTest.Parse($"calc(1 + {name}({argument}))", MathTest.Number);
+            result.Status.Should().Be(CssMathParseStatus.Match, name);
         }
     }
 
     [Test]
-    public void FirstPendingFunctionKeepsItsOriginalSpan()
+    public void InvalidImplementedFunctionIsNoMatch()
     {
-        var result = MathTest.Parse("calc(round(1) + pow(2, 3))", MathTest.Number);
-        result.Status.Should().Be(CssMathParseStatus.RequiresLaterGrammar);
-        result.PendingFunction.Should().Be(CssMathFunction.Pow);
-        result.Span.Start.Should().Be(16);
+        var result = MathTest.Parse("calc(round(1) + pow(2,))", MathTest.Number);
+        result.Status.Should().Be(CssMathParseStatus.NoMatch);
+        result.Span.Start.Should().Be(22);
     }
 
     [Test]
-    public void SixteenFunctionsAreImplementedAndFiveRemainPending()
+    public void TwentyOneFunctionsAreImplementedAndNoneRemainPending()
     {
         foreach (var name in Second)
         {
@@ -67,5 +65,10 @@ public sealed class MathFunctionCensusTests
         }
         Trigonometric.Length.Should().Be(7);
         Third.Length.Should().Be(5);
+        foreach (var name in Third)
+        {
+            var arguments = name is "pow" ? "2, 3" : "2";
+            MathTest.Parse($"{name}({arguments})", MathTest.Number).Status.Should().Be(CssMathParseStatus.Match);
+        }
     }
 }

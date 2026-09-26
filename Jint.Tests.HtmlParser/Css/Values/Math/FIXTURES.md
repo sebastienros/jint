@@ -3,8 +3,15 @@
 CSS Values and Units Level 4 Editor's Draft, 20 August 2026, sections 10.8–10.13;
 CSS Typed OM Level 1 numeric types, checked 23 September 2026. Implemented functions:
 `calc`, `min`, `max`, `clamp`, `round`, `mod`, `rem`, `abs`, `sign`, `sin`, `cos`, `tan`,
-`asin`, `acos`, `atan`, `atan2`. The other five Values 4 functions are pending in the
-checked `MathFunctionCensusTests`; these tests make no property-validity claim.
+`asin`, `acos`, `atan`, `atan2`, `pow`, `sqrt`, `hypot`, `log`, `exp`. All 21 Values 4
+functions are implemented in the checked `MathFunctionCensusTests`; these tests make no
+property-validity claim.
+
+`MathExponentialTests` uses authored CSS Values 4 §§10.5–10.5.1 fixtures for grammar,
+typing, dependency retention, numeric domains, signed zero, infinity and NaN. Its Log
+matrix pins the reviewed project completion for zero and infinite bases, including the
+specification's explicit A endpoints; these assertions are not credited to WPT. The Pow
+special-value table and scaled Hypot cases are likewise authored, including NaN precedence.
 
 `MathTrigonometricTests` adapts the numeric assertions and specified serialization
 cases below from WPT at the pinned revision. It also has authored CSS Values 4

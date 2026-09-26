@@ -131,10 +131,10 @@ public sealed class MathSignTests
     }
 
     [Test]
-    public void PendingFamiliesStayPendingEvenWhenMalformedOrNested()
+    public void MalformedNestedExponentialFunctionsAreNoMatch()
     {
         foreach (var source in new[] { "abs(pow())", "sign(pow(1,))", "calc(abs(1) + log())" })
-            MathTest.Parse(source, MathTest.Number).Status.Should().Be(CssMathParseStatus.RequiresLaterGrammar);
+            MathTest.Parse(source, MathTest.Number).Status.Should().Be(CssMathParseStatus.NoMatch);
     }
 
     [Test]

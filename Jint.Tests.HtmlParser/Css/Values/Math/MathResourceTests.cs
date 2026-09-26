@@ -37,7 +37,7 @@ public sealed class MathResourceTests
     }
 
     [Test]
-    public void PendingSubtreeStillEnforcesOriginalNestingLimit()
+    public void NestedFunctionStillEnforcesOriginalNestingLimit()
     {
         var component = MarkupParser.ParseCssComponentValues("calc(sin((1)))")[0];
         var context = new CssMathContext(CssMathProduction.Number, CssMathPercentageMode.Forbidden,

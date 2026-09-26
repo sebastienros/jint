@@ -163,7 +163,8 @@ internal static class CssMathParser
         CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem or
         CssMathFunction.Abs or CssMathFunction.Sign or CssMathFunction.Sin or CssMathFunction.Cos or
         CssMathFunction.Tan or CssMathFunction.Asin or CssMathFunction.Acos or CssMathFunction.Atan or
-        CssMathFunction.Atan2;
+        CssMathFunction.Atan2 or CssMathFunction.Pow or CssMathFunction.Sqrt or
+        CssMathFunction.Hypot or CssMathFunction.Log or CssMathFunction.Exp;
 
     private static bool AsciiEquals(string source, string expected)
     {
@@ -290,14 +291,16 @@ internal static class CssMathParser
                 return true;
             }
             if (Kind is not (CssMathFunction.Min or CssMathFunction.Max or CssMathFunction.Clamp or
-                CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem or CssMathFunction.Atan2)) return false;
+                CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem or CssMathFunction.Atan2 or
+                CssMathFunction.Pow or CssMathFunction.Hypot or CssMathFunction.Log)) return false;
             if (!CompleteArgument(builder, out var root)) return false;
             Arguments.Add(root);
             Operands.Clear(); Operators.Clear(); ExpectingOperand = true; PreviousWhitespace = false;
             return Kind switch
             {
                 CssMathFunction.Clamp => Arguments.Count < 3,
-                CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem or CssMathFunction.Atan2 => Arguments.Count < 2,
+                CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem or CssMathFunction.Atan2 or
+                    CssMathFunction.Pow or CssMathFunction.Log => Arguments.Count < 2,
                 _ => true
             };
         }
@@ -321,12 +324,15 @@ internal static class CssMathParser
             }
             Arguments.Add(argument);
             if (Kind == CssMathFunction.Clamp && Arguments.Count != 3 ||
-                Kind is CssMathFunction.Mod or CssMathFunction.Rem or CssMathFunction.Atan2 && Arguments.Count != 2 ||
+                Kind is CssMathFunction.Mod or CssMathFunction.Rem or CssMathFunction.Atan2 or
+                    CssMathFunction.Pow && Arguments.Count != 2 ||
                 Kind == CssMathFunction.Round && Arguments.Count is < 1 or > 2 ||
+                Kind == CssMathFunction.Log && Arguments.Count is < 1 or > 2 ||
                 Kind is CssMathFunction.Abs or CssMathFunction.Sign or CssMathFunction.Sin or
                     CssMathFunction.Cos or CssMathFunction.Tan or CssMathFunction.Asin or
-                    CssMathFunction.Acos or CssMathFunction.Atan && Arguments.Count != 1 ||
-                Kind is CssMathFunction.Min or CssMathFunction.Max && Arguments.Count < 1)
+                    CssMathFunction.Acos or CssMathFunction.Atan or CssMathFunction.Sqrt or
+                    CssMathFunction.Exp && Arguments.Count != 1 ||
+                Kind is CssMathFunction.Min or CssMathFunction.Max or CssMathFunction.Hypot && Arguments.Count < 1)
                 return false;
             CssNumericType? type = null;
             foreach (var child in Arguments)
@@ -345,6 +351,17 @@ internal static class CssMathParser
                 else type = sumType;
             }
             if (type is null) return false;
+            if (Kind is CssMathFunction.Pow or CssMathFunction.Sqrt or CssMathFunction.Log or CssMathFunction.Exp)
+            {
+                for (var i = 0; i < Arguments.Count; i++)
+                {
+                    var input = builder.Node(Arguments[i]);
+                    if (!input.Type.IsScalar) { error = input.Span; return false; }
+                }
+                if (!default(CssNumericType).TryMakeConsistent(type.Value, out var exponentialType))
+                { error = builder.Node(Arguments[0]).Span; return false; }
+                type = exponentialType;
+            }
             if (Kind is CssMathFunction.Sin or CssMathFunction.Cos or CssMathFunction.Tan)
             {
                 var input = builder.Node(Arguments[0]);
@@ -390,6 +407,13 @@ internal static class CssMathParser
                     step.Numeric.Value == 1 && builder.Node(Arguments[0]).Type.IsScalar)
                     Arguments.RemoveAt(1);
             }
+            if (Kind == CssMathFunction.Log && Arguments.Count == 2)
+            {
+                var basis = builder.Node(Arguments[1]);
+                if (basis.Kind == CssMathNodeKind.Numeric && basis.Numeric.Kind == CssNumericKind.Number &&
+                    basis.Numeric.Value == System.Math.E)
+                    Arguments.RemoveAt(1);
+            }
             root = builder.Add(Kind switch
             {
                 CssMathFunction.Min => CssMathNodeKind.Min,
@@ -406,6 +430,11 @@ internal static class CssMathParser
                 CssMathFunction.Acos => CssMathNodeKind.Acos,
                 CssMathFunction.Atan => CssMathNodeKind.Atan,
                 CssMathFunction.Atan2 => CssMathNodeKind.Atan2,
+                CssMathFunction.Pow => CssMathNodeKind.Pow,
+                CssMathFunction.Sqrt => CssMathNodeKind.Sqrt,
+                CssMathFunction.Hypot => CssMathNodeKind.Hypot,
+                CssMathFunction.Log => CssMathNodeKind.Log,
+                CssMathFunction.Exp => CssMathNodeKind.Exp,
                 _ => CssMathNodeKind.Rem
             }, type.Value, Component.Span, children: Arguments, roundingStrategy: Strategy);
             return true;
