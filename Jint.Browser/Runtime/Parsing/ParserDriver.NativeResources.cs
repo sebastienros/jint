@@ -35,6 +35,7 @@ internal sealed partial class ParserDriver
     {
         internal string? Signature;
         internal object? StyleRequest;
+        internal Document? StyleRequestDocument;
         internal bool ModuleStarted;
         internal MutationSubscription? ScriptSubscription;
     }
@@ -69,16 +70,7 @@ internal sealed partial class ParserDriver
         };
         _resourceWatches.Add(root, watch);
         _resourceWatchReferences.Add(new(watch));
-        if (--_resourceAttachmentsUntilSweep == 0)
-        {
-            _resourceAttachmentsUntilSweep = 64;
-            for (var index = _resourceWatchReferences.Count - 1; index >= 0; index--)
-            {
-                _runtime.Engine.Constraints.Check();
-                if (!_resourceWatchReferences[index].TryGetTarget(out var reference) || !reference.Active)
-                    _resourceWatchReferences.RemoveAt(index);
-            }
-        }
+        if (--_resourceAttachmentsUntilSweep == 0) CompactResourceWatches();
         return watch;
     }
 
@@ -86,21 +78,36 @@ internal sealed partial class ParserDriver
     {
         watch.Active = false;
         watch.Subscription.Dispose();
-        _resourceWatches.Remove(watch.Root);
+        if (_resourceWatches.TryGetValue(watch.Root, out var current) && ReferenceEquals(current, watch))
+            _resourceWatches.Remove(watch.Root);
     }
 
-    private void RetireDocumentWatches(Document document)
+    private void RetireDocumentWatches(Document document) => CompactResourceWatches(document);
+
+    private void CompactResourceWatches(Document? retiringDocument = null)
     {
-        for (var index = _resourceWatchReferences.Count - 1; index >= 0; index--)
+        var consumed = 0;
+        var survivors = 0;
+        try
         {
-            _runtime.Engine.Constraints.Check();
-            if (!_resourceWatchReferences[index].TryGetTarget(out var watch))
-                _resourceWatchReferences.RemoveAt(index);
-            else if (ReferenceEquals(watch.Document, document))
+            for (; consumed < _resourceWatchReferences.Count; consumed++)
             {
-                RetireResourceWatch(watch);
-                _resourceWatchReferences.RemoveAt(index);
+                _runtime.Engine.Constraints.Check();
+                var reference = _resourceWatchReferences[consumed];
+                if (!reference.TryGetTarget(out var watch) || !watch.Active) continue;
+                if (retiringDocument is not null && ReferenceEquals(watch.Document, retiringDocument))
+                {
+                    RetireResourceWatch(watch);
+                    continue;
+                }
+                _resourceWatchReferences[survivors++] = reference;
             }
+        }
+        finally
+        {
+            // Preserve the untouched suffix when a checkpoint throws during this forward pass.
+            _resourceWatchReferences.RemoveRange(survivors, consumed - survivors);
+            _resourceAttachmentsUntilSweep = Math.Max(64, _resourceWatchReferences.Count);
         }
     }
 
@@ -271,14 +278,16 @@ internal sealed partial class ParserDriver
         {
             _runtime.Engine.Constraints.Check();
             seen.Remove(node);
-            if (node is ShadowRoot && _resourceWatches.TryGetValue(node, out var watch)) RetireResourceWatch(watch);
+            if (node is ShadowRoot && _resourceWatches.TryGetValue(node, out var watch) &&
+                ReferenceEquals(watch.Document, document)) RetireResourceWatch(watch);
             if (node is Element element)
             {
                 if (element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg ||
                     element is { LocalName: "link", NamespaceUri: Namespaces.Html })
                 {
                     NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(document), document, element);
-                    if (_resourceSources.TryGetValue(element, out var source)) InvalidateStyleRequest(source);
+                    if (_resourceSources.TryGetValue(element, out var source) &&
+                        ReferenceEquals(source.StyleRequestDocument, document)) InvalidateStyleRequest(source);
                 }
                 if (element.AttachedShadowRoot is { } shadow) pending.Push(shadow);
             }
@@ -379,11 +388,13 @@ internal sealed partial class ParserDriver
             return;
         }
         var url = PageUrl.Resolve(href, BaseUrlOf(document));
-        if (source.Signature == url && source.StyleRequest is not null) return;
+        if (source.Signature == url && source.StyleRequest is not null &&
+            ReferenceEquals(source.StyleRequestDocument, document)) return;
         // A changed request removes the old sheet before the new fetch can pump a page turn.
         NativeCssStyleSheets.DisassociateOwner(realm, document, link);
         var request = new object();
         source.StyleRequest = request;
+        source.StyleRequestDocument = document;
         source.Signature = url;
         bool Current() => CurrentStyleSheetSource(link, document, source, request, url);
         if (url is null)
@@ -415,6 +426,7 @@ internal sealed partial class ParserDriver
     private static void InvalidateStyleRequest(ResourceSource source)
     {
         source.StyleRequest = null;
+        source.StyleRequestDocument = null;
         source.Signature = null;
     }
 
