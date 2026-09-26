@@ -41,7 +41,7 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!state.HasEditingBuffer)
+        if (!HtmlInputValueState.IsTextType(state.Type) && state.Type != HtmlInputType.Number)
         {
             if (HtmlInputValueState.IsSupportedType(state.Type) || !HtmlInputTypes.Info(state.Type).SelectApplies) return;
             state.RequireAvailable();

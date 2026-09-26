@@ -226,4 +226,18 @@ public class InputNumberEditingTests
         Assert.Throws<DomException>(() => state.SetSelectionRange(0, 1, null, default))!.Name.Should().Be("InvalidStateError");
         state.GetEditingValue(default).Should().Be(display);
     }
+
+    [TestCase("text")]
+    [TestCase("email")]
+    [TestCase("number")]
+    public void SelectRetainsUnavailableFamilyGuardAfterTypeTransition(string destination)
+    {
+        var input = Input(); var state = State(input);
+        input.SetAttribute("type", "color"); input.SetAttribute("type", destination);
+        state.IsAvailable.Should().BeFalse();
+        var stamp = input.OwnerDocument!.MutationStamp;
+        Assert.Throws<NotSupportedException>(() => state.Select(default));
+        state.Selection.Should().Be(default(HtmlTextSelection));
+        input.OwnerDocument.MutationStamp.Should().Be(stamp);
+    }
 }
