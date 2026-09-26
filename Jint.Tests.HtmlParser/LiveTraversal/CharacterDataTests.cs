@@ -51,4 +51,50 @@ public class CharacterDataTests
         Assert.Throws<DomException>(() => NativeCharacterData.ReplaceData(pi, uint.MaxValue, 0, ""))!.Name.Should().Be("IndexSizeError");
         Assert.Throws<ArgumentException>(() => NativeCharacterData.GetLength(doc));
     }
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ManyShortNormalizationRunsHaveLinearLinkWork(bool withRange)
+    {
+        var small = NormalizeRuns(256, withRange);
+        var large = NormalizeRuns(512, withRange);
+        large.Should().BeLessThanOrEqualTo(small * 2 + 4);
+        large.Should().BeLessThanOrEqualTo(512 * 8 + 4);
+    }
+
+    private static int NormalizeRuns(int count, bool withRange)
+    {
+        var doc = Document.CreateHtml();
+        var parent = doc.CreateElement("div");
+        for (var i = 0; i < count; i++)
+        {
+            parent.AppendParsedChild(doc.CreateTextNode("a"));
+            parent.AppendParsedChild(doc.CreateTextNode("b"));
+            parent.AppendParsedChild(doc.CreateElement("sep"));
+        }
+        var range = withRange ? new DomRange(doc) : null;
+        range?.SetStart(new(parent), (uint) parent.ChildCount);
+        range?.Collapse(true);
+        var work = 0;
+        NativeCharacterData.Normalize(parent, steps => work = steps);
+        parent.ChildCount.Should().Be(count * 2);
+        for (var child = parent.FirstChild; child is not null; child = child.NextSibling!.NextSibling)
+            ((Text) child).Data.Should().Be("ab");
+        if (range is not null) range.Start.Offset.Should().Be((uint) parent.ChildCount);
+        return work;
+    }
+
+    [Test]
+    public void NormalizeTracksIndicesAcrossNestedRunsAndEmptyTextRemovals()
+    {
+        var doc = Document.CreateHtml(); var parent = doc.CreateElement("div"); var branch = doc.CreateElement("section");
+        parent.AppendChild(doc.CreateTextNode("")); parent.AppendChild(branch); parent.AppendChild(doc.CreateTextNode("a")); parent.AppendChild(doc.CreateTextNode("b"));
+        branch.AppendChild(doc.CreateTextNode("")); branch.AppendChild(doc.CreateTextNode("x")); branch.AppendChild(doc.CreateTextNode("y"));
+        var outer = new DomRange(doc); outer.SetStart(new(parent), 4); outer.Collapse(true);
+        var inner = new DomRange(doc); inner.SetStart(new(branch), 3); inner.Collapse(true);
+        NativeCharacterData.Normalize(parent);
+        parent.ChildCount.Should().Be(2); branch.ChildCount.Should().Be(1);
+        ((Text) branch.FirstChild!).Data.Should().Be("xy"); ((Text) parent.LastChild!).Data.Should().Be("ab");
+        outer.Start.Should().Be(new BoundaryPoint(new(parent), 2)); inner.Start.Should().Be(new BoundaryPoint(new(branch), 1));
+    }
+
 }

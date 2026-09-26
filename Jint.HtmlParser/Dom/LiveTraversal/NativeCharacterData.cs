@@ -69,43 +69,67 @@ internal static class NativeCharacterData
         ReplaceData(node, offset, length - offset, string.Empty);
         return newNode;
     }
-    internal static void Normalize(Node root)
+    internal static void Normalize(Node root) => Normalize(root, null);
+
+    // Invocation-local instrumentation counts child links, run members and frame
+    // transitions. It is never retained and cannot interrupt atomic bookkeeping.
+    internal static void Normalize(Node root, Action<int>? workCheckpoint)
     {
         ArgumentNullException.ThrowIfNull(root);
-        var work = new TraversalWork(default);
-        var node = root.FirstChild;
-        while (node is not null)
+        var frames = new Stack<NormalizationFrame>();
+        frames.Push(new(root.FirstChild, 0));
+        var steps = 0;
+        while (frames.TryPop(out var frame))
         {
-            if (node is not Text text) { node = NativeTraversal.Next(node, root, ref work); continue; }
-            var next = NativeTraversal.Next(node, root, ref work);
-            if (text.DataLength == 0)
+            workCheckpoint?.Invoke(++steps);
+            if (frame.NextChild is not { } node) continue;
+            var next = node.NextSibling;
+            workCheckpoint?.Invoke(++steps);
+            if (node is not Text text)
             {
-                text.ParentNode!.RemoveChild(text);
-                node = next;
+                frames.Push(new(next, frame.Index + 1));
+                if (node.FirstChild is { } child) frames.Push(new(child, 0));
                 continue;
             }
-            if (text.NextSibling is not Text) { node = next; continue; }
-            var index = LiveTraversalTracking.IndexOf(text);
+            if (text.DataLength == 0)
+            {
+                text.RemoveForNormalization(frame.Index);
+                frames.Push(new(next, frame.Index));
+                continue;
+            }
+            if (next is not Text)
+            {
+                frames.Push(new(next, frame.Index + 1));
+                continue;
+            }
             var oldLength = (uint) text.DataLength;
             var combined = new StringBuilder();
             var merged = new List<(Text Node, uint Offset)>();
             var length = oldLength;
-            for (var sibling = text.NextSibling as Text; sibling is not null; sibling = sibling.NextSibling as Text)
+            while (next is Text sibling)
             {
+                workCheckpoint?.Invoke(++steps);
                 merged.Add((sibling, length));
                 combined.Append(sibling.Data);
                 length += (uint) sibling.DataLength;
+                next = sibling.NextSibling;
             }
             ReplaceData(text, oldLength, 0, combined.ToString());
             foreach (var (sibling, offset) in merged)
             {
+                workCheckpoint?.Invoke(++steps);
                 if (sibling.RangeEndpoints is { } bucket)
                     LiveTraversalTracking.Adjust(bucket, point => new(new(text), point.Offset + offset));
                 if (text.ParentNode!.RangeEndpoints is { } parentBucket)
-                    LiveTraversalTracking.Adjust(parentBucket, point => point.Offset == index + 1 ? new(new(text), offset) : point);
-                sibling.RemoveForNormalization(index + 1);
+                    LiveTraversalTracking.Adjust(parentBucket, point => point.Offset == frame.Index + 1 ? new(new(text), offset) : point);
+                sibling.RemoveForNormalization(frame.Index + 1);
             }
-            node = NativeTraversal.Next(text, root, ref work);
+            // Only the surviving Text consumes an index. Removed siblings never
+            // make the next run recount an already visited parent prefix.
+            frames.Push(new(next, frame.Index + 1));
         }
+        workCheckpoint?.Invoke(steps);
     }
+
+    private readonly record struct NormalizationFrame(Node? NextChild, uint Index);
 }
