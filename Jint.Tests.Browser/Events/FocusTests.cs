@@ -12,6 +12,42 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class FocusTests
 {
+    [TestCase("+00020")]
+    [TestCase("-2147483648")]
+    [TestCase("2147483648")]
+    [TestCase("-2147483649")]
+    [TestCase(" \t+12\u00a0")]
+    [TestCase("12\0\0")]
+    [TestCase("12x")]
+    public void BoundedFocusabilityPreservesTheExistingTabIndexClassification(string value)
+    {
+        var realm = DomRealm.Of(new Engine());
+        var element = global::Jint.Browser.Accessibility.ContentDom.ElementById(
+            global::Jint.Browser.Accessibility.ContentDom.Parse("<div id=target>"), "target")!;
+        element.SetAttribute("tabindex", value);
+        var expected = FocusController.IsFocusable(realm, element);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, CancellationToken.None);
+        FocusController.IsFocusable(realm, element, work).Should().Be(expected);
+    }
+
+    [Test]
+    public void BoundedFocusabilityPollsDuringTheActualAttributeScan()
+    {
+        var realm = DomRealm.Of(new Engine());
+        var element = global::Jint.Browser.Accessibility.ContentDom.ElementById(
+            global::Jint.Browser.Accessibility.ContentDom.Parse("<div id=target>"), "target")!;
+        for (var i = 0; i < 1024; i++) element.SetAttribute("data-" + i, "value");
+        var checks = new List<int>();
+        var work = new DomReadWork(units =>
+        {
+            checks.Add(units);
+            if (checks.Count == 2) throw new OperationCanceledException();
+        }, CancellationToken.None);
+        Action read = () => FocusController.IsFocusable(realm, element, work);
+        read.Should().ThrowExactly<OperationCanceledException>();
+        checks.Should().Equal(0, 256, "the second check must occur in a bounded attribute batch rather than after the scan");
+    }
+
     [Test]
     public async Task ShadowActiveElementChecksCancellationDuringInitialConnectivityWalk()
     {

@@ -56,7 +56,9 @@ internal static class ContentEditing
     /// same way focusability is computed rather than read off <c>TabIndex</c>.
     /// </para>
     /// </remarks>
-    internal static Element? HostOf(Element? element)
+    internal static Element? HostOf(Element? element) => HostOf(element, null);
+
+    internal static Element? HostOf(Element? element, DomReadWork? work)
     {
         // A form control is neither an editing host nor inside one for this purpose: its value is text of its
         // own, and a `<input readonly>` in an editing host must not have its keys spliced into the host's.
@@ -67,23 +69,39 @@ internal static class ContentEditing
 
         for (var candidate = element; candidate is not null; candidate = (candidate.ParentNode as Element))
         {
-            if (candidate.NamespaceUri != Namespaces.Html || candidate.GetAttributeNS(null, "contenteditable") is not { } raw)
+            work?.Step();
+            if (candidate.NamespaceUri != Namespaces.Html
+                || (work is null ? candidate.GetAttributeNS(null, "contenteditable") : work.Attribute(candidate, "contenteditable")) is not { } raw)
             {
                 continue;
             }
 
-            var state = raw.Trim();
+            var start = 0;
+            var end = raw.Length;
+            while (start < end)
+            {
+                work?.Step();
+                if (!char.IsWhiteSpace(raw[start])) break;
+                start++;
+            }
+            while (end > start)
+            {
+                work?.Step();
+                if (!char.IsWhiteSpace(raw[end - 1])) break;
+                end--;
+            }
+            var state = raw.AsSpan(start, end - start);
 
             // "plaintext-only" is an editing host whose content is text, which is the only kind this edits
             // anyway, so the two true keywords and it are the same answer here.
             if (state.Length == 0
-                || string.Equals(state, "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(state, "plaintext-only", StringComparison.OrdinalIgnoreCase))
+                || state.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || state.Equals("plaintext-only", StringComparison.OrdinalIgnoreCase))
             {
                 return candidate;
             }
 
-            if (string.Equals(state, "false", StringComparison.OrdinalIgnoreCase))
+            if (state.Equals("false", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }

@@ -266,20 +266,26 @@ internal static class FocusController
     /// element is focusable when its kind makes it so or when it carries a valid <c>tabindex</c>, and when it
     /// is neither disabled nor hidden by the <c>hidden</c> content attribute.
     /// </summary>
-    internal static bool IsFocusable(DomRealm dom, Element element)
+    internal static bool IsFocusable(DomRealm dom, Element element) => IsFocusableCore(dom, element, null);
+
+    /// <summary>The same focus classification with bounded native reads for a caller's traversal.</summary>
+    internal static bool IsFocusable(DomRealm dom, Element element, DomReadWork work)
     {
-        if (EventDom.Disabled(dom, element) || element.HasContentAttribute("hidden") || element.HasContentAttribute("inert"))
-        {
-            return false;
-        }
-
-        if (TabIndexAttribute(element) is not null)
-        {
-            return true;
-        }
-
-        return IsInherentlyFocusable(element);
+        work.Check();
+        var focusable = IsFocusableCore(dom, element, work);
+        work.Check();
+        return focusable;
     }
+
+    private static bool IsFocusableCore(DomRealm dom, Element element, DomReadWork? work)
+    {
+        if (EventDom.Disabled(dom, element)
+            || Attribute(element, "hidden", work) is not null || Attribute(element, "inert", work) is not null) return false;
+        return TabIndexAttribute(element, work) is not null || IsInherentlyFocusable(element, work);
+    }
+
+    private static string? Attribute(Element element, string name, DomReadWork? work)
+        => work is null ? element.GetAttributeNS(null, name) : work.Attribute(element, name);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation — whether the
@@ -393,23 +399,65 @@ internal static class FocusController
     /// https://html.spec.whatwg.org/multipage/interaction.html#attr-tabindex, parsed as a valid integer — the
     /// attribute's presence is what matters, so an unparseable value is the same as an absent one.
     /// </summary>
-    private static int? TabIndexAttribute(Element element)
+    private static int? TabIndexAttribute(Element element, DomReadWork? work = null)
     {
+        if (work is not null) return BoundedTabIndexAttribute(element, work);
         var raw = element.GetAttributeNS(null, "tabindex");
         return raw is not null && int.TryParse(raw.Trim(), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var value)
             ? value
             : null;
     }
 
-    private static bool IsInherentlyFocusable(Element element)
+    private static int? BoundedTabIndexAttribute(Element element, DomReadWork work)
+    {
+        var raw = work.Attribute(element, "tabindex");
+        if (raw is null) return null;
+        var start = 0;
+        var end = raw.Length;
+        while (start < end)
+        {
+            work.Step();
+            if (!char.IsWhiteSpace(raw[start])) break;
+            start++;
+        }
+        while (end > start)
+        {
+            work.Step();
+            if (!char.IsWhiteSpace(raw[end - 1])) break;
+            end--;
+        }
+        if (start == end) return null;
+        var negative = raw[start] == '-';
+        if (negative || raw[start] == '+') { work.Step(); start++; }
+        var limit = negative ? 2147483648u : int.MaxValue;
+        uint value = 0;
+        var digits = 0;
+        for (; start < end; start++)
+        {
+            work.Step();
+            // Int32.TryParse, used by the existing classifier, permits terminating NUL characters.
+            if (raw[start] == '\0')
+            {
+                for (; start < end; start++) { work.Step(); if (raw[start] != '\0') return null; }
+                break;
+            }
+            var digit = (uint) (raw[start] - '0');
+            if (digit > 9 || value > (limit - digit) / 10) return null;
+            value = value * 10 + digit;
+            digits++;
+        }
+        return digits == 0 ? null : (int) (negative ? -(long) value : value);
+    }
+
+    private static bool IsInherentlyFocusable(Element element, DomReadWork? work = null)
     {
         if (element.NamespaceUri != Namespaces.Html) return false;
         return element.LocalName switch
         {
-            "a" or "area" => element.HasContentAttribute("href"),
+            "a" or "area" => Attribute(element, "href", work) is not null,
             "button" or "select" or "textarea" or "iframe" => true,
-            "input" => HtmlInputTypes.Get(element) != HtmlInputType.Hidden,
-            _ => element.LocalName is "summary" || ReferenceEquals(ContentEditing.HostOf(element), element),
+            "input" => (work is null ? HtmlInputTypes.Get(element) : HtmlInputTypes.Parse(work.Attribute(element, "type"))) != HtmlInputType.Hidden,
+            _ => element.LocalName is "summary" || ReferenceEquals(ContentEditing.HostOf(element, work), element),
         };
     }
 
