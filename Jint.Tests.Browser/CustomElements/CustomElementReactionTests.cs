@@ -80,6 +80,28 @@ public sealed class CustomElementReactionTests
         page.Errors.Should().BeEmpty();
     }
 
+    [TestCase(false, "")]
+    [TestCase(true, "connected:child|disconnected:child")]
+    public async Task RangeMutationObservesARecordedElementEnteringANewShadowRoot(bool connected, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + $$"""
+          const child = document.createElement('x-thing');
+          child.id = 'child';
+          const host = document.createElement('div');
+          const shadow = host.attachShadow({mode: 'open'});
+          if ({{(connected ? "true" : "false")}}) document.body.appendChild(host);
+          const range = document.createRange();
+          range.selectNodeContents(shadow);
+          range.insertNode(child);
+          range.selectNode(child);
+          range.deleteContents();
+        </script>
+        """);
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task ConnectedFiresOnInsertionAndDisconnectedOnRemovalBeforeTheOperationReturns()
     {

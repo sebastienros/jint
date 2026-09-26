@@ -1,4 +1,5 @@
 using Jint.HtmlParser;
+using Jint.Browser.CustomElements;
 
 namespace Jint.Browser.Dom;
 
@@ -9,17 +10,22 @@ internal static class HtmlFormOwner
 
     // Include image inputs and images for submission/default-button callers. The
     // form.elements collection separately applies the listed-controls filter.
-    internal static IEnumerable<Element> ControlsOf(Element form, Action<int>? checkpoint = null, CancellationToken token = default)
+    internal static IEnumerable<Element> ControlsOf(Element form, Action<int>? checkpoint = null, CancellationToken token = default,
+        CustomElementRegistry? customElements = null)
     {
         var work = new DomReadWork(checkpoint, token);
         work.Check();
         var root = work.Root(form);
-        if (root is Element rootElement && ReferenceEquals(Of(rootElement), form)) yield return rootElement;
+        if (root is Element rootElement && ReferenceEquals(OwnerOf(rootElement), form)) yield return rootElement;
         foreach (var element in NodeTraversal.DescendantElements(root, work.Check, token))
         {
-            if (ReferenceEquals(Of(element), form)) yield return element;
+            if (ReferenceEquals(OwnerOf(element), form)) yield return element;
         }
         work.Check();
+
+        Element? OwnerOf(Element element)
+            => customElements?.TryGetRecord(element) is { State: CustomElementState.Custom, FormAssociated: true }
+                ? OfFormAssociatedCustomElement(element, checkpoint, token) : Of(element);
     }
 
     internal static bool IsFormAssociated(Element element) => HtmlFormState.IsFormAssociated(element);

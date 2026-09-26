@@ -58,8 +58,14 @@ internal static class DomFailures
 
     private static void PrepareCustomElements(JsValue receiver)
     {
-        if (receiver is IDomWrapper { DomTarget: Node node } wrapper)
-            CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
+        if (receiver is not IDomWrapper wrapper) return;
+        var node = wrapper.DomTarget switch
+        {
+            Node target => target,
+            DomRange range => range.Start.Container.Node,
+            _ => null,
+        };
+        if (node is not null) CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
     }
 
     private static void DrainCustomElements(JsValue receiver)

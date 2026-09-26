@@ -216,10 +216,11 @@ internal class DomHostHooks
     /// third step is the one that keeps a one-choice <c>select</c> to one choice; without it every option of
     /// one could be selected at once and <c>selectedIndex</c> stayed where it was.
     /// </remarks>
-    internal virtual void SetOptionSelected(DomRealm realm, IHtmlOptionElement option, bool selected)
+    internal virtual void SetOptionSelected(DomRealm realm, Element option, bool selected)
     {
-        option.IsSelected = selected;
-        HtmlSelectState.AskForAReset(option);
+        realm.Engine.Constraints.Check();
+        option.GetHtmlState().GetOptionState(realm.CancellationToken)!.SetSelected(selected, realm.CancellationToken);
+        realm.Engine.Constraints.Check();
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
