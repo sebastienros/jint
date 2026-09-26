@@ -60,7 +60,6 @@ internal static partial class DomTypeMap
         DomInterfaces.DOMStringList,
         DomInterfaces.DOMStringMap,
         DomInterfaces.DOMTokenList,
-        DomInterfaces.HTMLAllCollection,
         DomInterfaces.HTMLCollection,
         DomInterfaces.History,
         DomInterfaces.Location,

@@ -6266,8 +6266,8 @@
     },
     {
       "DomName": "HTMLAllCollection",
-      "ClrTypeName": "AngleSharp.Dom.IHtmlAllCollection",
-      "ReceiverType": "global::AngleSharp.Dom.IHtmlAllCollection",
+      "ClrTypeName": "Jint.Browser.Dom.Collections.DomHtmlCollection<Jint.HtmlParser.Element>",
+      "ReceiverType": "global::Jint.Browser.Dom.Collections.DomHtmlCollection<global::Jint.HtmlParser.Element>",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -6280,7 +6280,8 @@
       "AccessorReference": null,
       "Members": [],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "HTMLElement",
