@@ -225,24 +225,29 @@ public sealed class Document : Node
         }
     }
 
-    public Element CreateElement(string localName)
+    public Element CreateElement(string localName) => CreateElement(localName, null);
+
+    internal Element CreateElement(string localName, string? isValue)
     {
         ArgumentNullException.ThrowIfNull(localName);
         var normalized = Kind == DocumentKind.Html ? QualifiedName.AsciiLower(localName) : localName;
         QualifiedName.ValidateElementLocalName(normalized);
-        return new Element(this, Kind == DocumentKind.Html || ContentType == "application/xhtml+xml" ? Namespaces.Html : null, normalized, null);
+        return new Element(this, Kind == DocumentKind.Html || ContentType == "application/xhtml+xml" ? Namespaces.Html : null, normalized, null, isValue);
     }
 
     public Element CreateElementNS(string? namespaceUri, string qualifiedName)
+        => CreateElementNS(namespaceUri, qualifiedName, null);
+
+    internal Element CreateElementNS(string? namespaceUri, string qualifiedName, string? isValue)
     {
         var name = QualifiedName.Parse(namespaceUri, qualifiedName, attribute: false);
-        return new Element(this, name.NamespaceUri, name.LocalName, name.Prefix);
+        return new Element(this, name.NamespaceUri, name.LocalName, name.Prefix, isValue);
     }
 
     // The parser has already validated and resolved all three name components.
     // In particular, legal XML <xmlns/> must not pass through CreateElementNS.
-    internal Element CreateParsedElement(string? namespaceUri, string localName, string? prefix)
-        => new(this, namespaceUri, localName, prefix);
+    internal Element CreateParsedElement(string? namespaceUri, string localName, string? prefix, string? isValue = null)
+        => new(this, namespaceUri, localName, prefix, isValue);
 
     public Attr CreateAttribute(string name)
     {

@@ -92,7 +92,8 @@ internal static class NodeCloner
 
                 return clonedDocument;
             case Element original:
-                var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix);
+                var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix,
+                    original.IsValue);
                 element.CopyAttributesFrom(original, document);
                 var registry = original.CustomElementRegistry ?? fallbackRegistry;
                 element.InitializeCustomElementRegistry(registry is { IsScoped: false }

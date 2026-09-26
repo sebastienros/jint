@@ -332,9 +332,9 @@ internal sealed partial class XmlTreeParser
         if (namespaceUri == Namespaces.Xmlns || split.Prefix == "xmlns") Error("xml/namespace-error", start);
         if (_requireSvgRoot && _frames.Count == 0 && (split.LocalName != "svg" || namespaceUri != Namespaces.Svg))
             Error("xml/svg-root-required", start);
-        var element = CurrentDocument.CreateParsedElement(namespaceUri, split.LocalName, split.Prefix);
         var expanded = new HashSet<(string?, string)>();
         var parsedAttributes = new List<ParserAttribute>(attributes.Count);
+        string? isValue = null;
         foreach (var attribute in attributes)
         {
             var attrSplit = SplitName(attribute.Name);
@@ -342,6 +342,7 @@ internal sealed partial class XmlTreeParser
                 ? Namespaces.Xmlns
                 : attrSplit.Prefix is null ? null : ResolveRequired(attrSplit.Prefix, localBindings, attribute.Offset);
             if (!expanded.Add((attrNamespace, attrSplit.LocalName))) Error("xml/duplicate-attribute", attribute.Offset);
+            if (attrNamespace is null && attrSplit.LocalName == "is") isValue = attribute.Value;
             var isDtdId = declaredAttributes is not null &&
                           declaredAttributes.TryGetValue(attribute.Name, out var declaration) && declaration.IsId;
             parsedAttributes.Add(new ParserAttribute(attrNamespace, attrSplit.LocalName, attrSplit.Prefix,
@@ -349,6 +350,7 @@ internal sealed partial class XmlTreeParser
             WorkUnit();
         }
 
+        var element = CurrentDocument.CreateParsedElement(namespaceUri, split.LocalName, split.Prefix, isValue);
         element.InitializeParsedAttributes(CollectionsMarshal.AsSpan(parsedAttributes), _cancellationToken);
         Parent.AppendParsedChild(element);
         if (!empty)

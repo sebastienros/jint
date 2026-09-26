@@ -42,11 +42,12 @@ public sealed class Element : Node
     internal void SetTemplateContent(ShadowRoot root) => TemplateContent = root;
     internal void InitializeCustomElementRegistry(CustomElementRegistryIdentity? registry) => CustomElementRegistry = registry;
 
-    internal Element(Document owner, string? namespaceUri, string localName, string? prefix) : base(owner)
+    internal Element(Document owner, string? namespaceUri, string localName, string? prefix, string? isValue = null) : base(owner)
     {
         NamespaceUri = namespaceUri;
         LocalName = localName;
         Prefix = prefix;
+        IsValue = isValue;
         if (namespaceUri == Namespaces.Html && localName == "template")
         {
             TemplateContent = new DocumentFragment(owner.GetTemplateContentsOwnerDocument(), this);
@@ -57,6 +58,7 @@ public sealed class Element : Node
     public string? NamespaceUri { get; }
     public string LocalName { get; }
     public string? Prefix { get; }
+    internal string? IsValue { get; }
     public string TagName => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
     public DocumentFragment? TemplateContent { get; private set; }
     public int AttributeCount => _attributes?.Count ?? 0;
