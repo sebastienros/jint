@@ -87,7 +87,24 @@ internal sealed partial class NativeCssQuery
     internal NativeCssProperty GetProperty(Element element, string name, ref SelectorMatchWork matching)
         => GetPropertyCore(element, name, ref matching, adjust: true);
 
-    private NativeCssProperty GetPropertyCore(Element element, string name, ref SelectorMatchWork matching, bool adjust)
+    internal NativeCssProperty GetNormalizedProperty(Element element, string name, ref SelectorMatchWork matching)
+        => GetPropertyCore(element, name, ref matching, adjust: true, normalize: false);
+
+    internal bool HasPropertyInput(Element element, string name, ref SelectorMatchWork matching)
+    {
+        var state = StateOf(element, ref matching);
+        var present = false;
+        foreach (var source in state.Sources)
+        {
+            _work.Charge(1);
+            present |= source.Block.HasPropertyInput(name, _work);
+        }
+        matching.VerifyRead();
+        Verify();
+        return present;
+    }
+
+    private NativeCssProperty GetPropertyCore(Element element, string name, ref SelectorMatchWork matching, bool adjust, bool normalize = true)
     {
         name = CssPropertyRegistry.NormalizeName(name, _work);
         using var guard = EnterDependency(element, adjust ? "property" : "unadjusted-property", name);
@@ -99,7 +116,7 @@ internal sealed partial class NativeCssQuery
     {
         Verify();
         matching.Observe(element);
-        name = CssPropertyRegistry.NormalizeName(name, _work);
+        if (normalize) name = CssPropertyRegistry.NormalizeName(name, _work);
         if (name.StartsWith("--", StringComparison.Ordinal)) return Custom(element, name, ref matching);
         var metadata = CssPropertyRegistry.Find(name, CssDeclarationContext.Style);
         if (metadata is null)
