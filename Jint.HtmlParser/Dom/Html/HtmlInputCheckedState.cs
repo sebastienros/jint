@@ -51,6 +51,8 @@ internal sealed class HtmlInputCheckedState
 
     internal void SetChecked(bool value, CancellationToken cancellationToken)
         => HtmlCheckednessAlgorithms.SetCore(this, value, dirty: true, cancellationToken);
+    internal void SetChecked(bool value, Action<int>? checkpoint, CancellationToken cancellationToken)
+        => HtmlCheckednessAlgorithms.SetCore(this, value, dirty: true, checkpoint, cancellationToken);
     internal void SetDefaultChecked(bool value)
     {
         if (value) Element.SetAttribute("checked", "");
@@ -61,6 +63,13 @@ internal sealed class HtmlInputCheckedState
         if (Indeterminate == value) return;
         Indeterminate = value;
         Element.OwnerDocument!.MarkMutation();
+    }
+    internal void SetIndeterminate(bool value, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = new HtmlCheckedWork(Element.OwnerDocument?.CheckedWorkProbe, checkpoint, cancellationToken);
+        work.Check();
+        work.Finish();
+        SetIndeterminate(value);
     }
     internal void Write(bool value, bool dirty)
     {

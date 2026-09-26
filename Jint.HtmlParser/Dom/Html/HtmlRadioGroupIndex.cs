@@ -53,7 +53,7 @@ internal sealed class HtmlRadioGroupIndex
             }
             entries.Add((member, bucket, required, member.Checked && bucket is not null ? bucket.Checked.Count - 1 : -1));
         }
-        work.Check();
+        work.Finish();
         root.RadioIndex = staged;
         root.OwnerDocument?.CheckedWorkProbe?.Built();
         if (root is Document document) document.CheckedWorkProbe?.Built();
@@ -104,6 +104,9 @@ internal sealed class HtmlRadioGroupIndex
     internal void Add(HtmlInputCheckedState state, ref HtmlCheckedWork work)
     {
         var group = Find(state, ref work);
+        _members.EnsureCapacity(_members.Count + 1);
+        if (state.Checked && group is not null) group.Checked.EnsureCapacity(group.Checked.Count + 1);
+        work.Finish();
         state.MemberPosition = _members.Count;
         _members.Add(state);
         state.Index = this;

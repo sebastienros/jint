@@ -16,9 +16,23 @@ internal sealed class HtmlElementState
             return GetCheckedState(ref work);
         }
     }
+    internal HtmlInputCheckedState? GetCheckedState(Action<int>? checkpoint, CancellationToken token)
+    {
+        var work = new HtmlCheckedWork(Element.OwnerDocument?.CheckedWorkProbe, checkpoint, token);
+        var wasWarm = _checkedState is not null;
+        var result = GetCheckedState(ref work);
+        if (wasWarm || result is null) work.Finish();
+        return result;
+    }
     internal HtmlInputCheckedState? GetCheckedState(ref HtmlCheckedWork work)
-        => Element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
-            ? _checkedState ??= new HtmlInputCheckedState(Element, ref work) : null;
+    {
+        work.Check();
+        if (Element is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return null;
+        if (_checkedState is not null) return _checkedState;
+        var prepared = new HtmlInputCheckedState(Element, ref work);
+        work.Finish();
+        return _checkedState = prepared;
+    }
     internal HtmlInputCheckedState? ExistingCheckedState => _checkedState;
 
     private HtmlInputValueState? _inputValue;
