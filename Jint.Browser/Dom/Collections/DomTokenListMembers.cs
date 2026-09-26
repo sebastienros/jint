@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+using System.Text;
 using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
@@ -6,354 +6,231 @@ using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom.Collections;
 
-/// <summary>
-/// <a href="https://dom.spec.whatwg.org/#interface-domtokenlist">DOM §7.1</a>'s <c>DOMTokenList</c>, over the
-/// token set AngleSharp's <c>DomAttributeTokenList</c> keeps.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>What AngleSharp owns is still the token set and the attribute it reflects</b> — the list is live, it is
-/// bound to the element's attribute in both directions, and nothing here parses or stores markup. What is
-/// here is the half of §7.1 the interface has no room for: the <i>validation steps</i>, which
-/// <c>DomAttributeTokenList</c> runs for none of its members; <c>toggle</c>'s distinction between a <c>force</c> that
-/// was given as <see langword="false"/> and one that was not given at all, which a CLR
-/// <c>bool force = false</c> parameter cannot express; <c>replace</c> and <c>supports</c>, which
-/// <c>DomAttributeTokenList</c> does not have; <c>item</c>, which WebIDL's indexed getter answers <c>null</c> for rather
-/// than throwing; and the <i>update steps</i>, which rewrite the attribute in serialized form even when the
-/// token set did not change.
-/// </para>
-/// <para>
-/// <b>The associated element is recorded on the way through the accessor that projects the list</b>, because
-/// <c>DomAttributeTokenList</c> names neither the element nor the attribute it reflects and §7.1's <c>value</c>,
-/// stringifier and update steps are all defined in terms of both. Seven accessors project one — <c>classList</c>,
-/// the three <c>relList</c>s, <c>sandbox</c>, <c>sizes</c> and <c>htmlFor</c> — and each is a <c>skip</c> plus an
-/// <c>additions</c> entry that calls <see cref="Project"/>. A list reached any other way keeps every member
-/// but answers its <c>value</c> from the serialized token set, which differs from the attribute only when the
-/// attribute has repeated tokens or irregular whitespace.
-/// </para>
-/// <para>
-/// The attribute is written with <c>Element.SetAttribute</c> rather than through
-/// <see cref="DomHostHooks"/>'s: that hook exists to reconcile a <em>handler content attribute</em> with the
-/// element's listener list, and no attribute a <c>DOMTokenList</c> reflects begins with <c>on</c>.
-/// </para>
-/// </remarks>
+/// <summary>DOM §7.1 operations over the actual element-backed ordered token set.</summary>
 internal static class DomTokenListMembers
 {
-    /// <summary>
-    /// The element and attribute each projected token list reflects, keyed on the AngleSharp list.
-    /// </summary>
-    /// <remarks>
-    /// A <see cref="ConditionalWeakTable{TKey,TValue}"/> rather than a field, for the reason
-    /// <c>DomViewMembers</c>' filter table gives: the list is AngleSharp's object and this assembly cannot
-    /// add a field to it. The value holds the element, so the entry lives exactly as long as the list does
-    /// and the element it names cannot outlive its own tree.
-    /// </remarks>
-    private static readonly ConditionalWeakTable<DomAttributeTokenList, Owner> _owners = new();
-
-    /// <summary>Projects <paramref name="list"/>, recording the attribute of <paramref name="element"/> it reflects.</summary>
     internal static JsValue Project(DomRealm realm, Element element, string attribute)
-    {
-        var list = DomAttributeTokenList.Of(element, attribute);
-        _owners.AddOrUpdate(list, new Owner(element, attribute));
-        return realm.Wrap(list);
-    }
+        => realm.Wrap(DomAttributeTokenList.Of(element, attribute));
 
-    /// <summary>
-    /// WebIDL's <a href="https://webidl.spec.whatwg.org/#PutForwards">[PutForwards=value]</a>, which every
-    /// accessor <see cref="Project"/> serves carries: <c>el.classList = "a b"</c> is
-    /// <c>el.classList.value = "a b"</c>, and therefore a verbatim write of the attribute.
-    /// </summary>
-    /// <remarks>
-    /// Without it the member is a read-only accessor and the assignment is a <c>TypeError</c> in strict
-    /// mode, which is what <c>dom/nodes/Element-classlist.html</c>'s "Assigning to classList" rows say.
-    /// </remarks>
-    internal static JsValue PutForwards(Element element, string attribute, JsValue[] arguments)
+    // https://webidl.spec.whatwg.org/#PutForwards
+    internal static JsValue PutForwards(DomRealm realm, Element element, string attribute, JsValue[] arguments)
     {
-        element.SetAttribute(attribute, DomConvert.RequiredText(arguments, 0, Member.Value));
+        var value = DomConvert.RequiredText(arguments, 0, Member.Value);
+        var work = Work(realm);
+        work.Check();
+        element.SetAttribute(attribute, value);
+        work.Check();
         return JsValue.Undefined;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-item — <c>null</c> out of range, never a throw.</summary>
-    internal static JsValue Item(DomAttributeTokenList list, JsValue[] arguments)
+    // https://dom.spec.whatwg.org/#dom-domtokenlist-item
+    internal static JsValue Item(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
-        // WebIDL's unsigned long: -1 is 4294967295, which is out of range rather than an error, and that is
-        // the whole of what an indexed getter promises.
         var index = DomConvert.RequiredUInt32(arguments, 0, Member.Item);
-        return index >= (uint) list.Length ? JsValue.Null : JsString.Create(list[(int) index]);
+        return list.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken) is { } item
+            ? JsString.Create(item) : JsValue.Null;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-add.</summary>
+    internal static JsValue Contains(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
+        => JsBoolean.Create(list.ReadContains(DomConvert.RequiredText(arguments, 0, Member.Contains),
+            realm.NativeReadCheckpoint, realm.CancellationToken));
+
+    // https://dom.spec.whatwg.org/#dom-domtokenlist-add
     internal static JsValue Add(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var tokens = DomConvert.TextRest(arguments, 0);
-        Validate(realm, tokens, Member.Add);
-
-        var next = Snapshot(list);
-
+        var work = Work(realm);
+        Validate(realm, tokens, Member.Add, work);
+        var next = Snapshot(list, work);
         foreach (var token in tokens)
         {
-            if (!next.Contains(token, StringComparer.Ordinal))
-            {
-                next.Add(token);
-            }
+            if (!Contains(next, token, work)) next.Add(token);
         }
-
-        Update(realm, list, next);
+        Update(list, next, work);
         return JsValue.Undefined;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-remove.</summary>
+    // https://dom.spec.whatwg.org/#dom-domtokenlist-remove
     internal static JsValue Remove(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var tokens = DomConvert.TextRest(arguments, 0);
-        Validate(realm, tokens, Member.Remove);
-
-        var next = Snapshot(list);
-        next.RemoveAll(existing => tokens.Contains(existing, StringComparer.Ordinal));
-        Update(realm, list, next);
+        var work = Work(realm);
+        Validate(realm, tokens, Member.Remove, work);
+        var next = Snapshot(list, work);
+        for (var i = next.Count - 1; i >= 0; i--)
+        {
+            if (Contains(tokens, next[i], work)) next.RemoveAt(i);
+        }
+        Update(list, next, work);
         return JsValue.Undefined;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-toggle.</summary>
+    // https://dom.spec.whatwg.org/#dom-domtokenlist-toggle
     internal static JsValue Toggle(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var token = DomConvert.RequiredText(arguments, 0, Member.Toggle);
-        Validate(realm, token, Member.Toggle);
-
-        // "force is either not given or …" — the distinction AngleSharp's `bool force = false` erases, and
-        // the whole of why toggle is here: `toggle("a", false)` on an element without the token must answer
-        // false and add nothing, where a defaulted parameter reads it as an ordinary toggle.
+        var work = Work(realm);
+        Validate(realm, token, Member.Toggle, work);
         var given = arguments.Length > 1 && !arguments[1].IsUndefined();
         var force = given && TypeConverter.ToBoolean(arguments[1]);
-
-        if (list.Contains(token))
+        var next = Snapshot(list, work);
+        for (var i = 0; i < next.Count; i++)
         {
-            if (given && force)
-            {
-                return JsBoolean.True;
-            }
-
-            var removed = Snapshot(list);
-            removed.RemoveAll(existing => string.Equals(existing, token, StringComparison.Ordinal));
-            Update(realm, list, removed);
+            if (!work.Equal(next[i], token)) continue;
+            if (given && force) { work.Check(); return JsBoolean.True; }
+            next.RemoveAt(i);
+            Update(list, next, work);
             return JsBoolean.False;
         }
-
-        if (given && !force)
-        {
-            return JsBoolean.False;
-        }
-
-        var added = Snapshot(list);
-        added.Add(token);
-        Update(realm, list, added);
+        if (given && !force) { work.Check(); return JsBoolean.False; }
+        next.Add(token);
+        Update(list, next, work);
         return JsBoolean.True;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-replace.</summary>
+    // https://dom.spec.whatwg.org/#dom-domtokenlist-replace
     internal static JsValue Replace(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var token = DomConvert.RequiredText(arguments, 0, Member.Replace);
-        var newToken = DomConvert.RequiredText(arguments, 1, Member.Replace);
-
-        // Its validation is the one that is not per-token: DOM §7.1 asks whether *either* argument is empty
-        // before it asks whether either contains whitespace, so `replace(" ", "")` is a SyntaxError for the
-        // empty replacement rather than an InvalidCharacterError for the space.
+        var replacement = DomConvert.RequiredText(arguments, 1, Member.Replace);
+        var work = Work(realm);
+        work.Check();
+        // Both empty checks precede either whitespace check.
         RefuseEmpty(realm, token, Member.Replace);
-        RefuseEmpty(realm, newToken, Member.Replace);
-        RefuseWhitespace(realm, token, Member.Replace);
-        RefuseWhitespace(realm, newToken, Member.Replace);
-
-        if (!list.Contains(token))
+        RefuseEmpty(realm, replacement, Member.Replace);
+        RefuseWhitespace(realm, token, Member.Replace, work);
+        RefuseWhitespace(realm, replacement, Member.Replace, work);
+        var tokens = Snapshot(list, work);
+        if (!Contains(tokens, token, work)) { work.Check(); return JsBoolean.False; }
+        var replaced = new List<string>(tokens.Count);
+        foreach (var existing in tokens)
         {
-            return JsBoolean.False;
+            var next = work.Equal(existing, token) ? replacement : existing;
+            if (!Contains(replaced, next, work)) replaced.Add(next);
         }
-
-        // "Replace token in this's token set with newToken" is an in-place replacement, so the order of the
-        // rest is kept and a newToken that is already present collapses onto the replaced position. That is
-        // not something Add and Remove can express — they append and delete — so the new set is computed
-        // here and written once.
-        var replaced = new List<string>(list.Length);
-
-        foreach (var existing in list)
-        {
-            var next = string.Equals(existing, token, StringComparison.Ordinal) ? newToken : existing;
-
-            if (!replaced.Contains(next, StringComparer.Ordinal))
-            {
-                replaced.Add(next);
-            }
-        }
-
-        Write(realm, list, string.Join(" ", replaced));
+        Write(list, Serialize(replaced, work), work);
         return JsBoolean.True;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-supports.</summary>
-    /// <remarks>
-    /// Its first step asks the associated attribute for its supported tokens, and a `TypeError` is what a
-    /// browser answers when the attribute defines none — `class` among them, which is what
-    /// `dom/nodes/Element-classlist.html` asserts. HTML *does* define a supported-token set for `rel` and
-    /// `sandbox`, and this answers a `TypeError` for those too; it is recorded in `Dom/AGENTS.md`.
-    /// </remarks>
+    // Attributes with supported-token sets retain the existing unsupported capability.
     internal static JsValue Supports(DomRealm realm, JsValue[] arguments)
     {
         DomConvert.RequiredText(arguments, 0, Member.Supports);
-
-        Throw.TypeError(
-            realm.OwningRealm,
+        Throw.TypeError(realm.OwningRealm,
             "Failed to execute '" + Member.Supports + "': the attribute this token list reflects defines no supported tokens.");
         return JsValue.Undefined;
     }
 
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-domtokenlist-value, and the interface's stringifier, which DOM
-    /// defines as the same steps.
-    /// </summary>
-    internal static JsValue Value(DomAttributeTokenList list)
-        => JsString.Create(_owners.TryGetValue(list, out var owner)
-            ? owner.Element.GetAttribute(owner.Attribute) ?? ""
-            : string.Join(" ", list));
+    // https://dom.spec.whatwg.org/#dom-domtokenlist-value
+    internal static JsValue Value(DomRealm realm, DomAttributeTokenList list)
+        => JsString.Create(list.ReadValue(realm.NativeReadCheckpoint, realm.CancellationToken));
 
-    /// <summary>The <c>value</c> setter: set an attribute value, verbatim.</summary>
     internal static JsValue SetValue(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
-        Write(realm, list, DomConvert.RequiredText(arguments, 0, Member.Value));
+        var value = DomConvert.RequiredText(arguments, 0, Member.Value);
+        Write(list, value, Work(realm));
         return JsValue.Undefined;
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#concept-dtl-update — always a write, even when nothing changed.</summary>
-    /// <remarks>
-    /// It is the step that makes <c>classList.add("a")</c> on <c>class="a a"</c> leave <c>class="a"</c>
-    /// behind: the token set is unchanged, and the attribute is still rewritten in serialized form.
-    /// </remarks>
-    private static void Update(DomRealm realm, DomAttributeTokenList list, List<string> tokens)
+    private static DomReadWork Work(DomRealm realm) => new(realm.NativeReadCheckpoint, realm.CancellationToken);
+
+    private static List<string> Snapshot(DomAttributeTokenList list, DomReadWork work)
     {
-        if (!_owners.TryGetValue(list, out var owner))
-        {
-            return;
-        }
-
-        // Step 1: an absent attribute and an empty token set is the one case that writes nothing, so that
-        // reading `classList` never gives an element a `class` attribute it did not have.
-        if (tokens.Count == 0 && owner.Element.GetAttribute(owner.Attribute) is null)
-        {
-            return;
-        }
-
-        Write(realm, list, string.Join(" ", tokens));
-    }
-
-    /// <summary>
-    /// The token set, as an ordered set, for a mutating member to compute over.
-    /// </summary>
-    /// <remarks>
-    /// AngleSharp's own list is deliberately left unmutated. Since AngleSharp 1.8.2 a mutation through it
-    /// <i>is</i> a <i>set an attribute value</i> that runs the attribute change steps and queues a mutation
-    /// record - the defect its release notes record as "<c>classList</c> and the other reflected token lists
-    /// writing their content attribute without running the attribute change steps". Mutating it and then
-    /// writing the serialized set, which is what <c>Add</c>, <c>Remove</c> and <c>Toggle</c> used to do,
-    /// therefore runs those steps <b>twice</b> and enqueues two <c>attributeChangedCallback</c> reactions for
-    /// one operation, where DOM §7.1 has exactly one update-steps write per member call and
-    /// <c>custom-elements/reactions/DOMTokenList.html</c> asserts exactly one reaction.
-    /// <para>
-    /// <c>Replace</c> has always computed its set this way, because an in-place replacement is not something
-    /// <c>Add</c> and <c>Remove</c> can express; the rest now do the same, and the single <c>Write</c> is the
-    /// operation's one attribute change. The list AngleSharp holds is refreshed by that write, since it is a
-    /// reflection of the attribute.
-    /// </para>
-    /// </remarks>
-    private static List<string> Snapshot(DomAttributeTokenList list)
-    {
-        var tokens = new List<string>(list.Length);
-
-        foreach (var token in list)
-        {
-            if (!tokens.Contains(token, StringComparer.Ordinal))
-            {
-                tokens.Add(token);
-            }
-        }
-
+        var tokens = new List<string>();
+        foreach (var token in list.Read(work)) tokens.Add(token);
+        work.Check();
         return tokens;
     }
 
-    private static void Write(DomRealm realm, DomAttributeTokenList list, string value)
+    private static bool Contains(IReadOnlyList<string> tokens, string token, DomReadWork work)
     {
-        _ = realm;
-
-        if (_owners.TryGetValue(list, out var owner))
+        foreach (var existing in tokens)
         {
-            owner.Element.SetAttribute(owner.Attribute, value);
+            if (work.Equal(existing, token)) return true;
+        }
+        return false;
+    }
+
+    // https://dom.spec.whatwg.org/#concept-dtl-update
+    private static void Update(DomAttributeTokenList list, List<string> tokens, DomReadWork work)
+    {
+        if (tokens.Count == 0 && work.Attribute(list.Element, list.Attribute) is null)
+        {
+            work.Check();
             return;
         }
-
-        // No element to write to, so the token set is the only place the value can live. Reached only by a
-        // token list this package did not project through an accessor, which today is none.
-        list.Remove([.. list]);
-        list.Add(value.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
+        Write(list, Serialize(tokens, work), work);
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#concept-domtokenlist-validation, for each of several tokens.</summary>
-    private static void Validate(DomRealm realm, string[] tokens, string member)
+    private static string Serialize(List<string> tokens, DomReadWork work)
     {
-        // Every token is validated before any is appended, which is what makes `add("a", "")` leave the list
-        // untouched rather than half-updated.
+        var builder = new StringBuilder();
         foreach (var token in tokens)
         {
-            Validate(realm, token, member);
+            work.Step();
+            if (builder.Length != 0) builder.Append(' ');
+            foreach (var character in token)
+            {
+                work.Step();
+                builder.Append(character);
+            }
         }
+        work.Check();
+        return builder.ToString();
     }
 
-    private static void Validate(DomRealm realm, string token, string member)
+    private static void Write(DomAttributeTokenList list, string value, DomReadWork work)
     {
+        work.Check();
+        list.Element.SetAttribute(list.Attribute, value);
+        work.Check();
+    }
+
+    private static void Validate(DomRealm realm, string[] tokens, string member, DomReadWork work)
+    {
+        work.Check();
+        foreach (var token in tokens)
+        {
+            work.Step();
+            Validate(realm, token, member, work);
+        }
+        work.Check();
+    }
+
+    private static void Validate(DomRealm realm, string token, string member, DomReadWork work)
+    {
+        work.Check();
         RefuseEmpty(realm, token, member);
-        RefuseWhitespace(realm, token, member);
+        RefuseWhitespace(realm, token, member, work);
+        work.Check();
     }
 
     private static void RefuseEmpty(DomRealm realm, string token, string member)
     {
         if (token.Length == 0)
-        {
             DomFailures.Refuse(realm, member, DomExceptionNames.Syntax, "The token provided must not be empty.");
-        }
     }
 
-    private static void RefuseWhitespace(DomRealm realm, string token, string member)
+    private static void RefuseWhitespace(DomRealm realm, string token, string member, DomReadWork work)
     {
         foreach (var character in token)
         {
-            // https://infra.spec.whatwg.org/#ascii-whitespace — tab, newline, form feed, carriage return and
-            // space, and deliberately not every Unicode space separator.
+            work.Step();
             if (character is '\t' or '\n' or '\f' or '\r' or ' ')
-            {
-                DomFailures.Refuse(
-                    realm,
-                    member,
-                    DomExceptionNames.InvalidCharacter,
+                DomFailures.Refuse(realm, member, DomExceptionNames.InvalidCharacter,
                     "The token provided ('" + token + "') contains HTML space characters, which are not valid in tokens.");
-            }
         }
     }
 
-    /// <summary>The element and attribute a projected token list reflects.</summary>
-    private sealed record class Owner(Element Element, string Attribute);
-
-    /// <summary>The qualified member names the refusals wear, spelled once.</summary>
     private static class Member
     {
         internal const string Add = "DOMTokenList.add";
-
+        internal const string Contains = "DOMTokenList.contains";
         internal const string Item = "DOMTokenList.item";
-
         internal const string Remove = "DOMTokenList.remove";
-
         internal const string Replace = "DOMTokenList.replace";
-
         internal const string Supports = "DOMTokenList.supports";
-
         internal const string Toggle = "DOMTokenList.toggle";
-
         internal const string Value = "DOMTokenList.value";
     }
 }
