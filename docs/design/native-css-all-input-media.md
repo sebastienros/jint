@@ -22,3 +22,10 @@ pointer keyword maps to Unknown, never to None. Existing page defaults remain fi
 all five modes, and cancellation during a long postfix evaluation. `NativeCssAllInputMediaTests`
 covers shared `@media`/`matchMedia` defaults, live emulation and reset. Other previously pending
 media features retain their named incomplete-grammar boundaries.
+
+The existing `Runtime.MediaQuery.Discrete` lane also validates both the host and requested
+vocabularies for exactly these three features. Invalid values return unknown before boolean or
+equality evaluation, so `matchMedia` cannot turn them into a true answer by negation. Browser
+parity fixtures exercise invalid host snapshots and invalid requested values through actual
+`@media` rules and `matchMedia`, including boolean queries and negation. This does not expand
+the legacy evaluator's other syntax or feature vocabularies.

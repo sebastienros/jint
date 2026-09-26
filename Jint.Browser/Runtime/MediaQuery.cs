@@ -211,6 +211,14 @@ internal static class MediaQuery
             return null;
         }
 
+        // MQ4 §7.3 and MQ5 §4.9: these finite discrete vocabularies must preserve
+        // unknown truth for invalid host input or requested values, including under `not`.
+        if (!ValidAllInputOrDisplayMode(name, current) ||
+            value is not null && !ValidAllInputOrDisplayMode(name, value))
+        {
+            return null;
+        }
+
         if (value is null)
         {
             return Array.IndexOf(_falsy, current) < 0;
@@ -224,6 +232,14 @@ internal static class MediaQuery
 
         return string.Equals(value, current, StringComparison.Ordinal);
     }
+
+    private static bool ValidAllInputOrDisplayMode(string name, string value) => name switch
+    {
+        "any-pointer" => value is "none" or "coarse" or "fine",
+        "any-hover" => value is "none" or "hover",
+        "display-mode" => value is "fullscreen" or "standalone" or "minimal-ui" or "browser" or "picture-in-picture",
+        _ => true,
+    };
 
     private static bool? Compare(string name, string? value, double actual)
     {

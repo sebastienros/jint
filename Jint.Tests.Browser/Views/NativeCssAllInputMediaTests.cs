@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Text;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Views;
@@ -85,5 +86,70 @@ public sealed class NativeCssAllInputMediaTests
         (await page.EvaluateAsync<string>(read)).Should().Be("absolute");
         (await page.EvaluateAsync<bool>($"matchMedia('({feature})').matches")).Should().BeTrue();
         page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("any-pointer", "fine", "invalid")]
+    [TestCase("any-pointer", "fine", "coarse fine")]
+    [TestCase("any-hover", "hover", "invalid")]
+    [TestCase("any-hover", "hover", "coarse")]
+    [TestCase("display-mode", "browser", "invalid")]
+    [TestCase("display-mode", "browser", "none")]
+    public async Task InvalidHostValuesRemainUnknownInCascadeAndMatchMedia(string feature, string valid, string invalid)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        var queries = new[]
+        {
+            $"({feature})", $"not ({feature})", $"({feature}: {valid})", $"not ({feature}: {valid})",
+            $"({feature}: {invalid})", $"not ({feature}: {invalid})"
+        };
+        await page.SetContentAsync(QueryFixture(queries));
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.SetMedia(runtime.Media with { Features = new Dictionary<string, string> { [feature] = invalid } });
+            return 0;
+        });
+        for (var i = 0; i < queries.Length; i++)
+        {
+            (await page.EvaluateAsync<string>($"getComputedStyle(document.getElementById('t{i}')).position"))
+                .Should().Be("relative", queries[i]);
+            (await page.EvaluateAsync<bool>($"matchMedia('{queries[i]}').matches")).Should().BeFalse(queries[i]);
+        }
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("any-pointer", "invalid")]
+    [TestCase("any-pointer", "coarse fine")]
+    [TestCase("any-hover", "invalid")]
+    [TestCase("any-hover", "coarse")]
+    [TestCase("display-mode", "invalid")]
+    [TestCase("display-mode", "none")]
+    public async Task InvalidRequestedValuesRemainUnknownWithAValidHostSnapshot(string feature, string invalid)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        var queries = new[]
+        {
+            $"({feature}: {invalid})", $"not ({feature}: {invalid})", $"({feature}:)", $"not ({feature}:)"
+        };
+        await page.SetContentAsync(QueryFixture(queries));
+        for (var i = 0; i < queries.Length; i++)
+        {
+            (await page.EvaluateAsync<string>($"getComputedStyle(document.getElementById('t{i}')).position"))
+                .Should().Be("relative", queries[i]);
+            (await page.EvaluateAsync<bool>($"matchMedia('{queries[i]}').matches")).Should().BeFalse(queries[i]);
+        }
+        page.Errors.Should().BeEmpty();
+    }
+
+    private static string QueryFixture(string[] queries)
+    {
+        var html = new StringBuilder("<style>div { position:relative }");
+        for (var i = 0; i < queries.Length; i++)
+            html.Append("@media ").Append(queries[i]).Append(" { #t").Append(i).Append(" { position:absolute } }");
+        html.Append("</style>");
+        for (var i = 0; i < queries.Length; i++) html.Append("<div id=t").Append(i).Append(">text</div>");
+        return html.ToString();
     }
 }
