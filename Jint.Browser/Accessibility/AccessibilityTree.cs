@@ -455,7 +455,8 @@ internal static class AccessibilityTree
                 properties.Add(new AxProperty(AxPropertyName.Focusable, AxValue.Boolean(true)));
             }
 
-            if (ReferenceEquals(_document.ActiveElement, element))
+            if (ReferenceEquals(Events.BrowserEventRealm.FocusedElementOf(_document), element)
+                && ReferenceEquals(DomNodeMembers.Root(element), _document))
             {
                 properties.Add(new AxProperty(AxPropertyName.Focused, AxValue.Boolean(true)));
             }
