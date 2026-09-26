@@ -249,7 +249,7 @@ internal static class SelectorCompiler
             // CSS Nesting §4: & matches the parent list as :is(), including its maximum specificity.
             if (IsDelim(value, '&') && _context.NestingParent is { } parent)
             {
-                compound.Predicates.Add(new Predicate(PredicateKind.Is, value.Span, arguments: parent));
+                compound.Predicates.Add(new Predicate(PredicateKind.Is, value.Span, arguments: parent, nestingReference: true));
                 compound.End = value.Span.Start + value.Span.Length;
                 f.BranchContainsNesting = f.ContainsNesting = true;
                 f.Index++;
@@ -954,7 +954,7 @@ internal static class SelectorCompiler
                     {
                         var parent = worker._context.NestingParent!;
                         Compounds.Insert(0, new Compound(NamespaceMode.Any, null, null, false,
-                            new[] { new Predicate(PredicateKind.Is, Span(start, start), arguments: parent) }, Span(start, start)));
+                            new[] { new Predicate(PredicateKind.Is, Span(start, start), arguments: parent, nestingReference: true) }, Span(start, start)));
                         Combinators.Insert(0, Leading ?? Combinator.Descendant);
                         Specificity = SelectorSpecificity.Add(Specificity, parent.MaximumSpecificity);
                         Leading = null;

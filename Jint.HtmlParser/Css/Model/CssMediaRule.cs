@@ -37,13 +37,13 @@ internal sealed class CssMediaRule : CssRule
         return index;
     }
 
-    internal void DeleteRule(int index)
+    internal void DeleteRule(int index, CssValueWork? work = null)
     {
         if ((uint) index >= (uint) _rules.Count)
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
         var rule = _rules[index];
+        rule.Detach(work);
         _rules.RemoveAt(index);
-        rule.Detach();
         Changed();
     }
 }

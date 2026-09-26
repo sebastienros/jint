@@ -70,6 +70,9 @@ internal static class CssRuleSerializer
             }
             else if (rule is CssStyleRule style)
             {
+                // Finite nesting checkpoint: retain validated author text. CSS Nesting §6's
+                // absolute selector serialization (& insertion for relative branches) is deferred.
+                // https://drafts.csswg.org/css-nesting-1/#cssom
                 builder.Append(style.SelectorText).Append(" { ");
                 work.Charge(style.SelectorText.Length);
                 var declarations = style.Style.Serialize(work);

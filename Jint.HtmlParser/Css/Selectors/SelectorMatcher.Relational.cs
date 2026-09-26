@@ -75,6 +75,9 @@ internal static partial class SelectorMatcher
             NeedSpecificity = true
         };
         var stack = new List<EvaluationFrame> { root };
+        // Parent programs form a DAG. Memoize only typed nesting references, for this read.
+        // The environment/work is fixed for the invocation; DOM invalidation is verified by it.
+        Dictionary<(CompiledSelector Program, Node Node, Node? Scope, bool SuppressNamespace), bool>? nestingMatches = null;
         var result = false;
         while (stack.Count != 0)
         {
@@ -259,12 +262,23 @@ internal static partial class SelectorMatcher
                     var currentPredicate = frame.Predicate!;
                     if (frame.Waiting)
                     {
+                        if (currentPredicate.IsNestingReference)
+                            nestingMatches![(currentPredicate.Arguments!, frame.Node, frame.Scope, true)] = result;
                         result = currentPredicate.Kind == PredicateKind.Not ? !result : result;
                         stack.RemoveAt(stack.Count - 1);
                         continue;
                     }
                     if (currentPredicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not)
                     {
+                        if (currentPredicate.IsNestingReference)
+                        {
+                            nestingMatches ??= new();
+                            if (nestingMatches.TryGetValue((currentPredicate.Arguments!, frame.Node, frame.Scope, true), out result))
+                            {
+                                stack.RemoveAt(stack.Count - 1);
+                                continue;
+                            }
+                        }
                         // Logical combinations can match a featureless scope only
                         // when an argument selector is itself eligible for it.
                         if (frame.Node is DocumentFragment &&

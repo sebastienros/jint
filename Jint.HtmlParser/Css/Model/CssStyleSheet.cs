@@ -68,10 +68,16 @@ internal sealed class CssStyleSheet
         CancellationToken cancellationToken)
     {
         var replacement = Parse(source, options, work, cancellationToken);
+        var detachments = new List<CssRule.Detachment>();
+        foreach (var rule in _rules)
+        {
+            work.Charge(1);
+            detachments.Add(rule.PrepareDetach(work));
+        }
         foreach (var rule in replacement._rules) { work.Charge(1); rule.Attach(this, null, work); }
         _rules.EnsureCapacity(replacement._rules.Count);
         work.CheckCancellation();
-        foreach (var rule in _rules) rule.Detach();
+        foreach (var detachment in detachments) detachment.Commit();
         _rules.Clear();
         _rules.AddRange(replacement._rules);
         Changed();

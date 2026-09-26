@@ -43,9 +43,10 @@ internal abstract class CssRule
         work.CheckCancellation();
     }
 
-    internal void Detach(CssValueWork? work = null)
+    internal void Detach(CssValueWork? work = null) => PrepareDetach(work ?? new CssValueWork(default)).Commit();
+
+    internal Detachment PrepareDetach(CssValueWork work)
     {
-        work ??= new CssValueWork(default);
         var descendants = new List<CssRule>();
         var pending = new Stack<CssRule>();
         pending.Push(this);
@@ -56,12 +57,23 @@ internal abstract class CssRule
             var children = rule is CssMediaRule media ? media.Rules : ((CssStyleRule) rule).Rules;
             foreach (var child in children) { work.Charge(1); pending.Push(child); }
         }
+        work.Charge(descendants.Count);
+        var detachment = new Detachment(this, descendants.ToArray());
         work.CheckCancellation();
-        // Publication is atomic. Retained descendants keep their parent rule, but lose their sheet.
-        foreach (var rule in descendants) rule.ParentStyleSheet = null;
-        ParentRule = null;
-        _attachmentSheet = null;
-        _attachmentParent = null;
+        return detachment;
+    }
+
+    // All traversal and allocation precede publication. Commit contains no callbacks or allocation.
+    internal sealed class Detachment(CssRule root, CssRule[] descendants)
+    {
+        internal void Commit()
+        {
+            // Retained descendants keep their parent rule, but lose their sheet.
+            foreach (var rule in descendants) rule.ParentStyleSheet = null;
+            root.ParentRule = null;
+            root._attachmentSheet = null;
+            root._attachmentParent = null;
+        }
     }
 
     protected void AdvanceStamp() => CssMutationStamp.Advance(ref _version);

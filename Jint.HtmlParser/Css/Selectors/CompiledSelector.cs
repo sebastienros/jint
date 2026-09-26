@@ -82,7 +82,7 @@ internal sealed class CompiledSelector
             AttributeOperator attributeOperator = AttributeOperator.Presence, string? value = null,
             char modifier = '\0', CompiledSelector? arguments = null,
             BigInteger a = default, BigInteger b = default,
-            IReadOnlyList<string>? textArguments = null)
+            IReadOnlyList<string>? textArguments = null, bool nestingReference = false)
         {
             Kind = kind;
             Span = span;
@@ -96,6 +96,7 @@ internal sealed class CompiledSelector
             A = a;
             B = b;
             TextArguments = textArguments;
+            IsNestingReference = nestingReference;
         }
 
         internal PredicateKind Kind { get; }
@@ -110,5 +111,6 @@ internal sealed class CompiledSelector
         internal BigInteger A { get; }
         internal BigInteger B { get; }
         internal IReadOnlyList<string>? TextArguments { get; }
+        internal bool IsNestingReference { get; }
     }
 }

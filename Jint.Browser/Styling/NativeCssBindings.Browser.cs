@@ -119,13 +119,13 @@ internal static class NativeCssBindings
     internal static void DeleteRule(DomRealm realm, CssStyleSheet sheet, int index)
     {
         Reconcile(realm, sheet);
-        realm.Engine.Constraints.Check();
-        sheet.DeleteRule(index);
+        var work = MutationWork(realm, () => sheet.Stamp);
+        sheet.DeleteRule(index, work);
     }
     internal static void DeleteRule(DomRealm realm, CssMediaRule rule, int index)
     {
-        realm.Engine.Constraints.Check();
-        rule.DeleteRule(index);
+        var work = MutationWork(realm, () => rule.Stamp);
+        rule.DeleteRule(index, work);
     }
     // CSSOM §6.4: setting a rule's cssText intentionally does nothing.
     internal static void SetCssText(DomRealm realm, CssRule rule, string text) => realm.Engine.Constraints.Check();

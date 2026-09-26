@@ -72,10 +72,13 @@ internal static partial class SelectorMatcher
             if (simple) return;
         }
         var pending = new Stack<(CompiledSelector Program, bool Relative)>();
+        var visited = new HashSet<(CompiledSelector Program, bool Relative)>();
         pending.Push((program, false));
         while (pending.Count != 0)
         {
             var (current, currentIsRelative) = pending.Pop();
+            work.Step();
+            if (!visited.Add((current, currentIsRelative))) continue;
             foreach (var branch in current.Branches)
             {
                 work.Step();
@@ -103,9 +106,12 @@ internal static partial class SelectorMatcher
         work.CheckCancellation();
         var supported = program.Branches.Count == 1;
         var pending = new Stack<CompiledSelector>();
+        var visited = new HashSet<CompiledSelector>(ReferenceEqualityComparer.Instance);
         pending.Push(program);
         while (pending.TryPop(out var current))
         {
+            work.Charge(1);
+            if (!visited.Add(current)) continue;
             supported &= current.Branches.Count != 0;
             foreach (var branch in current.Branches)
             {

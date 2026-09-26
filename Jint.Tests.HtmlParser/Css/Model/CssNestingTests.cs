@@ -202,7 +202,7 @@ public sealed class CssNestingTests
         var checks = 0;
         var work = new CssValueWork(cancellation.Token, () =>
         {
-            if (++checks == 2) cancellation.Cancel();
+            if (++checks == 4) cancellation.Cancel();
         });
         Assert.Throws<OperationCanceledException>(() => sheet.ApplicableStyleRules(new CssMediaEnvironment(), work));
         using var serializationCancellation = new CancellationTokenSource();
@@ -237,6 +237,86 @@ public sealed class CssNestingTests
         parent.ParentStyleSheet.Should().BeSameAs(sheet);
         ((CssStyleRule) parent.Rules[0]).ParentStyleSheet.Should().BeSameAs(sheet);
         sheet.Stamp.Should().Be(stamp);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ReplacingALargeOldTreeStagesDetachWithInvocationWorkBeforePublication(bool wide)
+    {
+        var baseline = CssStyleSheet.Parse("old {}");
+        var baselineChecks = 0;
+        baseline.ReplaceText("new {}", null, new CssValueWork(default, () => baselineChecks++), default);
+        var source = wide
+            ? "main {" + string.Concat(Enumerable.Repeat("& {}", 5000)) + "}"
+            : "main {" + string.Concat(Enumerable.Repeat("& {", 5000)) + new string('}', 5001);
+        var sheet = CssStyleSheet.Parse(source);
+        var root = (CssStyleRule) sheet.Rules[0];
+        var child = root.Rules[0];
+        var stamp = sheet.Stamp;
+        using var cancellation = new CancellationTokenSource();
+        var checks = 0;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            if (++checks == baselineChecks) cancellation.Cancel();
+        });
+        Assert.Throws<OperationCanceledException>(() => sheet.ReplaceText("new {}", null, work, cancellation.Token));
+        sheet.Rules[0].Should().BeSameAs(root);
+        root.ParentStyleSheet.Should().BeSameAs(sheet);
+        child.ParentStyleSheet.Should().BeSameAs(sheet);
+        sheet.Stamp.Should().Be(stamp);
+    }
+
+    [Test]
+    public void MediaDeletionStagesTheNestedSubtreeBeforeRemovingItsListEntry()
+    {
+        var sheet = CssStyleSheet.Parse("@media all { main {" +
+            string.Concat(Enumerable.Repeat("& {", 5000)) + new string('}', 5002));
+        var media = (CssMediaRule) sheet.Rules[0];
+        var root = (CssStyleRule) media.Rules[0];
+        var child = root.Rules[0];
+        var stamp = sheet.Stamp;
+        using var cancellation = new CancellationTokenSource();
+        var checks = 0;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            if (++checks == 2) cancellation.Cancel();
+        });
+        Assert.Throws<OperationCanceledException>(() => media.DeleteRule(0, work));
+        media.Rules[0].Should().BeSameAs(root);
+        root.ParentRule.Should().BeSameAs(media);
+        child.ParentStyleSheet.Should().BeSameAs(sheet);
+        sheet.Stamp.Should().Be(stamp);
+        media.DeleteRule(0);
+        media.Rules.Count.Should().Be(0);
+        root.ParentRule.Should().BeNull();
+        child.ParentStyleSheet.Should().BeNull();
+    }
+
+    [Test]
+    public void RepeatedParentReferencesHaveLinearValidationAndMatchingWork()
+    {
+        static int Checks(int depth, bool matches)
+        {
+            var sheet = CssStyleSheet.Parse("main {" +
+                string.Concat(Enumerable.Repeat("&& {", depth)) + new string('}', depth + 1));
+            var rule = (CssStyleRule) sheet.Rules[0];
+            while (rule.Rules.Count != 0) rule = (CssStyleRule) rule.Rules[0];
+            var element = Document.CreateHtml().CreateElement(matches ? "main" : "aside");
+            var checks = 0;
+            var work = new SelectorMatchWork(element, default, () =>
+            {
+                if (++checks > 1000) throw new InvalidOperationException("Nesting work exceeded the linear test ceiling.");
+            });
+            rule.TryMatch(element, out _, null, default, ref work).Should().Be(matches);
+            return checks;
+        }
+        foreach (var matches in new[] { false, true })
+        {
+            var smaller = Checks(128, matches);
+            var larger = Checks(256, matches);
+            smaller.Should().BeGreaterThan(0);
+            larger.Should().BeLessThanOrEqualTo(3 * smaller + 4);
+        }
     }
 
     [TestCase(false)]
