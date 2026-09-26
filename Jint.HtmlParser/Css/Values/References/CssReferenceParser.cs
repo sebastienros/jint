@@ -108,7 +108,7 @@ internal static class CssReferenceParser
                             child.Token.Kind == CssTokenKind.Comma) comma = i;
                     }
                     var headerCount = comma < 0 ? children.Count : comma;
-                    var contentStart = OpeningParenthesisEnd(input.Source, value.Span, work);
+                    var contentStart = OpeningParenthesisEnd(input, value.Span, work);
                     var contentEnd = value.Span.Start + value.Span.Length - (value.IsClosed ? 1 : 0);
                     var headerEnd = comma < 0 ? contentEnd : children[comma].Span.Start;
                     var header = Range(children, 0, headerCount, contentStart, headerEnd, work);
@@ -315,21 +315,21 @@ internal static class CssReferenceParser
             new CssSourceSpan(sourceStart, sourceEnd - sourceStart));
     }
 
-    private static int OpeningParenthesisEnd(string source, CssSourceSpan functionSpan, CssValueWork work)
+    private static int OpeningParenthesisEnd(CssReferenceInput input, CssSourceSpan functionSpan, CssValueWork work)
     {
-        var end = functionSpan.Start + functionSpan.Length;
-        for (var i = functionSpan.Start; i < end; i++)
+        var source = input.SourceSlice(functionSpan);
+        for (var i = 0; i < source.Length; i++)
         {
             work.Charge(1);
             if (source[i] == '\\')
             {
-                if (i + 1 < end)
+                if (i + 1 < source.Length)
                 {
                     i++;
                     work.Charge(1);
                 }
             }
-            else if (source[i] == '(') return i + 1;
+            else if (source[i] == '(') return functionSpan.Start + i + 1;
         }
         throw new InvalidOperationException("A C1 function has no opening parenthesis.");
     }
