@@ -276,6 +276,39 @@ public sealed class NativeCssSheetSetTests
     }
 
     [Test]
+    public void ExplicitlyEnabledLinkHistorySurvivesAdoptionAndReturnToItsOriginalDocument()
+    {
+        var original = Document.CreateHtml();
+        var destination = Document.CreateHtml();
+        var originalRoot = original.CreateElement("html");
+        var destinationRoot = destination.CreateElement("html");
+        original.AppendChild(originalRoot);
+        destination.AppendChild(destinationRoot);
+        var link = original.CreateElement("link");
+        originalRoot.AppendChild(link);
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.PrepareOwner(original, link, work);
+        link.SetAttribute("disabled", "");
+        NativeCssStyleSheets.OwnerAttributeChanged(original, link, null, "disabled", "");
+        link.RemoveAttribute("disabled");
+        NativeCssStyleSheets.OwnerAttributeChanged(original, link, null, "disabled", null);
+        NativeCssStyleSheets.DisassociateOwner(original, link, work);
+        destination.AdoptNode(link);
+        destinationRoot.AppendChild(link);
+        link.SetAttribute("rel", "alternate stylesheet");
+        link.SetAttribute("title", "enabled");
+        NativeCssStyleSheets.Install(destination, link, "", "", "", work);
+        NativeCssStyleSheets.SetsOf(destination).Preferred(work).Should().Be("enabled");
+        NativeCssStyleSheets.Get(destination, work).Single().Sheet.Disabled.Should().BeFalse();
+        NativeCssStyleSheets.DisassociateOwner(destination, link, work);
+        original.AdoptNode(link);
+        originalRoot.AppendChild(link);
+        NativeCssStyleSheets.Install(original, link, "", "", "", work);
+        NativeCssStyleSheets.SetsOf(original).Preferred(work).Should().Be("enabled");
+        NativeCssStyleSheets.Get(original, work).Single().Sheet.Disabled.Should().BeFalse();
+    }
+
+    [Test]
     public void InterruptedAssociationLeavesHistoryUnpublishedAndCanRetry()
     {
         var baseline = Setup();

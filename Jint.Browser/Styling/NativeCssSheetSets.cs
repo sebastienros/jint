@@ -77,9 +77,9 @@ internal static partial class NativeCssStyleSheets
     internal static void OwnerAttributeChanged(Document document, Element owner, string? namespaceUri,
         string name, string? value)
     {
-        if (namespaceUri is not null || name != "disabled" || owner.NamespaceUri != Namespaces.Html || owner.LocalName != "link" ||
-            !Documents.TryGetValue(document, out var resources) || !resources.Owners.TryGetValue(owner, out var resource)) return;
-        if (value is null) resource.ExplicitlyEnabled = true;
+        if (namespaceUri is not null || name != "disabled" || owner.NamespaceUri != Namespaces.Html || owner.LocalName != "link") return;
+        if (value is null) LinkHistories.GetValue(owner, static _ => new()).ExplicitlyEnabled = true;
+        if (!Documents.TryGetValue(document, out var resources) || !resources.Owners.TryGetValue(owner, out var resource)) return;
         if (resource.Associated) SetDisabled(resource, value is not null);
         resource.DisabledSource = value is not null;
         resource.DisabledObservedStamp = document.MutationStamp;
@@ -188,12 +188,13 @@ internal sealed class NativeCssSheetSets(Document document)
         var changes = preferredChanged && _last is null ? Plan(sheets, preferred, work) : [];
         work.Charge(1); // The incoming flag update, charged before the coherent commit.
         Verify(sheets, work);
-        // No callback, CSS parse or fetch can interrupt this metadata commit.
+        Apply(changes, work.Token);
+        work.Token.ThrowIfCancellationRequested();
+        // The constant-size association/history commit invokes no host callback.
         _resources.Remove(owner);
         _resources.Add(owner, resource);
         resource.Associated = true;
         resource.DisabledSource = owner.LocalName == "link" ? disabledSource : null;
-        Apply(changes);
         NativeCssStyleSheets.SetDisabled(resource, incomingDisabled);
         _preferred = preferred;
         _revision = new();
@@ -247,7 +248,7 @@ internal sealed class NativeCssSheetSets(Document document)
         var sheets = Read(work);
         var changes = Plan(sheets, name, work);
         Verify(sheets, work);
-        Apply(changes);
+        Apply(changes, work.Token);
         _last = name;
         _revision = new();
     }
@@ -259,7 +260,7 @@ internal sealed class NativeCssSheetSets(Document document)
         var sheets = Read(work);
         var changes = Plan(sheets, name, work);
         Verify(sheets, work);
-        Apply(changes);
+        Apply(changes, work.Token);
         _revision = new();
     }
 
@@ -271,7 +272,7 @@ internal sealed class NativeCssSheetSets(Document document)
         var sheets = Read(work);
         var changes = changed && _last is null ? Plan(sheets, name, work) : [];
         Verify(sheets, work);
-        Apply(changes);
+        Apply(changes, work.Token);
         _preferred = name;
         _revision = new();
     }
@@ -288,9 +289,25 @@ internal sealed class NativeCssSheetSets(Document document)
         return changes;
     }
 
-    private static void Apply(List<(NativeCssStyleSheets.Resource Resource, bool Disabled)> changes)
+    private void Apply(List<(NativeCssStyleSheets.Resource Resource, bool Disabled)> changes, CancellationToken cancellationToken)
     {
-        foreach (var change in changes) NativeCssStyleSheets.SetDisabled(change.Resource, change.Disabled);
+        var changed = false;
+        try
+        {
+            foreach (var change in changes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (NativeCssStyleSheets.DisabledOf(change.Resource) == change.Disabled) continue;
+                changed = true;
+                NativeCssStyleSheets.SetDisabled(change.Resource, change.Disabled);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        finally
+        {
+            // Interrupted flag updates stay coherent; Last/Preferred are not published by Apply.
+            if (changed) _revision = new();
+        }
     }
 
     private List<SheetState> Read(CssValueWork work)
@@ -332,8 +349,12 @@ internal sealed class NativeCssSheetSets(Document document)
         work.Charge(sheets.Count);
         work.CheckCancellation();
         foreach (var sheet in sheets)
+        {
+            work.Token.ThrowIfCancellationRequested();
             if (sheet.Disabled != NativeCssStyleSheets.DisabledOf(sheet.Resource) || sheet.Stamp != sheet.Resource.Sheet?.Stamp)
                 throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        }
+        work.Token.ThrowIfCancellationRequested();
     }
 
     private readonly record struct SheetState(string Title, NativeCssStyleSheets.Resource Resource, bool Disabled,

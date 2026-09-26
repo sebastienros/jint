@@ -15,6 +15,7 @@ namespace Jint.Browser.Styling;
 internal static partial class NativeCssStyleSheets
 {
     private static readonly ConditionalWeakTable<Document, Resources> Documents = new();
+    private static readonly ConditionalWeakTable<Element, LinkHistory> LinkHistories = new();
     private static readonly ConditionalWeakTable<Element, InlineResource> InlineSources = new();
 
     internal static CssDeclarationBlock InlineOf(Element element, CssValueWork work)
@@ -296,6 +297,10 @@ internal static partial class NativeCssStyleSheets
         internal NativeCssSheetSets? Sets;
         internal ConditionalWeakTable<Element, Resource> Owners { get; } = new();
     }
+    private sealed class LinkHistory
+    {
+        internal bool ExplicitlyEnabled;
+    }
     internal sealed class Resource(string source, CssStyleSheetAttachment attachment)
     {
         internal string Source = source;
@@ -310,7 +315,9 @@ internal static partial class NativeCssStyleSheets
         internal bool Disabled;
         internal bool Associated;
         internal bool Loaded = true;
-        internal bool ExplicitlyEnabled;
+        private readonly LinkHistory? _history = attachment.OwnerNode is Element { NamespaceUri: Namespaces.Html, LocalName: "link" } owner
+            ? LinkHistories.GetValue(owner, static _ => new()) : null;
+        internal bool ExplicitlyEnabled => _history?.ExplicitlyEnabled ?? false;
         internal MutationSubscription? DisabledSubscription;
     }
 }
