@@ -31,6 +31,8 @@ internal static class CssCascade
             if (document is null) return null;
             var runtime = NativeCssStyleSheets.RealmOf(document) is { } host
                 ? PageRuntime.FindBrowsingContext(host.Engine, document) : null;
+            var context = DomBrowsingContext.Of(document);
+            var displayedContext = DomBrowsingContext.Of(runtime?.Document);
             var media = runtime?.Media;
             var events = runtime is null ? null : BrowserEventRealm.Of(runtime.Engine);
             var focus = events?.FocusedElement;
@@ -42,7 +44,11 @@ internal static class CssCascade
                 : NativeCssStyleSheets.CreateInertQuery(document, new CssValueWork(cancellationToken, checkpoint), checkpoint, diagnostics);
             return new(input.Query, input.Matching, runtime is null ? null : () =>
             {
-                if (!ReferenceEquals(runtime.Document, document) || runtime.Media != media ||
+                // Child documents share the principal runtime. The witness is their active
+                // context association, not equality with the principal runtime's document.
+                if (!ReferenceEquals(DomBrowsingContext.Of(document), context) ||
+                    !ReferenceEquals(DomBrowsingContext.Of(runtime.Document), displayedContext) ||
+                    !ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) || runtime.Media != media ||
                     !ReferenceEquals(events!.FocusedElement, focus) || !ReferenceEquals(events.MousePressTarget, press) ||
                     DomDocumentState.Of(document).Url != url || !ReferenceEquals(DomDocumentState.Of(document).TargetElement, target))
                     throw new InvalidOperationException(NativeCssQuery.Invalidated);

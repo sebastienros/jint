@@ -4,6 +4,7 @@ using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
+using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
 
 namespace Jint.Tests.Browser.Views;
@@ -183,6 +184,108 @@ public sealed class ResolvedValueStyleTests
             changed.Should().BeTrue();
             return true;
         });
+    }
+
+    [TestCase("padding", "10%", "128px", 2)]
+    [TestCase("margin", "auto", "0px", 0)]
+    [TestCase("margin", "10% 2px 5% -4px", "128px 2px 64px -4px", 2)]
+    [TestCase("padding", "1px 2px", "1px 2px", 0)]
+    [TestCase("padding", "1px 2px 3px", "1px 2px 3px", 0)]
+    [TestCase("padding", "1px 2px 3px 4px", "1px 2px 3px 4px", 0)]
+    public async Task EdgeShorthandsSerializeResolvedSidesWithOneSharedRead(string name, string declared, string expected, int sizeRequests)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div id=t style='{name}:{declared}'>a</div>");
+        await page.RunOnLoopAsync(engine => { PageRuntime.Find(engine)!.Layout.Diagnostics = new(); return true; });
+        (await page.EvaluateAsync<string>($"getComputedStyle(t).getPropertyValue('{name}')")).Should().Be(expected);
+        (await page.EvaluateAsync<string>($"getComputedStyle(t).{name}")).Should().Be(expected);
+        (await page.RunOnLoopAsync(engine => PageRuntime.Find(engine)!.Layout.Diagnostics!.SizeQueryRequests)).Should().Be(sizeRequests);
+        (await page.EvaluateAsync<string>($"t.style.{name}")).Should().Be(declared);
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
+            CssCascade.Traversal.For(runtime.Document)!.Of(element).GetPropertyValue(name).Should().Be(declared);
+            return true;
+        });
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task EdgeShorthandRejectsALayoutRevisionChangeBetweenResolvedSides()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=t style='padding:10%'>a</div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
+            var diagnostics = new NativeCssQueryDiagnostics();
+            var armed = false;
+            var changed = false;
+            var style = CssCascade.Traversal.For(runtime.Document, diagnostics: diagnostics, checkpoint: () =>
+            {
+                if (!armed || changed || !diagnostics.Queries.Single().ComputedPublications.ContainsKey("padding-right")) return;
+                changed = true;
+                runtime.Layout.Invalidate();
+            })!.Of(element);
+            armed = true;
+            Action read = () => ResolvedStyle.ValueOf("padding", style, element, runtime);
+            read.Should().Throw<InvalidOperationException>().WithMessage(NativeCssQuery.Invalidated);
+            changed.Should().BeTrue();
+            return true;
+        });
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ActiveChildComputedReadsValidateTheirOwnContextWithoutUsingPrincipalGeometry()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<iframe id=f srcdoc=\"&lt;div id=t style='opacity:.25;width:50%;height:auto'&gt;a&lt;/div&gt;\"></iframe>");
+        await page.RunOnLoopAsync(engine => { PageRuntime.Find(engine)!.Layout.Diagnostics = new(); return true; });
+        (await page.EvaluateAsync<string>("(() => { const el=f.contentDocument.getElementById('t');"
+            + "const own=f.contentWindow.getComputedStyle(el); const parent=getComputedStyle(el);"
+            + "return [own.opacity,parent.opacity,own.width,own.height].join('|'); })()"))
+            .Should().Be("0.25|0.25|50%|auto");
+        (await page.RunOnLoopAsync(engine => PageRuntime.Find(engine)!.Layout.Diagnostics!.SizeQueryRequests)).Should().Be(0);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ReplacingAChildContextsActiveDocumentInvalidatesItsCapturedComputedRead()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<iframe id=f srcdoc=\"&lt;div id=t style='opacity:.25'&gt;a&lt;/div&gt;\"></iframe>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var frame = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "f")!;
+            var context = DomBrowsingContext.OfFrame(frame)!;
+            var document = context.Active!;
+            var element = DomDocumentReads.ById(runtime.Dom, document, "t")!;
+            var style = CssCascade.Traversal.For(document)!.Of(element);
+            ResolvedStyle.ValueOf("opacity", style, element, runtime).Should().Be("0.25");
+            using (runtime.Dom.MutateLayout())
+            {
+                context.Activate(Document.CreateHtml());
+                try
+                {
+                    Action read = () => ResolvedStyle.ValueOf("opacity", style, element, runtime);
+                    read.Should().Throw<InvalidOperationException>().WithMessage(NativeCssQuery.Invalidated);
+                }
+                finally
+                {
+                    context.Activate(document);
+                }
+            }
+            return true;
+        });
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]

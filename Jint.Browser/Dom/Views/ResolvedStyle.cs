@@ -53,124 +53,152 @@ internal static class ResolvedStyle
 
     // https://drafts.csswg.org/cssom/#resolved-values
     // The computed query remains layout-free. Only the Browser declaration enters this adapter.
-    internal static string ValueOf(string name, NativeCssComputedStyle style, Element element, PageRuntime? runtime)
+    internal static string ValueOf(string propertyName, NativeCssComputedStyle style, Element element, PageRuntime? runtime)
     {
         style.VerifyRead();
-        name = CssPropertyRegistry.NormalizeName(name, style.Work);
-        if (name == "transform") return Transform(style, style.GetNormalizedProperty(name), element, runtime);
-        var dimensions = name is "width" or "height";
-        var minimum = name is "min-width" or "min-height";
-        var edge = name is "margin-top" or "margin-right" or "margin-bottom" or "margin-left" or
-            "padding-top" or "padding-right" or "padding-bottom" or "padding-left";
-        if (!dimensions && !minimum && !edge) return Computed();
+        var requestedName = CssPropertyRegistry.NormalizeName(propertyName, style.Work);
+        var media = runtime?.Media;
+        var document = runtime?.Document;
+        FlatLayout.SizeQuery? sharedSizes = null;
+        ulong? revision = null;
+        var resolved = Read(requestedName);
+        Verify();
+        return resolved;
 
-        NativeCssProperty? computed = null;
-        if (!dimensions)
+        void Verify()
         {
-            computed = style.GetNormalizedProperty(name);
-            if (minimum && computed.Text != "auto") return Finish(computed.Text);
-            if (edge && computed.Value is { Kind: CssPropertyValueKind.Numeric, Numeric.Kind: not CssNumericKind.Percentage })
-                return Finish(computed.Text); // Absolute edges need neither display nor geometry.
-            if (edge && computed.Value is { Kind: CssPropertyValueKind.Math } calculation &&
-                !NeedsPercentageBasis(calculation, style.Work)) return Finish(computed.Text);
+            style.VerifyRead();
+            if (runtime is not null && (!ReferenceEquals(runtime.Document, document) || runtime.Media != media ||
+                revision is { } measuredRevision && runtime.Layout.Version != measuredRevision))
+                throw new InvalidOperationException(NativeCssQuery.Invalidated);
         }
 
-        var current = runtime is not null && ReferenceEquals(runtime.Document, element.OwnerDocument) && Connected(element, style.Work);
-        var display = style.GetPropertyValue("display");
-        var applicable = display is not ("none" or "contents") &&
-            (display != "inline" || IsSupportedReplacedInline(element));
-        // Do not compute authored dimensions only to throw them away. The flat row policy
-        // does not consume them, whereas horizontal flex sizing requests its own dependencies.
-        if (dimensions && current && applicable)
+        string Read(string name)
         {
-            if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-used-size");
-            return Measure(sizes => sizes.HasBox(element)
-                ? Pixels(name == "width" ? sizes.Width(element) : sizes.Height(element), style.Work)
-                : Computed());
-        }
-
-        var property = computed ?? style.GetNormalizedProperty(name);
-        if (minimum && property.Text == "auto")
-        {
-            // https://drafts.csswg.org/css-sizing-3/#min-width
-            // No CSS box resolves auto to zero. Ordinary CSS2 boxes do so with auto aspect ratio;
-            // flex/grid automatic minima and a potentially authored ratio need their own producer.
-            if (!current || display is "none" or "contents") return Finish("0px");
-            if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-automatic-minimum");
-            return Measure(sizes =>
+            Verify();
+            if (name is "margin" or "padding")
             {
-                if (!sizes.HasBox(element)) return "0px";
-                if (IsFlexOrGridItem()) throw Missing(name, "automatic-minimum");
-                if (style.HasPropertyInput("aspect-ratio"))
-                    throw new CssIncompleteGrammarException(name, "V2:aspect-ratio", property.Value?.Span ?? default);
-                return "0px";
-            });
-        }
-        if (!edge || !current || display is "none" or "contents") return Finish(property.Text);
-        if (property.Text == "auto")
-        {
-            if (IsFlexOrGridItem() || Positioned()) throw Missing(name, "auto-margin-used-value");
-            return Finish("0px"); // Explicit margin-free normal-flow flat policy.
-        }
-        if (property.Value is not { Kind: CssPropertyValueKind.Numeric or CssPropertyValueKind.Math } value)
-            return Finish(property.Text);
-        var needsBasis = NeedsPercentageBasis(value, style.Work);
-        if (!needsBasis) return Finish(property.Text);
-        if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
-        if (Positioned()) throw Missing(name, "positioned-containing-block");
-        // writing-mode is still pending: absence has its horizontal initial semantics, while
-        // an authored candidate is an explicit dependency, never a guessed vertical basis.
-        for (Element? ancestor = element; ancestor is not null; ancestor = ancestor.ParentNode as Element)
-        {
-            style.Work.Charge(1);
-            var ancestorStyle = style.For(ancestor);
-            if (ancestorStyle.HasPropertyInput("writing-mode")) throw Missing(name, "writing-mode");
-            if (ancestor.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
-            if (ancestorStyle.GetPropertyValue("position") != "static") throw Missing(name, "positioned-containing-block");
-        }
-        return Measure(sizes =>
-        {
-            if (sizes.ContainingInlineWidth(element) is not { } basis) throw Missing(name, "containing-block-inline-size");
-            var number = UsedLength(name, value, basis, style.Work);
-            if (name.StartsWith("padding-", StringComparison.Ordinal)) number = System.Math.Max(0, number);
-            return Pixels(number, style.Work);
-        });
+                // CSSOM §6.6.1 getPropertyValue serializes the resolved longhands. Reuse this
+                // invocation's computed query, work, witnesses and lazy size query for all sides.
+                var top = Read(name + "-top");
+                var right = Read(name + "-right");
+                var bottom = Read(name + "-bottom");
+                var left = Read(name + "-left");
+                var shorthand = left != right ? top + " " + right + " " + bottom + " " + left :
+                    bottom != top ? top + " " + right + " " + bottom :
+                    right != top ? top + " " + right : top;
+                style.Work.Charge(shorthand.Length);
+                return Finish(shorthand);
+            }
+            if (name == "transform") return Transform(style, style.GetNormalizedProperty(name), element, runtime);
+            var dimensions = name is "width" or "height";
+            var minimum = name is "min-width" or "min-height";
+            var edge = name is "margin-top" or "margin-right" or "margin-bottom" or "margin-left" or
+                "padding-top" or "padding-right" or "padding-bottom" or "padding-left";
+            if (!dimensions && !minimum && !edge) return Computed();
 
-        bool Positioned() => style.GetPropertyValue("position") != "static";
-        bool IsFlexOrGridItem()
-        {
-            for (var parent = element.ParentNode as Element; parent is not null; parent = parent.ParentNode as Element)
+            NativeCssProperty? computed = null;
+            if (!dimensions)
+            {
+                computed = style.GetNormalizedProperty(name);
+                if (minimum && computed.Text != "auto") return Finish(computed.Text);
+                if (edge && computed.Value is { Kind: CssPropertyValueKind.Numeric, Numeric.Kind: not CssNumericKind.Percentage })
+                    return Finish(computed.Text); // Absolute edges need neither display nor geometry.
+                if (edge && computed.Value is { Kind: CssPropertyValueKind.Math } calculation &&
+                    !NeedsPercentageBasis(calculation, style.Work)) return Finish(computed.Text);
+            }
+
+            var current = runtime is not null && ReferenceEquals(runtime.Document, element.OwnerDocument) && Connected(element, style.Work);
+            var display = style.GetPropertyValue("display");
+            var applicable = display is not ("none" or "contents") &&
+                (display != "inline" || IsSupportedReplacedInline(element));
+            // Do not compute authored dimensions only to throw them away. The flat row policy
+            // does not consume them, whereas horizontal flex sizing requests its own dependencies.
+            if (dimensions && current && applicable)
+            {
+                if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-used-size");
+                return Measure(sizes => sizes.HasBox(element)
+                    ? Pixels(name == "width" ? sizes.Width(element) : sizes.Height(element), style.Work)
+                    : Computed());
+            }
+
+            var property = computed ?? style.GetNormalizedProperty(name);
+            if (minimum && property.Text == "auto")
+            {
+                // https://drafts.csswg.org/css-sizing-3/#min-width
+                // No CSS box resolves auto to zero. Ordinary CSS2 boxes do so with auto aspect ratio;
+                // flex/grid automatic minima and a potentially authored ratio need their own producer.
+                if (!current || display is "none" or "contents") return Finish("0px");
+                if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-automatic-minimum");
+                return Measure(sizes =>
+                {
+                    if (!sizes.HasBox(element)) return "0px";
+                    if (IsFlexOrGridItem()) throw Missing(name, "automatic-minimum");
+                    if (style.HasPropertyInput("aspect-ratio"))
+                        throw new CssIncompleteGrammarException(name, "V2:aspect-ratio", property.Value?.Span ?? default);
+                    return "0px";
+                });
+            }
+            if (!edge || !current || display is "none" or "contents") return Finish(property.Text);
+            if (property.Text == "auto")
+            {
+                if (IsFlexOrGridItem() || Positioned()) throw Missing(name, "auto-margin-used-value");
+                return Finish("0px"); // Explicit margin-free normal-flow flat policy.
+            }
+            if (property.Value is not { Kind: CssPropertyValueKind.Numeric or CssPropertyValueKind.Math } value)
+                return Finish(property.Text);
+            var needsBasis = NeedsPercentageBasis(value, style.Work);
+            if (!needsBasis) return Finish(property.Text);
+            if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
+            if (Positioned()) throw Missing(name, "positioned-containing-block");
+            // writing-mode is still pending: absence has its horizontal initial semantics, while
+            // an authored candidate is an explicit dependency, never a guessed vertical basis.
+            for (Element? ancestor = element; ancestor is not null; ancestor = ancestor.ParentNode as Element)
             {
                 style.Work.Charge(1);
-                var parentDisplay = style.For(parent).GetPropertyValue("display");
-                if (parentDisplay == "contents") continue;
-                return parentDisplay is "flex" or "inline-flex" or "grid" or "inline-grid";
+                var ancestorStyle = style.For(ancestor);
+                if (ancestorStyle.HasPropertyInput("writing-mode")) throw Missing(name, "writing-mode");
+                if (ancestor.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
+                if (ancestorStyle.GetPropertyValue("position") != "static") throw Missing(name, "positioned-containing-block");
             }
-            return false;
-        }
-        string Computed() => Finish(style.GetNormalizedProperty(name).Text);
-        string Finish(string result)
-        {
-            style.VerifyRead();
-            return result;
-        }
-        string Measure(Func<FlatLayout.SizeQuery, string> read)
-        {
-            style.VerifyRead();
-            var media = runtime!.Media;
-            var document = runtime.Document;
-            var sizes = runtime.Layout.MeasureSizes();
-            var revision = runtime.Layout.Version;
-            Verify();
-            var result = read(sizes);
-            Verify();
-            return result;
-
-            void Verify()
+            return Measure(sizes =>
             {
-                style.VerifyRead();
-                if (!ReferenceEquals(runtime.Document, document) || runtime.Media != media || runtime.Layout.Version != revision)
-                    throw new InvalidOperationException(NativeCssQuery.Invalidated);
+                if (sizes.ContainingInlineWidth(element) is not { } basis) throw Missing(name, "containing-block-inline-size");
+                var number = UsedLength(name, value, basis, style.Work);
+                if (name.StartsWith("padding-", StringComparison.Ordinal)) number = System.Math.Max(0, number);
+                return Pixels(number, style.Work);
+            });
+
+            bool Positioned() => style.GetPropertyValue("position") != "static";
+            bool IsFlexOrGridItem()
+            {
+                for (var parent = element.ParentNode as Element; parent is not null; parent = parent.ParentNode as Element)
+                {
+                    style.Work.Charge(1);
+                    var parentDisplay = style.For(parent).GetPropertyValue("display");
+                    if (parentDisplay == "contents") continue;
+                    return parentDisplay is "flex" or "inline-flex" or "grid" or "inline-grid";
+                }
+                return false;
+            }
+            string Computed() => Finish(style.GetNormalizedProperty(name).Text);
+            string Finish(string result)
+            {
+                Verify();
+                return result;
+            }
+            string Measure(Func<FlatLayout.SizeQuery, string> read)
+            {
+                Verify();
+                if (sharedSizes is null)
+                {
+                    sharedSizes = runtime!.Layout.MeasureSizes();
+                    revision = runtime.Layout.Version;
+                }
+                Verify();
+                var result = read(sharedSizes);
+                Verify();
+                return result;
             }
         }
     }
