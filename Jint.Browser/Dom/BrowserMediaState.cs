@@ -7,6 +7,8 @@ using Jint.Runtime;
 
 namespace Jint.Browser.Dom;
 
+#pragma warning disable CA1822 // Concrete media receiver models keep their initial facts on the same binding API.
+
 /// <summary>Script-written media state, independent of a decoder and of any engine.</summary>
 /// <remarks>https://html.spec.whatwg.org/multipage/media.html#media-elements</remarks>
 internal sealed partial class BrowserMediaState
@@ -101,7 +103,7 @@ internal sealed partial class BrowserMediaState
         QueueEvent(realm, "ratechange");
     }
 
-    internal string CanPlayType(string type) => "";
+    internal string CanPlayType(string _) => "";
     internal void Pause() { }
 
     internal JsValue Play(DomRealm realm)
@@ -111,7 +113,7 @@ internal sealed partial class BrowserMediaState
         return capability.PromiseInstance;
     }
 
-    internal JsValue AddTextTrack(DomRealm realm, string kind, string label, string language)
+    internal JsValue AddTextTrack(DomRealm realm, string kind, string _, string __)
     {
         if (kind is not ("subtitles" or "captions" or "descriptions" or "chapters" or "metadata"))
         {
@@ -174,9 +176,9 @@ internal sealed class BrowserTimeRanges
     internal static readonly BrowserTimeRanges Empty = new();
     private BrowserTimeRanges() { }
     internal int Length => 0;
-    internal double Start(DomRealm realm, uint index)
+    internal double Start(DomRealm realm, uint _)
         => Fail(realm, "TimeRanges.start");
-    internal double End(DomRealm realm, uint index)
+    internal double End(DomRealm realm, uint _)
         => Fail(realm, "TimeRanges.end");
     private static double Fail(DomRealm realm, string member)
     {
@@ -189,21 +191,23 @@ internal sealed class BrowserTimeRanges
 internal sealed class BrowserAudioTrackList
 {
     internal int Length => 0;
-    internal object? GetItem(uint index) => null;
-    internal object? GetTrackById(string id) => null;
+    internal object? GetItem(uint _) => null;
+    internal object? GetTrackById(string _) => null;
 }
 
 internal sealed class BrowserVideoTrackList
 {
     internal int Length => 0;
     internal int SelectedIndex => -1;
-    internal object? GetItem(uint index) => null;
-    internal object? GetTrackById(string id) => null;
+    internal object? GetItem(uint _) => null;
+    internal object? GetTrackById(string _) => null;
 }
 
 internal sealed class BrowserTextTrackList
 {
     internal int Length => 0;
-    internal object? GetItem(uint index) => null;
-    internal object? GetTrackById(string id) => null;
+    internal object? GetItem(uint _) => null;
+    internal object? GetTrackById(string _) => null;
 }
+
+#pragma warning restore CA1822

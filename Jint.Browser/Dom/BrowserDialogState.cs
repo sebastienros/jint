@@ -26,7 +26,7 @@ internal sealed class BrowserDialogState
 
     internal string ReturnValue { get; set; } = "";
     internal bool Open => _element.HasContentAttribute("open");
-    internal bool IsModal => false;
+    internal static bool IsModal => false;
 
     internal void Show(DomRealm realm)
     {
@@ -107,16 +107,15 @@ internal sealed class BrowserDialogState
     private void ScheduleToggle(DomRealm realm, string oldState, string newState)
     {
         // Preserve the earliest old state while updating the eventual new state.
-        if (_toggle is { } pending)
-        {
-            pending.NewState = newState;
-            return;
-        }
-        pending = new PendingToggle(oldState, newState);
+        if (_toggle is { } previous) oldState = previous.OldState;
+        var pending = new PendingToggle(oldState, newState);
         _toggle = pending;
         var wrapper = realm.WrapNode(_element);
         realm.Engine.Tasks.Post(() =>
         {
+            // Supersede the previous queued task so the final toggle takes its actual
+            // position after tasks queued between this element's transitions.
+            if (!ReferenceEquals(_toggle, pending)) return;
             _toggle = null;
             wrapper.DispatchEvent(BrowserDialogToggleEvent.Create(wrapper.DomRealm, "toggle", pending.OldState, pending.NewState, cancelable: false));
         });
@@ -131,6 +130,6 @@ internal sealed class BrowserDialogState
     private sealed class PendingToggle(string oldState, string newState)
     {
         internal readonly string OldState = oldState;
-        internal string NewState = newState;
+        internal readonly string NewState = newState;
     }
 }

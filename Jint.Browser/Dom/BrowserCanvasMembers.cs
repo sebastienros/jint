@@ -24,7 +24,7 @@ internal static class BrowserCanvasMembers
         return JsBoolean.False;
     }
 
-    internal static JsValue SetContext(DomRealm realm, Element element, JsValue[] arguments)
+    internal static JsValue SetContext(DomRealm realm, Element element, JsValue[] _)
     {
         Require(realm, element, "HTMLCanvasElement.setContext");
         // This legacy, nonstandard operation cannot retain a foreign rendering context.

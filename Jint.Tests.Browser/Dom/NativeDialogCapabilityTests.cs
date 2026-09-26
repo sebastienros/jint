@@ -60,7 +60,7 @@ public sealed class NativeDialogCapabilityTests
         var error = Caught.Exception(() => state.ShowModal(realm)).Should().BeOfType<JavaScriptException>().Subject;
         error.Error.AsObject().Get("name").AsString().Should().Be("NotSupportedError");
         state.Open.Should().BeFalse();
-        state.IsModal.Should().BeFalse();
+        BrowserDialogState.IsModal.Should().BeFalse();
         state.ReturnValue = "original";
         document.CreateElement("div").AppendChild(dialog);
         var other = Document.CreateHtml();
