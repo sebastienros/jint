@@ -114,7 +114,7 @@ public sealed class ForgivingSelectorTests
     public void NativeValidBranchSourceAndSpecificityArePreserved(string selector)
     {
         using var fixture = DomTestFixture.Create("<p id='target' class='a,b' title='ab'></p>");
-        SelectorCompiler.Compile(selector).MaximumSpecificity.Should().Be(new SelectorSpecificity(0, 1, 0));
+        SelectorCompiler.Compile(selector, context: null, CancellationToken.None).MaximumSpecificity.Should().Be(new SelectorSpecificity(0, 1, 0));
         fixture.Engine.SetValue("selector", selector);
         fixture.Text("document.querySelector(selector)?.id").Should().Be("target");
     }

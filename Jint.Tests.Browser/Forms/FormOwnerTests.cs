@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AngleSharp.Html.Dom;
 using Jint.Browser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
@@ -321,7 +320,7 @@ public sealed class FormOwnerTests
         (await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var input = (IHtmlInputElement) runtime.Document!.GetElementById("image")!;
+            var input = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "image")!;
             var box = runtime.Layout.Current().ClientBoxOf(input)!.Value;
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
                 MouseInputKind.Released, box.X + 7.75, box.Y + 5.5, 0, 0, 1, EventModifiers.None, 0, 0));

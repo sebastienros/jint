@@ -1,5 +1,6 @@
 #nullable enable
 
+using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Tests.Browser.Navigation;
@@ -1402,7 +1403,7 @@ public sealed class PagePseudoClassSelectorTests
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var element = runtime.Document!.GetElementById(id)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, id)!;
             var box = runtime.Layout.Current().ClientBoxOf(element)!.Value;
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
                 kind, box.X + (box.Width / 2), box.Y + (box.Height / 2), 0, buttons, 1, EventModifiers.None, 0, 0));
