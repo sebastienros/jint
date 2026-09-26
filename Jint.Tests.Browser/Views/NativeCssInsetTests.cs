@@ -4,7 +4,12 @@ using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Selectors;
+using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -62,8 +67,22 @@ public sealed class NativeCssInsetTests
         });
     }
 
+    [TestCase("none")]
+    [TestCase("contents")]
+    public async Task APositionedElementWithoutItsOwnBoxKeepsItsComputedInsetWithoutLayout(string display)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=target style='display:" + display + ";position:relative;left:25%'>text</div>");
+        await page.RunOnLoopAsync(engine => { PageRuntime.Find(engine)!.Layout.Diagnostics = new(); return true; });
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('target')).left"))
+            .Should().Be("25%");
+        (await page.RunOnLoopAsync(engine => PageRuntime.Find(engine)!.Layout.Diagnostics!.SizeQueryRequests)).Should().Be(0);
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
-    public async Task APositionedElementWithoutABoxKeepsItsComputedInset()
+    public async Task APositionedElementInAHiddenOrDisconnectedTreeKeepsItsComputedInset()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -74,5 +93,46 @@ public sealed class NativeCssInsetTests
             + "e.style.position='absolute';e.style.left='-5%';return getComputedStyle(e).left; })()"))
             .Should().Be("-5%");
         page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public void ADeepDisconnectedConnectionWalkPollsBeyondTheShallowReadAndCancels()
+    {
+        var shallowPolls = Read(0, null);
+        shallowPolls.Should().BeGreaterThan(0);
+        // Cancel after more polls than the entire shallow read needs. With all three
+        // properties warm, the extra work is the connection walk through detached ancestors.
+        Action deep = () => Read(32768, shallowPolls + 1);
+        deep.Should().Throw<OperationCanceledException>();
+
+        static int Read(int depth, int? cancelAt)
+        {
+            var document = Document.CreateHtml();
+            var element = document.CreateElement("span");
+            var root = element;
+            for (var i = 0; i < depth; i++)
+            {
+                var parent = document.CreateElement("span");
+                parent.AppendChild(root);
+                root = parent;
+            }
+            using var cancellation = new CancellationTokenSource();
+            var armed = false;
+            var polls = 0;
+            var work = new CssValueWork(cancellation.Token, () =>
+            {
+                if (armed && ++polls == cancelAt) cancellation.Cancel();
+            });
+            var query = new NativeCssQuery(document, [],
+                [(element, CssDeclarationBlock.Parse("position:relative;display:inline;left:25%"))],
+                new CssMediaEnvironment(), new(document, null, null, null), CssEnvironmentSnapshot.Create([], work), work);
+            var style = new NativeCssComputedStyle(query, element, new SelectorMatchWork(document, cancellation.Token));
+            var property = style.GetProperty("left");
+            style.GetProperty("position");
+            style.GetProperty("display");
+            armed = true;
+            ResolvedStyle.Inset(style, property, element, null).Should().Be("25%");
+            return polls;
+        }
     }
 }

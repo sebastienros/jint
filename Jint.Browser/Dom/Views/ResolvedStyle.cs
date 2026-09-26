@@ -20,10 +20,15 @@ internal static class ResolvedStyle
         Element element, PageRuntime? runtime)
     {
         style.VerifyRead();
-        if (style.GetPropertyValue("position") == "static" || !ShadowTree.IsConnected(element, style.Work.Token)) return property.Text;
+        if (style.GetPropertyValue("position") == "static" || style.GetPropertyValue("display") is "none" or "contents" ||
+            !Connected(element, style.Work))
+        {
+            style.VerifyRead();
+            return property.Text;
+        }
         if (runtime is null || !ReferenceEquals(runtime.Document, element.OwnerDocument))
             throw new CssIncompleteGrammarException(property.Name, "C6:positioned-inset", property.Value?.Span ?? default);
-        var sizes = runtime.Layout.MeasureSizes();
+        var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
         var hasBox = sizes.HasBox(element);
         style.VerifyRead();
         if (!hasBox) return property.Text;
