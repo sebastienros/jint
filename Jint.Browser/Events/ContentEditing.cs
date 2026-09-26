@@ -71,7 +71,9 @@ internal static class ContentEditing
         {
             work?.Step();
             if (!BrowserHtmlSemantics.IsEditableEligible(candidate)) return null;
-            if (candidate.NamespaceUri == Namespaces.Html && candidate.ParentNode is Document document
+            // Eligible SVG/MathML roots can inherit editing, but only HTML elements are editing hosts.
+            if (candidate.NamespaceUri != Namespaces.Html) continue;
+            if (candidate.ParentNode is Document document
                 && DomDocumentState.IsDesignModeEnabled(document)) return candidate;
             if ((work is null ? candidate.GetAttributeNS(null, "contenteditable") : work.Attribute(candidate, "contenteditable")) is not { } raw)
             {

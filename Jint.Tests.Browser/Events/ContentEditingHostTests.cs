@@ -71,7 +71,7 @@ public sealed class ContentEditingHostTests
     [TestCase(Namespaces.Svg, "g", false)]
     [TestCase("urn:other", "svg", false)]
     [TestCase("urn:other", "math", false)]
-    public void ForeignEditingHostsRequireTheExactEligibleNamespaceAndName(string ns, string name, bool eligible)
+    public void OnlyExactEligibleForeignRootsCanReachAnAncestorHtmlEditingHost(string ns, string name, bool eligible)
     {
         var document = Document.CreateHtml();
         var parent = document.CreateElement("div");
@@ -79,8 +79,21 @@ public sealed class ContentEditingHostTests
         var candidate = document.CreateElementNS(ns, name);
         candidate.SetAttribute("contenteditable", "true");
         parent.AppendChild(candidate);
-        if (eligible) ContentEditing.HostOf(candidate).Should().BeSameAs(candidate);
+        if (eligible) ContentEditing.HostOf(candidate).Should().BeSameAs(parent);
         else ContentEditing.HostOf(candidate).Should().BeNull();
+    }
+
+    [TestCase(Namespaces.Svg, "svg")]
+    [TestCase(Namespaces.MathMl, "math")]
+    public void AStandaloneForeignRootCannotBecomeAnEditingHostFromItsOwnAttribute(string ns, string name)
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElementNS(ns, name);
+        root.SetAttribute("contenteditable", "true");
+        document.AppendChild(root);
+        ContentEditing.HostOf(root).Should().BeNull();
+        var realm = global::Jint.Browser.Dom.DomRealm.Of(new Engine());
+        FocusController.IsFocusable(realm, root).Should().BeFalse();
     }
 
     [Test]
