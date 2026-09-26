@@ -21,6 +21,13 @@ internal static class CssColorMath
             var (index, exit) = stack.Pop();
             if (visited[index]) continue;
             var node = math.GetNode(index);
+            if (node.Kind == CssMathNodeKind.Round && node.RoundingStrategy == CssRoundingStrategy.LineWidth)
+            {
+                // CSS Values 4 §6: even absolute lengths need a device-pixel size
+                // for line-width snapping. The ordinary stepped helper cannot resolve it.
+                work.CheckCancellation();
+                return false;
+            }
             if (!exit)
             {
                 stack.Push((index, true));

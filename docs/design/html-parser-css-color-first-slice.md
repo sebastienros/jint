@@ -72,3 +72,9 @@ The original fixture freezes the independent sorted named table with SHA-256
 Color matching does not initialize a property registry/model: the narrow declaration consumer
 requests it after V0 analysis. Component matching keeps only the finite grammar prefix of a
 hostile wide list, while C1 retains and enforces the original full-source limits.
+
+HSL conversion applies each bounded channel coefficient before multiplying saturation and
+lightness. This avoids an overflowing amplitude turning a zero coefficient into NaN; the
+zero coefficient contributes no amplitude even at extreme finite literal or calculated values.
+`round(line-width, …)` is device-pixel dependent even with absolute lengths; a surviving typed
+node returns `color:channel-environment`, just like a surviving relative dimension.

@@ -51,6 +51,14 @@ public sealed class ColorGrammarTests
     [TestCase("hsl(3.141592653589793rad 100% 50%)", "rgb(0, 255, 255)")]
     [TestCase("hsl(0 -100% 50%)", "rgb(127.5, 127.5, 127.5)")]
     [TestCase("hsl(0 200% 50%)", "rgb(255, 0, 0)")]
+    [TestCase("hsl(30 1e200 1e200)", "rgb(0, 255, 255)")]
+    [TestCase("hsl(30 1e308 1e308)", "rgb(0, 255, 255)")]
+    [TestCase("hsl(30 calc(1e200) calc(1e200))", "rgb(0, 255, 255)")]
+    [TestCase("hsl(30 calc(1e308) calc(1e308) / 50%)", "rgba(0, 255, 255, 0.5)")]
+    [TestCase("hsl(150 1e308 1e308)", "rgb(255, 0, 255)")]
+    [TestCase("hsl(270 1e308 1e308)", "rgb(255, 255, 0)")]
+    [TestCase("hsl(30 1e308 -1e308)", "rgb(0, 0, 255)")]
+    [TestCase("hsl(30 0 1e308)", "rgb(255, 255, 255)")]
     [TestCase("hsla(740deg none 50 / 25%)", "hsl(20 none 50% / 0.25)")]
     [TestCase("hsl(none -5% 50% / none)", "hsl(none 0% 50% / none)")]
     [TestCase("hsl(calc(infinity) none 50%)", "hsl(0 none 50%)")]
@@ -149,6 +157,9 @@ public sealed class ColorGrammarTests
     [TestCase("rgb(from red r g b)", "color:relative-rgb")]
     [TestCase("color(from red srgb r g b)", "color:relative-color")]
     [TestCase("rgb(calc(sign(1em - 10px) * 50%) 0 0)", "color:channel-environment")]
+    [TestCase("rgb(calc(round(line-width,1px)/1px) 0 0)", "color:channel-environment")]
+    [TestCase("color(srgb calc(round(line-width,1px)/1px) 0 0)", "color:channel-environment")]
+    [TestCase("rgb(0 0 0 / calc(round(line-width,1px)/1px))", "color:channel-environment")]
     public void IncompleteGrammarIsNamed(string source, string blocker)
     {
         var parsed = CssPropertyParser.Parse("color", source);

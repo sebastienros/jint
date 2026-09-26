@@ -28,6 +28,8 @@ public sealed class CssColorDeclarationTests
     [TestCase("color(display-p3 1 0 0)", "color:color")]
     [TestCase("rgb(from red r g b)", "color:relative-rgb")]
     [TestCase("rgb(calc(sign(1em - 10px) * 10%) 0 0)", "color:channel-environment")]
+    [TestCase("rgb(calc(round(line-width,1px)/1px) 0 0)", "color:channel-environment")]
+    [TestCase("color(srgb calc(round(line-width,1px)/1px) 0 0)", "color:channel-environment")]
     public void PendingColorGrammarAbortsMutationAndReplacementAtomically(string source, string blocker)
     {
         var block = CssDeclarationBlock.Parse("color: red; background-color: transparent");

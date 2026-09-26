@@ -99,12 +99,16 @@ internal static class CssColorSerializer
     {
         var s = saturation / 100;
         var l = lightness / 100;
-        var a = s * System.Math.Min(l, 1 - l);
+        var amplitudeLightness = System.Math.Min(l, 1 - l);
         for (var i = 0; i < 3; i++)
         {
             var n = i switch { 0 => 0, 1 => 8, _ => 4 };
             var k = (n + hue / 30) % 12;
-            rgb[i] = (l - a * System.Math.Max(-1, System.Math.Min(System.Math.Min(k - 3, 9 - k), 1))) * 255;
+            var coefficient = System.Math.Max(-1, System.Math.Min(System.Math.Min(k - 3, 9 - k), 1));
+            // Apply the bounded coefficient before forming the amplitude. Large finite
+            // S/L can overflow that intermediate even when this channel has a zero
+            // coefficient; infinity * 0 would then incorrectly turn it into NaN.
+            rgb[i] = (coefficient == 0 ? l : l - (s * coefficient) * amplitudeLightness) * 255;
         }
     }
 
