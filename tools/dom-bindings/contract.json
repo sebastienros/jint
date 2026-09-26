@@ -4551,7 +4551,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined — the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined \u2014 the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMStringMap.Instance",
       "Members": [],
       "Constants": [],
@@ -7468,7 +7468,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -7556,7 +7556,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLButtonElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLButtonElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -7572,7 +7572,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -7580,7 +7580,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -7596,7 +7596,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLButtonElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -8045,7 +8045,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -8085,7 +8085,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLFieldSetElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLFieldSetElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -8101,7 +8101,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -8109,7 +8109,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -8117,7 +8117,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -8878,7 +8878,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -9134,7 +9134,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -9206,7 +9206,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -9214,7 +9214,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -9254,7 +9254,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -9298,7 +9298,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -9346,7 +9346,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLKeygenElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -9362,7 +9362,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -9370,7 +9370,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -9378,7 +9378,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLKeygenElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -10002,7 +10002,7 @@
         {
           "DomName": "high",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.high\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.High);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.high\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, \"high\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.high\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMeterElementHigh.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"
@@ -10018,7 +10018,7 @@
         {
           "DomName": "low",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.low\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Low);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.low\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, \"low\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.low\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMeterElementLow.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"
@@ -10026,7 +10026,7 @@
         {
           "DomName": "max",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.max\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Maximum);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.max\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, \"max\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.max\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMeterElementMax.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"
@@ -10034,7 +10034,7 @@
         {
           "DomName": "min",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.min\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Minimum);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.min\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, \"min\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.min\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMeterElementMin.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"
@@ -10042,7 +10042,7 @@
         {
           "DomName": "optimum",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.optimum\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Optimum);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.optimum\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, \"optimum\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.optimum\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMeterElementOptimum.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"
@@ -10050,7 +10050,7 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Value);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, \"value\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMeterElement.value\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMeterElementValue.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"
@@ -10198,7 +10198,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -10294,7 +10294,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLObjectElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLObjectElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -10334,7 +10334,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -10342,7 +10342,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -10366,7 +10366,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -10430,8 +10430,8 @@
         {
           "DomName": "defaultSelected",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefaultSelected);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nself.Target.IsDefaultSelected = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.DefaultSelected);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetDefaultSelected(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.IsDefaultSelected"
         },
@@ -10454,7 +10454,7 @@
         {
           "DomName": "index",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.index\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.index\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetIndex(self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlOptionElement.Index"
@@ -10462,15 +10462,15 @@
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nself.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.label\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetLabel(self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetLabel(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.label\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.Label"
         },
         {
           "DomName": "selected",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.selected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSelected);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.selected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.Selected);",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.selected\");\nself.Realm.Hooks.SetOptionSelected(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.IsSelected"
@@ -10478,16 +10478,16 @@
         {
           "DomName": "text",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nself.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.text\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetText(self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.text\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.Text"
         },
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nself.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.value\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetValue(self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.value\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.Value"
         }
@@ -10557,7 +10557,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -10565,8 +10565,8 @@
         {
           "DomName": "defaultValue",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.defaultValue\");\nself.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOutputElement.defaultValue\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserOutputValue.GetDefaultValue(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.defaultValue\");\nglobal::Jint.Browser.Events.BrowserOutputValue.SetDefaultValue(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOutputElement.defaultValue\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOutputElement.DefaultValue"
         },
@@ -10605,7 +10605,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOutputElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOutputElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -10621,7 +10621,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -10629,7 +10629,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -10637,15 +10637,15 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.value\");\nself.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOutputElement.value\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserOutputValue.GetValue(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.value\");\nglobal::Jint.Browser.Events.BrowserOutputValue.SetValue(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOutputElement.value\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOutputElement.Value"
         },
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -10816,7 +10816,7 @@
         {
           "DomName": "position",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.position\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Position);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.position\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Progress(self.Realm, self.Target, true));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlProgressElement.Position"
@@ -10824,8 +10824,8 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Value);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.value\");\nself.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLProgressElement.value\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Progress(self.Realm, self.Target, false));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.value\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLProgressElementValue.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlProgressElement.Value"
         }
@@ -11012,7 +11012,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -11108,7 +11108,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLSelectElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLSelectElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -11132,7 +11132,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -11140,7 +11140,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -11156,7 +11156,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -11435,7 +11435,7 @@
         {
           "DomName": "cellIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableCellElement.cellIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableCellElement.cellIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTableMembers.Index(self.Realm, self.Target, false));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableCellElement.Index"
@@ -11635,8 +11635,8 @@
         {
           "DomName": "caption",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.caption\");\nreturn self.Realm.WrapNodeValue(self.Target.Caption);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.caption\");\nself.Target.Caption = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLTableElement.caption\", \"HTMLTableCaptionElement\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.caption\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Part(self.Realm, self.Target, \"caption\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.caption\");\nreturn global::Jint.Browser.Dom.DomTableMembers.SetPart(self.Realm, self.Target, \"caption\", global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLTableElement.caption\", \"HTMLTableCaptionElement\"));",
           "Length": 0,
           "Origin": "IHtmlTableElement.Caption"
         },
@@ -11659,7 +11659,7 @@
         {
           "DomName": "createCaption",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createCaption\");\nreturn self.Realm.WrapNodeValue(self.Target.CreateCaption());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createCaption\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, \"caption\"));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.CreateCaption"
@@ -11667,7 +11667,7 @@
         {
           "DomName": "createTBody",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createTBody\");\nreturn self.Realm.WrapNodeValue(self.Target.CreateBody());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createTBody\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, \"tbody\"));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.CreateBody"
@@ -11675,7 +11675,7 @@
         {
           "DomName": "createTFoot",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createTFoot\");\nreturn self.Realm.WrapNodeValue(self.Target.CreateFoot());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createTFoot\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, \"tfoot\"));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.CreateFoot"
@@ -11683,7 +11683,7 @@
         {
           "DomName": "createTHead",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createTHead\");\nreturn self.Realm.WrapNodeValue(self.Target.CreateHead());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.createTHead\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, \"thead\"));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.CreateHead"
@@ -11691,7 +11691,7 @@
         {
           "DomName": "deleteCaption",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteCaption\");\nself.Target.DeleteCaption(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteCaption\");\nreturn global::Jint.Browser.Dom.DomTableMembers.DeletePart(self.Realm, self.Target, \"caption\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.DeleteCaption"
@@ -11699,7 +11699,7 @@
         {
           "DomName": "deleteRow",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteRow\");\nself.Target.RemoveRowAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTableElement.deleteRow\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteRow\");\nreturn global::Jint.Browser.Dom.DomTableMembers.Delete(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTableElement.deleteRow\"), false);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlTableElement.RemoveRowAt"
@@ -11707,7 +11707,7 @@
         {
           "DomName": "deleteTFoot",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteTFoot\");\nself.Target.DeleteFoot(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteTFoot\");\nreturn global::Jint.Browser.Dom.DomTableMembers.DeletePart(self.Realm, self.Target, \"tfoot\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.DeleteFoot"
@@ -11715,7 +11715,7 @@
         {
           "DomName": "deleteTHead",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteTHead\");\nself.Target.DeleteHead(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.deleteTHead\");\nreturn global::Jint.Browser.Dom.DomTableMembers.DeletePart(self.Realm, self.Target, \"thead\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.DeleteHead"
@@ -11731,7 +11731,7 @@
         {
           "DomName": "insertRow",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.insertRow\");\nreturn self.Realm.WrapNodeValue(self.Target.InsertRowAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1)));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.insertRow\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Insert(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), false));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.InsertRowAt"
@@ -11739,7 +11739,7 @@
         {
           "DomName": "rows",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.rows\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Rows);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.rows\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Rows));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.Rows"
@@ -11763,7 +11763,7 @@
         {
           "DomName": "tBodies",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tBodies\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Bodies);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tBodies\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Bodies));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableElement.Bodies"
@@ -11771,16 +11771,16 @@
         {
           "DomName": "tFoot",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tFoot\");\nreturn self.Realm.WrapNodeValue(self.Target.Foot);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tFoot\");\nself.Target.Foot = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLTableElement.tFoot\", \"HTMLTableSectionElement\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tFoot\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Part(self.Realm, self.Target, \"tfoot\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tFoot\");\nreturn global::Jint.Browser.Dom.DomTableMembers.SetPart(self.Realm, self.Target, \"tfoot\", global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLTableElement.tFoot\", \"HTMLTableSectionElement\"));",
           "Length": 0,
           "Origin": "IHtmlTableElement.Foot"
         },
         {
           "DomName": "tHead",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tHead\");\nreturn self.Realm.WrapNodeValue(self.Target.Head);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tHead\");\nself.Target.Head = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLTableElement.tHead\", \"HTMLTableSectionElement\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tHead\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Part(self.Realm, self.Target, \"thead\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableElement.tHead\");\nreturn global::Jint.Browser.Dom.DomTableMembers.SetPart(self.Realm, self.Target, \"thead\", global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLTableElement.tHead\", \"HTMLTableSectionElement\"));",
           "Length": 0,
           "Origin": "IHtmlTableElement.Head"
         },
@@ -11831,7 +11831,7 @@
         {
           "DomName": "cells",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.cells\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Cells);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.cells\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Cells));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableRowElement.Cells"
@@ -11855,7 +11855,7 @@
         {
           "DomName": "deleteCell",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.deleteCell\");\nself.Target.RemoveCellAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTableRowElement.deleteCell\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.deleteCell\");\nreturn global::Jint.Browser.Dom.DomTableMembers.Delete(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTableRowElement.deleteCell\"), true);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlTableRowElement.RemoveCellAt"
@@ -11863,7 +11863,7 @@
         {
           "DomName": "insertCell",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.insertCell\");\nreturn self.Realm.WrapNodeValue(self.Target.InsertCellAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), (global::AngleSharp.Html.Dom.TableCellKind) global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.insertCell\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Insert(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), true));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableRowElement.InsertCellAt"
@@ -11871,7 +11871,7 @@
         {
           "DomName": "rowIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.rowIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.rowIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTableMembers.Index(self.Realm, self.Target, false));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableRowElement.Index"
@@ -11879,7 +11879,7 @@
         {
           "DomName": "sectionRowIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.sectionRowIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.IndexInSection);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableRowElement.sectionRowIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTableMembers.Index(self.Realm, self.Target, true));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableRowElement.IndexInSection"
@@ -11939,7 +11939,7 @@
         {
           "DomName": "deleteRow",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableSectionElement.deleteRow\");\nself.Target.RemoveRowAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTableSectionElement.deleteRow\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableSectionElement.deleteRow\");\nreturn global::Jint.Browser.Dom.DomTableMembers.Delete(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTableSectionElement.deleteRow\"), false);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlTableSectionElement.RemoveRowAt"
@@ -11947,7 +11947,7 @@
         {
           "DomName": "insertRow",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableSectionElement.insertRow\");\nreturn self.Realm.WrapNodeValue(self.Target.InsertRowAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1)));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableSectionElement.insertRow\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Insert(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), false));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableSectionElement.InsertRowAt"
@@ -11955,7 +11955,7 @@
         {
           "DomName": "rows",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableSectionElement.rows\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Rows);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTableSectionElement.rows\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Rows));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTableSectionElement.Rows"
@@ -12035,7 +12035,7 @@
         {
           "DomName": "checkValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.checkValidity\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.CheckValidity"
@@ -12179,7 +12179,7 @@
         {
           "DomName": "setCustomValidity",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setCustomValidity\");\nself.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setCustomValidity\");\nglobal::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.setCustomValidity\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IValidation.SetCustomValidity"
@@ -12211,7 +12211,7 @@
         {
           "DomName": "validationMessage",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.validationMessage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.ValidationMessage"
@@ -12219,7 +12219,7 @@
         {
           "DomName": "validity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.validity\");\nreturn self.Realm.Wrap(self.Target.Validity);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.validity\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.Validity"
@@ -12235,7 +12235,7 @@
         {
           "DomName": "willValidate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.willValidate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidation.WillValidate"
@@ -14723,7 +14723,7 @@
     {
       "DomName": "ValidityState",
       "ClrTypeName": "AngleSharp.Html.Dom.IValidityState",
-      "ReceiverType": "global::AngleSharp.Html.Dom.IValidityState",
+      "ReceiverType": "global::Jint.Browser.Dom.DomValidityState",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -14738,7 +14738,7 @@
         {
           "DomName": "badInput",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.badInput\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsBadInput);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.badInput\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.BadInput));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsBadInput"
@@ -14746,7 +14746,7 @@
         {
           "DomName": "customError",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.customError\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCustomError);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.customError\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.CustomError));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsCustomError"
@@ -14754,7 +14754,7 @@
         {
           "DomName": "patternMismatch",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.patternMismatch\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPatternMismatch);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.patternMismatch\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.PatternMismatch));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsPatternMismatch"
@@ -14762,7 +14762,7 @@
         {
           "DomName": "rangeOverflow",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.rangeOverflow\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRangeOverflow);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.rangeOverflow\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.RangeOverflow));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsRangeOverflow"
@@ -14770,7 +14770,7 @@
         {
           "DomName": "rangeUnderflow",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.rangeUnderflow\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRangeUnderflow);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.rangeUnderflow\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.RangeUnderflow));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsRangeUnderflow"
@@ -14778,7 +14778,7 @@
         {
           "DomName": "stepMismatch",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.stepMismatch\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsStepMismatch);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.stepMismatch\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.StepMismatch));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsStepMismatch"
@@ -14786,7 +14786,7 @@
         {
           "DomName": "tooLong",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.tooLong\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTooLong);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.tooLong\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.TooLong));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsTooLong"
@@ -14794,7 +14794,7 @@
         {
           "DomName": "tooShort",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.tooShort\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTooShort);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.tooShort\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.TooShort));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsTooShort"
@@ -14802,7 +14802,7 @@
         {
           "DomName": "typeMismatch",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.typeMismatch\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTypeMismatch);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.typeMismatch\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.TypeMismatch));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsTypeMismatch"
@@ -14810,7 +14810,7 @@
         {
           "DomName": "valid",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.valid\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsValid);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.valid\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsValid(self.Realm));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsValid"
@@ -14818,7 +14818,7 @@
         {
           "DomName": "valueMissing",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, \"ValidityState.valueMissing\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsValueMissing);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, \"ValidityState.valueMissing\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.ValueMissing));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IValidityState.IsValueMissing"
@@ -15067,7 +15067,7 @@
     {
       "Interface": "CharacterData",
       "Member": "replace",
-      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "Document",
@@ -15077,12 +15077,12 @@
     {
       "Interface": "DocumentType",
       "Member": "replace",
-      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "Element",
       "Member": "replace",
-      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "HTMLAnchorElement",
@@ -15107,7 +15107,7 @@
     {
       "Interface": "HTMLLinkElement",
       "Member": "nonce",
-      "Reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
+      "Reason": "HTML \u00a72.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
     },
     {
       "Interface": "HTMLMarqueeElement",
@@ -17954,6 +17954,15 @@
       "Factory": "ReflectedAttribute.Url(\"HTMLVideoElement.poster\", \"poster\")",
       "Replaced": true,
       "SetterOnly": false
+    },
+    {
+      "Field": "HTMLProgressElementValue",
+      "Qualified": "HTMLProgressElement.value",
+      "Attribute": "value",
+      "Type": "double",
+      "Factory": "ReflectedAttribute.Numeric(\"HTMLProgressElement.value\", \"value\", ReflectedKind.Double, 0)",
+      "Replaced": true,
+      "SetterOnly": true
     }
   ],
   "Diagnostics": []

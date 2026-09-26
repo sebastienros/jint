@@ -1250,7 +1250,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("disabled",
@@ -1357,7 +1357,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLButtonElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
@@ -1375,13 +1375,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.value", static (thisObj, args) =>
@@ -1398,7 +1398,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLButtonElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -1744,7 +1744,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFieldSetElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("disabled",
@@ -1785,7 +1785,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLFieldSetElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFieldSetElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFieldSetElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
@@ -1798,19 +1798,19 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -2606,7 +2606,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("checked",
@@ -2930,7 +2930,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setSelectionRange",
@@ -3013,13 +3013,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.value", static (thisObj, args) =>
@@ -3069,7 +3069,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -3104,7 +3104,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("disabled",
@@ -3156,7 +3156,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLKeygenElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLKeygenElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLKeygenElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
@@ -3169,19 +3169,19 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLKeygenElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLKeygenElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -3789,7 +3789,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.high", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.high");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.High);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, "high"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.high", static (thisObj, args) =>
                 {
@@ -3806,7 +3806,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.low", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.low");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Low);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, "low"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.low", static (thisObj, args) =>
                 {
@@ -3817,7 +3817,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.max", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.max");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Maximum);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, "max"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.max", static (thisObj, args) =>
                 {
@@ -3828,7 +3828,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.min", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.min");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Minimum);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, "min"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.min", static (thisObj, args) =>
                 {
@@ -3839,7 +3839,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.optimum", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.optimum");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Optimum);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, "optimum"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.optimum", static (thisObj, args) =>
                 {
@@ -3850,7 +3850,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMeterElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Value);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Meter(self.Realm, self.Target, "value"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLMeterElement.value", static (thisObj, args) =>
                 {
@@ -3992,7 +3992,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("code",
@@ -4105,7 +4105,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLObjectElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLObjectElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("standby",
@@ -4156,13 +4156,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("vspace",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.vspace", static (thisObj, args) =>
@@ -4190,7 +4190,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLObjectElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -4232,12 +4232,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.defaultSelected", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.defaultSelected");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefaultSelected);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.DefaultSelected);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.defaultSelected", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.defaultSelected");
-                    self.Target.IsDefaultSelected = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetDefaultSelected(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.disabled", static (thisObj, args) =>
@@ -4260,24 +4260,24 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.index", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.index");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetIndex(self.Realm.CancellationToken));
                 }))
             .Accessor("label",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.label", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.label");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetLabel(self.Realm.CancellationToken));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.label", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.label");
-                    self.Target.Label = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.label"); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetLabel(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.label")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("selected",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.selected", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.selected");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSelected);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.Selected);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.selected", static (thisObj, args) =>
                 {
@@ -4288,23 +4288,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.text");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetText(self.Realm.CancellationToken));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.text");
-                    self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.text"); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.text"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOptionElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetValue(self.Realm.CancellationToken));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOptionElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOptionElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOptionElement.value")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
 
@@ -4349,19 +4349,19 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("defaultValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.defaultValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.defaultValue");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserOutputValue.GetDefaultValue(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.defaultValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.defaultValue");
-                    self.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.defaultValue"); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserOutputValue.SetDefaultValue(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.defaultValue"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.form", static (thisObj, args) =>
@@ -4401,7 +4401,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("type",
@@ -4414,30 +4414,30 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserOutputValue.GetValue(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLOutputElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserOutputValue.SetValue(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLOutputElement.value"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -4561,18 +4561,18 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.position", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.position");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Position);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Progress(self.Realm, self.Target, true));
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Value);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.Progress(self.Realm, self.Target, false));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLProgressElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLProgressElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLProgressElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -4762,7 +4762,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("disabled",
@@ -4862,7 +4862,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLSelectElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSelectElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLSelectElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("size",
@@ -4886,13 +4886,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.value", static (thisObj, args) =>
@@ -4909,7 +4909,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLSelectElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -5149,7 +5149,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.cellIndex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableCellElement.cellIndex");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTableMembers.Index(self.Realm, self.Target, false));
                 }))
             .Accessor("ch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.ch", static (thisObj, args) =>
@@ -5378,12 +5378,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.caption", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.caption");
-                    return self.Realm.WrapNodeValue(self.Target.Caption);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Part(self.Realm, self.Target, "caption"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.caption", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.caption");
-                    self.Target.Caption = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.caption", "HTMLTableCaptionElement"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.SetPart(self.Realm, self.Target, "caption", global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.caption", "HTMLTableCaptionElement"));
                 }))
             .Accessor("cellPadding",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellPadding", static (thisObj, args) =>
@@ -5411,56 +5411,56 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createCaption", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createCaption");
-                    return self.Realm.WrapNodeValue(self.Target.CreateCaption());
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, "caption"));
                 }),
                 length: 0)
             .Method("createTBody",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createTBody", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createTBody");
-                    return self.Realm.WrapNodeValue(self.Target.CreateBody());
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, "tbody"));
                 }),
                 length: 0)
             .Method("createTFoot",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createTFoot", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createTFoot");
-                    return self.Realm.WrapNodeValue(self.Target.CreateFoot());
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, "tfoot"));
                 }),
                 length: 0)
             .Method("createTHead",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.createTHead", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.createTHead");
-                    return self.Realm.WrapNodeValue(self.Target.CreateHead());
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.CreatePart(self.Realm, self.Target, "thead"));
                 }),
                 length: 0)
             .Method("deleteCaption",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteCaption", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteCaption");
-                    self.Target.DeleteCaption(); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.DeletePart(self.Realm, self.Target, "caption");
                 }),
                 length: 0)
             .Method("deleteRow",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteRow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteRow");
-                    self.Target.RemoveRowAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableElement.deleteRow")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.Delete(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableElement.deleteRow"), false);
                 }),
                 length: 1)
             .Method("deleteTFoot",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteTFoot", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteTFoot");
-                    self.Target.DeleteFoot(); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.DeletePart(self.Realm, self.Target, "tfoot");
                 }),
                 length: 0)
             .Method("deleteTHead",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.deleteTHead", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.deleteTHead");
-                    self.Target.DeleteHead(); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.DeletePart(self.Realm, self.Target, "thead");
                 }),
                 length: 0)
             .Accessor("frame",
@@ -5478,14 +5478,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.insertRow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.insertRow");
-                    return self.Realm.WrapNodeValue(self.Target.InsertRowAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1)));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Insert(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), false));
                 }),
                 length: 0)
             .Accessor("rows",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.rows", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.rows");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Rows);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Rows));
                 }))
             .Accessor("rules",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.rules", static (thisObj, args) =>
@@ -5513,29 +5513,29 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tBodies", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tBodies");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Bodies);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Bodies));
                 }))
             .Accessor("tFoot",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tFoot", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tFoot");
-                    return self.Realm.WrapNodeValue(self.Target.Foot);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Part(self.Realm, self.Target, "tfoot"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.tFoot", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tFoot");
-                    self.Target.Foot = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.tFoot", "HTMLTableSectionElement"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.SetPart(self.Realm, self.Target, "tfoot", global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.tFoot", "HTMLTableSectionElement"));
                 }))
             .Accessor("tHead",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tHead", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tHead");
-                    return self.Realm.WrapNodeValue(self.Target.Head);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Part(self.Realm, self.Target, "thead"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableElement.tHead", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableElement.tHead");
-                    self.Target.Head = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.tHead", "HTMLTableSectionElement"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.SetPart(self.Realm, self.Target, "thead", global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, "HTMLTableElement.tHead", "HTMLTableSectionElement"));
                 }))
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.width", static (thisObj, args) =>
@@ -5581,7 +5581,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.cells", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.cells");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Cells);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Cells));
                 }))
             .Accessor("ch",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.ch", static (thisObj, args) =>
@@ -5609,27 +5609,27 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.deleteCell", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.deleteCell");
-                    self.Target.RemoveCellAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableRowElement.deleteCell")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.Delete(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableRowElement.deleteCell"), true);
                 }),
                 length: 1)
             .Method("insertCell",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableRowElement.insertCell", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.insertCell");
-                    return self.Realm.WrapNodeValue(self.Target.InsertCellAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), (global::AngleSharp.Html.Dom.TableCellKind) global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Insert(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), true));
                 }),
                 length: 0)
             .Accessor("rowIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.rowIndex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.rowIndex");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTableMembers.Index(self.Realm, self.Target, false));
                 }))
             .Accessor("sectionRowIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.sectionRowIndex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableRowElement.sectionRowIndex");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.IndexInSection);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTableMembers.Index(self.Realm, self.Target, true));
                 }))
             .Accessor("vAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.vAlign", static (thisObj, args) =>
@@ -5686,21 +5686,21 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.deleteRow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.deleteRow");
-                    self.Target.RemoveRowAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableSectionElement.deleteRow")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTableMembers.Delete(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableSectionElement.deleteRow"), false);
                 }),
                 length: 1)
             .Method("insertRow",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTableSectionElement.insertRow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.insertRow");
-                    return self.Realm.WrapNodeValue(self.Target.InsertRowAt(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1)));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomTableMembers.Insert(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, -1), false));
                 }),
                 length: 0)
             .Accessor("rows",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.rows", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTableSectionElement.rows");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Rows);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomTableCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.TableCollectionKind.Rows));
                 }))
             .Accessor("vAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.vAlign", static (thisObj, args) =>
@@ -5759,7 +5759,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.checkValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.checkValidity");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.CheckValidity());
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.CheckValidity(self.Realm, self.Target));
                 }),
                 length: 0)
             .Accessor("cols",
@@ -5934,7 +5934,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.setCustomValidity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.setCustomValidity");
-                    self.Target.SetCustomValidity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Events.BrowserControlValidation.SetCustomValidity(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.setCustomValidity")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setSelectionRange",
@@ -5960,13 +5960,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.validationMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.validationMessage");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ValidationMessage);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Events.BrowserControlValidation.ValidationMessage(self.Realm, self.Target));
                 }))
             .Accessor("validity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.validity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.validity");
-                    return self.Realm.Wrap(self.Target.Validity);
+                    return self.Realm.Wrap(global::Jint.Browser.Dom.DomValidityState.Of(self.Target));
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.value", static (thisObj, args) =>
@@ -5983,7 +5983,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.willValidate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.willValidate");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.WillValidate);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Events.BrowserControlValidation.WillValidate(self.Realm, self.Target));
                 }))
             .Accessor("wrap",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.wrap", static (thisObj, args) =>
@@ -6230,68 +6230,68 @@ internal static partial class DomInterfaces
             .Accessor("badInput",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.badInput", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.badInput");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsBadInput);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.badInput");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.BadInput));
                 }))
             .Accessor("customError",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.customError", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.customError");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCustomError);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.customError");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.CustomError));
                 }))
             .Accessor("patternMismatch",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.patternMismatch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.patternMismatch");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPatternMismatch);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.patternMismatch");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.PatternMismatch));
                 }))
             .Accessor("rangeOverflow",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.rangeOverflow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.rangeOverflow");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRangeOverflow);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.rangeOverflow");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.RangeOverflow));
                 }))
             .Accessor("rangeUnderflow",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.rangeUnderflow", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.rangeUnderflow");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRangeUnderflow);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.rangeUnderflow");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.RangeUnderflow));
                 }))
             .Accessor("stepMismatch",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.stepMismatch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.stepMismatch");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsStepMismatch);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.stepMismatch");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.StepMismatch));
                 }))
             .Accessor("tooLong",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.tooLong", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.tooLong");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTooLong);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.tooLong");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.TooLong));
                 }))
             .Accessor("tooShort",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.tooShort", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.tooShort");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTooShort);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.tooShort");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.TooShort));
                 }))
             .Accessor("typeMismatch",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.typeMismatch", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.typeMismatch");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTypeMismatch);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.typeMismatch");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.TypeMismatch));
                 }))
             .Accessor("valid",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.valid", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.valid");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsValid);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.valid");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsValid(self.Realm));
                 }))
             .Accessor("valueMissing",
                 global::Jint.Browser.Dom.DomFailures.Guard("ValidityState.valueMissing", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IValidityState>(thisObj, "ValidityState.valueMissing");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsValueMissing);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomValidityState>(thisObj, "ValidityState.valueMissing");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Has(self.Realm, global::Jint.Browser.Events.ControlValidityFlags.ValueMissing));
                 }))
             .Build();
 }

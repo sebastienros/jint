@@ -895,6 +895,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLProgressElementMax =
         ReflectedAttribute.Numeric("HTMLProgressElement.max", "max", ReflectedKind.LimitedDouble, 1);
 
+    /// <summary><c>HTMLProgressElement.value</c> reflects <c>value</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLProgressElementValue =
+        ReflectedAttribute.Numeric("HTMLProgressElement.value", "value", ReflectedKind.Double, 0);
+
     /// <summary><c>HTMLQuoteElement.cite</c> reflects <c>cite</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLQuoteElementCite =
         ReflectedAttribute.Url("HTMLQuoteElement.cite", "cite");

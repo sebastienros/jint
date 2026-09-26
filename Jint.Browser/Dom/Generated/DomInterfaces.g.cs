@@ -2100,7 +2100,7 @@ internal static partial class DomInterfaces
 
         ValidityState = Add(new DomInterfaceDefinition(
             "ValidityState",
-            typeof(global::AngleSharp.Html.Dom.IValidityState),
+            typeof(global::Jint.Browser.Dom.DomValidityState),
             BuildValidityState,
             null,
             rootsAtEventTarget: false,
