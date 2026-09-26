@@ -78,13 +78,29 @@ public sealed class CustomPropertySerializationTests
             .Value.SerializeCustomProperty(new CssValueWork(default)).Should().Be("/*keep*/10px/*tail*/");
     }
 
-    [TestCase("<var(--x)--", "!", "<!/**/--")]
-    [TestCase("<!var(--x)", "--", "<!/**/--")]
+    [TestCase("f(<var(--x)!--)", "", "f(<!/**/--)")]
+    [TestCase("f(<!var(--x))", "--", "f(<!/**/--)")]
     [TestCase("var(--x)>", "--", "--/**/>")]
     [TestCase("var(--x)>", "a--", "a-->")]
-    public void JoinsCannotCreateHtmlCommentTokens(string source, string replacement, string expected) =>
-        SubstitutionFixture.Resolve(source, SubstitutionFixture.Specified("--x", replacement))
-            .Value.SerializeCustomProperty(new CssValueWork(default)).Should().Be(expected);
+    public void JoinsCannotCreateHtmlCommentTokens(string source, string replacement, string expected)
+    {
+        // Declaration-root '!' is rejected by C6 analysis. An ordinary function permits that delimiter,
+        // and removing an empty invocation can join '<' to '!--' without an invalid binding or bypass.
+        var value = SubstitutionFixture.Resolve(source, SubstitutionFixture.Specified("--x", replacement)).Value;
+        var serialized = value.SerializeCustomProperty(new CssValueWork(default));
+        serialized.Should().Be(expected);
+        if (source.StartsWith("f(", StringComparison.Ordinal))
+        {
+            var reparsed = CssReferenceInput.Parse(serialized, options: null).Components[0].Values;
+            reparsed.Count.Should().Be(3);
+            reparsed[0].Token.Kind.Should().Be(CssTokenKind.Delim);
+            reparsed[0].Token.Delimiter.Should().Be('<');
+            reparsed[1].Token.Kind.Should().Be(CssTokenKind.Delim);
+            reparsed[1].Token.Delimiter.Should().Be('!');
+            reparsed[2].Token.Kind.Should().Be(CssTokenKind.Ident);
+            reparsed[2].Token.Text.Should().Be("--");
+        }
+    }
 
     [TestCase(@"\61", " ", true)]
     [TestCase(@"\061", "\t", true)]
