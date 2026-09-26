@@ -24,6 +24,6 @@ internal static class DomNodeListMembers
         // WebIDL's unsigned long: -1 is 4294967295, which is out of range rather than an error, and that is
         // the whole of what an indexed getter promises.
         var index = DomConvert.RequiredUInt32(arguments, 0, "NodeList.item");
-        return index >= (uint) list.Length ? JsValue.Null : realm.WrapNodeValue(list[(int) index]);
+        return realm.WrapNodeValue(list.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken));
     }
 }

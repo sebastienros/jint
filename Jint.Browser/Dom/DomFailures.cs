@@ -52,7 +52,9 @@ internal static class DomFailures
             return (receiver, arguments) =>
             {
                 using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-                var result = guarded(receiver, arguments);
+                JsValue result;
+                try { result = guarded(receiver, arguments); }
+                finally { DrainCustomElements(receiver); }
                 if (receiver is IDomWrapper { DomTarget: ProcessingInstruction instruction })
                 {
                     DomProcessingInstructionAttributes.DataChanged(instruction);
@@ -67,7 +69,9 @@ internal static class DomFailures
             {
                 using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
                 var replacement = new DomProcessingInstructionAttributes.RangeDataReplacement((receiver as IDomWrapper)?.DomTarget as DomRange);
-                var result = guarded(receiver, arguments);
+                JsValue result;
+                try { result = guarded(receiver, arguments); }
+                finally { DrainCustomElements(receiver); }
                 replacement.Complete();
                 return result;
             };
@@ -76,8 +80,18 @@ internal static class DomFailures
         return (receiver, arguments) =>
         {
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-            return guarded(receiver, arguments);
+            try { return guarded(receiver, arguments); }
+            finally { DrainCustomElements(receiver); }
         };
+    }
+
+    private static void DrainCustomElements(JsValue receiver)
+    {
+        if (receiver is IDomWrapper wrapper)
+        {
+            CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.Drain();
+            Files.FileTransferRealm.IfCreated(wrapper.DomRealm.Engine)?.FlushChanges();
+        }
     }
 
     /// <summary>

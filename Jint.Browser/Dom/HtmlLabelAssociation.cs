@@ -17,17 +17,17 @@ internal static class HtmlLabelAssociation
             if (id.Length == 0) return null;
             var root = work.Root(label);
             if (root is Element candidate && work.Equal(work.Attribute(candidate, "id"), id))
-                return IsLabelable(candidate) ? candidate : null;
+                return IsLabelable(candidate, work) ? candidate : null;
             foreach (var element in NodeTraversal.DescendantElements(root, work.Check, token))
             {
                 if (work.Equal(work.Attribute(element, "id"), id))
-                    return IsLabelable(element) ? element : null;
+                    return IsLabelable(element, work) ? element : null;
             }
             return null;
         }
         foreach (var element in NodeTraversal.DescendantElements(label, work.Check, token))
         {
-            if (IsLabelable(element)) return element;
+            if (IsLabelable(element, work)) return element;
         }
         return null;
     }
@@ -36,131 +36,78 @@ internal static class HtmlLabelAssociation
     /// https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels — the labels whose labeled control is
     /// <paramref name="control"/>, in tree order.
     /// </summary>
-    internal static List<Element> LabelsFor(Element control)
+    internal static List<Element> LabelsFor(Element control, Action<int>? checkpoint = null, CancellationToken token = default)
     {
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
         var labels = new List<Element>();
-        if (!IsLabelable(control))
+        if (!IsLabelable(control, work)) return labels;
+        var root = work.Root(control);
+        var id = work.Attribute(control, "id") ?? "";
+        var isFirstWithId = id.Length > 0 && ReferenceEquals(FirstElementWithId(root, id, work), control);
+        foreach (var label in InclusiveElements(root, work))
         {
-            return labels;
+            if (!work.Equal(label.NamespaceUri, Namespaces.Html) || !work.Equal(label.LocalName, "label")) continue;
+            if (work.Attribute(label, "for") is { } targetId)
+            {
+                if (isFirstWithId && work.Equal(targetId, id)) labels.Add(label);
+            }
+            else if (IsAncestorOf(label, control, work)
+                && ReferenceEquals(FirstLabelableDescendant(label, work), control)) labels.Add(label);
         }
-
-        var root = RootOf(control);
-        var id = control.GetAttributeNode("id") is not null ? control.GetAttribute("id") ?? string.Empty : string.Empty;
-        var isFirstWithId = id.Length > 0 && ReferenceEquals(FirstElementWithId(root, id), control);
-
-        foreach (var node in InclusiveDescendants(root))
-        {
-            if (node is not Element { NamespaceUri: Namespaces.Html, LocalName: "label" } label)
-            {
-                continue;
-            }
-
-            if (label.GetAttributeNode("for") is not null)
-            {
-                if (isFirstWithId && string.Equals(label.GetAttribute("for"), id, StringComparison.Ordinal))
-                {
-                    labels.Add(label);
-                }
-            }
-            else if (IsAncestorOf(label, control) && ReferenceEquals(FirstLabelableDescendant(label), control))
-            {
-                labels.Add(label);
-            }
-        }
-
+        work.Check();
         return labels;
     }
 
-    /// <summary>
-    /// https://html.spec.whatwg.org/multipage/forms.html#category-label — the seven labelable element kinds.
-    /// A hidden input is the one exception the list carries with it.
-    /// </summary>
-    internal static bool IsLabelable(Element element)
-        => element.NamespaceUri == Namespaces.Html && (element.LocalName switch
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#category-label.</summary>
+    internal static bool IsLabelable(Element element, Action<int>? checkpoint = null, CancellationToken token = default)
+    {
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
+        var result = IsLabelable(element, work);
+        work.Check();
+        return result;
+    }
+
+    private static bool IsLabelable(Element element, DomReadWork work)
+        => work.Equal(element.NamespaceUri, Namespaces.Html) && (element.LocalName switch
         {
-            "input" => !string.Equals(element.GetAttribute("type"), "hidden", StringComparison.OrdinalIgnoreCase),
+            "input" => !work.EqualAsciiIgnoreCase(work.Attribute(element, "type"), "hidden"),
             "button" or "select" or "textarea" or "meter" or "output" or "progress" => true,
             _ => false,
         });
 
-    private static Element? FirstElementWithId(Node root, string id)
+    private static Element? FirstElementWithId(Node root, string id, DomReadWork work)
     {
-        foreach (var node in InclusiveDescendants(root))
+        foreach (var element in InclusiveElements(root, work))
         {
-            if (node is Element candidate
-                && candidate.GetAttributeNode("id") is not null
-                && string.Equals(candidate.GetAttribute("id"), id, StringComparison.Ordinal))
-            {
-                return candidate;
-            }
+            if (work.Equal(work.Attribute(element, "id"), id)) return element;
         }
-
         return null;
     }
 
-    private static Element? FirstLabelableDescendant(Node root)
+    private static Element? FirstLabelableDescendant(Node root, DomReadWork work)
     {
-        foreach (var node in Descendants(root))
+        foreach (var element in NodeTraversal.DescendantElements(root, work.Check, work.Token))
         {
-            if (node is Element candidate && IsLabelable(candidate))
-            {
-                return candidate;
-            }
+            if (IsLabelable(element, work)) return element;
         }
-
         return null;
     }
 
-    private static bool IsAncestorOf(Node ancestor, Node node)
+    private static bool IsAncestorOf(Node ancestor, Node node, DomReadWork work)
     {
         for (var parent = node.ParentNode; parent is not null; parent = parent.ParentNode)
         {
-            if (ReferenceEquals(parent, ancestor))
-            {
-                return true;
-            }
+            work.Step();
+            if (ReferenceEquals(parent, ancestor)) return true;
         }
-
         return false;
     }
 
-    private static Node RootOf(Node node)
+    private static IEnumerable<Element> InclusiveElements(Node root, DomReadWork work)
     {
-        while (node.ParentNode is { } parent)
-        {
-            node = parent;
-        }
-
-        return node;
-    }
-
-    private static IEnumerable<Node> InclusiveDescendants(Node root)
-    {
-        yield return root;
-
-        foreach (var descendant in Descendants(root))
-        {
-            yield return descendant;
-        }
-    }
-
-    private static IEnumerable<Node> Descendants(Node root)
-    {
-        var current = root.FirstChild;
-        while (current is not null)
-        {
-            yield return current;
-            if (current.FirstChild is { } child)
-            {
-                current = child;
-                continue;
-            }
-            while (current.NextSibling is null && !ReferenceEquals(current.ParentNode, root))
-            {
-                current = current.ParentNode;
-                if (current is null) yield break;
-            }
-            current = current.NextSibling;
-        }
+        if (root is Element element) yield return element;
+        foreach (var descendant in NodeTraversal.DescendantElements(root, work.Check, work.Token)) yield return descendant;
     }
 }

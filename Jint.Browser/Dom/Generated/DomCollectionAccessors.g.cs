@@ -387,14 +387,9 @@ internal sealed class DomAccessorNodeList : DomCollectionAccessor
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
         var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(collection[(int) index]);
-        return true;
+        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);
+        return item is not null;
     }
 }
 

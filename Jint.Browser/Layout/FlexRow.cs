@@ -1,5 +1,5 @@
 using System.Globalization;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Views;
 
 namespace Jint.Browser.Layout;
@@ -10,7 +10,7 @@ namespace Jint.Browser.Layout;
 /// </summary>
 internal static class FlexRow
 {
-    internal static bool IsHorizontal(IElement element, CssCascade.Traversal? cascade)
+    internal static bool IsHorizontal(Element element, CssCascade.Traversal? cascade)
     {
         if (cascade?.Of(element) is not { } visibility
             || CssCascade.ValueOf(visibility, "display") is not ("flex" or "inline-flex"))
@@ -24,7 +24,7 @@ internal static class FlexRow
             && CssCascade.ValueOf(style, "flex-wrap") is not ("wrap" or "wrap-reverse");
     }
 
-    internal static bool IsReversed(IElement element, CssCascade.Traversal? cascade)
+    internal static bool IsReversed(Element element, CssCascade.Traversal? cascade)
     {
         var style = cascade?.LayoutOf(element);
         return style is not null
@@ -32,7 +32,7 @@ internal static class FlexRow
                 != (CssCascade.ValueOf(style, "direction") == "rtl"));
     }
 
-    internal static string Alignment(IElement child, IElement parent, CssCascade.Traversal? cascade)
+    internal static string Alignment(Element child, Element parent, CssCascade.Traversal? cascade)
     {
         var style = cascade?.LayoutOf(child);
         var alignment = style is null ? null : CssCascade.ValueOf(style, "align-self");
@@ -45,16 +45,16 @@ internal static class FlexRow
         return alignment is null or "" or "normal" ? "stretch" : alignment;
     }
 
-    internal static double[] Widths(IElement[] children, double available, CssCascade.Traversal? cascade)
+    internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade)
     {
-        var widths = new double[children.Length];
-        var growth = new double[children.Length];
-        var shrinkage = new double[children.Length];
+        var widths = new double[children.Count];
+        var growth = new double[children.Count];
+        var shrinkage = new double[children.Count];
         var basisTotal = 0d;
         var growthTotal = 0d;
         var shrinkFactorTotal = 0d;
         var shrinkageTotal = 0d;
-        for (var i = 0; i < children.Length; i++)
+        for (var i = 0; i < children.Count; i++)
         {
             var style = cascade?.LayoutOf(children[i]);
             var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");

@@ -2363,7 +2363,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("NodeList.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomNodeList>(thisObj, "NodeList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ReadLength(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }));
 
         global::Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator(builder);
@@ -2691,7 +2691,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ShadowRoot.innerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.innerHTML");
-                    self.Target.InnerHtml = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "ShadowRoot.innerHTML"); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.SetInnerHtml(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "ShadowRoot.innerHTML")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("mode",
                 global::Jint.Browser.Dom.DomFailures.Guard("ShadowRoot.mode", static (thisObj, args) =>

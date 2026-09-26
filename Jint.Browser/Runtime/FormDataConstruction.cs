@@ -1,4 +1,4 @@
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Native;
@@ -22,10 +22,10 @@ internal static class FormDataConstruction
     private static JsFormData Construct(PageRuntime runtime, JsValue formValue, JsValue submitterValue, JsValue newTarget)
     {
         var realm = runtime.Engine._mainRealm;
-        IHtmlFormElement? form = null;
+        Element? form = null;
         if (!formValue.IsUndefined())
         {
-            if (formValue is not DomNodeObject { Node: IHtmlFormElement candidate })
+            if (formValue is not DomNodeObject { Node: Element { NamespaceUri: Namespaces.Html, LocalName: "form" } candidate })
             {
                 Throw.TypeError(realm, "FormData: form must be an HTMLFormElement");
                 return null!;
@@ -34,10 +34,10 @@ internal static class FormDataConstruction
             form = candidate;
         }
 
-        IHtmlElement? submitter = null;
+        Element? submitter = null;
         if (!submitterValue.IsNullOrUndefined())
         {
-            if (submitterValue is not DomNodeObject { Node: IHtmlElement candidate })
+            if (submitterValue is not DomNodeObject { Node: Element { NamespaceUri: Namespaces.Html } candidate })
             {
                 Throw.TypeError(realm, "FormData: submitter must be an HTMLElement");
                 return null!;
