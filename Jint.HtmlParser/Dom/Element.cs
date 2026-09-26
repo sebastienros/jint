@@ -238,7 +238,7 @@ public sealed class Element : Node
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
-            MutationTracking.QueueAttribute(this, attribute, oldValue, matches);
+            MutationTracking.QueueAttribute(this, attribute, oldValue, matches, previous);
             HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,

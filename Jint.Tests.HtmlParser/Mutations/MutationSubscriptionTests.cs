@@ -36,6 +36,7 @@ public class MutationSubscriptionTests
         records.Select(record => record.OldValue).Should().Equal(null, "one", "two", null, "three", null);
         records[5].AttributeQualifiedName.Should().BeSameAs(plain.LocalName, "unprefixed metadata reuses the existing local-name string");
         records[5].AttributeNamespace.Should().BeNull();
+        records.Select(record => record.AttributePreviousQualifiedName).Should().Equal(null, null, null, null, "second:local", null);
         original.Prefix.Should().Be("detached");
         replacement.Prefix.Should().Be("also-detached");
     }
