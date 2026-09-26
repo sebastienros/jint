@@ -90,6 +90,74 @@ public class EngineRetirementTests
         }
     }
 
+    /// <summary>
+    /// The monitor Retire and Dispose serialize on is created by whichever reaches it first, so on a fresh
+    /// engine the two race its creation as well as each other. A Dispose that overlapped a Retire still holding
+    /// the engine would refuse its own entry as concurrent use and fault its task, which is what a monitor
+    /// published twice would let happen.
+    /// </summary>
+    /// <remarks>
+    /// Started together, Dispose nearly always marks the engine disposed before Retire looks, and the Retire
+    /// behind it returns before claiming anything; the interleaving that can catch an overlap is Retire leading
+    /// by a hair. So on alternate trials one call leads and the other follows it, and the follower spins rather
+    /// than blocks on the leader's start, because a blocked waiter wakes microseconds late, long after a
+    /// leading Retire has let go of the engine.
+    /// </remarks>
+    [Test]
+    public async Task TheFirstRetireAndTheFirstDisposeOnAFreshEngineSerializeWhenReleasedTogether()
+    {
+        for (var trial = 0; trial < 200; trial++)
+        {
+            var engine = new Engine();
+            Action retire = () => engine.Advanced.Retire();
+            Action dispose = engine.Dispose;
+            var retireLeads = trial % 2 == 0;
+            var start = new LeaderStart();
+
+            var follower = DedicatedThread.RunAsync(() =>
+            {
+                start.SpinUntilLeaderStarts();
+                (retireLeads ? dispose : retire)();
+            });
+            start.WaitForFollowerSpinning();
+            var leader = DedicatedThread.RunAsync(() =>
+            {
+                start.MarkLeaderStarted();
+                (retireLeads ? retire : dispose)();
+            });
+
+            await Task.WhenAll(leader, follower);
+            engine.IsDisposed.Should().BeTrue();
+        }
+    }
+
+    private sealed class LeaderStart
+    {
+        private int _followerSpinning;
+        private int _leaderStarted;
+
+        public void WaitForFollowerSpinning()
+            => SpinWait.SpinUntil(() => Volatile.Read(ref _followerSpinning) != 0, TestBudgets.WedgeCeiling).Should().BeTrue();
+
+        public void MarkLeaderStarted() => Volatile.Write(ref _leaderStarted, 1);
+
+        // A pure spin with no yield: SpinWait would put the follower to sleep, which is the latency this exists
+        // to avoid. It lasts only as long as starting the leader's thread takes.
+        public void SpinUntilLeaderStarts()
+        {
+            Volatile.Write(ref _followerSpinning, 1);
+            var deadline = DateTime.UtcNow + TestBudgets.WedgeCeiling;
+            while (Volatile.Read(ref _leaderStarted) == 0)
+            {
+                Thread.SpinWait(8);
+                if (DateTime.UtcNow > deadline)
+                {
+                    throw new TimeoutException("the leading lifecycle call never started");
+                }
+            }
+        }
+    }
+
     [Test]
     public void RetirementDropsLaterManualPromiseSettlement()
     {
