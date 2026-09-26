@@ -89,6 +89,8 @@ public sealed class CssFontFaceRuleTests
         var rule = (CssFontFaceRule) sheet.Rules[0];
         rule.Rules.Count.Should().Be(0);
         rule.Style.GetPropertyValue("font-family").Should().Be("Known");
+        var nested = (CssStyleRule) CssStyleSheet.Parse("a {@font-face {font-family:Invalid}}").Rules[0];
+        nested.Rules.Count.Should().Be(0);
     }
 
     [Test]
