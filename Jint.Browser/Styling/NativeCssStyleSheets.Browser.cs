@@ -78,6 +78,7 @@ internal static partial class NativeCssStyleSheets
             checkpoint?.Invoke();
             realm.CancellationToken.ThrowIfCancellationRequested();
         }
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, realm.NativeReadCheckpoint, token);
         var work = new CssValueWork(token, Check);
         var page = PageRuntime.FindBrowsingContext(realm.Engine, document)?.Media ?? PageMediaEnvironment.Default;
         IReadOnlyDictionary<string, string> features = page;
@@ -113,7 +114,8 @@ internal static partial class NativeCssStyleSheets
         var selectors = new SelectorEnvironment(document,
             focus?.OwnerDocument == document ? focus : null,
             press?.OwnerDocument == document ? press : null,
-            target?.OwnerDocument == document ? target : null);
+            target?.OwnerDocument == document ? target : null, BrowserSelectorControlFacts.Factory,
+            realm, BrowserSelectorSemanticRevision.Read(document));
         return CreateQuery(document, media, selectors, work, Check, diagnostics);
     }
 

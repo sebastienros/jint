@@ -16,6 +16,7 @@ internal sealed partial class PageLayout
     private Document? _cachedDocument;
     private PageMediaEnvironment? _cachedMedia;
     private ulong _cachedNativeStamp;
+    private ulong _cachedControlRevision;
     private string? _cachedUrl;
     private Element? _cachedFocus;
     private Element? _cachedPress;
@@ -93,15 +94,18 @@ internal sealed partial class PageLayout
 
         var events = BrowserEventRealm.Of(_runtime.Engine);
         var document = _runtime.Document;
+        var controlRevision = document is null ? 0 : Dom.BrowserSelectorSemanticRevision.Read(document);
         var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
         if (!ReferenceEquals(_cachedDocument, document) || _cachedNativeStamp != document?.MutationStamp || _cachedMedia != _runtime.Media
             || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || StylesChanged()
+            || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
             || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
             || !ReferenceEquals(_cachedPress, events.MousePressTarget))
         {
             Invalidate();
             _cachedDocument = document;
             _cachedNativeStamp = document?.MutationStamp ?? 0;
+            _cachedControlRevision = controlRevision;
             _cachedResources = document is null ? default : NativeCssStyleSheets.Stamp(document);
             _cachedMedia = _runtime.Media;
             _cachedUrl = url;

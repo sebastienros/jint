@@ -58,7 +58,10 @@ internal static class DomSelectors
     }
 
     private static SelectorMatchWork Work(DomRealm realm, Node root)
-        => new(root, realm.CancellationToken, realm.Engine.Constraints.Check);
+    {
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, realm.NativeReadCheckpoint, realm.CancellationToken);
+        return new(root, realm.CancellationToken, realm.Engine.Constraints.Check);
+    }
 
     private static SelectorEnvironment Environment(DomRealm realm, Node root)
     {
@@ -70,7 +73,8 @@ internal static class DomSelectors
         if (pressed?.OwnerDocument != document) pressed = null;
         var target = DomDocumentState.Of(document).TargetElement;
         if (target?.OwnerDocument != document) target = null;
-        return new SelectorEnvironment(document, focused, pressed, target);
+        return new SelectorEnvironment(document, focused, pressed, target, BrowserSelectorControlFacts.Factory,
+            realm, BrowserSelectorSemanticRevision.Read(document));
     }
 
 }

@@ -541,7 +541,9 @@ internal sealed partial class NativeCssQuery
 
     private void Verify()
     {
+        VerifyControlFactsSeed();
         _work.CheckCancellation();
+        VerifyControlFactsSeed();
         if (!_resourceStamp.CanReuse || NativeCssStyleSheets.Stamp(_document) != _resourceStamp ||
             _documentStamp == ulong.MaxValue || _document.MutationStamp != _documentStamp)
             throw new InvalidOperationException(Invalidated);
@@ -557,6 +559,16 @@ internal sealed partial class NativeCssQuery
             if (!inline.Stamp.CanReuse || inline.Block.Stamp != inline.Stamp)
                 throw new InvalidOperationException(Invalidated);
         }
+        VerifyControlFactsSeed();
+    }
+
+    private void VerifyControlFactsSeed()
+    {
+        if (_selectors.ControlFactsFactory is not { } factory) return;
+        if (!ReferenceEquals(_selectors.Document, _document) || _selectors.ControlFactsContext is null ||
+            _selectors.ControlFactsRevision == ulong.MaxValue ||
+            factory.ReadRevision(_selectors.ControlFactsContext, _document) != _selectors.ControlFactsRevision)
+            throw new InvalidOperationException(Invalidated);
     }
 
     // CSS Scoping 1: inheritance follows the flat tree; selector rules retain their tree scope.
