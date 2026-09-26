@@ -8,9 +8,14 @@ conformance debt remains explicit; passing a missing-feature or checkpoint test 
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
 **Demand boundary amendment:** [parsing and lazy behavior](html-parser-demand-boundary.md) follows the
-user's latest direction. Input value initialization is being made lazy; select derived views and
+user's latest direction. Input value initialization is lazy at `825eba36e`; select derived views and
 inventories will follow, preserving intrinsic history. CSS cascade belongs to an on-demand Browser
 module. Ordinary parsing must not invoke numeric/temporal conversions or style computation.
+
+Fresh common Release validation after lazy input integration: **6,060/6,060**, zero failures/skips,
+net8/net10 (`/private/tmp/jint-resumed-lazy-input-common.log`). Parsed inputs and cold clones retain
+no value sidecar; raw attributes, ordinary selectors and serialization remain cold. First semantic
+access initializes once, while type/multiple transitions preserve observable history.
 
 **Latest completed test gate: `d196ec650`.** CSS sheets/media and sizing/flex/alignment grammars,
 input value state, and pure numeric/temporal helpers pass **5,898/5,898** fresh Release non-corpus tests
