@@ -436,7 +436,7 @@ internal sealed class Emitter
 
             """);
 
-        foreach (var model in _model.Interfaces.OrderByDescending(Depth).ThenBy(m => m.DomName, StringComparer.Ordinal))
+        foreach (var model in _model.Interfaces.Where(m => m.TypeMapCandidate).OrderByDescending(Depth).ThenBy(m => m.DomName, StringComparer.Ordinal))
         {
             builder.Append("        DomInterfaces.").Append(model.FieldName).Append(",\n");
         }
@@ -455,15 +455,18 @@ internal sealed class Emitter
 
             """);
 
-        // IElement last, so a more specific element type is matched first; a switch is ordered.
-        const string AnyElement = "global::AngleSharp.Dom.IElement";
-        foreach (var element in _model.HtmlCollectionElements.Where(e => !string.Equals(e, AnyElement, StringComparison.Ordinal)))
+        // The least-specific element receiver is last; a switch is ordered.
+        var collectionType = _model.HtmlCollectionOpenType;
+        var anyElement = _model.HtmlCollectionDefaultElement;
+        foreach (var element in _model.HtmlCollectionElements.Where(e => !string.Equals(e, anyElement, StringComparison.Ordinal)))
         {
-            builder.Append("        global::AngleSharp.Dom.IHtmlCollection<").Append(element).Append("> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<")
+            builder.Append("        ").Append(collectionType).Append('<').Append(element).Append("> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<")
                 .Append(element).Append(">(realm, definition, collection),\n");
         }
 
-        builder.Append("        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Dom.IElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Dom.IElement>(realm, definition, collection),\n");
+        builder.Append("        ").Append(collectionType).Append('<').Append(anyElement)
+            .Append("> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<")
+            .Append(anyElement).Append(">(realm, definition, collection),\n");
         builder.Append("        _ => null,\n    };\n}\n");
 
         return builder.ToString();

@@ -16,6 +16,8 @@ internal sealed class BindingContract
     public List<ContractInterface> Interfaces { get; set; } = [];
     public List<ContractEnum> StringEnums { get; set; } = [];
     public List<string> HtmlCollectionElements { get; set; } = [];
+    public string HtmlCollectionOpenType { get; set; } = "global::AngleSharp.Dom.IHtmlCollection";
+    public string HtmlCollectionDefaultElement { get; set; } = "global::AngleSharp.Dom.IElement";
     public List<string> ExtensionNamespaces { get; set; } = [];
     public List<SkipRecord> Skipped { get; set; } = [];
     public List<ReflectedModel> Reflected { get; set; } = [];
@@ -48,6 +50,7 @@ internal sealed class BindingContract
                 DomName = source.DomName,
                 ClrTypeName = source.ClrTypeName,
                 ReceiverType = source.ReceiverType,
+                TypeMapCandidate = source.TypeMapCandidate,
                 Parent = source.Parent?.DomName,
                 RootsAtEventTarget = source.RootsAtEventTarget,
                 HasInterfaceObject = source.HasInterfaceObject,
@@ -84,6 +87,8 @@ internal sealed class BindingContract
         }
 
         result.HtmlCollectionElements.AddRange(model.HtmlCollectionElements);
+        result.HtmlCollectionOpenType = model.HtmlCollectionOpenType;
+        result.HtmlCollectionDefaultElement = model.HtmlCollectionDefaultElement;
         result.ExtensionNamespaces.AddRange(model.ExtensionNamespaces);
         result.Skipped.AddRange(model.Skipped);
         result.Reflected.AddRange(model.Reflected);
@@ -129,6 +134,7 @@ internal sealed class BindingContract
                 DomName = source.DomName,
                 ClrTypeName = source.ClrTypeName,
                 ReceiverType = source.ReceiverType,
+                TypeMapCandidate = source.TypeMapCandidate,
                 RootsAtEventTarget = source.RootsAtEventTarget,
                 HasInterfaceObject = source.HasInterfaceObject,
                 Kind = source.Kind,
@@ -173,6 +179,8 @@ internal sealed class BindingContract
         }
 
         model.HtmlCollectionElements.UnionWith(HtmlCollectionElements);
+        model.HtmlCollectionOpenType = HtmlCollectionOpenType;
+        model.HtmlCollectionDefaultElement = HtmlCollectionDefaultElement;
         model.ExtensionNamespaces.UnionWith(ExtensionNamespaces);
         model.Skipped.AddRange(Skipped);
         model.Reflected.AddRange(Reflected);
@@ -186,6 +194,7 @@ internal sealed class ContractInterface
     public required string DomName { get; set; }
     public required string ClrTypeName { get; set; }
     public required string ReceiverType { get; set; }
+    public bool TypeMapCandidate { get; set; } = true;
     public string? Parent { get; set; }
     public bool RootsAtEventTarget { get; set; }
     public bool HasInterfaceObject { get; set; }
