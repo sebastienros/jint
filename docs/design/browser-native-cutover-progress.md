@@ -208,3 +208,68 @@ requests expose neither script start-tag location nor input attribution (request
 steps have their default zero offset). These need real producer APIs; a whole-
 document parse/reparse or a dummy script line is not a replacement. The scheduler
 port remains owned here and incomplete.
+
+## Final finite wrap-up checkpoint
+
+Stopped expansion at the parent's explicit finite-wrap-up instruction. The narrow
+textarea edit projects native HtmlTextAreaState value/default value, selection
+offsets/direction, select and setSelectionRange, plus native reflected attributes.
+The helper queues select only for changed selection-method results, not value
+assignment. Reflection and selection scheduling were checked against the living
+HTML textarea and text-field-selection algorithms. No validation implementation or
+placeholder was added. Generated output retains all 163 interfaces and 12 files;
+the Release generator reports zero diagnostics.
+
+Final fresh Release net8 Browser build failed with **925 errors, zero warnings**,
+in 16.88 seconds. No diagnostic names DomTextAreaMembers; this is not runtime
+verification. Browser tests could not run because the package does not compile.
+The isolated cutover must not be merged into the buildable common branch. No PR
+was opened. The Accessibility/Extraction leaf remains separately owned and is not
+included in this checkpoint; the parent can integrate its reviewed checkpoint
+into this branch later.
+
+Remaining work before the production cutover can be claimed:
+
+- Port the parser scheduler/resource-loading/frame consumers to the native H8
+  request protocol, preserving the real baton, budgets, writes and script ordering.
+  Integrate the producer's real script source attribution once reviewed; do not
+  substitute expanded-input offsets or dummy document lines. Context-sensitive
+  HTML/XML fragment parsing remains a required missing producer entry point.
+- Port CSS cascade and computed declarations, layout, events/focus/activation,
+  forms/control validation and collections, custom elements/observers, remaining
+  runtime and DevTools consumers, and the remaining generated HTML/SVG/DOM rows.
+  AngleSharp packages remain while these actual consumers remain.
+- Finish native read deadline hooks for selector compilation, URL parse/percent
+  decode, XML parsing and textarea reads/clamps. Direct textarea IDL mutations
+  schedule selection changes here; native subtree-driven clamps still need a
+  producer notification seam. Input/select state and validation must be real.
+- Integrate and verify the reviewed Accessibility/Extraction leaf and shared CSS
+  seams, complete wrapper/brand/XPath/lifetime audits, then build and run focused
+  Browser tests and the required verification legs against freshly compiled code.
+
+The worktree is preserved for unfinished work. list_artifacts returned an empty
+artifact list at wrap-up (this checkout is the chat's existing workspace, with no
+attached managed worktree or pull request).
+
+## Reviewed leaf integrated into preserved WIP
+
+At the parent's explicit reviewed disposition, cherry-picked exactly
+`cdf59d402`, `b1725f7ee`, and `90aa31b723c63b7b79fee5fdf1d96a9de92b0c66`
+into this isolated branch as `559fb89d8`, `3dc1e3cc7`, and `fb853f441`.
+Integration was conflict-free and includes the reviewed namespace corrections.
+No common-branch merge or additional implementation was performed. This section
+supersedes the previous checkpoint's statement that the leaf was not included.
+
+One fresh Release net8 Browser build after integration failed with **932 errors,
+zero warnings**, in 21.96 seconds. Ten diagnostics remain in Accessibility:
+input/select/option consumers require native authoritative state; ContentEditing
+accepts old AngleSharp element identities; and CssCascade/visibility consumers
+accept old document/element identities. These dependencies remain unresolved,
+without substitute values or disabled behavior. Accessibility and Extraction
+golden tests and new focused tests remain unverified because Browser is not
+buildable. Earlier parser, remaining generated binding, runtime, event, CSS and
+DevTools blockers still apply.
+
+The build process completed with exit code 1. No task build/generator process
+remains running. Work stops at this preserved WIP integration checkpoint; both
+unfinished chats are retained by the parent.

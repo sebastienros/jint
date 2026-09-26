@@ -5748,12 +5748,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.autofocus", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.autofocus");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutofocus.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.autofocus", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.autofocus");
-                    self.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutofocus.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.checkValidity", static (thisObj, args) =>
@@ -5777,34 +5777,34 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.defaultValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.defaultValue");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.DefaultValue(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.defaultValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.defaultValue");
-                    self.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.defaultValue"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetValue(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.defaultValue"), defaultValue: true);
                 }))
             .Accessor("dirName",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.dirName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.dirName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DirectionName);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDirName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.dirName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.dirName");
-                    self.Target.DirectionName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.dirName"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDirName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDisabled.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDisabled.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.form", static (thisObj, args) =>
@@ -5844,45 +5844,45 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.name", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.name");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementName.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.name", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.name");
-                    self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.name"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementName.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("placeholder",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.placeholder", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.placeholder");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Placeholder);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementPlaceholder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.placeholder", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.placeholder");
-                    self.Target.Placeholder = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.placeholder"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementPlaceholder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("readOnly",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.readOnly", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.readOnly");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsReadOnly);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementReadOnly.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.readOnly", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.readOnly");
-                    self.Target.IsReadOnly = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementReadOnly.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("required",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.required", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.required");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRequired);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRequired.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.required", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.required");
-                    self.Target.IsRequired = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRequired.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rows",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.rows", static (thisObj, args) =>
@@ -5899,36 +5899,36 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.select", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.select");
-                    self.Target.SelectAll(); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.Select(self.Realm, self.Target);
                 }),
                 length: 0)
             .Accessor("selectionDirection",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.selectionDirection", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionDirection");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectionDirection);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Direction(self.Target));
                 }))
             .Accessor("selectionEnd",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.selectionEnd", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionEnd");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionEnd);
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.End);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.selectionEnd", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionEnd");
-                    self.Target.SelectionEnd = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.selectionEnd"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "HTMLTextAreaElement.selectionEnd"), start: false);
                 }))
             .Accessor("selectionStart",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.selectionStart", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionStart");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionStart);
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.Start);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.selectionStart", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.selectionStart");
-                    self.Target.SelectionStart = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.selectionStart"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "HTMLTextAreaElement.selectionStart"), start: true);
                 }))
             .Method("setCustomValidity",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.setCustomValidity", static (thisObj, args) =>
@@ -5941,20 +5941,20 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.setSelectionRange", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.setSelectionRange");
-                    self.Target.Select(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.setSelectionRange"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "HTMLTextAreaElement.setSelectionRange"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionRange(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Accessor("textLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.textLength", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.textLength");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.TextLength);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTextAreaMembers.Value(self.Realm, self.Target).Length);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    return global::Jint.Native.JsString.Create("textarea");
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.validationMessage", static (thisObj, args) =>
@@ -5972,12 +5972,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Value(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomTextAreaMembers.SetValue(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.value"), defaultValue: false);
                 }))
             .Accessor("willValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.willValidate", static (thisObj, args) =>
@@ -5989,12 +5989,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.wrap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.wrap");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Wrap);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementWrap.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLTextAreaElement.wrap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLTextAreaElement.wrap");
-                    self.Target.Wrap = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTextAreaElement.wrap"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementWrap.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
