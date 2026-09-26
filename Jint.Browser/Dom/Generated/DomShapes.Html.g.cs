@@ -311,45 +311,45 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.hash", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hash");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hash");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.hash", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hash");
-                    self.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.hash"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hash", args);
                 }))
             .Accessor("host",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.host", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.host");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "host");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.host", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.host");
-                    self.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.host"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "host", args);
                 }))
             .Accessor("hostname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.hostname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hostname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hostname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.hostname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.hostname");
-                    self.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.hostname"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hostname", args);
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.href", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "href");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.href", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.href");
-                    self.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.href"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "href", args);
                 }))
             .Accessor("hreflang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.hreflang", static (thisObj, args) =>
@@ -377,29 +377,29 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.origin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.origin");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "origin");
                 }))
             .Accessor("password",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.password", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.password");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "password");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.password", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.password");
-                    self.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.password"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "password", args);
                 }))
             .Accessor("pathname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.pathname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.pathname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "pathname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.pathname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.pathname");
-                    self.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.pathname"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "pathname", args);
                 }))
             .Accessor("ping",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.ping", static (thisObj, args) =>
@@ -416,23 +416,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.port", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.port");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "port");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.port", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.port");
-                    self.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.port"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "port", args);
                 }))
             .Accessor("protocol",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.protocol", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.protocol");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "protocol");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.protocol", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.protocol");
-                    self.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.protocol"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "protocol", args);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.referrerPolicy", static (thisObj, args) =>
@@ -482,12 +482,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.search", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.search");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "search");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.search", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.search");
-                    self.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.search"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "search", args);
                 }))
             .Accessor("shape",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.shape", static (thisObj, args) =>
@@ -532,12 +532,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.username", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.username");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "username");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAnchorElement.username", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAnchorElement.username");
-                    self.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAnchorElement.username"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "username", args);
                 }))
             .Build();
 
@@ -583,45 +583,45 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.hash", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hash");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hash");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.hash", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hash");
-                    self.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.hash"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hash", args);
                 }))
             .Accessor("host",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.host", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.host");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "host");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.host", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.host");
-                    self.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.host"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "host", args);
                 }))
             .Accessor("hostname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.hostname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hostname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "hostname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.hostname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.hostname");
-                    self.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.hostname"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "hostname", args);
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.href", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "href");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.href", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.href");
-                    self.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.href"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "href", args);
                 }))
             .Accessor("hreflang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.hreflang", static (thisObj, args) =>
@@ -649,29 +649,29 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.origin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.origin");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "origin");
                 }))
             .Accessor("password",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.password", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.password");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "password");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.password", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.password");
-                    self.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.password"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "password", args);
                 }))
             .Accessor("pathname",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.pathname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.pathname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "pathname");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.pathname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.pathname");
-                    self.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.pathname"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "pathname", args);
                 }))
             .Accessor("ping",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.ping", static (thisObj, args) =>
@@ -688,23 +688,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.port", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.port");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "port");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.port", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.port");
-                    self.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.port"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "port", args);
                 }))
             .Accessor("protocol",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.protocol", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.protocol");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "protocol");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.protocol", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.protocol");
-                    self.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.protocol"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "protocol", args);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.referrerPolicy", static (thisObj, args) =>
@@ -743,12 +743,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.search", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.search");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "search");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.search", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.search");
-                    self.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.search"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "search", args);
                 }))
             .Accessor("shape",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.shape", static (thisObj, args) =>
@@ -787,12 +787,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.username", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.username");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, "username");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLAreaElement.username", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLAreaElement.username");
-                    self.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLAreaElement.username"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, "username", args);
                 }))
             .Build();
 

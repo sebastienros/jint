@@ -3,6 +3,7 @@ using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi.Url;
 using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom;
@@ -370,6 +371,7 @@ internal sealed class ReflectedAttribute
                 return JsValue.Undefined;
 
             case ReflectedKind.Boolean:
+                var wasOpen = DomHostHooks.DetailsOpen(element);
                 // "The content attribute must be removed if the IDL attribute is set to false, and must be
                 // set to the empty string if the IDL attribute is set to true."
                 if (TypeConverter.ToBoolean(value))
@@ -381,6 +383,7 @@ internal sealed class ReflectedAttribute
                     element.RemoveAttribute(_attribute);
                 }
 
+                DomHostHooks.NotifyDetailsOpenChanged(realm, element, wasOpen);
                 return JsValue.Undefined;
 
             // A `DOMString?` setter — a nullable string, and a nullable enumeration, which is the same
@@ -399,8 +402,11 @@ internal sealed class ReflectedAttribute
             // On setting, a URL attribute takes the value as given; resolution is the getter's business.
             case ReflectedKind.Text:
             case ReflectedKind.Enumerated:
-            case ReflectedKind.Url:
                 element.SetAttribute(_attribute, TypeConverter.ToString(value));
+                return JsValue.Undefined;
+
+            case ReflectedKind.Url:
+                element.SetAttribute(_attribute, UrlValues.ToUsvString(value));
                 return JsValue.Undefined;
 
             case ReflectedKind.Double:

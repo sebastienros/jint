@@ -304,3 +304,19 @@ The XML fragment prerequisite was misstated earlier: the existing producer facad
 is MarkupParser.ParseXmlFragment. Only context-sensitive HTML fragment parsing
 remains absent at this checkpoint. Runtime/parser execution, remaining bindings,
 actual CSS cascade and control producers still need integration and verification.
+
+### Shared runtime continuation before Events integration
+
+Native hyperlink component bodies now use the shared WHATWG parser/setters,
+including the opaque-path and credentials/port early returns. Location has a
+Browser-owned per-page identity backed by existing navigation operations. Document
+metadata hooks and native frame/context and cookie readers have been migrated.
+Details attribute and reflected boolean writes notify the incoming Events
+coalesced toggle helper on an actual presence transition.
+
+Secondary-document dynamic markup insertion now uses the native incremental
+HtmlParserSession rather than concatenating/reparsing/copying the document on
+each write. Its native hook call sites and the principal parser scheduler remain
+under active migration, so this is a coordinated WIP checkpoint, not build or
+runtime clearance. No test was disabled. Awaiting reviewed Events integration
+to remove the current override diagnostic masking before the next census.

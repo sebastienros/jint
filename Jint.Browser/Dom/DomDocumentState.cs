@@ -15,6 +15,8 @@ internal sealed class DomDocumentState
 
     internal string Url { get; set; } = "about:blank";
     internal string Referrer { get; set; } = "";
+    internal string ReadyState { get; set; } = "complete";
+    internal string CharacterSet { get; set; } = Jint.WebApi.Encoding.EncodingLabels.Utf8Name;
     internal Element? TargetElement { get; private set; }
 
     // HTML §7.4.6.4: navigation selects an identity, initially null. Later ID mutations

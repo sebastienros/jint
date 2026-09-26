@@ -4954,7 +4954,7 @@
         {
           "DomName": "defaultView",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.defaultView\");\nreturn global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.DefaultView);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.defaultView\");\nreturn global::Jint.Browser.Dom.DomDocumentMembers.DefaultView(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocument.DefaultView"
@@ -6555,32 +6555,32 @@
         {
           "DomName": "hash",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hash\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hash\");\nself.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.hash\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hash\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"hash\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hash\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"hash\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Hash"
         },
         {
           "DomName": "host",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.host\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.host\");\nself.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.host\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.host\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"host\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.host\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"host\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Host"
         },
         {
           "DomName": "hostname",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hostname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hostname\");\nself.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.hostname\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hostname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"hostname\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.hostname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"hostname\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.HostName"
         },
         {
           "DomName": "href",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.href\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.href\");\nself.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.href\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.href\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"href\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.href\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"href\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Href"
         },
@@ -6603,7 +6603,7 @@
         {
           "DomName": "origin",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.origin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.origin\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"origin\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IUrlUtilities.Origin"
@@ -6611,16 +6611,16 @@
         {
           "DomName": "password",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.password\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.password\");\nself.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.password\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.password\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"password\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.password\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"password\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Password"
         },
         {
           "DomName": "pathname",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.pathname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.pathname\");\nself.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.pathname\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.pathname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"pathname\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.pathname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"pathname\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.PathName"
         },
@@ -6635,16 +6635,16 @@
         {
           "DomName": "port",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.port\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.port\");\nself.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.port\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.port\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"port\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.port\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"port\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Port"
         },
         {
           "DomName": "protocol",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.protocol\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.protocol\");\nself.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.protocol\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.protocol\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"protocol\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.protocol\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"protocol\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Protocol"
         },
@@ -6683,8 +6683,8 @@
         {
           "DomName": "search",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.search\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.search\");\nself.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.search\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.search\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"search\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.search\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"search\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Search"
         },
@@ -6723,8 +6723,8 @@
         {
           "DomName": "username",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.username\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.username\");\nself.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAnchorElement.username\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.username\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"username\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.username\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"username\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.UserName"
         }
@@ -6775,32 +6775,32 @@
         {
           "DomName": "hash",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hash\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hash\");\nself.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.hash\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hash\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"hash\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hash\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"hash\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Hash"
         },
         {
           "DomName": "host",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.host\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.host\");\nself.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.host\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.host\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"host\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.host\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"host\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Host"
         },
         {
           "DomName": "hostname",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hostname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hostname\");\nself.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.hostname\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hostname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"hostname\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.hostname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"hostname\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.HostName"
         },
         {
           "DomName": "href",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.href\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.href\");\nself.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.href\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.href\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"href\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.href\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"href\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Href"
         },
@@ -6823,7 +6823,7 @@
         {
           "DomName": "origin",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.origin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.origin\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"origin\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IUrlUtilities.Origin"
@@ -6831,16 +6831,16 @@
         {
           "DomName": "password",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.password\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.password\");\nself.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.password\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.password\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"password\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.password\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"password\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Password"
         },
         {
           "DomName": "pathname",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.pathname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.pathname\");\nself.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.pathname\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.pathname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"pathname\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.pathname\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"pathname\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.PathName"
         },
@@ -6855,16 +6855,16 @@
         {
           "DomName": "port",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.port\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.port\");\nself.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.port\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.port\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"port\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.port\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"port\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Port"
         },
         {
           "DomName": "protocol",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.protocol\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.protocol\");\nself.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.protocol\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.protocol\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"protocol\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.protocol\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"protocol\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Protocol"
         },
@@ -6895,8 +6895,8 @@
         {
           "DomName": "search",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.search\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.search\");\nself.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.search\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.search\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"search\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.search\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"search\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Search"
         },
@@ -6927,8 +6927,8 @@
         {
           "DomName": "username",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.username\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.username\");\nself.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLAreaElement.username\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.username\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Get(self.Realm, self.Target, \"username\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.username\");\nreturn global::Jint.Browser.Dom.DomHyperlinkMembers.Set(self.Realm, self.Target, \"username\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.UserName"
         }
@@ -12614,8 +12614,8 @@
     },
     {
       "DomName": "Location",
-      "ClrTypeName": "AngleSharp.Dom.ILocation",
-      "ReceiverType": "global::AngleSharp.Dom.ILocation",
+      "ClrTypeName": "Jint.Browser.Dom.DomLocation",
+      "ReceiverType": "global::Jint.Browser.Dom.DomLocation",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -12630,31 +12630,31 @@
         {
           "DomName": "hash",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.hash\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.hash\");\nself.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.hash\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.hash\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"hash\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.hash\");\nreturn self.Target.Set(\"hash\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Hash"
         },
         {
           "DomName": "host",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.host\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.host\");\nself.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.host\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.host\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"host\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.host\");\nreturn self.Target.Set(\"host\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Host"
         },
         {
           "DomName": "hostname",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.hostname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.hostname\");\nself.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.hostname\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.hostname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"hostname\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.hostname\");\nreturn self.Target.Set(\"hostname\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.HostName"
         },
         {
           "DomName": "href",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.href\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.href\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"href\"));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IUrlUtilities.Href"
@@ -12662,7 +12662,7 @@
         {
           "DomName": "origin",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.origin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.origin\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"origin\"));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IUrlUtilities.Origin"
@@ -12670,54 +12670,55 @@
         {
           "DomName": "password",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.password\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.password\");\nself.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.password\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.password\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"password\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.password\");\nreturn self.Target.Set(\"password\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Password"
         },
         {
           "DomName": "pathname",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.pathname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.pathname\");\nself.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.pathname\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.pathname\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"pathname\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.pathname\");\nreturn self.Target.Set(\"pathname\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.PathName"
         },
         {
           "DomName": "port",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.port\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.port\");\nself.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.port\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.port\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"port\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.port\");\nreturn self.Target.Set(\"port\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Port"
         },
         {
           "DomName": "protocol",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.protocol\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.protocol\");\nself.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.protocol\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.protocol\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"protocol\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.protocol\");\nreturn self.Target.Set(\"protocol\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Protocol"
         },
         {
           "DomName": "search",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.search\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.search\");\nself.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.search\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.search\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"search\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.search\");\nreturn self.Target.Set(\"search\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.Search"
         },
         {
           "DomName": "username",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.username\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, \"Location.username\");\nself.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Location.username\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.username\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get(\"username\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, \"Location.username\");\nreturn self.Target.Set(\"username\", args);",
           "Length": 0,
           "Origin": "IUrlUtilities.UserName"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": true
     },
     {
       "DomName": "MediaController",

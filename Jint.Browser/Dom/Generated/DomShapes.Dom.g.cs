@@ -937,7 +937,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.defaultView", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.defaultView");
-                    return global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.DefaultView);
+                    return global::Jint.Browser.Dom.DomDocumentMembers.DefaultView(self.Realm, self.Target);
                 }))
             .Accessor("designMode",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.designMode", static (thisObj, args) =>
@@ -2015,113 +2015,113 @@ internal static partial class DomInterfaces
             .Accessor("hash",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.hash", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hash");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.hash");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("hash"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.hash", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hash");
-                    self.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.hash"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.hash");
+                    return self.Target.Set("hash", args);
                 }))
             .Accessor("host",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.host", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.host");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.host");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("host"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.host", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.host");
-                    self.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.host"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.host");
+                    return self.Target.Set("host", args);
                 }))
             .Accessor("hostname",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.hostname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hostname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.hostname");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("hostname"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.hostname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hostname");
-                    self.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.hostname"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.hostname");
+                    return self.Target.Set("hostname", args);
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.href");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("href"));
                 }))
             .Accessor("origin",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.origin", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.origin");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Origin);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.origin");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("origin"));
                 }))
             .Accessor("password",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.password", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.password");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.password");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("password"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.password", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.password");
-                    self.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.password"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.password");
+                    return self.Target.Set("password", args);
                 }))
             .Accessor("pathname",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.pathname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.pathname");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.pathname");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("pathname"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.pathname", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.pathname");
-                    self.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.pathname"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.pathname");
+                    return self.Target.Set("pathname", args);
                 }))
             .Accessor("port",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.port", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.port");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.port");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("port"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.port", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.port");
-                    self.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.port"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.port");
+                    return self.Target.Set("port", args);
                 }))
             .Accessor("protocol",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.protocol", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.protocol");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.protocol");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("protocol"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.protocol", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.protocol");
-                    self.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.protocol"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.protocol");
+                    return self.Target.Set("protocol", args);
                 }))
             .Accessor("search",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.search", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.search");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.search");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("search"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.search", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.search");
-                    self.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.search"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.search");
+                    return self.Target.Set("search", args);
                 }))
             .Accessor("username",
                 global::Jint.Browser.Dom.DomFailures.Guard("Location.username", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.username");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.username");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Get("username"));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.username", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.username");
-                    self.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.username"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomLocation>(thisObj, "Location.username");
+                    return self.Target.Set("username", args);
                 }))
             .Build();
 

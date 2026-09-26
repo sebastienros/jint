@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -72,7 +73,7 @@ internal static class DocumentCookies
         => runtime.Document is { } document ? Read(runtime, document) : "";
 
     /// <summary>The same jar, scoped to a document in the page's browsing-context tree.</summary>
-    internal static string Read(PageRuntime runtime, IDocument document)
+    internal static string Read(PageRuntime runtime, Document document)
     {
         if (runtime.Page.Network is not { } network || DocumentUri(document) is not { } uri)
         {
@@ -121,7 +122,7 @@ internal static class DocumentCookies
     }
 
     /// <summary>The same jar, scoped to a document in the page's browsing-context tree.</summary>
-    internal static void Write(PageRuntime runtime, IDocument document, string header)
+    internal static void Write(PageRuntime runtime, Document document, string header)
     {
         if (runtime.Page.Network is not { } network || DocumentUri(document) is not { } uri)
         {
@@ -169,9 +170,9 @@ internal static class DocumentCookies
     /// document has no such URL — which is every document with an opaque origin, and which the storage
     /// model answers with no cookies rather than with an error.
     /// </summary>
-    private static Uri? DocumentUri(IDocument document)
+    private static Uri? DocumentUri(Document document)
     {
-        var url = document.Url;
+        var url = DomDocumentState.Of(document).Url;
         if (string.IsNullOrEmpty(url))
         {
             return null;

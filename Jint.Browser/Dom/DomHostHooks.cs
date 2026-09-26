@@ -1,4 +1,7 @@
 using System.Buffers;
+using Element = Jint.HtmlParser.Element;
+using Document = Jint.HtmlParser.Document;
+using Namespaces = Jint.HtmlParser.Namespaces;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
@@ -125,7 +128,9 @@ internal class DomHostHooks
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.setAttribute");
         var value = DomConvert.RequiredText(arguments, 1, "Element.setAttribute");
+        var wasOpen = DetailsOpen(element);
         element.SetAttribute(name, value);
+        NotifyDetailsOpenChanged(realm, element, wasOpen);
         if (element.NamespaceUri == Jint.HtmlParser.Namespaces.Html && element.OwnerDocument?.Kind == Jint.HtmlParser.DocumentKind.Html)
             name = AsciiLowercase(name);
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
@@ -137,7 +142,9 @@ internal class DomHostHooks
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         var name = DomConvert.RequiredText(arguments, 1, "Element.setAttributeNS");
         var value = DomConvert.RequiredText(arguments, 2, "Element.setAttributeNS");
+        var wasOpen = DetailsOpen(element);
         element.SetAttributeNS(namespaceUri, name, value);
+        NotifyDetailsOpenChanged(realm, element, wasOpen);
         if (string.IsNullOrEmpty(namespaceUri))
         {
             var colon = name.IndexOf(':', StringComparison.Ordinal);
@@ -152,8 +159,19 @@ internal class DomHostHooks
     internal virtual void RemoveAttribute(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.removeAttribute");
+        var wasOpen = DetailsOpen(element);
         element.RemoveAttribute(name);
+        NotifyDetailsOpenChanged(realm, element, wasOpen);
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
+    }
+
+    internal static bool DetailsOpen(Element element)
+        => element is { NamespaceUri: Namespaces.Html, LocalName: "details" } && element.HasAttribute("open");
+
+    internal static void NotifyDetailsOpenChanged(DomRealm realm, Element element, bool wasOpen)
+    {
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "details" } && wasOpen != element.HasAttribute("open"))
+            Events.ActivationBehaviors.ScheduleToggle(realm, element);
     }
 
     /// <summary>HTML's <c>DOMStringMap</c> view over an element's <c>data-*</c> attributes.</summary>
@@ -1003,7 +1021,7 @@ internal class DomHostHooks
     /// <c>DocumentElement.ChildNodes</c> without asking what the document element is, which is the standard's
     /// own counter-example (a body inserted beneath an SVG document element) answered wrongly.
     /// </remarks>
-    internal virtual JsValue Body(DomRealm realm, IDocument document)
+    internal virtual JsValue Body(DomRealm realm, Document document)
         => realm.WrapNodeValue(DomDocumentElements.Body(document));
 
     /// <summary>
@@ -1011,11 +1029,11 @@ internal class DomHostHooks
     /// running. AngleSharp 1.7.3 tracks its own execution path, but the page's parser driver also schedules
     /// and executes scripts itself, so its current-script scope remains authoritative for a page.
     /// </summary>
-    internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
+    internal virtual JsValue CurrentScript(DomRealm realm, Document document)
     {
         if (PageRuntime.FindBrowsingContext(realm.Engine, document) is null)
         {
-            return realm.WrapNodeValue(document.CurrentScript);
+            return JsValue.Null;
         }
         var owner = realm.RealmOfDocument(document);
         return ReferenceEquals(owner.Document, document) && owner.CurrentScript is { } script
@@ -1027,19 +1045,19 @@ internal class DomHostHooks
     /// readiness on its own schedule and <c>Document.ReadyState</c>'s setter is <c>protected</c>, so nothing
     /// outside its assembly can move it; the three transitions a page observes are the parser driver's.
     /// </summary>
-    internal virtual JsValue ReadyState(DomRealm realm, IDocument document)
+    internal virtual JsValue ReadyState(DomRealm realm, Document document)
         => JsString.Create(PageRuntime.Find(realm.Engine, document) is { } runtime
             ? runtime.ReadyState
             : realm.TryGetDocumentRealm(document, out var owner) && ReferenceEquals(owner!.Document, document) && owner.ReadyState is { } state
-                ? state : document.ReadyState.ToString().ToLowerInvariant());
+                ? state : DomDocumentState.Of(document).ReadyState);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-url and its <c>documentURI</c> twin. The page's URL, not
     /// AngleSharp's document address: <c>pushState</c> and a fragment navigation move the URL without
     /// reloading, and AngleSharp's address cannot follow without raising a navigation of its own.
     /// </summary>
-    internal virtual JsValue DocumentUrl(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.DocumentUrl ?? document.Url ?? "");
+    internal virtual JsValue DocumentUrl(DomRealm realm, Document document)
+        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.DocumentUrl ?? DomDocumentState.Of(document).Url);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-node-baseuri — the node document's base URL, which
@@ -1071,8 +1089,14 @@ internal class DomHostHooks
     /// need a page runtime — a binding installed on its own still tells a parsed document from a
     /// manufactured one.
     /// </remarks>
-    internal virtual JsValue Location(DomRealm realm, IDocument document)
-        => HasBrowsingContext(document) ? realm.Wrap(document.Location) : JsValue.Null;
+    internal virtual JsValue Location(DomRealm realm, Document document)
+    {
+        if (DomBrowsingContext.Of(document) is null || PageRuntime.FindBrowsingContext(realm.Engine, document) is not { } runtime)
+            return JsValue.Null;
+        return ReferenceEquals(document, runtime.Document)
+            ? runtime.Location
+            : FrameWindows.ForDocument(runtime, document).Get("location");
+    }
 
     /// <summary>
     /// The <c>[PutForwards=href]</c> half of the same attribute. WebIDL's setter steps read the attribute
@@ -1080,15 +1104,15 @@ internal class DomHostHooks
     /// <see langword="null"/> — is a <c>TypeError</c> and never a silent navigation of a document nobody
     /// can see. https://webidl.spec.whatwg.org/#PutForwards
     /// </summary>
-    internal virtual void SetLocation(DomRealm realm, IDocument document, string href)
+    internal virtual void SetLocation(DomRealm realm, Document document, string href)
     {
-        if (!HasBrowsingContext(document) || document.Location is not { } location)
+        var location = Location(realm, document);
+        if (location is not ObjectInstance instance)
         {
             Throw.TypeError(realm.OwningRealm, "Cannot set property 'href' of null");
             return;
         }
-
-        location.Href = href;
+        instance.Set("href", JsString.Create(href), throwOnError: true);
     }
 
     /// <summary>
@@ -1102,25 +1126,15 @@ internal class DomHostHooks
     /// A label the Encoding Standard does not know is answered as AngleSharp gave it, rather than as UTF-8:
     /// there is no name for it, and inventing one would hide the encoding a document really carries.
     /// </remarks>
-    internal virtual JsValue CharacterSet(DomRealm realm, IDocument document)
-    {
-        var label = document.CharacterSet;
-
-        if (string.IsNullOrEmpty(label))
-        {
-            return JsString.Create(Jint.WebApi.Encoding.EncodingLabels.Utf8Name);
-        }
-
-        return JsString.Create(
-            Jint.WebApi.Encoding.EncodingLabels.TryLookup(label, out var encoding) ? encoding.Name : label);
-    }
+    internal virtual JsValue CharacterSet(DomRealm realm, Document document)
+        => JsString.Create(DomDocumentState.Of(document).CharacterSet);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-contenttype — the content type the algorithm that created
     /// the document gave it. <see cref="DomContentType"/> says why it cannot be set on the document itself.
     /// </summary>
-    internal virtual JsValue ContentType(DomRealm realm, IDocument document)
-        => JsString.Create(DomContentType.Of(document) ?? document.ContentType ?? "");
+    internal virtual JsValue ContentType(DomRealm realm, Document document)
+        => JsString.Create(document.ContentType);
 
     /// <summary>
     /// Whether <paramref name="document"/> is the active document of a browsing context, which is what HTML
@@ -1131,7 +1145,7 @@ internal class DomHostHooks
     /// <see cref="DomBrowsingContext"/> is the one definition of it, because HTML §4.13.4's
     /// look-up-a-custom-element-definition asks the same question of the same documents.
     /// </remarks>
-    private static bool HasBrowsingContext(IDocument document) => DomBrowsingContext.Of(document) is not null;
+    private static bool HasBrowsingContext(Document document) => DomBrowsingContext.Of(document) is not null;
 
     // ---------------------------------------------------------------------------------------------------
     // HTML §4.8.4's image members. Every one of them answers from the page's own image lane rather than
@@ -1262,20 +1276,20 @@ internal class DomHostHooks
             : null;
 
     /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
-    internal virtual JsValue Referrer(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? document.Referrer ?? "");
+    internal virtual JsValue Referrer(DomRealm realm, Document document)
+        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? DomDocumentState.Of(document).Referrer);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-cookie, over the same jar every request of
     /// the browsing context reads and writes — which is a jar AngleSharp's own document has no idea about.
     /// </summary>
-    internal virtual JsValue Cookie(DomRealm realm, IDocument document)
+    internal virtual JsValue Cookie(DomRealm realm, Document document)
         => JsString.Create(PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime
             ? DocumentCookies.Read(runtime, document)
-            : document.Cookie ?? "");
+            : "");
 
     /// <inheritdoc cref="Cookie" />
-    internal virtual void SetCookie(DomRealm realm, IDocument document, string value)
+    internal virtual void SetCookie(DomRealm realm, Document document, string value)
     {
         if (PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime)
         {
@@ -1283,7 +1297,7 @@ internal class DomHostHooks
             return;
         }
 
-        document.Cookie = value;
+        // A manufactured document without a browsing context is cookie-averse.
     }
 
     /// <summary>
