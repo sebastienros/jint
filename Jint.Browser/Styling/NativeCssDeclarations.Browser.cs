@@ -52,17 +52,18 @@ internal static class NativeCssDeclarations
     private sealed class InlineDeclaration(DomRealm creationRealm, Element element) : NativeCssDeclaration
     {
         internal override CssRule? ParentRule => null;
-        private CssValueWork CurrentWork()
+        private CssValueWork CurrentWork(CssValueWork? counter = null)
         {
             var document = element.OwnerDocument;
             var stamp = document?.MutationStamp;
             var realm = document is not null && NativeCssStyleSheets.RealmOf(document) is { } host ? host : creationRealm;
-            return new(realm.CancellationToken, () =>
+            void Check()
             {
                 realm.Engine.Constraints.Check();
                 if (!ReferenceEquals(element.OwnerDocument, document) || stamp == ulong.MaxValue || document?.MutationStamp != stamp)
                     throw new InvalidOperationException(NativeCssQuery.Invalidated);
-            });
+            }
+            return counter is null ? new(realm.CancellationToken, Check) : CssValueWork.Guard(counter, Check);
         }
         private CssDeclarationBlock Read(CssValueWork work)
         {
@@ -113,7 +114,9 @@ internal static class NativeCssDeclarations
         {
             var text = cssText ? block.Serialize(work) : block.SerializeSource(work);
             work.CheckCancellation();
+            var beforeWrite = NativeCssStyleSheets.InlineVersion(element);
             element.SetAttribute("style", text);
+            NativeCssStyleSheets.RetainInline(element, text, block, beforeWrite, CurrentWork(work));
         }
     }
 }

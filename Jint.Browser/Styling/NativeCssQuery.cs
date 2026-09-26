@@ -315,15 +315,51 @@ internal sealed partial class NativeCssQuery
     }
 
     private static int Compare(Candidate left, Candidate right)
+        => Compare(left.Declaration.IsImportant, left.Source, right.Declaration.IsImportant, right.Source);
+
+    private static int Compare(bool leftImportant, NativeCssSource left, bool rightImportant, NativeCssSource right)
     {
-        var a = left.Declaration.IsImportant ? 5 - (int) left.Source.Origin : (int) left.Source.Origin;
-        var b = right.Declaration.IsImportant ? 5 - (int) right.Source.Origin : (int) right.Source.Origin;
+        var a = leftImportant ? 5 - (int) left.Origin : (int) left.Origin;
+        var b = rightImportant ? 5 - (int) right.Origin : (int) right.Origin;
         var comparison = a.CompareTo(b);
         if (comparison != 0) return comparison;
-        comparison = left.Source.Inline.CompareTo(right.Source.Inline);
+        comparison = left.Inline.CompareTo(right.Inline);
         if (comparison != 0) return comparison;
-        comparison = left.Source.Specificity.CompareTo(right.Source.Specificity);
-        return comparison != 0 ? comparison : left.Source.Order.CompareTo(right.Source.Order);
+        comparison = left.Specificity.CompareTo(right.Specificity);
+        return comparison != 0 ? comparison : left.Order.CompareTo(right.Order);
+    }
+
+    private (CssCustomDeclaration Declaration, NativeCssSource Source)? CustomWinner(State state, string name)
+    {
+        var candidates = new List<(CssCustomDeclaration Declaration, NativeCssSource Source)>();
+        foreach (var source in state.Sources)
+        {
+            _work.Charge(1);
+            if (source.Block.ResolveCustomProperty(name, _work) is { } declaration) candidates.Add((declaration, source));
+        }
+        candidates.Sort((left, right) =>
+        {
+            _work.Charge(1);
+            return Compare(right.Declaration.IsImportant, right.Source, left.Declaration.IsImportant, left.Source);
+        });
+        var excludedOrigins = new bool[3];
+        var excludedRules = new HashSet<CssDeclarationBlock>();
+        foreach (var candidate in candidates)
+        {
+            _work.Charge(1);
+            var origin = (int) candidate.Source.Origin;
+            if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block)) continue;
+            switch (candidate.Declaration.WideKeyword)
+            {
+                case "revert":
+                    for (var i = origin; i < excludedOrigins.Length; i++) excludedOrigins[i] = true;
+                    continue;
+                case "revert-rule": excludedRules.Add(candidate.Source.Block); continue;
+                case "revert-layer": throw new CssIncompleteGrammarException(name, "C6:revert-layer", default);
+            }
+            return candidate;
+        }
+        return null;
     }
 
     private Candidate? Winner(State state, string name, ref SelectorMatchWork matching, bool substitute = false)
@@ -376,12 +412,10 @@ internal sealed partial class NativeCssQuery
             {
                 _work.Charge(1);
                 if (!name.StartsWith("--", StringComparison.Ordinal)) continue;
-                var candidate = Winner(current, name, ref matching);
+                var candidate = CustomWinner(current, name);
                 if (candidate is null) continue;
-                var value = candidate.Declaration.Value;
-                if (value.Kind == CssPropertyValueKind.Custom)
-                    bindings.Add(CssSubstitutionBinding.Specified(name, value.References.Input, false));
-                else if (value.Text == "initial") bindings.Add(CssSubstitutionBinding.Invalid(name, false));
+                var declaration = candidate.Value.Declaration;
+                if (declaration.WideKeyword is null or "initial") bindings.Add(declaration.Binding);
                 // inherit and unset retain the parent's defining scope.
             }
             inherited = CssSubstitutionSnapshot.CreateLayer(bindings.ToArray(), inherited, _work);
@@ -396,16 +430,21 @@ internal sealed partial class NativeCssQuery
         if (state.Computed.TryGetValue(name, out var cached)) return cached;
         var snapshot = Variables(state, ref matching);
         var text = "";
-        if (snapshot.TryGet(name, _work, out var binding) && binding.Kind == CssSubstitutionBindingKind.Specified)
+        if (snapshot.TryGet(name, _work, out var binding))
         {
-            var result = CssSubstitutionExecutor.Resolve(binding.Input, binding.Scope!, _environment,
-                new(name, CssReferenceUse.CustomPropertyValue, true), _work);
-            if (result.Kind == CssSubstitutionResultKind.PendingFeature)
-                throw new CssIncompleteGrammarException(name, "C6:" + result.PendingFeature, default);
-            if (result.Kind == CssSubstitutionResultKind.Tokens)
-                text = CssSyntaxSerializer.SerializeComponents(result.Value.Components, _work);
+            if (binding.Kind == CssSubstitutionBindingKind.Pending)
+                throw new CssIncompleteGrammarException(name, "C6:" + binding.PendingFeature, default);
+            if (binding.Kind == CssSubstitutionBindingKind.Specified)
+            {
+                var result = CssSubstitutionExecutor.Resolve(binding.Input, binding.Scope!, _environment,
+                    new(name, CssReferenceUse.CustomPropertyValue, true), _work);
+                if (result.Kind == CssSubstitutionResultKind.PendingFeature)
+                    throw new CssIncompleteGrammarException(name, "C6:" + result.PendingFeature, default);
+                if (result.Kind == CssSubstitutionResultKind.Tokens)
+                    text = CssSyntaxSerializer.SerializeComponents(result.Value.Components, _work);
+            }
         }
-        var property = new NativeCssProperty(name, text, null, Winner(state, name, ref matching)?.Source, NativeCssDisposition.Cascaded);
+        var property = new NativeCssProperty(name, text, null, CustomWinner(state, name)?.Source, NativeCssDisposition.Cascaded);
         Verify();
         state.Computed.Add(name, property);
         return property;

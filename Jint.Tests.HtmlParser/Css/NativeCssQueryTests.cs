@@ -56,6 +56,57 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
+    public void InlinePublicationRetainsPendingExpansionUntilAnActualStyleAttributeWrite()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        target.SetAttribute("style", "--o:hidden scroll;overflow:var(--o)");
+        var work = new CssValueWork(default);
+        var edited = NativeCssStyleSheets.InlineOf(target, work).Copy(work);
+        edited.SetProperty("overflow-x", "visible", null, null, work);
+        var text = edited.SerializeSource(work);
+        text.Should().NotContain("overflow-y:");
+        edited.Serialize(work).Should().NotContain("overflow-y:");
+        var version = NativeCssStyleSheets.InlineVersion(target);
+        target.SetAttribute("style", text);
+        NativeCssStyleSheets.RetainInline(target, text, edited, version, work);
+        target.SetAttribute("id", "unrelated");
+        NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(edited);
+        var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "overflow-y", ref matching).Text.Should().Be("scroll");
+        target.SetAttribute("style", text);
+        var reparsed = NativeCssStyleSheets.InlineOf(target, work);
+        reparsed.Should().NotBeSameAs(edited);
+        reparsed.GetPropertyValue("overflow-y", work).Should().BeEmpty();
+    }
+
+    [Test]
+    public void PendingCustomBindingsRefuseOnlyWhenReachedByTheRequestedProperty()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var sheet = CssStyleSheet.Parse("div { --good:block; --bad:attr(data-x); display:var(--good); visibility:var(--bad,hidden); }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "--bad", ref matching));
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "visibility", ref matching));
+    }
+
+    [Test]
+    public void DeferredWhiteSpaceRejectsAnInterleavedTrimComponent()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var sheet = CssStyleSheet.Parse("div { --w:discard-before nowrap discard-after; white-space:var(--w); }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "white-space-collapse", ref matching).Disposition.Should().Be(NativeCssDisposition.InvalidAtComputedValue);
+    }
+
+    [Test]
     public void LazyShorthandSubstitutionRetainsIacvtAndCustomCycles()
     {
         var document = Document.CreateHtml();

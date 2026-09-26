@@ -95,7 +95,7 @@ public sealed class CssDeclarationResolutionTests
         var checks = 0;
         var work = new CssValueWork(default, () => checks++);
         work.Charge(4000);
-        var guarded = new CssValueWork(work, work.CheckCancellation);
+        var guarded = CssValueWork.Guard(work, work.CheckCancellation);
         guarded.Charge(96);
         checks.Should().Be(1);
         work.Charge(4096);

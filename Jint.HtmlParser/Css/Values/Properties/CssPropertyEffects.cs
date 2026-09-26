@@ -4,13 +4,18 @@ namespace Jint.HtmlParser.Css.Values.Properties;
 // This table supplies correlation only; pending shorthands gain no validator or initial value.
 internal static class CssPropertyEffects
 {
-    private static readonly IReadOnlyDictionary<string, string[]> Shorthands = Create();
+    private static readonly System.Collections.ObjectModel.ReadOnlyDictionary<string, string[]> Shorthands = Create();
 
     internal static string Canonical(string name) => name switch
     {
-        "word-wrap" => "overflow-wrap", "grid-gap" => "gap", "grid-row-gap" => "row-gap",
-        "grid-column-gap" => "column-gap", "page-break-before" => "break-before",
-        "page-break-after" => "break-after", "page-break-inside" => "break-inside", _ => name
+        "word-wrap" => "overflow-wrap",
+        "grid-gap" => "gap",
+        "grid-row-gap" => "row-gap",
+        "grid-column-gap" => "column-gap",
+        "page-break-before" => "break-before",
+        "page-break-after" => "break-after",
+        "page-break-inside" => "break-inside",
+        _ => name
     };
 
     internal static IReadOnlyList<string> Longhands(string name)
@@ -23,7 +28,7 @@ internal static class CssPropertyEffects
     internal static bool AffectsAll(string name) => name == "all";
     internal static bool ResetByAll(string name) => name is not ("direction" or "unicode-bidi") && !name.StartsWith("--", StringComparison.Ordinal);
 
-    private static IReadOnlyDictionary<string, string[]> Create()
+    private static System.Collections.ObjectModel.ReadOnlyDictionary<string, string[]> Create()
     {
         var map = new Dictionary<string, string[]>(StringComparer.Ordinal);
         Add("background", "background-color background-image background-position-x background-position-y background-size background-repeat-x background-repeat-y background-origin background-clip background-attachment");

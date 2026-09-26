@@ -12,6 +12,7 @@ internal sealed partial class CssDeclarationBlock
     private RawEntry[] _raw = [];
     private Dictionary<string, List<int>>? _index;
     private readonly Dictionary<string, CssDeclaration?> _resolved = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CssCustomDeclaration?> _customResolved = new(StringComparer.Ordinal);
     private bool _allResolved;
     private const string Invalidated = "The native declaration view was invalidated by mutation.";
 
@@ -43,10 +44,11 @@ internal sealed partial class CssDeclarationBlock
     private CssValueWork ResolutionWork(CssValueWork work)
     {
         var stamp = Stamp;
-        return new(work, () =>
+        var raw = _raw;
+        return CssValueWork.Guard(work, () =>
         {
             work.CheckCancellation();
-            if (!stamp.CanReuse || Stamp != stamp) throw new InvalidOperationException(Invalidated);
+            if (Stamp != stamp || !ReferenceEquals(_raw, raw)) throw new InvalidOperationException(Invalidated);
         });
     }
 
@@ -141,6 +143,51 @@ internal sealed partial class CssDeclarationBlock
         return result.ToArray();
     }
 
+    // Snapshot construction retains a pending binding; only reaching that binding refuses its feature.
+    // This result never represents pending syntax as a successful CssPropertyValue.
+    internal CssCustomDeclaration? ResolveCustomProperty(string name, CssValueWork work)
+    {
+        work = ResolutionWork(work);
+        work.Charge(name.Length);
+        if (!name.StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException("A custom property is required.", nameof(name));
+        if (_customResolved.TryGetValue(name, out var cached)) return cached;
+        CssCustomDeclaration? winner = null;
+        if (Index(work).TryGetValue(name, out var indices))
+            foreach (var index in indices)
+            {
+                work.Charge(1);
+                var raw = _raw[index];
+                CssCustomDeclaration candidate;
+                if (raw.Input.Syntax is { } syntax)
+                {
+                    if (_context == CssDeclarationContext.Keyframe && syntax.IsImportant) continue;
+                    var input = CssReferenceInput.FromComponents(raw.Input.Source!, syntax.Value, raw.Input.Depth,
+                        syntax.ValueSourceSpan, work);
+                    var parsed = CssPropertyParser.Parse(name, input, _context, work);
+                    if (parsed.Status == CssPropertyStatus.UnimplementedGrammar)
+                        candidate = new(CssSubstitutionBinding.Pending(name, parsed.Blocker!), null, syntax.IsImportant);
+                    else if (parsed.Status is CssPropertyStatus.Valid or CssPropertyStatus.Deferred)
+                    {
+                        candidate = FromValue(parsed.Value!, syntax.IsImportant);
+                    }
+                    else continue;
+                }
+                else
+                {
+                    var entry = raw.Input.Entries![0];
+                    candidate = FromValue(entry.Value, entry.IsImportant);
+                }
+                if (winner is null || !winner.IsImportant || candidate.IsImportant) winner = candidate;
+            }
+        work.CheckCancellation();
+        _customResolved.Add(name, winner);
+        return winner;
+
+        CssCustomDeclaration FromValue(CssPropertyValue value, bool important) => value.Kind == CssPropertyValueKind.Custom
+            ? new(CssSubstitutionBinding.Specified(name, value.References.Input, false), null, important)
+            : new(CssSubstitutionBinding.Invalid(name, false), value.Text, important);
+    }
+
     // Explicit whole-block CSSOM reads may require every retained value grammar.
     internal CssDeclaration[] ResolveAll(CssValueWork work)
     {
@@ -181,7 +228,7 @@ internal sealed partial class CssDeclarationBlock
         return result;
     }
 
-    private void CommitTarget(string name, IReadOnlyList<CssDeclaration> declarations, CssValueWork work, bool remove = false)
+    private void CommitTarget(string name, List<CssDeclaration> declarations, CssValueWork work, bool remove = false)
     {
         work = ResolutionWork(work);
         var targets = new HashSet<string>(StringComparer.Ordinal) { name };
@@ -237,6 +284,7 @@ internal sealed partial class CssDeclarationBlock
         _raw = next;
         _index = null;
         _resolved.Clear();
+        _customResolved.Clear();
         _entries = [];
         _allResolved = false;
         CssMutationStamp.Advance(ref _version);
@@ -250,6 +298,20 @@ internal sealed partial class CssDeclarationBlock
     {
         work = ResolutionWork(work);
         var builder = new StringBuilder();
+        var literalEntries = new List<CssDeclaration>();
+        foreach (var raw in _raw)
+            if (raw.Input.Syntax is null) literalEntries.AddRange(Materialize(raw, work));
+        work.Charge(literalEntries.Count);
+        var literals = literalEntries.ToArray();
+        var pendingValues = new Dictionary<CssPendingShorthand, string>();
+        var writtenPending = new HashSet<CssPendingShorthand>();
+        foreach (var entry in literalEntries)
+            if (entry.PendingShorthand is { } pending && !pendingValues.ContainsKey(pending))
+            {
+                work.Charge(1);
+                pendingValues.Add(pending, ShorthandValue(literals,
+                    CssPropertyRegistry.Completed[pending.Name], work));
+            }
         foreach (var raw in _raw)
         {
             work.Charge(1);
@@ -264,7 +326,12 @@ internal sealed partial class CssDeclarationBlock
                 foreach (var entry in Materialize(raw, work))
                 {
                     work.Charge(1);
-                    Write(entry.Name, EntryValue(entry, work), entry.IsImportant, "");
+                    if (entry.PendingShorthand is { } pending)
+                    {
+                        var value = pendingValues[pending];
+                        if (value.Length != 0 && writtenPending.Add(pending)) Write(pending.Name, value, entry.IsImportant, "");
+                    }
+                    else Write(entry.Name, EntryValue(entry, work), entry.IsImportant, "");
                 }
         }
         work.CheckCancellation();
@@ -284,3 +351,5 @@ internal sealed partial class CssDeclarationBlock
         }
     }
 }
+
+internal sealed record CssCustomDeclaration(CssSubstitutionBinding Binding, string? WideKeyword, bool IsImportant);

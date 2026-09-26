@@ -20,7 +20,7 @@ internal static partial class NativeCssStyleSheets
     {
         var document = element.OwnerDocument;
         var stamp = document?.MutationStamp;
-        var guarded = new CssValueWork(work, () =>
+        var guarded = CssValueWork.Guard(work, () =>
         {
             work.CheckCancellation();
             if (!ReferenceEquals(element.OwnerDocument, document) || stamp == ulong.MaxValue || document?.MutationStamp != stamp)
@@ -28,22 +28,60 @@ internal static partial class NativeCssStyleSheets
         });
         guarded.CheckCancellation();
         var source = new DomReadWork(guarded.Charge, guarded.Token).Attribute(element, "style") ?? "";
-        var resource = InlineSources.GetValue(element, static _ => new InlineResource());
-        if (resource.Block is null || !CssSubstitutionArguments.Equals(resource.Source!, source, guarded))
+        var resource = InlineResourceOf(element);
+        if (resource.Block is null || resource.PublishedVersion != resource.Version || !CssSubstitutionArguments.Equals(resource.Source!, source, guarded))
         {
             var block = CssDeclarationBlock.ParseUnresolved(source, CssDeclarationContext.Style, null, guarded, guarded.Token);
             guarded.CheckCancellation();
             resource.Source = source;
             resource.Block = block;
+            resource.PublishedVersion = resource.Version;
         }
         guarded.CheckCancellation();
         return resource.Block;
+    }
+
+    private static InlineResource InlineResourceOf(Element element) => InlineSources.GetValue(element, static owner =>
+    {
+        var resource = new InlineResource();
+        var subscription = new MutationSubscription();
+        subscription.Observe(owner, new MutationObserverOptions { Attributes = true, AttributeFilter = ["style"] });
+        subscription.PendingRecord = pending =>
+        {
+            // Constant work on the native mutation stack, with no retained records or script callback.
+            pending.TakeRecords();
+            if (resource.Version != ulong.MaxValue) resource.Version++;
+        };
+        resource.Subscription = subscription;
+        return resource;
+    });
+
+    internal static ulong InlineVersion(Element element) => InlineResourceOf(element).Version;
+
+    internal static void RetainInline(Element element, string source, CssDeclarationBlock block,
+        ulong beforeWrite, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var resource = InlineResourceOf(element);
+        if (beforeWrite == ulong.MaxValue || resource.Version != beforeWrite + 1)
+            throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        var actual = new DomReadWork(work.Charge, work.Token).Attribute(element, "style") ?? "";
+        if (!CssSubstitutionArguments.Equals(source, actual, work))
+            throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        work.CheckCancellation();
+        if (resource.Version != beforeWrite + 1) throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        resource.Source = source;
+        resource.Block = block;
+        resource.PublishedVersion = resource.Version;
     }
 
     private sealed class InlineResource
     {
         internal string? Source;
         internal CssDeclarationBlock? Block;
+        internal MutationSubscription? Subscription;
+        internal ulong Version;
+        internal ulong PublishedVersion;
     }
 
     internal static void Install(Document document, Element owner, string text, string sourceUrl,
@@ -92,7 +130,7 @@ internal static partial class NativeCssStyleSheets
                 throw new InvalidOperationException(NativeCssQuery.Invalidated);
         }
         Verify();
-        var parsing = new CssValueWork(work, Verify);
+        var parsing = CssValueWork.Guard(work, Verify);
         // DOM order, rather than load completion order, owns stylesheet order.
         var pending = new Stack<Node>();
         pending.Push(document);

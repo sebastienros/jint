@@ -152,7 +152,7 @@ public sealed class CssDeclarationBlockTests
         block.SetProperty("overflow-x", "auto", "important");
         block.GetPropertyValue("overflow").Should().BeEmpty();
         block.GetDeclaration(2).Should().BeSameAs(y);
-        block.CssText.Should().Be("opacity: 0.5; overflow-x: auto !important; overflow-y:  !important;");
+        block.CssText.Should().Be("opacity: 0.5; overflow-x: auto !important;");
         block.RemoveProperty("overflow-y").Should().BeEmpty();
         block.SetProperty("overflow-y", "var(--Y)", "important");
         block.GetPropertyValue("overflow-y").Should().Be("var(--Y)");

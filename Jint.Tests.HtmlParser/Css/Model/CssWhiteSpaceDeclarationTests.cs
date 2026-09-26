@@ -15,7 +15,7 @@ public sealed class CssWhiteSpaceDeclarationTests
     [TestCase("break-spaces", "break-spaces", "wrap", "none", "break-spaces")]
     [TestCase("preserve-spaces", "preserve-spaces", "wrap", "none", "preserve-spaces")]
     [TestCase("discard", "discard", "wrap", "none", "discard")]
-    [TestCase("discard-inner nowrap preserve-breaks discard-before", "preserve-breaks", "nowrap", "discard-before discard-inner",
+    [TestCase("discard-inner discard-before nowrap preserve-breaks", "preserve-breaks", "nowrap", "discard-before discard-inner",
         "preserve-breaks nowrap discard-before discard-inner")]
     public void ShorthandExpandsAllThreeLonghandsAndSerializesCanonicalValues(string source, string collapse,
         string wrap, string trim, string expected)
@@ -28,6 +28,8 @@ public sealed class CssWhiteSpaceDeclarationTests
         CssDeclarationBlock.Parse(block.CssText).GetPropertyValue("white-space").Should().Be(expected);
     }
 
+    [TestCase("discard-before nowrap discard-after")]
+    [TestCase("discard-inner nowrap preserve-breaks discard-before")]
     [TestCase("pre nowrap")]
     [TestCase("collapse preserve")]
     [TestCase("wrap nowrap")]

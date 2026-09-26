@@ -28,6 +28,7 @@ internal static class CssWhiteSpacePropertyParser
         string? wrap = null;
         var trim = 0;
         var trimNone = false;
+        var trimEnded = false;
         if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "normal pre pre-wrap pre-line", work) is { } legacy)
         {
             collapse = legacy switch { "pre" or "pre-wrap" => "preserve", "pre-line" => "preserve-breaks", _ => "collapse" };
@@ -41,19 +42,21 @@ internal static class CssWhiteSpacePropertyParser
                 if (CssPropertyParser.Keyword(part, Collapse, work) is { } c)
                 {
                     if (collapse is not null) return Invalid();
+                    if (trim != 0 || trimNone) trimEnded = true;
                     collapse = c;
                 }
                 else if (CssPropertyParser.Keyword(part, "wrap nowrap", work) is { } w)
                 {
                     if (wrap is not null) return Invalid();
+                    if (trim != 0 || trimNone) trimEnded = true;
                     wrap = w;
                 }
                 else if (CssPropertyParser.Keyword(part, "none", work) is not null)
                 {
-                    if (trimNone || trim != 0) return Invalid();
+                    if (trimEnded || trimNone || trim != 0) return Invalid();
                     trimNone = true;
                 }
-                else if (trimNone || !AddTrim(part, work, ref trim)) return Invalid();
+                else if (trimEnded || trimNone || !AddTrim(part, work, ref trim)) return Invalid();
             }
         }
         collapse ??= "collapse";
@@ -68,7 +71,10 @@ internal static class CssWhiteSpacePropertyParser
     {
         var bit = CssPropertyParser.Keyword(part, Trimming, work) switch
         {
-            "discard-before" => 1, "discard-after" => 2, "discard-inner" => 4, _ => 0
+            "discard-before" => 1,
+            "discard-after" => 2,
+            "discard-inner" => 4,
+            _ => 0
         };
         if (bit == 0 || (flags & bit) != 0) return false;
         flags |= bit;
@@ -77,8 +83,13 @@ internal static class CssWhiteSpacePropertyParser
 
     private static string TrimText(int flags) => flags switch
     {
-        0 => "none", 1 => "discard-before", 2 => "discard-after", 3 => "discard-before discard-after",
-        4 => "discard-inner", 5 => "discard-before discard-inner", 6 => "discard-after discard-inner",
+        0 => "none",
+        1 => "discard-before",
+        2 => "discard-after",
+        3 => "discard-before discard-after",
+        4 => "discard-inner",
+        5 => "discard-before discard-inner",
+        6 => "discard-after discard-inner",
         _ => "discard-before discard-after discard-inner"
     };
 
@@ -89,9 +100,12 @@ internal static class CssWhiteSpacePropertyParser
         {
             var legacy = (collapse, wrap) switch
             {
-                ("collapse", "wrap") => "normal", ("collapse", "nowrap") => "nowrap",
-                ("preserve", "nowrap") => "pre", ("preserve", "wrap") => "pre-wrap",
-                ("preserve-breaks", "wrap") => "pre-line", _ => null
+                ("collapse", "wrap") => "normal",
+                ("collapse", "nowrap") => "nowrap",
+                ("preserve", "nowrap") => "pre",
+                ("preserve", "wrap") => "pre-wrap",
+                ("preserve-breaks", "wrap") => "pre-line",
+                _ => null
             };
             if (legacy is not null) return legacy;
         }

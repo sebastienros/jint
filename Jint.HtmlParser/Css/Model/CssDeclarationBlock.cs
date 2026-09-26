@@ -171,6 +171,7 @@ internal sealed partial class CssDeclarationBlock
         _raw = replacement._raw;
         _index = null;
         _resolved.Clear();
+        _customResolved.Clear();
         _allResolved = true;
         CssMutationStamp.Advance(ref _version);
         _owner?.Changed();
@@ -389,7 +390,7 @@ internal sealed partial class CssDeclarationBlock
                 value = pair.Value;
                 break;
             }
-            if (skip) continue;
+            if (skip || value.Length == 0) continue;
             if (builder.Length != 0) builder.Append(' ');
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work)).Append(": ");
             work.CheckCancellation();

@@ -1,4 +1,5 @@
 #nullable enable
+using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
@@ -14,6 +15,29 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
+    public async Task InlineCssomPreservesPendingShorthandAndSameValueSourceWritesReparse()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='box' style='--o:hidden scroll;overflow:var(--o)'></div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "box")!;
+            var declaration = NativeCssDeclarations.Of(runtime.Dom, target);
+            declaration.SetProperty("overflow-x", "visible");
+            CssCascade.ValueOf(CssCascade.Of(target)!, "overflow-y").Should().Be("scroll");
+            target.SetAttribute("id", "box2");
+            CssCascade.ValueOf(CssCascade.Of(target)!, "overflow-y").Should().Be("scroll");
+            var source = target.GetAttribute("style")!;
+            source.Should().NotContain("overflow-y:");
+            target.SetAttribute("style", source);
+            declaration.GetPropertyValue("overflow-y").Should().BeEmpty();
+            return true;
+        });
+    }
+
+    [Test]
     public async Task WarmedGeometryRefreshesForCssomAndNativeStyleSourceChanges()
     {
         await using var browser = new Browser();
@@ -23,8 +47,8 @@ public sealed class NativeCssConsumerTests
         {
             var runtime = PageRuntime.Find(engine)!;
             var document = runtime.Document!;
-            var target = document.GetElementById("box")!;
-            var owner = document.GetElementById("source")!;
+            var target = DomDocumentReads.ById(runtime.Dom, document, "box")!;
+            var owner = DomDocumentReads.ById(runtime.Dom, document, "source")!;
             runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(10);
             var warmed = runtime.Layout.MeasureSizes();
             runtime.Layout.MeasureSizes().Should().BeSameAs(warmed);
@@ -59,8 +83,9 @@ public sealed class NativeCssConsumerTests
         await page.SetContentAsync("<div id='host'></div>");
         await page.RunOnLoopAsync(engine =>
         {
-            var document = PageRuntime.Find(engine)!.Document!;
-            var host = document.GetElementById("host")!;
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var host = DomDocumentReads.ById(runtime.Dom, document, "host")!;
             var shadow = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
             var style = document.CreateElement("style");
             style.AppendChild(document.CreateTextNode("span { opacity:.5; }"));
@@ -87,7 +112,7 @@ public sealed class NativeCssConsumerTests
         {
             var runtime = PageRuntime.Find(engine)!;
             var document = runtime.Document!;
-            var element = document.GetElementById("box")!;
+            var element = DomDocumentReads.ById(runtime.Dom, document, "box")!;
             var retained = new ReadOnlyStyleDeclaration(runtime, element);
             retained.GetPropertyValue("opacity").Should().Be("0.1");
             var tracker = new CssRuleUsageTracker();

@@ -16,12 +16,14 @@ internal sealed class CssValueWork
     }
 
     // Per-read guards share the invocation's polling remainder instead of restarting its budget.
-    internal CssValueWork(CssValueWork parent, Action checkpoint)
+    private CssValueWork(CssValueWork parent, Action checkpoint)
     {
         _cancellationToken = parent.Token;
         _checkpoint = checkpoint;
         _counter = parent._counter;
     }
+
+    internal static CssValueWork Guard(CssValueWork parent, Action checkpoint) => new(parent, checkpoint);
 
     internal void CheckCancellation()
     {
