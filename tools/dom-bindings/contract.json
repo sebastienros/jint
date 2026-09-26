@@ -7814,7 +7814,7 @@
         {
           "DomName": "options",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDataListElement.options\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Options);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDataListElement.options\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomHtmlElementCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.DomHtmlElementCollectionKind.DatalistOptions));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlDataListElement.Options"
@@ -8061,7 +8061,7 @@
         {
           "DomName": "elements",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.elements\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Elements);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.elements\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomHtmlElementCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.DomHtmlElementCollectionKind.FieldsetControls));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFieldSetElement.Elements"
@@ -8093,7 +8093,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFieldSetElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(\"fieldset\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFieldSetElement.Type"
@@ -9014,7 +9014,7 @@
         {
           "DomName": "list",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.list\");\nreturn self.Realm.WrapNodeValue(self.Target.List);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.list\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomInputMembers.List(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlInputElement.List"
@@ -9678,7 +9678,7 @@
         {
           "DomName": "areas",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMapElement.areas\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Areas);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMapElement.areas\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomHtmlElementCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.DomHtmlElementCollectionKind.MapAreas));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMapElement.Areas"
@@ -10613,7 +10613,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(\"output\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlOutputElement.Type"
@@ -14114,7 +14114,7 @@
         {
           "DomName": "activeElement",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.activeElement\");\nreturn self.Realm.WrapNodeValue(self.Target.ActiveElement);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.activeElement\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Events.FocusController.ActiveElement(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IShadowRoot.ActiveElement"
