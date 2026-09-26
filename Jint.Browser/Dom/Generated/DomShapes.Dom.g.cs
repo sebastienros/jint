@@ -2674,7 +2674,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("ShadowRoot.activeElement", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.activeElement");
-                    return self.Realm.WrapNodeValue(self.Target.ActiveElement);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Events.FocusController.ActiveElement(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target));
                 }))
             .Accessor("host",
                 global::Jint.Browser.Dom.DomFailures.Guard("ShadowRoot.host", static (thisObj, args) =>

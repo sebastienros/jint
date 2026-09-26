@@ -8,6 +8,41 @@ namespace Jint.Browser.Dom;
 /// <summary>Input facts that do not require materializing current value or selection state.</summary>
 internal static class DomInputMembers
 {
+    // HTML §4.10.5.3.9: the first matching ID in the ordinary tree must itself be a datalist.
+    internal static Element? List(DomRealm realm, Element input)
+        => List(input, realm.NativeReadCheckpoint, realm.CancellationToken);
+
+    internal static Element? List(Element input, Action<int>? checkpoint, CancellationToken token)
+    {
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
+        var id = work.Attribute(input, "list");
+        if (string.IsNullOrEmpty(id)) { work.Check(); return null; }
+        var type = HtmlInputTypes.Parse(work.Attribute(input, "type"));
+        if (type is not (HtmlInputType.Text or HtmlInputType.Search or HtmlInputType.Tel or HtmlInputType.Url
+            or HtmlInputType.Email or HtmlInputType.Date or HtmlInputType.Month or HtmlInputType.Week
+            or HtmlInputType.Time or HtmlInputType.DateTimeLocal or HtmlInputType.Number or HtmlInputType.Range
+            or HtmlInputType.Color))
+        {
+            work.Check();
+            return null;
+        }
+        var root = work.Root(input);
+        if (root is Element element && work.Equal(work.Attribute(element, "id"), id))
+        {
+            work.Check();
+            return element is { NamespaceUri: Namespaces.Html, LocalName: "datalist" } ? element : null;
+        }
+        foreach (var candidate in NodeTraversal.DescendantElements(root, work.Check, token))
+        {
+            if (!work.Equal(work.Attribute(candidate, "id"), id)) continue;
+            work.Check();
+            return candidate is { NamespaceUri: Namespaces.Html, LocalName: "datalist" } ? candidate : null;
+        }
+        work.Check();
+        return null;
+    }
+
     private static HtmlInputValueState ValueState(DomRealm realm, Element input)
     {
         realm.Engine.Constraints.Check();

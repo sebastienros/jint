@@ -9014,7 +9014,7 @@
         {
           "DomName": "list",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.list\");\nreturn self.Realm.WrapNodeValue(self.Target.List);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.list\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomInputMembers.List(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlInputElement.List"
@@ -14114,7 +14114,7 @@
         {
           "DomName": "activeElement",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.activeElement\");\nreturn self.Realm.WrapNodeValue(self.Target.ActiveElement);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.activeElement\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Events.FocusController.ActiveElement(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IShadowRoot.ActiveElement"

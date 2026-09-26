@@ -2779,7 +2779,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.list", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.list");
-                    return self.Realm.WrapNodeValue(self.Target.List);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomInputMembers.List(self.Realm, self.Target));
                 }))
             .Accessor("max",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.max", static (thisObj, args) =>
