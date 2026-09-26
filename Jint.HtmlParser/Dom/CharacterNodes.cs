@@ -27,6 +27,7 @@ public sealed class Text : Node
             ArgumentNullException.ThrowIfNull(value);
             var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
             var oldValue = matches?.NeedsOldValue == true ? Data : null;
+            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
             _data = value;
             _parsedStorage = null;
             _parsedLength = 0;
@@ -87,6 +88,7 @@ public sealed class Text : Node
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? Data : null;
 
+        LiveTraversalTracking.ReplaceData(this, (uint) oldLength, 0, (uint) data.Length);
         _parsedStorage = storage;
         _parsedLength = newLength;
         _data = string.Empty;
@@ -115,6 +117,7 @@ public sealed class Comment : Node
             ArgumentNullException.ThrowIfNull(value);
             var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
             var oldValue = matches?.NeedsOldValue == true ? _data : null;
+            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
             _data = value;
             OwnerDocument!.MarkMutation();
             if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
@@ -143,6 +146,7 @@ public sealed class CDataSection : Node
             ArgumentNullException.ThrowIfNull(value);
             var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
             var oldValue = matches?.NeedsOldValue == true ? _data : null;
+            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
             _data = value;
             OwnerDocument!.MarkMutation();
             if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
@@ -266,6 +270,7 @@ public sealed class ProcessingInstruction : Node
             ArgumentNullException.ThrowIfNull(value);
             var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
             var oldValue = matches?.NeedsOldValue == true ? _data : null;
+            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
             _data = value;
             OwnerDocument!.MarkMutation();
             if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);

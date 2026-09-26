@@ -26,6 +26,8 @@ public abstract partial class Node
     internal WeakReference<Element>? ManualSlot;
     internal ShadowRoot? TreeShadowRoot;
 
+    internal EndpointBucket? RangeEndpoints;
+
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 
     public abstract NodeType NodeType { get; }
@@ -56,6 +58,7 @@ public abstract partial class Node
     // assignment steps without repeating public ancestor validation.
     internal void AppendClonedChild(Node child)
     {
+        LiveTraversalTracking.Insert(this, null, 1);
         LinkBefore(child, null);
         SlotAssignment.AfterInsertion(this, child, null);
         HtmlFormAssociation.Inserted(child);
@@ -151,11 +154,12 @@ public abstract partial class Node
             }
 
             MutationTracking.QueueChildList(child, (IReadOnlyList<Node>?) null, incoming.Many, null, null);
+            LiveTraversalTracking.Insert(this, referenceChild, (uint) incoming.Count);
             for (var i = 0; i < incoming.Count; i++)
             {
                 var node = incoming[i];
                 Adopt(node, destinationDocument);
-                InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true);
+                InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true, suppressLiveInsertion: true);
             }
 
             HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
@@ -223,11 +227,12 @@ public abstract partial class Node
                 MutationTracking.QueueChildList(child, (IReadOnlyList<Node>?) null, incoming.Many, null, null);
             }
 
+            LiveTraversalTracking.Insert(this, anchor, (uint) incoming.Count);
             for (var i = 0; i < incoming.Count; i++)
             {
                 var node = incoming[i];
                 Adopt(node, destinationDocument);
-                InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true);
+                InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true, suppressLiveInsertion: true);
             }
 
             if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
@@ -516,6 +521,7 @@ public abstract partial class Node
             return;
         }
 
+        LiveTraversalTracking.Remove(node, parent);
         var formRemoval = HtmlFormAssociation.BeforeRemoval(node, parent);
         var previousSibling = node.PreviousSibling;
         var nextSibling = node.NextSibling;
@@ -581,8 +587,9 @@ public abstract partial class Node
     }
 
     private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false,
-        bool suppressSemantic = false)
+        bool suppressSemantic = false, bool suppressLiveInsertion = false)
     {
+        if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
         LinkBefore(node, referenceChild);
         (this as Document ?? _ownerDocument!).MarkMutation();
@@ -629,6 +636,7 @@ public abstract partial class Node
             {
                 var oldDocument = current.Node._ownerDocument;
                 current.Node._ownerDocument = current.Owner;
+                LiveTraversalTracking.Rehome(current.Node.RangeEndpoints, current.Owner);
                 if (current.Node.MutationRegistrations is not null)
                 {
                     current.Owner.MarkMutationRegistrationsPresent();

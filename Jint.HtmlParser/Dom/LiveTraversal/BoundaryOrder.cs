@@ -13,7 +13,7 @@ internal static class BoundaryOrder
 
         return identity.Node switch
         {
-            Text text => (uint) text.Data.Length,
+            Text text => (uint) text.DataLength,
             CDataSection cdata => (uint) cdata.Data.Length,
             Comment comment => (uint) comment.Data.Length,
             ProcessingInstruction instruction => (uint) instruction.Data.Length,
