@@ -69,6 +69,8 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
+        if (entry.Grammar == CssPropertyGrammar.Cursor)
+            return CssCursorPropertyParser.Parse(parts, work);
         if (entry.Grammar == CssPropertyGrammar.BackgroundClip)
             return CssBackgroundClipPropertyParser.Parse(parts, work);
         if (entry.Grammar == CssPropertyGrammar.TransformList)
