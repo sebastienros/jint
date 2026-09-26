@@ -1,181 +1,143 @@
-# Jint.HtmlParser pause and resume checkpoint
+# Jint.HtmlParser resume checkpoint
 
-Paused at the user's request on 2026-09-25 to conserve the remaining token budget.
-The full goal is **not complete**. This checkpoint supersedes the earlier September 25 pause;
-Git history retains its older state. Resume the full original objective, not only finite slices.
+The user requested a token-budget pause, then asked to finalize the six retained chats and integrate
+their existing changes. That finite finalization pass is **complete**; all six chats are archived. The **original full project is
+not complete** and remains a later effort. Do not mistake completed implementation slices or archived
+chats for production AngleSharp replacement or full conformance/performance acceptance.
 
-## Verified common state
+## Common state
 
 - Worktree `/Users/sebastienros/.codex/worktrees/bd4c/jint`, branch `codex/html-parser-integration`.
-- Production implementation checkpoint **`e4e72d0e9`**. Subsequent checkpoint changes are documentation.
-  No new worker implementation was integrated during this wrap-up.
-- Latest fresh Release non-corpus parser suite: **3,022 passed, zero failures/skips**, net8/net10 combined.
-  Log `/private/tmp/jint-framesets-integrated.log`. Production code has not changed since this run.
-- Latest common XML corpus: **4,016 total, 3,754 passed, 262 expected debt failures, zero skips**.
-  Per framework: 1,820 required passes, 127 pending required cases, three optional observed,
-  zero adapter debt, 24 verified optional policies, zero harness failures/mismatches;
-  OUTPUT 344 compared/42 pending and 52 no-fetch alternatives.
-  Log `/private/tmp/jint-weekly-policy-guard-integrated.log`.
-  Root classified every failure: 254 pending required cases + six optional observed + two census.
-  Worker-only newer policies are not common acceptance evidence.
-- Browser still uses AngleSharp. Fresh pause-time Release Browser build passed net8/net10 with zero
-  warnings/errors: `/private/tmp/jint-html-parser-final-pause-browser-build.log`.
-- No PRs or comparative timings; no speedup claim. Primitive benchmarks remain net10 only on an
-  idle machine, with equivalent native/AngleSharp work. An implemented harness is not a result.
-- Forty-seven completed tasks are archived; forty-three worktrees were removed. Four clean completed
-  checkouts (`ff28`, `a768`, `ba36`, `ad95`) remain pending managed cleanup: `list_artifacts` exposes
-  no attached identity in root or worker chats. Do not bypass managed archival with shell deletion.
-- Active implementation tasks were asked to finish only their bounded checkpoint, commit, and stop.
-  Unmerged and unfinished worktrees are retained. Do not dispatch textarea or another feature now.
+- Final production implementation checkpoint: **`6d55e76ed`**; later finalization commits update docs.
+- Browser still uses AngleSharp. No PRs or benchmark timings were created. Fresh common Browser
+  Release build passed both TFMs with zero warnings/errors: `/private/tmp/jint-finalize-browser-build.log`.
+- Reviewed HTML creation metadata is integrated as `ac2583318` (source `ef64460e2`).
+- Reviewed CSS substitution analysis is integrated through `9fec0c126` (source full chain through
+  `2896d3e3d`). Execution and consuming-property validity remain separate work.
+- Source-reviewed XML optional policies are integrated as `3169c483b` (source `dd367c16a`).
+  All three complete 6,283-node projections matched the independent source packet; all previous
+  policies are unchanged. No production XML parser or conformance exclusions were changed.
+- Latest common non-corpus Release parser tests: **3,270 passed**, zero failures/skips, net8/net10.
+  `/private/tmp/jint-finalize-all-integrated.log`.
+- Latest common XML corpus: **4,022 total, 3,766 passed, 256 expected debt failures, zero skips**.
+  All failures are 127 pending required cases per TFM plus two census assertions. There are no
+  harness/mismatch/optional-review failures. Optional policies: 27 verified, zero observed/adapter debt.
+  OUTPUT remains 344 compared/42 pending, with 52 no-fetch alternatives.
+  `/private/tmp/jint-finalize-xml-corpus.log`. These failures remain visible acceptance debt.
+- Benchmark common correctness checks passed: 12 baseline fixtures; four native/AngleSharp XML/SVG
+  comparisons and corruption probes; exhaustive primitive comparisons, all fresh Release net10.
+  `/private/tmp/jint-finalize-benchmark-validation.log`. No timing or speedup evidence is implied.
+- Exponential math source `f33b09c67` + `aa89a1743` + `83384fe13` is integrated through `6d55e76ed`
+  after independent review/corrections. It fixes false finite hypot overflow, folded default log base
+  omission and allocation cancellation checks. The finite math census is now 21 implemented functions.
+  Independent 2,197-case sweeps per framework found no overflow in 1,177 representable cases. The
+  106 beyond-MaxValue cases saturating instead of exact-reference infinity are an accepted binary64
+  precision limitation, documented in the reviewed design. No correctly-rounded claim.
 
-The objective remains HTML/XML/SVG/CSS parsing, mutable native DOM and required Browser semantics,
-complete production AngleSharp replacement, correctness acceptance and equivalent paired benchmarks.
-The architecture, dependency inventory and [implementation record](html-parser-progress.md) preserve
-full completion gates. The current library is a partial implementation; Browser remains functional
-through its existing dependency while migration is unfinished.
+## Chat completion and cleanup
 
-## Retained tasks
+Architecture audit found all 29 existing design commits patch-equivalent in common. Benchmark audit
+found all corpus/comparison implementation deliverables already integrated. Their further measurements
+and full-project design/implementation work are parent-project obligations, not unfinished branch edits.
+The XML harness chat is likewise finalized without pretending its remaining acceptance debt is resolved.
 
-Directories are under `/Users/sebastienros/.codex/worktrees/`, ending in `/jint`.
-Recheck actual HEAD, clean state and chat status before resuming. A worker checkpoint is not review
-approval or evidence of passing common tests. Keep these unmerged/unfinished tasks open.
+All six retained chats are finalized and archived; no unmerged task-owned implementation remains.
+Fifty-three implementation chats are now archived, forty-three checkouts removed. Ten completed clean
+checkouts remain because root/owner `list_artifacts` returns no managed worktree identity:
 
-| Task | Task ID | Directory / branch | Checkpoint and next action |
-| --- | --- | --- | --- |
-| V0c1 substitutions | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | `4983`, `codex/css-substitution-v0c1` | `2896d3e3d`; final provisional-wrapper correction needs independent re-review; full chain below |
-| V0b3c exponential math | `01a0db10-f9d2-7501-872f-fcfe719fdbbb` | `4cb4`, `codex/css-math-exponential-v0b3c` | `f33b09c67`; clean; worker reports 564 focused/3,042 non-corpus tests combined; all five functions need independent review |
-| HTML creation-time IsValue | `01a0db13-f920-7580-8392-b5798ebd7d93` | `aebc`, `codex/html-element-is-value` | `ef64460e2`; clean, worker reports 1,514 non-corpus tests per TFM; review then integrate |
-| XML corpus | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | `b0f9`, `codex/xml-conformance-notations` | `dd367c16a`; compare all new pr-xml policy expectations with independently derived packet, then integrate/test |
-| Architecture | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | `dc58`, `codex/html-parser-design` | `24321b557`; reviewed numeric design integrated; numeric runtime remains undispatched |
-| Benchmarks | `01a0ceee-7b09-7513-b507-a5c412eb4518` | `b0b0`, `codex/html-parser-benchmark-xml` | `00c7b7ec1`; harness integrated; measurements unfinished |
+| Checkout | Chat ID | Completed slice |
+| --- | --- | --- |
+| `ff28` | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | XPath |
+| `a768` | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Native/XML IsValue |
+| `ba36` | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Trigonometry |
+| `ad95` | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Framesets |
+| `dc58` | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Architecture contracts |
+| `aebc` | `01a0db13-f920-7580-8392-b5798ebd7d93` | HTML IsValue |
+| `4983` | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | CSS substitution analysis |
+| `b0f9` | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | XML corpus harness/policies |
+| `b0b0` | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Benchmark corpus/harness |
+| `4cb4` | `01a0db10-f9d2-7501-872f-fcfe719fdbbb` | Exponential math |
 
-Use **GPT-6 Astra High** for decisions, plans and reviews; **GPT-6 Sol High** dedicated local-worktree
-chats for implementation. Reuse retained tasks and preserve exclusive file ownership. Merge only after
-review and fresh relevant Release common checks, then verify clean/idle/patch equivalence before
-archiving the task and its managed worktree. Do not create PRs without the user's request.
+Directories are `/Users/sebastienros/.codex/worktrees/<checkout>/jint`. Use managed archival when
+identities become available; do not bypass it with shell deletion. App computer-use access was also
+denied, so do not attempt a UI workaround. Git branches and chat history remain recoverable.
 
-## Completed since the previous pause
+No implementation/review task remains running. No new feature chats were started during finalization.
+The larger project remains paused for a later effort; its goal must not be marked complete.
 
-- XPath full source chain through `50bfc1350` integrated through `c131b6a9f`. Cancellation now polls
-  within arbitrarily long legal following-axis whitespace; independent re-review clear.
-- Native/XML immutable IsValue source `eeb5b0c1a` integrated as `190f59aa9`.
-  Public factories keep null; XML captures accepted null-namespace lowercase is attributes;
-  clones/import preserve the creation value and adoption preserves identity.
-- Template adoption source `a0ab062cc` + `326513ea4` integrated as `4f971ae0f` + `f3e6d0c6a`.
-  **Inner recreation uses the stack common ancestor** (HTML step 13.6); **final recreation uses the
-  furthest block** (step 17). Do not reinstate the earlier blanket inert-owner recommendation.
-  Native reparenting between parser turns makes these distinct destinations observable.
-- Trig source `db97abc02`, `3f7a25b58`, `6c552a0fd` integrated through `d43915da9`.
-  Final correction preserves exact turn/grad quarter turns before canonical conversion; no epsilon.
-  Astra re-review included all special-value matrix entries and 3,656 parse-level probes per TFM.
-- Framesets source `150faca00`, `7cb1f9922`, `95519f45d` integrated through `e4e72d0e9`.
-  Reviewed/tested/archived. TreeConstruction ownership transferred explicitly to HTML IsValue task.
-- Japanese exact-six prepared inputs source `185837889` integrated as `2a41e82a4`; explicit common
-  preparation and integrity checks passed. Three weekly source policies `3d6926625` and exact-key
-  guardian correction `7ca8ae471` integrated as `fa6a79fd4` and `cca66f703`.
-- Numeric design source `d1cfff5b9`, `24321b557` integrated as `9eeecd86e`, `5b6253947`, with approval
-  clarification `51c6c3120`. Root verified pinned WPT huge-local empty-result assertion independently.
+## Continuing the original project
 
-## Review handoffs
+Use GPT-6 Astra High for design/planning/reviews and GPT-6 Sol High dedicated local-worktree chats
+for implementation. Review, integrate, and test in common before archiving finalized chats/worktrees.
+No PRs until requested. The [implementation record](html-parser-progress.md), dependency inventory and
+reviewed design documents preserve the full objective and finite dispatches.
 
-### CSS substitution analysis
+Required future work includes HTML foreign content/fragments/patch-shadow branches, HTML serialization
+and public facades, all remaining form/input state families, CSS substitution execution/colors/property
+registry/CSSOM/cascade, Browser bindings/generator/events/scheduling and complete production AngleSharp
+cutover, full conformance/consumer verification, and equivalent paired performance acceptance.
 
-Unmerged chain: `36bac02df`, `fdf2acd46`, `69d73b681`, `c36116fa6`, `2896d3e3d`.
-Astra first review found argument-boundary declaration-value restrictions, free-form wrapper handling,
-nested early-spread discovery and reserved env-name metadata defects. `c36116fa6` addresses those.
-Second review found one remaining provisional-wrapper defect: `var(...var(--args),{red;blue})` and
-`{!}` must remain Deferred when the immediate header spread can supply an effective comma.
-`2896d3e3d` is the owner correction, not yet independently re-reviewed. Worker reports 84 focused
-and 1,449 non-corpus cases per TFM passing, zero build warnings. Nested spreads unable to change the
-outer comma must retain malformed-wrapper rejection. No substitution execution/property-validity or
-WPT pass claim. Reuse reviewer `/root/substitution_review` if still available.
+Completed foundation invariants to preserve:
 
-### Exponential math
+- HTML adoption inner recreation allocates through the stack common ancestor (step 13.6); final
+  recreation uses the furthest block (step 17). The earlier blanket inert-owner recommendation was
+  corrected. Native reparenting between parser turns makes these distinct destinations observable.
+- Immutable IsValue captures accepted creation-time attributes; clones/import preserve it, adoption
+  preserves identity, and live attribute changes/merged attributes never rewrite it. Future foreign
+  allocations must pass it too. X3c serialization now needs the completed metadata contract preserved.
+- Exact turn/grad quarter turns must survive canonical conversion without epsilon matching.
+- Source-preserving substitution analysis is not substitution execution or property validation.
+- The three pr-xml originals contain `<!ENTITY lt "<">`, an ordinary XML 4.6 error, not a WFC.
+  Explicit optional recovery preserves mandatory predefined lt semantics per XML 1.2/4.6. Do not call
+  sources error-free, generalize to blanket DTD lenience or count optional cases as required passes.
 
-Implements pow/sqrt/hypot/log/exp only. Reviewed dispatch is in `html-parser-css-math-followups.md`.
-Log policy order: NaN, invalid base (negative or one), negative value, explicit value endpoints, then
-ln(value)/ln(base); default base e. Bases signed zero/infinity use the documented quotient completion.
-Pow NaN dominates exponent zero; large odd-integer detection cannot cast to Int64. Hypot uses scaled
-O(n) work and NaN wins infinity. Preserve signed sqrt zero and exp endpoints. Function census should
-be 21 implemented/zero pending; that does not mean CSS is complete. Fixtures are authored, not WPT.
-Review all code/edge cases/cancellation independently before common integration. Source checkpoint
-is `f33b09c67`; root verified its direct parent is common `d43915da9` (worker final’s different base
-was stale). All retained worker checkouts were clean when inspected at this pause.
+Numeric input design is approved in `html-parser-input-numeric-policy.md`: exact shortest-decimal
+remainders and uncapped finite-double calendar conversion. The 1,024-bit bound applies only to calendar
+integers; remainder alignment can exceed 2,098 bits. Root verified the pinned WPT huge-local empty-result
+assertion; keep the documented spec/WPT discrepancy explicit. No numeric runtime task was dispatched.
 
-### HTML IsValue
+Textarea D7b1c preflight is complete, no runtime implementation dispatched. Before dispatch, clarify the
+reviewed `html-parser-text-control-state.md` contract with these points:
 
-Native/XML half is already common. `ef64460e2` captures accepted token metadata and preserves immutable
-formatting-entry values through reconstruction/adoption, with split-input/quota/live-edit tests.
-Owns `HtmlTreeBuilder.cs`, `.Formatting.cs`, `.AdoptionAgency.cs`, and `HtmlIsValueTests.cs` only.
-Implied elements remain null and later html/body attribute merges cannot change creation metadata.
-Preserve the distinct adoption allocation destinations above. Future foreign-content allocations must
-pass metadata too. X3c HTML serialization requires both halves reviewed/integrated.
+- Stable lazy `HtmlElementState.TextArea`/`HtmlTextAreaState` only; defer Input/general facade to b1d.
+- Native file scope: textarea/selection/mutation helpers plus HtmlElementState, Node, CharacterNodes,
+  NodeCloner and narrow Element access. Parser lifecycle/notifications stay in b1e.
+- Semantic children-changed hooks are independent of mutation-record suppression. Fragment destination
+  insertion hooks once after the entire sequence; individual removals retain intermediate steps.
+  Direct Comment/PI data replacement also hooks, although only Text/CDATA contributes child text.
+- Copy raw/dirty state before cloning descendants. Shallow clean clones initially retain copied raw
+  text despite an empty default; their next child change resumes child-derived projection. Adoption
+  retains identity. Parsed append invalidates in O(1) without flattening or reading Text.Data.
+- Separate automatic clamping and explicit selection steps for later notifications. Preserve destructive
+  intermediate clamps; avoid quadratic replace-all behavior. No placeholder event transport.
 
-### Three pr-xml optional policies
+## Evidence and validation
 
-Source packet is preserved in ignored common `artifacts/html-parser-review/pr-xml/` as well as
-`/private/tmp/jint-pr-xml-source-review/`: `README.md`, `review-packet.json`, `derive.py`,
-three `pr-xml-{euc-jp,iso-2022-jp,shift_jis}.projection.json` files and `unread-resource.json`.
-These private corpus-derived files are deliberately not committed or published. Preserve them before
-any future common-worktree archival, because managed snapshots exclude ignored files.
-Root independently parsed each original verified decoded string using Python minidom and matched
-all 6,283 projection nodes: 2,252 elements, 3,899 text, 116 comments, 14 CDATA, one PI, one doctype;
-1,105 specified attributes, empty notations. Bodies and projections match across encodings.
-Sole unread ExternalSubset: name empty, PublicId null, SystemId `spec.dtd`, original UTF-16 offsets
-41/46/44 respectively; doctype PublicId is empty string. Pretty-JSON projection SHA
-`ac02cb4c0267f7217734d092eb7dee58710408dedfe92e998150489c9034467c` is NOT harness compact-JSON digest.
+Private source-review packet is retained in ignored common `artifacts/html-parser-review/pr-xml/`
+and `/private/tmp/jint-pr-xml-source-review/`. It contains original-source derivation, pins, omissions,
+complete expected projections and citations. Do not commit/publish corpus-derived private artifacts.
+The independent exponential review packet is also retained in ignored
+`artifacts/html-parser-review/exponential/`, including generators, exact reference vectors and results.
+Preserve needed ignored files before any common-worktree archival; managed snapshots exclude them.
 
-All three originals contain `<!ENTITY lt "<">`, violating XML 4.6's declaration prescription
-(an ordinary error, not a well-formedness constraint). Root explicitly approved exact optional recovery
-that preserves mandatory predefined lt behavior per XML 1.2/4.6. Do not call the sources error-free,
-generalize this to broad DTD lenience, or count these rows as required conformance passes.
-Review `dd367c16a` against every packet field, preserve previous policy entries, update the exact-six
-prepared-input guardian to these three Verified policies, and retain hash/integrity failures.
-Expected corpus change only: optional observed three→zero, verified 24→27; required 127 and OUTPUT42
-stay pending. Worker reports 4,022 total/3,766 passing/256 expected failures; root common run is pending.
+Pinned archive: `Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz`, SHA
+`9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f`.
+Explicit decoded preparation when needed:
+`python3 Jint.Tests.HtmlParser/Xml/Conformance/Tools/import_corpus.py prepare-decoded`.
+Missing corpus/prepared inputs must fail visibly, never become silent skips.
 
-### Later dispatches, not started
-
-Numeric policy uses exact shortest-decimal remainders and uncapped finite-double calendar conversion.
-The 1,024-bit bound applies only to calendar integers; decimal remainder arithmetic can exceed
-2,098 bits. No numeric runtime task has been created.
-
-Textarea D7b1c preflight is complete, with no implementation dispatched. Use a stable lazy
-`HtmlElementState.TextArea`/`HtmlTextAreaState` slot; defer Input/general HtmlTextControl to b1d.
-Native file scope: new textarea/selection/mutation helpers plus HtmlElementState, Node, CharacterNodes,
-NodeCloner and narrow Element access. Keep parser lifecycle/notifications in b1e, no TreeConstruction
-ownership overlap. Before dispatch, clarify these reviewed details in the source contract:
-
-- Semantic children-changed hooks run independently of mutation-record suppression. Destination fragment
-  insertion hooks once after the entire sequence; individual removals keep specified intermediate steps.
-  Direct Comment/PI data replacement also triggers the hook although only Text/CDATA contributes text.
-- Copy raw/dirty state before cloning descendants. A shallow clean clone initially retains copied raw
-  text despite an empty default; its next child change resumes child-derived projection. Adopt keeps identity.
-- Parsed append invalidates in O(1) without reading Text.Data or flattening/normalizing prefixes.
-  Preserve destructive intermediate selection clamps; avoid quadratic replace-all behavior.
-- Centralize automatic clamping and explicit selection operations separately for future notifications;
-  add no placeholder event transport. Parser completion's Reset seam remains future b1e.
-
-Other required work remains: HTML foreign content/fragments/patch-shadow branches, serialization/public
-facades, all input-state families, CSS execution/colors/property registry/CSSOM/cascade, Browser bindings,
-eventing/scheduling/AngleSharp cutover, full conformance/consumer verification and paired benchmarks.
-
-## Validation and tooling
-
-Always fresh Release, never `--no-build`; use `git -c core.fsmonitor=false` for Git operations.
+Always fresh Release, never `--no-build`; Git uses `git -c core.fsmonitor=false`.
 
 ```sh
 MSBUILDDISABLENODEREUSE=1 dotnet test --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -c Release -p:RestoreSources=https://api.nuget.org/v3/index.json -p:BuildInParallel=false --filter 'FullyQualifiedName!~Xml.Conformance'
 MSBUILDDISABLENODEREUSE=1 dotnet test --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -c Release -p:RestoreSources=https://api.nuget.org/v3/index.json -p:BuildInParallel=false --filter 'FullyQualifiedName~Xml.Conformance'
 ```
 
-Pinned archive common cache: `Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz`, SHA
-`9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f`.
-Explicit decoded preparation when needed:
-`python3 Jint.Tests.HtmlParser/Xml/Conformance/Tools/import_corpus.py prepare-decoded`.
-Do not turn missing corpus/prepared inputs into silent skips or claim a green full corpus.
+Benchmarks retain normal gate configuration and verified idle-machine requirements, with net10-only
+primitive runs, equivalent AngleSharp/native work, Op/s and allocations. No short-job claims or idle
+bypasses. HTML/CSS comparison needs matching complete native APIs; tokenizer work is not equal to DOM
+construction. Exact commands and comparison limitations are in both benchmark corpus READMEs.
 
-App list_threads can omit newer tasks; use exact IDs above, wait_threads cursors, and inspect retained
-worktrees instead of recreating tasks. Worker cross-task reports may be automatically rejected; read
-local final/status rather than ask workers to retry rejected sends. Managed cleanup currently lacks
-artifact identities; app computer-use access was denied too, so do not attempt a UI workaround.
+App list_threads may omit newer/archived tasks. Use recorded IDs and wait_threads for task state;
+do not recreate missing-looking chats. Worker cross-chat reports can be automatically rejected; read
+local final/status rather than request retries. The original large goal remains incomplete.

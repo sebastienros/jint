@@ -231,6 +231,16 @@ squares in O(arguments) work without overflow for representable results, and sca
 for NaN before returning infinity. Do not expand exponentiation into repeated multiplication.
 Exp preserves its specified infinity endpoints.
 
+Reviewed implementation precision note (2026-09-25): power-of-two scaling with compensated square
+accumulation prevents the observed spurious overflow for mathematically representable Hypot results.
+Near the overflow midpoint, some mathematical norms already exceeding Double.MaxValue can round to
+MaxValue through the square/square-root steps instead of exact-reference infinity. This bounded
+binary64 saturation is accepted under the finite-precision policy above; this kernel promises neither
+correctly rounded results nor exact overflow-boundary classification. Ordinary clearly overflowing
+inputs still produce infinity. Independent review covers 2,197 direct/parsed cases per supported TFM,
+including 1,177 mathematically representable cases with no spurious overflow; this is authored numerical
+evidence, not WPT credit or a performance result.
+
 ### V0b3c Log decision: reviewed 2026-09-25
 
 The current [Values 4 §10.5.1](https://drafts.csswg.org/css-values-4/#exponent-infinities)

@@ -2,9 +2,41 @@
 
 ## Scope and workflow
 
-**Paused again at the user’s request on September 25.** The updated [resume checkpoint](html-parser-resume.md)
-is authoritative for current commits, retained tasks, review handoffs and validation. The full goal
-remains incomplete; Browser still uses AngleSharp. No new features should start until resumed.
+**All six retained chats finalized at the user’s request on September 25.** The original project remains
+incomplete; Browser still uses AngleSharp. This pass integrated the already-started slices and archived their implementation chats, preserving
+future work and acceptance debt in the common worktree. No new feature work was started.
+
+### Retained-chat finalization
+
+- HTML creation metadata source `ef64460e2` passed independent Astra review and is integrated as
+  `ac2583318`. Both native/XML and current HTML creation paths now preserve the immutable IsValue.
+- CSS substitution analysis full chain through `2896d3e3d` passed independent final re-review and is
+  integrated through `9fec0c126`. This is analysis only; substitution execution/property validity remain.
+- XML source `dd367c16a` is integrated as `3169c483b`. Root compared every one of the three 6,283-node
+  expected projections against the independent source packet, checked all pins/omissions/policy wording,
+  and verified all 24 previous policy entries are unchanged. Fresh common corpus: **4,022 total,
+  3,766 passed, 256 expected debt failures, zero skips**. All failures are 254 pending required rows
+  plus two census checks. Optional policies are now 27 verified/zero observed; required debt remains
+  127 per TFM and OUTPUT remains 344 compared/42 pending. `/private/tmp/jint-finalize-xml-corpus.log`.
+- Fresh common Release non-corpus tests after those integrations: **3,214/3,214**, zero failures/skips,
+  net8/net10 combined: `/private/tmp/jint-finalize-metadata-substitution.log`.
+- Architecture audit found all 29 existing deliverable commits patch-equivalent in common; no new
+  design work was needed. Architecture, HTML metadata, substitution and XML corpus chats are archived.
+  Full XML acceptance remains a parent-project obligation; closing its harness chat does not erase debt.
+- Exponential source `f33b09c67`, `aa89a1743`, `83384fe13` integrated as `41cb071a4`, `9da2e4396`,
+  `6d55e76ed` after independent review and both correction rounds. Functions pow/sqrt/hypot/log/exp
+  complete the finite 21-function census. This does not complete CSS. Independent 2,197-case sweeps
+  per TFM have no spurious overflow in 1,177 representable cases; exact-overflow-edge saturation for
+  106 beyond-MaxValue cases is an explicitly accepted binary64 precision limitation. The packet is
+  retained in ignored `artifacts/html-parser-review/exponential/`; no correctly-rounded claim.
+  Fresh common Release non-corpus suite: **3,270/3,270**, zero failures/skips, net8/net10 combined:
+  `/private/tmp/jint-finalize-all-integrated.log`. Math source/test trees match the reviewed worker.
+  Task archived. Fresh common Browser Release build passed both TFMs, zero warnings/errors:
+  `/private/tmp/jint-finalize-browser-build.log`.
+- Benchmark harness/source audit found no unmerged work. Fresh common Release correctness checks passed
+  all 12 baseline fixtures, four native/AngleSharp XML/SVG fixtures with corruption probes, and exhaustive
+  primitive comparisons. `/private/tmp/jint-finalize-benchmark-validation.log`. Task archived. Timings
+  and full HTML/CSS/Browser comparison remain project-level acceptance work; no speedup claim.
 
 ### Latest resumed integrations
 
@@ -73,8 +105,9 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Forty-seven completed tasks have now been archived; forty-three worktrees are gone.
-  XPath `ff28`, native/XML IsValue `a768`, trig `ba36` and framesets `ad95` remain pending managed cleanup.
+  Fifty-three completed tasks have now been archived; forty-three worktrees are gone.
+  Ten clean completed checkouts remain pending managed cleanup because attached identities are absent:
+  `ff28`, `a768`, `ba36`, `ad95`, `dc58`, `aebc`, `4983`, `b0f9`, `b0b0` and `4cb4`.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -82,8 +115,8 @@ the earlier repository direction to retain AngleSharp.
 
 | Task | Identity | State |
 | --- | --- | --- |
-| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed contracts and Markdig-inspired primitive benchmarks integrated; timing pending |
-| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed XML/SVG comparison integrated; measurements pending |
+| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | All existing design deliverables integrated; task archived; managed cleanup pending |
+| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Existing corpus/comparison harness integrated and correctness-validated; archived; timings remain parent acceptance work |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated; archived, worktree removed |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass; archived, worktree removed |
 | H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated; archived, worktree removed |
@@ -105,7 +138,7 @@ the earlier repository direction to retain AngleSharp.
 | H6b adoption agency | `01a0cfd9-5ae3-7db1-bb26-d25650617b85` | Reviewed corrections integrated and tested; archived, worktree removed |
 | H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated; archived, worktree removed |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed mutation and PI corrections integrated; archived, worktree removed |
-| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
+| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Existing harness/policies integrated and tested; task archived; remaining acceptance debt owned by parent |
 | Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Metadata, parser population and reviewed SCF output integrated; archived, worktree removed |
 | D6s1 native shadow root ownership | `01a0cfae-7f75-7c72-bc9f-c9f06fccb468` | Reviewed roots/ownership and API snapshots integrated; archived, worktree removed |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated; archived, worktree removed |
@@ -134,9 +167,9 @@ the earlier repository direction to retain AngleSharp.
 | H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Reviewed/integrated through e4e72d0e9; tested/archived; managed cleanup pending |
 | Native/XML creation-time IsValue | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Reviewed, integrated, tested; archived; managed checkout cleanup pending |
 | V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Reviewed/integrated through d43915da9; tested/archived; managed cleanup pending |
-| V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Checkpoint 2896d3e3d retained in 4983; final correction re-review pending |
-| V0b3c CSS exponential math | `01a0db10-f9d2-7501-872f-fcfe719fdbbb` | Clean checkpoint f33b09c67 in 4cb4; independent review/integration pending |
-| HTML creation-time IsValue | `01a0db13-f920-7580-8392-b5798ebd7d93` | Clean checkpoint ef64460e2 in aebc; independent review/integration pending |
+| V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Reviewed/integrated through9fec0c126; tested/archived; managed cleanup pending |
+| V0b3c CSS exponential math | `01a0db10-f9d2-7501-872f-fcfe719fdbbb` | Reviewed/corrected/integrated through6d55e76ed; tested/archived; managed cleanup pending |
+| HTML creation-time IsValue | `01a0db13-f920-7580-8392-b5798ebd7d93` | Reviewed/integrated ac2583318; tested/archived; managed cleanup pending |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
