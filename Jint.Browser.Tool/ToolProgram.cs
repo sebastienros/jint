@@ -125,7 +125,7 @@ internal static class ToolProgram
 
     private static void PrintHelp(TextWriter output)
     {
-        output.WriteLine($"jint-browser {Version} - a headless browser on Jint and AngleSharp");
+        output.WriteLine($"jint-browser {Version} - a headless browser on Jint and Jint.HtmlParser");
         output.WriteLine();
         output.WriteLine("Usage: jint-browser <command> [options]");
         output.WriteLine();

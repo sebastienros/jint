@@ -26,7 +26,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
     <!-- Do not assert that the browser library is generally trim-safe. The closed native tool is
-         published and exercised separately, including its AngleSharp, CDP and MCP paths. -->
+         published and exercised separately, including its native parser, CDP and MCP paths. -->
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
 
