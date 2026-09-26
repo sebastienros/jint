@@ -1,6 +1,7 @@
 using Jint.Browser.Dom;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Styling;
@@ -9,6 +10,13 @@ namespace Jint.Browser.Styling;
 internal static class NativeCssBindings
 {
     internal static CssValueWork Work(DomRealm realm) => new(realm.CancellationToken, realm.Engine.Constraints.Check);
+    internal static CssStyleSheet Reconcile(DomRealm realm, CssStyleSheet sheet)
+    {
+        if (sheet.Attachment.OwnerNode is Element owner) NativeCssStyleSheets.SheetOf(realm, owner);
+        return sheet;
+    }
+    internal static CssRuleList Rules(DomRealm realm, CssStyleSheet sheet) => Reconcile(realm, sheet).Rules;
+    internal static string CssText(DomRealm realm, CssRule rule) => CssRuleSerializer.Serialize(rule, Work(realm));
     internal static string? Href(CssStyleSheet sheet) => sheet.Attachment.OwnerNode is Element { LocalName: "style" }
         ? null : sheet.Attachment.SourceUrl?.AbsoluteUri;
     internal static string? Title(DomRealm realm, CssStyleSheet sheet) => sheet.Attachment.OwnerNode is Element owner

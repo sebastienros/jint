@@ -121,8 +121,8 @@ internal sealed partial class NativeCssQuery
         {
             _work.Charge(1);
             var state = StateOf(current, ref matching);
-            if ((adjust ? state.Computed : state.Unadjusted).TryGetValue(name, out result!) ||
-                !ReferenceEquals(current, element) && state.Computed.TryGetValue(name, out result!)) break;
+            if (!ReferenceEquals(current, element) && state.Computed.TryGetValue(name, out result!)) break;
+            if ((adjust ? state.Computed : state.Unadjusted).TryGetValue(name, out result!)) break;
             var candidate = Winner(state, name, ref matching, substitute: true);
             var value = candidate is { WasSubstituted: true } ? candidate.Resolved : candidate?.Declaration.Value;
             var disposition = NativeCssDisposition.Cascaded;
@@ -162,8 +162,13 @@ internal sealed partial class NativeCssQuery
         {
             _work.Charge(1);
             var value = adjust && name == "display" ? Display(item.State.Element, result.Value!, ref matching) : result.Value!;
-            result = result with { Text = ColorText(item.State.Element, name, value, ref matching), Value = value,
-                Source = item.Source, Disposition = item.Disposition };
+            result = result with
+            {
+                Text = ColorText(item.State.Element, name, value, ref matching),
+                Value = value,
+                Source = item.Source,
+                Disposition = item.Disposition
+            };
             (adjust ? item.State.Computed : item.State.Unadjusted).Add(name, result);
         }
         matching.VerifyRead();
@@ -464,6 +469,7 @@ internal sealed partial class NativeCssQuery
     {
         internal Element Element { get; } = element;
         internal State? Parent;
+        internal bool InlinifiesChildren;
         internal CssSubstitutionSnapshot? Variables;
         internal IReadOnlyList<NativeCssProperty>? Enumeration;
         internal Dictionary<string, List<Candidate>> Candidates { get; } = new(new Names(work));

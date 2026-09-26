@@ -60,6 +60,7 @@ internal static partial class NativeCssStyleSheets
                 throw new InvalidOperationException(NativeCssQuery.Invalidated);
         }
         Verify();
+        var parsing = new CssValueWork(work.Token, Verify);
         // DOM order, rather than load completion order, owns stylesheet order.
         var pending = new Stack<Node>();
         pending.Push(document);
@@ -76,6 +77,9 @@ internal static partial class NativeCssStyleSheets
             {
                 var ownerWork = new DomReadWork(work.Charge, work.Token);
                 var type = ownerWork.Attribute(element, "type");
+                if (element.NamespaceUri == Namespaces.Html && element.LocalName == "link" &&
+                    !HasStyleSheetRelation(ownerWork.Attribute(element, "rel"), work))
+                    continue;
                 if (element.NamespaceUri == Namespaces.Html && element.LocalName is "style" or "link" &&
                     !string.IsNullOrEmpty(type) && !ownerWork.EqualAsciiIgnoreCase(type, "text/css"))
                     continue;
@@ -107,7 +111,7 @@ internal static partial class NativeCssStyleSheets
                 {
                     if (resource.Sheet is null)
                     {
-                        var sheet = CssStyleSheet.Parse(resource.Source, null, work, work.Token);
+                        var sheet = CssStyleSheet.Parse(resource.Source, null, parsing, work.Token);
                         sheet.SetAttachment(resource.Attachment);
                         Verify();
                         resource.Sheet = sheet;
@@ -115,7 +119,7 @@ internal static partial class NativeCssStyleSheets
                     }
                     else if (resource.Replaced)
                     {
-                        resource.Sheet.ReplaceText(resource.Source, null, work, work.Token);
+                        resource.Sheet.ReplaceText(resource.Source, null, parsing, work.Token);
                         Verify();
                         resource.Sheet.SetAttachment(resource.Attachment);
                         resource.Replaced = false;
@@ -123,7 +127,7 @@ internal static partial class NativeCssStyleSheets
                     var media = ownerWork.Attribute(element, "media") ?? "";
                     if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, work))
                     {
-                        resource.Sheet.Media.SetMediaText(media, null, work, work.Token);
+                        resource.Sheet.Media.SetMediaText(media, null, parsing, work.Token);
                         Verify();
                         resource.MediaSource = media;
                     }
@@ -137,6 +141,33 @@ internal static partial class NativeCssStyleSheets
 
     private static string ReadText(Element owner, CssValueWork work) =>
         DomDescendantText.Read(owner, work.Charge, work.Token);
+
+    // HTML's space-separated rel tokens use ASCII case-insensitive matching.
+    private static bool HasStyleSheetRelation(string? value, CssValueWork work)
+    {
+        if (value is null) return false;
+        const string expected = "stylesheet";
+        var start = 0;
+        for (var end = 0; end <= value.Length; end++)
+        {
+            work.Charge(1);
+            if (end != value.Length && value[end] is not (' ' or '\t' or '\n' or '\r' or '\f')) continue;
+            if (end - start == expected.Length)
+            {
+                var matches = true;
+                for (var i = 0; i < expected.Length; i++)
+                {
+                    work.Charge(1);
+                    var c = value[start + i];
+                    if (c is >= 'A' and <= 'Z') c = (char) (c + ('a' - 'A'));
+                    if (c != expected[i]) { matches = false; break; }
+                }
+                if (matches) return true;
+            }
+            start = end + 1;
+        }
+        return false;
+    }
 
     private sealed class Resources
     {

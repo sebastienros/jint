@@ -6,12 +6,17 @@ namespace Jint.HtmlParser.Css.Serialization;
 
 internal static class CssRuleSerializer
 {
-    internal static string Serialize(CssRule rule)
+    internal static string Serialize(CssRule rule) => Serialize(rule, new CssValueWork(default));
+
+    internal static string Serialize(CssRule rule, CssValueWork work)
     {
-        var work = new CssValueWork(default);
+        work.CheckCancellation();
         var builder = new StringBuilder();
         Append(builder, [rule], null, work);
-        return builder.ToString();
+        var text = builder.ToString();
+        work.Charge(text.Length);
+        work.CheckCancellation();
+        return text;
     }
 
     internal static CssSerializationSnapshot SerializeSheet(CssStyleSheet sheet, CssValueWork work)

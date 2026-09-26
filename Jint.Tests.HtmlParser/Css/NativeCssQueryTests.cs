@@ -279,6 +279,7 @@ public sealed class NativeCssQueryTests
         owner.AppendChild(source);
         root.AppendChild(owner);
         var link = document.CreateElement("link");
+        link.SetAttribute("rel", "stylesheet");
         root.AppendChild(link);
         var work = new CssValueWork(default);
         NativeCssStyleSheets.Install(document, link, "div { opacity:.5; }", "https://example.test/a.css", "", work);
@@ -377,6 +378,53 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
+    public void RetainedLinkSheetUsesTheOwnersCurrentRelationTokens()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        document.AppendChild(target);
+        var link = document.CreateElement("link");
+        target.AppendChild(link);
+        link.SetAttribute("rel", "alternate\tStyleSheet\n");
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, link, "div { opacity:.25; }", "https://example.test/a.css", "", work);
+        var retained = NativeCssStyleSheets.Get(document, work)[0].Sheet;
+        link.SetAttribute("rel", "not-stylesheet stylesheetx");
+        NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
+        link.RemoveAttribute("rel");
+        NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
+        link.SetAttribute("rel", "stylesheet");
+        var sheets = NativeCssStyleSheets.Get(document, work);
+        sheets[0].Sheet.Should().BeSameAs(retained);
+        var query = Query(document, sheets.ToArray());
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "opacity", ref matching).Text.Should().Be("0.25");
+    }
+
+    [Test]
+    public void HostMutationDuringReplacementParsingCannotPublishTheNewSheet()
+    {
+        var document = Document.CreateHtml();
+        var link = document.CreateElement("link");
+        document.AppendChild(link);
+        link.SetAttribute("rel", "stylesheet");
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, link, "div { opacity:.25; }", "", "", work);
+        var retained = NativeCssStyleSheets.Get(document, work)[0].Sheet;
+        NativeCssStyleSheets.Install(document, link, "/*" + new string('x', 20000) + "*/ div { opacity:.75; }", "", "", work);
+        var checks = 0;
+        var guarded = new CssValueWork(default, () =>
+        {
+            if (++checks == 10) link.SetAttribute("title", "changed during parsing");
+        });
+        Assert.Throws<InvalidOperationException>(() => NativeCssStyleSheets.Get(document, guarded))!
+            .Message.Should().Be(NativeCssQuery.Invalidated);
+        ((CssStyleRule) retained.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.25");
+        NativeCssStyleSheets.Get(document, work)[0].Sheet.Should().BeSameAs(retained);
+        ((CssStyleRule) retained.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.75");
+    }
+
+    [Test]
     public void ShadowInheritanceUsesHostAndSlotWhileAuthorSheetsKeepTheirTreeScope()
     {
         var document = Document.CreateHtml();
@@ -411,9 +459,9 @@ public sealed class NativeCssQueryTests
     }
 
     [TestCase("visible", "scroll", "auto", "scroll")]
-    [TestCase("clip", "scroll", "hidden", "scroll")]
+    [TestCase("clip", "scroll", "clip", "scroll")]
     [TestCase("visible", "clip", "visible", "clip")]
-    [TestCase("scroll", "clip", "scroll", "hidden")]
+    [TestCase("scroll", "clip", "scroll", "clip")]
     public void OverflowAxesComputeJointly(string x, string y, string computedX, string computedY)
     {
         var document = Document.CreateHtml();
@@ -442,6 +490,8 @@ public sealed class NativeCssQueryTests
     [TestCase("inline", "absolute", "block")]
     [TestCase("inline-flex", "fixed", "flex")]
     [TestCase("inline-block", "absolute", "block")]
+    [TestCase("ruby", "absolute", "block ruby")]
+    [TestCase("run-in flex", "absolute", "flex")]
     [TestCase("none", "absolute", "none")]
     [TestCase("contents", "absolute", "contents")]
     public void PositionedDisplayTypesBlockify(string display, string position, string expected)
@@ -451,6 +501,66 @@ public sealed class NativeCssQueryTests
         var query = Query(document, [], [(element, CssDeclarationBlock.Parse($"display:{display};position:{position}"))]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(element, "display", ref matching).Text.Should().Be(expected);
+    }
+
+    [TestCase("inline-flex")]
+    [TestCase("inline-grid")]
+    public void InlineFlexAndGridParentsBlockifyTheirItems(string display)
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("div");
+        var child = document.CreateElement("span");
+        parent.AppendChild(child);
+        var query = Query(document, [], [(parent, CssDeclarationBlock.Parse($"display:{display}"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(child, "display", ref matching).Text.Should().Be("block");
+    }
+
+    [Test]
+    public void RubyInlinifiesBlockChildrenAndDescendantsOfInlineChildren()
+    {
+        var document = Document.CreateHtml();
+        var ruby = document.CreateElement("ruby");
+        var block = document.CreateElement("div");
+        var inline = document.CreateElement("span");
+        var nested = document.CreateElement("div");
+        ruby.AppendChild(block);
+        ruby.AppendChild(inline);
+        inline.AppendChild(nested);
+        var query = Query(document, [], [(ruby, CssDeclarationBlock.Parse("display:ruby")),
+            (block, CssDeclarationBlock.Parse("display:block")), (nested, CssDeclarationBlock.Parse("display:block"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(block, "display", ref matching).Text.Should().Be("inline-block");
+        query.GetProperty(nested, "display", ref matching).Text.Should().Be("inline-block");
+    }
+
+    [Test]
+    public void ConsecutiveContentsParentsDoNotRescanTheirEntireAncestorChain()
+    {
+        int ReadAtDepth(int depth)
+        {
+            var document = Document.CreateHtml();
+            var parent = document.CreateElement("div");
+            document.AppendChild(parent);
+            for (var i = 0; i < depth; i++)
+            {
+                var child = document.CreateElement("section");
+                parent.AppendChild(child);
+                parent = child;
+            }
+            var target = document.CreateElement("span");
+            parent.AppendChild(target);
+            var checks = 0;
+            var work = new CssValueWork(default, () => checks++);
+            var sheet = CssStyleSheet.Parse("div { display:flex; } section { display:contents; }");
+            var query = new NativeCssQuery(document, [new(sheet, NativeCssOrigin.Author)], [], new CssMediaEnvironment(),
+                new(document, null, null, null), CssEnvironmentSnapshot.Create([], work), work);
+            var matching = new SelectorMatchWork(document, default);
+            query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+            return checks;
+        }
+        var shallow = ReadAtDepth(256);
+        ReadAtDepth(512).Should().BeLessThan(shallow * 3);
     }
 
     [Test]
