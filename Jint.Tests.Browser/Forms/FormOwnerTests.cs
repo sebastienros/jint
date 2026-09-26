@@ -158,7 +158,7 @@ public sealed class FormOwnerTests
 
     /// <summary>
     /// Every listed element carries the <c>form</c> content attribute and the matching IDL member, so all
-    /// seven answer the one rule. <c>keygen</c> is the eighth and is HTML 5.1's rather than HTML's.
+    /// seven answer the one rule. Obsolete <c>keygen</c> has the separate unknown-element disposition below.
     /// </summary>
     [TestCase("<button id='control' form='second'></button>")]
     [TestCase("<fieldset id='control' form='second'></fieldset>")]
@@ -167,12 +167,56 @@ public sealed class FormOwnerTests
     [TestCase("<output id='control' form='second'></output>")]
     [TestCase("<select id='control' form='second'></select>")]
     [TestCase("<textarea id='control' form='second'></textarea>")]
-    [TestCase("<keygen id='control' form='second'>")]
     public void EveryListedElementReadsTheSameRule(string markup)
     {
         using var fixture = DomTestFixture.Create($"""<form id="first">{markup}</form><form id="second"></form>""");
 
         fixture.Text("document.getElementById('control').form.id").Should().Be("second");
+    }
+
+    /// <summary>
+    /// The retained HTMLKeygenElement interface does not brand modern keygen nodes: they are unknown
+    /// elements, with neither a form member nor listed-control membership. Direct legacy-helper tests
+    /// remain in LegacyKeygenFormTests; borrowing this getter must fail before any ownership lookup.
+    /// </summary>
+    [Test]
+    public void ObsoleteKeygenKeepsUnknownElementSemantics()
+    {
+        using var fixture = DomTestFixture.Create(
+            """<form id="first"><keygen id="control" name="legacy" form="second"></form><form id="second"></form>""");
+        fixture.Execute("var keygen = document.getElementById('control');");
+
+        fixture.Bool("keygen instanceof HTMLUnknownElement").Should().BeTrue();
+        fixture.Bool("keygen instanceof HTMLKeygenElement").Should().BeFalse();
+        fixture.Bool("'form' in keygen").Should().BeFalse();
+        fixture.Bool("keygen.form === undefined").Should().BeTrue();
+        fixture.Bool("document.getElementById('first').elements.length === 0 && document.getElementById('second').elements.length === 0")
+            .Should().BeTrue();
+
+        var hooks = new CountingFormOwnerHooks();
+        DomRealm.Of(fixture.Engine).Hooks = hooks;
+        fixture.Bool("""
+            (() => {
+                try { Object.getOwnPropertyDescriptor(HTMLKeygenElement.prototype, 'form').get.call(keygen); }
+                catch (error) { return error instanceof TypeError; }
+                return false;
+            })()
+            """).Should().BeTrue();
+        hooks.FormOwnerCalls.Should().Be(0, "receiver branding must reject before the ownership hook can traverse");
+        fixture.Bool("Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'form').get.call(document.createElement('input')) === null")
+            .Should().BeTrue();
+        hooks.FormOwnerCalls.Should().Be(1, "a correctly branded getter must reach the counting hook");
+    }
+
+    private sealed class CountingFormOwnerHooks : DomHostHooks
+    {
+        internal int FormOwnerCalls { get; private set; }
+
+        internal override global::Jint.Native.JsValue FormOwner(DomRealm realm, global::Jint.HtmlParser.Element element)
+        {
+            FormOwnerCalls++;
+            return base.FormOwner(realm, element);
+        }
     }
 
     /// <summary>
