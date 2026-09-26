@@ -114,6 +114,20 @@ internal static class CssMathNumbers
             var direct = ParseBounded(normalized[..used], decimalExponent, limit, work);
             return negative ? -direct : direct;
         }
+        if (unit is CssUnit.Turn or CssUnit.Grad)
+        {
+            // Keep exactly representable quarter turns exact in canonical degrees.
+            // The general scaled path below re-normalizes through decimal text and
+            // can move a cardinal by one binary64 step (for example, 4.75turn).
+            var original = ParseBounded(normalized[..used], decimalExponent, double.MaxValue, work);
+            var quarterTurn = unit == CssUnit.Turn ? 0.25d : 100d;
+            if (original != 0d && original % quarterTurn == 0d && original <= limit / factor)
+            {
+                var degrees = original * factor;
+                if (degrees <= limit && degrees % 90d == 0d)
+                    return negative ? -degrees : degrees;
+            }
+        }
         work.CheckCancellation();
         double significand = double.Parse(normalized[..used], CultureInfo.InvariantCulture);
         significand *= factor;

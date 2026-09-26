@@ -89,6 +89,28 @@ public sealed class MathTrigonometricTests
             CssMathTrigonometric.Evaluate(CssMathFunction.Asin, 1d, true, work));
     }
 
+    [TestCase("tan(4.75turn)", "calc(-infinity)")]
+    [TestCase("tan(-4.75turn)", "calc(infinity)")]
+    [TestCase("tan(1300grad)", "calc(infinity)")]
+    [TestCase("tan(-1300grad)", "calc(-infinity)")]
+    [TestCase("tan(1500grad)", "calc(-infinity)")]
+    [TestCase("tan(1700grad)", "calc(infinity)")]
+    [TestCase("cos(23.25turn)", "calc(0)")]
+    [TestCase("cos(-23.25turn)", "calc(0)")]
+    public void ExactMultiRevolutionQuarterTurnsRemainCardinal(string source, string expected)
+    {
+        var parsed = MathTest.Parse(source, MathTest.Number);
+        parsed.Status.Should().Be(CssMathParseStatus.Match);
+        CssMathSerializer.SerializeSpecified(parsed.Value, new CssValueWork(default)).Should().Be(expected);
+    }
+
+    [Test]
+    public void NearbyTurnIsNotSnappedToACardinal()
+    {
+        var value = MathTest.Parse("tan(4.750000000000001turn)", MathTest.Number).Value;
+        double.IsFinite(value.GetNode(0).Numeric.Value).Should().BeTrue();
+    }
+
     private static readonly double[] Axis =
         [double.NegativeInfinity, -1d, -0d, 0d, 1d, double.PositiveInfinity];
     private static readonly double[,] Expected =

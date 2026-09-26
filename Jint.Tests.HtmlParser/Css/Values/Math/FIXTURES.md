@@ -12,7 +12,10 @@ cases below from WPT at the pinned revision. It also has authored CSS Values 4
 percentage dependencies, and the full signed-zero/infinity `atan2` table. The
 table's −180deg entries intentionally follow the detailed §10.4.1 table at the
 negative X-axis, including the disputed lower endpoint; these are authored
-spec fixtures and are not credited to WPT.
+spec fixtures and are not credited to WPT. Authored turn/grad fixtures exercise
+exact positive and negative quarter turns across multiple revolutions, with a
+nearby non-cardinal that must remain finite; they pin the chosen exact-degree
+tangent convention and are not upstream WPT assertions.
 
 `MathSignTests` uses authored CSS Values 4 §10.6 fixtures for grammar, result typing,
 percentage and relative-unit dependencies, IEEE signed zero, infinities and NaN.
