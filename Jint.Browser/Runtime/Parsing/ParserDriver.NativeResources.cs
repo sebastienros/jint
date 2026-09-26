@@ -559,11 +559,14 @@ internal sealed partial class ParserDriver
         var src = Attribute(frame, "src");
         var url = srcdoc is not null ? "about:srcdoc"
             : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, creatorBaseUrl);
-        var signature = srcdoc is not null ? "srcdoc:" + srcdoc : "src:" + url;
+        var signature = srcdoc is not null ? "srcdoc:" + srcdoc : "src:" + (url ?? "invalid:" + src);
         var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
         if (source.Signature == signature) return;
         source.Signature = signature;
-        if (url is null) { FailSubresource(frame, src ?? "", "The frame URL is invalid."); return; }
+        // HTML's iframe processing leaves the initial about:blank document active when parsing src
+        // fails. Create its actual navigable, with the creator's origin and sandbox policy, below.
+        // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#process-the-iframe-attributes
+        url ??= "about:blank";
         var ceiling = _runtime.Options.MaxFrameDocuments;
         if (ceiling <= 0 || _frameDocuments >= ceiling)
         {

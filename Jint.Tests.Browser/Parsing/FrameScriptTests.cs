@@ -5,6 +5,26 @@ namespace Jint.Tests.Browser.Parsing;
 
 public class FrameScriptTests
 {
+    [TestCase("/side.html")]
+    [TestCase("http://[bad")]
+    public async Task AnUnresolvableSourceKeepsARealInitialBlankNavigable(string source)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<iframe id=f src='" + source + "'></iframe>");
+        (await page.EvaluateAsync<bool>("""
+            window.length === 1 && frames[0] === f.contentWindow &&
+            f.contentDocument === frames[0].document &&
+            frames[0].document.URL === 'about:blank' && frames[0].document.body !== null &&
+            frames[0].parent === window && frames[0].document.defaultView === frames[0]
+            """)).Should().BeTrue();
+        (await page.EvaluateAsync<string>("f.getAttribute('src')")).Should().Be(source);
+        page.MainFrame.Frames.Single().Url.Should().Be(source);
+        page.MainFrame.Frames.Single().IsScripted.Should().BeFalse();
+        page.Requests.Should().BeEmpty();
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task ChildResourcesPrepareAtTheirOwnParserBoundary()
     {
