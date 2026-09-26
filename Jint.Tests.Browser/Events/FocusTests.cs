@@ -12,6 +12,31 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class FocusTests
 {
+    [Test]
+    public void DesignModeMakesOnlyTheHtmlDocumentElementAnEditingHostForFocus()
+    {
+        var realm = DomRealm.Of(new Engine());
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        var child = document.CreateElement("div");
+        document.AppendChild(root);
+        root.AppendChild(child);
+        FocusController.IsFocusable(realm, root).Should().BeFalse();
+        DomDocumentState.Of(document).DesignModeEnabled = true;
+        FocusController.IsFocusable(realm, root).Should().BeTrue();
+        FocusController.IsFocusable(realm, child).Should().BeFalse();
+        var work = new DomReadWork(realm.NativeReadCheckpoint, default);
+        FocusController.IsFocusable(realm, root, work).Should().BeTrue();
+        DomDocumentState.Of(document).DesignModeEnabled = false;
+        FocusController.IsFocusable(realm, root, work).Should().BeFalse();
+
+        var xml = Document.CreateXml();
+        var xmlRoot = xml.CreateElementNS(Namespaces.Html, "html");
+        xml.AppendChild(xmlRoot);
+        DomDocumentState.Of(xml).DesignModeEnabled = true;
+        FocusController.IsFocusable(realm, xmlRoot).Should().BeFalse();
+    }
+
     [TestCase("+00020")]
     [TestCase("-2147483648")]
     [TestCase("2147483648")]
