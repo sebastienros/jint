@@ -128,7 +128,7 @@ internal class DomHostHooks
     /// element's listener list. See <c>Events.EventHandlerContentAttributes.AttributeChanged</c>.
     /// </summary>
     /// <remarks>
-    /// Step 2's fold is gated on the element's own namespace (<see cref="DomNamespaces"/>), which is the one
+    /// Step 2's fold is gated on the element's own namespace (<c>Element.NamespaceUri</c>), which is the one
     /// AngleSharp's <c>GetAttribute</c>, <c>HasAttribute</c> and <c>RemoveAttribute</c> already read: the
     /// computed namespace made this setter lower-case a name for a null-namespace element that every one of
     /// those readers then looked up unfolded.
@@ -363,7 +363,7 @@ internal class DomHostHooks
 
     /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbytagname.</summary>
     /// <remarks>
-    /// "Whose namespace is the HTML namespace" is the element's own namespace — <see cref="DomNamespaces"/> —
+    /// "Whose namespace is the HTML namespace" is the element's own namespace — <c>Element.NamespaceUri</c> —
     /// and not AngleSharp's ancestor-computed one, which folded the case of a null-namespace element merely
     /// because it had been appended to an HTML parent.
     /// </remarks>
@@ -405,7 +405,7 @@ internal class DomHostHooks
     /// <remarks>
     /// AngleSharp 1.8.1 preserves HTML local-name case, so the same DOM comparison now works in every
     /// namespace. Its native HTML namespace query still folds case. The namespace compared is the element's
-    /// own (<see cref="DomNamespaces"/>), which is what makes <c>getElementsByTagNameNS("", "*")</c> find an
+    /// own (<c>Element.NamespaceUri</c>), which is what makes <c>getElementsByTagNameNS("", "*")</c> find an
     /// element created in no namespace instead of one its parent lent the XHTML namespace to.
     /// </remarks>
     private sealed class TagNameNSFilter(string? namespaceUri, string localName) : DomElementFilter
@@ -647,7 +647,7 @@ internal class DomHostHooks
     /// an XML document went on answering <c>DIV</c> where DOM says <c>div</c>: the name is not a property of
     /// the element, it is a question about the document the element is in at the moment it is asked. The
     /// divergence table records it. The namespace half is the element's own
-    /// (<see cref="DomNamespaces"/>) and the same one <see cref="TagNameFilter"/> compares, so an element and
+    /// (<c>Element.NamespaceUri</c>) and the same one <see cref="TagNameFilter"/> compares, so an element and
     /// a query for it cannot disagree about whether its name folds.
     /// </remarks>
     internal virtual JsValue TagName(DomRealm realm, Jint.HtmlParser.Element element)
@@ -670,7 +670,7 @@ internal class DomHostHooks
     /// move it. AngleSharp's <c>IElement.NamespaceUri</c> falls back to an ancestor walk when nothing was
     /// stored, so a <c>createElementNS(null, 'body')</c> read as XHTML the moment it was appended to an HTML
     /// element, disagreeing with the query that had just declined to find it
-    /// (<a href="https://github.com/sebastienros/jint/issues/3949">#3949</a>). <see cref="DomNamespaces"/> is
+    /// (<a href="https://github.com/sebastienros/jint/issues/3949">#3949</a>). <c>Element.NamespaceUri</c> is
     /// the one answer every namespace-sensitive member in the binding reads.
     /// </remarks>
     internal virtual JsValue NamespaceUri(DomRealm realm, Jint.HtmlParser.Element element)
