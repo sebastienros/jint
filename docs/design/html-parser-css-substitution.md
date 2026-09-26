@@ -191,37 +191,248 @@ tokens fake offsets into the consuming declaration. Unresolved URLs stay unresol
 appropriate style/property context exists. Defining-sheet versus consuming-declaration base rules
 must be pinned by URL/cascade tests before Browser attachment, not guessed from System.Uri.
 
-## 6. C6s execution contract to refine before its dispatch
+## 6. C6s: bounded execution dispatch
 
-This section constrains the next design; add none of these executor types as V0c1 stubs.
-Execution receives one immutable per-element snapshot after cascade selection: ordinal custom-name
-to specified program or already-computed inherited value; explicit missing/guaranteed-invalid state;
-animation-taint and the consuming property's eligibility; a separate immutable environment lookup.
-No callbacks, DOM reads, parent traversal or cascade winner selection inside the token executor.
-Registered values and other unsupported substitution families stop with internal PendingFeature,
-not GuaranteedInvalid. The context identity distinguishes property + element snapshot.
+Execution addendum, 2026-09-25; current Variables 1, Values 5 Appendix A and Env 1 §3 rechecked.
+Implement var/env replacement now against immutable, already-selected snapshots. Browser supplies
+the snapshots; this core has no DOM, AngleSharp, device callbacks, mutable sheets or cascade selection.
+C4 source attachment is not a prerequisite for executing standalone `CssReferenceInput` values.
+Successful output still requires the consuming C5 grammar; it does not choose a lower cascade winner.
 
-Result states must distinguish Tokens (including zero tokens), GuaranteedInvalid and PendingFeature.
-Successful replacement alone does not validate the consuming property's grammar. C5 reparses the
-result against the actual longhand/shorthand grammar; failure is invalid at computed-value time,
-not permission to retry a lower cascade candidate. Only C6 owns that fallback-to-initial/inheritance
-behavior. Pending shorthands retain original identity until this real replacement and reparse.
+### 6.1 Finite surface and ownership
 
-Use explicit evaluation frames and an active-context index. Re-entry marks every active participant
-in that cycle; an internal fallback cannot rescue a marked participant. An outside dependent can
-recover with fallback. Evaluate only selected fallback branches. A conservative static dependency
-graph cannot replace these guards. Resolve a dynamic header first, then parse its actual name/indices.
-Inherited computed tokens are leaves, preventing child overrides from changing an inherited alias.
-Environment timing remains a source-review gate for C6s because the current env draft has open notes;
-do not introduce a global eager env pass that evaluates otherwise unused fallback branches.
+All declarations below are **internal**, including constructors, factories and getters. Own only new
+files under `Css/Values/References/` and matching tests. No public facade or C1/math signature change.
 
-The C6s dispatch must name a finite token-output ceiling and exact length metric. Count expanded
-occurrences even when backing segments are shared; overflow of that CSS expansion ceiling yields
-GuaranteedInvalid, not empty success. Host cancellation and parser resource errors still throw.
-Before materialization, perform saturating length checks; use shared segments/DAGs and one final
-linear flatten where required. No repeated prefix rebuilding across long alias chains. Tests must
-include exponential fan-out, long chains, giant single-token source, and repeated references. This
-is a new CSS execution bound, never XML's entity expansion setting or an unsolicited public option.
+| File | Types and work |
+| --- | --- |
+| `CssSubstitutionSnapshot.cs` | `CssSubstitutionSnapshot`, readonly `CssSubstitutionBinding` and its state enum; copied custom-name table |
+| `CssEnvironmentSnapshot.cs` | `CssEnvironmentSnapshot`, sealed `CssEnvironmentBinding`; owned exact index keys and literal source values |
+| `CssSubstitutionResult.cs` | Result/context structs and result enum below; guarded payloads |
+| `CssSubstitutedValue.cs` | Immutable segment owner, C1 projection and origin structs below; iterative final materialization |
+| `CssSubstitutionExecutor.cs` | Execution frames, per-call memoization and active-context guards |
+| `CssSubstitutionArguments.cs` | Argument splitting after early substitution, wrapper removal and final name/index matching |
+
+Permit narrow extraction of existing predicates from `CssReferenceParser.cs` into the argument helper;
+preserve every V0c1 outcome. Do not modify C1, C4, math, shared options or Browser in this dispatch.
+The new factory surface is:
+
+```csharp
+enum CssSubstitutionBindingKind { Uninitialized, Specified, Computed, Invalid, Pending }
+readonly struct CssSubstitutionBinding
+{
+    static CssSubstitutionBinding Specified(string name, CssReferenceInput input, bool animationTainted);
+    static CssSubstitutionBinding Computed(string name, CssSubstitutedValue value, bool animationTainted);
+    static CssSubstitutionBinding Invalid(string name, bool animationTainted);
+    static CssSubstitutionBinding Pending(string name, string feature);
+    // Kind, Name and guarded Input/Value/AnimationTainted/PendingFeature getters.
+}
+sealed class CssSubstitutionSnapshot
+{
+    static CssSubstitutionSnapshot Create(ReadOnlySpan<CssSubstitutionBinding> bindings, CssValueWork work);
+    bool TryGet(string name, CssValueWork work, out CssSubstitutionBinding binding);
+}
+sealed class CssEnvironmentBinding
+{
+    static CssEnvironmentBinding Create(string name, ReadOnlySpan<string> indexSpellings,
+        CssReferenceInput literalValue, CssValueWork work);
+}
+sealed class CssEnvironmentSnapshot
+{
+    static CssEnvironmentSnapshot Create(ReadOnlySpan<CssEnvironmentBinding> bindings, CssValueWork work);
+    bool TryGet(string name, ReadOnlySpan<string> canonicalIndices,
+        CssValueWork work, out CssReferenceInput? value);
+}
+
+enum CssSubstitutionResultKind { Uninitialized, Tokens, GuaranteedInvalid, PendingFeature }
+readonly struct CssSubstitutionContext
+{
+    CssSubstitutionContext(string propertyName, CssReferenceUse use, bool isAnimatable);
+    string PropertyName { get; }
+    CssReferenceUse Use { get; }
+    bool IsAnimatable { get; }
+}
+readonly struct CssSubstitutionResult
+{
+    CssSubstitutionResultKind Kind { get; }
+    CssSubstitutedValue Value { get; }       // only Tokens
+    string PendingFeature { get; }          // only PendingFeature
+}
+static class CssSubstitutionExecutor
+{
+    static CssSubstitutionResult Resolve(CssReferenceInput input,
+        CssSubstitutionSnapshot customProperties, CssEnvironmentSnapshot environment,
+        CssSubstitutionContext context, CssValueWork work);
+}
+```
+
+Reject null/default payloads, duplicate normalized keys,
+invalid decoded names and invalid enum/context arguments as programmer errors. An absent custom key
+means missing; an `Invalid` binding is the explicit guaranteed-invalid value. `Computed` is an already
+resolved inherited leaf, including empty output, with its source owners retained. It is never
+re-evaluated against child overrides. Resolve CSS-wide custom declarations at the caller's cascade
+boundary into inherited/computed, invalid or pending bindings; do not store `initial` as literal text.
+Names arrive from accepted identifier tokens: custom names use V0c1's `--` plus nonempty suffix rule;
+environment names must be nonempty and exclude CSS-wide keywords and `default` in ASCII case variants.
+Do not reparse decoded spelling, which may legitimately contain escaped characters. Context names
+are ASCII-canonical for ordinary properties and unchanged for custom properties; require a custom
+name and `isAnimatable=true` for `CustomPropertyValue`, and false for `DescriptorValue`.
+
+### 6.2 Actual component projection and diagnostic origins
+
+Use C1's existing internal `CssToken` constructor, `CssComponentValue.FromToken/FromContainer` and
+`CssComponentValueList` constructor. Copy token payload fields unchanged; reuse immutable decoded
+strings. Rebuild replaced containers iteratively. No text serialization, token concatenation or
+retokenization is involved. `var(--n)px` therefore remains two tokens.
+
+```csharp
+sealed class CssSubstitutedValue
+{
+    CssComponentValueList Components { get; }
+    int TokenCount { get; }
+    int SpellingLength { get; }
+    CssSourceOriginRange OriginsFor(CssSourceSpan projectionSpan);
+}
+readonly struct CssProjectedTokenOrigin
+{
+    CssSourceSpan ProjectionSpan { get; }
+    CssReferenceInput Source { get; }
+    CssSourceSpan SourceSpan { get; }
+    bool IsSyntheticCloser { get; }
+}
+readonly struct CssSourceOriginRange
+{
+    int Count { get; }
+    CssProjectedTokenOrigin this[int index] { get; }
+}
+```
+
+Projection spans use a **separate virtual coordinate space**: contiguous intervals starting at zero,
+whose lengths are the spelling units defined below. They are neither source offsets nor serialized
+CSS offsets. There is no backing virtual string. Every lexical occurrence has an ordered origin entry;
+a rebuilt container's projection span covers its opener, children and closer. Original C1 nodes are
+not mutated. The origin entry holds the real input owner and real source span; repeated insertions
+have distinct projection intervals even when their original owner/span is identical. This explicitly
+adapts section 5's provenance rule to existing C1 readers without counterfeiting consumer offsets.
+
+`OriginsFor` validates bounds and returns an immutable indexed view of every token interval overlapping
+a nonempty projection span, using binary searches; it never collapses a mixed-source range into one
+original span. A zero-length diagnostic yields an empty view, including empty-input default spans;
+the caller then uses its declaration anchor. An inserted EOF closer maps to a zero-length original
+span at that source container's end and has `IsSyntheticCloser=true`. Other entries map to actual
+token/opener/closer spans. Store no original ancestor-sized substring. Projection/origin arrays never
+escape mutably; shared segments retain only immutable owners, not an execution builder or work state.
+
+Feed `result.Value.Components` directly to `CssPrimitiveParser` and an appropriate function component
+directly to `CssMathParser.ParseMath(component, context, work)`. Their returned `Span` and accepted
+payload spans are now projection-relative. Retain the `CssSubstitutedValue` beside that parse result
+and call `OriginsFor` before presenting an original-source diagnostic. Never slice `input.Source`
+with such a span or hand this projection back to `CssReferenceInput.Parse`. Existing source-only
+primitive/math callers retain their current span semantics. Test this adapter with both a token
+error from an introduced value and a whole-function error spanning multiple original sources.
+
+### 6.3 Expansion and work bounds
+
+The internal ceilings are **65,536 lexical occurrences** and **1,048,576 spelling UTF-16 units**,
+inclusive. This is the chosen implementation policy under
+[Values 5's expansion limit](https://drafts.csswg.org/css-values-5/#long-substitution), not a public
+option or XML resource setting. Define the metrics precisely:
+
+- A leaf C1 token, including whitespace, contributes one occurrence and `Token.Span.Length` units.
+- A retained function contributes one function opener token (its original raw name through `(`),
+  its children's contributions, and one closer token. A simple block contributes one opener,
+  children, and one closer. Each closer contributes one unit even when C1 accepted EOF closure.
+- Determine each function opener's end once from its original input, using escaped-name-aware
+  scanning; do not use the whole container span as its spelling length. Explicit brackets use one
+  unit. EOF closers are synthetic as specified above. Discarded comments contribute neither metric.
+- Removed substitution functions, spread periods and syntactic argument wrappers contribute nothing
+  to their replacement. Every repeated output occurrence counts again despite segment sharing.
+
+Apply both ceilings to each replacement and each completed root result, including literal roots and
+environment leaves. Oversize replacement is guaranteed-invalid at that replacement point, so an
+outside var fallback can recover; a root that remains oversized returns `GuaranteedInvalid`. Use
+saturating addition at ceiling+1 before allocation/materialization. An oversize unused fallback is
+not expanded merely to count it. Memoize segment lengths; do not flatten each intermediate alias.
+One final iterative materialization builds the C1 projection and origins in bounded linear work.
+
+Use the same `CssValueWork` for scans, snapshot copies, key comparisons, frames and publication;
+charge examined characters/entries, poll around growth/copies and before returns. Long names/indices
+must not hide an unpolled hash/equality scan: use charged ordinal hashing/comparison for these tables.
+Snapshot factories copy supplied arrays/tables and retain immutable strings/inputs only. Cancellation
+and existing `ParseLimitException` propagate. Store precomputed hashes/buckets without a comparer
+capturing the factory's work state; subsequent lookup receives the current call's work explicitly.
+The root input's `MaxNestingDepth`, if nonzero, also bounds the materialized component nesting;
+an alias-call chain is not component nesting and uses
+explicit frames. Exceeding that depth throws the existing nesting limit, not a CSS invalid result.
+
+### 6.4 Lookup, pending work and taint
+
+Snapshot identity plus decoded property name identifies an active substitution context; one Resolve
+call owns its mutable guards/cache. Resolve early invocations before re-dividing arguments, preserving
+the reviewed spread/ordinary-container distinction. Re-entry marks all active cycle participants;
+their own fallback cannot rescue them, while an outside dependent can recover. Resolve dynamic
+headers before final var/env name parsing. Ordinary failed name parsing can choose a fallback.
+Memoize only completed custom-property results, never a provisional active frame. No static dependency
+graph decides cycles and no memoized state survives into another Resolve call.
+
+Environment keys compare decoded names ordinally and include the complete ordered index vector.
+Accept only integer spellings `[+-]?[0-9]+`; remove `+` and leading zeros, normalize every spelling of
+signed zero to `"0"`, reject negative nonzero integers, decimals and exponents. Store canonical digit
+strings, never Int32/Int64 indices or delimiter-joined composite keys. Canonical duplicate keys are
+factory errors. Runtime header grammar failure or absent exact key selects fallback. The binding
+factory requires a V0c1 `Literal` value (including empty); substitutions, bad syntax and pending
+functions in supplied device values are programmer errors. Share its immutable original input.
+Lookup occurs when the env invocation is reached; no eager env pass. A new device state requires a
+new snapshot. This defines the executor's boundary, not the unresolved Browser scheduling policy in
+[Env 1](https://drafts.csswg.org/css-env-1/#using).
+
+Analyze a reached source once per call using V0c1. `InvalidSyntax` supplied as a root/specified binding
+is a caller precondition failure (`ArgumentException`); callers must perform declaration validation
+before execution. A header that becomes invalid after early replacement instead yields
+`GuaranteedInvalid`. A V0c1 `PendingFeature` source returns pending conservatively for that whole
+source, even when the unsupported function is textually in an unused fallback. This preserves the
+existing analysis gate; it is implementation debt, never CSS invalidity. A missing/invalid binding
+may choose fallback; a reached pending binding/source must propagate pending without trying fallback.
+Unreached pending bindings do not poison another request. Registered values enter as explicit
+`Pending(name, "registered-property")`; no false unregistered execution. V0c1 remains unchanged.
+
+`animationTainted` is **final transitive metadata supplied by the snapshot caller**, not merely a
+local @keyframes bit. Preserve it on inherited bindings; do not infer it from only evaluated fallback
+branches. If the Browser caller cannot determine it, supply a pending binding with feature
+`"animation-taint"` rather than guessing false. The current
+[Variables 1 replacement rule](https://drafts.csswg.org/css-variables-1/#using-variables) checks this
+bit against whether the consuming property is animatable. A tainted lookup in a non-animatable
+property yields guaranteed-invalid and may select fallback. Do not use an `animation-*` name test.
+While resolving a specified custom binding, use that custom property's own animatable context;
+apply the outer property's eligibility to the resulting var lookup. This prevents caller eligibility
+from corrupting cached custom values. Descriptor context uses `isAnimatable=false`; V0c1 still rejects
+var in descriptors. The Boolean for ordinary properties comes from real consumer metadata, not a
+new incomplete registry inside this executor.
+
+### 6.5 Acceptance and Browser handoff
+
+New matching tests: `SubstitutionValueTests.cs`, `SubstitutionCycleTests.cs`,
+`SubstitutionSpreadTests.cs`, `SubstitutionEnvironmentTests.cs`, `SubstitutionOwnershipTests.cs`,
+`SubstitutionWorkTests.cs`, `SubstitutionConsumerTests.cs`; extend `FIXTURES.md` with actual provenance.
+Require independent expected results for empty/missing/invalid/pending distinctions; case and dynamic
+names; both provisional-wrapper regressions; selected/unselected cycles and outside recovery;
+inherited aliases; exact env index normalization and dimensions; taint eligibility/transitive metadata;
+and no invalidity-to-empty conversion. Test canonical-key duplicate rejection after caller mutation.
+
+Probe exact ceilings and one past for both metrics, EOF closers, giant single tokens, repeated shared
+segments, exponential fan-out and long alias chains. Verify nested output depth separately from alias
+depth and cancellation during hash comparison, intermediate expansion and final publication. Check
+mixed-source origin ranges, identical original offsets in different sources, repeated same-source
+insertions, empty diagnostic ranges and immutable ownership after caller reassignment. Require direct
+primitive/math consumption of substituted lengths and calc expressions, rejected dimensional/type
+errors after substitution, and preserved percentages/ranges; never serialize/reparse for these tests.
+
+Fresh Release focused and non-corpus parser tests on net8/net10, unchanged public API snapshots,
+and independent review are required before integration. Browser's migration owner may then call this
+core with its actual selected bindings/environment and revalidate the real consuming property;
+`PendingFeature` must surface as a named native capability gap to fix, not a dropped declaration or
+an AngleSharp fallback. CSSOM declaration source attachment and exact specified serialization remain
+V0c3 work when that adapter needs them. Do not expand this dispatch into unrelated property families.
 
 ## 7. Work, tests and merge gates
 
