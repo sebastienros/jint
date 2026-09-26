@@ -241,6 +241,41 @@ public sealed class NativeCssSheetSetTests
     }
 
     [Test]
+    public void AlternateLinksJoinAnAlreadySelectedOrPreferredSet()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        document.AppendChild(root);
+        var work = new CssValueWork(default);
+        var sets = NativeCssStyleSheets.SetsOf(document);
+        sets.SetSelected("b", work);
+        var selected = Link("b");
+        NativeCssStyleSheets.Install(document, selected, "", "", "", work);
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeFalse();
+        sets.Preferred(work).Should().BeEmpty();
+        sets.Last(work).Should().Be("b");
+        var fresh = Document.CreateHtml();
+        var freshRoot = fresh.CreateElement("html");
+        fresh.AppendChild(freshRoot);
+        var preferred = fresh.CreateElement("link");
+        preferred.SetAttribute("rel", "alternate stylesheet");
+        preferred.SetAttribute("title", "a");
+        freshRoot.AppendChild(preferred);
+        NativeCssStyleSheets.SetDefaultStyle(fresh, "a", work);
+        NativeCssStyleSheets.Install(fresh, preferred, "", "", "", work);
+        NativeCssStyleSheets.Get(fresh, work).Single().Sheet.Disabled.Should().BeFalse();
+
+        Element Link(string title)
+        {
+            var link = document.CreateElement("link");
+            link.SetAttribute("rel", "alternate stylesheet");
+            link.SetAttribute("title", title);
+            root.AppendChild(link);
+            return link;
+        }
+    }
+
+    [Test]
     public void InterruptedAssociationLeavesHistoryUnpublishedAndCanRetry()
     {
         var baseline = Setup();

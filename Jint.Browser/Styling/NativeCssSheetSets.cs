@@ -179,7 +179,7 @@ internal sealed class NativeCssSheetSets(Document document)
         var title = reads.Attribute(owner, "title") ?? "";
         var alternate = IsAlternate(reads.Attribute(owner, "rel"), work) && !resource.ExplicitlyEnabled;
         var disabledSource = owner.LocalName == "link" && reads.Attribute(owner, "disabled") is not null;
-        var initiallyDisabled = disabledSource || alternate;
+        var initiallyDisabled = disabledSource;
         var preferred = _preferred;
         if (!initiallyDisabled && preferred.Length == 0 && title.Length != 0 && !alternate) preferred = title;
         var preferredChanged = !CssSubstitutionArguments.Equals(_preferred, preferred, work);
