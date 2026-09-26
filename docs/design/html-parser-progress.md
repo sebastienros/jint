@@ -2,13 +2,14 @@
 
 ## Scope and workflow
 
-**Current checkpoint (September 26):** the isolated native Browser and its test project compile with
-zero warnings/errors and no production AngleSharp dependencies. The first full Browser gate failed
-279 of 3,964 cases; subsequent focused gates include **76/76 native imports/keyframes**,
-**272/272 native transform lists/matrices**, and **70/70 Browser child-resource/recovery** cases.
-Final frame/file checks pass within a **71/72** gate whose sole stale-message assertion has a
-reviewed correction awaiting rerun. Reviewed fixes and new feature slices continue;
-these overlapping focused results are not a new full-suite total. The benchmark project compiles,
+**Current checkpoint (September 26):** reviewed native Browser replacement is merged into common
+at `674ae0fc2`; production Browser references Jint.HtmlParser. Fresh common Release/net10 gates:
+**4,511/4,515 parser cases** (including one known corpus census failure), **3,629/3,701 non-WPT Browser
+cases** (34 failures, 38 skips), **18/18 runtime recovery**, and **3/3 public automatic task-drain**.
+The parser gate exposed two real substitution regressions, now source-reviewed for repair; other
+remaining behavior and fixture work is assigned. These are incomplete acceptance results.
+Five completed feature chats were archived after common verification; totals are 77 archived chats
+and 33 retained clean checkouts without managed archive identities. The benchmark project compiles,
 but paired timing and speedup acceptance remain outstanding. Routine builds/tests use Release/net10;
 all supported TFMs are deferred to the final gate. Common integration and exact current evidence are
 tracked in [the resume checkpoint](html-parser-resume.md). The chronological entries below describe

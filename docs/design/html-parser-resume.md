@@ -7,7 +7,33 @@ references, standalone parsing entry points, and equivalent paired benchmark acc
 conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
-**Latest independent common integration: `8b296d34d`.** The internal Browser task-drain deferral
+**Latest common integration: `674ae0fc2`.** The reviewed native Browser checkpoint `d5bac890c`
+is merged. The two runtime conflicts resolve to the reviewed integration sources, preserving both
+task-drain deferral and recovery-before-dequeue. Production Browser now references Jint.HtmlParser.
+Fresh common Release/net10 evidence:
+
+- Parser gate excluding `XmlConformanceTests`: **4,515 total, 4,511 passed, four failed, zero skipped**
+  (`/private/tmp/jint-native-common-parser-checkpoint-net10.log`). One is the known XML corpus census;
+  one is a stale unsupported-`:checked` fixture. Two are real substitution regressions: replacement
+  children were truncated by source-gap pairing, and artificial boundary markers rejected a valid
+  65,536-token expansion. Reviewed production repair `024f84e3d` preserves the original assertions
+  and token/spelling/source limits; integration and rerun are pending.
+- Browser excluding its WPT namespace: **3,701 total, 3,629 passed, 34 failed, 38 skipped**
+  (`/private/tmp/jint-native-common-browser-checkpoint-net10.log`). Remaining work includes import
+  loading, resolved box values, container/background-clip grammar, stylesheet request invalidation,
+  blockified-link extraction, and individually reviewed fixture/binding corrections. This remains
+  a failed acceptance gate; the prior full WPT-inclusive inventory is historical.
+- Runtime task recovery: **18/18**, public automatic task draining: **3/3**, zero failures/skips
+  (`/private/tmp/jint-native-common-task-recovery-net10.log`,
+  `/private/tmp/jint-native-common-public-task-net10.log`). Public API baselines remain deferred as below.
+
+Native META, individual transforms, transform lists, passive keyframes, and native import-model/
+revision-snapshot chats are archived after common integration and their scoped passes. Current totals:
+**77 archived completed chats, 33 retained completed clean checkouts**. Each of these five owners
+returned an empty artifact list, so no managed worktree identity was available for archival; no manual
+worktree deletion was performed. Active repair and Browser consumer owners remain open.
+
+**Earlier independent common integration: `8b296d34d`.** The internal Browser task-drain deferral
 (`49cf7e5c0`) is reviewed and integrated. Fresh common Release/net10 gates pass **11/11** internal
 task-deferral cases and **3/3** unsigned public host-contract cases, zero failures/skips
 (`/private/tmp/jint-common-task-drain-net10.log`, `/private/tmp/jint-common-public-task-drain-net10.log`).
