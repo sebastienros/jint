@@ -86,6 +86,32 @@ public sealed class CustomPropertySerializationTests
         SubstitutionFixture.Resolve(source, SubstitutionFixture.Specified("--x", replacement))
             .Value.SerializeCustomProperty(new CssValueWork(default)).Should().Be(expected);
 
+    [TestCase(@"\61", " ", true)]
+    [TestCase(@"\061", "\t", true)]
+    [TestCase(@"\000061", " ", true)]
+    [TestCase(@"\000061", "\r\n", true)]
+    [TestCase(@"\61", "\r\n", true)]
+    [TestCase(@"\\61", " ", false)]
+    [TestCase(@"\61 ", " ", false)]
+    public void TerminalHexEscapesCannotConsumeAuthoredWhitespaceAtSubstitutionJoins(
+        string replacement, string whitespace, bool needsSeparator)
+    {
+        var value = SubstitutionFixture.Resolve("var(--a)" + whitespace + "b",
+            SubstitutionFixture.Specified("--a", replacement)).Value;
+        var serialized = value.SerializeCustomProperty(new CssValueWork(default));
+        serialized.Should().Be(replacement + (needsSeparator ? "/**/" : "") + whitespace + "b");
+        var reparsed = CssReferenceInput.Parse(serialized).Components;
+        reparsed.Count.Should().Be(value.Components.Count);
+        for (var i = 0; i < reparsed.Count; i++)
+        {
+            reparsed[i].Kind.Should().Be(value.Components[i].Kind);
+            reparsed[i].Token.Kind.Should().Be(value.Components[i].Token.Kind);
+            reparsed[i].Token.Text.Should().Be(value.Components[i].Token.Text);
+        }
+        reparsed.Count.Should().Be(3);
+        reparsed[1].Token.Kind.Should().Be(CssTokenKind.Whitespace);
+    }
+
     [Test]
     public void CommentOnlyExpansionAndSerializationAreBounded()
     {

@@ -17,6 +17,7 @@ internal sealed partial class CssSubstitutedValue
         var previous = CssTokenKind.None;
         var previousDelimiter = '\0';
         var previousDashDash = false;
+        var previousTerminalHexEscape = false;
         while (tasks.TryPop(out var task))
         {
             work.Charge(1);
@@ -40,6 +41,7 @@ internal sealed partial class CssSubstitutedValue
                 {
                     work.Charge(recovery.Length);
                     text.Append(recovery);
+                    previousTerminalHexEscape = false;
                 }
                 else if (segment.LexicalSpan.Length != 0)
                 {
@@ -49,6 +51,7 @@ internal sealed partial class CssSubstitutedValue
                     previous = CssTokenKind.None; // A captured source gap already separates tokens.
                     boundary = false;
                     boundaryPosition = -1;
+                    previousTerminalHexEscape = false;
                 }
                 continue;
             }
@@ -84,7 +87,8 @@ internal sealed partial class CssSubstitutedValue
         void Write(ReadOnlySpan<char> spelling, CssTokenKind kind, char delimiter = '\0')
         {
             if (spelling.Length == 0) return;
-            if (boundary && NeedsSeparator(previous, previousDelimiter, kind, delimiter) ||
+            if (boundary && (NeedsSeparator(previous, previousDelimiter, kind, delimiter) ||
+                previousTerminalHexEscape && IsCssWhitespace(spelling[0])) ||
                 // CDO/CDC involve three or four characters rather than one adjacent token pair.
                 boundaryPosition >= 0 && text.Length - boundaryPosition <= 2 &&
                 text.Length >= 2 && text[^2] == '<' && text[^1] == '!' && spelling.StartsWith("--", StringComparison.Ordinal) ||
@@ -99,9 +103,36 @@ internal sealed partial class CssSubstitutedValue
             previous = kind;
             previousDelimiter = delimiter;
             previousDashDash = kind == CssTokenKind.Ident && spelling.SequenceEqual("--");
+            previousTerminalHexEscape = EndsInHexEscape(spelling, work);
             boundary = false;
         }
     }
+
+    // C1 has already tokenized the fragment. Inspect only its lexical tail: even a six-digit escape
+    // consumes one following whitespace code point (CRLF is one after preprocessing). A join comment
+    // closes the escape without sacrificing the authored whitespace token on the other side.
+    private static bool EndsInHexEscape(ReadOnlySpan<char> spelling, CssValueWork work)
+    {
+        var index = spelling.Length - 1;
+        var digits = 0;
+        while (index >= 0 && digits < 6 && spelling[index] is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F')
+        {
+            work.Charge(1);
+            digits++;
+            index--;
+        }
+        if (digits == 0) return false;
+        var slashes = 0;
+        while (index >= 0 && spelling[index] == '\\')
+        {
+            work.Charge(1);
+            slashes++;
+            index--;
+        }
+        return (slashes & 1) != 0;
+    }
+
+    private static bool IsCssWhitespace(char value) => value is ' ' or '\t' or '\n' or '\r' or '\f';
 
     private static bool NeedsSeparator(CssTokenKind left, char leftDelimiter, CssTokenKind right, char rightDelimiter)
     {
