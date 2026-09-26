@@ -48,5 +48,7 @@ public sealed class NativeHtmlSemanticBindingTests
         dom.Bool("document.body===next").Should().BeTrue();
         dom.Execute("var empty=new Document(), foreign=empty.createElementNS('urn:foreign','root'), body=empty.createElementNS('http://www.w3.org/1999/xhtml','body'); empty.appendChild(foreign); empty.body=body;");
         dom.Bool("body.parentNode===foreign && foreign.firstChild===body").Should().BeTrue();
+        dom.Execute("var later=empty.createElementNS('http://www.w3.org/1999/xhtml','body'); empty.body=later;");
+        dom.Bool("body.parentNode===foreign && later.parentNode===foreign && body.nextSibling===later").Should().BeTrue();
     }
 }

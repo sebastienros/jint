@@ -20,7 +20,8 @@ internal static class DomLegacyDocumentMembers
             if (node is Element element) { root = element; break; }
         }
         Element? oldBody = null;
-        for (var node = root?.FirstChild; node is not null; node = node.NextSibling)
+        for (var node = root is { NamespaceUri: Namespaces.Html, LocalName: "html" } ? root.FirstChild : null;
+             node is not null; node = node.NextSibling)
         {
             work.Step();
             if (node is Element { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } body)
