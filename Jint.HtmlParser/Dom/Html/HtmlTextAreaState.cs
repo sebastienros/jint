@@ -112,9 +112,15 @@ internal sealed class HtmlTextAreaState
 
     internal bool NeedsRemovalLengths => !DirtyValue && (_selection.Start != 0 || _selection.End != 0);
 
-    internal void CopyFrom(HtmlTextAreaState source)
+    internal void CopyFrom(HtmlTextAreaState source, CancellationToken cancellationToken = default)
+        => CopyFrom(source, null, cancellationToken);
+
+    internal void CopyFrom(HtmlTextAreaState source, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        _rawValue = source.GetRawValue(CancellationToken.None);
+        ArgumentNullException.ThrowIfNull(source);
+        var raw = source.GetRawValue(checkpoint, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        _rawValue = raw;
         _rawFromChildren = false;
         _rawAlignedWithChildren = false;
         DirtyValue = source.DirtyValue;
@@ -277,9 +283,13 @@ internal sealed class HtmlTextAreaState
     }
 
     private string GetRawValue(CancellationToken cancellationToken)
+        => GetRawValue(null, cancellationToken);
+
+    private string GetRawValue(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!_rawFromChildren) return _rawValue;
-        var value = GetDefaultValue(cancellationToken);
+        var value = HtmlTextAreaMutations.CollectChildText(_element, checkpoint, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _rawValue = value;
         _rawFromChildren = false;
