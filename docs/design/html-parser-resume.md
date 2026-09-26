@@ -4,7 +4,8 @@
 wrap-up below. Browser cutover chat `01a0db4d-a396-7e33-a770-ace95e2ad537` is active again in
 `414c`. New Sol High chats implement D7b2 checkedness/radio state (`757c`,
 `01a0db8d-f2c1-7623-a908-49742dafdd77`) and validated CSS declaration blocks (`16aa`,
-`01a0db8e-10ce-7671-ac02-2e224a13bb8d`). Astra High owns design and review. Completed D6/H8
+`01a0db8e-10ce-7671-ac02-2e224a13bb8d`). Range read-operation budget callbacks are isolated in
+`e3b0`, chat `01a0db90-31aa-7a92-922a-b084def3fd98`. Astra High owns design and review. Completed D6/H8
 owners released their files; D7b2 now exclusively owns the required Element/HtmlElementState/NodeCloner
 hooks as well as the checkedness/form lifecycle files. CSS declarations do not own DOM, selectors,
 Browser or public facade files. No PRs. Historical finalization/cleanup counts below remain unchanged.
