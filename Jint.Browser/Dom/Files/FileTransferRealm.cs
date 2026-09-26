@@ -256,16 +256,30 @@ internal sealed class FileTransferRealm
 
     private void FlushChanges(DomReadWork? work)
     {
-        while (_pendingChanges.TryDequeue(out var state))
+        while (_pendingChanges.TryPeek(out var state))
         {
             work?.Step();
-            if (!_queuedChanges.Remove(state)) continue;
-            work?.Check();
-            var records = state.Subscription.TakeRecordsForDelivery();
-            work?.Check();
-            if (!state.Input.TryGetTarget(out var input)) continue;
-            for (var i = 0; i < records.Count; i++)
+            if (!_queuedChanges.Contains(state))
             {
+                _pendingChanges.Dequeue();
+                continue;
+            }
+            work?.Check();
+            if (!_queuedChanges.Contains(state)) continue;
+            // Transfer drained history into the still-queued state before any throwing checkpoint.
+            // A cancelled read resumes this batch rather than losing file/text/file transitions.
+            var records = state.PendingRecords ??= state.Subscription.TakeRecordsForDelivery();
+            work?.Check();
+            if (!state.Input.TryGetTarget(out var input) || records.Count == 0)
+            {
+                _pendingChanges.Dequeue();
+                _queuedChanges.Remove(state);
+                state.PendingRecords = null;
+                continue;
+            }
+            while (state.PendingRecordIndex < records.Count)
+            {
+                var i = state.PendingRecordIndex;
                 if (work is null) _engine.Constraints.Check();
                 else { work.Step(); work.Check(); }
                 var nextType = i + 1 < records.Count ? records[i + 1].OldValue
@@ -274,10 +288,16 @@ internal sealed class FileTransferRealm
                     != (HtmlInputTypes.Parse(nextType) == HtmlInputType.File))
                 {
                     ClearInput(input, preserveList: false);
+                    state.PendingRecordIndex = records.Count;
                     work?.Check();
                     break;
                 }
+                state.PendingRecordIndex++;
             }
+            state.PendingRecords = null;
+            state.PendingRecordIndex = 0;
+            // Keep the envelope queued until a subsequent drain is empty: callbacks may have
+            // appended new type changes while the completed batch was being examined.
         }
         work?.Check();
     }
@@ -393,5 +413,7 @@ internal sealed class FileTransferRealm
         MutationSubscription Subscription, bool External, Action Changed)
     {
         internal bool Detached { get; set; }
+        internal IReadOnlyList<MutationRecord>? PendingRecords;
+        internal int PendingRecordIndex;
     }
 }

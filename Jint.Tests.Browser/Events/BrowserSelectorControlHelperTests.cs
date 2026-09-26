@@ -73,6 +73,33 @@ public sealed class BrowserSelectorControlHelperTests
         BrowserSelectorSemanticRevision.Read(fixture.Document).Should().Be(2UL);
     }
 
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(4)]
+    [TestCase(5)]
+    public void CancelledFileCleanupPreservesTypeHistoryForRetry(int cancelAt)
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file>");
+        var input = ContentDom.ElementById(fixture.Document, "i")!;
+        var files = FileTransferRealm.Of(fixture.Engine);
+        var shared = files.NewFileList();
+        shared.Add(new Jint.WebApi.Files.JsFile(fixture.Engine, new byte[] { 1 }, "text/plain", "kept.txt", 0));
+        files.SetInputFiles(input, shared);
+        input.SetAttribute("type", "text");
+        input.SetAttribute("type", "file");
+        using var cancellation = new CancellationTokenSource();
+        var checks = 0;
+        var work = new DomReadWork(_ =>
+        {
+            if (++checks == cancelAt) cancellation.Cancel();
+        }, cancellation.Token);
+        Assert.Throws<OperationCanceledException>(() => files.InputFiles(input, work));
+        // Retry must detach the obsolete selection even though the current type is file again.
+        files.InputFiles(input, new DomReadWork(null, default)).Should().BeNull();
+        shared.Length.Should().Be(1, "clearing an input must preserve its externally assigned list");
+        files.InputFiles(input, create: true)!.Length.Should().Be(0);
+    }
+
     [Test]
     public void DefaultButtonUsesActualOwnerTreeOrderAndIncludesDisabledExternalImageInputs()
     {
