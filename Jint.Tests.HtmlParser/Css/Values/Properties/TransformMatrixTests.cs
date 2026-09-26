@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Globalization;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
@@ -48,6 +49,20 @@ public sealed class TransformMatrixTests
         CssTransformMatrix.Resolve(list, new(default), 200, 80).Should().Be(expected);
         Action missing = () => CssTransformMatrix.Resolve(list, new(default));
         missing.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be("C6:transform-reference-box");
+    }
+
+    [TestCase("scale(1e30) translateX(1e-323%)", 1e308, 9.881312916824931e12)]
+    [TestCase("scale(1e30) translateX(calc(1e-323%))", 1e308, 9.881312916824931e12)]
+    [TestCase("scale(1e30) translateX(1e308%)", 1e-323, 9.881312916824931e12)]
+    [TestCase("scale(1e-308) translateX(1e308%)", 100, 1)]
+    public void ExponentSeparatedPercentageProductsAvoidPrematureUnderflowAndOverflow(
+        string source, double width, double expected)
+    {
+        var list = CssPropertyParser.Parse("transform", source).Value.TransformList;
+        var result = CssTransformMatrix.Resolve(list, new(default), width, 80);
+        var translation = double.Parse(result.Split(',')[4], CultureInfo.InvariantCulture);
+        translation.Should().BeApproximately(expected, System.Math.Abs(expected) * 1e-14);
+        translation.Should().NotBe(0);
     }
 
     [Test]

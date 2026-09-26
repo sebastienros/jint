@@ -96,20 +96,8 @@ internal sealed partial class NativeCssQuery
 
     private double InitialFontSize() => Metric("font-size", _media.InitialFontSize, "initial-font-size");
 
-    // Separate binary exponents so neither multiplication nor division loses a finite
-    // representable result before the final scale. Keep zero/nonfinite math on its existing path.
-    internal static double ScaleFontSize(double value, double basis, double divisor)
-    {
-        if (value == 0 || basis == 0 || divisor == 0 ||
-            !double.IsFinite(value) || !double.IsFinite(basis) || !double.IsFinite(divisor))
-            return value * basis / divisor;
-        var valueExponent = System.Math.ILogB(value);
-        var basisExponent = System.Math.ILogB(basis);
-        var divisorExponent = System.Math.ILogB(divisor);
-        var mantissa = System.Math.ScaleB(value, -valueExponent) * System.Math.ScaleB(basis, -basisExponent)
-            / System.Math.ScaleB(divisor, -divisorExponent);
-        return System.Math.ScaleB(mantissa, valueExponent + basisExponent - divisorExponent);
-    }
+    internal static double ScaleFontSize(double value, double basis, double divisor) =>
+        CssMathNumbers.ScaleProduct(value, basis, divisor);
 
     private double ComputedFontSize(Element element, ref SelectorMatchWork matching)
     {

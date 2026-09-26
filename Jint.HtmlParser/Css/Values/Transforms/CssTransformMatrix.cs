@@ -125,8 +125,8 @@ internal static class CssTransformMatrix
         if (numeric.Kind != CssNumericKind.Percentage) return numeric;
         if (basis is not { } size || !double.IsFinite(size) || size < 0)
             throw Missing("transform-reference-box", numeric.Span);
-        // Divide before multiplication to avoid unnecessary intermediate overflow.
-        return new(numeric.Value / 100 * size, CssNumericKind.Dimension, CssUnit.Px, numeric.Span);
+        // Keep representable products when either a percentage or its basis is subnormal.
+        return new(CssMathNumbers.ScaleProduct(numeric.Value, size, 100), CssNumericKind.Dimension, CssUnit.Px, numeric.Span);
     }
 
     private static void Identity(Span<double> matrix)

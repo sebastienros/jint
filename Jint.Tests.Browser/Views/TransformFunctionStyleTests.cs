@@ -34,6 +34,11 @@ public sealed class TransformFunctionStyleTests
     [TestCase("translate(10px, 20px) scale(2, 3)", "matrix(2, 0, 0, 3, 10, 20)")]
     [TestCase("scale(2, 3) translate(10px, 20px)", "matrix(2, 0, 0, 3, 20, 60)")]
     [TestCase("rotate3d(0, 0, 0, 45deg)", "matrix(1, 0, 0, 1, 0, 0)")]
+    [TestCase("scale(0.0000004) translateX(10000000px)", "matrix(0, 0, 0, 0, 4, 0)")]
+    [TestCase("scale(0.00004%) translateX(10000000px)", "matrix(0, 0, 0, 0, 4, 0)")]
+    [TestCase("scale(calc(0.0000004)) translateX(10000000px)", "matrix(0, 0, 0, 0, 4, 0)")]
+    [TestCase("scale(calc(0.00004%)) translateX(10000000px)", "matrix(0, 0, 0, 0, 4, 0)")]
+    [TestCase("scale(10000000) translateX(0.0000004px)", "matrix(10000000, 0, 0, 10000000, 4, 0)")]
     [TestCase("scale(1)", "matrix(1, 0, 0, 1, 0, 0)")]
     [TestCase("none", "none")]
     public async Task AbsoluteListsResolveWithoutRequestingAnySizeQuery(string declared, string expected)

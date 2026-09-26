@@ -9,6 +9,32 @@ internal static class CssMathNumbers
         double.IsPositiveInfinity(number) ? double.MaxValue :
         double.IsNegativeInfinity(number) ? -double.MaxValue : number;
 
+    // Semantic provenance for an already finite binary64 value must round-trip independently
+    // of CSSOM's six-decimal display text. It is consumed by later typed arithmetic.
+    internal static CssNumber FromFiniteNumber(double value, CssValueWork work)
+    {
+        if (!double.IsFinite(value)) throw new ArgumentOutOfRangeException(nameof(value));
+        work.CheckCancellation();
+        var spelling = value.ToString("R", CultureInfo.InvariantCulture);
+        work.Charge(spelling.Length);
+        return CssNumber.FromValidatedToken(spelling, work);
+    }
+
+    // Separate binary exponents so neither multiplication nor division loses a finite
+    // representable result before the final scale. Keep zero/nonfinite math on its existing path.
+    internal static double ScaleProduct(double value, double basis, double divisor)
+    {
+        if (value == 0 || basis == 0 || divisor == 0 ||
+            !double.IsFinite(value) || !double.IsFinite(basis) || !double.IsFinite(divisor))
+            return value * basis / divisor;
+        var valueExponent = System.Math.ILogB(value);
+        var basisExponent = System.Math.ILogB(basis);
+        var divisorExponent = System.Math.ILogB(divisor);
+        var mantissa = System.Math.ScaleB(value, -valueExponent) * System.Math.ScaleB(basis, -basisExponent)
+            / System.Math.ScaleB(divisor, -divisorExponent);
+        return System.Math.ScaleB(mantissa, valueExponent + basisExponent - divisorExponent);
+    }
+
     internal static readonly double AngleLimit = System.Math.ScaleB(360d, 1014);
 
     // CSS Values 4 §10.10.1 and §10.9.2, Editor's Draft 20 August 2026.

@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Globalization;
 using Jint.Browser.Styling;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Media;
@@ -7,6 +8,8 @@ using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
+using Jint.HtmlParser.Css.Values.Math;
+using Jint.HtmlParser.Css.Values.Transforms;
 using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.HtmlParser.Css;
@@ -126,6 +129,65 @@ public sealed class NativeCssTransformTests
             if (declaration.Contains("var(--bad)", StringComparison.Ordinal))
                 result.Disposition.Should().Be(NativeCssDisposition.InvalidAtComputedValue);
         }
+    }
+
+    [TestCase("scale(0.0000004) translateX(10000000px)")]
+    [TestCase("scale(0.00004%) translateX(10000000px)")]
+    [TestCase("scale(calc(0.0000004)) translateX(10000000px)")]
+    [TestCase("scale(calc(0.00004%)) translateX(10000000px)")]
+    [TestCase("scale(calc(0.00000002em / 1px)) translateX(10000000px)")]
+    public void ComputedTransformComponentsRetainPrecisionBeyondTheirDisplayText(string source)
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var block = CssDeclarationBlock.Parse("font-size:20px;transform:" + source);
+        var work = new CssValueWork(default);
+        var query = Query(document, [(target, block)], work);
+        var matching = new SelectorMatchWork(document, default);
+        var property = query.GetProperty(target, "transform", ref matching);
+        property.Text.Should().Be("scale(0) translateX(10000000px)");
+        var list = property.Value!.TransformList;
+        var atom = list[0].Arguments[0].Numeric;
+        CssMathNumbers.ParseFinite(atom.Number, atom.Unit, work).Should().BeApproximately(0.0000004, 1e-21);
+        CssTransformMatrix.Resolve(list, work).Should().Be("matrix(0, 0, 0, 0, 4, 0)");
+    }
+
+    [TestCase("1e-323", 1e308, 1e30)]
+    [TestCase("1e308", 1e-323, 1e30)]
+    [TestCase("1e308", 100, 1e-308)]
+    public void ComputedPercentageProductsKeepRepresentableResultsWithFiniteAndSubnormalBases(
+        string percentage, double basis, double scale)
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var block = CssDeclarationBlock.Parse("transform:scale(" + scale.ToString("R", CultureInfo.InvariantCulture)
+            + ") translateX(" + percentage + "%)");
+        var work = new CssValueWork(default);
+        var query = Query(document, [(target, block)], work);
+        var matching = new SelectorMatchWork(document, default);
+        var list = query.GetProperty(target, "transform", ref matching).Value!.TransformList;
+        var result = CssTransformMatrix.Resolve(list, work, basis, 80);
+        var translation = double.Parse(result.Split(',')[4], CultureInfo.InvariantCulture);
+        // This independent ordering keeps these rows' intermediate products representable.
+        var percent = double.Parse(percentage, CultureInfo.InvariantCulture);
+        var expected = percentage == "1e308" && basis == 100 ? percent * (basis / 100) * scale :
+            percent * basis / 100 * scale;
+        translation.Should().BeApproximately(expected, System.Math.Abs(expected) * 1e-14);
+        translation.Should().NotBe(0);
+    }
+
+    [Test]
+    public void ComputedTinyLengthsSurviveLaterScaleMultiplication()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var block = CssDeclarationBlock.Parse("transform:scale(10000000) translateX(0.0000004px)");
+        var work = new CssValueWork(default);
+        var query = Query(document, [(target, block)], work);
+        var matching = new SelectorMatchWork(document, default);
+        var property = query.GetProperty(target, "transform", ref matching);
+        property.Text.Should().Be("scale(10000000) translateX(0px)");
+        CssTransformMatrix.Resolve(property.Value!.TransformList, work).Should().Be("matrix(10000000, 0, 0, 10000000, 4, 0)");
     }
 
     [Test]

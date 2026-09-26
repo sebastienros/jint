@@ -165,7 +165,7 @@ internal static class CssTransformParser
     internal static CssPropertyValue Constant(double value, CssUnit unit, CssSourceSpan span, CssValueWork work)
     {
         var text = CssMathSerializer.SerializeFiniteNumber(value, work);
-        var number = CssNumber.FromValidatedToken(text, work);
+        var number = CssMathNumbers.FromFiniteNumber(value, work);
         var kind = unit == CssUnit.None ? CssNumericKind.Number : CssNumericKind.Dimension;
         if (kind == CssNumericKind.Dimension) text += unit.ToString().ToLowerInvariant();
         work.Charge(text.Length);

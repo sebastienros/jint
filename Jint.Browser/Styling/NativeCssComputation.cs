@@ -144,7 +144,10 @@ internal sealed partial class NativeCssQuery
         var kind = numeric.Kind;
         var unit = numeric.Unit;
         // A math number serializes to a typed atom, not a second parse of the authored value.
-        var provenance = CssNumber.FromValidatedToken(text, _work);
+        // Transform list components participate in later matrix arithmetic. Their display
+        // text may round a small nonzero value to zero, so retain round-trip provenance.
+        var provenance = name == "transform" ? CssMathNumbers.FromFiniteNumber(number, _work) :
+            CssNumber.FromValidatedToken(text, _work);
         if (kind == CssNumericKind.Percentage) text += "%";
         else if (kind == CssNumericKind.Dimension) text += unit.ToString().ToLowerInvariant();
         _work.Charge(text.Length);
