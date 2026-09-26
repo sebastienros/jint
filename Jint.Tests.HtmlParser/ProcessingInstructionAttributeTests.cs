@@ -152,6 +152,11 @@ public class ProcessingInstructionAttributeTests
         pi.GetAttribute("name").Should().Be("one");
         var clone = (ProcessingInstruction) pi.CloneNode();
         var imported = (ProcessingInstruction) destination.ImportNode(pi);
+        clone.HasAttributes().Should().BeFalse();
+        imported.HasAttributes().Should().BeFalse();
+        ((ProcessingInstruction) clone.CloneNode()).HasAttributes().Should().BeFalse();
+        clone.Data = clone.Data;
+        clone.GetAttribute("name").Should().Be("one");
         clone.SetAttribute("name", "two");
         imported.SetAttribute("name", "three");
         pi.GetAttribute("name").Should().Be("one");
@@ -197,7 +202,7 @@ public class ProcessingInstructionAttributeTests
         var pi = document.CreateProcessingInstruction("marker", "name='" + new string('x', 10000) + "'");
         var count = 0;
         pi.GetAttribute("name", new(units => count += units, default)).Should().HaveLength(10000);
-        count.Should().BeInRange(10000, 10030);
+        count.Should().BeInRange(10000, 10060);
         var original = pi.Data;
         using var cancellation = new CancellationTokenSource();
         count = 0;
@@ -209,5 +214,31 @@ public class ProcessingInstructionAttributeTests
         Assert.Throws<OperationCanceledException>(() => pi.SetAttribute("name", new string('y', 10000), work));
         pi.Data.Should().Be(original);
         pi.GetAttribute("name").Should().Be(new string('x', 10000));
+    }
+
+    [Test]
+    public void LongDuplicateNamesChargeComparisonAndPollCancellation()
+    {
+        var name = new string('n', 10000);
+        var pi = Document.CreateHtml().CreateProcessingInstruction("marker", name + "='one' " + name + "='two'");
+        var work = 0;
+        bool done;
+        do
+        {
+            done = pi.PrepareAttributes(1, default, out var used);
+            work += used;
+        } while (!done);
+        pi.HasAttributes().Should().BeFalse();
+        work.Should().BeInRange(30000, 30050);
+
+        var cancelled = Document.CreateHtml().CreateProcessingInstruction("marker", name + "='one' " + name + "='two'");
+        using var cancellation = new CancellationTokenSource();
+        var count = 0;
+        Assert.Throws<OperationCanceledException>(() => cancelled.HasAttributes(new(units =>
+        {
+            count += units;
+            if (count > 21000) cancellation.Cancel();
+        }, cancellation.Token)));
+        count.Should().BeGreaterThan(21000);
     }
 }

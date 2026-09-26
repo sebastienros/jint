@@ -229,7 +229,7 @@ public sealed partial class ProcessingInstruction : Node
     }
 
     internal static ProcessingInstruction CopyTo(Document owner, ProcessingInstruction source)
-        => new(owner, new InitialState(source.Target, source.Data));
+        => new(owner, new InitialState(source.Target, source.Data)) { _attributeMapKnownEmpty = true };
 
     private static InitialState ValidatePublicState(string target, string data)
     {
