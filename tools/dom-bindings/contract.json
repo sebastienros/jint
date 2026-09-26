@@ -9552,8 +9552,8 @@
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.StyleDisabled(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.disabled\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetStyleDisabled(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlLinkElement.IsDisabled"
         },
@@ -11321,8 +11321,8 @@
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLStyleElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLStyleElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLStyleElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.StyleDisabled(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLStyleElement.disabled\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetStyleDisabled(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlStyleElement.IsDisabled"
         },
@@ -14052,23 +14052,23 @@
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.StyleDisabled(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.disabled\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetStyleDisabled(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ISvgStyleElement.IsDisabled"
         },
         {
           "DomName": "media",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.media\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Media);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.media\");\nself.Target.Media = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"SVGStyleElement.media\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.media\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"media\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.media\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"media\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"SVGStyleElement.media\"));",
           "Length": 0,
           "Origin": "ISvgStyleElement.Media"
         },
         {
           "DomName": "sheet",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.sheet\");\nreturn self.Realm.Wrap(self.Target.Sheet);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.sheet\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.SheetOf(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ILinkStyle.Sheet"
@@ -14076,8 +14076,8 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.type\");\nself.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"SVGStyleElement.type\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Read(self.Realm, self.Target, \"type\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStyleElement.type\");\nreturn global::Jint.Browser.Dom.DomLegacyHtmlAttributes.Set(self.Realm, self.Target, \"type\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"SVGStyleElement.type\"));",
           "Length": 0,
           "Origin": "ISvgStyleElement.Type"
         }

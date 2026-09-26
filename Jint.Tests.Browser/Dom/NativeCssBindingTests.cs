@@ -6,6 +6,24 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeCssBindingTests
 {
     [Test]
+    public void StyleElementDisabledSharesItsSheetAndSvgStringsReflectActualAttributes()
+    {
+        using var dom = DomTestFixture.Create("<style id='html'>a{color:red}</style><svg><style id='svg'>b{color:blue}</style></svg>");
+        dom.Execute("var html=document.getElementById('html'), svg=document.getElementById('svg');");
+        dom.Bool("html.sheet instanceof CSSStyleSheet && !html.disabled && !html.sheet.disabled").Should().BeTrue();
+        dom.Execute("html.disabled=true;");
+        dom.Bool("html.disabled && html.sheet.disabled").Should().BeTrue();
+        dom.Execute("html.sheet.disabled=false;");
+        dom.Bool("!html.disabled").Should().BeTrue();
+        dom.Text("svg.media").Should().BeNull();
+        dom.Text("svg.type").Should().BeNull();
+        dom.Execute("var conversions=0; svg.media={toString(){conversions++; return 'SCREEN'}}; svg.type='text/css';");
+        dom.Bool("conversions===1 && svg.media==='SCREEN' && svg.getAttribute('media')==='SCREEN' && svg.type==='text/css'").Should().BeTrue();
+        dom.Execute("svg.removeAttribute('media');");
+        dom.Text("svg.media").Should().BeNull();
+    }
+
+    [Test]
     public void ProducerlessPseudoElementKeepsItsParentAndRejectsBorrowedGetters()
     {
         using var dom = Create("a { color:red }");

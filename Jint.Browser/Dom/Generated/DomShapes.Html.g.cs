@@ -3326,12 +3326,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.StyleDisabled(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLLinkElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Styling.NativeCssBindings.SetStyleDisabled(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.href", static (thisObj, args) =>
@@ -5046,12 +5046,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.disabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.StyleDisabled(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLStyleElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.disabled");
-                    self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Styling.NativeCssBindings.SetStyleDisabled(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.media", static (thisObj, args) =>
