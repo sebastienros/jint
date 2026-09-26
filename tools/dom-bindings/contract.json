@@ -10808,7 +10808,7 @@
         {
           "DomName": "max",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.max\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Get(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.max\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.ProgressMaximum(self.Realm, self.Target));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLProgressElement.max\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json (reflected)"

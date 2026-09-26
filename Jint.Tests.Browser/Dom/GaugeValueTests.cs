@@ -1,5 +1,8 @@
 #nullable enable
 
+using Jint.Browser.Dom;
+using Jint.HtmlParser;
+
 namespace Jint.Tests.Browser.Dom;
 
 public sealed class GaugeValueTests
@@ -50,5 +53,42 @@ public sealed class GaugeValueTests
         dom.Bool("Number.isFinite(m.optimum) && m.optimum >= m.min && m.optimum <= m.max").Should().BeTrue();
         dom.Execute("m.min=-1.7e308;");
         dom.Number("m.optimum").Should().Be(0);
+    }
+    [Test]
+    public void ProgressMaximumAndPositionShareTheBoundedNumberConversion()
+    {
+        using var dom = DomTestFixture.Create("<progress id=p value=1></progress>");
+        dom.Execute("var p=document.getElementById('p'); p.setAttribute('max', '2'+'0'.repeat(400)+'e-400');");
+        dom.Number("p.max").Should().Be(2);
+        dom.Number("p.position").Should().Be(0.5);
+    }
+
+    [Test]
+    public void AColdMissingValueReadCannotSkipCancellationDuringAttributeScanning()
+    {
+        var element = Document.CreateHtml().CreateElementNS(Namespaces.Html, "progress");
+        for (var i = 0; i < 1000; i++) element.SetAttribute("data-a" + i, "unused");
+        using var cancellation = new CancellationTokenSource();
+        Action read = () => DomGaugeMembers.Progress(element, true, units =>
+        {
+            if (units > 0) cancellation.Cancel();
+        }, cancellation.Token);
+        read.Should().Throw<OperationCanceledException>();
+        DomGaugeMembers.Progress(element, true, null, default).Should().Be(-1);
+    }
+
+    [Test]
+    public void LongNumericConversionObservesCancellation()
+    {
+        var element = Document.CreateHtml().CreateElementNS(Namespaces.Html, "progress");
+        element.SetAttribute("max", "2" + new string('0', 100000) + "e-100000");
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Action read = () => DomGaugeMembers.ProgressMaximum(element, _ =>
+        {
+            if (++calls == 2) cancellation.Cancel();
+        }, cancellation.Token);
+        read.Should().Throw<OperationCanceledException>();
+        DomGaugeMembers.ProgressMaximum(element, null, default).Should().Be(2);
     }
 }

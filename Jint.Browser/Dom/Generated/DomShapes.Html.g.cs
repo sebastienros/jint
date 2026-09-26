@@ -4550,7 +4550,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.max", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLProgressElement.max");
-                    return global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomGaugeMembers.ProgressMaximum(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLProgressElement.max", static (thisObj, args) =>
                 {
