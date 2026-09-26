@@ -9111,7 +9111,7 @@
           "DomName": "selectionDirection",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SelectionDirection(self.Realm, self.Target);",
-          "SetterBody": null,
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetSelectionDirection(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.selectionDirection\"));",
           "Length": 0,
           "Origin": "IHtmlInputElement.SelectionDirection"
         },

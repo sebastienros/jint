@@ -14,7 +14,12 @@ public sealed class NativeInputSelectionBindingTests
         dom.Bool("i.selectionStart===0 && i.selectionEnd===0").Should().BeTrue();
         dom.Execute("i.select();");
         dom.Bool("i.selectionStart===0 && i.selectionEnd===4 && i.selectionDirection==='none'").Should().BeTrue();
-        dom.Bool("Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'selectionDirection').set===undefined").Should().BeTrue();
+        dom.Execute("i.selectionDirection='backward';");
+        dom.Bool("i.selectionStart===0 && i.selectionEnd===4 && i.selectionDirection==='backward'").Should().BeTrue();
+        dom.Execute("i.selectionDirection='invalid';");
+        dom.Text("i.selectionDirection").Should().Be("none");
+        dom.Execute("i.selectionDirection=null;");
+        dom.Text("i.selectionDirection").Should().Be("none");
     }
 
     [Test]
@@ -24,6 +29,7 @@ public sealed class NativeInputSelectionBindingTests
         dom.Execute("var i=document.getElementById('i');");
         dom.Bool("i.selectionStart===null && i.selectionEnd===null && i.selectionDirection===null").Should().BeTrue();
         dom.Text("(() => {try {i.selectionStart=1;} catch(e) {return e.name;}})()").Should().Be("InvalidStateError");
+        dom.Text("(() => {try {i.selectionDirection='backward';} catch(e) {return e.name;}})()").Should().Be("InvalidStateError");
         dom.Text("(() => {try {i.setSelectionRange(0,1);} catch(e) {return e.name;}})()").Should().Be("InvalidStateError");
     }
 

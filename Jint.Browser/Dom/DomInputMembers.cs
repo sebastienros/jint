@@ -57,6 +57,15 @@ internal static class DomInputMembers
         });
     }
 
+    internal static JsValue SetSelectionDirection(DomRealm realm, Element input, string direction)
+    {
+        var state = ValueState(realm, input);
+        var previous = state.Selection;
+        state.SetSelectionDirection(direction, realm.NativeReadCheckpoint, realm.CancellationToken);
+        SelectionChanged(realm, input, previous, state.Selection);
+        return JsValue.Undefined;
+    }
+
     internal static JsValue SetSelectionOffset(DomRealm realm, Element input, uint offset, bool start)
     {
         var state = ValueState(realm, input);
@@ -179,7 +188,9 @@ internal static class DomInputMembers
 
     internal static JsValue Step(DomRealm realm, Element input, int count, bool down)
     {
-        ValueState(realm, input).Step(count, down, realm.NativeReadCheckpoint, realm.CancellationToken);
+        var state = ValueState(realm, input);
+        if (down) state.StepDown(count, realm.NativeReadCheckpoint, realm.CancellationToken);
+        else state.StepUp(count, realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return JsValue.Undefined;
     }

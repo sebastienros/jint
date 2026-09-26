@@ -2903,6 +2903,11 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionDirection");
                     return global::Jint.Browser.Dom.DomInputMembers.SelectionDirection(self.Realm, self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.selectionDirection", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.selectionDirection");
+                    return global::Jint.Browser.Dom.DomInputMembers.SetSelectionDirection(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.selectionDirection"));
                 }))
             .Accessor("selectionEnd",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.selectionEnd", static (thisObj, args) =>
