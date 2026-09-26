@@ -41,6 +41,30 @@ net11 preview. That is not evidence for changing a project TFM. The supported ne
 implementation claims above were checked in their release sources. Benchmarks remain net10-only
 under the current project targets, and remain held; no preview-runtime measurement is authorized.
 
+## September 25 formatter/conversion amendment
+
+The initial platform-R choice below is superseded by independent runtime evidence. On the installed
+.NET 10.0.10, exact binary64 powers `2^-958` (`0x0410000000000000`) and `2^-25`
+(`0x3e60000000000000`) and their negative mirrors receive too-short R digits and round-trip to adjacent
+values. A V8 differential over 28,381 finite inputs isolated these four mismatches. The correct positive
+strings are `4.1045368012983762e-289` and `2.9802322387695312e-8`. Tests must not widen tolerances.
+
+Astra approves mechanically reusing the repository's existing Dtoa implementation in a parser-private
+namespace: preserve all source licenses/headers and record the source commit, replace only engine
+Throw-helper calls with the same CLR exceptions, and do not refactor or prune numeric algorithms in
+this move. The parser adapter exposes shortest formatting only. This preserves standalone package
+independence and deterministic digits across TFMs without an engine reference or per-TFM overrides.
+
+Decimal conversion must not rescan an unbounded author string inside an uninterruptible BCL parse.
+Build a compact spelling during the polled grammar scan: retain the first 1,200 significant digits,
+append a sticky `1` if a discarded tail has any nonzero digit, and adjust the normalized exponent
+for all leading/fraction/discarded digits. Saturate parsed exponent only beyond `source.Length + 4096`
+using nonoverflowing arithmetic, allowing long fractional positions and exponents to cancel.
+Binary64 exact rounding midpoints terminate within roughly 768 significant decimal digits
+(denominator at worst `2^1075`), so 1,200 is conservative. Only the bounded compact spelling reaches
+Double.TryParse. Test long midpoint zero tails with a final nonzero digit, leading zeros, cancelling
+exponents, underflow/overflow ties and zero with arbitrary exponents.
+
 ## 1. Concrete formatter ownership and contract
 
 **Use the platform Double.TryFormat with R and InvariantCulture for shortest digits, followed by an

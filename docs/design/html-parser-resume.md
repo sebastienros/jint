@@ -17,6 +17,7 @@ Current owners:
 | Native select/option state and shared native mutation hooks | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
 | Internal input text/default value component | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
 | Pure native input numeric/temporal algorithms | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
+| Native CSS sizing/flex/alignment properties | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
 | Contextual HTML fragments and parser form-pointer hookup | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
 
 Events excludes shared `BrowserEventRealm.cs` and `DomHostHooks.cs`, retained by the Browser owner.
