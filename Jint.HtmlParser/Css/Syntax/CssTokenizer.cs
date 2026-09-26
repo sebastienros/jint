@@ -31,13 +31,12 @@ internal sealed class CssTokenizer
         _allowUnicodeRanges = allowUnicodeRanges;
         _baseOffset = baseOffset;
         _cancellationToken = cancellationToken;
-        _cancellationToken.ThrowIfCancellationRequested();
-        _checkpoint?.Invoke();
+        CheckCancellation();
     }
 
     internal CssToken Next()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         SkipComments();
         var start = _position;
         _scanStart = start;
@@ -425,6 +424,13 @@ internal sealed class CssTokenizer
         return char.IsHighSurrogate(c) && index + 1 < _source.Length && char.IsLowSurrogate(_source[index + 1]) ? 2 : 1;
     }
 
+    private void CheckCancellation()
+    {
+        _cancellationToken.ThrowIfCancellationRequested();
+        _checkpoint?.Invoke();
+        _cancellationToken.ThrowIfCancellationRequested();
+    }
+
     private int Consume()
     {
         var c = Peek();
@@ -436,12 +442,7 @@ internal sealed class CssTokenizer
                 throw new ParseLimitException(ParseLimitKind.TokenCharacters,
                     _maxTokenCharacters, _position - _scanStart);
             }
-            if ((++_work & 1023) == 0)
-            {
-                _cancellationToken.ThrowIfCancellationRequested();
-                _checkpoint?.Invoke();
-                _cancellationToken.ThrowIfCancellationRequested();
-            }
+            if ((++_work & 1023) == 0) CheckCancellation();
         }
         return c;
     }

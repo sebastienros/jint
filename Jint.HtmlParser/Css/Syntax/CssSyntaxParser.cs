@@ -23,6 +23,7 @@ internal sealed partial class CssSyntaxParser
         _checkpoint = checkpoint;
         _tokens = new List<CssToken>();
         cancellationToken.ThrowIfCancellationRequested();
+        checkpoint?.Invoke();
         var limits = options?.Limits ?? ParseLimits.Unbounded;
         _diagnostics = options?.Diagnostics;
         _diagnostics?.Clear();
@@ -67,13 +68,13 @@ internal sealed partial class CssSyntaxParser
     internal CssComponentValueList ParseComponentValues()
     {
         var result = List(ConsumeAllComponents());
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
     }
 
     private List<CssComponentValue> ConsumeAllComponents()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         var values = new List<CssComponentValue>();
         while (Current.Kind != CssTokenKind.None) values.Add(ConsumeComponent());
         return values;
@@ -81,19 +82,19 @@ internal sealed partial class CssSyntaxParser
 
     internal CssComponentValue ParseComponentValue()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         SkipWhitespace();
         if (Current.Kind == CssTokenKind.None) throw Error("css/expected-component", _sourceLength);
         var value = ConsumeComponent();
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return value;
     }
 
     internal CssRuleSyntax ParseRule()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         SkipWhitespace();
         if (Current.Kind == CssTokenKind.None) throw Error("css/expected-rule", _sourceLength);
         var first = Current;
@@ -104,7 +105,7 @@ internal sealed partial class CssSyntaxParser
         var end = isAtRule ? first.Span.Start + first.Span.Length : first.Span.Start;
         while (true)
         {
-            _cancellationToken.ThrowIfCancellationRequested();
+            CheckCancellation();
             var token = Current;
             if (token.Kind == CssTokenKind.None)
             {
@@ -138,13 +139,13 @@ internal sealed partial class CssSyntaxParser
         var result = new CssRuleSyntax(isAtRule ? CssRuleKind.AtRule : CssRuleKind.QualifiedRule,
             isAtRule ? first.Text : string.Empty, List(prelude), block,
             new CssSourceSpan(first.Span.Start, end - first.Span.Start));
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
     }
 
     internal CssDeclarationSyntax ParseDeclaration()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         SkipWhitespace();
         var first = Current;
         if (first.Kind != CssTokenKind.Ident)
@@ -165,7 +166,7 @@ internal sealed partial class CssSyntaxParser
         var end = colon.Span.Start + colon.Span.Length;
         while (Current.Kind is not (CssTokenKind.None or CssTokenKind.Semicolon))
         {
-            _cancellationToken.ThrowIfCancellationRequested();
+            CheckCancellation();
             var value = ConsumeComponent();
             values.Add(value);
             if (!IsWhitespace(value)) end = value.Span.Start + value.Span.Length;
@@ -178,7 +179,7 @@ internal sealed partial class CssSyntaxParser
         var result = FinalizeDeclaration(first, values, valueStart, valueEnd, end,
             colon.Span.Start + colon.Span.Length) ??
             throw Error("css/mixed-brace-declaration-value", first.Span.Start);
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
     }
 
@@ -248,14 +249,16 @@ internal sealed partial class CssSyntaxParser
         }
     }
 
+    private void CheckCancellation()
+    {
+        _cancellationToken.ThrowIfCancellationRequested();
+        _checkpoint?.Invoke();
+        _cancellationToken.ThrowIfCancellationRequested();
+    }
+
     private void PollCancellation()
     {
-        if ((++_work & 255) == 0)
-        {
-            _cancellationToken.ThrowIfCancellationRequested();
-            _checkpoint?.Invoke();
-            _cancellationToken.ThrowIfCancellationRequested();
-        }
+        if ((++_work & 255) == 0) CheckCancellation();
     }
 
     private List<CssComponentValue> RetokenizeUnicodeRangeValue(int start, int end)
@@ -348,7 +351,7 @@ internal sealed partial class CssSyntaxParser
 
     private CssParseException Error(string code, int offset)
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         Report(code, offset);
         return new CssParseException(code, offset);
     }

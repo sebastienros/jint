@@ -24,14 +24,14 @@ internal sealed partial class CssSyntaxParser
             if (rule is not null) rules.Add(rule);
         }
         var result = Copy(rules);
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
     }
 
     // §5.4.5 and §5.5.5: parse the mixed contents first, then project declarations.
     internal CssDeclarationSyntax[] ParseDeclarationList()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         var values = new List<CssComponentValue>();
         // §5.5.5 returns at the first top-level }, leaving subsequent input untouched.
         while (Current.Kind is not (CssTokenKind.None or CssTokenKind.CloseCurlyBracket))
@@ -60,7 +60,7 @@ internal sealed partial class CssSyntaxParser
             }
         }
         var result = Copy(declarations);
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
     }
 
@@ -74,7 +74,7 @@ internal sealed partial class CssSyntaxParser
             throw new ArgumentException("Expected a curly block from this input.", nameof(block));
         }
 
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         var values = block.Values;
         var blockEnd = block.Span.Start + block.Span.Length;
         var closed = block.IsClosed;
@@ -131,7 +131,7 @@ internal sealed partial class CssSyntaxParser
         }
         FlushRun();
         var result = new CssBlockSyntax(Copy(items));
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
 
         void FlushRun()
