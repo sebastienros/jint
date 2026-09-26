@@ -63,6 +63,10 @@ internal sealed class ShadowRoot : DocumentFragment
 internal static class ShadowTree
 {
     internal static ShadowRoot Attach(Element host, ShadowRootInit init, ShadowAttachmentContext context)
+        => Attach(host, init, context, null, default);
+
+    internal static ShadowRoot Attach(Element host, ShadowRootInit init, ShadowAttachmentContext context,
+        Action<int>? checkpoint, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(host);
         if (init.Mode is not ShadowRootMode.Open and not ShadowRootMode.Closed)
@@ -75,7 +79,9 @@ internal static class ShadowTree
             throw new ArgumentOutOfRangeException(nameof(init));
         }
 
-        if (host.NamespaceUri != Namespaces.Html || !IsValidShadowHostName(host.LocalName) || context.DisableShadow)
+        var work = new ShadowAttachmentWork(checkpoint, token);
+        work.Check();
+        if (host.NamespaceUri != Namespaces.Html || !IsValidShadowHostName(host.LocalName, ref work) || context.DisableShadow)
         {
             throw DomException.NotSupported();
         }
@@ -89,17 +95,24 @@ internal static class ShadowTree
 
             while (existing.FirstChild is { } child)
             {
+                work.Check();
                 existing.RemoveChild(child);
+                work.Step();
+                work.Check();
             }
 
+            work.Check();
             existing.SetDeclarative(false);
             host.OwnerDocument!.MarkMutation();
+            work.Check();
             return existing;
         }
 
         var root = new ShadowRoot(host, init, context);
+        work.Check();
         host.SetAttachedShadowRoot(root);
         host.OwnerDocument!.MarkMutation();
+        work.Check();
         return root;
     }
 
@@ -179,30 +192,48 @@ internal static class ShadowTree
         template.OwnerDocument!.MarkMutation();
     }
 
-    private static bool IsValidShadowHostName(string name)
+    private static bool IsValidShadowHostName(string name, ref ShadowAttachmentWork work)
         => name is "article" or "aside" or "blockquote" or "body" or "div" or "footer" or
             "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "header" or "main" or
-            "nav" or "p" or "section" or "span" || IsValidCustomElementName(name);
+            "nav" or "p" or "section" or "span" || IsValidCustomElementName(name, ref work);
 
     // HTML §4.13.2, valid custom element name, using DOM's current valid local name.
-    private static bool IsValidCustomElementName(string name)
+    private static bool IsValidCustomElementName(string name, ref ShadowAttachmentWork work)
     {
-        if (name.Length < 2 || name[0] is not (>= 'a' and <= 'z') || !name.Contains('-') ||
+        if (name.Length < 2 || name[0] is not (>= 'a' and <= 'z') ||
             name is "annotation-xml" or "color-profile" or "font-face" or "font-face-src" or
                 "font-face-uri" or "font-face-format" or "font-face-name" or "missing-glyph")
         {
             return false;
         }
 
+        var hasHyphen = false;
         for (var i = 0; i < name.Length; i++)
         {
+            work.Step();
             var ch = name[i];
+            hasHyphen |= ch == '-';
             if (ch is >= 'A' and <= 'Z' or '\0' or '\t' or '\n' or '\f' or '\r' or ' ' or '/' or '>')
             {
                 return false;
             }
         }
 
-        return true;
+        work.Check();
+        return hasHyphen;
+    }
+
+    private struct ShadowAttachmentWork(Action<int>? checkpoint, CancellationToken token)
+    {
+        private int _units;
+        internal void Step()
+        {
+            if ((++_units & 255) == 0) Check();
+        }
+        internal readonly void Check()
+        {
+            checkpoint?.Invoke(_units);
+            token.ThrowIfCancellationRequested();
+        }
     }
 }
