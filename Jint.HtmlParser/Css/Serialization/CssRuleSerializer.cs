@@ -31,10 +31,10 @@ internal static class CssRuleSerializer
         return new CssSerializationSnapshot(text, ranges);
     }
 
-    private sealed class Frame(IReadOnlyList<CssRule> rules, CssMediaRule? owner = null, int start = 0)
+    private sealed class Frame(IReadOnlyList<CssRule> rules, CssRule? owner = null, int start = 0)
     {
         internal readonly IReadOnlyList<CssRule> Rules = rules;
-        internal readonly CssMediaRule? Owner = owner;
+        internal readonly CssRule? Owner = owner;
         internal readonly int Start = start;
         internal int Index;
     }
@@ -76,8 +76,16 @@ internal static class CssRuleSerializer
                 builder.Append(declarations);
                 work.Charge(declarations.Length);
                 if (declarations.Length != 0) builder.Append(' ');
-                builder.Append('}');
-                ranges?.Add(rule, new CssTextRange(start, builder.Length));
+                if (style.Rules.Count != 0)
+                {
+                    builder.Append('\n');
+                    frames.Push(new Frame(style.Rules, style, start));
+                }
+                else
+                {
+                    builder.Append('}');
+                    ranges?.Add(rule, new CssTextRange(start, builder.Length));
+                }
             }
             else throw new InvalidOperationException("Unknown validated rule kind.");
         }

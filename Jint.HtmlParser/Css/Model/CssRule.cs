@@ -37,26 +37,41 @@ internal abstract class CssRule
             rule.ParentRule = item.Parent;
             rule._attachmentSheet = item.Parent is null ? sheet : null;
             rule._attachmentParent = item.Parent;
-            if (rule is CssMediaRule media)
-                foreach (var child in media.Rules) { work.Charge(1); pending.Push((child, rule)); }
+            var children = rule is CssMediaRule media ? media.Rules : ((CssStyleRule) rule).Rules;
+            foreach (var child in children) { work.Charge(1); pending.Push((child, rule)); }
         }
         work.CheckCancellation();
     }
 
-    internal void Detach()
+    internal void Detach(CssValueWork? work = null)
     {
-        ParentStyleSheet = null;
+        work ??= new CssValueWork(default);
+        var descendants = new List<CssRule>();
+        var pending = new Stack<CssRule>();
+        pending.Push(this);
+        while (pending.TryPop(out var rule))
+        {
+            work.Charge(1);
+            descendants.Add(rule);
+            var children = rule is CssMediaRule media ? media.Rules : ((CssStyleRule) rule).Rules;
+            foreach (var child in children) { work.Charge(1); pending.Push(child); }
+        }
+        work.CheckCancellation();
+        // Publication is atomic. Retained descendants keep their parent rule, but lose their sheet.
+        foreach (var rule in descendants) rule.ParentStyleSheet = null;
         ParentRule = null;
         _attachmentSheet = null;
         _attachmentParent = null;
     }
+
+    protected void AdvanceStamp() => CssMutationStamp.Advance(ref _version);
 
     internal void Changed()
     {
         CssRule? current = this;
         while (current is not null)
         {
-            CssMutationStamp.Advance(ref current._version);
+            current.AdvanceStamp();
             current._attachmentSheet?.Changed();
             current = current._attachmentParent;
         }
@@ -65,20 +80,29 @@ internal abstract class CssRule
 
 internal sealed class CssStyleRule : CssRule
 {
+    private readonly List<CssRule> _rules = new();
+    private readonly ParseLimits? _limits;
+    private readonly CssStyleRule? _nestingParent;
     private CompiledSelector _selector;
     private string _selectorText;
 
-    internal CssStyleRule(CompiledSelector selector, string selectorText, CssDeclarationBlock style, CssSourceSpan span)
+    internal CssStyleRule(CompiledSelector selector, string selectorText, CssDeclarationBlock style, CssSourceSpan span,
+        ParseLimits? limits = null, CssStyleRule? nestingParent = null)
         : base(span)
     {
         _selector = selector;
         _selectorText = selectorText;
         Style = style;
+        _limits = limits;
+        _nestingParent = nestingParent;
+        Rules = new CssRuleList(_rules);
         style.AttachTo(this);
     }
 
     internal override CssRuleType Type => CssRuleType.Style;
     internal CssDeclarationBlock Style { get; }
+    internal CssRuleList Rules { get; }
+    internal void AddProjected(CssRule rule) => _rules.Add(rule);
     internal CompiledSelector Selector => _selector;
     // This stage retains validated author selector text; canonical selector serialization is separate.
     internal string SelectorText => _selectorText;
@@ -100,13 +124,38 @@ internal sealed class CssStyleRule : CssRule
     {
         try
         {
+            options ??= new CssParseOptions { Limits = _limits ?? ParseLimits.Unbounded };
             var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
             var values = parser.ParseComponentValues();
             var selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options?.Limits), cancellationToken, work.CheckCancellation).Compile(values);
+                new SelectorParseContext(limits: options.Limits, nestingParent: _nestingParent?.Selector),
+                cancellationToken, work.CheckCancellation).Compile(values);
             var text = CssStyleSheet.SelectorText(source, values, parser, work);
+            // Stage the entire subtree so a cancelled mutation cannot publish stale child programs.
+            var updates = new List<(CssStyleRule Rule, CompiledSelector Selector)> { (this, selector) };
+            var pending = new Stack<(CssStyleRule Rule, CompiledSelector Parent)>();
+            foreach (var child in _rules) { work.Charge(1); pending.Push(((CssStyleRule) child, selector)); }
+            while (pending.TryPop(out var item))
+            {
+                work.Charge(1);
+                var childRule = item.Rule;
+                var childParser = new CssSyntaxParser(childRule._selectorText,
+                    new CssParseOptions { Limits = childRule._limits ?? ParseLimits.Unbounded },
+                    cancellationToken, work.CheckCancellation);
+                var childValues = childParser.ParseComponentValues();
+                var childSelector = new SelectorCompiler.Worker(childRule._selectorText,
+                    new SelectorParseContext(limits: childRule._limits, nestingParent: item.Parent),
+                    cancellationToken, work.CheckCancellation).Compile(childValues);
+                updates.Add((childRule, childSelector));
+                foreach (var child in childRule._rules)
+                { work.Charge(1); pending.Push(((CssStyleRule) child, childSelector)); }
+            }
             work.CheckCancellation();
-            _selector = selector;
+            foreach (var update in updates)
+            {
+                update.Rule._selector = update.Selector;
+                if (!ReferenceEquals(update.Rule, this)) update.Rule.AdvanceStamp();
+            }
             _selectorText = text;
             Changed();
         }

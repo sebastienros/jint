@@ -95,13 +95,13 @@ internal sealed class CssStyleSheet
         return index;
     }
 
-    internal void DeleteRule(int index)
+    internal void DeleteRule(int index, CssValueWork? work = null)
     {
         if ((uint) index >= (uint) _rules.Count)
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
         var rule = _rules[index];
+        rule.Detach(work);
         _rules.RemoveAt(index);
-        rule.Detach();
         Changed();
     }
 
@@ -125,7 +125,11 @@ internal sealed class CssStyleSheet
             if (frame.Index == frame.Rules.Count) continue;
             var rule = frame.Rules[frame.Index];
             frames.Push((frame.Rules, frame.Index + 1));
-            if (rule is CssStyleRule style) result.Add(style);
+            if (rule is CssStyleRule style)
+            {
+                result.Add(style);
+                frames.Push((style.Rules, 0));
+            }
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
                 frames.Push((media.Rules, 0));
         }
@@ -157,9 +161,9 @@ internal sealed class CssStyleSheet
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
         var root = BuildShallow(source, syntax, parser, options, work, cancellationToken);
-        if (root is not CssMediaRule group) return root;
-        var pending = new Stack<(CssMediaRule Group, CssComponentValue Block)>();
-        pending.Push((group, syntax.Block!.Value));
+        if (root is null) return null;
+        var pending = new Stack<(CssRule Owner, CssComponentValue Block)>();
+        pending.Push((root, syntax.Block!.Value));
         while (pending.TryPop(out var item))
         {
             work.Charge(1);
@@ -167,17 +171,20 @@ internal sealed class CssStyleSheet
             {
                 work.Charge(1);
                 if (entry.Kind != CssBlockItemKind.Rule) continue;
-                var child = BuildShallow(source, entry.Rule, parser, options, work, cancellationToken);
+                var child = BuildShallow(source, entry.Rule, parser, options, work, cancellationToken,
+                    item.Owner as CssStyleRule);
                 if (child is null) continue;
-                item.Group.AddProjected(child);
-                if (child is CssMediaRule childGroup) pending.Push((childGroup, entry.Rule.Block!.Value));
+                if (item.Owner is CssMediaRule media) media.AddProjected(child);
+                else ((CssStyleRule) item.Owner).AddProjected(child);
+                pending.Push((child, entry.Rule.Block!.Value));
             }
         }
         return root;
     }
 
     private static CssRule? BuildShallow(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
-        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
+        CssStyleRule? nestingParent = null)
     {
         if (syntax.Kind == CssRuleKind.AtRule)
         {
@@ -203,30 +210,37 @@ internal sealed class CssStyleSheet
         try
         {
             selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options?.Limits), cancellationToken, work.CheckCancellation).Compile(syntax.Prelude);
+                new SelectorParseContext(limits: options?.Limits, nestingParent: nestingParent?.Selector),
+                cancellationToken, work.CheckCancellation).Compile(syntax.Prelude);
         }
         catch (SelectorParseException) { return null; }
         var text = SelectorText(source, syntax.Prelude, parser, work);
         var body = parser.ParseBlockContents(block);
         var declarations = new List<CssDeclarationSyntax>();
+        var afterNestedRule = false;
         foreach (var item in body)
         {
             work.Charge(1);
             if (item.Kind == CssBlockItemKind.Rule)
             {
                 if (item.Rule.Kind == CssRuleKind.QualifiedRule)
-                    throw new CssIncompleteRuleGrammarException("nested-style", "C2:nesting-selector-context", item.Rule.Span);
+                {
+                    afterNestedRule = true;
+                    continue;
+                }
                 // Unknown at-rules recover; known nested grammars must remain completion blockers.
                 if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media"))
                     throw new CssIncompleteRuleGrammarException("nested-media", "C2:nesting-selector-context", item.Rule.Span);
                 BuildShallow(source, item.Rule, parser, options, work, cancellationToken);
                 continue;
             }
+            if (afterNestedRule)
+                throw new CssIncompleteRuleGrammarException("nested-declarations", "C2:interleaved-declarations", syntax.Span);
             foreach (var declaration in item.Declarations) { work.Charge(1); declarations.Add(declaration); }
         }
         var style = CssDeclarationBlock.FromDeclarations(source, declarations, CssDeclarationContext.Style,
             options?.Limits.MaxNestingDepth ?? 0, work);
-        return new CssStyleRule(selector, text, style, syntax.Span);
+        return new CssStyleRule(selector, text, style, syntax.Span, options?.Limits, nestingParent);
     }
 
     internal static string SelectorText(string source, CssComponentValueList values, CssSyntaxParser parser, CssValueWork work)

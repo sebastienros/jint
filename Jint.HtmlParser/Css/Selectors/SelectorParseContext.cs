@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css;
 
@@ -6,7 +7,7 @@ internal sealed class SelectorParseContext
 {
     internal SelectorParseContext(
         IEnumerable<KeyValuePair<string, string>>? namespaceBindings = null,
-        ParseLimits? limits = null)
+        ParseLimits? limits = null, CompiledSelector? nestingParent = null)
     {
         var bindings = new Dictionary<string, string>(StringComparer.Ordinal);
         if (namespaceBindings is not null)
@@ -26,8 +27,10 @@ internal sealed class SelectorParseContext
 
         NamespaceBindings = new ReadOnlyDictionary<string, string>(bindings);
         Limits = limits ?? ParseLimits.Unbounded;
+        NestingParent = nestingParent;
     }
 
     internal IReadOnlyDictionary<string, string> NamespaceBindings { get; }
     internal ParseLimits Limits { get; }
+    internal CompiledSelector? NestingParent { get; }
 }
