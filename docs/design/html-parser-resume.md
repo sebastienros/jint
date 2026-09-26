@@ -63,6 +63,22 @@ paths and one reviewed Unicode-sets pattern fixture correction. These are incomp
 Dedicated fixes preserve generic Engine task behavior, establish actual document CSS realms, and
 provide the existing native query to engine-free extraction without a fake realm or eager computation.
 
+**Latest isolated runtime gates:** reviewed parser style completion, CSS nesting, stylesheet sets,
+and query diagnostics pass **55/55** fresh Release/net10 tests at `98b2b75c5`
+(`/private/tmp/native-style-completion-nesting-net10-test.log`). Browser watch/adoption, request identity,
+frame scheduling, manufactured-document CSS realms and configuration pass **23/23**, zero failures/skips
+(`/private/tmp/native-browser-watch-adoption-net10-test.log`). The frame failures above are fixed;
+these focused passes do not establish full Browser acceptance. The full net10 Browser run is exposing
+additional binding, event, resource, selector and CSS grammar failures plus stale WPT exclusions.
+In particular, unsupported native `:checked` and other state predicates cause many layout tests to fail
+before reaching cache assertions. Fix production behavior and review expectation corrections individually.
+
+Engine-free CSS query/completed-source registration (`72d88eda1`) is under review: avoid repeated
+owner-to-root walks during completed-style registration, which would make deep style trees quadratic.
+Custom-property serialization also needs preserved lexical substitution pieces, including comments;
+generic token serialization must not replace the authored spelling. Native META insertion capture and
+Browser delivery remain in progress. No full Browser, final framework, or speedup acceptance yet.
+
 Native two-phase mutation notifications and frozen attribute values pass **15/15** focused fresh
 Release net10 tests at isolated `39e027033`, zero failures/skips
 (`/private/tmp/native-mutation-order-fixed-net10-test.log`). The reviewed stylesheet producer through
@@ -135,7 +151,7 @@ helpers own new InputValues files only, and fragments own tokenizer/treebuilder/
 CSS model work must preserve named unfinished-grammar blockers, rather than accepting invalid or
 unimplemented declarations silently. Reviewed completed slices continue to land in common, and
 Browser changes remain isolated until the package builds and works. After numeric-helper, CSS color
-and HTML facade/benchmark completion, 71 completed chats are archived and 27 completed checkouts await
+and HTML facade/benchmark completion, 72 completed chats are archived and 28 completed checkouts await
 managed archive identities. Root and the completed owners returned empty artifact lists; no invented identity or shell
 removal was used. Unfinished worktrees remain active. Previous counts below are historical.
 
