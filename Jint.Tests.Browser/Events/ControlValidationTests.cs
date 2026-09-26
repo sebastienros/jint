@@ -1,7 +1,6 @@
 using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
-using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Events;
 
@@ -27,12 +26,12 @@ public sealed class ControlValidationTests
         var engine = new Engine();
         var realm = DomRealm.Of(engine);
         var input = ContentDom.ElementById(ContentDom.Parse("<input id=t maxlength=2 minlength=2>"), "t")!;
-        var state = input.GetHtmlState()!.GetInputValueState(default)!;
-        state.SetValue("long", default);
+        realm.WrapNode(input).Set("value", "long", throwOnError: true);
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
-        state.ApplyUserValue("user", new HtmlTextSelection(4, 4, HtmlSelectionDirection.None), default);
+        var control = new TextEditing.TextControl(realm, input);
+        control.ApplyUserValue("user", 4).Should().BeTrue();
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.TooLong);
-        state.ApplyUserValue("x", new HtmlTextSelection(1, 1, HtmlSelectionDirection.None), default);
+        control.ApplyUserValue("x", 1).Should().BeTrue();
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.TooShort);
     }
 
@@ -43,7 +42,7 @@ public sealed class ControlValidationTests
         var document = ContentDom.Parse("<form><input type=radio name=g required disabled><input id=t type=radio name=g></form>");
         var input = ContentDom.ElementById(document, "t")!;
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.ValueMissing);
-        HtmlCheckednessAlgorithms.Set(input, true, HtmlCheckedChangeOrigin.UserInteraction, default);
+        ActivationBehaviors.LegacyPreActivationBehavior(realm.WrapNode(input));
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
     }
 
@@ -55,7 +54,7 @@ public sealed class ControlValidationTests
         var realm = DomRealm.Of(engine);
         var input = ContentDom.ElementById(ContentDom.Parse("<input id=t pattern='[a-z&&[^q]]+' value=abc>"), "t")!;
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
-        input.GetHtmlState()!.GetInputValueState(default)!.SetValue("q", default);
+        realm.WrapNode(input).Set("value", "q", throwOnError: true);
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.PatternMismatch);
         input.SetAttribute("pattern", "[");
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
