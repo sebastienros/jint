@@ -47,7 +47,7 @@ internal abstract class DomCollectionAccessor
     /// <a href="https://webidl.spec.whatwg.org/#dfn-supported-property-names">supported property names</a>,
     /// and they are what <c>Object.keys</c> and <c>for..in</c> see beside the indices.
     /// </summary>
-    internal virtual IReadOnlyList<string> SupportedNames(object target) => [];
+    internal virtual IReadOnlyList<string> SupportedNames(DomRealm realm, object target) => [];
 
     /// <summary>
     /// Whether <paramref name="name"/> is one of the supported property names, without materializing them.
@@ -60,7 +60,7 @@ internal abstract class DomCollectionAccessor
     /// before the named getter runs — where building a list of every name in order to look at one of them is
     /// a list allocation and a walk of the whole collection for a question about a single member.
     /// </remarks>
-    internal virtual bool HasSupportedName(object target, string name) => false;
+    internal virtual bool HasSupportedName(DomRealm realm, object target, string name) => false;
 
     /// <summary>
     /// Whether the supported property names enumerate. WebIDL's

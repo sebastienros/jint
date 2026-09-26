@@ -9,24 +9,16 @@
 
 namespace Jint.Browser.Dom;
 
-/// <summary>How <c>AudioTrackList</c> answers indexed and named property lookups.</summary>
+/// <summary>The actual AudioTrackList capability list's indexed view.</summary>
 internal sealed class DomAccessorAudioTrackList : DomCollectionAccessor
 {
     internal static readonly DomAccessorAudioTrackList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IAudioTrackList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.BrowserAudioTrackList) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Media.Dom.IAudioTrackList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
+        var item = ((global::Jint.Browser.Dom.BrowserAudioTrackList) target).GetItem(index);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
 }
 
@@ -122,7 +114,7 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
 
     internal override bool HasNamedGetter => true;
 
-    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
+    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)
     {
         var names = new global::System.Collections.Generic.List<string>();
         foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)
@@ -139,7 +131,7 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
         return names;
     }
 
-    internal override bool HasSupportedName(object target, string name)
+    internal override bool HasSupportedName(DomRealm realm, object target, string name)
     {
         foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)
         {
@@ -222,90 +214,29 @@ internal sealed class DomAccessorFileList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>HTMLFormElement</c> answers indexed and named property lookups.</summary>
+/// <summary>HTML §4.10.3's native form indexed and named getter.</summary>
 internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
 {
     internal static readonly DomAccessorHTMLFormElement Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;
-
+    private static global::Jint.Browser.Dom.DomFormControlsCollection Controls(DomRealm realm, object target)
+        => global::Jint.Browser.Dom.DomFormControlsCollection.Of(realm, (global::Jint.HtmlParser.Element) target);
+    internal override uint Length(DomRealm realm, object target) => (uint) Controls(realm, target).GetLength(realm);
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::Jint.HtmlParser.Element) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(collection[(int) index]);
-        return true;
+        var element = Controls(realm, target).GetItem(realm, index);
+        value = element is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNode(element);
+        return element is not null;
     }
-
     internal override bool HasNamedGetter => true;
-
-    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
-    {
-        var collection = (global::Jint.HtmlParser.Element) target;
-        var length = collection.Length;
-        var names = new global::System.Collections.Generic.List<string>(length);
-        for (var i = 0; i < length; i++)
-        {
-            var item = collection[i];
-            if (item is null)
-            {
-                continue;
-            }
-
-            Add(names, item.GetAttribute("name"));
-            Add(names, item.Id);
-        }
-
-        return names;
-
-        static void Add(global::System.Collections.Generic.List<string> names, string? name)
-        {
-            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))
-            {
-                names.Add(name!);
-            }
-        }
-    }
-
-    internal override bool HasSupportedName(object target, string name)
-    {
-        if (string.IsNullOrEmpty(name))
-        {
-            return false;
-        }
-
-        var collection = (global::Jint.HtmlParser.Element) target;
-        var length = collection.Length;
-        for (var i = 0; i < length; i++)
-        {
-            var item = collection[i];
-            if (item is not null
-                && (string.Equals(item.GetAttribute("name"), name, global::System.StringComparison.Ordinal)
-                    || string.Equals(item.Id, name, global::System.StringComparison.Ordinal)))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
+    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)
+        => Controls(realm, target).FormNames(realm);
+    internal override bool HasSupportedName(DomRealm realm, object target, string name)
+        => Controls(realm, target).HasFormName(realm, name);
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
-        var item = ((global::Jint.HtmlParser.Element) target)[name];
-        if (item is null)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(item);
-        return true;
+        var result = Controls(realm, target).FormNamedItem(realm, name);
+        value = result ?? global::Jint.Native.JsValue.Undefined;
+        return result is not null;
     }
 }
 
@@ -313,10 +244,10 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
 internal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor
 {
     internal static readonly DomAccessorHTMLSelectElement Instance = new();
-    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.GetCount(realm.CancellationToken);
+    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.GetCount(realm.NativeReadCheckpoint, realm.CancellationToken);
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var option = global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.Item(index, realm.CancellationToken);
+        var option = global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.Item(index, realm.NativeReadCheckpoint, realm.CancellationToken);
         value = realm.WrapNodeValue(option);
         return option is not null;
     }
@@ -355,15 +286,15 @@ internal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor
         return item is not null;
     }
     internal override bool HasNamedGetter => true;
-    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
-        => ((Collections.DomNamedNodeMap) target).SupportedNames();
-    internal override bool HasSupportedName(object target, string name)
-        => ((Collections.DomNamedNodeMap) target).HasSupportedName(name);
+    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)
+        => ((Collections.DomNamedNodeMap) target).SupportedNames(realm);
+    internal override bool HasSupportedName(DomRealm realm, object target, string name)
+        => ((Collections.DomNamedNodeMap) target).HasSupportedName(realm, name);
     internal override bool AreNamesEnumerable => false;
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
         var map = (Collections.DomNamedNodeMap) target;
-        var item = map.HasSupportedName(name) ? map.GetNamedItem(name) : null;
+        var item = map.HasSupportedName(realm, name) ? map.GetNamedItem(realm, name) : null;
         value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
         return item is not null;
     }
@@ -374,7 +305,7 @@ internal sealed class DomAccessorNodeList : DomCollectionAccessor
 {
     internal static readonly DomAccessorNodeList Instance = new();
 
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).ReadLength(realm.NativeReadCheckpoint, realm.CancellationToken);
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
@@ -427,45 +358,29 @@ internal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>TextTrackList</c> answers indexed and named property lookups.</summary>
+/// <summary>The actual TextTrackList capability list's indexed view.</summary>
 internal sealed class DomAccessorTextTrackList : DomCollectionAccessor
 {
     internal static readonly DomAccessorTextTrackList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.BrowserTextTrackList) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Media.Dom.ITextTrackList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
+        var item = ((global::Jint.Browser.Dom.BrowserTextTrackList) target).GetItem(index);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
 }
 
-/// <summary>How <c>VideoTrackList</c> answers indexed and named property lookups.</summary>
+/// <summary>The actual VideoTrackList capability list's indexed view.</summary>
 internal sealed class DomAccessorVideoTrackList : DomCollectionAccessor
 {
     internal static readonly DomAccessorVideoTrackList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IVideoTrackList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.BrowserVideoTrackList) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Media.Dom.IVideoTrackList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
+        var item = ((global::Jint.Browser.Dom.BrowserVideoTrackList) target).GetItem(index);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
 }
 

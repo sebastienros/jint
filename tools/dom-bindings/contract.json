@@ -563,8 +563,8 @@
     },
     {
       "DomName": "AudioTrackList",
-      "ClrTypeName": "AngleSharp.Media.Dom.IAudioTrackList",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IAudioTrackList",
+      "ClrTypeName": "Jint.Browser.Dom.BrowserAudioTrackList",
+      "ReceiverType": "global::Jint.Browser.Dom.BrowserAudioTrackList",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -573,13 +573,13 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>AudioTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorAudioTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorAudioTrackList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IAudioTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.IAudioTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>The actual AudioTrackList capability list's indexed view.</summary>\ninternal sealed class DomAccessorAudioTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorAudioTrackList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.BrowserAudioTrackList) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.BrowserAudioTrackList) target).GetItem(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorAudioTrackList.Instance",
       "Members": [
         {
           "DomName": "getTrackById",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrackList>(thisObj, \"AudioTrackList.getTrackById\");\nreturn self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"AudioTrackList.getTrackById\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserAudioTrackList>(thisObj, \"AudioTrackList.getTrackById\");\nreturn self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"AudioTrackList.getTrackById\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IAudioTrackList.GetTrackById"
@@ -587,7 +587,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrackList>(thisObj, \"AudioTrackList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserAudioTrackList>(thisObj, \"AudioTrackList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IAudioTrackList.Length"
@@ -4551,7 +4551,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined — the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined — the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(DomRealm realm, object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMStringMap.Instance",
       "Members": [],
       "Constants": [],
@@ -5066,7 +5066,7 @@
         {
           "DomName": "firstElementChild",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.firstElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.firstElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.FirstElementChild"
@@ -5186,7 +5186,7 @@
         {
           "DomName": "lastElementChild",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.lastElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.lastElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.LastElementChild"
@@ -5482,7 +5482,7 @@
         {
           "DomName": "firstElementChild",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DocumentFragment>(thisObj, \"DocumentFragment.firstElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DocumentFragment>(thisObj, \"DocumentFragment.firstElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.FirstElementChild"
@@ -5498,7 +5498,7 @@
         {
           "DomName": "lastElementChild",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DocumentFragment>(thisObj, \"DocumentFragment.lastElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DocumentFragment>(thisObj, \"DocumentFragment.lastElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.LastElementChild"
@@ -5763,7 +5763,7 @@
         {
           "DomName": "firstElementChild",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.firstElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.firstElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.FirstElementChild"
@@ -5923,7 +5923,7 @@
         {
           "DomName": "lastElementChild",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.lastElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.lastElementChild\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.LastElementChild"
@@ -6955,7 +6955,7 @@
         {
           "DomName": "addTextTrack",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.addTextTrack\");\nreturn self.Realm.Wrap(self.Target.AddTextTrack(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMediaElement.addTextTrack\"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 1, null)!, global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.addTextTrack\");\nreturn global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).AddTextTrack(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMediaElement.addTextTrack\"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 1, \"\")!, global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, \"\")!);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlMediaElement.AddTextTrack"
@@ -6963,7 +6963,7 @@
         {
           "DomName": "audioTracks",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.audioTracks\");\nreturn self.Realm.Wrap(self.Target.AudioTracks);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.audioTracks\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).AudioTracks);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.AudioTracks"
@@ -6971,15 +6971,15 @@
         {
           "DomName": "autoplay",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.autoplay\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsAutoplay);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.autoplay\");\nself.Target.IsAutoplay = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.autoplay\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementAutoplay.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.autoplay\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementAutoplay.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlMediaElement.IsAutoplay"
         },
         {
           "DomName": "buffered",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.buffered\");\nreturn self.Realm.Wrap(self.Target.BufferedTime);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.buffered\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Buffered);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.BufferedTime"
@@ -6987,7 +6987,7 @@
         {
           "DomName": "canPlayType",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.canPlayType\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.CanPlayType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMediaElement.canPlayType\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.canPlayType\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).CanPlayType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMediaElement.canPlayType\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlMediaElement.CanPlayType"
@@ -6995,7 +6995,7 @@
         {
           "DomName": "controller",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.controller\");\nreturn self.Realm.Wrap(self.Target.Controller);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.controller\");\nreturn global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Controller(self.Realm);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.Controller"
@@ -7003,8 +7003,8 @@
         {
           "DomName": "controls",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.controls\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsShowingControls);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.controls\");\nself.Target.IsShowingControls = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.controls\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementControls.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.controls\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementControls.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlMediaElement.IsShowingControls"
         },
@@ -7019,7 +7019,7 @@
         {
           "DomName": "currentSrc",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.currentSrc\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.CurrentSource);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.currentSrc\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).CurrentSrc);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.CurrentSource"
@@ -7027,31 +7027,31 @@
         {
           "DomName": "currentTime",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.currentTime\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.CurrentTime);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.currentTime\");\nself.Target.CurrentTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.currentTime\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.currentTime\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).CurrentTime);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.currentTime\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).SetCurrentTime(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.currentTime\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IMediaController.CurrentTime"
         },
         {
           "DomName": "defaultMuted",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultMuted\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDefaultMuted);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultMuted\");\nself.Target.IsDefaultMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultMuted\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementDefaultMuted.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultMuted\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementDefaultMuted.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlMediaElement.IsDefaultMuted"
         },
         {
           "DomName": "defaultPlaybackRate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultPlaybackRate\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.DefaultPlaybackRate);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultPlaybackRate\");\nself.Target.DefaultPlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.defaultPlaybackRate\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultPlaybackRate\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).DefaultPlaybackRate);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.defaultPlaybackRate\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).SetDefaultPlaybackRate(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.defaultPlaybackRate\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IMediaController.DefaultPlaybackRate"
         },
         {
           "DomName": "duration",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.duration\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Duration);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.duration\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Duration);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.Duration"
@@ -7059,7 +7059,7 @@
         {
           "DomName": "ended",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.ended\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsEnded);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.ended\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Ended);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.IsEnded"
@@ -7067,7 +7067,7 @@
         {
           "DomName": "error",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.error\");\nreturn self.Realm.Wrap(self.Target.MediaError);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.error\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Error);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.MediaError"
@@ -7075,7 +7075,7 @@
         {
           "DomName": "load",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.load\");\nself.Target.Load(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.load\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Load(self.Realm); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.Load"
@@ -7091,31 +7091,31 @@
         {
           "DomName": "loop",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.loop\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsLoop);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.loop\");\nself.Target.IsLoop = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.loop\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementLoop.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.loop\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementLoop.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlMediaElement.IsLoop"
         },
         {
           "DomName": "mediaGroup",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.mediaGroup\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.MediaGroup);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.mediaGroup\");\nself.Target.MediaGroup = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMediaElement.mediaGroup\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.mediaGroup\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementMediaGroup.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.mediaGroup\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementMediaGroup.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlMediaElement.MediaGroup"
         },
         {
           "DomName": "muted",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.muted\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMuted);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.muted\");\nself.Target.IsMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.muted\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).GetMuted(self.Realm));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.muted\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).SetMuted(self.Realm, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IMediaController.IsMuted"
         },
         {
           "DomName": "networkState",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.networkState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.NetworkState));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.networkState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).NetworkState);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.NetworkState"
@@ -7123,7 +7123,7 @@
         {
           "DomName": "pause",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.pause\");\nself.Target.Pause(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.pause\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Pause(); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.Pause"
@@ -7131,7 +7131,7 @@
         {
           "DomName": "paused",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.paused\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPaused);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.paused\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Paused);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.IsPaused"
@@ -7139,7 +7139,7 @@
         {
           "DomName": "play",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.play\");\nself.Target.Play(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.play\");\nreturn global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Play(self.Realm);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.Play"
@@ -7147,15 +7147,15 @@
         {
           "DomName": "playbackRate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.playbackRate\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.PlaybackRate);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.playbackRate\");\nself.Target.PlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.playbackRate\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.playbackRate\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).PlaybackRate);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.playbackRate\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).SetPlaybackRate(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.playbackRate\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IMediaController.PlaybackRate"
         },
         {
           "DomName": "playbackState",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.playbackState\");\nreturn global::Jint.Browser.Dom.DomEnums.FromMediaControllerPlaybackState(self.Target.PlaybackState);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.playbackState\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).PlaybackState);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.PlaybackState"
@@ -7163,7 +7163,7 @@
         {
           "DomName": "played",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.played\");\nreturn self.Realm.Wrap(self.Target.PlayedTime);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.played\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Played);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.PlayedTime"
@@ -7179,7 +7179,7 @@
         {
           "DomName": "readyState",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.readyState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.readyState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).ReadyState);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.ReadyState"
@@ -7187,7 +7187,7 @@
         {
           "DomName": "seekable",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.seekable\");\nreturn self.Realm.Wrap(self.Target.SeekableTime);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.seekable\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Seekable);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaController.SeekableTime"
@@ -7195,7 +7195,7 @@
         {
           "DomName": "seeking",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.seeking\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSeeking);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.seeking\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Seeking);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.IsSeeking"
@@ -7203,15 +7203,15 @@
         {
           "DomName": "src",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.src\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.src\");\nself.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLMediaElement.src\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.src\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementSrc.Get(self.Realm, self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.src\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLMediaElementSrc.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlMediaElement.Source"
         },
         {
           "DomName": "startDate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.startDate\");\nreturn global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.StartDate);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.startDate\");\nreturn global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).StartDate(self.Realm);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.StartDate"
@@ -7219,7 +7219,7 @@
         {
           "DomName": "textTracks",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.textTracks\");\nreturn self.Realm.Wrap(self.Target.TextTracks);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.textTracks\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).TextTracks);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.TextTracks"
@@ -7227,7 +7227,7 @@
         {
           "DomName": "videoTracks",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.videoTracks\");\nreturn self.Realm.Wrap(self.Target.VideoTracks);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.videoTracks\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).VideoTracks);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMediaElement.VideoTracks"
@@ -7235,8 +7235,8 @@
         {
           "DomName": "volume",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.volume\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Volume);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.volume\");\nself.Target.Volume = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.volume\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.volume\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).Volume);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMediaElement.volume\");\nglobal::Jint.Browser.Dom.BrowserMediaState.Of(self.Realm, self.Target).SetVolume(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"HTMLMediaElement.volume\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IMediaController.Volume"
         }
@@ -7624,7 +7624,7 @@
         {
           "DomName": "getContext",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.getContext\");\nreturn self.Realm.Wrap(self.Target.GetContext(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCanvasElement.getContext\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.getContext\");\nreturn global::Jint.Browser.Dom.BrowserCanvasMembers.GetContext(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlCanvasElement.GetContext"
@@ -7640,7 +7640,7 @@
         {
           "DomName": "probablySupportsContext",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.probablySupportsContext\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSupportingContext(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLCanvasElement.probablySupportsContext\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.probablySupportsContext\");\nreturn global::Jint.Browser.Dom.BrowserCanvasMembers.ProbablySupportsContext(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlCanvasElement.IsSupportingContext"
@@ -7648,7 +7648,7 @@
         {
           "DomName": "setContext",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.setContext\");\nself.Target.SetContext(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.IRenderingContext>(args, 0, \"HTMLCanvasElement.setContext\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.setContext\");\nreturn global::Jint.Browser.Dom.BrowserCanvasMembers.SetContext(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IHtmlCanvasElement.SetContext"
@@ -7656,7 +7656,7 @@
         {
           "DomName": "toDataURL",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.toDataURL\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ToDataUrl(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, null)!));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.toDataURL\");\nreturn global::Jint.Browser.Dom.BrowserCanvasMembers.ToDataUrl(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlCanvasElement.ToDataUrl"
@@ -7870,7 +7870,7 @@
         {
           "DomName": "close",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.close\");\nself.Target.Close(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, null)!); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.close\");\nglobal::Jint.Browser.Dom.BrowserDialogState.Of(self.Realm, self.Target).Close(self.Realm, global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, null)); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlDialogElement.Close"
@@ -7886,15 +7886,15 @@
         {
           "DomName": "returnValue",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.returnValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ReturnValue);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.returnValue\");\nself.Target.ReturnValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLDialogElement.returnValue\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.returnValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserDialogState.Of(self.Realm, self.Target).ReturnValue);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.returnValue\");\nglobal::Jint.Browser.Dom.BrowserDialogState.Of(self.Realm, self.Target).ReturnValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLDialogElement.returnValue\"); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlDialogElement.ReturnValue"
         },
         {
           "DomName": "show",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.show\");\nself.Target.Show(global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLDialogElement.show\", \"Element\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.show\");\nglobal::Jint.Browser.Dom.BrowserDialogState.Of(self.Realm, self.Target).Show(self.Realm); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlDialogElement.Show"
@@ -7902,7 +7902,7 @@
         {
           "DomName": "showModal",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.showModal\");\nself.Target.ShowModal(global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLDialogElement.showModal\", \"Element\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLDialogElement.showModal\");\nreturn global::Jint.Browser.Dom.BrowserDialogState.Of(self.Realm, self.Target).ShowModal(self.Realm);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlDialogElement.ShowModal"
@@ -8130,7 +8130,7 @@
     {
       "DomName": "HTMLFormControlsCollection",
       "ClrTypeName": "AngleSharp.Html.Dom.IHtmlFormControlsCollection",
-      "ReceiverType": "global::AngleSharp.Html.Dom.IHtmlFormControlsCollection",
+      "ReceiverType": "global::Jint.Browser.Dom.DomFormControlsCollection",
       "Parent": "HTMLCollection",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -8157,7 +8157,7 @@
       "Group": "Html",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>HTMLFormElement</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLFormElement Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Element) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(collection[(int) index]);\n        return true;\n    }\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var collection = (global::Jint.HtmlParser.Element) target;\n        var length = collection.Length;\n        var names = new global::System.Collections.Generic.List<string>(length);\n        for (var i = 0; i < length; i++)\n        {\n            var item = collection[i];\n            if (item is null)\n            {\n                continue;\n            }\n\n            Add(names, item.GetAttribute(\"name\"));\n            Add(names, item.Id);\n        }\n\n        return names;\n\n        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        if (string.IsNullOrEmpty(name))\n        {\n            return false;\n        }\n\n        var collection = (global::Jint.HtmlParser.Element) target;\n        var length = collection.Length;\n        for (var i = 0; i < length; i++)\n        {\n            var item = collection[i];\n            if (item is not null\n                && (string.Equals(item.GetAttribute(\"name\"), name, global::System.StringComparison.Ordinal)\n                    || string.Equals(item.Id, name, global::System.StringComparison.Ordinal)))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.HtmlParser.Element) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(item);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>HTML §4.10.3's native form indexed and named getter.</summary>\ninternal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLFormElement Instance = new();\n    private static global::Jint.Browser.Dom.DomFormControlsCollection Controls(DomRealm realm, object target)\n        => global::Jint.Browser.Dom.DomFormControlsCollection.Of(realm, (global::Jint.HtmlParser.Element) target);\n    internal override uint Length(DomRealm realm, object target) => (uint) Controls(realm, target).GetLength(realm);\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var element = Controls(realm, target).GetItem(realm, index);\n        value = element is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNode(element);\n        return element is not null;\n    }\n    internal override bool HasNamedGetter => true;\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)\n        => Controls(realm, target).FormNames(realm);\n    internal override bool HasSupportedName(DomRealm realm, object target, string name)\n        => Controls(realm, target).HasFormName(realm, name);\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var result = Controls(realm, target).FormNamedItem(realm, name);\n        value = result ?? global::Jint.Native.JsValue.Undefined;\n        return result is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorHTMLFormElement.Instance",
       "Members": [
         {
@@ -8195,7 +8195,7 @@
         {
           "DomName": "elements",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.elements\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Elements);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.elements\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomFormControlsCollection.Of(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFormElement.Elements"
@@ -8219,7 +8219,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomFormControlsCollection.Of(self.Realm, self.Target).GetLength(self.Realm));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFormElement.Length"
@@ -8886,8 +8886,8 @@
         {
           "DomName": "checked",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.checked\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsChecked);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.checked\");\nself.Target.IsChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.checked\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomInputMembers.Checked(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.checked\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetChecked(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlInputElement.IsChecked"
         },
@@ -8998,8 +8998,8 @@
         {
           "DomName": "indeterminate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.indeterminate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsIndeterminate);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.indeterminate\");\nself.Target.IsIndeterminate = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.indeterminate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ExistingCheckedState?.Indeterminate ?? false);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.indeterminate\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetIndeterminate(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlInputElement.IsIndeterminate"
         },
@@ -10430,8 +10430,8 @@
         {
           "DomName": "defaultSelected",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.DefaultSelected);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetDefaultSelected(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.DefaultSelected);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.defaultSelected\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.SetDefaultSelected(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.IsDefaultSelected"
         },
@@ -10454,7 +10454,7 @@
         {
           "DomName": "index",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.index\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetIndex(self.Realm.CancellationToken));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.index\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.GetIndex(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlOptionElement.Index"
@@ -10462,15 +10462,15 @@
         {
           "DomName": "label",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetLabel(self.Realm.CancellationToken));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetLabel(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.label\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.GetLabel(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.label\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.SetLabel(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.label\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.Label"
         },
         {
           "DomName": "selected",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.selected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.Selected);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.selected\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.Selected);",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.selected\");\nself.Realm.Hooks.SetOptionSelected(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.IsSelected"
@@ -10478,16 +10478,16 @@
         {
           "DomName": "text",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetText(self.Realm.CancellationToken));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.text\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.GetText(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.text\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.SetText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.text\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.Text"
         },
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.GetValue(self.Realm.CancellationToken));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.CancellationToken)!.SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.value\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.GetValue(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOptionElement.value\");\nself.Target.GetHtmlState()!.GetOptionState(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken)!.SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOptionElement.value\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionElement.Value"
         }
@@ -10530,8 +10530,8 @@
         {
           "DomName": "selectedIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target.Select).GetSelectedIndex(self.Realm.CancellationToken));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target.Select).SetSelectedIndex(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLOptionsCollection.selectedIndex\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target.Select).GetSelectedIndex(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomSelectOptionsCollection>(thisObj, \"HTMLOptionsCollection.selectedIndex\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target.Select).SetSelectedIndex(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLOptionsCollection.selectedIndex\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlOptionsCollection.SelectedIndex"
         }
@@ -10982,7 +10982,7 @@
       "Group": "Html",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>Native select indexed properties use the authoritative option inventory.</summary>\ninternal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLSelectElement Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.GetCount(realm.CancellationToken);\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var option = global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.Item(index, realm.CancellationToken);\n        value = realm.WrapNodeValue(option);\n        return option is not null;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native select indexed properties use the authoritative option inventory.</summary>\ninternal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor\n{\n    internal static readonly DomAccessorHTMLSelectElement Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.GetCount(realm.NativeReadCheckpoint, realm.CancellationToken);\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var option = global::Jint.Browser.Dom.DomSelectMembers.State(realm, (global::Jint.HtmlParser.Element) target).Options.Item(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        value = realm.WrapNodeValue(option);\n        return option is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorHTMLSelectElement.Instance",
       "Members": [
         {
@@ -11044,7 +11044,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).Options.GetCount(self.Realm.CancellationToken));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).Options.GetCount(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlSelectElement.Length"
@@ -11092,8 +11092,8 @@
         {
           "DomName": "selectedIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).GetSelectedIndex(self.Realm.CancellationToken));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).SetSelectedIndex(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.selectedIndex\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).GetSelectedIndex(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.selectedIndex\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).SetSelectedIndex(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.selectedIndex\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "overrides.json"
         },
@@ -11148,8 +11148,8 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).GetValue(self.Realm.CancellationToken));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLSelectElement.value\"), self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).GetValue(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSelectElement.value\");\nglobal::Jint.Browser.Dom.DomSelectMembers.State(self.Realm, self.Target).SetValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLSelectElement.value\"), self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlSelectElement.Value"
         },
@@ -12155,7 +12155,7 @@
         {
           "DomName": "selectionDirection",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Direction(self.Target));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Direction(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectionDirection"
@@ -12163,7 +12163,7 @@
         {
           "DomName": "selectionEnd",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.End);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.GetSelection(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken).End);",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"HTMLTextAreaElement.selectionEnd\"), start: false);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectionEnd"
@@ -12171,7 +12171,7 @@
         {
           "DomName": "selectionStart",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.Start);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.GetSelection(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken).Start);",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"HTMLTextAreaElement.selectionStart\"), start: true);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectionStart"
@@ -12359,7 +12359,7 @@
         {
           "DomName": "readyState",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTrackElement.readyState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTrackElement.readyState\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.TrackReadyState(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTrackElement.ReadyState"
@@ -12383,7 +12383,7 @@
         {
           "DomName": "track",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTrackElement.track\");\nreturn self.Realm.Wrap(self.Target.Track);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTrackElement.track\");\nreturn global::Jint.Browser.Dom.BrowserMediaState.Track(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTrackElement.Track"
@@ -12511,7 +12511,7 @@
         {
           "DomName": "videoHeight",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLVideoElement.videoHeight\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.OriginalHeight);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLVideoElement.videoHeight\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.GetVideoHeight(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlVideoElement.OriginalHeight"
@@ -12519,7 +12519,7 @@
         {
           "DomName": "videoWidth",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLVideoElement.videoWidth\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.OriginalWidth);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLVideoElement.videoWidth\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.BrowserMediaState.GetVideoWidth(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlVideoElement.OriginalWidth"
@@ -12879,8 +12879,8 @@
     },
     {
       "DomName": "MediaError",
-      "ClrTypeName": "AngleSharp.Media.Dom.IMediaError",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IMediaError",
+      "ClrTypeName": "Jint.Browser.Dom.BrowserMediaError",
+      "ReceiverType": "global::Jint.Browser.Dom.BrowserMediaError",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -12895,7 +12895,7 @@
         {
           "DomName": "code",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaError>(thisObj, \"MediaError.code\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Code));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserMediaError>(thisObj, \"MediaError.code\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Code));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaError.Code"
@@ -13165,13 +13165,13 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>Native attribute-list indexed and named reads.</summary>\ninternal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNamedNodeMap Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((Collections.DomNamedNodeMap) target).Item(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n    internal override bool HasNamedGetter => true;\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n        => ((Collections.DomNamedNodeMap) target).SupportedNames();\n    internal override bool HasSupportedName(object target, string name)\n        => ((Collections.DomNamedNodeMap) target).HasSupportedName(name);\n    internal override bool AreNamesEnumerable => false;\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var map = (Collections.DomNamedNodeMap) target;\n        var item = map.HasSupportedName(name) ? map.GetNamedItem(name) : null;\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native attribute-list indexed and named reads.</summary>\ninternal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNamedNodeMap Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((Collections.DomNamedNodeMap) target).Item(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n    internal override bool HasNamedGetter => true;\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)\n        => ((Collections.DomNamedNodeMap) target).SupportedNames(realm);\n    internal override bool HasSupportedName(DomRealm realm, object target, string name)\n        => ((Collections.DomNamedNodeMap) target).HasSupportedName(realm, name);\n    internal override bool AreNamesEnumerable => false;\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var map = (Collections.DomNamedNodeMap) target;\n        var item = map.HasSupportedName(realm, name) ? map.GetNamedItem(realm, name) : null;\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorNamedNodeMap.Instance",
       "Members": [
         {
           "DomName": "getNamedItem",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomNamedNodeMap>(thisObj, \"NamedNodeMap.getNamedItem\");\nreturn self.Realm.Wrap(self.Target.GetNamedItem(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"NamedNodeMap.getNamedItem\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomNamedNodeMap>(thisObj, \"NamedNodeMap.getNamedItem\");\nreturn self.Realm.Wrap(self.Target.GetNamedItem(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"NamedNodeMap.getNamedItem\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "INamedNodeMap.GetNamedItem"
@@ -13506,7 +13506,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
-      "AccessorClass": "/// <summary>How <c>NodeList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorNodeList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNodeList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;\n        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);\n        return item is not null;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>NodeList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorNodeList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNodeList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).ReadLength(realm.NativeReadCheckpoint, realm.CancellationToken);\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;\n        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorNodeList.Instance",
       "Members": [
         {
@@ -14478,8 +14478,8 @@
     },
     {
       "DomName": "TextTrackList",
-      "ClrTypeName": "AngleSharp.Media.Dom.ITextTrackList",
-      "ReceiverType": "global::AngleSharp.Media.Dom.ITextTrackList",
+      "ClrTypeName": "Jint.Browser.Dom.BrowserTextTrackList",
+      "ReceiverType": "global::Jint.Browser.Dom.BrowserTextTrackList",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -14488,13 +14488,13 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>TextTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorTextTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.ITextTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>The actual TextTrackList capability list's indexed view.</summary>\ninternal sealed class DomAccessorTextTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorTextTrackList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.BrowserTextTrackList) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.BrowserTextTrackList) target).GetItem(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorTextTrackList.Instance",
       "Members": [
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackList>(thisObj, \"TextTrackList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTextTrackList>(thisObj, \"TextTrackList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrackList.Length"
@@ -14505,8 +14505,8 @@
     },
     {
       "DomName": "TimeRanges",
-      "ClrTypeName": "AngleSharp.Media.Dom.ITimeRanges",
-      "ReceiverType": "global::AngleSharp.Media.Dom.ITimeRanges",
+      "ClrTypeName": "Jint.Browser.Dom.BrowserTimeRanges",
+      "ReceiverType": "global::Jint.Browser.Dom.BrowserTimeRanges",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -14521,7 +14521,7 @@
         {
           "DomName": "end",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, \"TimeRanges.end\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.End(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TimeRanges.end\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTimeRanges>(thisObj, \"TimeRanges.end\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.End(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"TimeRanges.end\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITimeRanges.End"
@@ -14529,7 +14529,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, \"TimeRanges.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTimeRanges>(thisObj, \"TimeRanges.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITimeRanges.Length"
@@ -14537,7 +14537,7 @@
         {
           "DomName": "start",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, \"TimeRanges.start\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TimeRanges.start\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTimeRanges>(thisObj, \"TimeRanges.start\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"TimeRanges.start\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITimeRanges.Start"
@@ -14888,8 +14888,8 @@
     },
     {
       "DomName": "VideoTrackList",
-      "ClrTypeName": "AngleSharp.Media.Dom.IVideoTrackList",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IVideoTrackList",
+      "ClrTypeName": "Jint.Browser.Dom.BrowserVideoTrackList",
+      "ReceiverType": "global::Jint.Browser.Dom.BrowserVideoTrackList",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -14898,13 +14898,13 @@
       "Group": "Media",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>VideoTrackList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorVideoTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorVideoTrackList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Media.Dom.IVideoTrackList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Media.Dom.IVideoTrackList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>The actual VideoTrackList capability list's indexed view.</summary>\ninternal sealed class DomAccessorVideoTrackList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorVideoTrackList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Dom.BrowserVideoTrackList) target).Length;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.BrowserVideoTrackList) target).GetItem(index);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorVideoTrackList.Instance",
       "Members": [
         {
           "DomName": "getTrackById",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, \"VideoTrackList.getTrackById\");\nreturn self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"VideoTrackList.getTrackById\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserVideoTrackList>(thisObj, \"VideoTrackList.getTrackById\");\nreturn self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"VideoTrackList.getTrackById\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IVideoTrackList.GetTrackById"
@@ -14912,7 +14912,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, \"VideoTrackList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserVideoTrackList>(thisObj, \"VideoTrackList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IVideoTrackList.Length"
@@ -14920,7 +14920,7 @@
         {
           "DomName": "selectedIndex",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, \"VideoTrackList.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserVideoTrackList>(thisObj, \"VideoTrackList.selectedIndex\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IVideoTrackList.SelectedIndex"
@@ -18024,6 +18024,60 @@
       "Attribute": "value",
       "Type": "text",
       "Factory": "ReflectedAttribute.Text(\"HTMLInputElement.defaultValue\", \"value\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLMediaElementAutoplay",
+      "Qualified": "HTMLMediaElement.autoplay",
+      "Attribute": "autoplay",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLMediaElement.autoplay\", \"autoplay\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLMediaElementControls",
+      "Qualified": "HTMLMediaElement.controls",
+      "Attribute": "controls",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLMediaElement.controls\", \"controls\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLMediaElementDefaultMuted",
+      "Qualified": "HTMLMediaElement.defaultMuted",
+      "Attribute": "muted",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLMediaElement.defaultMuted\", \"muted\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLMediaElementLoop",
+      "Qualified": "HTMLMediaElement.loop",
+      "Attribute": "loop",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLMediaElement.loop\", \"loop\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLMediaElementMediaGroup",
+      "Qualified": "HTMLMediaElement.mediaGroup",
+      "Attribute": "mediagroup",
+      "Type": "text",
+      "Factory": "ReflectedAttribute.Text(\"HTMLMediaElement.mediaGroup\", \"mediagroup\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLMediaElementSrc",
+      "Qualified": "HTMLMediaElement.src",
+      "Attribute": "src",
+      "Type": "url",
+      "Factory": "ReflectedAttribute.Url(\"HTMLMediaElement.src\", \"src\")",
       "Replaced": true,
       "SetterOnly": false
     }

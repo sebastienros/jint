@@ -8,6 +8,34 @@ namespace Jint.Browser.Dom;
 /// <summary>Input facts that do not require materializing current value or selection state.</summary>
 internal static class DomInputMembers
 {
+    internal static bool Checked(DomRealm realm, Element input)
+    {
+        realm.Engine.Constraints.Check();
+        HtmlCheckableState.GetRadioGroupFacts(input, realm.NativeReadCheckpoint, realm.CancellationToken);
+        var value = HtmlCheckableState.Get(input, realm.NativeReadCheckpoint, realm.CancellationToken)!.Checked;
+        realm.Engine.Constraints.Check();
+        realm.CancellationToken.ThrowIfCancellationRequested();
+        return value;
+    }
+
+    internal static JsValue SetChecked(DomRealm realm, Element input, bool value)
+    {
+        realm.Engine.Constraints.Check();
+        HtmlCheckableState.Get(input, realm.NativeReadCheckpoint, realm.CancellationToken)!.SetChecked(value, realm.NativeReadCheckpoint, realm.CancellationToken);
+        realm.Engine.Constraints.Check();
+        realm.CancellationToken.ThrowIfCancellationRequested();
+        return JsValue.Undefined;
+    }
+
+    internal static JsValue SetIndeterminate(DomRealm realm, Element input, bool value)
+    {
+        realm.Engine.Constraints.Check();
+        HtmlCheckableState.Get(input, realm.NativeReadCheckpoint, realm.CancellationToken)!.SetIndeterminate(value, realm.NativeReadCheckpoint, realm.CancellationToken);
+        realm.Engine.Constraints.Check();
+        realm.CancellationToken.ThrowIfCancellationRequested();
+        return JsValue.Undefined;
+    }
+
     // HTML §4.10.5.3.9: the first matching ID in the ordinary tree must itself be a datalist.
     internal static Element? List(DomRealm realm, Element input)
         => List(input, realm.NativeReadCheckpoint, realm.CancellationToken);
@@ -46,22 +74,22 @@ internal static class DomInputMembers
     private static HtmlInputValueState ValueState(DomRealm realm, Element input)
     {
         realm.Engine.Constraints.Check();
-        return input.GetHtmlState()!.GetInputValueState(realm.CancellationToken)!;
+        return input.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, realm.CancellationToken)!;
     }
 
     internal static JsValue Number(DomRealm realm, Element input)
-        => DomConvert.Number(ValueState(realm, input).GetValueAsNumber(realm.CancellationToken));
+        => DomConvert.Number(ValueState(realm, input).GetValueAsNumber(realm.NativeReadCheckpoint, realm.CancellationToken));
 
     internal static JsValue SetNumber(DomRealm realm, Element input, double value)
     {
-        ValueState(realm, input).SetValueAsNumber(value, realm.CancellationToken);
+        ValueState(realm, input).SetValueAsNumber(value, realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return JsValue.Undefined;
     }
 
     internal static JsValue Date(DomRealm realm, Element input)
     {
-        var value = ValueState(realm, input).GetValueAsDate(realm.CancellationToken);
+        var value = ValueState(realm, input).GetValueAsDate(realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return value.HasDate
             ? realm.OwningRealm.Intrinsics.Date.Construct([JsNumber.Create(value.UtcMilliseconds)], realm.OwningRealm.Intrinsics.Date)
@@ -82,14 +110,14 @@ internal static class DomInputMembers
             if (value is not JsDate date) Throw.TypeError(realm.OwningRealm, "valueAsDate must be a Date or null.");
             else milliseconds = date._dateValue.IsNaN ? double.NaN : date._dateValue.Value;
         }
-        state.SetValueAsDate(milliseconds, realm.CancellationToken);
+        state.SetValueAsDate(milliseconds, realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return JsValue.Undefined;
     }
 
     internal static JsValue Step(DomRealm realm, Element input, int count, bool down)
     {
-        ValueState(realm, input).Step(count, down, _ => realm.Engine.Constraints.Check(), realm.CancellationToken);
+        ValueState(realm, input).Step(count, down, realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return JsValue.Undefined;
     }

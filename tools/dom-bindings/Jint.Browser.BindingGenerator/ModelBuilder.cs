@@ -1450,7 +1450,7 @@ internal sealed class ModelBuilder
                 && i.GetGenericTypeDefinition().FullName == "System.Collections.Generic.IEnumerable`1"
                 && i.GetGenericArguments()[0].IsGenericType);
 
-            builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
+            builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)\n    {\n");
             builder.Append("        var names = new global::System.Collections.Generic.List<string>();\n");
             builder.Append("        foreach (var entry in (").Append(CSharpNames.Render(pair)).Append(") target)\n        {\n");
             builder.Append("            // A null value is filtered out because the projection's three hooks have to agree at the\n");
@@ -1458,7 +1458,7 @@ internal sealed class ModelBuilder
             builder.Append("            // enumerate while reading as undefined — the exact incoherence host verification catches.\n");
             builder.Append("            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n");
 
-            builder.Append("    internal override bool HasSupportedName(object target, string name)\n    {\n");
+            builder.Append("    internal override bool HasSupportedName(DomRealm realm, object target, string name)\n    {\n");
             builder.Append("        foreach (var entry in (").Append(CSharpNames.Render(pair)).Append(") target)\n        {\n");
             builder.Append("            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n");
             builder.Append("            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n");
@@ -1486,7 +1486,7 @@ internal sealed class ModelBuilder
             // document: leaving it in the condition ran that query once per element listed.
             if (length is not null && itemName is null && elementItems)
             {
-                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
+                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)\n    {\n");
                 builder.Append("        var collection = (").Append(target).Append(") target;\n");
                 builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
                 builder.Append("        var names = new global::System.Collections.Generic.List<string>(length);\n");
@@ -1498,7 +1498,7 @@ internal sealed class ModelBuilder
                 builder.Append("        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n");
                 builder.Append("            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n");
 
-                builder.Append("    internal override bool HasSupportedName(object target, string name)\n    {\n");
+                builder.Append("    internal override bool HasSupportedName(DomRealm realm, object target, string name)\n    {\n");
                 builder.Append("        if (string.IsNullOrEmpty(name))\n        {\n            return false;\n        }\n\n");
                 builder.Append("        var collection = (").Append(target).Append(") target;\n");
                 builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
@@ -1511,18 +1511,18 @@ internal sealed class ModelBuilder
             }
             else if (length is null || itemName is null)
             {
-                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target) => [];\n\n");
+                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target) => [];\n\n");
             }
             else
             {
-                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
+                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(DomRealm realm, object target)\n    {\n");
                 builder.Append("        var collection = (").Append(target).Append(") target;\n");
                 builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
                 builder.Append("        var names = new global::System.Collections.Generic.List<string>(length);\n");
                 builder.Append("        for (var i = 0; i < length; i++)\n        {\n");
                 builder.Append("            names.Add(collection[i]!.").Append(itemName.Name).Append(");\n        }\n\n        return names;\n    }\n\n");
 
-                builder.Append("    internal override bool HasSupportedName(object target, string name)\n    {\n");
+                builder.Append("    internal override bool HasSupportedName(DomRealm realm, object target, string name)\n    {\n");
                 builder.Append("        var collection = (").Append(target).Append(") target;\n");
                 builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
                 builder.Append("        for (var i = 0; i < length; i++)\n        {\n");

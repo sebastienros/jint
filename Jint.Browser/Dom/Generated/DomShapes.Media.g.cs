@@ -67,14 +67,14 @@ internal static partial class DomInterfaces
             .Method("getTrackById",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrackList.getTrackById", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrackList>(thisObj, "AudioTrackList.getTrackById");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserAudioTrackList>(thisObj, "AudioTrackList.getTrackById");
                     return self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "AudioTrackList.getTrackById")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrackList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrackList>(thisObj, "AudioTrackList.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserAudioTrackList>(thisObj, "AudioTrackList.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Build();
@@ -270,7 +270,7 @@ internal static partial class DomInterfaces
             .Accessor("code",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaError.code", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaError>(thisObj, "MediaError.code");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserMediaError>(thisObj, "MediaError.code");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Code));
                 }))
             .Build();
@@ -512,7 +512,7 @@ internal static partial class DomInterfaces
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackList>(thisObj, "TextTrackList.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTextTrackList>(thisObj, "TextTrackList.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Build();
@@ -525,21 +525,21 @@ internal static partial class DomInterfaces
             .Method("end",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TimeRanges.end", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, "TimeRanges.end");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.End(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TimeRanges.end")));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTimeRanges>(thisObj, "TimeRanges.end");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.End(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "TimeRanges.end")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("TimeRanges.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, "TimeRanges.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTimeRanges>(thisObj, "TimeRanges.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Method("start",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TimeRanges.start", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, "TimeRanges.start");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TimeRanges.start")));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserTimeRanges>(thisObj, "TimeRanges.start");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "TimeRanges.start")));
                 }),
                 length: 1)
             .Build();
@@ -597,20 +597,20 @@ internal static partial class DomInterfaces
             .Method("getTrackById",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.getTrackById", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, "VideoTrackList.getTrackById");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserVideoTrackList>(thisObj, "VideoTrackList.getTrackById");
                     return self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "VideoTrackList.getTrackById")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, "VideoTrackList.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserVideoTrackList>(thisObj, "VideoTrackList.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Accessor("selectedIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.selectedIndex", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, "VideoTrackList.selectedIndex");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.BrowserVideoTrackList>(thisObj, "VideoTrackList.selectedIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);
                 }))
             .Build();

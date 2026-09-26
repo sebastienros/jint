@@ -12,7 +12,7 @@ internal static class DomSelectMembers
     internal static Jint.HtmlParser.HtmlSelectState State(DomRealm realm, Element element)
     {
         realm.Engine.Constraints.Check();
-        return element.GetHtmlState()!.GetSelectState(realm.CancellationToken)!;
+        return element.GetHtmlState()!.GetSelectState(realm.NativeReadCheckpoint, realm.CancellationToken)!;
     }
 
     // https://html.spec.whatwg.org/multipage/form-elements.html#dom-select-add
@@ -27,9 +27,9 @@ internal static class DomSelectMembers
         var options = State(realm, select).Options;
         var before = arguments.Length > 1 ? arguments[1] : JsValue.Undefined;
         if (before is DomNodeObject beforeNode && beforeNode.Implements("HTMLElement"))
-            options.Add(added, DomBindings.NullableArgument<Element>(arguments, 1, member, "HTMLElement"), realm.CancellationToken);
-        else if (before.IsNullOrUndefined()) options.Add(added, (Element?) null, realm.CancellationToken);
-        else options.Add(added, TypeConverter.ToInt32(before), realm.CancellationToken);
+            options.Add(added, DomBindings.NullableArgument<Element>(arguments, 1, member, "HTMLElement"), realm.NativeReadCheckpoint, realm.CancellationToken);
+        else if (before.IsNullOrUndefined()) options.Add(added, (Element?) null, realm.NativeReadCheckpoint, realm.CancellationToken);
+        else options.Add(added, TypeConverter.ToInt32(before), realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         realm.CancellationToken.ThrowIfCancellationRequested();
         return JsValue.Undefined;
@@ -37,7 +37,7 @@ internal static class DomSelectMembers
 
     internal static JsValue Remove(DomRealm realm, Element select, int index)
     {
-        State(realm, select).Options.Remove(index, realm.CancellationToken);
+        State(realm, select).Options.Remove(index, realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return JsValue.Undefined;
     }
@@ -53,8 +53,8 @@ internal class DomSelectCollection(DomRealm realm, Element select, bool selected
         internal DomSelectCollection? Selected;
     }
     internal Element Select => select;
-    private HtmlSelectOptions Native => selectedOnly
-        ? DomSelectMembers.State(realm, select).SelectedOptions : DomSelectMembers.State(realm, select).Options;
+    private HtmlSelectOptions Native(DomRealm caller) => selectedOnly
+        ? DomSelectMembers.State(caller, select).SelectedOptions : DomSelectMembers.State(caller, select).Options;
 
     internal static DomSelectCollection Of(DomRealm realm, Element select, bool selectedOnly)
     {
@@ -62,19 +62,25 @@ internal class DomSelectCollection(DomRealm realm, Element select, bool selected
         return selectedOnly ? views.Selected ??= new(realm, select, true) : views.Options ??= new(realm, select);
     }
 
-    internal override int Length => Native.GetCount(realm.CancellationToken);
+    internal override int Length => GetLength(realm);
 
-    internal override Element? GetItem(uint index) => Native.Item(index, realm.CancellationToken);
+    internal override int GetLength(DomRealm caller) => Native(caller).GetCount(caller.NativeReadCheckpoint, caller.CancellationToken);
 
-    public override IEnumerator<Element> GetEnumerator()
+    internal override Element? GetItem(uint index) => GetItem(realm, index);
+
+    internal override Element? GetItem(DomRealm caller, uint index) => Native(caller).Item(index, caller.NativeReadCheckpoint, caller.CancellationToken);
+
+    public override IEnumerator<Element> GetEnumerator() => Read(realm).GetEnumerator();
+
+    internal override IEnumerable<Element> Read(DomRealm caller)
     {
-        var options = Native;
-        for (uint index = 0; options.Item(index, realm.CancellationToken) is { } option; index++)
+        var options = Native(caller);
+        for (uint index = 0; options.Item(index, caller.NativeReadCheckpoint, caller.CancellationToken) is { } option; index++)
         {
-            realm.Engine.Constraints.Check();
+            caller.Engine.Constraints.Check();
             yield return option;
         }
-        realm.CancellationToken.ThrowIfCancellationRequested();
+        caller.CancellationToken.ThrowIfCancellationRequested();
     }
 }
 

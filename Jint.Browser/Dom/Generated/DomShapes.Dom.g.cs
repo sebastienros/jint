@@ -1046,7 +1046,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.firstElementChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.firstElementChild");
-                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Accessor("forms",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.forms", static (thisObj, args) =>
@@ -1144,7 +1144,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.lastElementChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.lastElementChild");
-                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Accessor("lastModified",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.lastModified", static (thisObj, args) =>
@@ -1400,7 +1400,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.firstElementChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DocumentFragment>(thisObj, "DocumentFragment.firstElementChild");
-                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Method("getElementById",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.getElementById", static (thisObj, args) =>
@@ -1413,7 +1413,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.lastElementChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DocumentFragment>(thisObj, "DocumentFragment.lastElementChild");
-                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Method("prepend",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentFragment.prepend", static (thisObj, args) =>
@@ -1621,7 +1621,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.firstElementChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.firstElementChild");
-                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Method("getAttribute",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getAttribute", static (thisObj, args) =>
@@ -1772,7 +1772,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.lastElementChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.lastElementChild");
-                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target));
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.Last(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
             .Accessor("localName",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.localName", static (thisObj, args) =>
@@ -2226,7 +2226,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.getNamedItem", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomNamedNodeMap>(thisObj, "NamedNodeMap.getNamedItem");
-                    return self.Realm.Wrap(self.Target.GetNamedItem(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "NamedNodeMap.getNamedItem")));
+                    return self.Realm.Wrap(self.Target.GetNamedItem(self.Realm, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "NamedNodeMap.getNamedItem")));
                 }),
                 length: 1)
             .Method("getNamedItemNS",

@@ -27,7 +27,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>AudioTrack</c> interface, projected from <c>AngleSharp.Media.Dom.IAudioTrack</c>.</summary>
     internal static readonly DomInterfaceDefinition AudioTrack;
 
-    /// <summary>The <c>AudioTrackList</c> interface, projected from <c>AngleSharp.Media.Dom.IAudioTrackList</c>.</summary>
+    /// <summary>The <c>AudioTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserAudioTrackList</c>.</summary>
     internal static readonly DomInterfaceDefinition AudioTrackList;
 
     /// <summary>The <c>Blob</c> interface, projected from <c>AngleSharp.Io.Dom.IBlob</c>.</summary>
@@ -411,7 +411,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>MediaController</c> interface, projected from <c>AngleSharp.Media.Dom.IMediaController</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaController;
 
-    /// <summary>The <c>MediaError</c> interface, projected from <c>AngleSharp.Media.Dom.IMediaError</c>.</summary>
+    /// <summary>The <c>MediaError</c> interface, projected from <c>Jint.Browser.Dom.BrowserMediaError</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaError;
 
     /// <summary>The <c>MediaList</c> interface, projected from <c>AngleSharp.Css.Dom.IMediaList</c>.</summary>
@@ -486,10 +486,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>TextTrackCueList</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrackCueList</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrackCueList;
 
-    /// <summary>The <c>TextTrackList</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrackList</c>.</summary>
+    /// <summary>The <c>TextTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserTextTrackList</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrackList;
 
-    /// <summary>The <c>TimeRanges</c> interface, projected from <c>AngleSharp.Media.Dom.ITimeRanges</c>.</summary>
+    /// <summary>The <c>TimeRanges</c> interface, projected from <c>Jint.Browser.Dom.BrowserTimeRanges</c>.</summary>
     internal static readonly DomInterfaceDefinition TimeRanges;
 
     /// <summary>The <c>TreeWalker</c> interface, projected from <c>AngleSharp.Dom.ITreeWalker</c>.</summary>
@@ -501,7 +501,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>VideoTrack</c> interface, projected from <c>AngleSharp.Media.Dom.IVideoTrack</c>.</summary>
     internal static readonly DomInterfaceDefinition VideoTrack;
 
-    /// <summary>The <c>VideoTrackList</c> interface, projected from <c>AngleSharp.Media.Dom.IVideoTrackList</c>.</summary>
+    /// <summary>The <c>VideoTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserVideoTrackList</c>.</summary>
     internal static readonly DomInterfaceDefinition VideoTrackList;
 
     /// <summary>Every definition, in the order they were created.</summary>
@@ -579,7 +579,7 @@ internal static partial class DomInterfaces
 
         AudioTrackList = Add(new DomInterfaceDefinition(
             "AudioTrackList",
-            typeof(global::AngleSharp.Media.Dom.IAudioTrackList),
+            typeof(global::Jint.Browser.Dom.BrowserAudioTrackList),
             BuildAudioTrackList,
             null,
             rootsAtEventTarget: true,
@@ -1275,7 +1275,7 @@ internal static partial class DomInterfaces
 
         HTMLFormControlsCollection = Add(new DomInterfaceDefinition(
             "HTMLFormControlsCollection",
-            typeof(global::AngleSharp.Html.Dom.IHtmlFormControlsCollection),
+            typeof(global::Jint.Browser.Dom.DomFormControlsCollection),
             BuildHTMLFormControlsCollection,
             HTMLCollection,
             rootsAtEventTarget: false,
@@ -1796,7 +1796,7 @@ internal static partial class DomInterfaces
 
         MediaError = Add(new DomInterfaceDefinition(
             "MediaError",
-            typeof(global::AngleSharp.Media.Dom.IMediaError),
+            typeof(global::Jint.Browser.Dom.BrowserMediaError),
             BuildMediaError,
             null,
             rootsAtEventTarget: false,
@@ -2056,7 +2056,7 @@ internal static partial class DomInterfaces
 
         TextTrackList = Add(new DomInterfaceDefinition(
             "TextTrackList",
-            typeof(global::AngleSharp.Media.Dom.ITextTrackList),
+            typeof(global::Jint.Browser.Dom.BrowserTextTrackList),
             BuildTextTrackList,
             null,
             rootsAtEventTarget: true,
@@ -2066,7 +2066,7 @@ internal static partial class DomInterfaces
 
         TimeRanges = Add(new DomInterfaceDefinition(
             "TimeRanges",
-            typeof(global::AngleSharp.Media.Dom.ITimeRanges),
+            typeof(global::Jint.Browser.Dom.BrowserTimeRanges),
             BuildTimeRanges,
             null,
             rootsAtEventTarget: false,
@@ -2118,7 +2118,7 @@ internal static partial class DomInterfaces
 
         VideoTrackList = Add(new DomInterfaceDefinition(
             "VideoTrackList",
-            typeof(global::AngleSharp.Media.Dom.IVideoTrackList),
+            typeof(global::Jint.Browser.Dom.BrowserVideoTrackList),
             BuildVideoTrackList,
             null,
             rootsAtEventTarget: true,

@@ -727,17 +727,41 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLMarqueeElementWidth =
         ReflectedAttribute.Text("HTMLMarqueeElement.width", "width");
 
+    /// <summary><c>HTMLMediaElement.autoplay</c> reflects <c>autoplay</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementAutoplay =
+        ReflectedAttribute.Boolean("HTMLMediaElement.autoplay", "autoplay");
+
+    /// <summary><c>HTMLMediaElement.controls</c> reflects <c>controls</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementControls =
+        ReflectedAttribute.Boolean("HTMLMediaElement.controls", "controls");
+
     /// <summary><c>HTMLMediaElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLMediaElementCrossOrigin =
         ReflectedAttribute.Enumerated("HTMLMediaElement.crossOrigin", "crossorigin", ["anonymous", "use-credentials"], missing: null, invalid: "anonymous");
+
+    /// <summary><c>HTMLMediaElement.defaultMuted</c> reflects <c>muted</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementDefaultMuted =
+        ReflectedAttribute.Boolean("HTMLMediaElement.defaultMuted", "muted");
 
     /// <summary><c>HTMLMediaElement.loading</c> reflects <c>loading</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLMediaElementLoading =
         ReflectedAttribute.Enumerated("HTMLMediaElement.loading", "loading", ["lazy", "eager"], missing: "eager", invalid: "eager");
 
+    /// <summary><c>HTMLMediaElement.loop</c> reflects <c>loop</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementLoop =
+        ReflectedAttribute.Boolean("HTMLMediaElement.loop", "loop");
+
+    /// <summary><c>HTMLMediaElement.mediaGroup</c> reflects <c>mediagroup</c> as a text.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementMediaGroup =
+        ReflectedAttribute.Text("HTMLMediaElement.mediaGroup", "mediagroup");
+
     /// <summary><c>HTMLMediaElement.preload</c> reflects <c>preload</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLMediaElementPreload =
         ReflectedAttribute.Enumerated("HTMLMediaElement.preload", "preload", ["none", "metadata", "auto"], missing: "auto", invalid: "auto");
+
+    /// <summary><c>HTMLMediaElement.src</c> reflects <c>src</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementSrc =
+        ReflectedAttribute.Url("HTMLMediaElement.src", "src");
 
     /// <summary><c>HTMLMenuElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLMenuElementCompact =

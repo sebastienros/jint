@@ -225,6 +225,16 @@ internal static class DomManualInterfaces
         DomWrapperKind.Object,
         constructorLength: DomStaticRange.ConstructorLength);
 
+    internal static readonly DomInterfaceDefinition RadioNodeList = new(
+        "RadioNodeList",
+        typeof(DomRadioNodeList),
+        DomRadioNodeList.Shape,
+        DomInterfaces.NodeList,
+        rootsAtEventTarget: false,
+        hasInterfaceObject: true,
+        DomWrapperKind.Collection,
+        collectionAccessor: DomAccessorNodeList.Instance);
+
     /// <summary>Every manual interface, in index order.</summary>
     internal static readonly DomInterfaceDefinition[] All =
     [
@@ -236,6 +246,7 @@ internal static class DomManualInterfaces
         SVGAElement,
         XMLDocument,
         StaticRange,
+        RadioNodeList,
     ];
 
     /// <summary>
