@@ -1,3 +1,4 @@
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -126,7 +127,7 @@ internal static class AriaReflection
 
         internal JsValue Get(JsValue thisObject, JsValue[] arguments)
         {
-            var self = DomBindings.Bind<IElement>(thisObject, Member);
+            var self = DomBindings.Bind<Element>(thisObject, Member);
 
             // AngleSharp answers null for an absent attribute, which for once is exactly the IDL type: this
             // is one of the members overrides.json's `nullableStrings` list would name if it were generated.
@@ -135,7 +136,7 @@ internal static class AriaReflection
 
         internal JsValue Set(JsValue thisObject, JsValue[] arguments)
         {
-            var self = DomBindings.Bind<IElement>(thisObject, Member);
+            var self = DomBindings.Bind<Element>(thisObject, Member);
             using var mutation = self.Realm.MutateLayout();
             var value = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
 

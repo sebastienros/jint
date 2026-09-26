@@ -278,12 +278,12 @@ internal static class DomViewMembers
     /// </summary>
     private static string ContentTypeFor(string? namespaceUri)
     {
-        if (string.Equals(namespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        if (string.Equals(namespaceUri, Namespaces.Html, StringComparison.Ordinal))
         {
             return DomContentType.Xhtml;
         }
 
-        if (string.Equals(namespaceUri, NamespaceNames.SvgUri, StringComparison.Ordinal))
+        if (string.Equals(namespaceUri, Namespaces.Svg, StringComparison.Ordinal))
         {
             return DomContentType.Svg;
         }
