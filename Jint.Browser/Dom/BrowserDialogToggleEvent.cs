@@ -34,8 +34,7 @@ internal sealed class BrowserDialogToggleEvent : JsEvent
     {
         var name = JsString.Create(type);
         var init = new EventInit(Bubbles: false, Cancelable: cancelable, Composed: false);
-        var template = realm.OwningRealm.Intrinsics.Event.CreateTrustedEvent(name, init);
-        return new BrowserDialogToggleEvent(realm, name, init, template.TimeStamp, oldState, newState);
+        return new BrowserDialogToggleEvent(realm, name, init, EventConstructor.TimeStampNow(realm.Engine), oldState, newState);
     }
 
     private static BrowserDialogToggleEvent Brand(JsValue receiver)
