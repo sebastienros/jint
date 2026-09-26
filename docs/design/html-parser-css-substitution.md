@@ -368,18 +368,33 @@ explicit frames. Exceeding that depth throws the existing nesting limit, not a C
 ### 6.4 Lookup, pending work and taint
 
 Snapshot identity plus decoded property name identifies an active substitution context; one Resolve
-call owns its mutable guards/cache. Resolve early invocations before re-dividing arguments, preserving
-the reviewed spread/ordinary-container distinction. Re-entry marks all active cycle participants;
-their own fallback cannot rescue them, while an outside dependent can recover. Resolve dynamic
-headers before final var/env name parsing. Ordinary failed name parsing can choose a fallback.
+call owns its mutable guards/cache. For a `CustomPropertyValue` root, guard the supplied snapshot and
+`context.PropertyName` before evaluating its input, just as for a specified binding, and check that
+root's cyclic flag before publishing its result. Re-entry marks all active cycle participants;
+their own fallback cannot rescue them, while an outside dependent can recover. Thus resolving
+`--a:var(--a,red)` as the root custom property is guaranteed-invalid; the root is not an outside caller
+that can recover through `red`.
 Memoize only completed custom-property results, never a provisional active frame. No static dependency
 graph decides cycles and no memoized state survives into another Resolve call.
+
+Run early substitution over the **whole invocation's contents** before dividing its arguments,
+preserving the reviewed nearest arbitrary-function/ordinary-container distinction. This includes an
+explicit spread in what the raw text appears to make an unused fallback. An early guaranteed-invalid
+result invalidates that invocation without selecting its own fallback; reached pending work propagates.
+For example, both `var(...var(--missing),red)` and `var(--present,...var(--missing))` are invalid even
+when `--present:blue`. In contrast, `var(--present,var(--missing))` yields `blue`: its ordinary unused
+fallback is not evaluated. After early replacement, validate the complete argument grammar, including
+provisional wrappers and declaration-value punctuation, before choosing a value or fallback. An empty
+first argument or newly exposed top-level `;`/`!` is argument-grammar failure and invalidates the
+invocation even if its fallback would not be selected. Only after this division/validation does normal
+name/index parsing occur; failure of that normal grammar can select a fallback. A wrapper that becomes
+ordinary nested content after a spread introduces a comma retains its nested punctuation.
 
 Environment keys compare decoded names ordinally and include the complete ordered index vector.
 Accept only integer spellings `[+-]?[0-9]+`; remove `+` and leading zeros, normalize every spelling of
 signed zero to `"0"`, reject negative nonzero integers, decimals and exponents. Store canonical digit
 strings, never Int32/Int64 indices or delimiter-joined composite keys. Canonical duplicate keys are
-factory errors. Runtime header grammar failure or absent exact key selects fallback. The binding
+factory errors. Runtime normal name/index grammar failure or absent exact key selects fallback. The binding
 factory requires a V0c1 `Literal` value (including empty); substitutions, bad syntax and pending
 functions in supplied device values are programmer errors. Share its immutable original input.
 Lookup occurs when the env invocation is reached; no eager env pass. A new device state requires a
