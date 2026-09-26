@@ -200,17 +200,18 @@ internal sealed class CssDeclarationBlock
     }
 
     private static void Install(List<CssDeclaration> entries, string name, CssPropertyValue value,
-        bool important, CssSourceSpan span, CssValueWork work, string? customText = null,
+        bool important, CssSourceSpan span, CssValueWork work, string? lexicalText = null,
         string termination = "", Dictionary<string, CssDeclaration>? winners = null)
     {
         if (name != "overflow")
         {
-            InstallEntry(entries, new CssDeclaration(name, value, important, span, null, customText, termination), work, winners);
+            InstallEntry(entries, new CssDeclaration(name, value, important, span, null, lexicalText, termination), work, winners);
             return;
         }
         // Variables 1 §3.2: keep the shorthand's parsed value, shared by its pending longhands.
         // https://drafts.csswg.org/css-variables-1/#variables-in-shorthands
-        var pending = value.Kind == CssPropertyValueKind.Deferred ? new CssPendingShorthand(name, value, termination) : null;
+        var pending = value.Kind == CssPropertyValueKind.Deferred
+            ? new CssPendingShorthand(name, value, lexicalText!, termination) : null;
         var x = pending is not null ? value : CssPropertyValue.Keyword(value.Text, value.Span);
         var y = pending is not null ? value : CssPropertyValue.Keyword(value.SecondKeyword ?? value.Text, value.Span);
         InstallEntry(entries, new CssDeclaration("overflow-x", x, important, span, pending), work, winners);
@@ -275,7 +276,7 @@ internal sealed class CssDeclarationBlock
         if (x is null || y is null || x.IsImportant != y.IsImportant) return "";
         if (x.PendingShorthand is { } pending)
             return ReferenceEquals(pending, y.PendingShorthand)
-                ? CompleteLexicalValue(pending.Value.Serialize(), pending.Termination, work) : "";
+                ? CompleteLexicalValue(pending.LexicalSpecifiedText, pending.Termination, work) : "";
         if (y.PendingShorthand is not null || x.Value.Kind == CssPropertyValueKind.Deferred ||
             y.Value.Kind == CssPropertyValueKind.Deferred) return "";
         var first = x.Value.Serialize();
@@ -364,7 +365,7 @@ internal sealed class CssDeclarationBlock
 internal sealed record CssDeclaration(string Name, CssPropertyValue Value, bool IsImportant,
     CssSourceSpan Span, CssPendingShorthand? PendingShorthand, string? LexicalSpecifiedText = null, string Termination = "");
 
-internal sealed record CssPendingShorthand(string Name, CssPropertyValue Value, string Termination);
+internal sealed record CssPendingShorthand(string Name, CssPropertyValue Value, string LexicalSpecifiedText, string Termination);
 
 internal sealed class CssIncompleteGrammarException : NotSupportedException
 {
