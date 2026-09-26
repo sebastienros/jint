@@ -1,5 +1,6 @@
 using System.Text;
 using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Accessibility;
 
 namespace Jint.Browser.Extraction;
@@ -26,231 +27,174 @@ namespace Jint.Browser.Extraction;
 /// </remarks>
 internal static class TextExtractor
 {
-    /// <summary>Returns the rendered text of <paramref name="element"/>.</summary>
     internal static string InnerText(Element element, bool useComputedStyle = true)
+        => InnerText(element, useComputedStyle, null, default);
+
+    internal static string InnerText(Element element, bool useComputedStyle, Action<int>? checkpoint, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(element);
-
-        var collector = new Collector(new ElementVisibility(useComputedStyle));
-        collector.Collect(element, preserveWhitespace: false);
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
+        var visibility = new ElementVisibility(useComputedStyle, work);
+        var collector = new Collector(visibility, visibility.CreateTraversal(element.OwnerDocument), work);
+        collector.Collect(element);
         return collector.Assemble();
     }
 
-    /// <summary>Returns the rendered text of <paramref name="document"/>'s body.</summary>
     internal static string InnerText(Document document, bool useComputedStyle = true)
     {
         ArgumentNullException.ThrowIfNull(document);
-
-        var root = Dom.DomDocumentElements.Body(document) ?? document.DocumentElement;
+        var root = DomDocumentElements.Body(document) ?? document.DocumentElement;
         return root is null ? string.Empty : InnerText(root, useComputedStyle);
     }
 
-    private sealed class Collector
+    private sealed class Collector(ElementVisibility visibility, Dom.Views.CssCascade.Traversal? traversal, DomReadWork work)
     {
-        private readonly ElementVisibility _visibility;
-        private readonly List<Item> _items = [];
+        private readonly StringBuilder _builder = new();
+        private int _pendingBreaks;
+        private bool _pendingSpace;
+        private bool _started;
 
-        internal Collector(ElementVisibility visibility) => _visibility = visibility;
-
-        internal void Collect(Node node, bool preserveWhitespace)
+        internal void Collect(Element root)
         {
-            switch (node)
+            // A deferred sibling frame keeps storage proportional to depth, rather than subtree width.
+            var pending = new Stack<Frame>();
+            pending.Push(new Frame(root, false, false, false, null, 0));
+            while (pending.TryPop(out var frame))
             {
-                case Text text:
-                    _items.Add(Item.Content(text.Data, preserveWhitespace));
-                    return;
-
-                case CDataSection cdata:
-                    _items.Add(Item.Content(cdata.Data, preserveWhitespace));
-                    return;
-
-                case Element element:
-                    CollectElement(element, preserveWhitespace);
-                    return;
+                work.Step();
+                if (frame.Exit)
+                {
+                    var element = (Element) frame.Node;
+                    if (frame.Display == "table-cell" && NextElement(element) is not null) Separator('\t');
+                    else if (frame.Display == "table-row" && !IsLastRow(element)) Separator('\n');
+                    Break(frame.Breaks);
+                    continue;
+                }
+                if (frame.Siblings && frame.Node.NextSibling is { } sibling)
+                    pending.Push(new Frame(sibling, frame.Preserve, false, true, null, 0));
+                switch (frame.Node)
+                {
+                    case Text text:
+                        AddText(text, frame.Preserve);
+                        break;
+                    case CDataSection cdata:
+                        AddText(cdata.Data, frame.Preserve);
+                        break;
+                    case Element element:
+                        if (ImplicitRole.IsMetadataContent(element) || visibility.RenderingReasonFor(element, traversal) != AxIgnoredReason.None) break;
+                        var display = HtmlDisplay.Resolve(element, visibility.Style(element, traversal).Display);
+                        var breaks = element.LocalName == "p" ? 2 : HtmlDisplay.IsBlockLevel(display) || display == "table-caption" ? 1 : 0;
+                        Break(breaks);
+                        if (element.LocalName == "br")
+                        {
+                            Separator('\n');
+                            Break(breaks);
+                            break;
+                        }
+                        var preserve = frame.Preserve || HtmlDisplay.PreservesWhitespace(element, visibility.WhiteSpace(element, traversal));
+                        pending.Push(new Frame(element, preserve, true, false, display, breaks));
+                        if (element.FirstChild is { } child) pending.Push(new Frame(child, preserve, false, true, null, 0));
+                        break;
+                }
             }
         }
 
-        private void CollectElement(Element element, bool inheritedPreserve)
+        private void AddText(Text text, bool preserve)
         {
-            if (ImplicitRole.IsMetadataContent(element) || _visibility.RenderingReasonFor(element) != AxIgnoredReason.None)
+            var first = true;
+            for (var i = 0; i < text.DataLength; i++)
             {
+                work.Step();
+                AddCharacter(text.DataAt(i), preserve, ref first);
+            }
+        }
+
+        private void AddText(string text, bool preserve)
+        {
+            var first = true;
+            for (var i = 0; i < text.Length; i++)
+            {
+                work.Step();
+                AddCharacter(text[i], preserve, ref first);
+            }
+        }
+
+        private void AddCharacter(char c, bool preserve, ref bool first)
+        {
+            if (!preserve && c is ' ' or '\t' or '\n' or '\r' or '\f')
+            {
+                _pendingSpace = true;
                 return;
             }
+            if (!preserve || first) Prefix();
+            _builder.Append(c);
+            _started = true;
+            _pendingSpace = false;
+            first = false;
+        }
 
-            var (declaredDisplay, _) = _visibility.Style(element);
-            var display = HtmlDisplay.Resolve(element, declaredDisplay);
-            var breaks = string.Equals(element.LocalName, "p", StringComparison.Ordinal) ? 2
-                : HtmlDisplay.IsBlockLevel(display) || string.Equals(display, "table-caption", StringComparison.Ordinal) ? 1
-                : 0;
-
-            if (breaks > 0)
+        private void Prefix()
+        {
+            if (_pendingBreaks > 0)
             {
-                _items.Add(Item.Break(breaks));
+                _builder.Append('\n', _pendingBreaks);
+                _pendingBreaks = 0;
+                _pendingSpace = false;
             }
+            if (_pendingSpace && _started && _builder.Length > 0 && _builder[^1] is not ('\n' or '\t')) _builder.Append(' ');
+        }
 
-            if (string.Equals(element.LocalName, "br", StringComparison.Ordinal))
-            {
-                _items.Add(Item.Separator("\n"));
-            }
-            else
-            {
-                var preserve = inheritedPreserve || HtmlDisplay.PreservesWhitespace(element, _visibility.WhiteSpace(element));
-                foreach (var child in element.ChildNodes)
-                {
-                    Collect(child, preserve);
-                }
+        private void Separator(char c)
+        {
+            Prefix();
+            _builder.Append(c);
+            _started = true;
+            _pendingSpace = false;
+        }
 
-                if (string.Equals(display, "table-cell", StringComparison.Ordinal) && ContentDom.NextElementSibling(element) is not null)
-                {
-                    _items.Add(Item.Separator("\t"));
-                }
-                else if (string.Equals(display, "table-row", StringComparison.Ordinal) && !IsLastRow(element))
-                {
-                    _items.Add(Item.Separator("\n"));
-                }
-            }
-
-            if (breaks > 0)
-            {
-                _items.Add(Item.Break(breaks));
-            }
+        private void Break(int count)
+        {
+            if (count == 0) return;
+            if (_started) _pendingBreaks = Math.Max(_pendingBreaks, count);
+            _pendingSpace = false;
         }
 
         internal string Assemble()
         {
-            var builder = new StringBuilder();
-            var pendingBreaks = 0;
-            var pendingSpace = false;
-            var started = false;
-
-            foreach (var item in _items)
-            {
-                if (item.Breaks > 0)
-                {
-                    if (started)
-                    {
-                        pendingBreaks = Math.Max(pendingBreaks, item.Breaks);
-                    }
-
-                    pendingSpace = false;
-                    continue;
-                }
-
-                var text = item.Text!;
-                if (text.Length == 0)
-                {
-                    continue;
-                }
-
-                string core;
-                var leadingSpace = false;
-                var trailingSpace = false;
-
-                if (item.Preserve)
-                {
-                    core = text;
-                }
-                else
-                {
-                    var collapsed = Collapse(text);
-                    if (collapsed.Length == 0)
-                    {
-                        continue;
-                    }
-
-                    if (collapsed == " ")
-                    {
-                        pendingSpace |= started;
-                        continue;
-                    }
-
-                    leadingSpace = collapsed[0] == ' ';
-                    trailingSpace = collapsed[^1] == ' ';
-                    core = collapsed.Trim(' ');
-                }
-
-                if (pendingBreaks > 0)
-                {
-                    builder.Append('\n', pendingBreaks);
-                    pendingBreaks = 0;
-                    pendingSpace = false;
-                    leadingSpace = false;
-                }
-
-                if ((pendingSpace || leadingSpace) && started && builder.Length > 0 && builder[^1] is not ('\n' or '\t'))
-                {
-                    builder.Append(' ');
-                }
-
-                builder.Append(core);
-                started = true;
-                pendingSpace = trailingSpace;
-            }
-
-            return builder.ToString();
+            work.Check();
+            var result = _builder.ToString();
+            work.Check();
+            return result;
         }
 
-        private static bool IsLastRow(Element row)
+        private Element? NextElement(Node node)
         {
-            if (ContentDom.NextElementSibling(row) is not null)
+            for (var sibling = node.NextSibling; sibling is not null; sibling = sibling.NextSibling)
             {
-                return false;
+                work.Step();
+                if (sibling is Element element) return element;
             }
+            return null;
+        }
 
-            var group = (row.ParentNode as Element);
-            if (group is null || group.LocalName is not ("thead" or "tbody" or "tfoot"))
+        private bool IsLastRow(Element row)
+        {
+            if (NextElement(row) is not null) return false;
+            work.Step();
+            if (row.ParentNode is not Element group || group.LocalName is not ("thead" or "tbody" or "tfoot")) return true;
+            for (var sibling = NextElement(group); sibling is not null; sibling = NextElement(sibling))
             {
-                return true;
-            }
-
-            for (var sibling = ContentDom.NextElementSibling(group); sibling is not null; sibling = ContentDom.NextElementSibling(sibling))
-            {
-                if (sibling.LocalName is "thead" or "tbody" or "tfoot" && ContentDom.First(sibling, "tr") is not null)
+                if (sibling.LocalName is not ("thead" or "tbody" or "tfoot")) continue;
+                for (var child = sibling.FirstChild; child is not null; child = child.NextSibling)
                 {
-                    return false;
+                    work.Step();
+                    if (child is Element { LocalName: "tr" }) return false;
                 }
             }
-
             return true;
         }
 
-        private static string Collapse(string text)
-        {
-            var builder = new StringBuilder(text.Length);
-            var space = false;
-
-            foreach (var c in text)
-            {
-                if (c is ' ' or '\t' or '\n' or '\r' or '\f')
-                {
-                    space = true;
-                    continue;
-                }
-
-                if (space)
-                {
-                    builder.Append(' ');
-                    space = false;
-                }
-
-                builder.Append(c);
-            }
-
-            if (space)
-            {
-                builder.Append(' ');
-            }
-
-            return builder.ToString();
-        }
-
-        private readonly record struct Item(string? Text, int Breaks, bool Preserve)
-        {
-            internal static Item Content(string text, bool preserve) => new(text, 0, preserve);
-
-            internal static Item Separator(string text) => new(text, 0, Preserve: true);
-
-            internal static Item Break(int count) => new(null, count, Preserve: false);
-        }
+        private readonly record struct Frame(Node Node, bool Preserve, bool Exit, bool Siblings, string? Display, int Breaks);
     }
 }
