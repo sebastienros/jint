@@ -37,8 +37,8 @@ public sealed class NativeInputSelectionBindingTests
     public void ChangedRangesQueueSelectAndCoalesceSelectionchange()
     {
         using var dom = DomTestFixture.Create("<input id=i value=abcd>");
-        dom.Execute("var i=document.getElementById('i'), selects=0, changes=0; i.addEventListener('select',()=>selects++); i.addEventListener('selectionchange',()=>changes++); i.setSelectionRange(1,2); i.setSelectionRange(2,3); i.setSelectionRange(2,3);");
-        dom.Bool("selects===0 && changes===0").Should().BeTrue();
+        dom.Execute("var i=document.getElementById('i'), selects=0, changes=0; i.addEventListener('select',()=>selects++); i.addEventListener('selectionchange',()=>changes++); i.setSelectionRange(1,2); i.setSelectionRange(2,3); i.setSelectionRange(2,3); var beforeDelivery=[selects,changes].join(',');");
+        dom.Text("beforeDelivery").Should().Be("0,0");
         dom.Engine.Tasks.ProcessTasks();
         dom.Bool("selects===2 && changes===1").Should().BeTrue();
     }
