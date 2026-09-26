@@ -13,9 +13,9 @@ public class XmlPreparedInputsTests
         var rows = XmlPreparedInputs.Rows;
         var expectedOutcomes = new Dictionary<string, XmlOutcomeKind>(StringComparer.Ordinal)
         {
-            ["xmlconf/japanese/japanese.xml#pr-xml-euc-jp"] = XmlOutcomeKind.OptionalObservedUnreviewed,
-            ["xmlconf/japanese/japanese.xml#pr-xml-iso-2022-jp"] = XmlOutcomeKind.OptionalObservedUnreviewed,
-            ["xmlconf/japanese/japanese.xml#pr-xml-shift_jis"] = XmlOutcomeKind.OptionalObservedUnreviewed,
+            ["xmlconf/japanese/japanese.xml#pr-xml-euc-jp"] = XmlOutcomeKind.OptionalPolicyVerified,
+            ["xmlconf/japanese/japanese.xml#pr-xml-iso-2022-jp"] = XmlOutcomeKind.OptionalPolicyVerified,
+            ["xmlconf/japanese/japanese.xml#pr-xml-shift_jis"] = XmlOutcomeKind.OptionalPolicyVerified,
             ["xmlconf/japanese/japanese.xml#weekly-euc-jp"] = XmlOutcomeKind.OptionalPolicyVerified,
             ["xmlconf/japanese/japanese.xml#weekly-iso-2022-jp"] = XmlOutcomeKind.OptionalPolicyVerified,
             ["xmlconf/japanese/japanese.xml#weekly-shift_jis"] = XmlOutcomeKind.OptionalPolicyVerified

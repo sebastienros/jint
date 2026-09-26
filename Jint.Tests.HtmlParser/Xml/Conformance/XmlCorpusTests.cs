@@ -308,18 +308,18 @@ public class XmlCorpusTests
         var newlyReviewed = XmlCorpus.Case("xmlconf/oasis/oasis.xml#o-p11pass1");
         XmlConformanceRunner.Run(newlyReviewed).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
 
-        var unsupportedEncoding = XmlCorpus.Case("xmlconf/japanese/japanese.xml#pr-xml-euc-jp");
-        XmlConformanceRunner.Run(unsupportedEncoding).Kind.Should().Be(XmlOutcomeKind.OptionalObservedUnreviewed);
-        var (_, genericDecision) = XmlByteDecoder.Decode(XmlCorpus.Bytes(unsupportedEncoding.InputPath));
+        var preparedJapanese = XmlCorpus.Case("xmlconf/japanese/japanese.xml#pr-xml-euc-jp");
+        XmlConformanceRunner.Run(preparedJapanese).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
+        var (_, genericDecision) = XmlByteDecoder.Decode(XmlCorpus.Bytes(preparedJapanese.InputPath));
         var synthetic = new XmlCorpusCase
         {
-            Key = "synthetic-unsupported-euc-jp", InputPath = unsupportedEncoding.InputPath,
+            Key = "synthetic-unsupported-euc-jp", InputPath = preparedJapanese.InputPath,
             Decoding = genericDecision, Disposition = "optional-error-review"
         };
         var unavailable = XmlConformanceRunner.Run(synthetic);
         unavailable.Kind.Should().Be(XmlOutcomeKind.OptionalAdapterDebt);
         unavailable.Detail.Should().Contain("input adapter unavailable");
-        var missingPrepared = XmlConformanceRunner.Run(unsupportedEncoding, usePreparedOverride: true);
+        var missingPrepared = XmlConformanceRunner.Run(preparedJapanese, usePreparedOverride: true);
         missingPrepared.Kind.Should().Be(XmlOutcomeKind.HarnessFailure);
         missingPrepared.Signature.Should().Be("prepared-artifact-missing");
 
@@ -345,6 +345,28 @@ public class XmlCorpusTests
         omission.PublicId.Should().BeNull();
         omission.SystemId.Should().Be(systemId);
         omission.Offset.Should().Be(offset);
+        XmlConformanceRunner.Run(row).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
+    }
+
+    [TestCase("pr-xml-euc-jp", 41)]
+    [TestCase("pr-xml-iso-2022-jp", 46)]
+    [TestCase("pr-xml-shift_jis", 44)]
+    public void PrJapanesePoliciesVerifyTheFullRecoveredSources(string id, int offset)
+    {
+        var key = "xmlconf/japanese/japanese.xml#" + id;
+        var row = XmlCorpus.Case(key);
+        var policy = XmlExpectations.OptionalPolicies[key];
+        row.Decoding.Decision.Should().StartWith("prepared-");
+        row.OutputPath.Should().BeNull();
+        policy.Projection.Should().HaveCount(6283);
+        policy.Notations.Should().BeEmpty();
+        var omission = policy.Skipped.Should().ContainSingle().Which;
+        omission.Kind.Should().Be("ExternalSubset");
+        omission.Name.Should().BeEmpty();
+        omission.PublicId.Should().BeNull();
+        omission.SystemId.Should().Be("spec.dtd");
+        omission.Offset.Should().Be(offset);
+        policy.Review.Should().Contain("<!ENTITY lt");
         XmlConformanceRunner.Run(row).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
     }
 
@@ -496,7 +518,7 @@ public class XmlCorpusTests
             XmlExpectations.Reviewed[key].Notations.Should().NotBeNullOrEmpty();
             XmlCorpus.Case(key).OutputPath.Should().NotBeNull();
         }
-        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(24);
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(27);
         foreach (var (key, policy) in XmlExpectations.OptionalPolicies)
         {
             var row = XmlCorpus.Case(key);
