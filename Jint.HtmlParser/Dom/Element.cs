@@ -17,6 +17,8 @@ public sealed class Element : Node
 
     internal HtmlElementState? GetHtmlState()
         => NamespaceUri == Namespaces.Html ? _htmlState ??= new HtmlElementState(this) : null;
+    internal HtmlInputCheckedState? ExistingCheckedState => _htmlState?.ExistingCheckedState;
+    internal bool HasHtmlState => _htmlState is not null;
     internal HtmlTextAreaState? ExistingTextAreaState => _htmlState?.ExistingTextArea;
     internal ShadowRoot? AttachedShadowRoot { get; private set; }
     internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
@@ -188,6 +190,8 @@ public sealed class Element : Node
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
+            HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+                oldValue, attribute.Value);
             SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
@@ -226,6 +230,8 @@ public sealed class Element : Node
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            attribute.Value, null);
+        HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
@@ -282,6 +288,7 @@ public sealed class Element : Node
 
         if (attributes.IsEmpty)
         {
+            HtmlInputStateChanges.Initialize(this);
             return;
         }
 
@@ -309,6 +316,7 @@ public sealed class Element : Node
 
         cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
+        HtmlInputStateChanges.Initialize(this);
         if (scriptAsyncAdded) GetHtmlState()!.Script!.ForceAsync = false;
     }
 
@@ -374,6 +382,8 @@ public sealed class Element : Node
         ScriptAttributeAdded(attribute);
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            null, attribute.Value);
+        HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
