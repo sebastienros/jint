@@ -278,7 +278,7 @@ public class InputNumericStateTests
         var before = Snapshot(state); var stamp = state.Element.OwnerDocument!.MutationStamp;
         using var cancellation = new CancellationTokenSource();
         var value = temporal ? new string('0', 10000) + "1970-01-01" : new string('0', 10000) + "1";
-        var exception = Assert.Throws<OperationCanceledException>(() => state.SetValue(value, n => { if (n == 300) cancellation.Cancel(); }, cancellation.Token));
+        var exception = Assert.Throws<OperationCanceledException>(() => state.SetValue(value, n => { if (n == 256) cancellation.Cancel(); }, cancellation.Token));
         exception!.CancellationToken.Should().Be(cancellation.Token);
         Snapshot(state).Should().Be(before); state.Element.OwnerDocument.MutationStamp.Should().Be(stamp);
     }

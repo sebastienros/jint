@@ -24,8 +24,14 @@ internal sealed class HtmlElementState
     private HtmlInputValueState? _inputValue;
     internal HtmlInputValueState? InputValue => GetInputValueState(default);
     internal HtmlInputValueState? GetInputValueState(CancellationToken token)
-        => Element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
-            ? _inputValue ??= new HtmlInputValueState(Element, cancellationToken: token) : null;
+        => GetInputValueState(null, token);
+    internal HtmlInputValueState? GetInputValueState(Action<int>? checkpoint, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (Element is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return null;
+        if (_inputValue is not null) { checkpoint?.Invoke(1); token.ThrowIfCancellationRequested(); return _inputValue; }
+        return _inputValue ??= new HtmlInputValueState(Element, null, checkpoint, token);
+    }
     internal HtmlInputValueState? ExistingInputValue => _inputValue;
     internal void InitializeInputValue(HtmlInputValueState prepared)
     {

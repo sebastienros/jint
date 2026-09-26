@@ -9,11 +9,16 @@ internal static class HtmlInputRangeValue
     internal static string Sanitize(string value, in HtmlInputNumericConstraints constraints,
         Action<long>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return Sanitize(value, constraints, ref work);
+    }
+    internal static string Sanitize(string value, in HtmlInputNumericConstraints constraints, ref HtmlInputValueWork work)
+    {
+        var cancellationToken = work.Token;
         ArgumentNullException.ThrowIfNull(value);
         if (constraints.Type != HtmlInputType.Range || !constraints.Applies)
             throw new ArgumentException("Range constraints are required.", nameof(constraints));
         cancellationToken.ThrowIfCancellationRequested();
-        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
         work.Step(); work.Check();
         var min = constraints.Minimum!.Value;
         var max = constraints.Maximum!.Value;

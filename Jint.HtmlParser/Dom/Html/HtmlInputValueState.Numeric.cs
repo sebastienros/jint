@@ -30,42 +30,56 @@ internal sealed partial class HtmlInputValueState
         string? minimum, string? maximum, string? step, string? defaultValue,
         Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        if (IsTextType(type)) return HtmlTextSanitizer.SanitizeInput(type, value, multiple, checkpoint, cancellationToken);
-        var numericCheckpoint = AdaptCheckpoint(checkpoint);
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        var result = SanitizeFamily(type, value, multiple, minimum, maximum, step, defaultValue, ref work);
+        work.Finish();
+        return result;
+    }
+    private static string SanitizeFamily(HtmlInputType type, string value, bool multiple,
+        string? minimum, string? maximum, string? step, string? defaultValue, ref HtmlInputValueWork work)
+    {
+        if (IsTextType(type))
+        {
+            var textWork = new HtmlTextWork(work.Token, work.NativeCheckpoint, unchecked((int) work.Units));
+            var result = HtmlTextSanitizer.SanitizeInput(type, value, multiple, ref textWork);
+            work.ContinueFrom(textWork.Steps);
+            return result;
+        }
         if (type == HtmlInputType.Number)
-            return HtmlInputNumberSyntax.TryParseValue(value, out _, numericCheckpoint, cancellationToken) ? value : string.Empty;
+            return HtmlInputNumberSyntax.TryGetNumber(value, true, out _, ref work) == HtmlInputNumericParseResult.Success ? value : string.Empty;
         if (HtmlInputTemporalSyntax.IsTemporal(type))
-            return HtmlInputTemporalSyntax.Sanitize(type, value, numericCheckpoint, cancellationToken);
+            return HtmlInputTemporalSyntax.Sanitize(type, value, ref work);
         if (type == HtmlInputType.Range)
         {
-            var constraints = HtmlInputNumericConstraints.Create(type, minimum, maximum, step, defaultValue, numericCheckpoint, cancellationToken);
-            var result = HtmlInputRangeValue.Sanitize(value, constraints, numericCheckpoint, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
+            var constraints = HtmlInputNumericConstraints.Create(type, minimum, maximum, step, defaultValue, ref work);
+            var result = HtmlInputRangeValue.Sanitize(value, constraints, ref work);
+            work.Check();
             return result;
         }
         throw new NotSupportedException("This input family has no native value sanitizer.");
     }
-    private static Action<long>? AdaptCheckpoint(Action<int>? checkpoint)
-        => checkpoint is null ? null : AdaptNonNullCheckpoint(checkpoint);
-    private static Action<long> AdaptNonNullCheckpoint(Action<int> checkpoint)
-        => units => checkpoint((int) Math.Min(units, int.MaxValue));
 
     /// <summary>HTML §4.10.5.4 valueAsNumber: inapplicability and failed conversion yield NaN.</summary>
     internal double GetValueAsNumber(CancellationToken cancellationToken)
+        => GetValueAsNumber(null, cancellationToken);
+    internal double GetValueAsNumber(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!IsNumericType(Type)) return double.NaN;
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
+        if (!IsNumericType(Type)) { work.Finish(); return double.NaN; }
         RequireAvailable();
-        if (_numeric?.Number is { } cached) return cached;
-        var parsed = HtmlInputNumericConstraints.TryParse(Type, _value!, out var number, cancellationToken)
+        if (_numeric?.Number is { } cached) { work.Finish(); return cached; }
+        var parsed = HtmlInputNumericConstraints.TryParse(Type, _value!, out var number, ref work)
             ? number : double.NaN;
-        cancellationToken.ThrowIfCancellationRequested();
+        work.Finish();
         (_numeric ??= new()).Number = parsed;
         return parsed;
     }
 
     /// <summary>Infinity precedes applicability; Browser maps this argument error to TypeError.</summary>
     internal void SetValueAsNumber(double value, CancellationToken cancellationToken)
+        => SetValueAsNumber(value, null, cancellationToken);
+    internal void SetValueAsNumber(double value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (double.IsInfinity(value)) throw new ArgumentException("An infinite input value is not permitted.", nameof(value));
@@ -73,18 +87,21 @@ internal sealed partial class HtmlInputValueState
         var prepared = double.IsNaN(value) ? string.Empty
             : Type is HtmlInputType.Number or HtmlInputType.Range ? HtmlInputNumberFormatter.FormatFinite(value)
             : HtmlInputTemporalSyntax.FormatNumber(Type, value, cancellationToken);
-        SetValue(prepared, cancellationToken);
+        SetValue(prepared, checkpoint, cancellationToken);
     }
 
     /// <summary>Returns a Date slot result, including a present invalid Date outside TimeClip.</summary>
     internal HtmlInputDateResult GetValueAsDate(CancellationToken cancellationToken)
+        => GetValueAsDate(null, cancellationToken);
+    internal HtmlInputDateResult GetValueAsDate(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!HasDateApi(Type)) return default;
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
+        if (!HasDateApi(Type)) { work.Finish(); return default; }
         RequireAvailable();
-        if (_numeric?.Date is { } cached) return cached;
-        var parsed = HtmlInputTemporalSyntax.GetDate(Type, _value!, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
+        if (_numeric?.Date is { } cached) { work.Finish(); return cached; }
+        var parsed = HtmlInputTemporalSyntax.GetDate(Type, _value!, ref work);
+        work.Finish();
         (_numeric ??= new()).Date = parsed;
         return parsed;
     }
@@ -92,49 +109,69 @@ internal sealed partial class HtmlInputValueState
     // Browser owns WebIDL object?/Date-brand order and passes the actual clipped
     // slot or null. No CLR date, object coercion, or user getTime call belongs here.
     internal void SetValueAsDate(double? utcMilliseconds, CancellationToken cancellationToken)
+        => SetValueAsDate(utcMilliseconds, null, cancellationToken);
+    internal void SetValueAsDate(double? utcMilliseconds, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!HasDateApi(Type)) throw NumericInvalidState();
         var prepared = utcMilliseconds is { } value && double.IsFinite(value)
             ? HtmlInputTemporalSyntax.FormatDate(Type, value, cancellationToken) : string.Empty;
-        SetValue(prepared, cancellationToken);
+        SetValue(prepared, checkpoint, cancellationToken);
     }
 
     internal HtmlInputNumericFacts GetNumericFacts(CancellationToken cancellationToken)
+        => GetNumericFacts(null, cancellationToken);
+    internal HtmlInputNumericFacts GetNumericFacts(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!IsNumericType(Type)) return default;
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
+        if (!IsNumericType(Type)) { work.Finish(); return default; }
         RequireAvailable();
-        if (_numeric?.Facts is { } cached) return cached;
-        var facts = GetNumericConstraints(cancellationToken).GetFacts(_value!, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
+        if (_numeric?.Facts is { } cached) { work.Finish(); return cached; }
+        var facts = GetNumericConstraints(ref work).GetFacts(_value!, ref work);
+        work.Finish();
         _numeric!.Facts = facts;
         return facts;
     }
 
-    private HtmlInputNumericConstraints GetNumericConstraints(CancellationToken cancellationToken, Action<long>? checkpoint = null)
+    private HtmlInputNumericConstraints GetNumericConstraints(ref HtmlInputValueWork work)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        work.Check();
         if (_numeric?.Constraints is { } cached) return cached;
         var constraints = HtmlInputNumericConstraints.Create(Type, _minimumAttribute?.Value, _maximumAttribute?.Value,
-            _stepAttribute?.Value, _valueAttribute?.Value, checkpoint, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
+            _stepAttribute?.Value, _valueAttribute?.Value, ref work);
+        work.Check();
         (_numeric ??= new()).Constraints = constraints;
         return constraints;
     }
 
     internal void StepUp(int count, CancellationToken cancellationToken) => Step(count, false, null, cancellationToken);
     internal void StepDown(int count, CancellationToken cancellationToken) => Step(count, true, null, cancellationToken);
+    internal void StepUp(int count, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        Step(count, false, ref work);
+    }
+    internal void StepDown(int count, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        Step(count, true, ref work);
+    }
     internal void Step(int count, bool down, Action<long>? checkpoint, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        Step(count, down, ref work);
+    }
+    private void Step(int count, bool down, ref HtmlInputValueWork work)
+    {
+        work.Check();
         if (!IsNumericType(Type)) throw NumericInvalidState();
         RequireAvailable();
-        var result = GetNumericConstraints(cancellationToken, checkpoint).GetStep(_value!, count, down, checkpoint, cancellationToken);
+        var result = GetNumericConstraints(ref work).GetStep(_value!, count, down, ref work);
         if (result.Status is HtmlInputStepStatus.Inapplicable or HtmlInputStepStatus.NoAllowedStep) throw NumericInvalidState();
-        if (result.Status == HtmlInputStepStatus.Unchanged) return;
+        if (result.Status == HtmlInputStepStatus.Unchanged) { work.Finish(); return; }
         // Equal successful writes still dirty; early returns above preserve every flag.
-        SetValue(result.Value!, cancellationToken);
+        SetValue(result.Value!, ref work);
     }
 
     private void InvalidateNumericValue()

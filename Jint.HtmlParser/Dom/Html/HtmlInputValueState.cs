@@ -17,12 +17,15 @@ internal sealed partial class HtmlInputValueState
     private HtmlInputType? _unavailableFamily;
 
     internal HtmlInputValueState(Element element, IReadOnlyList<Attr>? initialAttributes = null, CancellationToken cancellationToken = default)
+        : this(element, initialAttributes, null, cancellationToken) { }
+    internal HtmlInputValueState(Element element, IReadOnlyList<Attr>? initialAttributes, Action<int>? checkpoint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(element);
         if (element is not { NamespaceUri: Namespaces.Html, LocalName: "input" })
             throw new ArgumentException("An HTML input element is required.", nameof(element));
         Element = element;
-        InitializeMetadata(initialAttributes, cancellationToken);
+        InitializeMetadata(initialAttributes, checkpoint, cancellationToken);
     }
 
     internal Element Element { get; }
@@ -45,12 +48,12 @@ internal sealed partial class HtmlInputValueState
         HtmlInputType.Button or HtmlInputType.Checkbox or HtmlInputType.Radio;
 
     internal void InitializeMetadata(CancellationToken cancellationToken)
-        => InitializeMetadata(null, cancellationToken);
+        => InitializeMetadata(null, null, cancellationToken);
 
-    private void InitializeMetadata(IReadOnlyList<Attr>? initialAttributes, CancellationToken cancellationToken)
+    private void InitializeMetadata(IReadOnlyList<Attr>? initialAttributes, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        var work = new HtmlTextWork(cancellationToken);
-        work.Check();
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
         string? type = null;
         Attr? valueAttribute = null;
         Attr? minimum = null;
@@ -79,9 +82,9 @@ internal sealed partial class HtmlInputValueState
         var supported = IsSupportedType(parsed);
         var initial = supported && HtmlInputTypes.Info(parsed).ValueMode == HtmlInputValueMode.Value
             ? SanitizeFamily(parsed, valueAttribute?.Value ?? string.Empty, multiple,
-                minimum?.Value, maximum?.Value, step?.Value, valueAttribute?.Value, null, cancellationToken)
+                minimum?.Value, maximum?.Value, step?.Value, valueAttribute?.Value, ref work)
             : null;
-        work.Check();
+        work.Finish();
         Type = parsed;
         _valueAttribute = valueAttribute;
         _multiple = multiple;
@@ -144,20 +147,26 @@ internal sealed partial class HtmlInputValueState
         => SetValue(value, null, cancellationToken);
     internal void SetValue(string value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        SetValue(value, ref work);
+    }
+    private void SetValue(string value, ref HtmlInputValueWork work)
+    {
         ArgumentNullException.ThrowIfNull(value);
-        cancellationToken.ThrowIfCancellationRequested();
+        work.Check(); work.Step();
         RequireSupportedType();
         if (ValueMode is HtmlInputValueMode.Default or HtmlInputValueMode.DefaultOn)
         {
+            work.Finish();
             Element.SetAttribute("value", value);
             MakeAvailable();
             SetOrigin(HtmlValueChangeOrigin.NonUser);
             return;
         }
-        var prepared = Sanitize(value, checkpoint, cancellationToken);
-        var changed = !IsAvailable || !string.Equals(_value, prepared, StringComparison.Ordinal);
+        var prepared = Sanitize(value, ref work);
+        var changed = !IsAvailable || !work.StringEquals(_value!, prepared);
         var clearedDisplay = Type == HtmlInputType.Number && _numberPresentation is not null;
-        cancellationToken.ThrowIfCancellationRequested();
+        work.Finish();
         MakeAvailable();
         CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
         ClearNumberPresentation();
@@ -175,13 +184,17 @@ internal sealed partial class HtmlInputValueState
     }
 
     internal void SetDefaultValue(string value, CancellationToken cancellationToken)
+        => SetDefaultValue(value, null, cancellationToken);
+    internal void SetDefaultValue(string value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(value);
-        cancellationToken.ThrowIfCancellationRequested();
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
         var prepared = IsAvailable && ValueMode == HtmlInputValueMode.Value && !DirtyValue
             ? SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
-                _stepAttribute?.Value, value, null, cancellationToken) : null;
-        cancellationToken.ThrowIfCancellationRequested();
+                _stepAttribute?.Value, value, ref work) : null;
+        if (prepared is not null && work.StringEquals(_value!, prepared)) prepared = _value;
+        work.Finish();
         _preparedDefaultValue = prepared;
         try { Element.SetAttribute("value", value); }
         finally { _preparedDefaultValue = null; }
@@ -189,13 +202,17 @@ internal sealed partial class HtmlInputValueState
 
     // A component step, not whole input reset (checkedness/files have separate owners).
     internal void ResetValue(CancellationToken cancellationToken)
+        => ResetValue(null, cancellationToken);
+    internal void ResetValue(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        work.Check(); work.Step();
         RequireSupportedType();
-        var prepared = ValueMode == HtmlInputValueMode.Value ? Sanitize(GetDefaultValue(cancellationToken), cancellationToken) : null;
-        cancellationToken.ThrowIfCancellationRequested();
+        var prepared = ValueMode == HtmlInputValueMode.Value ? Sanitize(GetDefaultValue(cancellationToken), ref work) : null;
+        var changed = prepared is not null && (!IsAvailable || !work.StringEquals(_value!, prepared));
+        work.Finish();
         MakeAvailable();
-        if (prepared is not null) CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
+        if (prepared is not null) CommitValue(prepared, HtmlValueChangeOrigin.NonUser, changed);
         else SetOrigin(HtmlValueChangeOrigin.NonUser);
         SetDirty(false);
         SetUserValidity(false);
@@ -213,8 +230,12 @@ internal sealed partial class HtmlInputValueState
                 InvalidateNumericConstraints();
                 if (!_typeTransition && IsAvailable && ValueMode == HtmlInputValueMode.Value && !DirtyValue)
                 {
-                    var prepared = _preparedDefaultValue ?? Sanitize(newValue ?? string.Empty, default);
-                    CommitAutomaticValue(prepared);
+                    if (_preparedDefaultValue is { } prepared)
+                    {
+                        if (!ReferenceEquals(_value, prepared)) CommitValue(prepared, HtmlValueChangeOrigin.NonUser, changed: true);
+                        ClampSelection((uint) prepared.Length);
+                    }
+                    else CommitAutomaticValue(Sanitize(newValue ?? string.Empty, default));
                 }
                 else if (!_typeTransition && IsAvailable && ValueMode is HtmlInputValueMode.Default or HtmlInputValueMode.DefaultOn)
                 {
@@ -296,13 +317,15 @@ internal sealed partial class HtmlInputValueState
         => Sanitize(value, null, cancellationToken);
     private string Sanitize(string value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        if (Type != HtmlInputType.Range)
-            return SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
-                _stepAttribute?.Value, _valueAttribute?.Value, checkpoint, cancellationToken);
-        var numericCheckpoint = AdaptCheckpoint(checkpoint);
-        return HtmlInputRangeValue.Sanitize(value, GetNumericConstraints(cancellationToken, numericCheckpoint),
-            numericCheckpoint, cancellationToken);
+        var work = HtmlInputValueWork.ForNative(checkpoint, cancellationToken);
+        var result = Sanitize(value, ref work);
+        work.Finish();
+        return result;
     }
+    private string Sanitize(string value, ref HtmlInputValueWork work)
+        => Type == HtmlInputType.Range ? HtmlInputRangeValue.Sanitize(value, GetNumericConstraints(ref work), ref work)
+            : SanitizeFamily(Type, value, _multiple, _minimumAttribute?.Value, _maximumAttribute?.Value,
+                _stepAttribute?.Value, _valueAttribute?.Value, ref work);
     internal HtmlTextSelection? GetSelection(CancellationToken cancellationToken)
         => HtmlInputTextOperations.GetSelection(this, cancellationToken);
     internal void SetSelectionStart(uint? value, CancellationToken cancellationToken)

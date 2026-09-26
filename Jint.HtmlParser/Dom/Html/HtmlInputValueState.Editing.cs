@@ -28,8 +28,7 @@ internal sealed partial class HtmlInputValueState
 
         // The UI accepts partial strings, but API value accepts only the full
         // strict finite grammar. No prefix conversion can make "1e" into 1.
-        var numericWork = new HtmlInputValueWork(AdaptCheckpoint(checkpoint), cancellationToken, work.Steps,
-            cadencedCheckpoint: true);
+        var numericWork = HtmlInputValueWork.ForNative(checkpoint, cancellationToken, work.Steps);
         var parsed = HtmlInputNumberSyntax.TryGetNumber(value, true, out var number, ref numericWork);
         numericWork.Step(); numericWork.Check();
         var prepared = parsed == HtmlInputNumericParseResult.Success ? HtmlInputNumberFormatter.FormatFinite(number) : string.Empty;
