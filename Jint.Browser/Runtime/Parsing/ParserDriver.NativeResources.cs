@@ -254,6 +254,7 @@ internal sealed partial class ParserDriver
         {
             _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
             _runtime.Engine.Constraints.Check();
+            _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
             if (!_pendingFrameDocuments.TryPeek(out var pending) || pending.Preparing) return;
             if (!CurrentFrameRequest(pending)) { CompleteFrameRequest(pending); continue; }
             pending.Preparing = true;
@@ -628,6 +629,7 @@ internal sealed partial class ParserDriver
         var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
         _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
         _runtime.Engine.Constraints.Check();
+        _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
         if (pending is not null && !CurrentFrameRequest(pending) || !ReferenceEquals(frame.OwnerDocument, owner) ||
             !ReferenceEquals(creatorContext.Active, owner))
         {

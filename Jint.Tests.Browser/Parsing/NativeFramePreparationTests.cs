@@ -51,6 +51,56 @@ public sealed class NativeFramePreparationTests
     }
 
     [Test]
+    public async Task CancellationReturnedFromTheFinalPreparationCheckPrecedesNavigationCommit()
+    {
+        var probe = new Probe();
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions { MaxFrameDocuments = 2 }
+            .ConfigureEngine(options => options.AddConstraint(probe)));
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<body></body>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var parser = runtime.Parser!;
+            var document = runtime.Document!;
+            var body = DomDocumentElements.Body(document)!;
+            var warmupChecks = 0;
+            probe.Checking = () => { if (IsPreparing(parser)) warmupChecks++; };
+            body.AppendChild(document.CreateElement("iframe"));
+            parser.RecoverNativeMutationNotifications();
+            warmupChecks.Should().BeGreaterThan(0);
+            var frame = document.CreateElement("iframe");
+            body.AppendChild(frame);
+            using var cancellation = new CancellationTokenSource();
+            var constraint = engine.Constraints.Find<CancellationConstraint>()!;
+            var originalToken = constraint.Token;
+            constraint.Reset(cancellation.Token);
+            var checks = 0;
+            probe.Checking = () =>
+            {
+                if (!IsPreparing(parser) || ++checks != warmupChecks) return;
+                probe.Checking = null;
+                cancellation.Cancel(); // Return normally from the host check, rather than throw.
+            };
+            try
+            {
+                var failure = Assert.Throws<OperationCanceledException>(() => parser.RecoverNativeMutationNotifications());
+                failure!.CancellationToken.Should().Be(cancellation.Token);
+                checks.Should().Be(warmupChecks);
+                Pending(parser).Cast<object>().Should().ContainSingle();
+                DomBrowsingContext.OfFrame(frame).Should().BeNull();
+            }
+            finally { constraint.Reset(originalToken); probe.Checking = null; }
+            parser.RecoverNativeMutationNotifications();
+            DomBrowsingContext.OfFrame(frame)!.Active.Should().NotBeNull();
+            return true;
+        });
+        (await page.EvaluateAsync<int>("frames.length")).Should().Be(2);
+        page.Requests.Should().BeEmpty();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ReentrantRecoveryLeavesThePreparingFrontAndBothLaterNavigationsIntact()
     {
         var probe = new Probe();
