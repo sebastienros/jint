@@ -12,7 +12,9 @@ namespace Jint.Browser.Runtime;
 /// <param name="Fragment">The last hop's fragment: null when absent, empty when an explicit trailing <c>#</c>.</param>
 /// <param name="Status">The status of the final response.</param>
 /// <param name="LastModified">The final response's resource timestamp, when its header is valid.</param>
-internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status, DateTimeOffset? LastModified = null)
+/// <param name="DefaultStyle">The final response's preferred stylesheet set name, when supplied.</param>
+internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status,
+    DateTimeOffset? LastModified = null, string? DefaultStyle = null)
 {
     /// <summary>
     /// The body decoded as text, with the charset the response declared, then the caller's hint, then UTF-8.
@@ -185,7 +187,11 @@ internal static class SubresourceFetch
                     "'" + final + "' answered " + status.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
             }
 
-            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status, response.Content.Headers.LastModified);
+            // CSSOM's preferred stylesheet set is response metadata, carried without engine or DOM state.
+            var defaultStyle = response.Headers.TryGetValues("Default-Style", out var styles)
+                ? styles.FirstOrDefault() : null;
+            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status,
+                response.Content.Headers.LastModified, defaultStyle);
         }
         catch (SubresourceFetchException)
         {

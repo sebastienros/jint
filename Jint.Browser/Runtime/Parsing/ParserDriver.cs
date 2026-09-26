@@ -517,7 +517,7 @@ internal sealed partial class ParserDriver : IDisposable
             return new FetchedBody(
                 fetched.Bytes,
                 ResponseUrl(fetched.Url, fetched.Fragment),
-                fetched.ContentType, fetched.LastModified);
+                fetched.ContentType, fetched.LastModified, fetched.DefaultStyle);
         }
         catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
         {
@@ -581,7 +581,8 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     /// <summary>One subresource's bytes, the URL they were answered under, and what the server called them.</summary>
-    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType, DateTimeOffset? LastModified = null);
+    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType,
+        DateTimeOffset? LastModified = null, string? DefaultStyle = null);
 
     /// <summary>The URL a fetched subresource is answered under.</summary>
     /// <remarks>
