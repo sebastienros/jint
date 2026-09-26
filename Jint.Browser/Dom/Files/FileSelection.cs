@@ -51,8 +51,13 @@ internal static class FileSelection
     internal const string DefaultType = "application/octet-stream";
 
     /// <summary>Whether <paramref name="node"/> is an <c>input</c> element in the File Upload state.</summary>
-    internal static bool IsFileInput(Node? node)
-        => node is Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input && HtmlInputTypes.Parse(input.GetAttribute("type")) == HtmlInputType.File;
+    internal static bool IsFileInput(Node? node, Action<int>? checkpoint = null, CancellationToken cancellationToken = default)
+    {
+        if (node is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input) return false;
+        var work = new DomReadWork(checkpoint, cancellationToken);
+        work.Check();
+        return HtmlInputTypes.Parse(work.Attribute(input, "type")) == HtmlInputType.File;
+    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#update-the-file-selection — replace the element's
@@ -81,7 +86,7 @@ internal static class FileSelection
         var realm = FileTransferRealm.Of(runtime.Engine);
         var list = realm.NewFileList();
 
-        foreach (var file in Allowed(input, files))
+        foreach (var file in Allowed(input, files, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
         {
             runtime.Engine.Constraints.Check();
             list.Add(ToFile(runtime.Engine, file));
@@ -106,8 +111,13 @@ internal static class FileSelection
     /// rather than the call refused: Blink's <c>FileInputType::SetFilesFromPaths</c> keeps the first path
     /// the same way, and Playwright refuses the call in its own client before one is ever sent.
     /// </remarks>
-    internal static IReadOnlyList<T> Allowed<T>(Element input, IReadOnlyList<T> files)
-        => input.HasAttribute("multiple") || files.Count <= 1 ? files : [files[0]];
+    internal static IReadOnlyList<T> Allowed<T>(Element input, IReadOnlyList<T> files,
+        Action<int>? checkpoint = null, CancellationToken cancellationToken = default)
+    {
+        var work = new DomReadWork(checkpoint, cancellationToken);
+        work.Check();
+        return work.Attribute(input, "multiple") is not null || files.Count <= 1 ? files : [files[0]];
+    }
 
     /// <summary>Reads one host file into a selection, in the shape the File API gives it.</summary>
     /// <param name="path">A path on the machine the browser is running on.</param>
