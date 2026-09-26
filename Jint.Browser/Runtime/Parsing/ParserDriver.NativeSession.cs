@@ -87,6 +87,8 @@ internal sealed partial class ParserDriver
             _tokenizing = wasTokenizing;
             ActiveParsers.Remove(document);
             _nativeParses.Remove(document);
+            var watch = WatchDocument(document);
+            if (watch.Deferred) { watch.Deferred = false; QueueResourceDrain(watch); }
         }
     }
 
@@ -164,7 +166,7 @@ internal sealed partial class ParserDriver
         flags.ParserDocument = null;
         if (parserDocument is not null && Attribute(script, "async") is null) flags.ForceAsync = true;
         var src = Attribute(script, "src");
-        var text = TextOf(script);
+        var text = ScriptTextOf(script);
         var type = ScriptType(script);
         if ((src is null && text.Length == 0) || !ShadowTree.IsConnected(script, _cancellationToken) || type == NativeScriptType.Data)
             return HtmlHostRequestOutcome.Finished;
@@ -177,6 +179,7 @@ internal sealed partial class ParserDriver
             return HtmlHostRequestOutcome.Finished;
         if (type == NativeScriptType.ImportMap)
         {
+            if (IsFrameDocument(script.OwnerDocument!)) return HtmlHostRequestOutcome.Finished;
             ReadImportMapEarly(script.OwnerDocument!);
             return HtmlHostRequestOutcome.Finished;
         }
@@ -192,7 +195,7 @@ internal sealed partial class ParserDriver
             if (Attribute(script, "defer") is not null || Attribute(script, "async") is not null)
             {
                 // Browser's existing sequential-fetch scheduling: both queues run after parsing.
-                var fetched = FetchScriptSource(script, mayPump: false);
+                var fetched = FetchScriptSource(script, mayPump: !_runtime.Engine.IsEvaluationInProgress);
                 if (fetched is not null) parse.Deferred.Add((script, fetched));
                 return HtmlHostRequestOutcome.Finished;
             }
@@ -258,6 +261,9 @@ internal sealed partial class ParserDriver
         if (type.Equals("importmap", StringComparison.OrdinalIgnoreCase)) return NativeScriptType.ImportMap;
         return NativeScriptType.Data;
     }
+
+    private string ScriptTextOf(Element element)
+        => DomDescendantText.ReadChildren(element, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);
 
     private string TextOf(Element element)
         => DomDescendantText.Read(element, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);

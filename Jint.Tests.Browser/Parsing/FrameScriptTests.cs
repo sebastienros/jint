@@ -6,6 +6,34 @@ namespace Jint.Tests.Browser.Parsing;
 public class FrameScriptTests
 {
     [Test]
+    public async Task ChildResourcesPrepareAtTheirOwnParserBoundary()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/child.js", _ => LoopbackResponse.Script("window.childExternal = 42;"))
+            .MapHtml("/child", "<script src=/child.js></script><script>window.sawExternal = childExternal === 42;</script>")
+            .MapHtml("/", "<iframe src=/child></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("frames[0].sawExternal")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChildImportMapDoesNotReplaceThePrincipalMap()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/right.js", _ => LoopbackResponse.Script("export const value = 42;"))
+            .MapHtml("/child", "<script type=importmap>{\"imports\":{\"dep\":\"/wrong.js\"}}</script>")
+            .MapHtml("/", """
+                <iframe src=/child></iframe>
+                <script type=importmap>{"imports":{"dep":"/right.js"}}</script>
+                <script type=module>import { value } from 'dep'; window.importedValue = value;</script>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<int>("importedValue")).Should().Be(42);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ChildModuleScriptsDoNotExecuteInThePrincipalRealm()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

@@ -9,7 +9,10 @@ internal sealed partial class ParserDriver
     private readonly Dictionary<Document, ResourceWatch> _resourceWatches = new();
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
     private readonly HashSet<Element> _inlineStyles = [];
-    private bool _processingResources;
+    private readonly HashSet<Element> _changedScripts = [];
+    private readonly List<WeakReference<MutationSubscription>> _scriptSubscriptions = [];
+    private bool _scriptChangesPosted;
+    private int _scriptAttachmentsUntilSweep = 64;
 
     private sealed class ResourceWatch(Document document, MutationSubscription subscription)
     {
@@ -23,6 +26,7 @@ internal sealed partial class ParserDriver
     {
         internal string? Signature;
         internal bool ModuleStarted;
+        internal MutationSubscription? ScriptSubscription;
     }
 
     private ResourceWatch WatchDocument(Document document)
@@ -54,45 +58,44 @@ internal sealed partial class ParserDriver
         _runtime.Engine.Tasks.Post(() =>
         {
             watch.Posted = false;
-            if (_disposed || _nativeParses.ContainsKey(watch.Document)) return;
-            if (_processingResources) { watch.Deferred = true; return; }
+            if (_disposed) return;
+            if (_nativeParses.ContainsKey(watch.Document)) { watch.Deferred = true; return; }
             DrainResourceRecords(watch);
             InstallInlineStyles(watch.Document);
         });
+    }
+
+    internal void CompleteNativeMutation(Node node)
+    {
+        var document = node as Document ?? node.OwnerDocument;
+        if (!_disposed && document is not null && _resourceWatches.TryGetValue(document, out var watch))
+        {
+            DrainResourceRecords(watch);
+            InstallInlineStyles(document);
+            DrainScriptChanges(document);
+        }
     }
 
     private void ProcessResourceRecords(NativeParse parse) => DrainResourceRecords(WatchDocument(parse.Document));
 
     private void DrainResourceRecords(ResourceWatch watch)
     {
-        if (_processingResources) return;
-        _processingResources = true;
-        try
+        // TakeRecords detaches this batch. A nested page script may drain a new batch
+        // synchronously, including one belonging to a recursively parsed child document.
+        var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
+        foreach (var record in watch.Subscription.TakeRecordsForDelivery())
         {
-            var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
-            foreach (var record in watch.Subscription.TakeRecordsForDelivery())
+            _runtime.Engine.Constraints.Check();
+            if (record.Kind == MutationRecordKind.ChildList)
             {
-                _runtime.Engine.Constraints.Check();
-                if (record.Kind == MutationRecordKind.ChildList)
-                {
-                    if (!record.TargetWasConnected) continue;
-                    foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
-                }
-                else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
-                    record.AttributeNamespace is null)
-                    ProcessResourceElement(element);
+                if (!record.TargetWasConnected) continue;
+                if (record.Target is Element { NamespaceUri: Namespaces.Html, LocalName: "script" } script)
+                    ProcessResourceElement(script);
+                foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
             }
-        }
-        finally
-        {
-            _processingResources = false;
-            foreach (var pending in _resourceWatches.Values)
-            {
-                _runtime.Engine.Constraints.Check();
-                if (!pending.Deferred) continue;
-                pending.Deferred = false;
-                QueueResourceDrain(pending);
-            }
+            else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
+                record.AttributeNamespace is null)
+                ProcessResourceElement(element);
         }
     }
 
@@ -146,7 +149,11 @@ internal sealed partial class ParserDriver
                 // The HTML tokenizer's own request prepares parser-inserted scripts.
                 if (_xmlParsingDocuments.Contains(element.OwnerDocument!))
                     element.GetHtmlState()!.Script!.AlreadyStarted = true;
-                else if (!element.GetHtmlState()!.Script!.ParserInserted) PrepareDynamicScript(element);
+                else if (!element.GetHtmlState()!.Script!.ParserInserted)
+                {
+                    ObserveUnstartedScript(element);
+                    PrepareDynamicScript(element);
+                }
                 return;
         }
     }
@@ -248,17 +255,91 @@ internal sealed partial class ParserDriver
         QueueResourceEvent(frame, "load", afterParse: true);
     }
 
+    private void ObserveUnstartedScript(Element script)
+    {
+        if (script.GetHtmlState()!.Script!.AlreadyStarted) return;
+        var state = _resourceSources.GetValue(script, static _ => new ResourceSource());
+        if (state.ScriptSubscription is not null) return;
+        PruneScriptSubscriptions();
+        var subscription = script.OwnerDocument!.ObserveMutations(script,
+            new MutationObserverOptions { CharacterData = true, Subtree = true });
+        state.ScriptSubscription = subscription;
+        _scriptSubscriptions.Add(new WeakReference<MutationSubscription>(subscription));
+        var owner = new WeakReference<ParserDriver>(this);
+        var target = new WeakReference<Element>(script);
+        subscription.PendingRecord = _ =>
+        {
+            if (!owner.TryGetTarget(out var driver) || !target.TryGetTarget(out var element))
+            {
+                subscription.Dispose();
+                return;
+            }
+            if (driver._disposed) return;
+            // Metadata only: preparation and DOM reads happen after the native mutation returns.
+            driver._changedScripts.Add(element);
+            if (driver._scriptChangesPosted) return;
+            driver._scriptChangesPosted = true;
+            driver._resourceTasks.Post(() =>
+            {
+                driver._scriptChangesPosted = false;
+                if (!driver._disposed) driver.DrainScriptChanges(null);
+            });
+        };
+    }
+
+    private void PruneScriptSubscriptions()
+    {
+        if (--_scriptAttachmentsUntilSweep > 0) return;
+        var survivors = 0;
+        var consumed = 0;
+        try
+        {
+            for (; consumed < _scriptSubscriptions.Count; consumed++)
+            {
+                if ((consumed & 255) == 0) _runtime.Engine.Constraints.Check();
+                var weak = _scriptSubscriptions[consumed];
+                if (weak.TryGetTarget(out _)) _scriptSubscriptions[survivors++] = weak;
+            }
+        }
+        finally
+        {
+            _scriptSubscriptions.RemoveRange(survivors, consumed - survivors);
+            _scriptAttachmentsUntilSweep = Math.Max(64, _scriptSubscriptions.Count);
+        }
+    }
+
+    private void DrainScriptChanges(Document? document)
+    {
+        foreach (var script in _changedScripts.ToArray())
+        {
+            _runtime.Engine.Constraints.Check();
+            if (document is not null && !ReferenceEquals(script.OwnerDocument, document)) continue;
+            _changedScripts.Remove(script);
+            if (_resourceSources.TryGetValue(script, out var state)) state.ScriptSubscription?.TakeRecordsForDelivery();
+            PrepareDynamicScript(script);
+        }
+    }
+
     private void PrepareDynamicScript(Element script)
     {
         var flags = script.GetHtmlState()!.Script!;
         if (flags.AlreadyStarted || !IsResourceConnected(script)) return;
         var type = ScriptType(script);
         var src = Attribute(script, "src");
-        if (type == NativeScriptType.Data || src is null && TextOf(script).Length == 0) return;
+        if (type == NativeScriptType.Data || src is null && ScriptTextOf(script).Length == 0) return;
         flags.AlreadyStarted = true;
+        if (_resourceSources.TryGetValue(script, out var state) && state.ScriptSubscription is { } subscription)
+        {
+            subscription.Dispose();
+            state.ScriptSubscription = null;
+        }
         flags.PreparationTimeDocument = script.OwnerDocument;
         if (!_runtime.ScriptingEnabled || IsFrameDocument(script.OwnerDocument!) && !CanRunFrame(script.OwnerDocument!)) return;
-        if (type == NativeScriptType.ImportMap) { ReadImportMapEarly(script.OwnerDocument!); return; }
+        if (type == NativeScriptType.ImportMap)
+        {
+            if (!IsFrameDocument(script.OwnerDocument!)) ReadImportMapEarly(script.OwnerDocument!);
+            return;
+        }
         if (type == NativeScriptType.Module)
         {
             // The existing child-frame capability is classic scripting; the engine's module

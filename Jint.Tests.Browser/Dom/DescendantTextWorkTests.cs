@@ -54,4 +54,18 @@ public sealed class DescendantTextWorkTests
         cachedData.GetValue(text).Should().BeNull();
     }
 
+    [Test]
+    public void ChildTextDoesNotIncludeNestedElements()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("script");
+        root.AppendChild(document.CreateTextNode("a"));
+        var nested = document.CreateElement("span");
+        nested.AppendChild(document.CreateTextNode("b"));
+        root.AppendChild(nested);
+        root.AppendChild(document.CreateTextNode("c"));
+        DomDescendantText.ReadChildren(root, null, default).Should().Be("ac");
+        DomDescendantText.Read(root, null, default).Should().Be("abc");
+    }
+
 }

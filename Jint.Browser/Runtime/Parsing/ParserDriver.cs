@@ -25,6 +25,7 @@ internal sealed partial class ParserDriver : IDisposable
     private readonly PageNetworkRecorder _requests;
     private readonly HttpClient _client;
     private readonly ParserBaton _baton;
+    private readonly Engine.TaskOperations _resourceTasks;
     private readonly string _url;
     private readonly long _maxBytes;
     private readonly int _maxRedirects;
@@ -51,6 +52,7 @@ internal sealed partial class ParserDriver : IDisposable
         _maxRedirects = runtime.Options.MaxRedirects;
         _timeout = runtime.Options.SubresourceTimeout;
         _cancellationToken = cancellationToken;
+        _resourceTasks = runtime.Engine.Tasks;
         _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
     }
 
@@ -85,6 +87,9 @@ internal sealed partial class ParserDriver : IDisposable
         if (_disposed) return;
         _disposed = true;
         foreach (var watch in _resourceWatches.Values) watch.Subscription.Dispose();
+        foreach (var weak in _scriptSubscriptions) if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
+        _scriptSubscriptions.Clear();
+        _changedScripts.Clear();
         _resourceWatches.Clear();
         _baton.Dispose();
     }
@@ -497,7 +502,15 @@ internal sealed partial class ParserDriver : IDisposable
 
         try
         {
-            var fetched = mayPump ? _baton.PumpUntil(fetch) : fetch.GetAwaiter().GetResult();
+            FetchedSubresource fetched;
+            if (mayPump)
+            {
+                // The outer native parse owns a CPU turn, while the resource wait owns the
+                // subresource timeout. Nested callback tasks retain their own actual turn bounds.
+                _runtime.Engine.Constraints.Check();
+                using (_runtime.Budget.BeginTurn()) fetched = _baton.PumpUntil(fetch);
+            }
+            else fetched = fetch.GetAwaiter().GetResult();
             return new FetchedBody(
                 fetched.Bytes,
                 ResponseUrl(fetched.Url, fetched.Fragment),
@@ -662,7 +675,7 @@ internal sealed partial class ParserDriver : IDisposable
             // *filename* is the document's URL, so that is what the engine is given as the source name, and
             // the line the script starts on is a parsing offset rather than part of the name. The page's own
             // error recorder still gets the `url:line` string it always did, which is the one a host reads.
-            text = TextOf(element);
+            text = ScriptTextOf(element);
             source = DomDocumentState.Of(element.OwnerDocument!).Url;
             line = LineOf(element, text);
             location = source + ":" + line;
@@ -1042,7 +1055,7 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         var problems = new List<string>();
-        var map = ImportMap.Parse(TextOf(script), baseUrl, problems);
+        var map = ImportMap.Parse(ScriptTextOf(script), baseUrl, problems);
 
         foreach (var problem in problems)
         {
@@ -1073,7 +1086,7 @@ internal sealed partial class ParserDriver : IDisposable
         }
         else
         {
-            var text = TextOf(script);
+            var text = ScriptTextOf(script);
 
             if (string.IsNullOrWhiteSpace(text))
             {

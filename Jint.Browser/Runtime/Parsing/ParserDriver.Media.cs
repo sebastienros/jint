@@ -40,6 +40,20 @@ internal sealed partial class ParserDriver
         return RequestMediaTransportAsync(request, operationCancellation);
     }
 
+    // Engine.TaskOperations.Post is the existing thread-safe enqueue; capture it on the loop
+    // so transport completion never initializes or reads an engine-affine service.
+    internal bool TryPostResourceCompletion(Action completion)
+    {
+        ArgumentNullException.ThrowIfNull(completion);
+        if (Volatile.Read(ref _disposed)) return false;
+        try
+        {
+            _resourceTasks.Post(() => { if (!_disposed) completion(); });
+            return true;
+        }
+        catch (ObjectDisposedException) { return false; }
+    }
+
     private async Task<MediaResourceResponse> RequestMediaTransportAsync(SubresourceRequest request,
         CancellationToken operationCancellation)
     {
