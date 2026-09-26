@@ -10,7 +10,9 @@ unknown, including under `not`. Unknown features eliminate selection for the who
 
 The implemented metric is physical width and horizontal inline-size in CSS pixels; absolute length
 thresholds use the native unit conversion. Height, block-size, aspect/orientation, vertical writing,
-style/scroll-state queries, relative units and range syntax retain named C6 dependencies. The current
+style/scroll-state queries, relative units, range syntax and comma-separated condition lists retain
+named C6 dependencies. List branches remain typed and their rule/children survive projection; the
+legacy containerName/containerQuery getters return empty strings for multiple conditions. The current
 ordinary-parent box provider explicitly refuses shadow flat-tree geometry. There is no authored-width
 or viewport substitution for a selected container's metric.
 

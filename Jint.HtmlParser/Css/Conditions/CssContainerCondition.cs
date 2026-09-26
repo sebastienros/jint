@@ -1,4 +1,5 @@
 using Jint.HtmlParser.Css.Media;
+using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 
 namespace Jint.HtmlParser.Css.Conditions;
@@ -10,12 +11,16 @@ internal sealed record CssContainerInstruction(CssMediaOperation Operation, CssC
 
 // Conditional 5 §§5.4/6.1. Immutable postfix program; no DOM, engine or layout ownership.
 // https://drafts.csswg.org/css-conditional-5/#container-rule
-internal sealed class CssContainerCondition(CssContainerInstruction[] instructions)
+internal sealed class CssContainerCondition(CssContainerInstruction[] instructions, string? pendingDependency = null)
 {
     internal IReadOnlyList<CssContainerInstruction> Instructions { get; } = Array.AsReadOnly(instructions);
+    internal string? PendingDependency { get; } = pendingDependency;
 
     internal CssMediaTruth Evaluate(Func<CssContainerFeature, CssMediaTruth> feature, CssValueWork work)
     {
+        work.CheckCancellation();
+        if (PendingDependency is { } pending)
+            throw new CssIncompleteGrammarException("container", pending, default);
         var stack = new List<CssMediaTruth>();
         foreach (var instruction in Instructions)
         {

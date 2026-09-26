@@ -11,6 +11,25 @@ using Browser = global::Jint.Browser.Browser;
 
 public sealed class NativeCssContainerLayoutTests
 {
+    [TestCase("(min-width:1px)")]
+    [TestCase("not (min-width:1px)")]
+    public async Task DisplayContentsHasNoPrincipalContainerBoxEvenUnderNot(string condition)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>@container panel " + condition + "{#child{opacity:.5}}</style>"
+            + "<div style='display:contents;container:panel / inline-size'><div id=child></div></div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var traversal = CssCascade.Traversal.For(runtime.Document)!;
+            var context = traversal.ReadContext!;
+            context.HasSizeQuery.Should().BeFalse();
+            traversal.Of(ContentDom.ElementById(runtime.Document!, "child")!).GetPropertyValue("opacity").Should().Be("1");
+            context.HasSizeQuery.Should().BeFalse();
+            return true;
+        });
+    }
     [Test]
     public async Task ConditionsReadActualFlexBoxesAndTrackSubsequentWidths()
     {

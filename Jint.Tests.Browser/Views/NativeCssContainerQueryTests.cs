@@ -37,6 +37,33 @@ public sealed class NativeCssContainerQueryTests
         provider.Reads.Should().Be(0);
     }
 
+    [TestCase("(min-width)")]
+    [TestCase("not (max-inline-size)")]
+    [TestCase("(min-width) or (width:10px)")]
+    public void InvalidPrefixedBooleanFeaturesNeverDemandMetrics(string condition)
+    {
+        using var fixture = Create("<style>@container " + condition + "{#child{opacity:.5}}</style>"
+            + "<div style='container-type:inline-size'><span id=child></span></div>");
+        var input = Query(fixture);
+        var metrics = new Metrics { Value = 10 };
+        input.Query.AttachContainerMetrics(metrics);
+        input.Query.GetProperty(ContentDom.ElementById(fixture.Document, "child")!, "opacity", ref input.Matching).Text.Should().Be("1");
+        metrics.BoxReads.Should().Be(0);
+        metrics.Reads.Should().Be(0);
+    }
+
+    [Test]
+    public void AConditionListRefusesOnlyWhenItsPropertyIsRelevant()
+    {
+        using var fixture = Create("<style>@container first (width:10px), second (width:20px){#child{font-size:12px}}</style>"
+            + "<span id=child></span>");
+        var input = Query(fixture);
+        var child = ContentDom.ElementById(fixture.Document, "child")!;
+        input.Query.GetProperty(child, "opacity", ref input.Matching).Text.Should().Be("1");
+        Assert.Throws<CssIncompleteGrammarException>(() => input.Query.GetProperty(child, "font-size", ref input.Matching))!
+            .Blocker.Should().Be("C6:container-condition-list");
+    }
+
     [TestCase(550, "column")]
     [TestCase(551, "row")]
     public void EligibleNamedAncestorSuppliesThresholdAndCompletedMetricIsShared(double width, string expected)
