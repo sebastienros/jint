@@ -320,7 +320,7 @@ internal static class DomManualInterfaces
                 DomFailures.Guard(RelList, static (thisObject, arguments) =>
                 {
                     var self = DomBindings.Bind<Element>(thisObject, RelList);
-                    return DomTokenListMembers.PutForwards(self.Target, "rel", arguments);
+                    return DomTokenListMembers.PutForwards(self.Realm, self.Target, "rel", arguments);
                 }))
             .Build();
     }

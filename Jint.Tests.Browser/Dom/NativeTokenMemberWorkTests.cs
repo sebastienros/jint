@@ -47,6 +47,25 @@ public sealed class NativeTokenMemberWorkTests
         DomTokenListMembers.Value(realm, list).AsString().Should().Be(element.GetAttribute("class"));
     }
 
+    [Test]
+    public void TokenWritesKeepForeignQualifiedNameMatchesSeparateFromTheNullNamespaceAttribute()
+    {
+        using var engine = new Engine();
+        var realm = DomRealm.Of(engine);
+        var element = Document.CreateHtml().CreateElement("div");
+        element.SetAttributeNS("urn:foreign", "class", "foreign");
+        var list = DomAttributeTokenList.Of(element, "class");
+        DomTokenListMembers.SetValue(realm, list, [JsString.Create("local")]);
+        element.GetAttributeNS(null, "class").Should().Be("local");
+        element.GetAttributeNS("urn:foreign", "class").Should().Be("foreign");
+        DomTokenListMembers.PutForwards(realm, element, "class", [JsString.Create("forwarded")]);
+        element.GetAttributeNS(null, "class").Should().Be("forwarded");
+        element.GetAttributeNS("urn:foreign", "class").Should().Be("foreign");
+        DomTokenListMembers.Add(realm, list, [JsString.Create("added")]);
+        element.GetAttributeNS(null, "class").Should().Be("forwarded added");
+        element.GetAttributeNS("urn:foreign", "class").Should().Be("foreign");
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void ManyArgumentsUseLinearChargedIndexWork(bool remove)

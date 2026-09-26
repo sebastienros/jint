@@ -18,7 +18,7 @@ internal static class DomTokenListMembers
         var value = DomConvert.RequiredText(arguments, 0, Member.Value);
         var work = Work(realm);
         work.Check();
-        element.SetAttribute(attribute, value);
+        element.SetAttributeNS(null, attribute, value);
         work.Check();
         return JsValue.Undefined;
     }
@@ -212,7 +212,7 @@ internal static class DomTokenListMembers
     private static void Write(DomAttributeTokenList list, string value, DomReadWork work)
     {
         work.Check();
-        list.Element.SetAttribute(list.Attribute, value);
+        list.Element.SetAttributeNS(null, list.Attribute, value);
         work.Check();
     }
 
