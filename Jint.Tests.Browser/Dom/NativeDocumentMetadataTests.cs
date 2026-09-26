@@ -89,6 +89,71 @@ public sealed class NativeDocumentMetadataTests
     }
 
     [Test]
+    public async Task NewDocumentScriptsUseThePendingOriginAndTheParserUrlBeforeTheTreeExists()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        var observer = new MetadataObserver();
+        page.Observe(observer);
+        await page.SetContentAsync("<script>window.firstScriptOrigin = document.origin;</script>", "https://creator.test/a");
+        (await page.EvaluateAsync<bool>("""
+            beforeDocument.origin === firstScriptOrigin && beforeParsed.origin === firstScriptOrigin &&
+            beforeParsed.URL === document.URL && beforeWindowOrigin === firstScriptOrigin
+            """)).Should().BeTrue();
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.DocumentCreationOrigin.Should().BeNull();
+            return true;
+        });
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AReplacementBlankDocumentInheritsTheFrozenCreatorOriginAndRetainedMetadataStaysPut()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("", "https://original.test/path");
+        Document? retained = null;
+        await page.RunOnLoopAsync(engine =>
+        {
+            retained = PageRuntime.Find(engine)!.Document!;
+            return true;
+        });
+        await page.SetContentAsync("");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            DomDocumentState.Of(runtime.Document!).Origin.Should().BeSameAs(DomDocumentState.Of(retained!).Origin);
+            DomDocumentMetadata.Domain(runtime.Document!).Should().Be("original.test");
+            DomDocumentState.Of(retained!).Url.Should().Be("https://original.test/path");
+            return true;
+        });
+        (await page.EvaluateAsync<string>("origin")).Should().Be("https://original.test");
+        (await page.EvaluateAsync<string>("location.origin")).Should().Be("null");
+        await page.SetContentAsync("", "https://replacement.test/");
+        await page.RunOnLoopAsync(_ =>
+        {
+            DomDocumentMetadata.Origin(retained!).Should().Be("https://original.test");
+            return true;
+        });
+    }
+
+    private sealed class MetadataObserver : IPageObserver
+    {
+        public void DocumentCreated(PageRuntime runtime, string loaderId)
+        {
+            runtime.Document.Should().BeNull();
+            runtime.Engine.Evaluate("""
+                var beforeWindowOrigin = origin;
+                var beforeDocument = new Document();
+                var beforeParsed = new DOMParser().parseFromString('<p>before</p>', 'text/html');
+                """);
+        }
+    }
+
+    [Test]
     public void UnknownModificationTimeIsReadAtTheGetterAndDoesNotBecomeStoredMetadata()
     {
         var document = Document.CreateHtml();
