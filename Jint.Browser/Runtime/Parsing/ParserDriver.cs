@@ -93,6 +93,8 @@ internal sealed partial class ParserDriver : IDisposable
         _scriptSubscriptions.Clear();
         _changedScripts.Clear();
         _resourceWatches.Clear();
+        _resourceRecords.Clear();
+        _candidateShadowHosts.Clear();
         _baton.Dispose();
     }
 

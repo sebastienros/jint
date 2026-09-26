@@ -21,8 +21,11 @@ internal static class DomShadowHostContext
 
 // The parser calls this only at the eligible declarative attachment point. The
 // current cached registry can change after an earlier inline script defines it.
-internal sealed class BrowserShadowHostContextProvider(PageRuntime runtime) : IHtmlShadowHostContextProvider
+internal sealed class BrowserShadowHostContextProvider(PageRuntime runtime, Action<Element>? candidate = null) : IHtmlShadowHostContextProvider
 {
     public ShadowAttachmentContext GetShadowAttachmentContext(Element host)
-        => DomShadowHostContext.Of(host, runtime.CustomElementsIfCreated);
+    {
+        candidate?.Invoke(host);
+        return DomShadowHostContext.Of(host, runtime.CustomElementsIfCreated);
+    }
 }

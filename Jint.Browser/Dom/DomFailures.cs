@@ -87,7 +87,12 @@ internal static class DomFailures
             DomRange range => range.Start.Container.Node,
             _ => null,
         };
-        if (node is not null) CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
+        if (node is not null)
+        {
+            CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
+            if ((node as Document ?? node.OwnerDocument) is { } document)
+                Runtime.PageRuntime.FindBrowsingContext(wrapper.DomRealm.Engine, document)?.Parser?.EnsureWatchingNode(node);
+        }
     }
 
     private static void DrainCustomElements(JsValue receiver)

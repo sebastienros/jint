@@ -57,7 +57,7 @@ internal sealed partial class ParserDriver
         var session = new HtmlParserSession(document,
             new HtmlParseOptions { ScriptingEnabled = _runtime.ScriptingEnabled },
             new HtmlDocumentContext(IsSrcdoc: isSrcdoc, AllowDeclarativeShadowRoots: true,
-                ShadowHostContextProvider: new BrowserShadowHostContextProvider(_runtime)), enableScriptRequests: true);
+                ShadowHostContextProvider: new BrowserShadowHostContextProvider(_runtime, RecordCandidateShadowHost)), enableScriptRequests: true);
         var mutations = WatchDocument(document).Subscription;
         var parse = new NativeParse(document, session, mutations);
         _nativeParses.Add(document, parse);
@@ -101,6 +101,7 @@ internal sealed partial class ParserDriver
                 ? parse.Session.Drive(4096, _cancellationToken)
                 : parse.Session.DriveInsertedInput(insertion, 4096, _cancellationToken);
             _runtime.Engine.Constraints.Check();
+            DiscoverCandidateShadowRoots();
             ProcessResourceRecords(parse);
             if (step.Kind is HtmlParseStepKind.HostRequest or HtmlParseStepKind.Complete) InstallInlineStyles(parse.Document);
             switch (step.Kind)

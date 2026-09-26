@@ -8,16 +8,19 @@ namespace Jint.Browser.Runtime.Parsing;
 
 internal sealed partial class ParserDriver
 {
-    private readonly Dictionary<Document, ResourceWatch> _resourceWatches = new();
+    private readonly Dictionary<Node, ResourceWatch> _resourceWatches = new();
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
+    private readonly Queue<(ResourceWatch Watch, MutationRecord Record)> _resourceRecords = new();
+    private readonly List<Element> _candidateShadowHosts = [];
     private readonly HashSet<Element> _inlineStyles = [];
     private readonly HashSet<Element> _changedScripts = [];
     private readonly List<WeakReference<MutationSubscription>> _scriptSubscriptions = [];
     private bool _scriptChangesPosted;
     private int _scriptAttachmentsUntilSweep = 64;
 
-    private sealed class ResourceWatch(Document document, MutationSubscription subscription)
+    private sealed class ResourceWatch(Node root, Document document, MutationSubscription subscription)
     {
+        internal Node Root { get; } = root;
         internal Document Document { get; } = document;
         internal MutationSubscription Subscription { get; } = subscription;
         internal bool Posted;
@@ -32,26 +35,64 @@ internal sealed partial class ParserDriver
         internal MutationSubscription? ScriptSubscription;
     }
 
-    private ResourceWatch WatchDocument(Document document)
+    private ResourceWatch WatchDocument(Document document) => WatchResourceRoot(document);
+
+    private ResourceWatch WatchResourceRoot(Node root)
     {
-        if (_resourceWatches.TryGetValue(document, out var existing)) return existing;
-        var subscription = document.ObserveMutations(document, new MutationObserverOptions
+        var document = root as Document ?? root.OwnerDocument!;
+        if (_resourceWatches.TryGetValue(root, out var existing))
+        {
+            if (ReferenceEquals(existing.Document, document)) return existing;
+            existing.Subscription.Dispose();
+            _resourceWatches.Remove(root);
+        }
+        var subscription = document.ObserveMutations(root, new MutationObserverOptions
         {
             ChildList = true,
+            CharacterData = true,
             Attributes = true,
             Subtree = true,
             AttributeFilter = ["src", "srcdoc", "srcset", "sizes", "href", "rel", "type", "media"]
         });
-        var watch = new ResourceWatch(document, subscription);
+        var watch = new ResourceWatch(root, document, subscription);
         var weak = new WeakReference<ParserDriver>(this);
-        subscription.PendingRecord = _ =>
+        subscription.PendingRecord = pending =>
         {
-            // Native mutation only signals work. No script, fetch, tree read or style calculation.
+            // Freeze cross-root order at arrival. No tree reads, fetch, CSS or script here.
             if (!weak.TryGetTarget(out var driver)) { watch.Subscription.Dispose(); return; }
-            if (!driver._disposed) driver.QueueResourceDrain(watch);
+            if (driver._disposed) return;
+            foreach (var record in pending.TakeRecords()) driver._resourceRecords.Enqueue((watch, record));
+            driver.QueueResourceDrain(watch);
         };
-        _resourceWatches.Add(document, watch);
+        _resourceWatches.Add(root, watch);
         return watch;
+    }
+
+    internal void WatchShadowRoot(ShadowRoot root)
+    {
+        if (_disposed) return;
+        var known = _resourceWatches.TryGetValue(root, out var watch) && ReferenceEquals(watch.Document, root.OwnerDocument);
+        WatchResourceRoot(root);
+        if (!known) ProcessResourceSubtree(root, new HashSet<Node>(ReferenceEqualityComparer.Instance));
+    }
+
+    internal void EnsureWatchingNode(Node node)
+    {
+        if (_disposed) return;
+        var root = ShadowTree.GetRoot(node, composed: false, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);
+        if (root is ShadowRoot shadow) WatchShadowRoot(shadow);
+    }
+
+    private void RecordCandidateShadowHost(Element host) => _candidateShadowHosts.Add(host);
+
+    private void DiscoverCandidateShadowRoots()
+    {
+        foreach (var host in _candidateShadowHosts)
+        {
+            _runtime.Engine.Constraints.Check();
+            if (host.AttachedShadowRoot is { } root) WatchShadowRoot(root);
+        }
+        _candidateShadowHosts.Clear();
     }
 
     private void QueueResourceDrain(ResourceWatch watch)
@@ -63,7 +104,7 @@ internal sealed partial class ParserDriver
             watch.Posted = false;
             if (_disposed) return;
             if (_nativeParses.ContainsKey(watch.Document)) { watch.Deferred = true; return; }
-            DrainResourceRecords(watch);
+            DrainResourceRecords();
             InstallInlineStyles(watch.Document);
         });
     }
@@ -71,30 +112,54 @@ internal sealed partial class ParserDriver
     internal void CompleteNativeMutation(Node node)
     {
         var document = node as Document ?? node.OwnerDocument;
-        if (!_disposed && document is not null && _resourceWatches.TryGetValue(document, out var watch))
+        if (!_disposed && document is not null)
         {
-            DrainResourceRecords(watch);
+            EnsureWatchingNode(node);
+            DrainResourceRecords();
             InstallInlineStyles(document);
             DrainScriptChanges(document);
         }
     }
 
-    private void ProcessResourceRecords(NativeParse parse) => DrainResourceRecords(WatchDocument(parse.Document));
-
-    private void DrainResourceRecords(ResourceWatch watch)
+    private void ProcessResourceRecords(NativeParse parse)
     {
-        // TakeRecords detaches this batch. A nested page script may drain a new batch
-        // synchronously, including one belonging to a recursively parsed child document.
+        WatchDocument(parse.Document);
+        DrainResourceRecords();
+    }
+
+    private void DrainResourceRecords()
+    {
+        // The arrival queue preserves order across ordinary roots and nested page turns.
         var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
-        foreach (var record in watch.Subscription.TakeRecordsForDelivery())
+        while (_resourceRecords.TryDequeue(out var entry))
         {
+            var record = entry.Record;
             _runtime.Engine.Constraints.Check();
             if (record.Kind == MutationRecordKind.ChildList)
             {
                 if (!record.TargetWasConnected) continue;
                 if (record.Target is Element { NamespaceUri: Namespaces.Html, LocalName: "script" } script)
                     ProcessResourceElement(script);
+                foreach (var removed in record.RemovedNodes) DisassociateResourceSubtree(removed, entry.Watch.Document, seen);
                 foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
+                if (record.Target is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
+                {
+                    NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
+                    _inlineStyles.Add(style);
+                }
+            }
+            else if (record.Kind == MutationRecordKind.CharacterData)
+            {
+                for (var parent = record.Target.ParentNode; parent is not null; parent = parent.ParentNode)
+                {
+                    _runtime.Engine.Constraints.Check();
+                    if (parent is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
+                    {
+                        NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
+                        _inlineStyles.Add(style);
+                        break;
+                    }
+                }
             }
             else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
                 record.AttributeNamespace is null)
@@ -122,7 +187,15 @@ internal sealed partial class ParserDriver
             if ((++steps & 255) == 0) _runtime.Engine.Constraints.Check();
             // Added-node records overlap within one parser slice. Visit each real node once.
             if (!seen.Add(node)) continue;
-            if (node is Element element) ProcessResourceElement(element);
+            if (node is Element element)
+            {
+                ProcessResourceElement(element);
+                if (element.AttachedShadowRoot is { } shadow)
+                {
+                    WatchResourceRoot(shadow);
+                    pending.Push(shadow);
+                }
+            }
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
             {
                 if ((++steps & 255) == 0) _runtime.Engine.Constraints.Check();
@@ -132,14 +205,43 @@ internal sealed partial class ParserDriver
         _runtime.Engine.Constraints.Check();
     }
 
+    private void DisassociateResourceSubtree(Node root, Document document, HashSet<Node> seen)
+    {
+        var pending = new Stack<Node>();
+        pending.Push(root);
+        while (pending.TryPop(out var node))
+        {
+            _runtime.Engine.Constraints.Check();
+            seen.Remove(node);
+            if (node is Element element)
+            {
+                if (element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg ||
+                    element is { LocalName: "link", NamespaceUri: Namespaces.Html })
+                {
+                    NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(document), document, element);
+                    if (_resourceSources.TryGetValue(element, out var source)) InvalidateStyleRequest(source);
+                }
+                if (element.AttachedShadowRoot is { } shadow) pending.Push(shadow);
+            }
+            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
+            {
+                _runtime.Engine.Constraints.Check();
+                pending.Push(child);
+            }
+        }
+    }
+
     private void ProcessResourceElement(Element element)
     {
+        if (element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg)
+        {
+            NativeCssStyleSheets.PrepareOwner(_runtime.Dom.RealmOfDocument(element.OwnerDocument!), element);
+            _inlineStyles.Add(element);
+            return;
+        }
         if (element.NamespaceUri != Namespaces.Html) return;
         switch (element.LocalName)
         {
-            case "style":
-                _inlineStyles.Add(element);
-                return;
             case "link":
                 LoadStyleSheet(element);
                 return;
@@ -182,6 +284,7 @@ internal sealed partial class ParserDriver
 
     private void LoadStyleSheet(Element link)
     {
+        NativeCssStyleSheets.PrepareOwner(_runtime.Dom.RealmOfDocument(link.OwnerDocument!), link);
         var source = _resourceSources.GetValue(link, static _ => new ResourceSource());
         if (!IsResourceConnected(link)) { InvalidateStyleRequest(source); return; }
         var document = link.OwnerDocument!;

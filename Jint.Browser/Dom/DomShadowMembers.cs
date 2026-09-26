@@ -51,6 +51,7 @@ internal static class DomShadowMembers
             realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         realm.CancellationToken.ThrowIfCancellationRequested();
+        Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document)?.Parser?.WatchShadowRoot(root);
         return realm.WrapNode(root);
     }
 }
