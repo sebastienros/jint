@@ -1,4 +1,4 @@
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
 using Jint.Browser.Extraction;
@@ -470,7 +470,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not IHtmlSelectElement select)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" } select)
             {
                 return false;
             }
@@ -596,7 +596,7 @@ public sealed partial class Page
         => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime
-                || ElementLocator.Find(runtime.Document, target, index) is not IHtmlInputElement input
+                || ElementLocator.Find(runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input
                 || !FileSelection.IsFileInput(input))
             {
                 return false;

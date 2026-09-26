@@ -17,6 +17,27 @@ using Page = global::Jint.Browser.Page;
 /// </remarks>
 public sealed class EditingTests
 {
+    [Test]
+    public async Task CanceledBeforeInputDoesNotCreateTextOrMoveSelectionInAnEmptyEditingHost()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='editor' contenteditable></div>");
+        await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const editor = document.getElementById('editor');
+              editor.focus();
+              editor.addEventListener('beforeinput', e => e.preventDefault());
+              return '';
+            })()
+            """);
+        await page.TypeAsync("#editor", "x");
+        (await page.EvaluateAsync<string>(
+            "document.getElementById('editor').childNodes.length + ':' + getSelection().rangeCount"))
+            .Should().Be("0:0");
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-textarea-input-selectiondirection —
     /// <kbd>Shift</kbd> extends from the anchor, so the direction says which end the caret is at and a

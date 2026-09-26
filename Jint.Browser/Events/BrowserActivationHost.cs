@@ -1,4 +1,6 @@
-using AngleSharp.Html.Dom;
+using Jint.Browser.Accessibility;
+using Jint.Browser.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Events;
 
@@ -31,9 +33,9 @@ internal abstract class BrowserActivationHost
     /// </summary>
     /// <param name="realm">The engine the link belongs to.</param>
     /// <param name="source">The element carrying the <c>href</c>.</param>
-    /// <param name="url">The <c>href</c>, already resolved against the document's base URL by AngleSharp.</param>
+    /// <param name="url">The <c>href</c>, already resolved against the document's native document base URL.</param>
     /// <param name="target">The <c>target</c> attribute's value, or the empty string.</param>
-    internal abstract void FollowHyperlink(BrowserEventRealm realm, IHtmlElement source, string url, string target);
+    internal abstract void FollowHyperlink(BrowserEventRealm realm, Element source, string url, string target);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-form-submit — submit a
@@ -43,7 +45,7 @@ internal abstract class BrowserActivationHost
     /// <param name="realm">The engine the form belongs to.</param>
     /// <param name="form">The form to submit.</param>
     /// <param name="submitter">The button that started it, or <see langword="null"/> for the form itself.</param>
-    internal abstract void SubmitForm(BrowserEventRealm realm, IHtmlFormElement form, IHtmlElement? submitter);
+    internal abstract void SubmitForm(BrowserEventRealm realm, Element form, Element? submitter);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#show-the-picker,-if-applicable for
@@ -52,23 +54,23 @@ internal abstract class BrowserActivationHost
     /// </summary>
     /// <param name="realm">The engine the input belongs to.</param>
     /// <param name="input">The file input whose picker was asked for.</param>
-    internal abstract void OpenFileChooser(BrowserEventRealm realm, IHtmlInputElement input);
+    internal abstract void OpenFileChooser(BrowserEventRealm realm, Element input);
 
     private sealed class RecordingHost : BrowserActivationHost
     {
-        internal override void FollowHyperlink(BrowserEventRealm realm, IHtmlElement source, string url, string target)
+        internal override void FollowHyperlink(BrowserEventRealm realm, Element source, string url, string target)
             => realm.Record(new PendingActivation(PendingActivationKind.Navigation, url, target));
 
-        internal override void SubmitForm(BrowserEventRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
+        internal override void SubmitForm(BrowserEventRealm realm, Element form, Element? submitter)
             => realm.Record(new PendingActivation(
                 PendingActivationKind.FormSubmission,
-                form.Action ?? "",
+                ContentDom.Url(form, "action") ?? DomDocumentState.Of(form.OwnerDocument!).Url,
                 submitter is null ? "" : NameOf(submitter)));
 
-        internal override void OpenFileChooser(BrowserEventRealm realm, IHtmlInputElement input)
-            => realm.Record(new PendingActivation(PendingActivationKind.FileChooser, input.Name ?? "", input.Id ?? ""));
+        internal override void OpenFileChooser(BrowserEventRealm realm, Element input)
+            => realm.Record(new PendingActivation(PendingActivationKind.FileChooser, input.GetAttribute("name") ?? "", input.GetAttribute("id") ?? ""));
 
-        private static string NameOf(IHtmlElement submitter)
-            => submitter.Id is { Length: > 0 } id ? id : submitter.GetAttribute("name") ?? submitter.LocalName;
+        private static string NameOf(Element submitter)
+            => submitter.GetAttribute("id") is { Length: > 0 } id ? id : submitter.GetAttribute("name") ?? submitter.LocalName;
     }
 }

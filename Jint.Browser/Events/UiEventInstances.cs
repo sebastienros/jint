@@ -248,7 +248,7 @@ internal class JsMouseEvent : JsUiEvent
         _offsetX = ClientX;
         _offsetY = ClientY;
 
-        if (Target is Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper &&
+        if (Target is Dom.DomNodeObject { Node: Jint.HtmlParser.Element element } wrapper &&
             Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is { } runtime)
         {
             var sizes = runtime.Layout.MeasureSizes();
