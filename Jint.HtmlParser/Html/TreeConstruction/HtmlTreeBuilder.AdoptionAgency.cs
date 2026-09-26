@@ -321,6 +321,7 @@ internal sealed partial class HtmlTreeBuilder
                     _formattingByElement.Add(recreated, entry);
                     if (ReferenceEquals(_adoptionLastNode, _adoptionFurthestBlock))
                         _adoptionBookmarkBefore = entry.Node!.Next;
+                    InvalidateRootCache();
                     recreated.AppendChild(_adoptionLastNode!);
                     _adoptionLastNode = recreated;
                     Charge(1);
@@ -376,6 +377,7 @@ internal sealed partial class HtmlTreeBuilder
                     advanced = true;
                     break;
                 case AdoptionStage.MoveLast:
+                    InvalidateRootCache();
                     var location = _adoptionMoveLocation!.Value;
                     if (_adoptionMoveBlocked ||
                         location.Parent is Document { DocumentElement: { } documentElement } &&
@@ -403,11 +405,13 @@ internal sealed partial class HtmlTreeBuilder
                     }
                     var child = _adoptionTransferCursor;
                     _adoptionTransferCursor = child.NextSibling;
+                    InvalidateRootCache();
                     _adoptionReplacement!.AppendChild(child);
                     Charge(1);
                     advanced = true;
                     break;
                 case AdoptionStage.AppendReplacement:
+                    InvalidateRootCache();
                     _adoptionFurthestBlock!.AppendChild(_adoptionReplacement!);
                     Charge(1);
                     _adoptionStage = AdoptionStage.ReplaceFormatting;

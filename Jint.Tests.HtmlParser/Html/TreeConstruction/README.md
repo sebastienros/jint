@@ -38,3 +38,19 @@ and select cases whose insertion rules changed. Current-spec PI behavior is
 asserted independently in `ProcessingInstructionsRetainPlacementAndCase`;
 current select trees are asserted in `HtmlSelectTreeTests`. Fragment-context
 select cases remain with H7b.
+
+H7b contextual fragments use the same native session/tokenizer/tree builder with a
+private parser document, a synthetic HTML stack root, and a target-owned detached
+root insertion fragment. `HtmlFragmentTreeTests` contains 54 authored cases against
+HTML Standard §13.4 and the tree-construction rules inspected 2026-09-25. This is
+an internal seam; it does not promote `MarkupParser` or complete Browser cutover.
+The matrix covers HTML/table/select/template contexts, initial text states without
+an appropriate end tag, SVG/MathML integration and CDATA, all document modes,
+form ancestry, template/shadow targets, script flags/source metadata, ownership and
+formatting reconstruction/adoption including `IsValue`. Short contexts/text/foreign
+cases run every split at quotas 1/3/large. Seven structural differential cases use
+pinned AngleSharp 1.8.2 only for conforming intersection behavior; current select,
+PI and patch rules retain independent expectations. No existing corpus pin or
+exclusion changed. Document form-pointer association now resolves roots and commits
+fresh insertion cooperatively; quota-one, deterministic depth-plus-control scaling
+and host-adoption cases cover the cache invalidation contract.

@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" />
+    <PackageReference Include="AngleSharp" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
     <PackageReference Include="AwesomeAssertions" />

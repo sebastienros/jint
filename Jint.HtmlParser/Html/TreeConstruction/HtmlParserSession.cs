@@ -28,7 +28,7 @@ internal readonly struct HtmlParseStep
 }
 
 // HTML Standard §13.2.6: one tokenizer, one tree builder, and a single work budget.
-internal sealed class HtmlParserSession
+internal sealed partial class HtmlParserSession
 {
     private readonly HtmlTokenizer _tokenizer;
     private readonly HtmlTreeBuilder _builder;
@@ -170,6 +170,7 @@ internal sealed class HtmlParserSession
             if (_complete && !_terminal) return new HtmlParseStep(HtmlParseStepKind.Complete);
             CheckActive();
             cancellationToken.ThrowIfCancellationRequested();
+            _builder.BeginDriveRootTracking();
             if (_checkpoint is not null) return RequestStep(_checkpoint);
             if (_waitRequest is not null) return RequestStep(_waitRequest);
             if (frame is null && _requests.Count != 0) return RequestStep(_requests[^1]);
@@ -190,6 +191,15 @@ internal sealed class HtmlParserSession
             long remaining = workQuota;
             while (remaining > 0)
             {
+                if (_builder.FragmentBootstrapPending)
+                {
+                    var beforeBootstrap = _builder.WorkCount;
+                    _builder.AdvanceFragmentBootstrap(remaining, cancellationToken);
+                    remaining -= _builder.WorkCount - beforeBootstrap;
+                    if (_builder.FragmentBootstrapPending || remaining <= 0)
+                        return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                    continue;
+                }
                 if (_builder.HasToken)
                 {
                     var before = _builder.WorkCount;
@@ -253,7 +263,7 @@ internal sealed class HtmlParserSession
         }
         catch (OperationCanceledException) { Invalidate(); throw; }
         catch (ParseLimitException) { Invalidate(); throw; }
-        finally { Exit(); }
+        finally { _builder.EndDriveRootTracking(); Exit(); }
     }
 
     private HtmlParseStep BeginRequest(HtmlHostRequestKind kind, Element script)
