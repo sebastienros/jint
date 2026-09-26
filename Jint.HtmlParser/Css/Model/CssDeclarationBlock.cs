@@ -15,8 +15,15 @@ internal sealed class CssDeclarationBlock
     private CssDeclaration[] _entries = [];
     private ulong _version;
     private readonly CssDeclarationContext _context;
+    private CssRule? _owner;
 
     private CssDeclarationBlock(CssDeclarationContext context) => _context = context;
+
+    internal void AttachTo(CssRule owner)
+    {
+        if (_owner is not null) throw new InvalidOperationException("A declaration block already has an owner.");
+        _owner = owner;
+    }
 
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context = CssDeclarationContext.Style,
         CssParseOptions? options = null, CancellationToken cancellationToken = default)
@@ -152,6 +159,7 @@ internal sealed class CssDeclarationBlock
         work.CheckCancellation();
         _entries = entries;
         CssMutationStamp.Advance(ref _version);
+        _owner?.Changed();
     }
 
     private static CssDeclaration[] Build(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
@@ -257,6 +265,7 @@ internal sealed class CssDeclarationBlock
         work.CheckCancellation();
         _entries = replacement;
         CssMutationStamp.Advance(ref _version);
+        _owner?.Changed();
     }
 
     private static CssDeclaration? Find(CssDeclaration[] entries, string name, CssValueWork work)
