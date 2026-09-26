@@ -196,6 +196,47 @@ public class ImageLoadingTests
         loopback.Page.Errors.Should().BeEmpty();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ADetachedCreatedImagesAttributeWriteLoadsOnceAndInsertionKeepsItsRequest(bool namedNodeMap)
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: "");
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            window.detached = document.createElement('img');
+            detached.setAttribute('src', '');
+            window.events = [];
+            detached.onload = () => events.push('load');
+            """ + (namedNodeMap
+            ? "const source = document.createAttribute('src'); source.value = '/a.img'; detached.attributes.setNamedItem(source);"
+            : "detached.getAttributeNode('src').value = '/a.img';"));
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<string>("[detached.isConnected, detached.naturalWidth, events.join(',')].join('|')"))
+            .Should().Be("false|9|load");
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
+
+        await loopback.Page.EvaluateAsync("document.body.appendChild(detached)");
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        (await loopback.Page.EvaluateAsync<string>("events.join(',')")).Should().Be("load");
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AnImageInAManufacturedDocumentDoesNotStartAPageRequest()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: "");
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            const inert = new DOMParser().parseFromString('<img>', 'text/html');
+            inert.querySelector('img').src = '/a.img';
+            """);
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        loopback.Server.Received.Should().NotContain(request => request.Path == "/a.img");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task WidthAndHeightFallBackToTheIntrinsicSizeAndTheContentAttributeWins()
     {

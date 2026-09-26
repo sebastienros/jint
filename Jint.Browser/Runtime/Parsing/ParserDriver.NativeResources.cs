@@ -50,13 +50,15 @@ internal sealed partial class ParserDriver
             if (ReferenceEquals(existing.Document, document)) return existing;
             RetireResourceWatch(existing);
         }
+        var imageSource = root is Element { NamespaceUri: Namespaces.Html, LocalName: "img" or "input" };
         var subscription = document.ObserveMutations(root, new MutationObserverOptions
         {
-            ChildList = true,
-            CharacterData = true,
+            ChildList = !imageSource,
+            CharacterData = !imageSource,
             Attributes = true,
-            Subtree = true,
-            AttributeFilter = ["src", "srcdoc", "srcset", "sizes", "href", "rel", "type", "media"]
+            Subtree = !imageSource,
+            AttributeFilter = imageSource ? ["src", "srcset", "sizes", "type"]
+                : ["src", "srcdoc", "srcset", "sizes", "href", "rel", "type", "media"]
         });
         var watch = new ResourceWatch(root, document, subscription);
         var weak = new WeakReference<ParserDriver>(this);
@@ -122,6 +124,11 @@ internal sealed partial class ParserDriver
     internal void EnsureWatchingNode(Node node)
     {
         if (_disposed) return;
+        // HTML's image data updates also apply to detached images in an active document.
+        // Install before the write so Attr/NamedNodeMap and reflected setters share one lane.
+        if (node is Element { NamespaceUri: Namespaces.Html, LocalName: "img" or "input" } image &&
+            PageRuntime.FindBrowsingContext(_runtime.Engine, image.OwnerDocument!) is not null)
+            WatchResourceRoot(image);
         var root = ShadowTree.GetRoot(node, composed: false, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);
         if (root is ShadowRoot shadow && IsResourceConnected(shadow.Host)) WatchShadowRoot(shadow);
     }
@@ -220,6 +227,12 @@ internal sealed partial class ParserDriver
             else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
                 record.AttributeNamespace is null)
             {
+                if (entry.Watch.Root is Element && !ReferenceEquals(element.OwnerDocument, entry.Watch.Document)) continue;
+                // The element-owned image subscription captures this write as well. Its arrival is
+                // guaranteed before the native call returns; process it once, including failed requests.
+                if (entry.Watch.Root is not Element &&
+                    _resourceWatches.TryGetValue(element, out var imageWatch) && imageWatch.Active &&
+                    ReferenceEquals(imageWatch.Document, entry.Watch.Document)) continue;
                 if (element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
                     && (record.AttributeName != "src" || Attribute(element, "src") is null)) continue;
                 if (element is { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg })
