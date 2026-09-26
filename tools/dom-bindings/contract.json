@@ -10880,16 +10880,16 @@
         {
           "DomName": "async",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.async\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsAsync);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.async\");\nself.Target.IsAsync = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.async\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.Script!.ForceAsync || self.Target.GetAttributeNode(\"async\") is not null);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.async\");\nself.Target.GetHtmlState()!.Script!.ForceAsync = false;\nif (global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)) self.Target.SetAttribute(\"async\", \"\"); else self.Target.RemoveAttribute(\"async\");\nreturn global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlScriptElement.IsAsync"
         },
         {
           "DomName": "charset",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.charset\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.CharacterSet);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.charset\");\nself.Target.CharacterSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLScriptElement.charset\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.charset\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCharset.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.charset\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCharset.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlScriptElement.CharacterSet"
         },
@@ -10904,8 +10904,8 @@
         {
           "DomName": "defer",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.defer\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDeferred);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.defer\");\nself.Target.IsDeferred = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.defer\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementDefer.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.defer\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementDefer.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlScriptElement.IsDeferred"
         },
@@ -10928,8 +10928,8 @@
         {
           "DomName": "integrity",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.integrity\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Integrity);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.integrity\");\nself.Target.Integrity = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLScriptElement.integrity\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.integrity\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementIntegrity.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.integrity\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementIntegrity.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlScriptElement.Integrity"
         },
@@ -10952,16 +10952,16 @@
         {
           "DomName": "text",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.text\");\nself.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLScriptElement.text\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomNodeMembers.TextContent((global::Jint.Browser.Dom.DomNodeObject) thisObj) ?? \"\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.text\");\nreturn global::Jint.Browser.Dom.DomNodeMembers.SetTextContent((global::Jint.Browser.Dom.DomNodeObject) thisObj, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLScriptElement.text\"));",
           "Length": 0,
           "Origin": "IHtmlScriptElement.Text"
         },
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.type\");\nself.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLScriptElement.type\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.type\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementType.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLScriptElement.type\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLScriptElementType.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlScriptElement.Type"
         }
@@ -16880,6 +16880,42 @@
       "Attribute": "height",
       "Type": "unsigned long",
       "Factory": "ReflectedAttribute.Numeric(\"HTMLVideoElement.height\", \"height\", ReflectedKind.UnsignedLong, 0)",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLScriptElementCharset",
+      "Qualified": "HTMLScriptElement.charset",
+      "Attribute": "charset",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLScriptElement.charset\", \"charset\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLScriptElementDefer",
+      "Qualified": "HTMLScriptElement.defer",
+      "Attribute": "defer",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLScriptElement.defer\", \"defer\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLScriptElementIntegrity",
+      "Qualified": "HTMLScriptElement.integrity",
+      "Attribute": "integrity",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLScriptElement.integrity\", \"integrity\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLScriptElementType",
+      "Qualified": "HTMLScriptElement.type",
+      "Attribute": "type",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLScriptElement.type\", \"type\")",
       "Replaced": true,
       "SetterOnly": false
     }

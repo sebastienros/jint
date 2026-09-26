@@ -11,12 +11,7 @@ internal static class DomElementMembers
 {
     /// <summary>DOM §4.2.2: the public assigned slot omits a closed shadow root's slot.</summary>
     internal static JsValue AssignedSlot(DomRealm realm, Node target)
-    {
-        var slot = SlotAssignment.GetAssignedSlot(target);
-        if (slot is not null && ShadowTree.GetRoot(slot, false, _ => realm.Engine.Constraints.Check(), realm.CancellationToken)
-            is ShadowRoot { Mode: ShadowRootMode.Closed }) slot = null;
-        return realm.WrapNodeValue(slot);
-    }
+        => realm.WrapNodeValue(SlotAssignment.FindSlot(target, openOnly: true, realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>https://dom.spec.whatwg.org/#dom-element-hasattributes.</summary>
     internal static JsValue HasAttributes(Element target) => DomConvert.Bool(target.AttributeCount != 0);

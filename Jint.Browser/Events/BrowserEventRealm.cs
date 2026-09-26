@@ -69,7 +69,31 @@ internal sealed class BrowserEventRealm
     /// <c>IDocument.ActiveElement</c> — not even from its own <c>DoFocus</c> — so its answer is <c>null</c> for
     /// the life of every document. See <c>overrides.json</c>'s two <c>Document</c> skip entries.
     /// </remarks>
-    internal Element? FocusedElement { get; set; }
+    private static readonly ConditionalWeakTable<Document, WeakReference<BrowserEventRealm>> FocusStores = new();
+    private Element? _focusedElement;
+    private Document? _focusDocument;
+    internal Element? FocusedElement
+    {
+        get => _focusedElement;
+        set
+        {
+            if (_focusDocument is { } previous && FocusStores.TryGetValue(previous, out var slot)
+                && slot.TryGetTarget(out var store) && ReferenceEquals(store, this)) FocusStores.Remove(previous);
+            _focusedElement = value;
+            _focusDocument = value?.OwnerDocument;
+            if (_focusDocument is { } document)
+            {
+                FocusStores.Remove(document);
+                FocusStores.Add(document, new WeakReference<BrowserEventRealm>(this));
+            }
+        }
+    }
+
+    // Native accessibility reads the actual interaction store without creating or touching an Engine.
+    // The association is weak and adoption does not silently transfer focus to another document.
+    internal static Element? FocusedElementOf(Document? document)
+        => document is not null && FocusStores.TryGetValue(document, out var slot) && slot.TryGetTarget(out var store)
+            && store._focusedElement is { } focused && ReferenceEquals(focused.OwnerDocument, document) ? focused : null;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-document-hasfocus — whether the document's

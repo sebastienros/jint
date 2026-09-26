@@ -162,3 +162,49 @@ Do not edit shared DomRealm/wrapper/cache, generated contract or files, Events,
 Layout, CustomElements/Observers, Runtime/Parsing or Page navigation, or DevTools
 from that leaf group. Parent reviews and merges its commit back into this branch.
 The main Browser owner retains those shared seams and the parser scheduler.
+
+## Continued shared-consumer checkpoint
+
+After the previous commit, public assignedSlot was corrected to the bounded native
+`FindSlot(..., openOnly: true, hostCheckpoint, cancellation)` query. Event paths
+continue to use stored assignment. Navigation target resolution now scans native
+attribute indexes and performs polled ordinal comparisons, including attribute
+names, rather than hiding an unbounded attribute scan/string comparison after a
+bounded node traversal. URL parsing and percent decoding still have only boundary
+checks; their existing shared helpers have no work hook. No second decoder was
+introduced. Selector compilation retains the separate missing host-work seam.
+
+Additional production ports:
+
+- HTMLScriptElement's force-async getter/setter uses the native script identity
+  slot; charset/type/integrity/defer use native reflected attributes and text uses
+  native child mutations. No competing script metadata was added to Browser.
+- HTML/XML markup getters and Page.ContentAsync use native serializers with host
+  work checks and cancellation. XMLSerializer also passes those checks. Remaining
+  old DevTools serialization callers must be migrated with their native trackers.
+- Selection owns a native DomRange and its native weak change subscription.
+  Boundary edits and native endpoint repairs schedule the existing coalesced task;
+  notification bookkeeping never invokes a listener from inside native mutation.
+  Replacement disconnects the token, and browsing-context disposal clears its sink.
+- ARIA explicit references and their IDL projection use native Element identities.
+  Accessibility's engine-free reader is `AriaElementReferences.Explicit(Element,
+  string)`. `BrowserEventRealm.FocusedElementOf(Document?)` reads the actual focus
+  interaction store through a weak document association without creating or
+  touching an Engine; there is no second focus-value field for the leaf consumer.
+
+The parent dispatched Accessibility/Extraction from `92732c130` in separate
+worktree `68c5`; those implementation and matching test directories remain
+untouched here. Shared CssCascade remains unported because actual validated native
+CSS declarations/cascade still require implementation; do not return invented
+computed values to satisfy that consumer.
+
+Latest fresh Release net8 Browser build: failed, **954 unique diagnostics, zero
+warnings**, 1.00 seconds. No Browser tests ran. Generator regeneration succeeded
+for the same 163 interfaces and 12 files with zero diagnostics.
+
+Parser prerequisites newly confirmed by actual API inspection: no HTML/XML
+context-sensitive fragment entry point is present for markup setters, and H8 host
+requests expose neither script start-tag location nor input attribution (request
+steps have their default zero offset). These need real producer APIs; a whole-
+document parse/reparse or a dummy script line is not a replacement. The scheduler
+port remains owned here and incomplete.

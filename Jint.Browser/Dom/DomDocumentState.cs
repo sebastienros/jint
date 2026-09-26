@@ -22,31 +22,65 @@ internal sealed class DomDocumentState
     {
         realm.Engine.Constraints.Check();
         var state = Of(document);
+        var work = new TargetWork(realm);
         Element? target = null;
         if (document.Kind == DocumentKind.Html && UrlParser.Parse(state.Url)?.Fragment is { Length: > 0 } fragment)
         {
-            target = FindTarget(realm, document, fragment);
+            target = FindTarget(document, fragment, work);
             if (target is null)
             {
                 var decoded = PercentEncoding.DecodeToString(fragment);
-                if (decoded != fragment) target = FindTarget(realm, document, decoded);
+                work.Check();
+                if (!ReferenceEquals(decoded, fragment)) target = FindTarget(document, decoded, work);
             }
         }
         realm.Engine.Constraints.Check();
         state.TargetElement = target;
     }
 
-    private static Element? FindTarget(DomRealm realm, Document document, string fragment)
+    private static Element? FindTarget(Document document, string fragment, TargetWork work)
     {
         Element? anchor = null;
         // This native walk charges every node/link, including non-element runs and final ascents.
-        foreach (var element in NodeTraversal.DescendantElements(document, realm.Engine.Constraints.Check, realm.CancellationToken))
+        foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
         {
-            if (element.GetAttribute("id") == fragment) return element;
-            if (anchor is null && element.NamespaceUri == Namespaces.Html && element.LocalName == "a"
-                && element.GetAttribute("name") == fragment) anchor = element;
+            var isAnchor = anchor is null && work.Equal(element.NamespaceUri, Namespaces.Html) && work.Equal(element.LocalName, "a");
+            for (uint i = 0; i < (uint) element.AttributeCount; i++)
+            {
+                work.Step();
+                var attribute = element.GetAttributeAt(i)!;
+                if (attribute.NamespaceUri is not null) continue;
+                if (work.Equal(attribute.LocalName, "id") && work.Equal(attribute.Value, fragment)) return element;
+                if (isAnchor && work.Equal(attribute.LocalName, "name") && work.Equal(attribute.Value, fragment)) anchor = element;
+            }
         }
         return anchor;
+    }
+
+    private sealed class TargetWork(DomRealm realm)
+    {
+        private int _work;
+        internal CancellationToken Token { get; } = realm.CancellationToken;
+        internal void Check()
+        {
+            Token.ThrowIfCancellationRequested();
+            realm.Engine.Constraints.Check();
+        }
+        internal void Step()
+        {
+            if ((++_work & 255) == 0) Check();
+        }
+        internal bool Equal(string? left, string right)
+        {
+            Step();
+            if (left is null || left.Length != right.Length) return false;
+            for (var i = 0; i < left.Length; i++)
+            {
+                Step();
+                if (left[i] != right[i]) return false;
+            }
+            return true;
+        }
     }
 
     // HTML §2.4.3: the first HTML base element with href sets the document base URL.

@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -75,21 +75,16 @@ internal static class AriaElementReflection
     /// fragment can answer it directly; a detached element is a root with no such member, so the walk is the
     /// fallback rather than the rule.
     /// </remarks>
-    private static IElement? ElementById(INode root, string id)
+    private static Element? ElementById(Node root, string id)
     {
-        if (root is INonElementParentNode parent)
-        {
-            return parent.GetElementById(id);
-        }
-
-        if (root is IElement self && string.Equals(self.Id, id, StringComparison.Ordinal))
+        if (root is Element self && string.Equals(self.GetAttribute("id"), id, StringComparison.Ordinal))
         {
             return self;
         }
 
-        foreach (var descendant in root.Descendants<IElement>())
+        foreach (var descendant in NodeTraversal.DescendantElements(root, CancellationToken.None))
         {
-            if (string.Equals(descendant.Id, id, StringComparison.Ordinal))
+            if (string.Equals(descendant.GetAttribute("id"), id, StringComparison.Ordinal))
             {
                 return descendant;
             }
@@ -109,7 +104,7 @@ internal static class AriaElementReflection
         {
             internal ObjectInstance? Array;
 
-            internal IElement[]? From;
+            internal Element[]? From;
         }
     }
 
@@ -128,7 +123,7 @@ internal static class AriaElementReflection
 
         internal JsValue Get(JsValue thisObject, JsValue[] arguments)
         {
-            var self = DomBindings.Bind<IElement>(thisObject, Member);
+            var self = DomBindings.Bind<Element>(thisObject, Member);
             var entry = self.Realm.AriaCacheFor(self.Target).At(_index);
             var computed = Computed(self.Target);
 
@@ -165,7 +160,7 @@ internal static class AriaElementReflection
 
         internal JsValue Set(JsValue thisObject, JsValue[] arguments)
         {
-            var self = DomBindings.Bind<IElement>(thisObject, Member);
+            var self = DomBindings.Bind<Element>(thisObject, Member);
             using var mutation = self.Realm.MutateLayout();
             var entry = self.Realm.AriaCacheFor(self.Target).At(_index);
             var value = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
@@ -183,7 +178,7 @@ internal static class AriaElementReflection
             // The conversion happens before anything is written, so a value the IDL type refuses leaves both
             // the content attribute and the stored reference exactly as they were.
             var references = _single
-                ? [new WeakReference<IElement>(DomBindings.Argument<IElement>(arguments, 0, Member))]
+                ? [new WeakReference<Element>(DomBindings.Argument<Element>(arguments, 0, Member))]
                 : Sequence(self.Realm, value);
 
             AriaElementReferences.Set(self.Target, _index, references);
@@ -201,7 +196,7 @@ internal static class AriaElementReflection
         /// The computed attr-associated elements: <see langword="null"/> when there is no content attribute,
         /// otherwise the visible half of what was explicitly set, or what the attribute's IDs resolve to.
         /// </summary>
-        private IElement[]? Computed(IElement element)
+        private Element[]? Computed(Element element)
         {
             var slots = AriaElementReferences.SlotsFor(element);
 
@@ -215,10 +210,10 @@ internal static class AriaElementReflection
             return element.GetAttribute(_attribute) is { } value ? ById(element, value) : null;
         }
 
-        private IElement[] ById(IElement element, string value)
+        private Element[] ById(Element element, string value)
         {
             var root = DomNodeMembers.Root(element);
-            var found = new List<IElement>();
+            var found = new List<Element>();
 
             foreach (var id in value.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries))
             {
@@ -242,16 +237,16 @@ internal static class AriaElementReflection
         /// <c>el.ariaControlsElements = otherElement</c> and <c>= "a string"</c> refusals rather than silent
         /// nonsense.
         /// </summary>
-        private WeakReference<IElement>[] Sequence(DomRealm realm, JsValue value)
+        private WeakReference<Element>[] Sequence(DomRealm realm, JsValue value)
         {
-            var references = new List<WeakReference<IElement>>();
+            var references = new List<WeakReference<Element>>();
             var iterator = value.GetIterator(realm.OwningRealm);
 
             try
             {
                 while (iterator.TryIteratorStepValue(out var item))
                 {
-                    if (item is not IDomWrapper { DomTarget: IElement element })
+                    if (item is not IDomWrapper { DomTarget: Element element })
                     {
                         Throw.TypeError(
                             realm.OwningRealm,
@@ -259,7 +254,7 @@ internal static class AriaElementReflection
                         return [];
                     }
 
-                    references.Add(new WeakReference<IElement>(element));
+                    references.Add(new WeakReference<Element>(element));
                 }
             }
             catch
@@ -271,7 +266,7 @@ internal static class AriaElementReflection
             return [.. references];
         }
 
-        private static bool Same(IElement[] left, IElement[] right)
+        private static bool Same(Element[] left, Element[] right)
         {
             if (left.Length != right.Length)
             {
