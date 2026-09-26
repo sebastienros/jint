@@ -70,4 +70,67 @@ public class NotificationLifetimeTests
         first.ChangedRanges.Should().BeNull(); second.ChangedRanges.Should().BeNull(); secondSignals.Should().Be(1);
         x.TakePendingChange().Should().BeTrue(); y.TakePendingChange().Should().BeTrue();
     }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference<DomRange>[] DropDenseEndpointBucket(Document document, Node container)
+    {
+        var live = new DomRange[512];
+        var dropped = new WeakReference<DomRange>[live.Length];
+        for (var i = 0; i < live.Length; i++)
+        {
+            live[i] = document.CreateRange();
+            live[i].SelectNodeContents(new(container));
+            dropped[i] = new(live[i]);
+        }
+        GC.KeepAlive(live);
+        return dropped;
+    }
+
+    [Test]
+    public void FirstDataWriteReleasesAbandonedDenseBucketAndLaterWritesAllocateNothing()
+    {
+        var doc = Document.CreateHtml(); var text = doc.CreateTextNode("abc");
+        var dropped = DropDenseEndpointBucket(doc, text);
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        foreach (var item in dropped) item.TryGetTarget(out _).Should().BeFalse();
+        text.Data = "abc";
+        text.RangeEndpoints.Should().BeNull(); doc.RangeBuckets.Should().BeNull();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 1000; i++) text.Data = "abc";
+        (GC.GetAllocatedBytesForCurrentThread() - before).Should().Be(0);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void InsertionReleasesAbandonedDenseParentBucketAndKeepsLiveHandles(bool append)
+    {
+        var doc = Document.CreateHtml(); var parent = doc.CreateElement("div"); var child = doc.CreateTextNode("abc"); parent.AppendChild(child);
+        var dropped = DropDenseEndpointBucket(doc, parent);
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        foreach (var item in dropped) item.TryGetTarget(out _).Should().BeFalse();
+        parent.InsertBefore(doc.CreateComment("inserted"), append ? null : child);
+        parent.RangeEndpoints.Should().BeNull(); doc.RangeBuckets.Should().BeNull();
+        // Recreate registrations after release, then exercise indexed handle
+        // reassignment and a later removal to detect stale bucket membership.
+        var first = doc.CreateRange(); first.SelectNodeContents(new(parent));
+        var second = doc.CreateRange(); second.SelectNodeContents(new(parent));
+        first.SelectNodeContents(new(child)); parent.RemoveChild(child);
+        first.Start.Container.Node.Should().BeSameAs(parent); first.Collapsed.Should().BeTrue();
+        second.End.Offset.Should().Be(1);
+    }
+
+    [Test]
+    public void DenseDeadPruningKeepsSurvivingHandleIndicesCoherent()
+    {
+        var doc = Document.CreateHtml(); var text = doc.CreateTextNode("abc");
+        var dropped = DropDenseEndpointBucket(doc, text);
+        var surviving = doc.CreateRange(); surviving.SelectNodeContents(new(text));
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        foreach (var item in dropped) item.TryGetTarget(out _).Should().BeFalse();
+        text.Data = "abc"; surviving.Collapsed.Should().BeTrue(); text.RangeEndpoints!.Entries.Count.Should().Be(2);
+        // Moving each surviving handle after swap removal must clear the old
+        // bucket rather than removing a different entry through a stale index.
+        surviving.SelectNodeContents(new(doc)); text.RangeEndpoints.Should().BeNull();
+        doc.RangeEndpoints!.Entries.Count.Should().Be(2); doc.RangeBuckets!.Count.Should().Be(1);
+    }
+
 }
