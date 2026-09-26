@@ -32,19 +32,26 @@ count-preserving corruption probes, and 256 cold/first/warm control reads
 
 Build contention prompted temporary serialization: implementation and source reviews continue, while
 the coordinator grants one Release net10 build/test slot at a time. Final cross-framework validation
-remains required. Native Browser still does not compile: isolated runtime
-`823cccc445f74f1ff3406dfb31dff9d79e45f6b6` reports 29 errors and zero warnings
-(`/private/tmp/native-browser-markers-token-members-net10-build.log`). Eleven await the token-list
-producer; the other eighteen are generated DOM/HTML/SVG bindings. Earlier inventories reported 259,
-131, and 80 errors. Source-reviewed runtime, metadata, events, extraction, and finite media bindings
-are integrated in that isolated checkout; Browser runtime acceptance remains unrun. The native CSS
-demand correction is under review, including deferred-shorthand editing and white-space grammar fixes.
-That inventory is historical: the isolated Browser now builds successfully in Release net10 at
-`eedb918a5`, **zero warnings and errors** (`/private/tmp/native-browser-docs-net10-build.log`). Its own
-restored production assets contain no AngleSharp libraries; test-only provenance packages are separate.
-The first Browser test-project build reaches one obsolete XML-fixture import, with the reviewed native
-fixture replacement ready to integrate. Runtime acceptance and stylesheet lifecycle repairs remain;
-this production compile is not yet a functional-replacement or common-worktree pass.
+remains required. The isolated Browser builds successfully at `eedb918a5` and again at `8fc894c11`,
+**zero warnings and errors** (`/private/tmp/native-browser-docs-net10-build.log` and
+`/private/tmp/native-browser-request-identity-net10-build.log`). Its own restored production assets
+contain no AngleSharp libraries; test-only provenance packages are separate. Earlier production
+inventories of 259, 131, 80 and 29 errors are historical.
+
+The Browser test-project inventory fell from 187 to 94 errors after the reviewed signed test-friend
+grant (`/private/tmp/native-browser-test-friend-net10-build.log`). Most remaining errors belong to the
+old cascade fixture. Its replacement preserves actual lazy-work measurements through optional internal
+query diagnostics, corrects explicitly reviewed CSS inheritance expectations, and requires native
+nested-rule support. These are separate source packets, not accepted runtime behavior yet.
+
+Native two-phase mutation notifications and frozen attribute values pass **15/15** focused fresh
+Release net10 tests at isolated `39e027033`, zero failures/skips
+(`/private/tmp/native-mutation-order-fixed-net10-test.log`). The reviewed stylesheet producer through
+`f8483210f` preserves FIFO disabled transitions, element-owned enablement history, association ordering,
+and bounded updates. Parser completion, removal/adoption and shadow-tree lifecycle wiring remain a
+separate consumer gate. Request identities and stale success/failure/event guards are source-reviewed
+through `6283ba315`; their Browser regressions remain unrun. These isolated gates are not a functional
+replacement or common-worktree pass.
 
 Subsequent isolated source progress: token-list caching, native receiver mappings and production
 package-reference removal are reviewed; stylesheet association/history still has open findings.
