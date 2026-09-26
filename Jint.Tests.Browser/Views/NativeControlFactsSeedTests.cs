@@ -87,7 +87,7 @@ public sealed class NativeControlFactsSeedTests
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<style>#box { height:10px } input:invalid + #box { height:20px }</style><input id=i><div id=box></div>");
+        await page.SetContentAsync("<style>input:invalid + #box { display:none }</style><input id=i><div id=box></div>");
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
@@ -109,6 +109,6 @@ public sealed class NativeControlFactsSeedTests
                 const after = box.getBoundingClientRect().height;
                 return [before, after, box.getBoundingClientRect().height].join(',');
             })()
-            """)).Should().Be("10,20,20");
+            """)).Should().Be("16,0,0");
     }
 }

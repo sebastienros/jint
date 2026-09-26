@@ -183,8 +183,8 @@ public sealed class NativeMetaDefaultStyleTests
         var clock = new RecoveryClock();
         var probe = new Probe();
         var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(1) }
-            .ConfigureEngine(engine => engine.AddConstraint(probe)
-                .AddConstraint(() => new OperationDeadlineConstraint(clock)));
+            .ConfigureEngine(engine => engine.RemoveConstraints(static constraint => constraint is OperationDeadlineConstraint)
+                .AddConstraint(probe).AddConstraint(() => new OperationDeadlineConstraint(clock)));
         await using var browser = new global::Jint.Browser.Browser(options);
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<body></body>");
