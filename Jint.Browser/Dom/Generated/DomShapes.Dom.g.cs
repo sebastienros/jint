@@ -719,13 +719,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.all", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.all");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.All);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "all");
                 }))
             .Accessor("anchors",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.anchors", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.anchors");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Anchors);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "anchors");
                 }))
             .Method("append",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.append", static (thisObj, args) =>
@@ -797,13 +797,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.commands", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.commands");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Commands);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "commands");
                 }))
             .Accessor("compatMode",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.compatMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.compatMode");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CompatMode);
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Mode == global::Jint.HtmlParser.DocumentMode.Quirks ? "BackCompat" : "CSS1Compat");
                 }))
             .Accessor("contentType",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.contentType", static (thisObj, args) =>
@@ -1008,7 +1008,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.embeds", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.embeds");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Plugins);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "plugins");
                 }))
             .Method("enableStyleSheetsForSet",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.enableStyleSheetsForSet", static (thisObj, args) =>
@@ -1052,7 +1052,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.forms", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.forms");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Forms);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "forms");
                 }))
             .Method("getElementById",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementById", static (thisObj, args) =>
@@ -1072,7 +1072,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementsByName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.getElementsByName");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.GetElementsByName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementsByName")));
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.ByName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByTagName",
@@ -1107,7 +1107,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.head", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.head");
-                    return self.Realm.WrapNodeValue(self.Target.Head);
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.DomDocumentElements.Head(self.Target));
                 }))
             .Accessor("hidden",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.hidden", static (thisObj, args) =>
@@ -1119,7 +1119,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.images", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.images");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Images);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "images");
                 }))
             .Accessor("implementation",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.implementation", static (thisObj, args) =>
@@ -1173,7 +1173,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.links", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.links");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Links);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "links");
                 }))
             .Accessor("location",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.location", static (thisObj, args) =>
@@ -1203,7 +1203,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.plugins", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.plugins");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Plugins);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "plugins");
                 }))
             .Accessor("preferredStyleSheetSet",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.preferredStyleSheetSet", static (thisObj, args) =>
@@ -1290,7 +1290,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.scripts", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.scripts");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Scripts);
+                    return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "scripts");
                 }))
             .Accessor("scrollingElement",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.scrollingElement", static (thisObj, args) =>

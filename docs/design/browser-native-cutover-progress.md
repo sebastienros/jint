@@ -273,3 +273,34 @@ DevTools blockers still apply.
 The build process completed with exit code 1. No task build/generator process
 remains running. Work stops at this preserved WIP integration checkpoint; both
 unfinished chats are retained by the parent.
+
+## Full objective resumed: shared native bindings
+
+Merged reviewed common producer checkpoint `56898c3d8`. Fresh Release Browser
+baseline remains 932 errors (702 generated bindings, 53 other DOM, 49 runtime,
+47 Events). Released Events and matching tests plus Page.Input.cs to the parent-
+assigned leaf, except shared BrowserEventRealm coordination. CSS implementation
+files remain available to the dedicated owner.
+
+Projected 107 explicit reflected attributes in the contract and regenerated all
+163 interfaces with zero generator diagnostics. The next fresh build reported
+718 errors, zero warnings. Native shared dataset, labels and form-owner hooks,
+live document collections including HTMLAllCollection, native frame-context
+readers and PageActivationHost signatures followed. The latter matches the leaf's
+announced Element signatures; until those reviewed leaf files integrate, the
+compiler stops with six override diagnostics, which masks the deeper census and
+is not a claim of six remaining errors.
+
+Review corrections: non-URL reflection resolves no base URL; URL reflection
+uses a bounded native document walk, and base.href separately resolves missing,
+empty and relative values against the fallback URL, ignoring all base elements.
+Native form-owner reads retain the stored parser association. ControlsOf and
+custom-owner readers accept host checkpoints and cancellation; option form reads
+use native select ancestry with its barriers. Added native reflection regressions
+for fallback-base resolution and ordinary attribute access on a large DOM versus
+a bounded URL walk; these remain unrun while Browser cannot compile.
+
+The XML fragment prerequisite was misstated earlier: the existing producer facade
+is MarkupParser.ParseXmlFragment. Only context-sensitive HTML fragment parsing
+remains absent at this checkpoint. Runtime/parser execution, remaining bindings,
+actual CSS cascade and control producers still need integration and verification.

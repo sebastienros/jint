@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Jint.Browser.Runtime;
 using Jint.HtmlParser;
+using Jint.Native;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser.Dom;
@@ -22,7 +23,7 @@ internal sealed class DomDocumentState
     {
         realm.Engine.Constraints.Check();
         var state = Of(document);
-        var work = new TargetWork(realm);
+        var work = new TargetWork(realm.Engine.Constraints.Check, realm.CancellationToken);
         Element? target = null;
         if (document.Kind == DocumentKind.Html && UrlParser.Parse(state.Url)?.Fragment is { Length: > 0 } fragment)
         {
@@ -57,14 +58,14 @@ internal sealed class DomDocumentState
         return anchor;
     }
 
-    private sealed class TargetWork(DomRealm realm)
+    private sealed class TargetWork(Action? checkpoint, CancellationToken token)
     {
         private int _work;
-        internal CancellationToken Token { get; } = realm.CancellationToken;
+        internal CancellationToken Token { get; } = token;
         internal void Check()
         {
             Token.ThrowIfCancellationRequested();
-            realm.Engine.Constraints.Check();
+            checkpoint?.Invoke();
         }
         internal void Step()
         {
@@ -83,17 +84,49 @@ internal sealed class DomDocumentState
         }
     }
 
-    // HTML §2.4.3: the first HTML base element with href sets the document base URL.
-    internal static string BaseUri(Document document)
+    // HTML §2.4.3: about:blank/srcdoc can carry the creator's about base URL.
+    // The parser/navigation entry point sets this when creating that document.
+    internal string? AboutBaseUrl { get; set; }
+
+    internal static string FallbackBaseUri(Document document)
     {
-        var url = Of(document).Url;
-        if (document.Kind != DocumentKind.Html) return url;
-        foreach (var element in NodeTraversal.DescendantElements(document, CancellationToken.None))
+        var state = Of(document);
+        return state.Url is "about:blank" or "about:srcdoc" && state.AboutBaseUrl is { } aboutBase
+            ? aboutBase : state.Url;
+    }
+
+    // https://html.spec.whatwg.org/multipage/semantics.html#dom-base-href
+    // This getter deliberately ignores every base element, including its receiver.
+    internal static JsValue BaseHref(DomRealm realm, Element element)
+    {
+        realm.Engine.Constraints.Check();
+        var value = element.GetAttribute("href") ?? "";
+        var href = PageUrl.Resolve(value, FallbackBaseUri(element.OwnerDocument!)) ?? value;
+        realm.Engine.Constraints.Check();
+        return JsString.Create(href);
+    }
+
+    // HTML §2.4.3: the first HTML base element with href sets the document base URL.
+    internal static string BaseUri(Document document, Action? checkpoint = null, CancellationToken token = default)
+    {
+        var fallback = FallbackBaseUri(document);
+        if (document.Kind != DocumentKind.Html) return fallback;
+        var work = new TargetWork(checkpoint, token);
+        work.Check();
+        foreach (var element in NodeTraversal.DescendantElements(document, work.Check, token))
         {
-            if (element.NamespaceUri == Namespaces.Html && element.LocalName == "base" &&
-                element.GetAttribute("href") is { } href)
-                return PageUrl.Resolve(href, url) ?? url;
+            if (!work.Equal(element.NamespaceUri, Namespaces.Html) || !work.Equal(element.LocalName, "base")) continue;
+            for (uint i = 0; i < (uint) element.AttributeCount; i++)
+            {
+                work.Step();
+                var attribute = element.GetAttributeAt(i)!;
+                if (attribute.NamespaceUri is not null || !work.Equal(attribute.LocalName, "href")) continue;
+                var url = PageUrl.Parse(attribute.Value, fallback);
+                work.Check();
+                return url is null || url.Scheme is "data" or "javascript" ? fallback : url.Serialize();
+            }
         }
-        return url;
+        work.Check();
+        return fallback;
     }
 }

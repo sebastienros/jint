@@ -157,11 +157,11 @@ internal class DomHostHooks
     }
 
     /// <summary>HTML's <c>DOMStringMap</c> view over an element's <c>data-*</c> attributes.</summary>
-    internal virtual JsValue Dataset(DomRealm realm, IHtmlElement element)
-        => realm.WrapStringMap(element, element.Dataset);
+    internal virtual JsValue Dataset(DomRealm realm, Element element)
+        => realm.WrapStringMap(element);
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
-    internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
+    internal virtual JsValue Labels(DomRealm realm, Element element)
         => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
 
     /// <summary>
@@ -174,8 +174,8 @@ internal class DomHostHooks
     /// <c>Form</c> separately on each and answers all of them from an ancestor-first walk that inverts the
     /// standard's priority.
     /// </remarks>
-    internal virtual JsValue FormOwner(DomRealm realm, IHtmlElement element)
-        => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element));
+    internal virtual JsValue FormOwner(DomRealm realm, Element element)
+        => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element, realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected — the setter's three
@@ -666,8 +666,8 @@ internal class DomHostHooks
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-label-control</summary>
-    internal virtual JsValue LabelControl(DomRealm realm, IHtmlLabelElement label)
-        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label));
+    internal virtual JsValue LabelControl(DomRealm realm, Element label)
+        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label, realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>
