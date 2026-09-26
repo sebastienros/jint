@@ -343,20 +343,29 @@ internal sealed class DomRealm
 
     /// <summary>Records a new or about-to-be-adopted subtree, including non-light-tree descendants.</summary>
     internal void RecordSubtree(Node root)
+        => RecordSubtree(root, NativeReadCheckpoint, CancellationToken);
+
+    internal void RecordSubtree(Node root, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = new DomReadWork(checkpoint, cancellationToken);
+        work.Check();
         var pending = new Stack<Node>();
         pending.Push(root);
         while (pending.TryPop(out var node))
         {
+            work.Step();
             CreationRealmOf(node);
-            foreach (var child in node.ChildNodes)
+            for (var child = node.FirstChild; child is not null; child = child.NextSibling)
             {
+                work.Step();
                 pending.Push(child);
             }
             if (node is Element element)
             {
-                foreach (var attribute in element.Attributes)
+                for (uint i = 0; i < (uint) element.AttributeCount; i++)
                 {
+                    work.Step();
+                    var attribute = element.GetAttributeAt(i)!;
                     if (!_creationRealms.TryGetValue(attribute, out _))
                     {
                         // A new attribute uses the current document, even when its element was adopted
@@ -375,6 +384,7 @@ internal sealed class DomRealm
                 pending.Push(content);
             }
         }
+        work.Check();
     }
 
     /// <summary>

@@ -1,8 +1,11 @@
 using Jint.Browser.Dom.Files;
 using Jint.HtmlParser;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Tests.Browser.Files;
 
+[NonParallelizable]
 public sealed class NativeFileStateTests
 {
     [Test]
@@ -54,5 +57,33 @@ public sealed class NativeFileStateTests
         var disposed = fixture.Document.MutationStamp;
         list.Add(file);
         fixture.Document.MutationStamp.Should().Be(disposed);
+    }
+
+    [Test]
+    public void ASharedListReleasesCollectedInputsInsteadOfAccumulatingChangeHandlers()
+    {
+        using var fixture = DomTestFixture.Create("");
+        var realm = FileTransferRealm.Of(fixture.Engine);
+        var list = realm.NewFileList();
+        var references = Enumerable.Range(0, 256).Select(_ => AttachTransientInput(fixture.Document, realm, list)).ToArray();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        references.All(reference => !reference.TryGetTarget(out _)).Should().BeTrue();
+
+        list.Add(new Jint.WebApi.Files.JsFile(fixture.Engine, new byte[] { 1 }, "text/plain", "x.txt", 0));
+        typeof(JsFileList).GetField("Changed", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(list).Should().BeNull();
+        GC.KeepAlive(fixture);
+        GC.KeepAlive(list);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference<Element> AttachTransientInput(Document document, FileTransferRealm realm, JsFileList list)
+    {
+        var input = document.CreateElement("input");
+        input.SetAttribute("type", "file");
+        realm.SetInputFiles(input, list);
+        return new WeakReference<Element>(input);
     }
 }

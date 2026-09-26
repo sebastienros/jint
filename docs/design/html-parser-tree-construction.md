@@ -298,12 +298,18 @@ counts character inspection/copy, attribute preparation, stack search/pop and to
 saturating monotonic accounting. A supported token must either finish, leave a saved continuation or
 consume budget; quota 1 must make progress without restarting a scan from its beginning.
 
-Explicit unbounded tree loops poll cancellation within at most 4096 work units and save progress when
-quota expires. Finish a bounded native mutation atomically before yielding. A native attribute batch
-or native semantic mutation may exceed the remaining quota while maintaining bounded cancellation
-polling; charge its work and yield before more independent work. Unavoidable CLR allocation/copy/hash
-operations have the same before/after polling and cooperative overshoot caveat as H1. No hard latency
-or `delta <= quota + constant` promise is introduced. Avoid repeated materialization/restarts.
+Explicit unbounded parser-owned tree loops poll cancellation within at most 4096 work units and save
+progress when quota expires. Existing coherent native DOM mutations are atomic commit boundaries:
+cancellation is observed before and after the commit, which may exceed the remaining quota. Do not
+poll or yield halfway through range/iterator/slot/form/observer repair. Parser WorkCount records one
+boundary unit and excludes opaque native mutation internals; do not invent per-descendant accounting
+or claim a guaranteed latency ceiling. Parser-owned searches, snapshots and stack/root walks remain
+charged and resumable. This is the explicit H6f amendment recorded in
+[the promotion checkpoint](html-parser-html-promotion.md#atomic-native-mutation-boundary-amendment).
+Native attribute preparation and unavoidable CLR allocation/copy operations retain before/after
+polling and cooperative overshoot caveats. No hard latency or `delta <= quota + constant` promise is
+introduced. Avoid repeated materialization/restarts. Any exception escaping a native boundary faults
+the parser, preserves the original exception, and prevents replay; a committed DOM is not rolled back.
 
 MaxInputCharacters and MaxTokenCharacters retain A2/H1 meanings. MaxNestingDepth now also bounds the
 number of elements on the HTML open-element stack, including implied html/head/body and temporary head
