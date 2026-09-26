@@ -4,6 +4,7 @@ internal sealed class CssValueWork
 {
     private readonly CancellationToken _cancellationToken;
     private readonly Action? _checkpoint;
+    private readonly CssValueWork _counter;
     private int _sinceCheck;
     internal CancellationToken Token => _cancellationToken;
 
@@ -11,6 +12,15 @@ internal sealed class CssValueWork
     {
         _cancellationToken = cancellationToken;
         _checkpoint = checkpoint;
+        _counter = this;
+    }
+
+    // Per-read guards share the invocation's polling remainder instead of restarting its budget.
+    internal CssValueWork(CssValueWork parent, Action checkpoint)
+    {
+        _cancellationToken = parent.Token;
+        _checkpoint = checkpoint;
+        _counter = parent._counter;
     }
 
     internal void CheckCancellation()
@@ -25,13 +35,13 @@ internal sealed class CssValueWork
         ArgumentOutOfRangeException.ThrowIfNegative(utf16Units);
         while (utf16Units > 0)
         {
-            var available = 4096 - _sinceCheck;
+            var available = 4096 - _counter._sinceCheck;
             var charged = System.Math.Min(available, utf16Units);
-            _sinceCheck += charged;
+            _counter._sinceCheck += charged;
             utf16Units -= charged;
-            if (_sinceCheck == 4096)
+            if (_counter._sinceCheck == 4096)
             {
-                _sinceCheck = 0;
+                _counter._sinceCheck = 0;
                 CheckCancellation();
             }
         }

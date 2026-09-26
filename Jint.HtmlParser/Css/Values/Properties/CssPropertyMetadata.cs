@@ -43,7 +43,7 @@ internal static class CssPropertyRegistry
             }
         });
         work?.CheckCancellation();
-        return result;
+        return CssPropertyEffects.Canonical(result);
     }
 
     private readonly record struct NameNormalization(string Name, CssValueWork? Work);

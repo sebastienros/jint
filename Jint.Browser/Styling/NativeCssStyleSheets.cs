@@ -4,6 +4,7 @@ using Jint.Browser.Dom;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Browser.Styling;
@@ -13,6 +14,37 @@ namespace Jint.Browser.Styling;
 internal static partial class NativeCssStyleSheets
 {
     private static readonly ConditionalWeakTable<Document, Resources> Documents = new();
+    private static readonly ConditionalWeakTable<Element, InlineResource> InlineSources = new();
+
+    internal static CssDeclarationBlock InlineOf(Element element, CssValueWork work)
+    {
+        var document = element.OwnerDocument;
+        var stamp = document?.MutationStamp;
+        var guarded = new CssValueWork(work, () =>
+        {
+            work.CheckCancellation();
+            if (!ReferenceEquals(element.OwnerDocument, document) || stamp == ulong.MaxValue || document?.MutationStamp != stamp)
+                throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        });
+        guarded.CheckCancellation();
+        var source = new DomReadWork(guarded.Charge, guarded.Token).Attribute(element, "style") ?? "";
+        var resource = InlineSources.GetValue(element, static _ => new InlineResource());
+        if (resource.Block is null || !CssSubstitutionArguments.Equals(resource.Source!, source, guarded))
+        {
+            var block = CssDeclarationBlock.ParseUnresolved(source, CssDeclarationContext.Style, null, guarded, guarded.Token);
+            guarded.CheckCancellation();
+            resource.Source = source;
+            resource.Block = block;
+        }
+        guarded.CheckCancellation();
+        return resource.Block;
+    }
+
+    private sealed class InlineResource
+    {
+        internal string? Source;
+        internal CssDeclarationBlock? Block;
+    }
 
     internal static void Install(Document document, Element owner, string text, string sourceUrl,
         string baseUrl, CssValueWork work)
@@ -60,7 +92,7 @@ internal static partial class NativeCssStyleSheets
                 throw new InvalidOperationException(NativeCssQuery.Invalidated);
         }
         Verify();
-        var parsing = new CssValueWork(work.Token, Verify);
+        var parsing = new CssValueWork(work, Verify);
         // DOM order, rather than load completion order, owns stylesheet order.
         var pending = new Stack<Node>();
         pending.Push(document);

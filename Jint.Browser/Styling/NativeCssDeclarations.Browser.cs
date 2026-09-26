@@ -4,7 +4,6 @@ using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Browser.Styling;
 
@@ -23,7 +22,7 @@ internal static class NativeCssDeclarations
     private sealed class RuleDeclaration(DomRealm realm, CssStyleRule rule, CssDeclarationBlock block) : NativeCssDeclaration
     {
         internal override CssRule ParentRule => rule;
-        internal override int Length { get { var work = Work(realm); work.CheckCancellation(); return block.Count; } }
+        internal override int Length => block.ResolveAll(Work(realm)).Length;
         internal override string CssText
         {
             get => block.Serialize(Work(realm));
@@ -37,7 +36,8 @@ internal static class NativeCssDeclarations
         {
             var work = Work(realm);
             work.CheckCancellation();
-            return (uint) index < (uint) block.Count ? block.GetPropertyName(index) : "";
+            var entries = block.ResolveAll(work);
+            return (uint) index < (uint) entries.Length ? entries[index].Name : "";
         }
         internal override string GetPropertyValue(string name) => block.GetPropertyValue(name, Work(realm));
         internal override string GetPropertyPriority(string name) => block.GetPropertyPriority(name, Work(realm));
@@ -51,8 +51,6 @@ internal static class NativeCssDeclarations
 
     private sealed class InlineDeclaration(DomRealm creationRealm, Element element) : NativeCssDeclaration
     {
-        private string? _source;
-        private CssDeclarationBlock? _block;
         internal override CssRule? ParentRule => null;
         private CssValueWork CurrentWork()
         {
@@ -66,21 +64,14 @@ internal static class NativeCssDeclarations
                     throw new InvalidOperationException(NativeCssQuery.Invalidated);
             });
         }
-        private string Source(CssValueWork work) => new DomReadWork(work.Charge, work.Token).Attribute(element, "style") ?? "";
         private CssDeclarationBlock Read(CssValueWork work)
         {
-            work.CheckCancellation();
-            var source = Source(work);
-            if (_block is null || _source is null || !CssSubstitutionArguments.Equals(source, _source, work))
-            {
-                var block = CssDeclarationBlock.Parse(source, CssDeclarationContext.Style, null, work, work.Token);
-                work.CheckCancellation();
-                _source = source;
-                _block = block;
-            }
-            return _block;
+            return NativeCssStyleSheets.InlineOf(element, work);
         }
-        internal override int Length => Read(CurrentWork()).Count;
+        internal override int Length
+        {
+            get { var work = CurrentWork(); return Read(work).ResolveAll(work).Length; }
+        }
         internal override string CssText
         {
             get { var work = CurrentWork(); return Read(work).Serialize(work); }
@@ -88,14 +79,15 @@ internal static class NativeCssDeclarations
             {
                 var work = CurrentWork();
                 var block = CssDeclarationBlock.Parse(value, CssDeclarationContext.Style, null, work, work.Token);
-                Publish(block, work);
+                Publish(block, work, cssText: true);
             }
         }
         internal override string Item(int index)
         {
             var work = CurrentWork();
             var block = Read(work);
-            return (uint) index < (uint) block.Count ? block.GetPropertyName(index) : "";
+            var entries = block.ResolveAll(work);
+            return (uint) index < (uint) entries.Length ? entries[index].Name : "";
         }
         internal override string GetPropertyValue(string name) { var work = CurrentWork(); return Read(work).GetPropertyValue(name, work); }
         internal override string GetPropertyPriority(string name) { var work = CurrentWork(); return Read(work).GetPropertyPriority(name, work); }
@@ -116,15 +108,12 @@ internal static class NativeCssDeclarations
             block.SetProperty(name, value, priority, null, work, work.Token);
             if (block.Stamp != stamp) Publish(block, work);
         }
-        private CssDeclarationBlock Copy(CssValueWork work) => CssDeclarationBlock.Parse(Source(work),
-            CssDeclarationContext.Style, null, work, work.Token);
-        private void Publish(CssDeclarationBlock block, CssValueWork work)
+        private CssDeclarationBlock Copy(CssValueWork work) => Read(work).Copy(work);
+        private void Publish(CssDeclarationBlock block, CssValueWork work, bool cssText = false)
         {
-            var text = block.Serialize(work);
+            var text = cssText ? block.Serialize(work) : block.SerializeSource(work);
             work.CheckCancellation();
             element.SetAttribute("style", text);
-            _source = text;
-            _block = block;
         }
     }
 }

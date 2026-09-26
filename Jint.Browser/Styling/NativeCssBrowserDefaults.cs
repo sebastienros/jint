@@ -32,6 +32,11 @@ internal static class NativeCssBrowserDefaults
         ruby { display: ruby; }
         rt { display: ruby-text; }
         rp { display: none; }
+        slot { display: contents; }
+        pre, listing, plaintext, xmp { white-space: pre; }
+        textarea { white-space: pre-wrap; }
+        nobr { white-space: nowrap; }
+        nobr wbr { white-space: normal; }
         [dir="ltr" i] { direction: ltr; }
         [dir="rtl" i] { direction: rtl; }
         """;

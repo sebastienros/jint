@@ -205,7 +205,7 @@ internal sealed partial class NativeCssQuery
         Variables(own, ref matching);
         var names = new HashSet<string>(new Names(_work));
         for (var state = own; state is not null; state = state.Parent)
-            foreach (var name in state.Candidates.Keys)
+            foreach (var name in CustomNames(state))
             {
                 _work.Charge(1);
                 if (name.StartsWith("--", StringComparison.Ordinal)) names.Add(name);
@@ -260,7 +260,7 @@ internal sealed partial class NativeCssQuery
             if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
             {
                 state.Matches.Add(rule);
-                Add(state, rule.Style, new(rule, rule.Style, origin, specificity, order, false));
+                Add(state, new(rule, rule.Style, origin, specificity, order, false));
             }
         }
         if (_readInlineAttributes && !_inline.ContainsKey(element))
@@ -269,31 +269,49 @@ internal sealed partial class NativeCssQuery
                 _work.Charge(1);
                 var attribute = element.GetAttributeAt(i)!;
                 if (attribute.NamespaceUri is not null || !CssSubstitutionArguments.Equals(attribute.LocalName, "style", _work)) continue;
-                var block = CssDeclarationBlock.Parse(attribute.Value, CssDeclarationContext.Style, null, _work, _work.Token);
+                var block = NativeCssStyleSheets.InlineOf(element, _work);
                 Verify();
                 _inline.Add(element, (block, block.Stamp));
                 break;
             }
         if (_inline.TryGetValue(element, out var inline))
-            Add(state, inline.Block, new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true));
-        foreach (var candidates in state.Candidates.Values)
-            candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
+            Add(state, new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true));
         matching.VerifyRead();
         Verify();
         _states.Add(element, state);
         return state;
     }
 
-    private void Add(State state, CssDeclarationBlock block, NativeCssSource source)
+    private void Add(State state, NativeCssSource source)
     {
-        for (var i = 0; i < block.Count; i++)
+        state.Sources.Add(source);
+    }
+
+    private List<Candidate> Candidates(State state, string name)
+    {
+        if (state.Candidates.TryGetValue(name, out var cached)) return cached;
+        var candidates = new List<Candidate>();
+        foreach (var source in state.Sources)
         {
             _work.Charge(1);
-            var declaration = block.GetDeclaration(i);
-            if (!state.Candidates.TryGetValue(declaration.Name, out var candidates))
-                state.Candidates.Add(declaration.Name, candidates = []);
-            candidates.Add(new(declaration, source));
+            if (source.Block.ResolveProperty(name, _work) is { } declaration) candidates.Add(new(declaration, source));
         }
+        candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
+        Verify();
+        state.Candidates.Add(name, candidates);
+        return candidates;
+    }
+
+    private HashSet<string> CustomNames(State state)
+    {
+        var result = new HashSet<string>(new Names(_work));
+        foreach (var source in state.Sources)
+            foreach (var name in source.Block.CustomPropertyNames(_work))
+            {
+                _work.Charge(name.Length);
+                result.Add(name);
+            }
+        return result;
     }
 
     private static int Compare(Candidate left, Candidate right)
@@ -310,7 +328,7 @@ internal sealed partial class NativeCssQuery
 
     private Candidate? Winner(State state, string name, ref SelectorMatchWork matching, bool substitute = false)
     {
-        if (!state.Candidates.TryGetValue(name, out var candidates)) return null;
+        var candidates = Candidates(state, name);
         var excludedOrigins = new bool[3];
         var excludedRules = new HashSet<CssDeclarationBlock>();
         foreach (var candidate in candidates)
@@ -354,7 +372,7 @@ internal sealed partial class NativeCssQuery
         while (pending.TryPop(out current))
         {
             var bindings = new List<CssSubstitutionBinding>();
-            foreach (var name in current.Candidates.Keys)
+            foreach (var name in CustomNames(current))
             {
                 _work.Charge(1);
                 if (!name.StartsWith("--", StringComparison.Ordinal)) continue;
@@ -477,6 +495,7 @@ internal sealed partial class NativeCssQuery
         internal Dictionary<string, NativeCssProperty> Unadjusted { get; } = new(new Names(work));
         internal Dictionary<CssPendingShorthand, CssDeclaration[]?> Shorthands { get; } = new(ReferenceEqualityComparer.Instance);
         internal List<CssStyleRule> Matches { get; } = [];
+        internal List<NativeCssSource> Sources { get; } = [];
     }
     private sealed class Names(CssValueWork work) : IEqualityComparer<string>
     {

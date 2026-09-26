@@ -85,8 +85,10 @@ public sealed class CssProducerInputTests
         var selector = new SelectorCompiler.Worker(source, new SelectorParseContext(), default).Compile(syntax.Prelude);
         selector.Branches.Count.Should().Be(1);
         var body = parser.ParseBlockContents(syntax.Block!.Value);
-        var failure = Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.FromDeclarations(source,
-            body[0].Declarations, CssDeclarationContext.Style, 0, new CssValueWork(default)))!;
+        var work = new CssValueWork(default);
+        var block = CssDeclarationBlock.FromDeclarations(source, body[0].Declarations, CssDeclarationContext.Style, 0, work);
+        block.ResolveProperty("display", work)!.Value.Text.Should().Be("block");
+        var failure = Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveAll(work))!;
         failure.PropertyName.Should().Be("border-color");
         failure.Blocker.Should().Be("V1:border-color");
         failure.Span.Start.Should().Be(source.IndexOf("border-color", StringComparison.Ordinal));

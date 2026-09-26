@@ -15,6 +15,83 @@ namespace Jint.Tests.HtmlParser.Css;
 public sealed class NativeCssQueryTests
 {
     [Test]
+    public void MatchedAndUnmatchedPendingDeclarationsCannotBlockAnUnrelatedDisplayRead()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var sheet = CssStyleSheet.Parse("span { border-color:red; } div { display:block; background:red; text-wrap:balance; }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        var stamp = sheet.Stamp;
+        var result = query.GetProperty(target, "display", ref matching);
+        result.Text.Should().Be("block");
+        sheet.Stamp.Should().Be(stamp);
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "background-color", ref matching))!
+            .PropertyName.Should().Be("background");
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "text-wrap-mode", ref matching))!
+            .PropertyName.Should().Be("text-wrap");
+        query.GetProperty(target, "display", ref matching).Should().BeSameAs(result);
+        ((CssStyleRule) sheet.Rules[1]).Style.SetProperty("display", "none");
+        Assert.Throws<InvalidOperationException>(() => query.GetProperty(target, "display", ref matching));
+        Query(document, [new(sheet, NativeCssOrigin.Author)]).GetProperty(target, "display", ref matching).Text.Should().Be("none");
+    }
+
+    [Test]
+    public void InlineSourceParsesAreReusedAndUnrelatedPendingSyntaxStaysLazy()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        target.SetAttribute("style", "border:solid; display:block;--x:hidden; visibility:var(--x)");
+        var work = new CssValueWork(default);
+        var block = NativeCssStyleSheets.InlineOf(target, work);
+        NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(block);
+        var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
+        target.SetAttribute("style", "display:none");
+        NativeCssStyleSheets.InlineOf(target, work).Should().NotBeSameAs(block);
+        Assert.Throws<InvalidOperationException>(() => query.GetProperty(target, "display", ref matching));
+    }
+
+    [Test]
+    public void LazyShorthandSubstitutionRetainsIacvtAndCustomCycles()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var sheet = CssStyleSheet.Parse("div { border:solid; display:block; display:var(--missing); --a:var(--b); --b:var(--a); "
+            + "--mode:preserve nowrap; white-space:var(--mode); visibility:var(--a,hidden); }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("inline");
+        query.GetProperty(target, "display", ref matching).Disposition.Should().Be(NativeCssDisposition.InvalidAtComputedValue);
+        query.GetProperty(target, "white-space-collapse", ref matching).Text.Should().Be("preserve");
+        query.GetProperty(target, "white-space", ref matching).Text.Should().Be("pre");
+        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
+    }
+
+    [Test]
+    public void WhiteSpaceLonghandsInheritIndividuallyAndAChildNormalOverridesPre()
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("pre");
+        var inherited = document.CreateElement("span");
+        var normal = document.CreateElement("b");
+        parent.AppendChild(inherited);
+        parent.AppendChild(normal);
+        var work = new CssValueWork(default);
+        var author = CssStyleSheet.Parse("pre { white-space-trim:discard-inner; } b { white-space:normal; }");
+        var query = Query(document, [NativeCssBrowserDefaults.Sheet(document, work), new(author, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(inherited, "white-space-collapse", ref matching).Text.Should().Be("preserve");
+        query.GetProperty(inherited, "text-wrap-mode", ref matching).Text.Should().Be("nowrap");
+        query.GetProperty(inherited, "white-space-trim", ref matching).Text.Should().Be("none");
+        query.GetProperty(normal, "white-space-collapse", ref matching).Text.Should().Be("collapse");
+        query.GetProperty(normal, "white-space", ref matching).Text.Should().Be("normal");
+    }
+
+    [Test]
     public void ImportanceOriginInlineSpecificityAndOrderSelectActualSource()
     {
         var document = Document.CreateHtml();
@@ -163,7 +240,8 @@ public sealed class NativeCssQueryTests
         // An installation never invokes a pending property validator during HTML parsing.
         source.Data = "div { background:red; }";
         NativeCssStyleSheets.Install(document, owner, "div { background:red; }", "", "", work);
-        Assert.Throws<CssIncompleteGrammarException>(() => NativeCssStyleSheets.Get(document, work));
+        var pendingSheet = NativeCssStyleSheets.Get(document, work)[0].Sheet;
+        Assert.Throws<CssIncompleteGrammarException>(() => _ = pendingSheet.Rules[0].CssText);
     }
 
     [TestCase("width:1in", "width", "96px")]

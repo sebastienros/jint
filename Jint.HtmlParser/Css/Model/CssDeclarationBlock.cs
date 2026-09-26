@@ -10,7 +10,7 @@ namespace Jint.HtmlParser.Css.Model;
 
 // CSSOM §6.4.3 specified order, §6.6 declaration blocks and §6.6.1 mutations.
 // https://drafts.csswg.org/cssom/#css-declaration-blocks
-internal sealed class CssDeclarationBlock
+internal sealed partial class CssDeclarationBlock
 {
     private CssDeclaration[] _entries = [];
     private ulong _version;
@@ -32,12 +32,21 @@ internal sealed class CssDeclarationBlock
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
+        var result = ParseUnresolved(source, context, options, work, cancellationToken);
+        result.ResolveAll(work);
+        return result;
+    }
+
+    internal static CssDeclarationBlock ParseUnresolved(string source, CssDeclarationContext context,
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
+    {
         var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
         return FromDeclarations(source, syntax, context, options?.Limits.MaxNestingDepth ?? 0,
             work);
     }
 
-    // A sheet/rule builder shares its C1 parse and work state. No syntax editor or sheet is retained.
+    // A sheet/rule builder retains its immutable C1 declarations/source and shares invocation work.
+    // No syntax editor or second stylesheet model is retained.
     internal static CssDeclarationBlock FromDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
         CssDeclarationContext context, int maximumNestingDepth, CssValueWork work)
     {
@@ -47,14 +56,14 @@ internal sealed class CssDeclarationBlock
         if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
         ArgumentOutOfRangeException.ThrowIfNegative(maximumNestingDepth);
         var result = new CssDeclarationBlock(context);
-        result._entries = Build(source, declarations, context, maximumNestingDepth, work);
+        result._raw = Retain(source, declarations, maximumNestingDepth, work);
         work.CheckCancellation();
         return result;
     }
 
-    internal int Count => _entries.Length;
-    internal string GetPropertyName(int index) => _entries[index].Name;
-    internal CssDeclaration GetDeclaration(int index) => _entries[index];
+    internal int Count => ResolveAll(new CssValueWork(default)).Length;
+    internal string GetPropertyName(int index) => ResolveAll(new CssValueWork(default))[index].Name;
+    internal CssDeclaration GetDeclaration(int index) => ResolveAll(new CssValueWork(default))[index];
     internal CssMutationStamp Stamp => new(_version);
     internal string CssText => Serialize(new CssValueWork(default));
 
@@ -64,8 +73,8 @@ internal sealed class CssDeclarationBlock
     {
         work.CheckCancellation();
         name = CssPropertyRegistry.NormalizeName(name, work);
-        if (Shorthand(name) is { } shorthand) return ShorthandValue(_entries, shorthand, work);
-        var entry = Find(_entries, name, work);
+        if (Shorthand(name) is { } shorthand) return ShorthandValue(ResolveShorthand(shorthand, work), shorthand, work);
+        var entry = ResolveProperty(name, work);
         work.CheckCancellation();
         return entry is null || entry.PendingShorthand is not null ? "" : EntryValue(entry, work);
     }
@@ -81,12 +90,12 @@ internal sealed class CssDeclarationBlock
             foreach (var longhand in shorthand.Longhands)
             {
                 work.Charge(1);
-                if (Find(_entries, longhand, work) is not { IsImportant: true }) return "";
+                if (ResolveProperty(longhand, work) is not { IsImportant: true }) return "";
             }
             work.CheckCancellation();
             return "important";
         }
-        var entry = Find(_entries, name, work);
+        var entry = ResolveProperty(name, work);
         work.CheckCancellation();
         return entry is { IsImportant: true } ? "important" : "";
     }
@@ -119,12 +128,12 @@ internal sealed class CssDeclarationBlock
         var result = CssPropertyParser.Parse(name, input, _context, work);
         RequireCompleted(name, result, new CssSourceSpan(0, value.Length));
         if (result.Status is not (CssPropertyStatus.Valid or CssPropertyStatus.Deferred)) return;
-        var replacement = CopyEntries(work);
+        var replacement = new List<CssDeclaration>();
         Install(replacement, name, result.Value, !string.IsNullOrEmpty(priority),
             new CssSourceSpan(0, value.Length), work,
             LexicalText(result.Value, value, parser.TrimLexicalBoundaryWhitespace(0, value.Length, components), work),
             parser.ValueTermination(components, new CssSourceSpan(0, value.Length), work));
-        Commit(replacement, work);
+        CommitTarget(name, replacement, work);
     }
 
     internal string RemoveProperty(string name) => RemoveProperty(name, new CssValueWork(default));
@@ -136,18 +145,8 @@ internal sealed class CssDeclarationBlock
         name = CssPropertyRegistry.NormalizeName(name, work);
         if (CssPropertyParser.NameFailure(name, _context) is { } failure)
             RequireCompleted(name, failure, default);
-        var shorthand = Shorthand(name);
         var oldValue = GetPropertyValue(name, work);
-        var replacement = new List<CssDeclaration>(_entries.Length);
-        var removed = false;
-        foreach (var entry in _entries)
-        {
-            work.Charge(1);
-            if (CssSubstitutionArguments.Equals(entry.Name, name, work) || shorthand is not null && shorthand.Longhands.Contains(entry.Name))
-                removed = true;
-            else replacement.Add(entry);
-        }
-        if (removed) Commit(replacement, work);
+        CommitTarget(name, [], work, remove: true);
         return oldValue;
     }
 
@@ -165,9 +164,14 @@ internal sealed class CssDeclarationBlock
     internal void ReplaceDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
         int maximumNestingDepth, CssValueWork work)
     {
-        var entries = Build(source, declarations, _context, maximumNestingDepth, work);
+        var replacement = FromDeclarations(source, declarations, _context, maximumNestingDepth, work);
+        var entries = replacement.ResolveAll(work);
         work.CheckCancellation();
         _entries = entries;
+        _raw = replacement._raw;
+        _index = null;
+        _resolved.Clear();
+        _allResolved = true;
         CssMutationStamp.Advance(ref _version);
         _owner?.Changed();
     }
@@ -261,25 +265,6 @@ internal sealed class CssDeclarationBlock
             return;
         }
         entries.Add(entry);
-    }
-
-    private List<CssDeclaration> CopyEntries(CssValueWork work)
-    {
-        var result = new List<CssDeclaration>(_entries.Length);
-        foreach (var entry in _entries) { work.Charge(1); result.Add(entry); }
-        work.CheckCancellation();
-        return result;
-    }
-
-    private void Commit(List<CssDeclaration> entries, CssValueWork work)
-    {
-        work.CheckCancellation();
-        var replacement = entries.ToArray();
-        work.Charge(replacement.Length);
-        work.CheckCancellation();
-        _entries = replacement;
-        CssMutationStamp.Advance(ref _version);
-        _owner?.Changed();
     }
 
     private static CssDeclaration? Find(CssDeclaration[] entries, string name, CssValueWork work)
@@ -379,6 +364,7 @@ internal sealed class CssDeclarationBlock
     internal string Serialize(CssValueWork work)
     {
         work.CheckCancellation();
+        ResolveAll(work);
         var builder = new StringBuilder();
         var shorthandValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var written = new HashSet<string>(StringComparer.Ordinal);
