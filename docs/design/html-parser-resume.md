@@ -11,6 +11,17 @@ owners released their files; D7b2 now exclusively owns the required Element/Html
 hooks as well as the checkedness/form lifecycle files. CSS declarations do not own DOM, selectors,
 Browser or public facade files. No PRs. Historical finalization/cleanup counts below remain unchanged.
 
+**Current continuation:** Browser checkpoint `92732c130` contains further native DOM adapters,
+retained navigation target state and host-budget Range wiring, still isolated with an incomplete build.
+Accessibility/extraction is delegated from that checkpoint to `68c5`, chat
+`01a0db9d-701a-7752-8791-64eb54dd2d0c`; it exclusively owns those two implementation directories and
+matching Browser test directories. The Browser owner keeps shared DOM, cascade, runtime and generator.
+C1 custom-property lexical provenance source `7691e6680` is reviewed and integrated as `ba5f3adcb`.
+Fresh common Release non-corpus parser tests: **4,262/4,262 passed**, both TFMs, zero failures/skips;
+`/private/tmp/jint-css-lexical-span-common.log`. CSS declarations and native checkedness remain unmerged.
+Review is correcting radio high-water storage and repeated attribute-scan costs, and verifying native
+Browser target/slot budget semantics. No PRs or benchmark timings.
+
 **Continuation integration:** compact CSS source ownership `ca376e0eb` → `c3256b793`, direct
 attribute indexing `ea0d2010e` → `4f5d7109b`, and six read-only Range host-budget callbacks
 `6795451c0` → `2b6cc11f2`. Fresh combined Release parser gate: **4,226/4,226 passed**, net8/net10,
