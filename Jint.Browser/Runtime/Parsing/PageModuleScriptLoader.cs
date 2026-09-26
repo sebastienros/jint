@@ -184,6 +184,6 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
         }
 
         var essence = MimeType.Parse(contentType)?.Essence;
-        return essence is not null && AngleSharp.Io.MimeTypeNames.IsJavaScript(essence);
+        return essence is not null && JavaScriptMime.IsJavaScript(essence);
     }
 }
