@@ -52,7 +52,7 @@ public sealed class CustomElementReactionTests
         """);
 
         (await page.EvaluateAsync<string>("window.log.join('|')"))
-            .Should().Be("connected:host|connected:shadow|connected:light|disconnected:host|disconnected:shadow|disconnected:light");
+            .Should().Be("connected:host|connected:shadow|connected:light|disconnected:host|disconnected:shadow|disconnected:light", "page errors were {0}", string.Join(" | ", page.Errors));
         page.Errors.Should().BeEmpty();
     }
 
@@ -76,7 +76,7 @@ public sealed class CustomElementReactionTests
         """);
 
         (await page.EvaluateAsync<string>("window.log.join('|')"))
-            .Should().Be("detached|connected:child|disconnected:child|connected:child");
+            .Should().Be("detached|connected:child|disconnected:child|connected:child", "page errors were {0}", string.Join(" | ", page.Errors));
         page.Errors.Should().BeEmpty();
     }
 
@@ -98,7 +98,7 @@ public sealed class CustomElementReactionTests
           range.deleteContents();
         </script>
         """);
-        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be(expected);
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be(expected, "page errors were {0}", string.Join(" | ", page.Errors));
         page.Errors.Should().BeEmpty();
     }
 
