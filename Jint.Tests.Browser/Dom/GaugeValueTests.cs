@@ -71,7 +71,7 @@ public sealed class GaugeValueTests
         using var cancellation = new CancellationTokenSource();
         Action read = () => DomGaugeMembers.Progress(element, true, units =>
         {
-            if (units > 0) cancellation.Cancel();
+            if (units == 256) cancellation.Cancel();
         }, cancellation.Token);
         read.Should().Throw<OperationCanceledException>();
         DomGaugeMembers.Progress(element, true, null, default).Should().Be(-1);
