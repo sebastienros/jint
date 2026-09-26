@@ -141,7 +141,8 @@ internal sealed class FileTransferRealm
     }
 
     private readonly Queue<InputFileState> _pendingChanges = new();
-    private readonly HashSet<InputFileState> _queuedChanges = new();
+    // An envelope's record cursor is mutable; queue membership follows its identity, not its value hash.
+    private readonly HashSet<InputFileState> _queuedChanges = new(ReferenceEqualityComparer.Instance);
     private InputFileState? _activeState;
     private bool _flushing;
     private readonly List<WeakReference<InputFileState>> _fileStates = [];
