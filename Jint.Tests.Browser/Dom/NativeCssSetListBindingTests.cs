@@ -40,12 +40,15 @@ public sealed class NativeCssSetListBindingTests
     }
 
     [Test]
-    public void ShadowStylesheetListsRetainIdentityAndEnumerateOnlyTheirOwnTree()
+    public async Task ShadowStylesheetListsRetainIdentityAndEnumerateOnlyTheirOwnTree()
     {
-        using var dom = DomTestFixture.Create("<style>a{color:red}</style><div id='host'></div>");
-        dom.Execute("var host=document.getElementById('host'), shadow=host.attachShadow({mode:'open'}); shadow.innerHTML='<style>b{color:blue}</style>'; var list=shadow.styleSheets;");
-        dom.Bool("list instanceof StyleSheetList && list===shadow.styleSheets && list.length===1 && document.styleSheets.length===1").Should().BeTrue();
-        dom.Execute("shadow.appendChild(document.createElement('style')); host.remove();");
-        dom.Bool("list===shadow.styleSheets && list.length===0 && list.item(0)===null && list[0]===undefined").Should().BeTrue();
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>a{color:red}</style><div id='host'></div>");
+        await page.EvaluateAsync("var host=document.getElementById('host'), shadow=host.attachShadow({mode:'open'}); shadow.innerHTML='<style>b{color:blue}</style>'; var list=shadow.styleSheets;");
+        (await page.EvaluateAsync<bool>("list instanceof StyleSheetList && list===shadow.styleSheets && list.length===1 && document.styleSheets.length===1")).Should().BeTrue();
+        await page.EvaluateAsync("shadow.appendChild(document.createElement('style')); host.remove();");
+        (await page.EvaluateAsync<bool>("list===shadow.styleSheets && list.length===0 && list.item(0)===null && list[0]===undefined")).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
     }
 }
