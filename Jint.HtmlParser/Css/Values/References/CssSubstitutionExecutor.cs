@@ -48,8 +48,14 @@ internal static class CssSubstitutionExecutor
                             var spelling = frame.SpreadChild ? last.Segment!.SpellingLength : last.ExpandedSpelling;
                             frame.ExpandedTokens = Saturate(frame.ExpandedTokens, tokens, CssSubstitutedValue.MaxTokens);
                             frame.ExpandedSpelling = Saturate(frame.ExpandedSpelling, spelling, CssSubstitutedValue.MaxSpelling);
+                            var lexicalLength = frame.SpreadChild ? last.Segment!.LexicalLength : last.ExpandedLexicalLength;
+                            var lexicalPieces = frame.SpreadChild ? last.Segment!.LexicalPieces : last.ExpandedLexicalPieces;
+                            frame.ExpandedLexicalLength = Saturate(frame.ExpandedLexicalLength, lexicalLength, CssSubstitutedValue.MaxSpelling);
+                            frame.ExpandedLexicalPieces = Saturate(frame.ExpandedLexicalPieces, lexicalPieces, CssSubstitutedValue.MaxLexicalPieces);
                             if (frame.ExpandedTokens > CssSubstitutedValue.MaxTokens ||
-                                frame.ExpandedSpelling > CssSubstitutedValue.MaxSpelling)
+                                frame.ExpandedSpelling > CssSubstitutedValue.MaxSpelling ||
+                                frame.ExpandedLexicalLength > CssSubstitutedValue.MaxSpelling ||
+                                frame.ExpandedLexicalPieces > CssSubstitutedValue.MaxLexicalPieces)
                             {
                                 Complete(frames, ref last, Eval.Invalid());
                                 continue;
@@ -63,23 +69,19 @@ internal static class CssSubstitutionExecutor
                     {
                         work.CheckCancellation();
                         last = Eval.Tokens(CssSegment.Concat(frame.Output!.ToArray(), work),
-                            frame.ExpandedTokens, frame.ExpandedSpelling);
+                            frame.ExpandedTokens, frame.ExpandedSpelling, frame.ExpandedLexicalLength, frame.ExpandedLexicalPieces);
                         frames.RemoveAt(frames.Count - 1);
                         continue;
                     }
                     var children = frame.Children;
                     var i = frame.Index;
-                    if (frame.Mode == Mode.Early && i + 3 < children.Length &&
-                        CssSubstitutionArguments.IsPeriod(children[i]) &&
-                        CssSubstitutionArguments.IsPeriod(children[i + 1]) &&
-                        CssSubstitutionArguments.IsPeriod(children[i + 2]) &&
-                        CssSubstitutionArguments.IsReference(children[i + 3], out _))
+                    if (frame.Mode == Mode.Early && CssSubstitutionArguments.TrySpread(children, i, work, out var invocation))
                     {
-                        frame.Index += 4;
+                        frame.Index = invocation + 1;
                         frame.Phase = 1;
                         frame.SpreadChild = true;
                         work.CheckCancellation();
-                        frames.Add(Frame.Invocation(children[i + 3], frame.Context));
+                        frames.Add(Frame.Invocation(children[invocation], frame.Context));
                     }
                     else
                     {
@@ -104,10 +106,10 @@ internal static class CssSubstitutionExecutor
                             continue;
                         }
                         var wrapped = CssSegment.Rebuild(segment, [last.Segment!], work);
-                        Complete(frames, ref last, Eval.Tokens(wrapped, last.ExpandedTokens, last.ExpandedSpelling));
+                        Complete(frames, ref last, Eval.Tokens(wrapped, last.ExpandedTokens, last.ExpandedSpelling, last.ExpandedLexicalLength, last.ExpandedLexicalPieces));
                         continue;
                     }
-                    if (segment.Kind == CssSegmentKind.Token ||
+                    if (segment.Kind is CssSegmentKind.Token or CssSegmentKind.Trivia ||
                         frame.Mode == Mode.Early && CssSubstitutionArguments.IsArbitrary(segment))
                     {
                         Complete(frames, ref last, Eval.Tokens(segment));
@@ -151,6 +153,7 @@ internal static class CssSubstitutionExecutor
         Operation operation)
     {
         var work = operation.Work;
+        frame.Work = work;
         var segment = frame.Segment!;
         if (frame.Phase == 0)
         {
@@ -363,6 +366,9 @@ internal static class CssSubstitutionExecutor
 
     private static void Complete(List<Frame> frames, ref Eval last, Eval result)
     {
+        if (frames[^1].Kind == FrameKind.Invocation && result.Kind == EvalKind.Tokens)
+            result = Eval.Tokens(CssSegment.Substitution(result.Segment!, frames[^1].Work!),
+                result.ExpandedTokens, result.ExpandedSpelling, result.ExpandedLexicalLength, result.ExpandedLexicalPieces);
         last = result;
         frames.RemoveAt(frames.Count - 1);
     }
@@ -377,13 +383,15 @@ internal static class CssSubstitutionExecutor
     private readonly struct Eval
     {
         private Eval(EvalKind kind, CssSegment? segment, string? feature,
-            int expandedTokens = 0, int expandedSpelling = 0)
+            int expandedTokens = 0, int expandedSpelling = 0, int expandedLexicalLength = 0, int expandedLexicalPieces = 0)
         {
             Kind = kind;
             Segment = segment;
             Feature = feature;
             ExpandedTokens = expandedTokens;
             ExpandedSpelling = expandedSpelling;
+            ExpandedLexicalLength = expandedLexicalLength;
+            ExpandedLexicalPieces = expandedLexicalPieces;
         }
 
         internal EvalKind Kind { get; }
@@ -391,8 +399,11 @@ internal static class CssSubstitutionExecutor
         internal string? Feature { get; }
         internal int ExpandedTokens { get; }
         internal int ExpandedSpelling { get; }
-        internal static Eval Tokens(CssSegment segment, int expandedTokens = 0, int expandedSpelling = 0) =>
-            new(EvalKind.Tokens, segment, null, expandedTokens, expandedSpelling);
+        internal int ExpandedLexicalLength { get; }
+        internal int ExpandedLexicalPieces { get; }
+        internal static Eval Tokens(CssSegment segment, int expandedTokens = 0, int expandedSpelling = 0,
+            int expandedLexicalLength = 0, int expandedLexicalPieces = 0) =>
+            new(EvalKind.Tokens, segment, null, expandedTokens, expandedSpelling, expandedLexicalLength, expandedLexicalPieces);
         internal static Eval Invalid() => new(EvalKind.Invalid, null, null);
         internal static Eval Pending(string feature) => new(EvalKind.Pending, null, feature);
     }
@@ -403,6 +414,7 @@ internal static class CssSubstitutionExecutor
         internal Mode Mode;
         internal CssSubstitutionContext Context;
         internal CssSegment? Segment;
+        internal CssValueWork? Work;
         internal CssSegmentList? Children;
         internal List<CssSegment>? Output;
         internal CssSegment[]? Fallback;
@@ -415,6 +427,8 @@ internal static class CssSubstitutionExecutor
         internal bool SpreadChild;
         internal int ExpandedTokens;
         internal int ExpandedSpelling;
+        internal int ExpandedLexicalLength;
+        internal int ExpandedLexicalPieces;
 
         internal static Frame Node(CssSegment segment, Mode mode, CssSubstitutionContext context) =>
             new() { Kind = FrameKind.Node, Segment = segment, Mode = mode, Context = context };

@@ -478,7 +478,7 @@ internal sealed partial class NativeCssQuery
                 if (result.Kind == CssSubstitutionResultKind.PendingFeature)
                     throw new CssIncompleteGrammarException(name, "C6:" + result.PendingFeature, default);
                 if (result.Kind == CssSubstitutionResultKind.Tokens)
-                    text = CssSyntaxSerializer.SerializeComponents(result.Value.Components, _work);
+                    text = result.Value.SerializeCustomProperty(_work);
             }
         }
         var property = new NativeCssProperty(name, text, null, CustomWinner(state, name)?.Source, NativeCssDisposition.Cascaded);

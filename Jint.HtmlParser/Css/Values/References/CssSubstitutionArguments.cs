@@ -88,8 +88,24 @@ internal static class CssSubstitutionArguments
         return result.ToArray();
     }
 
-    internal static bool IsWhitespace(CssSegment segment) => segment.Kind == CssSegmentKind.Token &&
-        segment.Original.Token.Kind == CssTokenKind.Whitespace;
+    internal static bool IsWhitespace(CssSegment segment) => segment.Kind == CssSegmentKind.Trivia ||
+        segment.Kind == CssSegmentKind.Token && segment.Original.Token.Kind == CssTokenKind.Whitespace;
+
+    internal static bool TrySpread(CssSegmentList values, int start, CssValueWork work, out int invocation)
+    {
+        invocation = start;
+        if (!IsPeriod(values[start])) return false;
+        for (var count = 0; count < 3; count++)
+        {
+            while (invocation < values.Length && values[invocation].Kind == CssSegmentKind.Trivia)
+            { work.Charge(1); invocation++; }
+            if (invocation == values.Length || !IsPeriod(values[invocation])) return false;
+            invocation++;
+        }
+        while (invocation < values.Length && values[invocation].Kind == CssSegmentKind.Trivia)
+        { work.Charge(1); invocation++; }
+        return invocation < values.Length && IsReference(values[invocation], out _);
+    }
 
     internal static bool IsPeriod(CssSegment segment) => segment.Kind == CssSegmentKind.Token &&
         segment.Original.Token.Kind == CssTokenKind.Delim && segment.Original.Token.Delimiter == '.';

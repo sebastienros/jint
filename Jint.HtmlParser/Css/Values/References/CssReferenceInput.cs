@@ -5,18 +5,23 @@ namespace Jint.HtmlParser.Css.Values.References;
 /// <summary>A priority-stripped CSS value and the one C1 parse of its original source.</summary>
 internal sealed class CssReferenceInput
 {
-    private CssReferenceInput(string source, int sourceOffset, CssComponentValueList components, int maxNestingDepth)
+    private CssReferenceInput(string source, int sourceOffset, CssComponentValueList components, int maxNestingDepth,
+        CssSourceSpan serializationSpan, string valueTermination)
     {
         Source = source;
         SourceOffset = sourceOffset;
         Components = components;
         MaxNestingDepth = maxNestingDepth;
+        SerializationSpan = serializationSpan;
+        ValueTermination = valueTermination;
     }
 
     internal string Source { get; }
     internal int SourceOffset { get; }
     internal CssComponentValueList Components { get; }
     internal int MaxNestingDepth { get; }
+    internal CssSourceSpan SerializationSpan { get; }
+    internal string ValueTermination { get; }
 
     // Consumes C1's priority-stripped immutable components; spans remain in the original source.
     internal static CssReferenceInput FromComponents(string source, CssComponentValueList components,
@@ -30,7 +35,7 @@ internal sealed class CssReferenceInput
         ArgumentNullException.ThrowIfNull(work);
         ArgumentOutOfRangeException.ThrowIfNegative(maxNestingDepth);
         work.CheckCancellation();
-        if (components.Count == 0) return new CssReferenceInput(string.Empty, 0, components, maxNestingDepth);
+        if (components.Count == 0) return new CssReferenceInput(string.Empty, 0, components, maxNestingDepth, default, "");
         var first = components[0].Span;
         var last = components[components.Count - 1].Span;
         var end = checked(last.Start + last.Length);
@@ -39,7 +44,8 @@ internal sealed class CssReferenceInput
     }
 
     internal static CssReferenceInput FromComponents(string source, CssComponentValueList components,
-        int maxNestingDepth, CssSourceSpan retainedSourceSpan, CssValueWork work)
+        int maxNestingDepth, CssSourceSpan retainedSourceSpan, CssValueWork work,
+        CssSourceSpan? serializationSpan = null, string valueTermination = "")
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(components);
@@ -53,11 +59,17 @@ internal sealed class CssReferenceInput
         if (components.Count != 0 && (components[0].Span.Start < start ||
             (long) components[components.Count - 1].Span.Start + components[components.Count - 1].Span.Length > (long) start + length))
             throw new ArgumentOutOfRangeException(nameof(retainedSourceSpan));
+        var lexicalSpan = serializationSpan ?? retainedSourceSpan;
+        if (lexicalSpan.Start < start || lexicalSpan.Length < 0 ||
+            (long) lexicalSpan.Start + lexicalSpan.Length > (long) start + length)
+            throw new ArgumentOutOfRangeException(nameof(serializationSpan));
+        ArgumentNullException.ThrowIfNull(valueTermination);
+        work.Charge(valueTermination.Length);
         work.CheckCancellation();
         var slice = source.Substring(start, length);
         work.Charge(length);
         work.CheckCancellation();
-        return new CssReferenceInput(slice, start, components, maxNestingDepth);
+        return new CssReferenceInput(slice, start, components, maxNestingDepth, lexicalSpan, valueTermination);
     }
 
     internal ReadOnlySpan<char> SourceSlice(CssSourceSpan originalSpan)
@@ -75,9 +87,13 @@ internal sealed class CssReferenceInput
         ArgumentNullException.ThrowIfNull(valueText);
         cancellationToken.ThrowIfCancellationRequested();
         var depth = options?.Limits.MaxNestingDepth ?? 0;
-        var components = new CssSyntaxParser(valueText, options, cancellationToken).ParseComponentValues();
+        var parser = new CssSyntaxParser(valueText, options, cancellationToken);
+        var components = parser.ParseComponentValues();
         cancellationToken.ThrowIfCancellationRequested();
-        var input = FromComponents(valueText, components, depth, new CssValueWork(cancellationToken));
+        var work = new CssValueWork(cancellationToken);
+        var retained = new CssSourceSpan(0, valueText.Length);
+        var input = FromComponents(valueText, components, depth, retained, work,
+            valueTermination: parser.ValueTermination(components, retained, work));
         cancellationToken.ThrowIfCancellationRequested();
         return input;
     }

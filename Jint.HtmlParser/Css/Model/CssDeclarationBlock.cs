@@ -124,7 +124,9 @@ internal sealed partial class CssDeclarationBlock
         var parser = new CssSyntaxParser(value, options, cancellationToken, work.CheckCancellation);
         var components = parser.ParseComponentValues();
         var input = CssReferenceInput.FromComponents(value, components, options?.Limits.MaxNestingDepth ?? 0,
-            new CssSourceSpan(0, value.Length), work);
+            new CssSourceSpan(0, value.Length), work,
+            parser.TrimLexicalBoundaryWhitespace(0, value.Length, components),
+            parser.ValueTermination(components, new CssSourceSpan(0, value.Length), work));
         var result = CssPropertyParser.Parse(name, input, _context, work);
         RequireCompleted(name, result, new CssSourceSpan(0, value.Length));
         if (result.Status is not (CssPropertyStatus.Valid or CssPropertyStatus.Deferred)) return;
@@ -195,7 +197,7 @@ internal sealed partial class CssDeclarationBlock
             work.Charge(declaration.Name.Length);
             var name = CssPropertyRegistry.NormalizeName(declaration.Name, work);
             var input = CssReferenceInput.FromComponents(source, declaration.Value, depth,
-                declaration.ValueSourceSpan, work);
+                declaration.ValueSourceSpan, work, declaration.ValueSerializationSpan, declaration.ValueTermination);
             var result = CssPropertyParser.Parse(name, input, context, work);
             RequireCompleted(name, result, declaration.Span);
             if (result.Status is CssPropertyStatus.Valid or CssPropertyStatus.Deferred)

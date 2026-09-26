@@ -162,7 +162,7 @@ internal sealed partial class CssDeclarationBlock
                 {
                     if (_context == CssDeclarationContext.Keyframe && syntax.IsImportant) continue;
                     var input = CssReferenceInput.FromComponents(raw.Input.Source!, syntax.Value, raw.Input.Depth,
-                        syntax.ValueSourceSpan, work);
+                        syntax.ValueSourceSpan, work, syntax.ValueSerializationSpan, syntax.ValueTermination);
                     var parsed = CssPropertyParser.Parse(name, input, _context, work);
                     if (parsed.Status == CssPropertyStatus.UnimplementedGrammar)
                         candidate = new(CssSubstitutionBinding.Pending(name, parsed.Blocker!), null, syntax.IsImportant);
