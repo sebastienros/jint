@@ -412,7 +412,7 @@ public sealed class NativeCssSheetSetTests
         using var cancellation = new CancellationTokenSource();
         var calls = 0;
         Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.Install(pending.Document, pending.Style, "", "", "",
-            new CssValueWork(cancellation.Token, () => { if (++calls == checks) cancellation.Cancel(); })));
+            new CssValueWork(cancellation.Token, () => { if (++calls == checks - 1) cancellation.Cancel(); })));
         var work = new CssValueWork(default);
         var sets = NativeCssStyleSheets.SetsOf(pending.Document);
         sets.Preferred(work).Should().BeEmpty();
@@ -420,6 +420,34 @@ public sealed class NativeCssSheetSetTests
         NativeCssStyleSheets.Install(pending.Document, pending.Style, "", "", "", work);
         sets.Preferred(work).Should().Be("a");
         sets.NamesOf(work).Should().Equal("a");
+
+        static (Document Document, Element Style) Setup()
+        {
+            var document = Document.CreateHtml();
+            var style = document.CreateElement("style");
+            style.SetAttribute("title", "a");
+            document.AppendChild(style);
+            NativeCssStyleSheets.PrepareOwner(document, style, new CssValueWork(default));
+            return (document, style);
+        }
+    }
+
+    [Test]
+    public void PostcommitInstallationCancellationRetainsCoherentAssociationHistory()
+    {
+        var baseline = Setup();
+        var checks = 0;
+        NativeCssStyleSheets.Install(baseline.Document, baseline.Style, "", "", "", new CssValueWork(default, () => checks++));
+        var pending = Setup();
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.Install(pending.Document, pending.Style, "", "", "",
+            new CssValueWork(cancellation.Token, () => { if (++calls == checks) cancellation.Cancel(); })));
+        var work = new CssValueWork(default);
+        var sets = NativeCssStyleSheets.SetsOf(pending.Document);
+        sets.Preferred(work).Should().Be("a");
+        sets.NamesOf(work).Should().Equal("a");
+        NativeCssStyleSheets.Get(pending.Document, work).Single().Sheet.Attachment.OwnerNode.Should().BeSameAs(pending.Style);
 
         static (Document Document, Element Style) Setup()
         {
