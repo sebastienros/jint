@@ -157,6 +157,20 @@ internal sealed record EventLoop
     private readonly ConcurrentQueue<EventLoopJob> _events = new();
     private ConcurrentQueue<EventLoopJob>? _tasks;
     private IEventLoopTaskBudget? _taskBudget;
+    private int _taskDrainDeferralDepth;
+
+    internal TaskDrainScope DeferTaskDrain()
+    {
+        _taskDrainDeferralDepth++;
+        return new TaskDrainScope(this);
+    }
+
+    // Engine-thread-only and nested in lexical using scopes. Returning the concrete struct avoids
+    // boxing; each scope must be disposed once, including when script execution throws.
+    internal readonly struct TaskDrainScope(EventLoop eventLoop) : IDisposable
+    {
+        public void Dispose() => eventLoop._taskDrainDeferralDepth--;
+    }
 
     // Installed before a browser engine runs script. Ordinary embedders retain their single FIFO and
     // host-owned budget contract; a browser needs HTML's two lanes to keep a task's reactions ahead of
@@ -454,7 +468,7 @@ internal sealed record EventLoop
         }
     }
 
-    public void RunAvailableContinuations(Engine engine, bool singleTask = false)
+    public void RunAvailableContinuations(Engine engine, bool singleTask = false, bool allowTaskDrain = false)
     {
         // If there's a waiting thread (e.g., in UnwrapIfPromise), only that thread
         // should execute continuations. This prevents background threads (from Task
@@ -477,7 +491,7 @@ internal sealed record EventLoop
         {
             if (_tasks is not null)
             {
-                RunTasks(engine, singleTask);
+                RunTasks(engine, singleTask, allowTaskDrain);
                 return;
             }
 
@@ -546,7 +560,7 @@ internal sealed record EventLoop
         }
     }
 
-    private void RunTasks(Engine engine, bool singleTask)
+    private void RunTasks(Engine engine, bool singleTask, bool allowTaskDrain)
     {
         engine.SettleTimedOutAtomicsWaiters();
 
@@ -570,6 +584,15 @@ internal sealed record EventLoop
 
         while (true)
         {
+            // https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model
+            // The full initial checkpoint above still belongs to the enclosing script's budget.
+            // An explicit host pump bypasses deferral for this call only: a nested evaluation must
+            // still see the depth, and ordinary Engine hosts never reach this separate task lane.
+            if (!allowTaskDrain && _taskDrainDeferralDepth != 0)
+            {
+                return;
+            }
+
             if (!_tasks!.TryDequeue(out var task))
             {
                 if (engine.TryPromoteDueTimerJob(includeIdleCallbacks: false))

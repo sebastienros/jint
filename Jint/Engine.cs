@@ -3117,10 +3117,10 @@ public sealed partial class Engine : IDisposable
         _agent.AddToKeptObjects(target);
     }
 
-    internal void RunAvailableContinuations()
+    internal void RunAvailableContinuations(bool allowTaskDrain = false)
     {
         using var ownership = EnterHostCall();
-        _eventLoop.RunAvailableContinuations(this);
+        _eventLoop.RunAvailableContinuations(this, allowTaskDrain: allowTaskDrain);
     }
 
     /// <summary>
