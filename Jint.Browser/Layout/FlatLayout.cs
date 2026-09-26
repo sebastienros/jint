@@ -512,7 +512,7 @@ internal sealed class FlatLayout
                 {
                     var children = Children(parent).Where(HasBox).ToArray();
                     var widths = FlexRow.Widths(children, width, cascade);
-                    for (var i = 0; i < children.Count; i++)
+                    for (var i = 0; i < children.Length; i++)
                     {
                         Step();
                         _widths.Add(children[i], widths[i]);
