@@ -42,7 +42,8 @@ and full-project design/implementation work are parent-project obligations, not 
 The XML harness chat is likewise finalized without pretending its remaining acceptance debt is resolved.
 
 All six retained chats are finalized and archived; no unmerged task-owned implementation remains.
-Fifty-three implementation chats are now archived, forty-three checkouts removed. Ten completed clean
+Fifty-three implementation chats are now archived, forty-four checkouts removed. Final filesystem
+verification found architecture `dc58` removed after archival. Nine completed clean
 checkouts remain because root/owner `list_artifacts` returns no managed worktree identity:
 
 | Checkout | Chat ID | Completed slice |
@@ -51,7 +52,6 @@ checkouts remain because root/owner `list_artifacts` returns no managed worktree
 | `a768` | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Native/XML IsValue |
 | `ba36` | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Trigonometry |
 | `ad95` | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Framesets |
-| `dc58` | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Architecture contracts |
 | `aebc` | `01a0db13-f920-7580-8392-b5798ebd7d93` | HTML IsValue |
 | `4983` | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | CSS substitution analysis |
 | `b0f9` | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | XML corpus harness/policies |

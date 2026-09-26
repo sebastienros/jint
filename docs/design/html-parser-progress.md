@@ -105,9 +105,10 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Fifty-three completed tasks have now been archived; forty-three worktrees are gone.
-  Ten clean completed checkouts remain pending managed cleanup because attached identities are absent:
-  `ff28`, `a768`, `ba36`, `ad95`, `dc58`, `aebc`, `4983`, `b0f9`, `b0b0` and `4cb4`.
+  Fifty-three completed tasks have now been archived; forty-four worktrees are gone.
+  Final filesystem verification found architecture `dc58` removed after its task was archived.
+  Nine clean completed checkouts remain pending managed cleanup because attached identities are absent:
+  `ff28`, `a768`, `ba36`, `ad95`, `aebc`, `4983`, `b0f9`, `b0b0` and `4cb4`.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -115,7 +116,7 @@ the earlier repository direction to retain AngleSharp.
 
 | Task | Identity | State |
 | --- | --- | --- |
-| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | All existing design deliverables integrated; task archived; managed cleanup pending |
+| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | All existing design deliverables integrated; task archived; checkout removal verified |
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Existing corpus/comparison harness integrated and correctness-validated; archived; timings remain parent acceptance work |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated; archived, worktree removed |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass; archived, worktree removed |
