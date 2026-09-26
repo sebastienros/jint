@@ -1,6 +1,7 @@
 using Jint.Browser.Styling;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Selectors;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Dom.Views;
 
@@ -22,10 +23,13 @@ internal static class CssCascade
         private SelectorMatchWork _matching = matching;
 
         internal static Traversal? For(Document? document, StyleScope scope = StyleScope.All,
-            NativeCssQueryDiagnostics? diagnostics = null)
+            NativeCssQueryDiagnostics? diagnostics = null, CancellationToken cancellationToken = default,
+            Action? checkpoint = null)
         {
-            if (document is null || NativeCssStyleSheets.RealmOf(document) is not { } realm) return null;
-            var input = NativeCssStyleSheets.CreateQuery(document, realm, diagnostics);
+            if (document is null) return null;
+            var input = NativeCssStyleSheets.RealmOf(document) is { } realm
+                ? NativeCssStyleSheets.CreateQuery(document, realm, diagnostics, cancellationToken, checkpoint)
+                : NativeCssStyleSheets.CreateInertQuery(document, new CssValueWork(cancellationToken, checkpoint), checkpoint, diagnostics);
             return new(input.Query, input.Matching);
         }
 

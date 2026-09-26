@@ -1,6 +1,9 @@
 using System.Text;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Html;
+using Jint.Browser.Dom;
+using Jint.Browser.Styling;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Browser.Accessibility;
 
@@ -8,7 +11,8 @@ namespace Jint.Browser.Accessibility;
 internal static partial class ContentDom
 {
     /// <summary>Parses inert HTML for the engine-free content algorithms.</summary>
-    internal static Document Parse(string html, HtmlParseOptions? options = null, CancellationToken cancellationToken = default)
+    internal static Document Parse(string html, HtmlParseOptions? options = null, CancellationToken cancellationToken = default,
+        Action? checkpoint = null)
     {
         ArgumentNullException.ThrowIfNull(html);
         var document = Document.CreateHtml();
@@ -17,11 +21,35 @@ internal static partial class ContentDom
         session.AppendInput(html, isFinal: true);
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            checkpoint?.Invoke();
             var step = session.Drive(4096, cancellationToken);
-            if (step.Kind == HtmlParseStepKind.Complete) return document;
+            if (step.Kind == HtmlParseStepKind.Complete)
+            {
+                InstallCompletedStyles(document, new CssValueWork(cancellationToken, checkpoint));
+                return document;
+            }
             if (step.Kind != HtmlParseStepKind.Yielded)
                 throw new InvalidOperationException("The native inert HTML parser could not complete: " + step.Kind + ".");
         }
+    }
+
+    // The inert parser has completed. Register only connected ordinary-tree styles, never fetch links
+    // or parse CSS here. This is a completion boundary, not a query-time repair or a live mutation hook.
+    private static void InstallCompletedStyles(Document document, CssValueWork work)
+    {
+        var pending = new Stack<Node>();
+        pending.Push(document);
+        while (pending.TryPop(out var node))
+        {
+            work.Charge(1);
+            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
+            { work.Charge(1); pending.Push(child); }
+            if (node is not Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } owner) continue;
+            var text = DomDescendantText.Read(owner, work.Charge, work.Token);
+            NativeCssStyleSheets.Install(document, owner, text, "", "", work);
+        }
+        work.CheckCancellation();
     }
 
     internal static bool HasAttribute(this Element element, string name) => element.GetAttributeNode(name) is not null;

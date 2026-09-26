@@ -6,7 +6,6 @@ using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Browser.Styling;
 
@@ -68,9 +67,18 @@ internal static partial class NativeCssStyleSheets
     }
 
     internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateQuery(Document document, DomRealm realm,
-        NativeCssQueryDiagnostics? diagnostics = null)
+        NativeCssQueryDiagnostics? diagnostics = null, CancellationToken cancellationToken = default,
+        Action? checkpoint = null)
     {
-        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        var token = cancellationToken.CanBeCanceled ? cancellationToken : realm.CancellationToken;
+        void Check()
+        {
+            realm.CancellationToken.ThrowIfCancellationRequested();
+            realm.Engine.Constraints.Check();
+            checkpoint?.Invoke();
+            realm.CancellationToken.ThrowIfCancellationRequested();
+        }
+        var work = new CssValueWork(token, Check);
         var page = PageRuntime.FindBrowsingContext(realm.Engine, document)?.Media ?? PageMediaEnvironment.Default;
         IReadOnlyDictionary<string, string> features = page;
         var media = new CssMediaEnvironment
@@ -97,16 +105,19 @@ internal static partial class NativeCssStyleSheets
             focus?.OwnerDocument == document ? focus : null,
             press?.OwnerDocument == document ? press : null,
             target?.OwnerDocument == document ? target : null);
-        var author = Get(document, work, includeShadow: true);
-        var sheets = new List<NativeCssSheet>(author.Count + 1) { NativeCssBrowserDefaults.Sheet(document, work) };
-        foreach (var sheet in author) { work.Charge(1); sheets.Add(sheet); }
-        var query = new NativeCssQuery(document, sheets, [], media, selectors,
-            CssEnvironmentSnapshot.Create([], work), work,
-            new NativeCssMetrics { FontSize = MediaQuery.PixelsPerEm, RootFontSize = MediaQuery.PixelsPerEm },
-            readInlineAttributes: true, systemColors: NativeCssBrowserDefaults.Palette(media.ColorScheme == "dark", work),
-            diagnostics: diagnostics);
-        var matching = new SelectorMatchWork(document, realm.CancellationToken, realm.Engine.Constraints.Check);
-        return (query, matching);
+        return CreateQuery(document, media, selectors, work, Check, diagnostics);
+    }
+
+    internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateInertQuery(Document document,
+        CssValueWork work, Action? selectorCheckpoint = null, NativeCssQueryDiagnostics? diagnostics = null)
+    {
+        // Inert content uses the existing headless screen/viewport and initial-font policy.
+        // Scripting is unavailable; no focus, pointer activation or glyph metrics are invented.
+        var media = new CssMediaEnvironment { Scripting = "none" };
+        var target = DomDocumentState.Of(document).TargetElement;
+        var selectors = new SelectorEnvironment(document, null, null,
+            target?.OwnerDocument == document ? target : null);
+        return CreateQuery(document, media, selectors, work, selectorCheckpoint, diagnostics);
     }
 }
 

@@ -19,6 +19,7 @@
     <PackageReference Include="Verify.DiffPlex" />
     <PackageReference Include="Verify.NUnit" />
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.Query.cs" Link="Styling\NativeCssStyleSheets.Query.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.cs" Link="Styling\NativeCssQuery.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQueryDiagnostics.cs" Link="Styling\NativeCssQueryDiagnostics.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssComputation.cs" Link="Styling\NativeCssComputation.cs" />

@@ -33,14 +33,16 @@ internal sealed class ElementVisibility
     internal CssCascade.Traversal? CreateTraversal(Document? document)
     {
         _work?.Check();
-        var traversal = _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, scope: CssCascade.StyleScope.Visibility, diagnostics: _diagnostics) : null;
+        Action? checkpoint = _work is null ? null : _work.Check;
+        var traversal = _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document,
+            scope: CssCascade.StyleScope.Visibility, diagnostics: _diagnostics,
+            cancellationToken: _work?.Token ?? default, checkpoint: checkpoint) : null;
         _work?.Check();
         return traversal;
     }
 
     private NativeCssComputedStyle? ComputedOf(Element element, CssCascade.Traversal? traversal) =>
-        traversal is not null ? traversal.Of(element) : _diagnostics is null ? CssCascade.Of(element)
-            : CreateTraversal(element.OwnerDocument)?.Of(element);
+        (traversal ?? CreateTraversal(element.OwnerDocument))?.Of(element);
 
     /// <summary>
     /// Whether the CSS cascade answered at least once, so a caller can say which source a verdict came from.
