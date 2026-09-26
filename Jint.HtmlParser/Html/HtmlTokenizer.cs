@@ -10,7 +10,7 @@ namespace Jint.HtmlParser.Html;
 // declaration marker. Declaration matching probes at most sixteen units.
 internal sealed partial class HtmlTokenizer
 {
-    private readonly HtmlInput _input = new();
+    private readonly HtmlInput _input;
     private readonly ParseDiagnosticCollector? _diagnostics;
     private bool _allowCData;
     private bool _readAllowCData;
@@ -69,6 +69,7 @@ internal sealed partial class HtmlTokenizer
 
     internal HtmlTokenizer(HtmlTokenizerContext context)
     {
+        _input = new HtmlInput(ChargeMarkerTraversal);
         var limits = context.Limits ?? ParseLimits.Unbounded;
         _maxInput = limits.MaxInputCharacters;
         _maxToken = limits.MaxTokenCharacters;
@@ -82,9 +83,10 @@ internal sealed partial class HtmlTokenizer
 
     internal void AppendInput(string chunk, bool isFinal = false)
     {
-        if (_terminal) throw new InvalidOperationException("The tokenizer session is terminal.");
+        EnsureInsertionIdle();
+        if (_terminal || _ended) throw new InvalidOperationException("The tokenizer session is terminal.");
         ArgumentNullException.ThrowIfNull(chunk);
-        if (_input.IsFinal) throw new InvalidOperationException("The input is closed.");
+        if (_input.IsClosed) throw new InvalidOperationException("The input is closed.");
         if (_maxInput > 0 && chunk.Length > _maxInput - _input.Appended)
         {
             _terminal = true;
@@ -99,6 +101,10 @@ internal sealed partial class HtmlTokenizer
     // HTML Standard §13.2.5.42: a declaration uses the adjusted current node's
     // context from when its < opener begins, even across later input/work yields.
     internal HtmlReadStatus Read(int workQuota, bool allowCDataForNextDeclaration,
+        CancellationToken cancellationToken, out HtmlToken token) =>
+        ReadInternal(null, workQuota, allowCDataForNextDeclaration, cancellationToken, out token);
+
+    private HtmlReadStatus ReadCore(int workQuota, bool allowCDataForNextDeclaration,
         CancellationToken cancellationToken, out HtmlToken token)
     {
         token = default;
@@ -131,6 +137,7 @@ internal sealed partial class HtmlTokenizer
                 _remainingWork--;
                 if (_work < long.MaxValue) _work++;
                 cancellationToken.ThrowIfCancellationRequested();
+                if (_input.SkipMarker()) continue;
                 if (_skipLf)
                 {
                     if (!_input.Peek(0, out var following))
@@ -192,7 +199,8 @@ internal sealed partial class HtmlTokenizer
     {
         if (_text.Length > 0) return FlushText(out token);
         token = default;
-        return HtmlReadStatus.NeedInput;
+        if (_input.WorkExhausted) return HtmlReadStatus.Yielded;
+        return _input.BoundaryReached ? HtmlReadStatus.InsertionBoundary : HtmlReadStatus.NeedInput;
     }
 
     private HtmlReadStatus FlushText(out HtmlToken token)
@@ -370,7 +378,16 @@ internal sealed partial class HtmlTokenizer
 
     private void ConsumeCount(int count)
     {
-        for (var i = 0; i < count; i++) Take();
+        _input.BeginKeywordConsumption();
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                _input.ConsumeKeywordCharacter(i);
+                if (_tokenStart >= 0) CheckTokenLength(_tokenStart);
+            }
+        }
+        finally { _input.EndKeywordConsumption(); }
     }
 
     // Quota is cooperative: CLR string/array allocation and copying cannot yield
