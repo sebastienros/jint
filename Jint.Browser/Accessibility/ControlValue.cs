@@ -27,7 +27,7 @@ internal static class ControlValue
         switch (element)
         {
             case { NamespaceUri: Namespaces.Html, LocalName: "input" } when role is "textbox" or "searchbox" or "combobox" or "spinbutton" or "slider":
-                return element.GetHtmlState()!.InputValue!.GetValue(CancellationToken.None);
+                return element.GetHtmlState()!.GetInputValueState(CancellationToken.None)!.GetValue(CancellationToken.None);
 
             case { NamespaceUri: Namespaces.Html, LocalName: "textarea" }:
                 return element.GetHtmlState()!.TextArea!.GetValue(CancellationToken.None);

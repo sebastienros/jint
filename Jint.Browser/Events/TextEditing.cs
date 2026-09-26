@@ -29,12 +29,10 @@ namespace Jint.Browser.Events;
 /// <see cref="Apply"/> rather than through <c>Math.Min</c> and <c>Math.Max</c>.
 /// </para>
 /// <para>
-/// <b>Two AngleSharp behaviours are worked around in the caller rather than relied on.</b> Assigning
-/// <c>Value</c> leaves <c>SelectionStart</c> and <c>SelectionEnd</c> where they were, so they can end up past
-/// the end of the new value — HTML says the assignment moves the cursor to the end — so every edit here sets
-/// the selection explicitly afterwards and every read clamps. And the selection members answer on a
-/// <c>type=checkbox</c> input where HTML raises <c>InvalidStateError</c>, so the type test is this file's,
-/// not AngleSharp's.
+/// Native control state owns the value, its user-change provenance and the editing selection. A canceled
+/// <c>beforeinput</c> commits none of them; an accepted edit applies the value and selection together through
+/// the native user-edit operation. The private editing selection also supports email inputs, whose public
+/// selection API is unavailable.
 /// </para>
 /// </remarks>
 internal static class TextEditing
