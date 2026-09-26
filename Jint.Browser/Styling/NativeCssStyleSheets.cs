@@ -112,7 +112,6 @@ internal static partial class NativeCssStyleSheets
             entry.Source = text;
             entry.Attachment = attachment;
             entry.Replaced = true;
-            entry.NativeStamp = null;
         }
         else resources.Owners.Add(owner, new Resource(text, attachment));
         CssMutationStamp.Advance(ref resources.Version);
@@ -168,68 +167,34 @@ internal static partial class NativeCssStyleSheets
             }
             if (node is Element element)
             {
+                if (!resources.Owners.TryGetValue(element, out var resource) || !resource.Associated || !resource.Loaded)
+                    continue;
                 var ownerWork = new DomReadWork(work.Charge, work.Token);
-                var type = ownerWork.Attribute(element, "type");
-                var embedded = element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg;
-                if (element.NamespaceUri == Namespaces.Html && element.LocalName == "link" &&
-                    !HasStyleSheetRelation(ownerWork.Attribute(element, "rel"), work))
-                    continue;
-                if ((embedded || element.NamespaceUri == Namespaces.Html && element.LocalName == "link") &&
-                    !string.IsNullOrEmpty(type) && !ownerWork.EqualAsciiIgnoreCase(type, "text/css"))
-                    continue;
-                var known = resources.Owners.TryGetValue(element, out var entry);
-                if (embedded &&
-                    (!known || entry!.NativeStamp != documentStamp))
+                if (!EligibleOwner(element, ownerWork, work)) continue;
+                if (resource.Sheet is null)
                 {
-                    var text = ReadText(element, work);
+                    var sheet = CssStyleSheet.Parse(resource.Source, null, parsing, work.Token);
+                    sheet.SetAttachment(resource.Attachment);
                     Verify();
-                    if (!known)
-                    {
-                        entry = new Resource(text, new CssStyleSheetAttachment { OwnerNode = element });
-                        resources.Owners.Add(element, entry);
-                        CssMutationStamp.Advance(ref resources.Version);
-                        revision = new(resources.Version);
-                    }
-                    else if (!CssSubstitutionArguments.Equals(entry!.Source, text, work))
-                    {
-                        Verify();
-                        entry.Source = text;
-                        entry.Replaced = true;
-                        CssMutationStamp.Advance(ref resources.Version);
-                        revision = new(resources.Version);
-                    }
-                    entry!.NativeStamp = documentStamp;
-                    known = true;
+                    sheet.Disabled = resource.Disabled;
+                    resource.Sheet = sheet;
+                    resource.Replaced = false;
                 }
-                if (known && entry is not null) AssociateOwner(document, element, work, element.TreeShadowRoot ?? (Node) document);
-                if (known && entry is { } resource)
+                else if (resource.Replaced)
                 {
-                    if (element.LocalName == "link" && !resource.Loaded) continue;
-                    if (resource.Sheet is null)
-                    {
-                        var sheet = CssStyleSheet.Parse(resource.Source, null, parsing, work.Token);
-                        sheet.SetAttachment(resource.Attachment);
-                        Verify();
-                        sheet.Disabled = resource.Disabled;
-                        resource.Sheet = sheet;
-                        resource.Replaced = false;
-                    }
-                    else if (resource.Replaced)
-                    {
-                        resource.Sheet.ReplaceText(resource.Source, null, parsing, work.Token);
-                        Verify();
-                        resource.Sheet.SetAttachment(resource.Attachment);
-                        resource.Replaced = false;
-                    }
-                    var media = ownerWork.Attribute(element, "media") ?? "";
-                    if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, work))
-                    {
-                        resource.Sheet.Media.SetMediaText(media, null, parsing, work.Token);
-                        Verify();
-                        resource.MediaSource = media;
-                    }
-                    result.Add(new(resource.Sheet, NativeCssOrigin.Author));
+                    resource.Sheet.ReplaceText(resource.Source, null, parsing, work.Token);
+                    Verify();
+                    resource.Sheet.SetAttachment(resource.Attachment);
+                    resource.Replaced = false;
                 }
+                var media = ownerWork.Attribute(element, "media") ?? "";
+                if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, work))
+                {
+                    resource.Sheet.Media.SetMediaText(media, null, parsing, work.Token);
+                    Verify();
+                    resource.MediaSource = media;
+                }
+                result.Add(new(resource.Sheet, NativeCssOrigin.Author));
             }
         }
         Verify();
@@ -255,9 +220,6 @@ internal static partial class NativeCssStyleSheets
         };
         history.Subscription = subscription;
     }
-
-    private static string ReadText(Element owner, CssValueWork work) =>
-        DomDescendantText.Read(owner, work.Charge, work.Token);
 
     // HTML's space-separated rel tokens use ASCII case-insensitive matching.
     private static bool HasStyleSheetRelation(string? value, CssValueWork work)
@@ -303,7 +265,6 @@ internal static partial class NativeCssStyleSheets
         internal CssStyleSheetAttachment Attachment = attachment;
         internal CssStyleSheet? Sheet;
         internal bool Replaced;
-        internal ulong? NativeStamp;
         internal string? MediaSource;
         internal bool Disabled;
         internal bool Associated;

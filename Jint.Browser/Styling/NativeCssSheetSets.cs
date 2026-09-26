@@ -43,7 +43,7 @@ internal static partial class NativeCssStyleSheets
             { work.Charge(1); connected = parent; }
             if (connected is not Document) return;
         }
-        if (resource is null || owner.LocalName == "link" && !resource.Loaded) return;
+        if (resource is null || !resource.Loaded) return;
         if (root is Document) SetsOf(document).Associate(owner, resource, work);
         else if (!resource.Associated)
         {
@@ -70,7 +70,7 @@ internal static partial class NativeCssStyleSheets
         if (!ReferenceEquals(owner.OwnerDocument, document) || stamp != document.MutationStamp)
             throw new InvalidOperationException(NativeCssQuery.Invalidated);
         var resource = new Resource("", new() { OwnerNode = owner })
-        { Loaded = owner.LocalName != "link", Disabled = disabled };
+        { Loaded = false, Disabled = disabled };
         ObserveDisabled(owner);
         resources.Owners.Add(owner, resource);
         return resource;
@@ -93,10 +93,9 @@ internal static partial class NativeCssStyleSheets
         resource.Sheet = null;
         resource.Associated = false;
         resources.Sets?.Removed(owner);
-        resource.NativeStamp = null;
         resource.MediaSource = null;
         resource.Disabled = false;
-        resource.Loaded = owner.LocalName != "link";
+        resource.Loaded = false;
         resource.Replaced = false;
         Jint.HtmlParser.Css.Model.Syntax.CssMutationStamp.Advance(ref resources.Version);
     }
@@ -116,7 +115,6 @@ internal static partial class NativeCssStyleSheets
             { work.Charge(1); connected = parent; }
             if (connected is not Document) return null;
         }
-        AssociateOwner(document, owner, work, root);
         work.CheckCancellation();
         return Documents.TryGetValue(document, out var resources) && resources.Owners.TryGetValue(owner, out var resource)
             ? resource.Associated ? resource : null : null;

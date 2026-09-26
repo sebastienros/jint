@@ -108,6 +108,72 @@ public sealed class NativeCssSheetSetTests
     }
 
     [Test]
+    public void PreparedOpenStylesDoNotAssociateThroughDocumentOrShadowReads()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("div");
+        document.AppendChild(root);
+        var style = document.CreateElement("style");
+        style.SetAttribute("title", "completed");
+        var text = document.CreateTextNode("div {display:block;");
+        style.AppendChild(text);
+        root.AppendChild(style);
+        var shadow = ShadowTree.Attach(root, new(ShadowRootMode.Open), default);
+        var shadowStyle = document.CreateElement("style");
+        shadowStyle.AppendChild(document.CreateTextNode("span {display:block}"));
+        shadow.AppendChild(shadowStyle);
+        var work = new CssValueWork(default);
+        var resource = NativeCssStyleSheets.PrepareOwner(document, style, work)!;
+        NativeCssStyleSheets.PrepareOwner(document, shadowStyle, work);
+        var sets = NativeCssStyleSheets.SetsOf(document);
+        NativeCssStyleSheets.Get(document, work, includeShadow: true).Should().BeEmpty();
+        NativeCssStyleSheets.Get(shadow, work).Should().BeEmpty();
+        NativeCssStyleSheets.AssociatedOwner(style, work).Should().BeNull();
+        sets.NamesOf(work).Should().BeEmpty();
+        sets.Preferred(work).Should().BeEmpty();
+        resource.Associated.Should().BeFalse();
+        resource.Sheet.Should().BeNull();
+        text.Data += "background:red}";
+        NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
+        // The simulated parser completion installs source without parsing pending property values.
+        NativeCssStyleSheets.Install(document, style, text.Data, "", "", work);
+        resource.Sheet.Should().BeNull();
+        sets.Preferred(work).Should().Be("completed");
+        sets.NamesOf(work).Should().Equal("completed");
+        NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
+        NativeCssStyleSheets.Get(shadow, work).Should().BeEmpty();
+        NativeCssStyleSheets.Install(document, shadowStyle, "span {display:block}", "", "", work);
+        NativeCssStyleSheets.Get(shadow, work).Count.Should().Be(1);
+        NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
+    }
+
+    [Test]
+    public void CssomEditsRetainIdentityUntilExplicitStyleLifecycleReplacement()
+    {
+        var document = Document.CreateHtml();
+        var style = document.CreateElement("style");
+        document.AppendChild(style);
+        var text = document.CreateTextNode("div {display:block}");
+        style.AppendChild(text);
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, style, text.Data, "", "", work);
+        var retained = NativeCssStyleSheets.Get(document, work).Single().Sheet;
+        retained.InsertRule("span {display:none}", 1);
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Should().BeSameAs(retained);
+        text.Data = "div {display:none}";
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Should().BeSameAs(retained);
+        retained.Rules.Count.Should().Be(2);
+        NativeCssStyleSheets.DisassociateOwner(document, style, work);
+        NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
+        retained.Attachment.OwnerNode.Should().BeNull();
+        NativeCssStyleSheets.Install(document, style, text.Data, "", "", work);
+        var replacement = NativeCssStyleSheets.Get(document, work).Single().Sheet;
+        replacement.Should().NotBeSameAs(retained);
+        replacement.Rules.Count.Should().Be(1);
+        replacement.Rules[0].CssText.Should().Contain("display: none");
+    }
+
+    [Test]
     public void RootListsExcludeNestedShadowAndTemplateContentAndRecreateStyleAssociations()
     {
         var document = Document.CreateHtml();
@@ -119,12 +185,13 @@ public sealed class NativeCssSheetSetTests
         style.SetAttribute("title", "shadow-only");
         style.AppendChild(document.CreateTextNode("span {display:block}"));
         shadow.AppendChild(style);
-        NativeCssStyleSheets.AssociateOwner(document, style, work);
+        NativeCssStyleSheets.Install(document, style, "span {display:block}", "", "", work);
         var nestedHost = document.CreateElement("section");
         shadow.AppendChild(nestedHost);
         var nested = ShadowTree.Attach(nestedHost, new(ShadowRootMode.Open), default);
         var nestedStyle = document.CreateElement("style");
         nested.AppendChild(nestedStyle);
+        NativeCssStyleSheets.Install(document, nestedStyle, "", "", "", work);
         var template = document.CreateElement("template");
         shadow.AppendChild(template);
         template.TemplateContent!.AppendChild(document.CreateElement("style"));
@@ -132,11 +199,12 @@ public sealed class NativeCssSheetSetTests
         NativeCssStyleSheets.SetsOf(document).NamesOf(work).Should().BeEmpty();
         var retained = NativeCssStyleSheets.Get(shadow, work).Single().Sheet;
         NativeCssStyleSheets.DisassociateOwner(document, style, work);
+        NativeCssStyleSheets.DisassociateOwner(document, nestedStyle, work);
         host.ParentNode!.RemoveChild(host);
         NativeCssStyleSheets.Get(shadow, work).Should().BeEmpty();
         retained.Attachment.OwnerNode.Should().BeNull();
         document.AppendChild(host);
-        NativeCssStyleSheets.AssociateOwner(document, style, work);
+        NativeCssStyleSheets.Install(document, style, "span {display:block}", "", "", work);
         NativeCssStyleSheets.Get(shadow, work).Single().Sheet.Should().NotBeSameAs(retained);
     }
 
@@ -339,17 +407,17 @@ public sealed class NativeCssSheetSetTests
     {
         var baseline = Setup();
         var checks = 0;
-        NativeCssStyleSheets.AssociateOwner(baseline.Document, baseline.Style, new CssValueWork(default, () => checks++));
+        NativeCssStyleSheets.Install(baseline.Document, baseline.Style, "", "", "", new CssValueWork(default, () => checks++));
         var pending = Setup();
         using var cancellation = new CancellationTokenSource();
         var calls = 0;
-        Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.AssociateOwner(pending.Document, pending.Style,
+        Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.Install(pending.Document, pending.Style, "", "", "",
             new CssValueWork(cancellation.Token, () => { if (++calls == checks) cancellation.Cancel(); })));
         var work = new CssValueWork(default);
         var sets = NativeCssStyleSheets.SetsOf(pending.Document);
         sets.Preferred(work).Should().BeEmpty();
         sets.NamesOf(work).Should().BeEmpty();
-        NativeCssStyleSheets.AssociateOwner(pending.Document, pending.Style, work);
+        NativeCssStyleSheets.Install(pending.Document, pending.Style, "", "", "", work);
         sets.Preferred(work).Should().Be("a");
         sets.NamesOf(work).Should().Equal("a");
 
@@ -427,7 +495,7 @@ public sealed class NativeCssSheetSetTests
         var container = document.DocumentElement;
         if (container is null) { container = document.CreateElement("html"); document.AppendChild(container); }
         container.AppendChild(style);
-        NativeCssStyleSheets.AssociateOwner(document, style, work);
+        NativeCssStyleSheets.Install(document, style, "div {display:block;background:red}", "", "", work);
         return style;
     }
 }

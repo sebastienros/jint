@@ -330,7 +330,7 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void SourceInstallationIsLazyAndReplacementPreservesSheetIdentity()
+    public void SourceInstallationIsLazyAndStyleLifecycleReplacementRecreatesSheetIdentity()
     {
         var document = Document.CreateHtml();
         var root = document.CreateElement("div");
@@ -351,14 +351,18 @@ public sealed class NativeCssQueryTests
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(root, "display", ref matching).Text.Should().Be("block");
         source.Data = "div { display:none; }";
+        NativeCssStyleSheets.DisassociateOwner(document, owner, work);
         NativeCssStyleSheets.Install(document, owner, "div { display:none; }",
             "https://example.test/a.css", "https://example.test/base/", work);
         Assert.Throws<InvalidOperationException>(() => query.GetProperty(root, "display", ref matching));
-        NativeCssStyleSheets.Get(document, work)[0].Sheet.Should().BeSameAs(sheet);
-        sheet.Rules[0].CssText.Should().Contain("display: none");
+        sheet.Attachment.OwnerNode.Should().BeNull();
+        var replacement = NativeCssStyleSheets.Get(document, work)[0].Sheet;
+        replacement.Should().NotBeSameAs(sheet);
+        replacement.Rules[0].CssText.Should().Contain("display: none");
 
         // An installation never invokes a pending property validator during HTML parsing.
         source.Data = "div { background:red; }";
+        NativeCssStyleSheets.DisassociateOwner(document, owner, work);
         NativeCssStyleSheets.Install(document, owner, "div { background:red; }", "", "", work);
         var pendingSheet = NativeCssStyleSheets.Get(document, work)[0].Sheet;
         Assert.Throws<CssIncompleteGrammarException>(() => _ = pendingSheet.Rules[0].CssText);
@@ -467,7 +471,7 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void InlineSheetDemandReconcilesNativeTextWithoutReplacingFetchedLinkSource()
+    public void StyleLifecycleUpdatesNativeTextWithoutReplacingFetchedLinkSource()
     {
         var document = Document.CreateHtml();
         var root = document.CreateElement("div");
@@ -480,14 +484,21 @@ public sealed class NativeCssQueryTests
         link.SetAttribute("rel", "stylesheet");
         root.AppendChild(link);
         var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, owner, source.Data, "", "", work);
         NativeCssStyleSheets.Install(document, link, "div { opacity:.5; }", "https://example.test/a.css", "", work);
         var sheets = NativeCssStyleSheets.Get(document, work);
         var inline = sheets[0].Sheet;
         var fetched = sheets[1].Sheet;
         source.Data = "div { display:none; }";
+        // Reads consume the last explicit association; they do not advance parser/lifecycle state.
+        NativeCssStyleSheets.Get(document, work)[0].Sheet.Should().BeSameAs(inline);
+        ((CssStyleRule) inline.Rules[0]).Style.GetPropertyValue("display").Should().Be("block");
+        NativeCssStyleSheets.DisassociateOwner(document, owner, work);
+        NativeCssStyleSheets.Install(document, owner, source.Data, "", "", work);
         sheets = NativeCssStyleSheets.Get(document, work);
-        sheets[0].Sheet.Should().BeSameAs(inline);
-        ((CssStyleRule) inline.Rules[0]).Style.GetPropertyValue("display").Should().Be("none");
+        sheets[0].Sheet.Should().NotBeSameAs(inline);
+        inline.Attachment.OwnerNode.Should().BeNull();
+        ((CssStyleRule) sheets[0].Sheet.Rules[0]).Style.GetPropertyValue("display").Should().Be("none");
         sheets[1].Sheet.Should().BeSameAs(fetched);
         ((CssStyleRule) fetched.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.5");
     }
@@ -563,6 +574,7 @@ public sealed class NativeCssQueryTests
         NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
         owner.SetAttribute("type", "text/css");
         owner.SetAttribute("media", "print");
+        NativeCssStyleSheets.Install(document, owner, "div { opacity:.25; }", "", "", work);
         var sheets = NativeCssStyleSheets.Get(document, work);
         var query = Query(document, sheets.ToArray());
         var matching = new SelectorMatchWork(document, default);
@@ -587,13 +599,16 @@ public sealed class NativeCssQueryTests
         var work = new CssValueWork(default);
         NativeCssStyleSheets.Install(document, link, "div { opacity:.25; }", "https://example.test/a.css", "", work);
         var retained = NativeCssStyleSheets.Get(document, work)[0].Sheet;
+        NativeCssStyleSheets.DisassociateOwner(document, link, work);
         link.SetAttribute("rel", "not-stylesheet stylesheetx");
         NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
         link.RemoveAttribute("rel");
         NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
         link.SetAttribute("rel", "stylesheet");
+        NativeCssStyleSheets.Install(document, link, "div { opacity:.25; }", "https://example.test/a.css", "", work);
         var sheets = NativeCssStyleSheets.Get(document, work);
-        sheets[0].Sheet.Should().BeSameAs(retained);
+        retained.Attachment.OwnerNode.Should().BeNull();
+        sheets[0].Sheet.Should().NotBeSameAs(retained);
         var query = Query(document, sheets.ToArray());
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "opacity", ref matching).Text.Should().Be("0.25");
@@ -636,6 +651,7 @@ public sealed class NativeCssQueryTests
         link.SetAttribute("disabled", "");
         target.AppendChild(link);
         var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, style, "div { opacity:.25; }", "", "", work);
         NativeCssStyleSheets.Install(document, link, "div { opacity:.75; }", "", "", work);
         var sheets = NativeCssStyleSheets.Get(document, work);
         sheets.Count.Should().Be(2);
@@ -681,6 +697,9 @@ public sealed class NativeCssQueryTests
         var assigned = document.CreateElement("button");
         host.AppendChild(assigned);
         var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, shadowOwner, "span { opacity:var(--x); }", "", "", work);
+        NativeCssStyleSheets.Install(document, owner, "#host { visibility:hidden; --x:.25; } "
+            + "span { visibility:visible; } button { opacity:var(--x); }", "", "", work);
         var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
         NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
         var query = new NativeCssQuery(document, sheets, [], new CssMediaEnvironment(), new(document, null, null, null),
