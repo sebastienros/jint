@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 
@@ -201,7 +202,7 @@ public sealed class LayoutInvalidationTests
         (await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var target = runtime.Document!.GetElementById("target")!;
+            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "target")!;
             var before = runtime.Layout.ClientBoxOf(target)!.Value.Height;
             target.SetAttribute("hidden", "");
             return before > 0 && runtime.Layout.ClientBoxOf(target) is null;
