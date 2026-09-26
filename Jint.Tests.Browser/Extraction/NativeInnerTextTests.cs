@@ -10,6 +10,11 @@ public sealed class NativeInnerTextTests
     [TestCase("<div id=t>a<div hidden>b</div><div>c</div>d<br>e</div>", "a\nc\nd\ne")]
     [TestCase("<div id=t hidden>  a<br>b\nc </div>", "  ab\nc ")]
     [TestCase("<section style='display:none'><div id=t> a<br>b </div></section>", " ab ")]
+    [TestCase("<div id=t style='visibility:hidden'>hidden<span style='visibility:visible'>visible</span>hidden</div>", "visible")]
+    [TestCase("<div id=t>a<div style='visibility:collapse'>hidden<span style='visibility:visible'>visible</span>hidden</div>b</div>", "avisibleb")]
+    [TestCase("<table><tr><td id=t>A</td><td>B</td></tr><tr><td>C</td></tr></table>", "A")]
+    [TestCase("<table><tr id=t><td>A</td><td>B</td></tr><tr><td>C</td></tr></table>", "A\tB")]
+    [TestCase("<div><br id=t>after</div>", "")]
     public void GetterUsesRenderedExtractionAndDescendantTextForAnUnrenderedRoot(string markup, string expected)
     {
         using var engine = new Engine();
@@ -94,6 +99,23 @@ public sealed class NativeInnerTextTests
         }
         parent.AppendChild(document.CreateTextNode("leaf"));
         TextExtractor.InnerText(root, false, null, default).Should().Be("leaf");
+    }
+
+    [Test]
+    public void InlineStyleDelimiterRunsPollTheActualReadWork()
+    {
+        var target = ContentDom.ElementById(ContentDom.Parse("<div id=t>text</div>"), "t")!;
+        target.SetAttribute("style", new string(';', 1_048_576));
+        var checks = new List<int>();
+        var work = new DomReadWork(units =>
+        {
+            checks.Add(units);
+            if (units == 256) throw new OperationCanceledException();
+        }, default);
+        var visibility = new ElementVisibility(false, work);
+        Action read = () => visibility.Style(target);
+        read.Should().ThrowExactly<OperationCanceledException>();
+        checks.Should().Contain(256);
     }
 
     private sealed class CancelPreparation : Constraint

@@ -59,7 +59,7 @@ internal static class TextExtractor
         {
             // A deferred sibling frame keeps storage proportional to depth, rather than subtree width.
             var pending = new Stack<Frame>();
-            pending.Push(new Frame(root, false, false, false, null, 0));
+            pending.Push(new Frame(root, false, false, false, null, 0, true, false));
             while (pending.TryPop(out var frame))
             {
                 work.Step();
@@ -72,29 +72,37 @@ internal static class TextExtractor
                     continue;
                 }
                 if (frame.Siblings && frame.Node.NextSibling is { } sibling)
-                    pending.Push(new Frame(sibling, frame.Preserve, false, true, null, 0));
+                    pending.Push(new Frame(sibling, frame.Preserve, false, true, null, 0, false, frame.Hidden));
                 switch (frame.Node)
                 {
                     case Text text:
-                        AddText(text, frame.Preserve);
+                        if (!frame.Hidden) AddText(text, frame.Preserve);
                         break;
                     case CDataSection cdata:
-                        AddText(cdata.Data, frame.Preserve);
+                        if (!frame.Hidden) AddText(cdata.Data, frame.Preserve);
                         break;
                     case Element element:
-                        if (ImplicitRole.IsMetadataContent(element) || visibility.RenderingReasonFor(element, traversal) != AxIgnoredReason.None) break;
-                        var display = HtmlDisplay.Resolve(element, visibility.Style(element, traversal).Display);
-                        var breaks = element.LocalName == "p" ? 2 : HtmlDisplay.IsBlockLevel(display) || display == "table-caption" ? 1 : 0;
+                        if (ImplicitRole.IsMetadataContent(element)) break;
+                        var reason = visibility.RenderingReasonFor(element, traversal);
+                        if (reason is AxIgnoredReason.Hidden or AxIgnoredReason.NotRendered) break;
+                        var style = visibility.Style(element, traversal);
+                        var hidden = reason == AxIgnoredReason.NotVisible || frame.Hidden
+                            && !string.Equals(style.Visibility, "visible", StringComparison.OrdinalIgnoreCase)
+                            && !string.Equals(style.Visibility, "initial", StringComparison.OrdinalIgnoreCase);
+                        var display = HtmlDisplay.Resolve(element, style.Display);
+                        // The queried root supplies context, but its own box contributes no separators.
+                        var breaks = hidden || frame.Root ? 0 : element.LocalName == "p" ? 2
+                            : HtmlDisplay.IsBlockLevel(display) || display == "table-caption" ? 1 : 0;
                         Break(breaks);
                         if (element.LocalName == "br")
                         {
-                            Separator('\n');
+                            if (!hidden && !frame.Root) Separator('\n');
                             Break(breaks);
                             break;
                         }
                         var preserve = frame.Preserve || HtmlDisplay.PreservesWhitespace(element, visibility.WhiteSpace(element, traversal));
-                        pending.Push(new Frame(element, preserve, true, false, display, breaks));
-                        if (element.FirstChild is { } child) pending.Push(new Frame(child, preserve, false, true, null, 0));
+                        pending.Push(new Frame(element, preserve, true, false, hidden || frame.Root ? null : display, breaks, false, hidden));
+                        if (element.FirstChild is { } child) pending.Push(new Frame(child, preserve, false, true, null, 0, false, hidden));
                         break;
                 }
             }
@@ -195,6 +203,6 @@ internal static class TextExtractor
             return true;
         }
 
-        private readonly record struct Frame(Node Node, bool Preserve, bool Exit, bool Siblings, string? Display, int Breaks);
+        private readonly record struct Frame(Node Node, bool Preserve, bool Exit, bool Siblings, string? Display, int Breaks, bool Root, bool Hidden);
     }
 }

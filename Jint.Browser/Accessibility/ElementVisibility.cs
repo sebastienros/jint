@@ -174,6 +174,7 @@ internal sealed class ElementVisibility
         var start = 0;
         while (start < style.Length)
         {
+            _work?.Step();
             var end = start;
             var separator = -1;
             for (; end < style.Length && style[end] != ';'; end++)
@@ -181,6 +182,7 @@ internal sealed class ElementVisibility
                 _work?.Step();
                 if (separator < 0 && style[end] == ':') separator = end;
             }
+            if (end < style.Length) _work?.Step();
             if (separator >= 0)
             {
                 var name = Trim(style, start, separator);
