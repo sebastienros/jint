@@ -1186,6 +1186,8 @@ internal sealed class ParserDriver : IDisposable
 
     private void FinishLoad(IDocument document, Action<NavigationPhase>? onPhase)
     {
+        if (_runtime.Document is { } nativeDocument) DomDocumentState.SelectNavigationTarget(_runtime.Dom, nativeDocument);
+
         // The handler content attributes on <body> that HTML redirects to the window — onload above all —
         // belong to a target the body's own wrapper is what registers them on. Every other element's arrive
         // with its wrapper; see EventHandlerContentAttributes.InstallBodyHandlers for why this one cannot.

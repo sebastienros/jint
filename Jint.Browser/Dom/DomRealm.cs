@@ -517,6 +517,10 @@ internal sealed class DomRealm
     /// <summary>Projects a node, which is what most generated members return.</summary>
     internal JsValue WrapNodeValue(Node? node) => node is null ? JsValue.Null : WrapNode(node);
 
+    private Action<int>? _nativeReadCheckpoint;
+    // Trusted host-only checks. Native read work owns polling and never retains this callback.
+    internal Action<int> NativeReadCheckpoint => _nativeReadCheckpoint ??= _ => Engine.Constraints.Check();
+
     internal CancellationToken CancellationToken
         => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
 

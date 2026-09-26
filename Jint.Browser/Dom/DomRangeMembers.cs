@@ -10,14 +10,14 @@ internal static class DomRangeMembers
     {
         var node = DomBindings.IdentityArgument(arguments, 0, "Range.comparePoint");
         var offset = DomConvert.RequiredUInt32(arguments, 1, "Range.comparePoint");
-        return DomConvert.Number(range.ComparePoint(node, offset, realm.CancellationToken));
+        return DomConvert.Number(range.ComparePoint(node, offset, realm.NativeReadCheckpoint, realm.CancellationToken));
     }
 
     internal static JsValue IsPointInRange(DomRealm realm, DomRange range, JsValue[] arguments)
     {
         var node = DomBindings.IdentityArgument(arguments, 0, "Range.isPointInRange");
         var offset = DomConvert.RequiredUInt32(arguments, 1, "Range.isPointInRange");
-        return DomConvert.Bool(range.IsPointInRange(node, offset, realm.CancellationToken));
+        return DomConvert.Bool(range.IsPointInRange(node, offset, realm.NativeReadCheckpoint, realm.CancellationToken));
     }
 
     internal static JsValue CloneContents(DomRealm realm, DomRange range)

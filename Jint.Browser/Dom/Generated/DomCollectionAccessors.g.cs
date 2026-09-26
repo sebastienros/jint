@@ -351,69 +351,29 @@ internal sealed class DomAccessorMediaList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>NamedNodeMap</c> answers indexed and named property lookups.</summary>
+/// <summary>Native attribute-list indexed and named reads.</summary>
 internal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor
 {
     internal static readonly DomAccessorNamedNodeMap Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.INamedNodeMap) target).Length;
-
+    internal override uint Length(object target) => (uint) ((Collections.DomNamedNodeMap) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(collection[(int) index]);
-        return true;
+        var item = ((Collections.DomNamedNodeMap) target).Item(index);
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
-
     internal override bool HasNamedGetter => true;
-
     internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
-    {
-        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        var length = collection.Length;
-        var names = new global::System.Collections.Generic.List<string>(length);
-        for (var i = 0; i < length; i++)
-        {
-            names.Add(collection[i]!.Name);
-        }
-
-        return names;
-    }
-
+        => ((Collections.DomNamedNodeMap) target).SupportedNames();
     internal override bool HasSupportedName(object target, string name)
-    {
-        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        var length = collection.Length;
-        for (var i = 0; i < length; i++)
-        {
-            if (string.Equals(collection[i]!.Name, name, global::System.StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
+        => ((Collections.DomNamedNodeMap) target).HasSupportedName(name);
     internal override bool AreNamesEnumerable => false;
-
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
-        var item = ((global::AngleSharp.Dom.INamedNodeMap) target)[name];
-        if (item is null)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.WrapNodeValue(item);
-        return true;
+        var map = (Collections.DomNamedNodeMap) target;
+        var item = map.HasSupportedName(name) ? map.GetNamedItem(name) : null;
+        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.Wrap(item);
+        return item is not null;
     }
 }
 

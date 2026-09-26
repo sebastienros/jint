@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -38,7 +38,7 @@ internal sealed class BrowserEventRealm
     private readonly ObjectInstance?[] _hostPrototypes;
     private readonly Dom.HostInterfaceObject?[] _hostInterfaceObjects;
     private List<PendingActivation>? _pending;
-    private ConditionalWeakTable<IElement, SelectedCoordinate>? _imageCoordinates;
+    private ConditionalWeakTable<Element, SelectedCoordinate>? _imageCoordinates;
 
     private BrowserEventRealm(Engine engine, Realm realm)
     {
@@ -69,7 +69,7 @@ internal sealed class BrowserEventRealm
     /// <c>IDocument.ActiveElement</c> — not even from its own <c>DoFocus</c> — so its answer is <c>null</c> for
     /// the life of every document. See <c>overrides.json</c>'s two <c>Document</c> skip entries.
     /// </remarks>
-    internal IElement? FocusedElement { get; set; }
+    internal Element? FocusedElement { get; set; }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-document-hasfocus — whether the document's
@@ -87,7 +87,7 @@ internal sealed class BrowserEventRealm
     /// another activates the container they share rather than either of them. It is per engine, so a
     /// navigation between a press and a release leaves the new document with no press outstanding.
     /// </remarks>
-    internal IElement? MousePressTarget { get; set; }
+    internal Element? MousePressTarget { get; set; }
 
     /// <summary>
     /// The touch points currently on the surface, and what the sequence they belong to has already decided.
@@ -115,13 +115,13 @@ internal sealed class BrowserEventRealm
     /// cancelled leaves this behind and nothing reads it. It is per engine and lives for one release, like
     /// <see cref="MousePressTarget"/>, which is why it holds no wrapper and pins no document.
     /// </remarks>
-    internal (IElement Image, int X, int Y)? PendingImagePoint { get; set; }
+    internal (Element Image, int X, int Y)? PendingImagePoint { get; set; }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the coordinate
     /// <paramref name="image"/>'s last activation selected, and (0, 0) for a button that has none.
     /// </summary>
-    internal (int X, int Y) SelectedImageCoordinate(IElement image)
+    internal (int X, int Y) SelectedImageCoordinate(Element image)
         => _imageCoordinates is not null && _imageCoordinates.TryGetValue(image, out var selected)
             ? (selected.X, selected.Y)
             : (0, 0);
@@ -136,7 +136,7 @@ internal sealed class BrowserEventRealm
     /// dropped by both the tree and script takes its coordinate with it. The default costs no table at all:
     /// the (0, 0) every activation that selected nothing sets is stored as the absence of an entry.
     /// </remarks>
-    internal void SelectImageCoordinate(IElement image, int x, int y)
+    internal void SelectImageCoordinate(Element image, int x, int y)
     {
         if (x == 0 && y == 0)
         {
@@ -144,7 +144,7 @@ internal sealed class BrowserEventRealm
             return;
         }
 
-        (_imageCoordinates ??= new ConditionalWeakTable<IElement, SelectedCoordinate>()).AddOrUpdate(image, new SelectedCoordinate(x, y));
+        (_imageCoordinates ??= new ConditionalWeakTable<Element, SelectedCoordinate>()).AddOrUpdate(image, new SelectedCoordinate(x, y));
     }
 
     /// <summary>

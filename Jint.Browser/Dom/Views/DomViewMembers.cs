@@ -84,7 +84,7 @@ internal static class DomViewMembers
     /// AngleSharp implements it as <c>Range.ToString()</c> and puts no <c>[DomName]</c> on it, so nothing in
     /// the metadata says it is the interface's stringifier.
     /// </remarks>
-    internal static JsValue RangeToString(HtmlParser.DomRange range) => JsString.Create(range.GetText(default));
+    internal static JsValue RangeToString(DomRealm realm, HtmlParser.DomRange range) => JsString.Create(range.GetText(realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-range-getboundingclientrect, at the only size a range can be

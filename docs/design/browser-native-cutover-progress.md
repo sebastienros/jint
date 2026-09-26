@@ -106,3 +106,59 @@ Before resuming, establish which separately owned native prerequisites were
 reviewed and integrated after `97a77c148`, then merge them into this isolated
 branch. Continue the actual production port and tests; this checkpoint is not a
 ready-to-integrate cutover.
+
+## Resumed integration: native DOM mutations, collections, selectors and Range reads
+
+The wrap-up above is historical; work resumed after merging common `0b9b921de`,
+then the reviewed attribute-index/CSS-source and Range-read APIs through
+`2b6cc11f2`.
+
+Production changes in this checkpoint:
+
+- Native ParentNode append/prepend/replaceChildren and ChildNode before/after/
+  replaceWith use native mutation bookkeeping. The Node-or-string union preserves
+  native Attr identity through ordered fragment construction: a later Attr refusal
+  leaves preceding argument nodes moved, rather than preflight-rejecting the union.
+- Native Element attribute-node methods, adjacent insertions, reflected id/class/
+  slot, child/sibling reads and public assignedSlot. Closed shadow slots are hidden
+  only by the public getter; event paths still use the actual native assignment.
+- Live SameObject immediate-child HTMLCollection and NamedNodeMap views, using
+  native `Element.GetAttributeAt(uint)` and the existing canonical Attr wrapper.
+- DOM selector methods now use the actual native compiler/matcher and data-only
+  SelectorEnvironment. Focus and pointer seeds come from the actual interaction
+  store (`BrowserEventRealm.Of(engine)`), independently of wrapper creation realm.
+  Document target identity starts null and is selected at navigation boundaries,
+  never on query; ID mutations cannot silently retarget `:target`. Initial load,
+  fragment navigation and same-document traversal are wired to the selection step.
+  The native traversal charges non-element visits and ascents too. Target selection
+  follows HTML's scroll-to-fragment identity rule; ancestor revealing, fragment
+  focus and scrolling remain work for the runtime migration.
+- All six native readonly Range operations receive the Browser deadline check
+  adapter and cancellation token after WebIDL conversions. The stringifier no
+  longer supplies a default token. Synchronous content mutations make no new
+  cancellation guarantee.
+
+Generator: Release regeneration succeeded with 163 interfaces, 12 output files,
+zero generator diagnostics. Fresh Release net8 Browser build failed with **974
+unique diagnostics, zero warnings**, in 19.58 seconds. No Browser runtime tests
+can run yet. This is an isolated, incomplete production cutover, not an integration
+claim. The remaining Range clone-reaction diagnostic is the still-unported custom
+registry consumer, not a reason to omit reactions.
+
+Remaining native seam: selector compilation has cancellation polling but no host
+work callback; Browser checks host constraints before/after compilation. Matching
+and navigation target traversal already poll the host deadline during work.
+
+### Exclusive Browser leaf group available for parent dispatch
+
+Relinquish all implementation files under `Jint.Browser/Accessibility/` and
+`Jint.Browser/Extraction/`, plus focused tests under
+`Jint.Tests.Browser/Accessibility/` and `Jint.Tests.Browser/Extraction/` (including
+those directories' fixture/golden helpers). Those files have no local edits here.
+The recipient owns native production conversion within those paths and reports
+missing native state instead of inserting false predicates or substitutes.
+
+Do not edit shared DomRealm/wrapper/cache, generated contract or files, Events,
+Layout, CustomElements/Observers, Runtime/Parsing or Page navigation, or DevTools
+from that leaf group. Parent reviews and merges its commit back into this branch.
+The main Browser owner retains those shared seams and the parser scheduler.

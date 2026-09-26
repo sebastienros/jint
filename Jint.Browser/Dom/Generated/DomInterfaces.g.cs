@@ -426,7 +426,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>MutationRecord</c> interface, projected from <c>AngleSharp.Dom.IMutationRecord</c>.</summary>
     internal static readonly DomInterfaceDefinition MutationRecord;
 
-    /// <summary>The <c>NamedNodeMap</c> interface, projected from <c>AngleSharp.Dom.INamedNodeMap</c>.</summary>
+    /// <summary>The <c>NamedNodeMap</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomNamedNodeMap</c>.</summary>
     internal static readonly DomInterfaceDefinition NamedNodeMap;
 
     /// <summary>The <c>Navigator</c> interface, projected from <c>AngleSharp.Browser.Dom.INavigator</c>.</summary>
@@ -1849,7 +1849,7 @@ internal static partial class DomInterfaces
 
         NamedNodeMap = Add(new DomInterfaceDefinition(
             "NamedNodeMap",
-            typeof(global::AngleSharp.Dom.INamedNodeMap),
+            typeof(global::Jint.Browser.Dom.Collections.DomNamedNodeMap),
             BuildNamedNodeMap,
             null,
             rootsAtEventTarget: false,

@@ -931,6 +931,7 @@ public sealed partial class Page
 
         _url = url;
         runtime.DocumentUrl = url;
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
         SignalNavigation();
         _observer?.SameDocumentNavigated(url, _loaderId);
 
@@ -952,6 +953,7 @@ public sealed partial class Page
         var url = _history.Current?.Url ?? previous;
         _url = url;
         runtime.DocumentUrl = url;
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
         SignalNavigation();
         _observer?.SameDocumentNavigated(url, _loaderId);
 

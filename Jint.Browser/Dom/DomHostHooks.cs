@@ -121,49 +121,27 @@ internal class DomHostHooks
     /// computed namespace made this setter lower-case a name for a null-namespace element that every one of
     /// those readers then looked up unfolded.
     /// </remarks>
-    internal virtual void SetAttribute(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void SetAttribute(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.setAttribute");
         var value = DomConvert.RequiredText(arguments, 1, "Element.setAttribute");
-        if (element.Owner is IHtmlDocument && DomNamespaces.Of(element) == NamespaceNames.HtmlUri)
-        {
+        element.SetAttribute(name, value);
+        if (element.NamespaceUri == Jint.HtmlParser.Namespaces.Html && element.OwnerDocument?.Kind == Jint.HtmlParser.DocumentKind.Html)
             name = AsciiLowercase(name);
-        }
-        var attribute = element.Attributes.GetNamedItem(name);
-        if (attribute is null)
-        {
-            element.Attributes.SetNamedItem(new Attr(name, value));
-        }
-        else
-        {
-            attribute.Value = value;
-        }
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-element-setattributens</summary>
-    internal virtual void SetAttributeNS(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void SetAttributeNS(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         var name = DomConvert.RequiredText(arguments, 1, "Element.setAttributeNS");
         var value = DomConvert.RequiredText(arguments, 2, "Element.setAttributeNS");
-        namespaceUri = string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri;
-        var colon = name.IndexOf(':', StringComparison.Ordinal);
-        var localName = colon < 0 ? name : name[(colon + 1)..];
-        var attribute = element.Attributes.GetNamedItem(namespaceUri, localName);
-        if (attribute is null)
+        element.SetAttributeNS(namespaceUri, name, value);
+        if (string.IsNullOrEmpty(namespaceUri))
         {
-            element.Attributes.SetNamedItemWithNamespaceUri(new Attr(
-                colon < 0 ? null : name[..colon], localName, value, namespaceUri));
-        }
-        else
-        {
-            // Set-an-attribute-value preserves the existing node and its prefix.
-            attribute.Value = value;
-        }
-        if (namespaceUri is null)
-        {
-            Events.EventHandlerContentAttributes.AttributeChanged(realm, element, localName);
+            var colon = name.IndexOf(':', StringComparison.Ordinal);
+            Events.EventHandlerContentAttributes.AttributeChanged(realm, element, colon < 0 ? name : name[(colon + 1)..]);
         }
     }
 
@@ -171,7 +149,7 @@ internal class DomHostHooks
     /// https://dom.spec.whatwg.org/#dom-element-removeattribute, the other half: removing the attribute
     /// deactivates the handler, and the listener goes with it.
     /// </summary>
-    internal virtual void RemoveAttribute(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void RemoveAttribute(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.removeAttribute");
         element.RemoveAttribute(name);
@@ -241,31 +219,35 @@ internal class DomHostHooks
     /// compares the attribute's value instead, and answers the first element it walks for
     /// <c>getElementById("")</c> - the document element of an ordinary page. See Dom/divergences.md.
     /// </remarks>
-    internal virtual JsValue GetElementById(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementById(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var elementId = DomConvert.RequiredText(arguments, 0, Member(root, "getElementById"));
+        var elementId = DomConvert.RequiredText(arguments, 0, NativeMember(root, "getElementById"));
 
         if (elementId.Length == 0)
         {
             return JsValue.Null;
         }
 
-        return realm.WrapNodeValue(root is INonElementParentNode parent ? parent.GetElementById(elementId) : null);
+        foreach (var element in Jint.HtmlParser.NodeTraversal.DescendantElements(root, realm.Engine.Constraints.Check, realm.CancellationToken))
+        {
+            if (element.GetAttribute("id") == elementId) return realm.WrapNodeValue(element);
+        }
+        return JsValue.Null;
     }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-childnode-before, whose viable-sibling step runs before the argument
     /// conversion that can move the receiver out of its own parent. See <see cref="DomChildNodeMembers"/>.
     /// </summary>
-    internal virtual void Before(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual void Before(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => DomChildNodeMembers.Before(realm, node, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-after</summary>
-    internal virtual void After(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual void After(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => DomChildNodeMembers.After(realm, node, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-replacewith</summary>
-    internal virtual void ReplaceWith(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual void ReplaceWith(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => DomChildNodeMembers.ReplaceWith(realm, node, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbyclassname</summary>
@@ -386,20 +368,20 @@ internal class DomHostHooks
     /// wrapper keep one element wrapper per index. Every other <c>NodeList</c> in the surface
     /// (<c>childNodes</c>, <c>labels</c>) is live and keeps the ordinary accessor-driven wrapper.
     /// </remarks>
-    internal virtual JsValue QuerySelectorAll(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue QuerySelectorAll(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var selectors = DomSelectorText.Required(arguments, Member(root, "querySelectorAll"));
-        return realm.WrapStaticNodeList(DomSelectors.QuerySelectorAll(root, selectors));
+        var selectors = DomConvert.RequiredText(arguments, 0, NativeMember(root, "querySelectorAll"));
+        return realm.WrapStaticNodeList(DomSelectors.QuerySelectorAll(realm, root, selectors));
     }
 
-    internal virtual JsValue QuerySelector(DomRealm realm, INode root, JsValue[] arguments)
-        => realm.WrapNodeValue(DomSelectors.QuerySelector(root, DomSelectorText.Required(arguments, Member(root, "querySelector"))));
+    internal virtual JsValue QuerySelector(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
+        => realm.WrapNodeValue(DomSelectors.QuerySelector(realm, root, DomConvert.RequiredText(arguments, 0, NativeMember(root, "querySelector"))));
 
-    internal virtual JsValue Matches(DomRealm realm, IElement element, JsValue[] arguments)
-        => DomConvert.Bool(DomSelectors.Matches(element, DomSelectorText.Required(arguments, "Element.matches")));
+    internal virtual JsValue Matches(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
+        => DomConvert.Bool(DomSelectors.Matches(realm, element, DomConvert.RequiredText(arguments, 0, "Element.matches")));
 
-    internal virtual JsValue Closest(DomRealm realm, IElement element, JsValue[] arguments)
-        => realm.WrapNodeValue(DomSelectors.Closest(element, DomSelectorText.Required(arguments, "Element.closest")));
+    internal virtual JsValue Closest(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
+        => realm.WrapNodeValue(DomSelectors.Closest(realm, element, DomConvert.RequiredText(arguments, 0, "Element.closest")));
 
     private static string NativeMember(Jint.HtmlParser.Node root, string operation)
         => (root is Jint.HtmlParser.Document ? "Document." : root is Jint.HtmlParser.DocumentFragment ? "DocumentFragment." : "Element.") + operation;
@@ -614,30 +596,16 @@ internal class DomHostHooks
     /// (<see cref="DomNamespaces"/>) and the same one <see cref="TagNameFilter"/> compares, so an element and
     /// a query for it cannot disagree about whether its name folds.
     /// </remarks>
-    internal virtual JsValue TagName(DomRealm realm, IElement element)
+    internal virtual JsValue TagName(DomRealm realm, Jint.HtmlParser.Element element)
     {
-        var qualified = QualifiedName(element);
-        return string.Equals(DomNamespaces.Of(element), NamespaceNames.HtmlUri, StringComparison.Ordinal)
-            && element.Owner is IHtmlDocument
+        var qualified = element.TagName;
+        return element.NamespaceUri == Jint.HtmlParser.Namespaces.Html
+            && element.OwnerDocument?.Kind == Jint.HtmlParser.DocumentKind.Html
                 // Memoized per realm: the transform is a pure function of the qualified name, and this is
                 // the branch every repeated read of an HTML element's tagName/nodeName takes.
                 ? realm.HtmlUppercasedTagName(qualified)
                 : JsString.Create(qualified);
     }
-
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-node-nodename — for an element, the same
-    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
-    /// qualified name</a> <see cref="TagName"/> answers, and AngleSharp's own answer for everything else.
-    /// </summary>
-    /// <remarks>
-    /// DOM defines the two in terms of one name, so they cannot disagree; AngleSharp decides both on the
-    /// namespace alone, so hooking only <c>tagName</c> would have left an element in an XML document
-    /// answering <c>div</c> from one member and <c>DIV</c> from the other. It delegates rather than repeats,
-    /// which is what keeps a host that overrides <see cref="TagName"/> answering one name from both.
-    /// </remarks>
-    internal virtual JsValue NodeName(DomRealm realm, INode node)
-        => node is IElement element ? TagName(realm, element) : JsString.Create(node.NodeName);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-element-namespaceuri — "this's namespace", the namespace the element
@@ -651,8 +619,8 @@ internal class DomHostHooks
     /// (<a href="https://github.com/sebastienros/jint/issues/3949">#3949</a>). <see cref="DomNamespaces"/> is
     /// the one answer every namespace-sensitive member in the binding reads.
     /// </remarks>
-    internal virtual JsValue NamespaceUri(DomRealm realm, IElement element)
-        => DomConvert.NullableText(DomNamespaces.Of(element));
+    internal virtual JsValue NamespaceUri(DomRealm realm, Jint.HtmlParser.Element element)
+        => DomConvert.NullableText(element.NamespaceUri);
 
     /// <summary>
     /// ASCII-uppercases <paramref name="value"/>: only the bytes <c>a</c>-<c>z</c> move, deliberately not
