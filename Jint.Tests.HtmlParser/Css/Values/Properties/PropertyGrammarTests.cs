@@ -17,9 +17,18 @@ public sealed class PropertyGrammarTests
     [TestCase("display", "ruby", "ruby")]
     [TestCase("visibility", "c\\6f llapse", "collapse")]
     [TestCase("opacity", "+1.250", "1.25")]
-    [TestCase("opacity", "-20%", "-20%")]
+    [TestCase("opacity", "-20%", "-0.2")]
+    [TestCase("opacity", "50%", "0.5")]
+    [TestCase("opacity", "120%", "1.2")]
+    [TestCase("opacity", "-0%", "0")]
     [TestCase("opacity", "calc(1 + 2)", "calc(3)")]
     [TestCase("z-index", "-10", "-10")]
+    [TestCase("z-index", "1000000000000001", "1000000000000001")]
+    [TestCase("z-index", "1000000000000011", "1000000000000011")]
+    [TestCase("z-index", "-1000000000000001", "-1000000000000001")]
+    [TestCase("z-index", "+0001000000000000011", "1000000000000011")]
+    [TestCase("z-index", "-0000", "0")]
+    [TestCase("z-index", "9999999999999999999999999999999999999999", "9999999999999999999999999999999999999999")]
     [TestCase("z-index", "calc(1.5)", "calc(1.5)")]
     [TestCase("position", "STICKY", "sticky")]
     [TestCase("pointer-events", "visiblePainted", "visiblepainted")]
@@ -34,7 +43,9 @@ public sealed class PropertyGrammarTests
         var result = CssPropertyParser.Parse(name, source);
         result.Status.Should().Be(CssPropertyStatus.Valid);
         result.Value.Serialize().Should().Be(expected);
-        CssPropertyParser.Parse(name, expected).Status.Should().Be(CssPropertyStatus.Valid);
+        var reparsed = CssPropertyParser.Parse(name, expected);
+        reparsed.Status.Should().Be(CssPropertyStatus.Valid);
+        reparsed.Value.Serialize().Should().Be(expected);
     }
 
     [TestCase("display", "inline inline")]
@@ -88,6 +99,24 @@ public sealed class PropertyGrammarTests
         result.Status.Should().Be(CssPropertyStatus.Deferred);
         result.Value.References.Count.Should().BeGreaterThan(0);
         result.Value.Serialize().Should().Be(source);
+    }
+
+    [TestCase("\u00a0", "\u00a0")]
+    [TestCase(" \t\u00a0\r\n", "\u00a0")]
+    [TestCase("a\\ ", "a\\ ")]
+    [TestCase(" \ta\\  \r\n", "a\\ ")]
+    [TestCase("a\\20 ", "a\\20 ")]
+    [TestCase("\u2003a\u2003", "\u2003a\u2003")]
+    [TestCase(" \tvar(--x, a\\ ) \n", "var(--x, a\\ )")]
+    [TestCase(" \t\r\n", "")]
+    public void CustomValueSerializationTrimsOnlyBoundaryWhitespaceTokens(string source, string expected)
+    {
+        var result = CssPropertyParser.Parse("--x", source);
+        result.Status.Should().Be(CssPropertyStatus.Valid);
+        result.Value.Serialize().Should().Be(expected);
+        var reparsed = CssPropertyParser.Parse("--x", expected);
+        reparsed.Status.Should().Be(CssPropertyStatus.Valid);
+        reparsed.Value.Serialize().Should().Be(expected);
     }
 
     [Test]

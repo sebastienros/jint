@@ -31,7 +31,12 @@ beginning at a nonzero source offset. The source argument must remain the origin
 uses lexical source offsets. Before retaining individual values from large sheets, the reference owner
 still needs a source-slice/origin representation so a small deferred value does not retain a whole sheet.
 
-Fresh Release focused tests: 44 pass on net8.0 and 44 pass on net10.0. These fixtures cover exact positive
+The review correction removes only boundary CSS whitespace tokens from retained value slices, keeping
+NBSP, other non-ASCII identifier content, escaped whitespace and escape terminators intact. Literal
+opacity percentages serialize as equivalent numbers (Color 4 §17); integer z-index literals serialize
+their canonical decimal digits directly without double conversion or rounding.
+
+Fresh Release focused tests after correction: 61 pass on net8.0 and 61 pass on net10.0. These fixtures cover exact positive
 and negative grammars, serialization, escaped/case keywords, metadata, distinction of pending/unknown,
 reference payloads/origins and cancellation. This is a focused internal gate, not full conformance.
 

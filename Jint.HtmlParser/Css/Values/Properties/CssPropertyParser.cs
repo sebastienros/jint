@@ -97,10 +97,14 @@ internal static class CssPropertyParser
             if (atom.Value.Kind is not (CssNumericKind.Number or CssNumericKind.Percentage) ||
                 grammar == CssPropertyGrammar.ZIndex && (atom.Value.Kind != CssNumericKind.Number || !atom.Value.IsIntegerToken))
                 return Invalid();
+            if (grammar == CssPropertyGrammar.ZIndex)
+                return CssPropertyResult.Accepted(CssPropertyValue.Number(atom.Value,
+                    SerializeInteger(atom.Value.Number, work)));
+            // CSS Color 4 §17: declared opacity percentages serialize as equivalent numbers.
             var number = CssMathNumbers.ParseFinite(atom.Value.Number, CssUnit.None, work);
+            if (atom.Value.Kind == CssNumericKind.Percentage) number /= 100;
             var spelling = number.ToString("0.######", CultureInfo.InvariantCulture);
-            return CssPropertyResult.Accepted(CssPropertyValue.Number(atom.Value,
-                spelling + (atom.Value.Kind == CssNumericKind.Percentage ? "%" : "")));
+            return CssPropertyResult.Accepted(CssPropertyValue.Number(atom.Value, spelling));
         }
         var context = grammar == CssPropertyGrammar.ZIndex
             ? new CssMathContext(CssMathProduction.Integer, CssMathPercentageMode.Forbidden, maximumNestingDepth: input.MaxNestingDepth)
@@ -114,6 +118,28 @@ internal static class CssPropertyParser
                 "math:" + math.PendingFunction),
             _ => Invalid()
         };
+    }
+
+    private static string SerializeInteger(CssNumber number, CssValueWork work)
+    {
+        work.CheckCancellation();
+        if (number.Sign == 0) return "0";
+        // The caller admitted only integer tokens: their spelling is a sign and decimal digits.
+        // Keep those digits exactly; floating-point formatting can round even exact Int64 values.
+        var spelling = number.Spelling;
+        var start = spelling[0] is '+' or '-' ? 1 : 0;
+        while (spelling[start] == '0')
+        {
+            work.Charge(1);
+            start++;
+        }
+        work.CheckCancellation();
+        var result = number.Sign < 0
+            ? string.Concat("-".AsSpan(), spelling.AsSpan(start))
+            : spelling[start..];
+        work.Charge(result.Length);
+        work.CheckCancellation();
+        return result;
     }
 
     // Unordered outer/inner/list-item groups; legacy spellings serialize to their shortest equivalent.
@@ -180,15 +206,39 @@ internal static class CssPropertyParser
 
     internal static string ValueText(CssReferenceInput input, CssValueWork work)
     {
-        if (input.Components.Count == 0) return "";
-        var first = input.Components[0].Span;
-        var last = input.Components[input.Components.Count - 1].Span;
+        work.CheckCancellation();
+        var values = input.Components;
+        var start = 0;
+        var end = values.Count;
+        // CSS whitespace is a token production. Source characters inside identifiers (including
+        // escaped ASCII whitespace and non-ASCII name characters) must remain untouched.
+        while (start < end && IsWhitespace(values[start]))
+        {
+            work.Charge(1);
+            start++;
+        }
+        while (end > start && IsWhitespace(values[end - 1]))
+        {
+            work.Charge(1);
+            end--;
+        }
+        if (start == end)
+        {
+            work.CheckCancellation();
+            return "";
+        }
+        var first = values[start].Span;
+        var last = values[end - 1].Span;
         var length = last.Start + last.Length - first.Start;
         work.CheckCancellation();
         var text = input.Source.Substring(first.Start, length);
         work.Charge(length);
         work.CheckCancellation();
-        return text.Trim();
+        return text;
     }
+
+    private static bool IsWhitespace(CssComponentValue value) =>
+        value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace;
+
     private static CssPropertyResult Invalid() => CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
 }
