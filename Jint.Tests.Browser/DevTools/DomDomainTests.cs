@@ -25,6 +25,30 @@ public class DomDomainTests
     private const int Row = 16;
 
     [Test]
+    public async Task ReplacingAnAttributePrefixReconcilesTheOldClientNameAtTheNextCheckpoint()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await Content(session, attachment, "<div id=a></div>");
+        await session.ResultAsync("DOM.enable", "{}", attachment);
+        await session.ResultAsync("DOM.getDocument", """{"depth":-1}""", attachment);
+        await session.EvaluateAsync("document.getElementById('a').setAttributeNS('urn:test', 'first:local', 'one')", attachment);
+        (await session.EventAsync("DOM.attributeModified", sessionId: attachment))
+            .GetProperty("name").GetString().Should().Be("first:local");
+        await session.EvaluateAsync(
+            """
+            const replacement = document.createAttributeNS('urn:test', 'second:local');
+            replacement.value = 'two';
+            document.getElementById('a').setAttributeNodeNS(replacement);
+            """, attachment);
+        (await session.EventAsync("DOM.attributeRemoved", sessionId: attachment))
+            .GetProperty("name").GetString().Should().Be("first:local");
+        var modified = await session.EventAsync("DOM.attributeModified", 1, attachment);
+        modified.GetProperty("name").GetString().Should().Be("second:local");
+        modified.GetProperty("value").GetString().Should().Be("two");
+    }
+
+    [Test]
     public async Task NamespacedAttributeRemovalReportsTheQualifiedNameFromItsMutation()
     {
         await using var session = await PageSession.CreateAsync();

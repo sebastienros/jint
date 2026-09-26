@@ -86,43 +86,48 @@ internal sealed class DomRemoteObjectDescriber : RemoteObjectDescriber
             Append(builder, id, 0, id.Length, work);
         }
         var classes = work.Attribute(element, "class") ?? "";
-        var tokens = new List<(int Start, int Length)>();
+        var tokens = new HashSet<ClassToken>(new ClassTokenComparer(classes, work));
+        var hash = new HashCode();
         var start = 0;
         for (var i = 0; i <= classes.Length; i++)
         {
             work.Step();
-            if (i != classes.Length && classes[i] is not (' ' or '\t' or '\n' or '\r' or '\f')) continue;
-            var length = i - start;
-            if (length > 0)
+            if (i != classes.Length && classes[i] is not (' ' or '\t' or '\n' or '\r' or '\f'))
             {
-                var duplicate = false;
-                foreach (var token in tokens)
-                {
-                    work.Step();
-                    if (token.Length != length) continue;
-                    var same = true;
-                    for (var j = 0; j < length; j++)
-                    {
-                        work.Step();
-                        if (classes[token.Start + j] == classes[start + j]) continue;
-                        same = false;
-                        break;
-                    }
-                    if (same) { duplicate = true; break; }
-                }
-                if (!duplicate)
-                {
-                    tokens.Add((start, length));
-                    builder.Append('.');
-                    Append(builder, classes, start, length, work);
-                }
+                hash.Add(classes[i]);
+                continue;
             }
+            var length = i - start;
+            if (length > 0 && tokens.Add(new ClassToken(start, length, hash.ToHashCode())))
+            {
+                builder.Append('.');
+                Append(builder, classes, start, length, work);
+            }
+            hash = new HashCode();
             start = i + 1;
         }
         work.Check();
         var result = builder.ToString();
         work.Check();
         return result;
+    }
+
+    private readonly record struct ClassToken(int Start, int Length, int Hash);
+
+    private sealed class ClassTokenComparer(string text, DomReadWork work) : IEqualityComparer<ClassToken>
+    {
+        public bool Equals(ClassToken x, ClassToken y)
+        {
+            work.Step();
+            if (x.Length != y.Length) return false;
+            for (var i = 0; i < x.Length; i++)
+            {
+                work.Step();
+                if (text[x.Start + i] != text[y.Start + i]) return false;
+            }
+            return true;
+        }
+        public int GetHashCode(ClassToken token) => token.Hash;
     }
 
     private static void Append(StringBuilder builder, string text, int start, int length, DomReadWork work)

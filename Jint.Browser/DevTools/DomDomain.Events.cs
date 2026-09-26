@@ -140,6 +140,10 @@ internal sealed partial class DomDomain
             }
         }
         work.Check();
+        if (record.AttributePreviousQualifiedName is { } previousName)
+        {
+            EmitDetached(DOMEvents.AttributeRemoved(new AttributeRemovedEvent { NodeId = nodeId, Name = previousName }));
+        }
         if (attribute is not null)
         {
             EmitDetached(DOMEvents.AttributeModified(new AttributeModifiedEvent
@@ -460,7 +464,7 @@ internal sealed partial class DomDomain
         for (NativeNode? node = document; node is not null;)
         {
             work.Step();
-            if (node is Text text && Contains(text.Data, query, work)) found.Add(node);
+            if (node is Text text && Contains(text, query, work)) found.Add(node);
             else if (node is Element element)
             {
                 for (uint i = 0; i < (uint) element.AttributeCount; i++)
@@ -482,6 +486,39 @@ internal sealed partial class DomDomain
         }
         work.Check();
         return found;
+    }
+
+    private static bool Contains(Text text, string query, DomReadWork work)
+    {
+        Span<char> chunk = stackalloc char[65];
+        for (var start = 0; start <= text.DataLength - query.Length; start++)
+        {
+            work.Step();
+            var matched = true;
+            for (var offset = 0; offset < query.Length;)
+            {
+                var count = Math.Min(64, query.Length - offset);
+                if (offset + count < query.Length)
+                {
+                    work.Step();
+                    if (char.IsHighSurrogate(query[offset + count - 1])
+                        || char.IsHighSurrogate(text.DataAt(start + offset + count - 1))) count++;
+                }
+                for (var i = 0; i < count; i++)
+                {
+                    work.Step();
+                    chunk[i] = text.DataAt(start + offset + i);
+                }
+                if (!chunk[..count].Equals(query.AsSpan(offset, count), StringComparison.OrdinalIgnoreCase))
+                {
+                    matched = false;
+                    break;
+                }
+                offset += count;
+            }
+            if (matched) return true;
+        }
+        return false;
     }
 
     private static bool Contains(string text, string query, DomReadWork work)
