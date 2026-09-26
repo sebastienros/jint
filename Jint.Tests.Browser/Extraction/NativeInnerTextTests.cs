@@ -7,6 +7,30 @@ namespace Jint.Tests.Browser.Extraction;
 
 public sealed class NativeInnerTextTests
 {
+    [TestCase("preserve", "a\rb", "a b")]
+    [TestCase("preserve", "a\r\nb", "a \nb")]
+    [TestCase("collapse", "a\fb", "a\fb")]
+    [TestCase("preserve-breaks", "a\rb\fc", "a b\fc")]
+    [TestCase("preserve-spaces", "a\r\n\t\fb", "a   \fb")]
+    [TestCase("discard", "a \t\r\n\fb", "a\fb")]
+    public async Task RawDomTextUsesCssDocumentWhitespaceWithoutRepeatingHtmlSourceNormalization(string mode, string text, string expected)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div id=t style='white-space-collapse:{mode}'></div>");
+        await page.EvaluateAsync("document.getElementById('t').textContent = " + System.Text.Json.JsonSerializer.Serialize(text));
+        (await page.EvaluateAsync<string>("document.getElementById('t').innerText")).Should().Be(expected);
+    }
+
+    [Test]
+    public async Task HtmlSourceCrIsNormalizedByTheParserBeforePreservedTextExtraction()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=t style='white-space-collapse:preserve'>a\rb</div>");
+        (await page.EvaluateAsync<string>("document.getElementById('t').innerText")).Should().Be("a\nb");
+    }
+
     [TestCase("<div id=t style='white-space:pre-line'>a\n  b   c</div>", "a\nb c")]
     [TestCase("<div id=t style='white-space:pre'><span style='white-space:normal'>a\n  b   c</span></div>", "a b c")]
     [TestCase("<div id=t style='white-space-collapse:preserve-breaks'>a\n  b   c</div>", "a\nb c")]

@@ -118,6 +118,7 @@ internal static class TextExtractor
                     "preserve" or "break-spaces" => WhiteSpaceMode.Preserve,
                     "preserve-breaks" => WhiteSpaceMode.PreserveBreaks,
                     "preserve-spaces" => WhiteSpaceMode.PreserveSpaces,
+                    "discard" => WhiteSpaceMode.Discard,
                     _ => throw new NotSupportedException("innerText does not support computed white-space-collapse: " + value)
                 };
             // The engine-free fallback uses HTML's suggested rendering without inventing CSS values.
@@ -130,17 +131,7 @@ internal static class TextExtractor
             for (var i = 0; i < text.DataLength; i++)
             {
                 work.Step();
-                var c = text.DataAt(i);
-                if (c == '\r')
-                {
-                    c = '\n';
-                    if (i + 1 < text.DataLength)
-                    {
-                        work.Step();
-                        if (text.DataAt(i + 1) == '\n') i++;
-                    }
-                }
-                AddCharacter(c, mode, ref first);
+                AddCharacter(text.DataAt(i), mode, ref first);
             }
         }
 
@@ -150,30 +141,23 @@ internal static class TextExtractor
             for (var i = 0; i < text.Length; i++)
             {
                 work.Step();
-                var c = text[i];
-                if (c == '\r')
-                {
-                    c = '\n';
-                    if (i + 1 < text.Length)
-                    {
-                        work.Step();
-                        if (text[i + 1] == '\n') i++;
-                    }
-                }
-                AddCharacter(c, mode, ref first);
+                AddCharacter(text[i], mode, ref first);
             }
         }
 
         private void AddCharacter(char c, WhiteSpaceMode mode, ref bool first)
         {
-            if (mode == WhiteSpaceMode.PreserveSpaces && c is '\t' or '\n' or '\f') c = ' ';
+            // CSS Text §4.1: a DOM-inserted CR is a space. HTML source normalization belongs to the parser.
+            if (c == '\r') c = ' ';
+            if (mode == WhiteSpaceMode.Discard && c is ' ' or '\t' or '\n') return;
+            if (mode == WhiteSpaceMode.PreserveSpaces && c is '\t' or '\n') c = ' ';
             var collapse = mode is WhiteSpaceMode.Collapse or WhiteSpaceMode.PreserveBreaks;
             if (mode == WhiteSpaceMode.PreserveBreaks && c == '\n')
             {
                 _pendingSpace = false;
                 Prefix();
             }
-            else if (collapse && c is ' ' or '\t' or '\n' or '\f')
+            else if (collapse && c is ' ' or '\t' or '\n')
             {
                 _pendingSpace = true;
                 return;
@@ -246,7 +230,7 @@ internal static class TextExtractor
             return true;
         }
 
-        private enum WhiteSpaceMode { Collapse, Preserve, PreserveBreaks, PreserveSpaces }
+        private enum WhiteSpaceMode { Collapse, Preserve, PreserveBreaks, PreserveSpaces, Discard }
 
         private readonly record struct Frame(Node Node, WhiteSpaceMode Mode, bool Exit, bool Siblings, string? Display, int Breaks, bool Root, bool Hidden);
     }
