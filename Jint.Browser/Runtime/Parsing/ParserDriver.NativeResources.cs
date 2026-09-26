@@ -356,12 +356,13 @@ internal sealed partial class ParserDriver
                 // HTML §4.8.6 needs a plugin host. Preserve the refused reference in the request
                 // log without opening a transport or announcing a resource event.
                 var requested = Attribute(element, "src");
+                if (!IsResourceConnected(element)) return;
                 var reference = _resourceSources.GetValue(element, static _ => new ResourceSource());
                 if (reference.Signature == requested) return;
-                reference.Signature = requested;
-                if (!string.IsNullOrEmpty(requested) && IsResourceConnected(element))
+                if (!string.IsNullOrEmpty(requested))
                     _requests.RecordNotFetched(requested, RequestInitiator.Subresource, PageRequestKind.Other,
                         "an <embed> is not fetched: no plugin host is available");
+                reference.Signature = requested;
                 return;
             case "img":
                 FetchImage(element, Attribute(element, "src") ?? "");
