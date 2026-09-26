@@ -70,38 +70,23 @@ internal static class ContentEditing
         for (var candidate = element; candidate is not null; candidate = (candidate.ParentNode as Element))
         {
             work?.Step();
+            if (candidate.ParentNode is Document { Kind: DocumentKind.Html } document
+                && DomDocumentState.IsDesignModeEnabled(document)) return candidate;
             if (candidate.NamespaceUri != Namespaces.Html
                 || (work is null ? candidate.GetAttributeNS(null, "contenteditable") : work.Attribute(candidate, "contenteditable")) is not { } raw)
             {
                 continue;
             }
 
-            var start = 0;
-            var end = raw.Length;
-            while (start < end)
-            {
-                work?.Step();
-                if (!char.IsWhiteSpace(raw[start])) break;
-                start++;
-            }
-            while (end > start)
-            {
-                work?.Step();
-                if (!char.IsWhiteSpace(raw[end - 1])) break;
-                end--;
-            }
-            var state = raw.AsSpan(start, end - start);
-
             // "plaintext-only" is an editing host whose content is text, which is the only kind this edits
             // anyway, so the two true keywords and it are the same answer here.
-            if (state.Length == 0
-                || state.Equals("true", StringComparison.OrdinalIgnoreCase)
-                || state.Equals("plaintext-only", StringComparison.OrdinalIgnoreCase))
+            var state = BrowserHtmlSemantics.ContentEditableState(raw, work);
+            if (state is BrowserContentEditableState.True or BrowserContentEditableState.PlaintextOnly)
             {
                 return candidate;
             }
 
-            if (state.Equals("false", StringComparison.OrdinalIgnoreCase))
+            if (state == BrowserContentEditableState.False)
             {
                 return null;
             }
