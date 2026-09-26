@@ -31,6 +31,19 @@ internal sealed partial class NativeCssQuery
     private CssPropertyValue FontWeightNumber(double number, CssSourceSpan span) =>
         Number("font-weight", new CssMathNumeric(number, CssNumericKind.Number, CssUnit.None, span));
 
+    // Text 4 §7.3: convert the corresponding parent's logical alignment using its direction.
+    private CssPropertyValue MatchParentAlignment(Element element, CssPropertyValue parentValue, CssSourceSpan span,
+        ref SelectorMatchWork matching)
+    {
+        var text = parentValue.Text;
+        if (text is "start" or "end" && InheritanceParent(element) is { } parent)
+        {
+            var rtl = GetProperty(parent, "direction", ref matching).Text == "rtl";
+            text = (text == "start") != rtl ? "left" : "right";
+        }
+        return CssPropertyValue.Keyword(text, span);
+    }
+
     private CssPropertyValue ComputeForElement(Element element, string name, CssPropertyValue value,
         ref SelectorMatchWork matching)
     {

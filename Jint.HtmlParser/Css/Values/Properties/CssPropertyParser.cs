@@ -72,6 +72,8 @@ internal static class CssPropertyParser
             return CssFontWeightPropertyParser.Parse(input, parts, work);
         if (entry.Grammar == CssPropertyGrammar.FontSize)
             return CssFontSizePropertyParser.Parse(parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.TextAlign or CssPropertyGrammar.TextAlignAll or CssPropertyGrammar.TextAlignLast)
+            return CssTextAlignPropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar is CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or
             CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
             return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);

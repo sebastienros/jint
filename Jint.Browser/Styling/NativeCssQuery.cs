@@ -151,7 +151,9 @@ internal sealed partial class NativeCssQuery
                 ? value : null;
             var relativeSize = name == "font-size" && value is not null && (FontDependencies(value, true) & 1) != 0
                 ? value : null;
-            if ((relativeWeight ?? relativeSize) is { } dependent && parent is not null)
+            var relativeAlignment = name is "text-align-all" or "text-align-last" &&
+                value is { Kind: CssPropertyValueKind.Keyword, Text: "match-parent" } ? value : null;
+            if ((relativeWeight ?? relativeSize ?? relativeAlignment) is { } dependent && parent is not null)
             {
                 // Fonts 4 §§2.2.1/2.5. Follow the actual computed parent dependency iteratively.
                 pending.Push((state, candidate?.Source, disposition, dependent));
@@ -178,6 +180,7 @@ internal sealed partial class NativeCssQuery
                 if (disposition != NativeCssDisposition.InvalidAtComputedValue) disposition = NativeCssDisposition.Initial;
             }
             if (relativeWeight is not null) value = RelativeFontWeight(relativeWeight.Text, 400, relativeWeight.Span);
+            if (relativeAlignment is not null) value = CssPropertyValue.Keyword("start", relativeAlignment.Span);
             value = value.Kind == CssPropertyValueKind.Color
                 ? ComputeColor(current, name, value, ref matching) : ComputeForElement(current, name, value, ref matching);
             if (adjust && name == "display") value = Display(current, value, ref matching);
@@ -192,9 +195,14 @@ internal sealed partial class NativeCssQuery
             var value = adjust && name == "display" ? Display(item.State.Element, result.Value!, ref matching) : result.Value!;
             if (item.DependentValue is { } relative)
             {
-                var basis = CssMathNumbers.ParseFinite(value.Numeric.Number, value.Numeric.Unit, _work);
-                value = name == "font-size" ? ComputeFontSize(item.State.Element, relative, basis, ref matching)
-                    : RelativeFontWeight(relative.Text, basis, relative.Span);
+                if (name is "text-align-all" or "text-align-last")
+                    value = MatchParentAlignment(item.State.Element, value, relative.Span, ref matching);
+                else
+                {
+                    var basis = CssMathNumbers.ParseFinite(value.Numeric.Number, value.Numeric.Unit, _work);
+                    value = name == "font-size" ? ComputeFontSize(item.State.Element, relative, basis, ref matching)
+                        : RelativeFontWeight(relative.Text, basis, relative.Span);
+                }
             }
             result = result with
             {

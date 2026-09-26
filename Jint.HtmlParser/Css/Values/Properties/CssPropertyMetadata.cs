@@ -11,7 +11,8 @@ internal enum CssPropertyGrammar
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
     Sizing, FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
-    WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize
+    WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
+    TextAlign, TextAlignAll, TextAlignLast
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -82,6 +83,10 @@ internal static class CssPropertyRegistry
         Add("font-weight", CssPropertyGrammar.FontWeight, "normal", true);
         // CSS Fonts 4 §2.5; the host initial font size supplies medium at computation.
         Add("font-size", CssPropertyGrammar.FontSize, "medium", true);
+        // CSS Text 4 §§7.1/7.3/7.4: text-align resets both inherited longhands.
+        Add("text-align-all", CssPropertyGrammar.TextAlignAll, "start", true);
+        Add("text-align-last", CssPropertyGrammar.TextAlignLast, "auto", true);
+        Shorthand("text-align", CssPropertyGrammar.TextAlign, "start", ["text-align-all", "text-align-last"]);
         Add("align-items", CssPropertyGrammar.AlignItems, "normal");
         Add("align-self", CssPropertyGrammar.AlignSelf, "auto");
         Add("justify-items", CssPropertyGrammar.JustifyItems, "legacy");
