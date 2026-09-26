@@ -27,13 +27,36 @@ HEADs and pending-review status. The full goal remains incomplete; Browser still
   Log `/private/tmp/jint-xpath-integrated.log`. Worker/common XPath trees are identical; task archived. Worktree removal is pending because
   neither task exposes an attached worktree identity through `list_artifacts`; retain the clean checkout
   until managed cleanup can address it, rather than deleting it outside the archive tool.
-- H6e remains in `ad95`, recovering WIP `150faca00`; isolated template adoption ownership fix and
-  separate stale-test repair are in progress. The common defect recorded in the pause note is not yet fixed.
-- Native/XML IsValue prerequisite dispatched to Sol High task `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92`,
-  local worktree `a768`, from `2a41e82a4`. Only the first half of the reviewed contract is assigned.
-  H6e exclusively owns later HTML capture; X3c remains gated on both halves.
-- CSS trig final `3f7a25b58` is in independent Astra review. V0c1 resumed final verification from
-  `fdf2acd46`. Both remain unmerged/retained. No timings or PRs.
+- Native/XML IsValue source `eeb5b0c1a` integrated as `190f59aa9` after independent Astra review.
+  Common fresh Release non-corpus suite passed 2,868/2,868. HTML capture is still separate; the native
+  task `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` is archived. Its clean `a768` checkout remains because
+  managed worktree identity was not exposed; no shell deletion was used.
+- Template adoption fixes `a0ab062cc` + `326513ea4` integrated as `4f971ae0f` + `f3e6d0c6a` after
+  independent re-review. Final replacement uses the furthest block's owner; inner recreation uses
+  the stack common ancestor per HTML step 13.6. The initial blanket inert-owner criterion was too
+  broad and is corrected in the pause note. Common fresh Release non-corpus suite now passes
+  **2,872/2,872**, zero failures/skips, net8/net10: `/private/tmp/jint-adoption-owner-integrated.log`.
+- Three exact weekly Japanese optional policies source `3d6926625` integrated as `fa6a79fd4` after
+  source packet review and independent 150-node projection comparisons. The full common run found
+  one stale prepared-input guardian; reviewed explicit six-key correction `7ca8ae471` integrated as
+  `cca66f703`. Latest corpus: **4,016 total, 3,754 passed, 262 expected debt failures, zero skips**.
+  Every failure is a pending required case, one of the three unreviewed `pr-xml-*` cases, or the census.
+  Per TFM: 1,820 required passes, 127 pending, three optional observed, zero adapter debt, 24 optional
+  verified, zero harness/mismatch failures, OUTPUT 344 compared/42 pending. No required-pass gain.
+  `/private/tmp/jint-weekly-policy-guard-integrated.log`. The remaining three larger source policies
+  are being independently audited; no implementation packet has been approved yet.
+- H6e framesets is ready for independent review in `ad95` at `95519f45d`. Frameset chain is
+  `150faca00`, `7cb1f9922`, `95519f45d`; the interleaved adoption commits are already integrated.
+  Owner reports 21 focused/1,430 non-corpus cases per TFM passing. None of these frameset commits
+  is integrated yet. Subsequent HTML IsValue capture stays with this same exclusive owner and has
+  not started; the actual native signature is available in common `190f59aa9`.
+- CSS trig `3f7a25b58` review found a canonical conversion defect for exact turn/grad quarter turns.
+  Correction `6c552a0fd` is under re-review; no epsilon matching is authorized. Owner reports fresh
+  builds and 71 focused/1,422 non-corpus cases per TFM passing. All trig commits remain unmerged.
+- V0c1 `69d73b681` review found four blockers: declaration-value restrictions at each argument
+  boundary (ordinary containers exempt), free-form argument wrapping, nested early spread discovery,
+  and reserved env names in static metadata. Sol is correcting them separately. Earlier 56 focused/
+  1,421 non-corpus passing tests did not cover those defects; no merge yet. No timings or PRs.
 
 
 The requested package replaces AngleSharp in Jint.Browser with a new API for HTML,
@@ -50,8 +73,8 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Forty-four completed tasks have now been archived; forty-three worktrees are gone.
-  The latest XPath checkout remains pending managed cleanup as described above.
+  Forty-five completed tasks have now been archived; forty-three worktrees are gone.
+  XPath `ff28` and native/XML IsValue `a768` remain pending managed cleanup as described above.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -108,8 +131,8 @@ the earlier repository direction to retain AngleSharp.
 | C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Reviewed, integrated and tested; archived, worktree removed |
 | V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Reviewed, integrated and tested; archived, worktree removed |
 | H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Integrated and tested; archived; follow-up adoption ownership defect recorded in resume checkpoint |
-| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Resumed from WIP `150faca00` in ad95; isolated template ownership fix first |
-| Native/XML creation-time IsValue | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Sol implementation in a768; separate later HTML capture required |
+| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Final framesets95519f45d in review; isolated adoption fixes integrated and tested |
+| Native/XML creation-time IsValue | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Reviewed, integrated, tested; archived; managed checkout cleanup pending |
 | V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Dedicated Sol implementation in ba36 |
 | V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Dedicated Sol implementation in 4983 |
 

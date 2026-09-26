@@ -3,6 +3,8 @@
 User requested another recoverable pause on 2026-09-25 because the token budget was running low.
 The goal is **not complete**. Resume the original full scope, not just implemented subsets.
 This checkpoint supersedes the September 23 state; Git history retains that earlier record.
+**Later work has resumed:** see [the implementation record](html-parser-progress.md) for current
+integrations and tasks. The correction below supersedes the initial inner-owner recommendation.
 
 ## Verified common state
 
@@ -61,10 +63,13 @@ probe found an uncovered defect in `HtmlTreeBuilder.AdoptionAgency.cs`, `CreateF
 Parse `<template><b><p>x`, then feed `</b>` at quota 1. Existing text `x` briefly acquires the active
 owner during child transfer, then returns to the inert template owner during replacement insertion.
 This violates destination-owner-before-allocation and adds spurious adoption. Fix both recreation
-sites: inner recreation must use the actual old node parent destination; final replacement uses the
-furthest block's owner. Verify the algorithm destinations rather than blindly changing one field.
-Assert element/attribute/existing-descendant ownership at every yield for both paths, including
-no extra adoption effects. Probe directory: `/tmp/h6d-review-cqyk2qju`.
+sites according to their distinct spec destinations. **Subsequent independent review corrected the
+initial inner-path recommendation:** HTML adoption step 13.6 uses the stack `commonAncestor`, not the
+mutable old node parent. Only final replacement (step 17) uses the furthest block. A paused-session
+adoption of `<i><p>x` to another document makes that distinction observable. The inner branch may
+therefore temporarily move nodes through the common ancestor's document; do not demand uninterrupted
+inert ownership there or invent a template exception. Preserve the final-path inert-owner regression
+and test inner recreation against the specified intended parent, including native reparenting. Probe directory: `/tmp/h6d-review-cqyk2qju`.
 
 H6e owns TreeConstruction and was assigned this as a **separate additive commit**. It is not fixed in
 its paused frameset WIP. Preserve frameset edits while isolating the fix; review it independently.
