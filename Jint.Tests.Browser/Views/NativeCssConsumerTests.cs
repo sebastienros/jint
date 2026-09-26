@@ -15,6 +15,29 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
+    public async Task SaturatedInlineCssomEditPreservesSourceAndAuthoritativeBlock()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='box' style='--o:hidden scroll;overflow:var(--o)'></div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "box")!;
+            var work = new CssValueWork(default);
+            var factory = typeof(NativeCssStyleSheets).GetMethod("InlineResourceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+            var resource = factory.Invoke(null, [target])!;
+            resource.GetType().GetField("Version", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(resource, ulong.MaxValue);
+            var retained = NativeCssStyleSheets.InlineOf(target, work);
+            var source = target.GetAttribute("style");
+            Assert.Throws<InvalidOperationException>(() => NativeCssDeclarations.Of(runtime.Dom, target).SetProperty("overflow-x", "visible"));
+            target.GetAttribute("style").Should().Be(source);
+            NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(retained);
+            return true;
+        });
+    }
+
+    [Test]
     public async Task InlineCssomPreservesPendingShorthandAndSameValueSourceWritesReparse()
     {
         await using var browser = new Browser();

@@ -144,6 +144,25 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
+    public void SaturatedInlinePublicationIsRejectedBeforeTheNativeSourceCommit()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        const string source = "--o:hidden scroll;overflow:var(--o)";
+        target.SetAttribute("style", source);
+        var work = new CssValueWork(default);
+        var factory = typeof(NativeCssStyleSheets).GetMethod("InlineResourceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var resource = factory.Invoke(null, [target])!;
+        resource.GetType().GetField("Version", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(resource, ulong.MaxValue);
+        var retained = NativeCssStyleSheets.InlineOf(target, work);
+        var edited = retained.Copy(work);
+        edited.SetProperty("overflow-x", "visible", null, null, work);
+        Assert.Throws<InvalidOperationException>(() => NativeCssStyleSheets.InlineVersion(target));
+        target.GetAttribute("style").Should().Be(source);
+        NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(retained);
+    }
+
+    [Test]
     public void UnsupportedCustomRollbackRefusesOnlyWhenThatBindingIsDemanded()
     {
         var document = Document.CreateHtml();

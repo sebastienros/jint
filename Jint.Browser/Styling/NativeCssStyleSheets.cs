@@ -57,7 +57,12 @@ internal static partial class NativeCssStyleSheets
         return resource;
     });
 
-    internal static ulong InlineVersion(Element element) => InlineResourceOf(element).Version;
+    internal static ulong InlineVersion(Element element)
+    {
+        var version = InlineResourceOf(element).Version;
+        if (version == ulong.MaxValue) throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        return version;
+    }
 
     internal static void RetainInline(Element element, string source, CssDeclarationBlock block,
         ulong beforeWrite, CssValueWork work)

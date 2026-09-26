@@ -32,8 +32,7 @@ internal static class MediaQuery
 {
     /// <summary>How many CSS pixels one <c>em</c> is taken to be, there being no cascade to ask.</summary>
     /// <remarks>
-    /// <see cref="PageRenderDevice.FontSize"/> reports the same number, so an <c>em</c> in a
-    /// <c>matchMedia</c> query and an <c>em</c> the cascade resolves are the same length.
+    /// The native CSS query uses this same initial font metric for relative lengths.
     /// </remarks>
     internal const double PixelsPerEm = 16;
 
