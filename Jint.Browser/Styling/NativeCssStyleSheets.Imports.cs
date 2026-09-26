@@ -19,8 +19,54 @@ internal sealed class CssImportSource(Document document, Element owner, NativeCs
 
 internal sealed class CssImportSourceStaleException() : InvalidOperationException(NativeCssQuery.Invalidated);
 
+// A charged composed-root proof is reusable only while the document and source stay unchanged.
+// Parser checkpoints may inspect this witness, but never rebuild an ancestor walk.
+internal sealed class CssImportConnectivity(CssImportSource source, ulong documentStamp, bool connected)
+{
+    internal bool Connected { get; } = connected;
+    internal bool IsCurrent => documentStamp != ulong.MaxValue && source.Document.MutationStamp == documentStamp &&
+        NativeCssStyleSheets.IsCurrent(source);
+}
+
 internal static partial class NativeCssStyleSheets
 {
+    // Called by the loader's owner-specific mutation-arrival lane before deferred delivery.
+    // Equal final text does not revive an in-flight graph. No DOM walk, callback, or read-time
+    // association: the caller identifies the exact owner and filters stale watched roots.
+    internal static void InvalidateImportSourceAtArrival(Document document, Element owner)
+    {
+        if (!ReferenceEquals(owner.OwnerDocument, document) || !Documents.TryGetValue(document, out var resources) ||
+            !resources.Owners.TryGetValue(owner, out var resource) || !resource.Loaded || !resource.Associated) return;
+        var generation = new object();
+        resource.SourceGeneration = generation;
+    }
+
+    internal static CssImportConnectivity CaptureImportConnectivity(CssImportSource source, CssValueWork work)
+    {
+        var guarded = CssValueWork.Guard(work, () =>
+        {
+            work.CheckCancellation();
+            if (!IsCurrent(source)) throw new CssImportSourceStaleException();
+        });
+        while (true)
+        {
+            guarded.CheckCancellation();
+            var stamp = source.Document.MutationStamp;
+            if (stamp == ulong.MaxValue) throw new CssImportSourceStaleException();
+            Node node = source.Owner;
+            while ((node.ParentNode ?? (node as ShadowRoot)?.Host) is { } parent)
+            {
+                guarded.Charge(1);
+                node = parent;
+            }
+            guarded.CheckCancellation();
+            if (stamp != source.Document.MutationStamp) continue;
+            if (!IsCurrent(source)) throw new CssImportSourceStaleException();
+            guarded.Token.ThrowIfCancellationRequested();
+            return new(source, stamp, ReferenceEquals(node, source.Document));
+        }
+    }
+
     internal static CssImportSource? CaptureImportSource(Document document, Element owner, CssValueWork work)
     {
         work.CheckCancellation();
