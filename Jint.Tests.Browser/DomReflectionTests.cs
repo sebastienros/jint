@@ -382,7 +382,7 @@ public sealed class DomReflectionTests
 
         // The CLR side of the same element sees every write the IDL attribute made.
         fixture.Evaluate("document.querySelector('#a').dir = 'ltr'");
-        fixture.Document.QuerySelector("#a")!.GetAttribute("dir").Should().Be("ltr");
+        ContentDom.ElementById(fixture.Document, "a")!.GetAttribute("dir").Should().Be("ltr");
     }
 
     /// <summary>
