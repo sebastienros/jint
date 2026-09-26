@@ -15,6 +15,9 @@ internal static class CssSizingPropertyParser
             ? "auto content min-content max-content fit-content stretch" : "auto min-content max-content fit-content stretch";
         if (CssPropertyParser.Keyword(part, keywords, work) is { } keyword)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
+        // Sizing 4 §3.2 extends <box-size>; implementation remains a named obligation.
+        if (CssPropertyParser.Keyword(part, "contain", work) is not null)
+            return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "sizing:contain");
         if (part.Kind == CssComponentKind.Function)
         {
             var name = CssPropertyRegistry.NormalizeName(part.FunctionName, work);
@@ -57,7 +60,7 @@ internal static class CssSizingPropertyParser
             };
             var atom = new CssNumericAtom(kind, number, unit, token.IsInteger, part.Span);
             var finite = CssMathNumbers.ParseFinite(number, unit, work);
-            var text = finite.ToString("0.######", CultureInfo.InvariantCulture);
+            var text = SerializeNumber(finite, work);
             if (!numberOnly)
                 text += kind == CssNumericKind.Percentage ? "%" :
                     kind == CssNumericKind.Number ? "px" : CssMathNumbers.CanonicalUnit(unit).ToString().ToLowerInvariant();
@@ -77,6 +80,24 @@ internal static class CssSizingPropertyParser
                 "math:" + math.PendingFunction),
             _ => Invalid()
         };
+    }
+
+    // Use the same fixed-point precision as CssMathSerializer. Custom numeric formats
+    // round large integral coordinates to 15 significant digits and lose represented digits.
+    private static string SerializeNumber(double value, CssValueWork work)
+    {
+        if (value == 0) value = 0;
+        Span<char> scratch = stackalloc char[384];
+        work.CheckCancellation();
+        if (!value.TryFormat(scratch, out var length, "F6", CultureInfo.InvariantCulture))
+            throw new InvalidOperationException("Finite CSS number exceeded the formatter bound.");
+        work.CheckCancellation();
+        while (length > 0 && scratch[length - 1] == '0' && scratch[..length].IndexOf('.') >= 0) length--;
+        if (length > 0 && scratch[length - 1] == '.') length--;
+        var text = scratch[..length].ToString();
+        work.Charge(length);
+        work.CheckCancellation();
+        return text;
     }
 
     private static CssPropertyResult Invalid() => CssPropertyResult.Rejected(CssPropertyStatus.Invalid);

@@ -8,6 +8,15 @@ namespace Jint.Tests.HtmlParser.Css.Values.Properties;
 [TestFixture]
 public sealed class LayoutPropertyGrammarTests
 {
+    [TestCase("width", "1000000000000001px", "1000000000000001px")]
+    [TestCase("height", "1234567890123456%", "1234567890123456%")]
+    [TestCase("flex-grow", "1000000000000001", "1000000000000001")]
+    [TestCase("flex-shrink", "1234567890123456", "1234567890123456")]
+    [TestCase("width", "fit-content(1000000000000001px)", "fit-content(1000000000000001px)")]
+    [TestCase("flex-basis", "fit-content(1234567890123456%)", "fit-content(1234567890123456%)")]
+    [TestCase("flex", "1000000000000001 1234567890123456 1000000000000001px", "1000000000000001 1234567890123456 1000000000000001px")]
+    [TestCase("flex-grow", "1.2345678", "1.234568")]
+    [TestCase("width", "0.0000001px", "0px")]
     [TestCase("width", "12PX", "12px")]
     [TestCase("height", "-0", "0px")]
     [TestCase("width", "1in", "96px")]
@@ -57,6 +66,14 @@ public sealed class LayoutPropertyGrammarTests
         again.Value.Serialize().Should().Be(expected);
     }
 
+    [TestCase("align-items", "anchor-center")]
+    [TestCase("justify-items", "anchor-center")]
+    [TestCase("place-items", "anchor-center")]
+    [TestCase("place-items", "center anchor-center")]
+    [TestCase("align-self", "safe anchor-center")]
+    [TestCase("place-self", "anchor-center nonsense")]
+    [TestCase("place-self", "nonsense anchor-center")]
+    [TestCase("width", "contain auto")]
     [TestCase("width", "-1e-999999px")]
     [TestCase("height", "-1%")]
     [TestCase("width", "1")]
@@ -94,6 +111,19 @@ public sealed class LayoutPropertyGrammarTests
     public void RejectsInvalidGrammar(string name, string source) =>
         CssPropertyParser.Parse(name, source).Status.Should().Be(CssPropertyStatus.Invalid);
 
+    [TestCase("width", "contain", "sizing:contain")]
+    [TestCase("height", "CONTAIN", "sizing:contain")]
+    [TestCase("flex-basis", "c\\6f ntain", "sizing:contain")]
+    [TestCase("flex", "contain", "sizing:contain")]
+    [TestCase("flex", "1 2 contain", "sizing:contain")]
+    [TestCase("flex", "contain 1 2", "sizing:contain")]
+    [TestCase("align-self", "anchor-center", "alignment:anchor-center")]
+    [TestCase("justify-self", "ANCHOR-center", "alignment:anchor-center")]
+    [TestCase("place-self", "anchor-center", "alignment:anchor-center")]
+    [TestCase("place-self", "anchor-center center", "alignment:anchor-center")]
+    [TestCase("place-self", "center anchor-center", "alignment:anchor-center")]
+    [TestCase("place-self", "last baseline anchor-center", "alignment:anchor-center")]
+    [TestCase("place-self", "anchor-center safe normal", "alignment:anchor-center")]
     [TestCase("width", "anchor-size(width)", "sizing:anchor-size")]
     [TestCase("flex-basis", "calc-size(auto, size)", "sizing:calc-size")]
     [TestCase("flex", "1 anchor-size(width)", "sizing:anchor-size")]

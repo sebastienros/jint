@@ -6,10 +6,7 @@ internal static class CssAlignmentPropertyParser
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts, CssValueWork work)
     {
         if (grammar is not (CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf))
-        {
-            var single = Match(grammar, parts, 0, parts.Count, work);
-            return single is null ? Invalid() : CssPropertyResult.Accepted(single);
-        }
+            return Match(grammar, parts, 0, parts.Count, work);
         if (parts.Count is < 1 or > 4) return Invalid();
         var self = grammar == CssPropertyGrammar.PlaceSelf;
         var firstGrammar = self ? CssPropertyGrammar.AlignSelf : CssPropertyGrammar.AlignItems;
@@ -19,31 +16,36 @@ internal static class CssAlignmentPropertyParser
         for (var boundary = System.Math.Min(2, parts.Count); boundary > 0; boundary--)
         {
             var first = Match(firstGrammar, parts, 0, boundary, work);
-            if (first is null) continue;
+            if (first.Status == CssPropertyStatus.Invalid) continue;
             var second = boundary == parts.Count
                 ? Match(secondGrammar, parts, 0, boundary, work)
                 : Match(secondGrammar, parts, boundary, parts.Count - boundary, work);
-            if (second is null) continue;
-            var text = first.Text == second.Text ? first.Text : first.Text + " " + second.Text;
-            return CssPropertyResult.Accepted(CssPropertyValue.Shorthand(text, parts[0].Span, first, second));
+            if (second.Status == CssPropertyStatus.Invalid) continue;
+            if (first.Status == CssPropertyStatus.UnimplementedGrammar) return first;
+            if (second.Status == CssPropertyStatus.UnimplementedGrammar) return second;
+            var text = first.Value.Text == second.Value.Text ? first.Value.Text : first.Value.Text + " " + second.Value.Text;
+            return CssPropertyResult.Accepted(CssPropertyValue.Shorthand(text, parts[0].Span, first.Value, second.Value));
         }
         return Invalid();
     }
 
-    private static CssPropertyValue? Match(CssPropertyGrammar grammar, List<CssComponentValue> parts,
+    private static CssPropertyResult Match(CssPropertyGrammar grammar, List<CssComponentValue> parts,
         int start, int count, CssValueWork work)
     {
-        if (count is < 1 or > 2) return null;
+        if (count is < 1 or > 2) return Invalid();
         var self = grammar is CssPropertyGrammar.AlignSelf or CssPropertyGrammar.JustifySelf;
         var justify = grammar is CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf;
+        // Anchor Positioning 1 §4.2 adds this singleton only to self-alignment.
+        if (self && count == 1 && CssPropertyParser.Keyword(parts[start], "anchor-center", work) is not null)
+            return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "alignment:anchor-center");
         var first = CssPropertyParser.Keyword(parts[start],
             "auto normal stretch baseline first last safe unsafe center start end self-start self-end flex-start flex-end left right legacy", work);
-        if (first is null) return null;
+        if (first is null) return Invalid();
         string? text = null;
         if (count == 1)
         {
             if (first == "auto" && !self || first == "legacy" && grammar != CssPropertyGrammar.JustifyItems ||
-                first is "first" or "last" or "safe" or "unsafe" || first is "left" or "right" && !justify) return null;
+                first is "first" or "last" or "safe" or "unsafe" || first is "left" or "right" && !justify) return Invalid();
             text = first;
         }
         else
@@ -60,7 +62,7 @@ internal static class CssAlignmentPropertyParser
                     second == "legacy" && first is "left" or "right" or "center"))
                 text = "legacy " + (first == "legacy" ? second : first);
         }
-        return text is null ? null : CssPropertyValue.Keyword(text, parts[start].Span);
+        return text is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(text, parts[start].Span));
     }
 
     private static CssPropertyResult Invalid() => CssPropertyResult.Rejected(CssPropertyStatus.Invalid);

@@ -79,6 +79,48 @@ public sealed class CssLayoutDeclarationTests
     }
 
     [Test]
+    public void RetainsLargeIntegerCoordinatesThroughExpansionAndReconstruction()
+    {
+        const string source = "flex: 1000000000000001 1234567890123456 fit-content(1000000000000001px)";
+        var block = CssDeclarationBlock.Parse(source);
+        block.GetPropertyValue("flex-grow").Should().Be("1000000000000001");
+        block.GetPropertyValue("flex-shrink").Should().Be("1234567890123456");
+        block.GetPropertyValue("flex-basis").Should().Be("fit-content(1000000000000001px)");
+        block.CssText.Should().Be(source + ";");
+        CssDeclarationBlock.Parse(block.CssText).CssText.Should().Be(block.CssText);
+    }
+
+    [TestCase("width", "contain", "sizing:contain")]
+    [TestCase("height", "contain", "sizing:contain")]
+    [TestCase("flex-basis", "contain", "sizing:contain")]
+    [TestCase("flex", "1 2 contain", "sizing:contain")]
+    [TestCase("align-self", "anchor-center", "alignment:anchor-center")]
+    [TestCase("justify-self", "anchor-center", "alignment:anchor-center")]
+    [TestCase("place-self", "anchor-center center", "alignment:anchor-center")]
+    [TestCase("place-self", "center anchor-center", "alignment:anchor-center")]
+    public void PendingLayoutGrammarAbortsSetAndReplacementAtomically(string name, string value, string blocker)
+    {
+        var block = CssDeclarationBlock.Parse("flex: 2; place-self: center");
+        var stamp = block.Stamp;
+        var text = block.CssText;
+        var first = block.GetDeclaration(0);
+        Action set = () => block.SetProperty(name, value);
+        var failure = set.Should().Throw<CssIncompleteGrammarException>().Which;
+        failure.PropertyName.Should().Be(name);
+        failure.Blocker.Should().Be(blocker);
+        block.CssText.Should().Be(text);
+        block.Stamp.Should().Be(stamp);
+        block.GetDeclaration(0).Should().BeSameAs(first);
+        Action replace = () => block.ReplaceText("height: 20px; " + name + ": " + value);
+        replace.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be(blocker);
+        block.CssText.Should().Be(text);
+        block.Stamp.Should().Be(stamp);
+        block.GetDeclaration(0).Should().BeSameAs(first);
+        block.SetProperty(name, value, "invalid-priority");
+        block.Stamp.Should().Be(stamp);
+    }
+
+    [Test]
     public void KnownMissingSizingGrammarAbortsAtomically()
     {
         var block = CssDeclarationBlock.Parse("flex: 2");
