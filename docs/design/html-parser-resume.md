@@ -68,8 +68,11 @@ and query diagnostics pass **55/55** fresh Release/net10 tests at `98b2b75c5`
 (`/private/tmp/native-style-completion-nesting-net10-test.log`). Browser watch/adoption, request identity,
 frame scheduling, manufactured-document CSS realms and configuration pass **23/23**, zero failures/skips
 (`/private/tmp/native-browser-watch-adoption-net10-test.log`). The frame failures above are fixed;
-these focused passes do not establish full Browser acceptance. The full net10 Browser run is exposing
-additional binding, event, resource, selector and CSS grammar failures plus stale WPT exclusions.
+these focused passes do not establish full Browser acceptance. The full fresh net10 Browser run at
+`72809d818` finished with **3,964 total: 3,644 passed, 279 failed, 41 skipped**
+(`/private/tmp/native-browser-full-net10-test.log`; complete grouped inventory
+`/private/tmp/native-browser-full-net10-failures-final.json`). Failures include binding, event,
+resource, selector and CSS grammar issues plus stale WPT exclusions. This is a failed acceptance gate.
 In particular, unsupported native `:checked` and other state predicates cause many layout tests to fail
 before reaching cache assertions. Fix production behavior and review expectation corrections individually.
 
