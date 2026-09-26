@@ -160,7 +160,7 @@ public sealed class CssNestingTests
         var rules = parent.Rules;
         parent.Rules.Should().BeSameAs(rules);
         sheet.DeleteRule(0);
-        leaf.ParentStyleSheet.Should().BeNull();
+        leaf.ParentStyleSheet.Should().BeSameAs(sheet);
         leaf.ParentRule.Should().BeSameAs(middle);
         stamp = sheet.Stamp;
         child.SetSelectorText("& > a");
@@ -176,7 +176,7 @@ public sealed class CssNestingTests
         Assert.Throws<CssIncompleteRuleGrammarException>(() => CssStyleSheet.Parse("main { & {} color:red; }"))!
             .Blocker.Should().Be("C2:interleaved-declarations");
         Assert.Throws<CssIncompleteRuleGrammarException>(() => CssStyleSheet.Parse("main { @supports (display:block) { & {} } }"))!
-            .Blocker.Should().Be("R2:supports");
+            .Blocker.Should().Be("C2:nesting-selector-context");
         var sheet = CssStyleSheet.Parse("main { ??? { color:red; } & > button {} }");
         ((CssStyleRule) sheet.Rules[0]).Rules.Count.Should().Be(1);
     }
@@ -289,7 +289,7 @@ public sealed class CssNestingTests
         media.DeleteRule(0);
         media.Rules.Count.Should().Be(0);
         root.ParentRule.Should().BeNull();
-        child.ParentStyleSheet.Should().BeNull();
+        child.ParentStyleSheet.Should().BeSameAs(sheet);
     }
 
     [Test]

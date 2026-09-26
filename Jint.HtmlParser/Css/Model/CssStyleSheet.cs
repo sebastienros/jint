@@ -1,4 +1,5 @@
 using Jint.HtmlParser.Css.Serialization;
+using Jint.HtmlParser.Css.Conditions;
 using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Selectors;
@@ -138,6 +139,8 @@ internal sealed class CssStyleSheet
             }
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
                 frames.Push((media.Rules, 0));
+            else if (rule is CssSupportsRule { Matches: true } supports)
+                frames.Push((supports.Rules, 0));
         }
         work.CheckCancellation();
         var rules = result.ToArray();
@@ -180,7 +183,7 @@ internal sealed class CssStyleSheet
                 var child = BuildShallow(source, entry.Rule, parser, options, work, cancellationToken,
                     item.Owner as CssStyleRule);
                 if (child is null) continue;
-                if (item.Owner is CssMediaRule media) media.AddProjected(child);
+                if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
                 pending.Push((child, entry.Rule.Block!.Value));
             }
@@ -197,10 +200,17 @@ internal sealed class CssStyleSheet
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
             if (name == "media")
                 return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
+            if (name == "supports")
+            {
+                if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
+                    return null;
+                var condition = SelectorText(source, syntax.Prelude, parser, work);
+                return new CssSupportsRule(condition, matches, syntax.Span);
+            }
             var group = name switch
             {
                 "import" or "namespace" => "R1",
-                "supports" or "container" or "scope" or "starting-style" or "layer" => "R2",
+                "container" or "scope" or "starting-style" or "layer" => "R2",
                 "keyframes" => "R3",
                 "font-face" or "font-feature-values" or "font-palette-values" => "R4",
                 "page" or "counter-style" => "R5",
@@ -235,8 +245,8 @@ internal sealed class CssStyleSheet
                     continue;
                 }
                 // Unknown at-rules recover; known nested grammars must remain completion blockers.
-                if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media"))
-                    throw new CssIncompleteRuleGrammarException("nested-media", "C2:nesting-selector-context", item.Rule.Span);
+                if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media") || CssAscii.EqualsIgnoreCase(item.Rule.Name, "supports"))
+                    throw new CssIncompleteRuleGrammarException("nested-" + item.Rule.Name, "C2:nesting-selector-context", item.Rule.Span);
                 BuildShallow(source, item.Rule, parser, options, work, cancellationToken);
                 continue;
             }

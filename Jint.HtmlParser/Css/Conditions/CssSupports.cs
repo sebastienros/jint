@@ -42,6 +42,19 @@ internal static class CssSupports
         return result == Result.True;
     }
 
+    // Unlike CSS.supports(), a rule prelude never retries with implied parentheses.
+    // CSS Conditional 3 §3: invalid syntax is discarded, while valid false groups survive.
+    // https://drafts.csswg.org/css-conditional-3/#at-supports
+    internal static bool TryParseCondition(string source, CssComponentValueList values,
+        CssParseOptions? options, CssValueWork work, out bool matches)
+    {
+        work.CheckCancellation();
+        var result = ValidAnyValue(values, work) ? Condition(source, values, options, work) : Result.Invalid;
+        work.CheckCancellation();
+        matches = result == Result.True;
+        return result != Result.Invalid;
+    }
+
     private static CssComponentValueList Parse(string source, CssParseOptions? options, CssValueWork work) =>
         new CssSyntaxParser(source, options, work.Token, work.CheckCancellation).ParseComponentValues();
 

@@ -61,12 +61,13 @@ internal static class CssRuleSerializer
             if (frame.Index != 0) builder.Append('\n');
             var rule = frame.Rules[frame.Index++];
             var start = builder.Length;
-            if (rule is CssMediaRule media)
+            if (rule is CssConditionRule conditionRule)
             {
-                var condition = media.Media.Serialize(work);
-                builder.Append("@media ").Append(condition).Append(" {");
-                if (media.Rules.Count != 0) builder.Append('\n');
-                frames.Push(new Frame(media.Rules, media, start));
+                var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;
+                work.Charge(condition.Length);
+                builder.Append(conditionRule is CssMediaRule ? "@media " : "@supports ").Append(condition).Append(" {");
+                if (conditionRule.Rules.Count != 0) builder.Append('\n');
+                frames.Push(new Frame(conditionRule.Rules, conditionRule, start));
             }
             else if (rule is CssStyleRule style)
             {

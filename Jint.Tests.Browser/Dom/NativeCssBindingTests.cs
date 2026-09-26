@@ -90,7 +90,7 @@ public sealed class NativeCssBindingTests
         dom.Bool("rules===media.rules && rules.length===2 && rules[1].parentRule===media && rules[1].parentStyleSheet===sheet").Should().BeTrue();
         dom.Execute("var removed=rules[0]; media.deleteRule(0); media.media.appendMedium('print');");
         dom.Bool("rules.length===1 && removed.parentRule===null && removed.parentStyleSheet===null && media.media.length===2 && media.media.item(1)==='print'").Should().BeTrue();
-        dom.Execute("media.media.removeMedium('screen'); media.conditionText='all';");
+        dom.Execute("media.media.removeMedium('screen'); media.media.mediaText='all';");
         dom.Text("media.media.mediaText").Should().Be("all");
     }
 

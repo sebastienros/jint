@@ -931,8 +931,8 @@
     },
     {
       "DomName": "CSSGroupingRule",
-      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssMediaRule",
-      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssMediaRule",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssGroupingRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssGroupingRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": false,
@@ -947,7 +947,7 @@
         {
           "DomName": "cssRules",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, \"CSSGroupingRule.cssRules\");\nreturn self.Realm.Wrap(self.Target.Rules);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, \"CSSGroupingRule.cssRules\");\nreturn self.Realm.Wrap(self.Target.Rules);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssGroupingRule.Rules"
@@ -955,7 +955,7 @@
         {
           "DomName": "deleteRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, \"CSSGroupingRule.deleteRule\");\nglobal::Jint.Browser.Styling.NativeCssBindings.DeleteRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CSSGroupingRule.deleteRule\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, \"CSSGroupingRule.deleteRule\");\nglobal::Jint.Browser.Styling.NativeCssBindings.DeleteRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CSSGroupingRule.deleteRule\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssGroupingRule.RemoveAt"
@@ -963,7 +963,7 @@
         {
           "DomName": "insertRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, \"CSSGroupingRule.insertRule\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSGroupingRule.insertRule\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"CSSGroupingRule.insertRule\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, \"CSSGroupingRule.insertRule\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSGroupingRule.insertRule\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"CSSGroupingRule.insertRule\")));",
           "SetterBody": null,
           "Length": 2,
           "Origin": "ICssGroupingRule.Insert"
@@ -971,7 +971,7 @@
         {
           "DomName": "rules",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, \"CSSGroupingRule.rules\");\nreturn self.Realm.Wrap(self.Target.Rules);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, \"CSSGroupingRule.rules\");\nreturn self.Realm.Wrap(self.Target.Rules);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssGroupingRule.Rules"
@@ -982,8 +982,8 @@
     },
     {
       "DomName": "CSSConditionRule",
-      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssMediaRule",
-      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssMediaRule",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssConditionRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssConditionRule",
       "Parent": "CSSGroupingRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": false,
@@ -998,8 +998,8 @@
         {
           "DomName": "conditionText",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, \"CSSConditionRule.conditionText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.MediaText(self.Realm, self.Target.Media));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaRule>(thisObj, \"CSSConditionRule.conditionText\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetMediaText(self.Realm, self.Target.Media, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSConditionRule.conditionText\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssConditionRule>(thisObj, \"CSSConditionRule.conditionText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.ConditionText(self.Realm, self.Target));",
+          "SetterBody": null,
           "Length": 0,
           "Origin": "ICssConditionRule.ConditionText"
         }
@@ -4085,8 +4085,8 @@
     },
     {
       "DomName": "CSSSupportsRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssSupportsRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssSupportsRule",
       "Parent": "CSSConditionRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4097,7 +4097,16 @@
       "ShapeAdditions": null,
       "AccessorClass": null,
       "AccessorReference": null,
-      "Members": [],
+      "Members": [
+        {
+          "DomName": "matches",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssSupportsRule>(thisObj, \"CSSSupportsRule.matches\");\nself.Realm.Engine.Constraints.Check();\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Conditional 3 §7.4"
+        }
+      ],
       "Constants": [],
       "Unscopables": []
     },

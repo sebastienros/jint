@@ -84,6 +84,14 @@ internal static class NativeCssBindings
     internal static string Type(CssStyleSheet sheet) => "text/css";
     internal static CssRule? Item(CssRuleList rules, int index) => (uint) index < (uint) rules.Count ? rules[index] : null;
     internal static string? Item(CssMediaList media, int index) => (uint) index < (uint) media.Count ? media[index] : null;
+    internal static string ConditionText(DomRealm realm, CssConditionRule rule)
+    {
+        if (rule is CssMediaRule media) return MediaText(realm, media.Media);
+        var work = Work(realm);
+        work.Charge(rule.ConditionText.Length);
+        work.CheckCancellation();
+        return rule.ConditionText;
+    }
     internal static string MediaText(DomRealm realm, CssMediaList media) => media.Serialize(Work(realm));
     internal static void SetMediaText(DomRealm realm, CssMediaList media, string text)
     {
@@ -111,7 +119,7 @@ internal static class NativeCssBindings
         var work = MutationWork(realm, () => sheet.Stamp);
         return sheet.InsertRule(text, index, null, work, work.Token);
     }
-    internal static int InsertRule(DomRealm realm, CssMediaRule rule, string text, int index)
+    internal static int InsertRule(DomRealm realm, CssGroupingRule rule, string text, int index)
     {
         var work = MutationWork(realm, () => rule.Stamp);
         return rule.InsertRule(text, index, null, work, work.Token);
@@ -122,7 +130,7 @@ internal static class NativeCssBindings
         var work = MutationWork(realm, () => sheet.Stamp);
         sheet.DeleteRule(index, work);
     }
-    internal static void DeleteRule(DomRealm realm, CssMediaRule rule, int index)
+    internal static void DeleteRule(DomRealm realm, CssGroupingRule rule, int index)
     {
         var work = MutationWork(realm, () => rule.Stamp);
         rule.DeleteRule(index, work);

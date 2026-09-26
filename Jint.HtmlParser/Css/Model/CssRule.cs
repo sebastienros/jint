@@ -7,7 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Style = 1, Media = 4 }
+internal enum CssRuleType { Style = 1, Media = 4, Supports = 12 }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule
@@ -19,6 +19,7 @@ internal abstract class CssRule
     protected CssRule(CssSourceSpan sourceSpan) => SourceSpan = sourceSpan;
 
     internal abstract CssRuleType Type { get; }
+    internal virtual CssRuleList Rules => CssRuleList.Empty;
     internal CssSourceSpan SourceSpan { get; }
     internal CssRule? ParentRule { get; private set; }
     internal CssStyleSheet? ParentStyleSheet { get; private set; }
@@ -37,7 +38,7 @@ internal abstract class CssRule
             rule.ParentRule = item.Parent;
             rule._attachmentSheet = item.Parent is null ? sheet : null;
             rule._attachmentParent = item.Parent;
-            var children = rule is CssMediaRule media ? media.Rules : ((CssStyleRule) rule).Rules;
+            var children = rule.Rules;
             foreach (var child in children) { work.Charge(1); pending.Push((child, rule)); }
         }
         work.CheckCancellation();
@@ -54,22 +55,23 @@ internal abstract class CssRule
         {
             work.Charge(1);
             descendants.Add(rule);
-            var children = rule is CssMediaRule media ? media.Rules : ((CssStyleRule) rule).Rules;
+            var children = rule.Rules;
             foreach (var child in children) { work.Charge(1); pending.Push(child); }
         }
         work.Charge(descendants.Count);
-        var detachment = new Detachment(this, descendants.ToArray());
+        var detachment = new Detachment(this);
         work.CheckCancellation();
         return detachment;
     }
 
     // All traversal and allocation precede publication. Commit contains no callbacks or allocation.
-    internal sealed class Detachment(CssRule root, CssRule[] descendants)
+    internal sealed class Detachment(CssRule root)
     {
         internal void Commit()
         {
-            // Retained descendants keep their parent rule, but lose their sheet.
-            foreach (var rule in descendants) rule.ParentStyleSheet = null;
+            // CSSOM remove a CSS rule, step 6: only the removed root loses exposed links.
+            // Descendants keep historical sheet/parent links; the attachment chain stops here.
+            root.ParentStyleSheet = null;
             root.ParentRule = null;
             root._attachmentSheet = null;
             root._attachmentParent = null;
@@ -113,7 +115,7 @@ internal sealed class CssStyleRule : CssRule
 
     internal override CssRuleType Type => CssRuleType.Style;
     internal CssDeclarationBlock Style { get; }
-    internal CssRuleList Rules { get; }
+    internal override CssRuleList Rules { get; }
     internal void AddProjected(CssRule rule) => _rules.Add(rule);
     internal CompiledSelector Selector => _selector;
     // This stage retains validated author selector text; canonical selector serialization is separate.
@@ -180,6 +182,7 @@ internal sealed class CssStyleRule : CssRule
 
 internal sealed class CssRuleList(List<CssRule> items) : IReadOnlyList<CssRule>
 {
+    internal static readonly CssRuleList Empty = new(new List<CssRule>());
     public int Count => items.Count;
     public CssRule this[int index] => items[index];
     public IEnumerator<CssRule> GetEnumerator() => items.GetEnumerator();
