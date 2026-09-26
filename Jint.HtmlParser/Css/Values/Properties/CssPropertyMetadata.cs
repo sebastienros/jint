@@ -11,7 +11,7 @@ internal enum CssPropertyGrammar
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
     Sizing, FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
-    WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim
+    WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -78,6 +78,8 @@ internal static class CssPropertyRegistry
         Add("flex-direction", CssPropertyGrammar.FlexDirection, "row");
         Add("flex-wrap", CssPropertyGrammar.FlexWrap, "nowrap");
         Add("direction", CssPropertyGrammar.Direction, "ltr", true);
+        // CSS Fonts 4 §2.2. Descriptors remain a separate context obligation.
+        Add("font-weight", CssPropertyGrammar.FontWeight, "normal", true);
         Add("align-items", CssPropertyGrammar.AlignItems, "normal");
         Add("align-self", CssPropertyGrammar.AlignSelf, "auto");
         Add("justify-items", CssPropertyGrammar.JustifyItems, "legacy");

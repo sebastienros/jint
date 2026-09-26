@@ -28,6 +28,8 @@ internal sealed partial class NativeCssQuery
 {
     private CssPropertyValue Compute(string name, CssPropertyValue value)
     {
+        if (name == "font-weight" && value.Kind == CssPropertyValueKind.Keyword)
+            return FontWeightNumber(value.Text == "bold" ? 700 : 400, value.Span);
         if (value.Kind == CssPropertyValueKind.FitContent)
             return CssPropertyValue.FitContent(Compute(name, value.Components[0]), value.Span);
         if (value.Kind == CssPropertyValueKind.Numeric)
@@ -65,7 +67,7 @@ internal sealed partial class NativeCssQuery
         var simplified = CssMathSimplifier.Freeze(builder, mapped[math.RootIndex], math.Context, math.Span, _work);
         var root = simplified.GetNode(simplified.RootIndex);
         if (root.Kind == CssMathNodeKind.Numeric) return Number(name, root.Numeric);
-        if (name is "opacity" or "z-index" or "flex-grow" or "flex-shrink")
+        if (name is "opacity" or "z-index" or "flex-grow" or "flex-shrink" or "font-weight")
             throw new CssIncompleteGrammarException(name, "C6:unresolved-number-calculation", value.Span);
         return CssPropertyValue.Calculation(simplified, CssMathSerializer.SerializeSpecified(simplified, _work));
     }
@@ -124,6 +126,7 @@ internal sealed partial class NativeCssQuery
         else if (double.IsPositiveInfinity(number)) number = double.MaxValue;
         else if (double.IsNegativeInfinity(number)) number = -double.MaxValue;
         if (name == "opacity") number = System.Math.Clamp(number, 0, 1);
+        else if (name == "font-weight") number = System.Math.Clamp(number, 1, 1000);
         else if (name is "width" or "height" or "flex-basis" or "flex-grow" or "flex-shrink")
             number = System.Math.Max(0, number);
         else if (name == "z-index") number = System.Math.Floor(number + 0.5);

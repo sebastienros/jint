@@ -7,6 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Colors;
+using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Css.Values.References;
 
@@ -119,7 +120,7 @@ internal sealed partial class NativeCssQuery
         if (adjust && name == "display") WarmParents(element, name, ref matching);
 
         // Inheritance is iterative even for arbitrarily deep native trees.
-        var pending = new Stack<(State State, NativeCssSource? Source, NativeCssDisposition Disposition)>();
+        var pending = new Stack<(State State, NativeCssSource? Source, NativeCssDisposition Disposition, CssPropertyValue? RelativeWeight)>();
         var current = element;
         NativeCssProperty result;
         while (true)
@@ -146,10 +147,20 @@ internal sealed partial class NativeCssQuery
             inherit |= name == "color" && value is { Kind: CssPropertyValueKind.Color } &&
                 value.Color.Kind == CssColorKind.CurrentColor;
             var parent = InheritanceParent(current);
+            var relativeWeight = name == "font-weight" && value is { Kind: CssPropertyValueKind.Keyword, Text: "bolder" or "lighter" }
+                ? value : null;
+            if (relativeWeight is not null && parent is not null)
+            {
+                // Fonts 4 §2.2.1. Follow the actual computed parent dependency iteratively.
+                pending.Push((state, candidate?.Source, disposition, relativeWeight));
+                matching.Observe(parent);
+                current = parent;
+                continue;
+            }
             if (inherit && parent is not null)
             {
                 pending.Push((state, candidate?.Source, disposition == NativeCssDisposition.InvalidAtComputedValue
-                    ? disposition : NativeCssDisposition.Inherited));
+                    ? disposition : NativeCssDisposition.Inherited, null));
                 matching.Observe(parent);
                 current = parent;
                 continue;
@@ -164,6 +175,7 @@ internal sealed partial class NativeCssQuery
                 }
                 if (disposition != NativeCssDisposition.InvalidAtComputedValue) disposition = NativeCssDisposition.Initial;
             }
+            if (relativeWeight is not null) value = RelativeFontWeight(relativeWeight.Text, 400, relativeWeight.Span);
             value = value.Kind == CssPropertyValueKind.Color
                 ? ComputeColor(current, name, value, ref matching) : Compute(name, value);
             if (adjust && name == "display") value = Display(current, value, ref matching);
@@ -176,6 +188,8 @@ internal sealed partial class NativeCssQuery
         {
             _work.Charge(1);
             var value = adjust && name == "display" ? Display(item.State.Element, result.Value!, ref matching) : result.Value!;
+            if (item.RelativeWeight is { } relative)
+                value = RelativeFontWeight(relative.Text, CssMathNumbers.ParseFinite(value.Numeric.Number, CssUnit.None, _work), relative.Span);
             result = result with
             {
                 Text = ColorText(item.State.Element, name, value, ref matching),
