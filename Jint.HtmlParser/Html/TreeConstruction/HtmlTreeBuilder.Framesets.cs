@@ -45,6 +45,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (_remaining <= 0) return false;
             var body = _open[1];
+            InvalidateRootCache();
             body.ParentNode?.RemoveChild(body);
             Charge(1);
             _framesetReplacementStage = 3;
@@ -75,7 +76,7 @@ internal sealed partial class HtmlTreeBuilder
                     return false;
                 }
                 Pop();
-                if (!IsHtmlElement(Current, "frameset")) _mode = Mode.AfterFrameset;
+                if (_fragmentContext is null && !IsHtmlElement(Current, "frameset")) _mode = Mode.AfterFrameset;
                 return false;
             case HtmlTokenKind.StartTag when name == "frame":
                 InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; return false;

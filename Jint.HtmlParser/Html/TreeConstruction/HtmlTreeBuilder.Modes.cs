@@ -218,7 +218,12 @@ internal sealed partial class HtmlTreeBuilder
         if (_token.Kind == HtmlTokenKind.ProcessingInstruction) { InsertProcessingInstruction(_open[0]); return false; }
         if (_token.Kind == HtmlTokenKind.Doctype) { Error("unexpected-doctype"); return false; }
         if (_token.Kind == HtmlTokenKind.StartTag && name == "html") { InBody(); return false; }
-        if (_token.Kind == HtmlTokenKind.EndTag && name == "html") { _mode = Mode.AfterAfterBody; return false; }
+        if (_token.Kind == HtmlTokenKind.EndTag && name == "html")
+        {
+            if (_fragmentContext is not null) Error("unexpected-html-end-tag");
+            else _mode = Mode.AfterAfterBody;
+            return false;
+        }
         if (_token.Kind == HtmlTokenKind.EndOfFile) return false;
         Error("unexpected-token-after-body");
         _mode = Mode.InBody;
