@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.Browser.Dom;
+using Jint.Browser.Styling;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Html;
 using Jint.Runtime;
@@ -101,8 +102,34 @@ internal sealed partial class ParserDriver
                 ? parse.Session.Drive(4096, _cancellationToken)
                 : parse.Session.DriveInsertedInput(insertion, 4096, _cancellationToken);
             _runtime.Engine.Constraints.Check();
-            DiscoverCandidateShadowRoots();
-            ProcessResourceRecords(parse);
+            List<Element>? completedStyles = null;
+            while (parse.Session.TryTakeCompletedStyle(out var completed, _cancellationToken))
+            {
+                _runtime.Engine.Constraints.Check();
+                (completedStyles ??= []).Add(completed!);
+                _pendingStyleCompletions.Add(completed!);
+            }
+            try
+            {
+                DiscoverCandidateShadowRoots();
+                ProcessResourceRecords(parse);
+                if (completedStyles is not null)
+                {
+                    foreach (var completed in completedStyles)
+                    {
+                        _runtime.Engine.Constraints.Check();
+                        _pendingStyleCompletions.Remove(completed);
+                        NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(parse.Document), parse.Document, completed);
+                        _inlineStyles.Add(completed);
+                        InstallInlineStyle(completed);
+                    }
+                }
+            }
+            finally
+            {
+                if (completedStyles is not null)
+                    foreach (var completed in completedStyles) _pendingStyleCompletions.Remove(completed);
+            }
             if (step.Kind is HtmlParseStepKind.HostRequest or HtmlParseStepKind.Complete) InstallInlineStyles(parse.Document);
             switch (step.Kind)
             {

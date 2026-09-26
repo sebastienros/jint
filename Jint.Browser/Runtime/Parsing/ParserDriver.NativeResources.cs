@@ -8,7 +8,9 @@ namespace Jint.Browser.Runtime.Parsing;
 
 internal sealed partial class ParserDriver
 {
-    private readonly Dictionary<Node, ResourceWatch> _resourceWatches = new();
+    private readonly ConditionalWeakTable<Node, ResourceWatch> _resourceWatches = new();
+    private readonly List<WeakReference<ResourceWatch>> _resourceWatchReferences = [];
+    private readonly HashSet<Element> _pendingStyleCompletions = [];
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
     private readonly Queue<(ResourceWatch Watch, MutationRecord Record)> _resourceRecords = new();
     private readonly List<Element> _candidateShadowHosts = [];
@@ -17,12 +19,14 @@ internal sealed partial class ParserDriver
     private readonly List<WeakReference<MutationSubscription>> _scriptSubscriptions = [];
     private bool _scriptChangesPosted;
     private int _scriptAttachmentsUntilSweep = 64;
+    private int _resourceAttachmentsUntilSweep = 64;
 
     private sealed class ResourceWatch(Node root, Document document, MutationSubscription subscription)
     {
         internal Node Root { get; } = root;
         internal Document Document { get; } = document;
         internal MutationSubscription Subscription { get; } = subscription;
+        internal bool Active = true;
         internal bool Posted;
         internal bool Deferred;
     }
@@ -43,8 +47,7 @@ internal sealed partial class ParserDriver
         if (_resourceWatches.TryGetValue(root, out var existing))
         {
             if (ReferenceEquals(existing.Document, document)) return existing;
-            existing.Subscription.Dispose();
-            _resourceWatches.Remove(root);
+            RetireResourceWatch(existing);
         }
         var subscription = document.ObserveMutations(root, new MutationObserverOptions
         {
@@ -60,12 +63,45 @@ internal sealed partial class ParserDriver
         {
             // Freeze cross-root order at arrival. No tree reads, fetch, CSS or script here.
             if (!weak.TryGetTarget(out var driver)) { watch.Subscription.Dispose(); return; }
-            if (driver._disposed) return;
+            if (driver._disposed || !watch.Active) return;
             foreach (var record in pending.TakeRecords()) driver._resourceRecords.Enqueue((watch, record));
             driver.QueueResourceDrain(watch);
         };
         _resourceWatches.Add(root, watch);
+        _resourceWatchReferences.Add(new(watch));
+        if (--_resourceAttachmentsUntilSweep == 0)
+        {
+            _resourceAttachmentsUntilSweep = 64;
+            for (var index = _resourceWatchReferences.Count - 1; index >= 0; index--)
+            {
+                _runtime.Engine.Constraints.Check();
+                if (!_resourceWatchReferences[index].TryGetTarget(out var reference) || !reference.Active)
+                    _resourceWatchReferences.RemoveAt(index);
+            }
+        }
         return watch;
+    }
+
+    private void RetireResourceWatch(ResourceWatch watch)
+    {
+        watch.Active = false;
+        watch.Subscription.Dispose();
+        _resourceWatches.Remove(watch.Root);
+    }
+
+    private void RetireDocumentWatches(Document document)
+    {
+        for (var index = _resourceWatchReferences.Count - 1; index >= 0; index--)
+        {
+            _runtime.Engine.Constraints.Check();
+            if (!_resourceWatchReferences[index].TryGetTarget(out var watch))
+                _resourceWatchReferences.RemoveAt(index);
+            else if (ReferenceEquals(watch.Document, document))
+            {
+                RetireResourceWatch(watch);
+                _resourceWatchReferences.RemoveAt(index);
+            }
+        }
     }
 
     internal void WatchShadowRoot(ShadowRoot root)
@@ -80,7 +116,7 @@ internal sealed partial class ParserDriver
     {
         if (_disposed) return;
         var root = ShadowTree.GetRoot(node, composed: false, _runtime.Dom.NativeReadCheckpoint, _cancellationToken);
-        if (root is ShadowRoot shadow) WatchShadowRoot(shadow);
+        if (root is ShadowRoot shadow && IsResourceConnected(shadow.Host)) WatchShadowRoot(shadow);
     }
 
     private void RecordCandidateShadowHost(Element host) => _candidateShadowHosts.Add(host);
@@ -102,7 +138,7 @@ internal sealed partial class ParserDriver
         _runtime.Engine.Tasks.Post(() =>
         {
             watch.Posted = false;
-            if (_disposed) return;
+            if (_disposed || !watch.Active) return;
             if (_nativeParses.ContainsKey(watch.Document)) { watch.Deferred = true; return; }
             DrainResourceRecords();
             InstallInlineStyles(watch.Document);
@@ -131,10 +167,23 @@ internal sealed partial class ParserDriver
     {
         // The arrival queue preserves order across ordinary roots and nested page turns.
         var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
+        var delivered = new HashSet<ResourceWatch>(ReferenceEqualityComparer.Instance);
         while (_resourceRecords.TryDequeue(out var entry))
         {
             var record = entry.Record;
             _runtime.Engine.Constraints.Check();
+            if (entry.Watch.Active && delivered.Add(entry.Watch))
+            {
+                // Capture happens on arrival; transient observation ends at this safe delivery boundary.
+                foreach (var remaining in entry.Watch.Subscription.TakeRecordsForDelivery())
+                    _resourceRecords.Enqueue((entry.Watch, remaining));
+            }
+            if (!entry.Watch.Active)
+            {
+                if (record.Kind == MutationRecordKind.ChildList && record.TargetWasConnected)
+                    foreach (var removed in record.RemovedNodes) DisassociateResourceSubtree(removed, entry.Watch.Document, seen);
+                continue;
+            }
             if (record.Kind == MutationRecordKind.ChildList)
             {
                 if (!record.TargetWasConnected) continue;
@@ -145,7 +194,7 @@ internal sealed partial class ParserDriver
                 if (record.Target is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
                 {
                     NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
-                    _inlineStyles.Add(style);
+                    ProcessResourceElement(style);
                 }
             }
             else if (record.Kind == MutationRecordKind.CharacterData)
@@ -156,7 +205,7 @@ internal sealed partial class ParserDriver
                     if (parent is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
                     {
                         NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
-                        _inlineStyles.Add(style);
+                        ProcessResourceElement(style);
                         break;
                     }
                 }
@@ -166,7 +215,16 @@ internal sealed partial class ParserDriver
             {
                 if (element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
                     && (record.AttributeName != "src" || Attribute(element, "src") is null)) continue;
-                ProcessResourceElement(element);
+                if (element is { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg })
+                {
+                    if (record.AttributeName == "type")
+                    {
+                        NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, element);
+                        ProcessResourceElement(element);
+                    }
+                    // Media metadata is read by the producer; it must not replace authored CSSOM rules.
+                }
+                else ProcessResourceElement(element);
             }
         }
     }
@@ -213,6 +271,7 @@ internal sealed partial class ParserDriver
         {
             _runtime.Engine.Constraints.Check();
             seen.Remove(node);
+            if (node is ShadowRoot && _resourceWatches.TryGetValue(node, out var watch)) RetireResourceWatch(watch);
             if (node is Element element)
             {
                 if (element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg ||
@@ -237,6 +296,7 @@ internal sealed partial class ParserDriver
         {
             NativeCssStyleSheets.PrepareOwner(_runtime.Dom.RealmOfDocument(element.OwnerDocument!), element);
             _inlineStyles.Add(element);
+            InstallInlineStyle(element);
             return;
         }
         if (element.NamespaceUri != Namespaces.Html) return;
@@ -270,31 +330,49 @@ internal sealed partial class ParserDriver
     private bool IsResourceConnected(Element element)
         => ShadowTree.GetRoot(element, composed: true, _runtime.Dom.NativeReadCheckpoint, _cancellationToken) is Document;
 
+    private bool StyleIsPending(Element style) => _pendingStyleCompletions.Contains(style) ||
+        style.OwnerDocument is { } document && _nativeParses.TryGetValue(document, out var parse) && parse.Session.IsStyleOpen(style);
+
+    private void InstallInlineStyle(Element style)
+    {
+        if (StyleIsPending(style)) return;
+        _inlineStyles.Remove(style);
+        if (style.OwnerDocument is { } document && IsResourceConnected(style))
+        {
+            var work = new CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check);
+            if (NativeCssStyleSheets.EligibleOwner(style, new DomReadWork(work.Charge, work.Token), work))
+                NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), style,
+                    TextOf(style), DomDocumentState.Of(document).Url);
+        }
+    }
+
     private void InstallInlineStyles(Document document)
     {
         foreach (var style in _inlineStyles.ToArray())
         {
-            if (!ReferenceEquals(style.OwnerDocument, document)) continue;
-            _inlineStyles.Remove(style);
-            if (IsResourceConnected(style))
-                global::Jint.Browser.Styling.NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), style,
-                    TextOf(style), DomDocumentState.Of(document).Url);
+            if (ReferenceEquals(style.OwnerDocument, document)) InstallInlineStyle(style);
         }
     }
 
     private void LoadStyleSheet(Element link)
     {
-        NativeCssStyleSheets.PrepareOwner(_runtime.Dom.RealmOfDocument(link.OwnerDocument!), link);
-        var source = _resourceSources.GetValue(link, static _ => new ResourceSource());
-        if (!IsResourceConnected(link)) { InvalidateStyleRequest(source); return; }
         var document = link.OwnerDocument!;
-        var href = Attribute(link, "href");
-        if (string.IsNullOrEmpty(href)) { InvalidateStyleRequest(source); return; }
-        var relations = Attribute(link, "rel") ?? "";
-        if (!relations.Split([' ', '\t', '\r', '\n', '\f'], StringSplitOptions.RemoveEmptyEntries)
-            .Any(value => value.Equals("stylesheet", StringComparison.OrdinalIgnoreCase)))
+        var realm = _runtime.Dom.RealmOfDocument(document);
+        NativeCssStyleSheets.PrepareOwner(realm, link);
+        var source = _resourceSources.GetValue(link, static _ => new ResourceSource());
+        void Disassociate()
         {
+            NativeCssStyleSheets.DisassociateOwner(realm, document, link);
             InvalidateStyleRequest(source);
+        }
+        if (!IsResourceConnected(link)) { Disassociate(); return; }
+        var href = Attribute(link, "href");
+        if (string.IsNullOrEmpty(href)) { Disassociate(); return; }
+        var relations = Attribute(link, "rel") ?? "";
+        var work = new CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check);
+        if (!NativeCssStyleSheets.EligibleOwner(link, new DomReadWork(work.Charge, work.Token), work))
+        {
+            Disassociate();
             var refused = PageUrl.Resolve(href, BaseUrlOf(link.OwnerDocument!)) ?? href;
             _requests.RecordNotFetched(refused, RequestInitiator.Subresource, PageRequestKind.Other,
                 "a <link rel=\"" + relations + "\"> is not fetched: only a stylesheet is");
@@ -302,6 +380,8 @@ internal sealed partial class ParserDriver
         }
         var url = PageUrl.Resolve(href, BaseUrlOf(document));
         if (source.Signature == url && source.StyleRequest is not null) return;
+        // A changed request removes the old sheet before the new fetch can pump a page turn.
+        NativeCssStyleSheets.DisassociateOwner(realm, document, link);
         var request = new object();
         source.StyleRequest = request;
         source.Signature = url;
@@ -418,7 +498,7 @@ internal sealed partial class ParserDriver
         if (DomDocumentOrigin.InheritsCreator(url)) metadata.AboutBaseUrl = creatorBaseUrl;
         if (DomBrowsingContext.OfFrame(frame) is { } context)
         {
-            if (context.Active is { } previous && _resourceWatches.Remove(previous, out var watch)) watch.Subscription.Dispose();
+            if (context.Active is { } previous) RetireDocumentWatches(previous);
             context.Activate(document);
         }
         else context = new DomBrowsingContext(document, creatorContext, frame);

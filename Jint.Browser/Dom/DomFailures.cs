@@ -73,7 +73,11 @@ internal static class DomFailures
         };
         var document = node as Document ?? node?.OwnerDocument;
         if (node is not null && document is not null)
-            Runtime.PageRuntime.FindBrowsingContext(wrapper.DomRealm.Engine, document)?.Parser?.CompleteNativeMutation(node);
+        {
+            var parser = Runtime.PageRuntime.FindBrowsingContext(wrapper.DomRealm.Engine, document)?.Parser
+                ?? Runtime.PageRuntime.Find(wrapper.DomRealm.Engine)?.Parser;
+            parser?.CompleteNativeMutation(node);
+        }
     }
 
     private static void PrepareCustomElements(JsValue receiver)
