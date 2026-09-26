@@ -89,6 +89,15 @@ internal static partial class NativeCssStyleSheets
             Resolution = page.Viewport.DeviceScaleFactor,
             Pointer = features["pointer"],
             Hover = features["hover"],
+            AnyPointer = features["any-pointer"] switch
+            {
+                "none" => CssPointerCapabilities.None,
+                "coarse" => CssPointerCapabilities.Coarse,
+                "fine" => CssPointerCapabilities.Fine,
+                _ => CssPointerCapabilities.Unknown
+            },
+            AnyHover = features["any-hover"],
+            DisplayMode = features["display-mode"],
             Scripting = features["scripting"],
             ColorScheme = features["prefers-color-scheme"],
             ReducedMotion = features["prefers-reduced-motion"],
