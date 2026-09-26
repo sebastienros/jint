@@ -51,7 +51,7 @@ internal static class TextEditing
     /// </summary>
     internal static bool IsEditable(DomRealm dom, Element element)
     {
-        if (element.NamespaceUri != Namespaces.Html || EventDom.Disabled(dom, element) || element.HasAttribute("readonly"))
+        if (element.NamespaceUri != Namespaces.Html || EventDom.Disabled(dom, element) || element.HasContentAttribute("readonly"))
         {
             return false;
         }

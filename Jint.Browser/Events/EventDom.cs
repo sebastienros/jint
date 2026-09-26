@@ -7,11 +7,11 @@ namespace Jint.Browser.Events;
 /// <summary>HTML event classifications over the native node identity and attributes.</summary>
 internal static class EventDom
 {
-    internal static bool HasAttribute(this Element element, string name) => element.GetAttributeNode(name) is not null;
+    internal static bool HasContentAttribute(this Element element, string name) => element.GetAttributeNodeNS(null, name) is not null;
     internal static bool IsHtml(Element element, string name) => element.NamespaceUri == Namespaces.Html && element.LocalName == name;
     internal static string InputType(Element element) => HtmlInputTypes.Info(HtmlInputTypes.Get(element)).Keyword;
     internal static string ButtonType(Element element)
-        => element.GetAttribute("type") switch
+        => element.GetAttributeNS(null, "type") switch
         {
             { } type when CssAscii.EqualsIgnoreCase(type, "reset") => "reset",
             { } type when CssAscii.EqualsIgnoreCase(type, "button") => "button",

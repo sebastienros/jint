@@ -199,7 +199,7 @@ internal static class FocusController
     /// </summary>
     internal static bool IsFocusable(DomRealm dom, Element element)
     {
-        if (EventDom.Disabled(dom, element) || element.HasAttribute("hidden") || element.HasAttribute("inert"))
+        if (EventDom.Disabled(dom, element) || element.HasContentAttribute("hidden") || element.HasContentAttribute("inert"))
         {
             return false;
         }
@@ -312,7 +312,7 @@ internal static class FocusController
 
         foreach (var element in NodeTraversal.DescendantElements(document, () => dom.NativeReadCheckpoint(256), dom.CancellationToken))
         {
-            if (element.HasAttribute("autofocus") && IsFocusable(dom, element))
+            if (element.HasContentAttribute("autofocus") && IsFocusable(dom, element))
             {
                 Focus(dom, element);
                 return;
@@ -326,7 +326,7 @@ internal static class FocusController
     /// </summary>
     private static int? TabIndexAttribute(Element element)
     {
-        var raw = element.GetAttribute("tabindex");
+        var raw = element.GetAttributeNS(null, "tabindex");
         return raw is not null && int.TryParse(raw.Trim(), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var value)
             ? value
             : null;
@@ -337,7 +337,7 @@ internal static class FocusController
         if (element.NamespaceUri != Namespaces.Html) return false;
         return element.LocalName switch
         {
-            "a" or "area" => element.HasAttribute("href"),
+            "a" or "area" => element.HasContentAttribute("href"),
             "button" or "select" or "textarea" or "iframe" => true,
             "input" => HtmlInputTypes.Get(element) != HtmlInputType.Hidden,
             _ => element.LocalName is "summary" || ReferenceEquals(ContentEditing.HostOf(element), element),

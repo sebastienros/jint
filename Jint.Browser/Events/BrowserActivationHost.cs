@@ -64,15 +64,15 @@ internal abstract class BrowserActivationHost
         internal override void SubmitForm(BrowserEventRealm realm, Element form, Element? submitter)
             => realm.Record(new PendingActivation(
                 PendingActivationKind.FormSubmission,
-                string.IsNullOrEmpty(form.GetAttribute("action"))
+                string.IsNullOrEmpty(form.GetAttributeNS(null, "action"))
                     ? DomDocumentState.Of(form.OwnerDocument!).Url
                     : ContentDom.Url(form, "action") ?? "",
                 submitter is null ? "" : NameOf(submitter)));
 
         internal override void OpenFileChooser(BrowserEventRealm realm, Element input)
-            => realm.Record(new PendingActivation(PendingActivationKind.FileChooser, input.GetAttribute("name") ?? "", input.GetAttribute("id") ?? ""));
+            => realm.Record(new PendingActivation(PendingActivationKind.FileChooser, input.GetAttributeNS(null, "name") ?? "", input.GetAttributeNS(null, "id") ?? ""));
 
         private static string NameOf(Element submitter)
-            => submitter.GetAttribute("id") is { Length: > 0 } id ? id : submitter.GetAttribute("name") ?? submitter.LocalName;
+            => submitter.GetAttributeNS(null, "id") is { Length: > 0 } id ? id : submitter.GetAttributeNS(null, "name") ?? submitter.LocalName;
     }
 }

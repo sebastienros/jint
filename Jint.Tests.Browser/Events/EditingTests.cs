@@ -18,6 +18,23 @@ using Page = global::Jint.Browser.Page;
 public sealed class EditingTests
 {
     [Test]
+    public async Task AReadOnlyAttributeInAnotherNamespaceDoesNotBarTextareaEditing()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<textarea id='t'>a</textarea>");
+        await page.EvaluateAsync(
+            """
+            const t = document.getElementById('t');
+            t.setAttributeNS('urn:foreign', 'readonly', '');
+            t.focus();
+            t.setSelectionRange(1, 1);
+            """);
+        await BrowserTestAccess.DispatchKeyAsync(page, "x");
+        (await page.EvaluateAsync<string>("t.value")).Should().Be("ax");
+    }
+
+    [Test]
     public async Task CanceledBeforeInputDoesNotCreateTextOrMoveSelectionInAnEmptyEditingHost()
     {
         await using var browser = new Browser();

@@ -67,7 +67,7 @@ internal static class ContentEditing
 
         for (var candidate = element; candidate is not null; candidate = (candidate.ParentNode as Element))
         {
-            if (candidate.NamespaceUri != Namespaces.Html || candidate.GetAttribute("contenteditable") is not { } raw)
+            if (candidate.NamespaceUri != Namespaces.Html || candidate.GetAttributeNS(null, "contenteditable") is not { } raw)
             {
                 continue;
             }
