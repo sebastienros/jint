@@ -52,7 +52,7 @@ public partial class Engine
         /// </remarks>
         public void Retire()
         {
-            lock (_engine._lifecycleLock)
+            lock (_engine.LifecycleLock)
             {
                 if (_engine.IsDisposed || System.Threading.Interlocked.Exchange(ref _engine._retired, 1) != 0)
                 {

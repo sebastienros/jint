@@ -144,10 +144,33 @@ public sealed partial class Engine : IDisposable
     private int _retirementFinished;
     // Use the same monitor on every target to serialize Retire and Dispose. Teardown invokes host-owned
     // cancellation and disposal callbacks while holding it; those callbacks must not join another thread
-    // that is entering the same engine's lifecycle methods.
-#pragma warning disable MA0158
-    private readonly object _lifecycleLock = new();
-#pragma warning restore MA0158
+    // that is entering the same engine's lifecycle methods. Created on first use by LifecycleLock, never by
+    // the constructor, so building an engine does not pay for a monitor only retirement and disposal need.
+    private object? _lifecycleLock;
+
+    /// <summary>
+    /// The monitor <see cref="AdvancedOperations.Retire"/> and <see cref="Dispose"/> serialize on, created by
+    /// whichever of them reaches it first.
+    /// </summary>
+    /// <remarks>
+    /// The two may race from different threads on an engine that has never allocated it, so the publication is
+    /// a compare-exchange: the loser drops its candidate and locks the winner's, and both end up holding the
+    /// same monitor. A plain <c>??=</c> would let two racing first uses each lock an object of their own.
+    /// </remarks>
+    private object LifecycleLock
+    {
+        get
+        {
+            var gate = Volatile.Read(ref _lifecycleLock);
+            if (gate is not null)
+            {
+                return gate;
+            }
+
+            var created = new object();
+            return Interlocked.CompareExchange(ref _lifecycleLock, created, null) ?? created;
+        }
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal HostCallScope EnterHostCall(object? asyncOwner = null, object? callbackOwner = null)
@@ -5493,7 +5516,7 @@ public sealed partial class Engine : IDisposable
         finally
         {
             // A concurrent Retire can briefly claim an idle engine to release its transient state.
-            lock (_lifecycleLock)
+            lock (LifecycleLock)
             {
                 DisposeCore();
             }

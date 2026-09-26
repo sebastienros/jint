@@ -1,5 +1,6 @@
 #nullable enable
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Atomics;
@@ -262,6 +263,44 @@ public class AtomicsWaiterRegistryTests
 
         AtomicsInstance.WaiterListCount(block).Should().Be(0);
     }
+
+    /// <summary>
+    /// The engine-side waiter index and its lock exist for engines that park an <c>Atomics.waitAsync</c>, so
+    /// constructing, using Atomics without parking, and the terminal cleanup that abandons parked waiters must
+    /// all leave the lock unallocated; the first park creates it, and that cleanup still abandons the park.
+    /// </summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public void OnlyAParkedAsyncWaitAllocatesTheEngineSideWaiterLock(bool dispose)
+    {
+        var idle = new Engine();
+        // A matching value with a zero timeout answers "timed-out" synchronously and parks nothing.
+        idle.Execute("var i32a = new Int32Array(new SharedArrayBuffer(8)); Atomics.add(i32a, 0, 1); Atomics.waitAsync(i32a, 0, 1, 0);");
+        AtomicsAsyncWaitersLockOf(idle).Should().BeNull();
+        Terminate(idle, dispose);
+        AtomicsAsyncWaitersLockOf(idle).Should().BeNull("abandoning no waiters must not allocate the lock to find that out");
+
+        var parked = new Engine();
+        parked.Execute("var sab = new SharedArrayBuffer(8); var i32a = new Int32Array(sab); Atomics.waitAsync(i32a, 0, 0);");
+        var block = BlockOf(parked, "sab");
+        AtomicsAsyncWaitersLockOf(parked).Should().NotBeNull();
+        Terminate(parked, dispose);
+        AtomicsInstance.WaiterListCount(block).Should().Be(0);
+
+        // Idempotent after either route; a retired engine is still owed its disposal.
+        idle.Dispose();
+        parked.Dispose();
+
+        static void Terminate(Engine engine, bool dispose)
+        {
+            if (dispose) engine.Dispose();
+            else engine.Advanced.Retire();
+        }
+    }
+
+    // Private, and without an accessor a test could call without allocating the lock it is asking about.
+    private static object? AtomicsAsyncWaitersLockOf(Engine engine)
+        => typeof(Engine).GetField("_atomicsAsyncWaitersLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(engine);
 
     private static byte[] BlockOf(Engine engine, string name)
     {

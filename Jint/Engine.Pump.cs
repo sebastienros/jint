@@ -39,13 +39,38 @@ public partial class Engine
 
     // A pending waiter is already rooted by its shared block. Keep the engine-side index only
     // while waits remain pending, so a long-lived engine does not retain slots for settled waits.
-    private readonly Lock _atomicsAsyncWaitersLock = new();
+    // The lock guarding it is created by the first Atomics.waitAsync that parks, never by the constructor,
+    // so an engine that never waits never allocates it: see AtomicsAsyncWaitersLock.
+    private Lock? _atomicsAsyncWaitersLock;
     private HashSet<AtomicsInstance.AsyncWaiter>? _atomicsAsyncWaiters;
     private int _atomicsAsyncWaiterPeak;
 
+    /// <summary>
+    /// The lock over <see cref="_atomicsAsyncWaiters"/>, created on first use.
+    /// </summary>
+    /// <remarks>
+    /// Registration runs on the engine thread, but the unregistration a wake performs runs on whichever thread
+    /// called <c>Atomics.notify</c> — another agent's — so the publication is a compare-exchange rather than a
+    /// plain <c>??=</c>: every thread that asks gets the one instance that won.
+    /// </remarks>
+    private Lock AtomicsAsyncWaitersLock
+    {
+        get
+        {
+            var gate = Volatile.Read(ref _atomicsAsyncWaitersLock);
+            if (gate is not null)
+            {
+                return gate;
+            }
+
+            var created = new Lock();
+            return Interlocked.CompareExchange(ref _atomicsAsyncWaitersLock, created, null) ?? created;
+        }
+    }
+
     internal void RegisterAtomicsAsyncWaiter(AtomicsInstance.AsyncWaiter waiter)
     {
-        lock (_atomicsAsyncWaitersLock)
+        lock (AtomicsAsyncWaitersLock)
         {
             var waiters = _atomicsAsyncWaiters ??= [];
             waiters.Add(waiter);
@@ -55,7 +80,9 @@ public partial class Engine
 
     internal void UnregisterAtomicsAsyncWaiter(AtomicsInstance.AsyncWaiter waiter)
     {
-        lock (_atomicsAsyncWaitersLock)
+        // Every waiter reaching here was registered first, so this only reads the published lock; going through
+        // the accessor still means a notifying thread can never end up locking a second one.
+        lock (AtomicsAsyncWaitersLock)
         {
             var waiters = _atomicsAsyncWaiters;
             if (waiters is null || !waiters.Remove(waiter)) return;
@@ -74,8 +101,20 @@ public partial class Engine
 
     private void AbandonAtomicsAsyncWaiters()
     {
+        var gate = Volatile.Read(ref _atomicsAsyncWaitersLock);
+        if (gate is null)
+        {
+            // No Atomics.waitAsync has ever parked on this engine, so there is no waiter to abandon and no
+            // reason to allocate the lock just to find that out. A finite-timeout deadline is only ever
+            // registered after its waiter, so the registry is already null too; clearing it keeps this branch
+            // equivalent to the locked one. Both callers hold the engine, which is also what registration
+            // needs, so no registration can be racing this read.
+            _atomicsWaiterDeadlines = null;
+            return;
+        }
+
         HashSet<AtomicsInstance.AsyncWaiter>? waiters;
-        lock (_atomicsAsyncWaitersLock)
+        lock (gate)
         {
             waiters = _atomicsAsyncWaiters;
             _atomicsAsyncWaiters = null;
