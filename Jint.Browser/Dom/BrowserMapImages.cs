@@ -54,7 +54,7 @@ internal sealed class BrowserMapImages(Element map) : DomHtmlCollection<Element>
             {
                 if (candidate.NamespaceUri != Namespaces.Html || candidate.LocalName != "img") continue;
                 var reference = HashName(work.Attribute(candidate, "usemap"), work);
-                if (reference is not null && (idWins && work.Equal(reference, id!) || nameWins && work.Equal(reference, name!)))
+                if (reference is { } suffix && (idWins && suffix.Matches(id!, work) || nameWins && suffix.Matches(name!, work)))
                     yield return candidate;
             }
         }
@@ -68,17 +68,30 @@ internal sealed class BrowserMapImages(Element map) : DomHtmlCollection<Element>
         foreach (var descendant in NodeTraversal.DescendantElements(root, work.Check, work.Token)) yield return descendant;
     }
 
-    internal static string? HashName(string? value, DomReadWork work)
+    internal static HashNameReference? HashName(string? value, DomReadWork work)
     {
         if (value is null) return null;
         for (var i = 0; i < value.Length; i++)
         {
             work.Step();
             if (value[i] != '#') continue;
-            for (var suffix = i + 1; suffix < value.Length; suffix++) work.Step();
-            return i + 1 < value.Length ? value[(i + 1)..] : null;
+            return i + 1 < value.Length ? new HashNameReference(value, i + 1) : null;
         }
         return null;
+    }
+
+    internal readonly struct HashNameReference(string source, int start)
+    {
+        internal bool Matches(string name, DomReadWork work)
+        {
+            if (source.Length - start != name.Length) return false;
+            for (var i = 0; i < name.Length; i++)
+            {
+                work.Step();
+                if (source[start + i] != name[i]) return false;
+            }
+            return true;
+        }
     }
 
     private static int Count(IEnumerable<Element> images)

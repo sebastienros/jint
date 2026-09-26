@@ -52,17 +52,39 @@ public sealed class NativeMapImagesTests
     public void HashNameUsesLiteralSuffixAfterFirstHash(string raw, string? expected)
     {
         var work = new DomReadWork(null, default);
-        BrowserMapImages.HashName(raw, work).Should().Be(expected);
+        var reference = BrowserMapImages.HashName(raw, work);
+        if (expected is null) reference.Should().BeNull();
+        else
+        {
+            reference.HasValue.Should().BeTrue();
+            reference.GetValueOrDefault().Matches(expected, work).Should().BeTrue();
+        }
         work.Check();
     }
 
-    [Test]
-    public void HashNameChargesLongSuffixBeforeCopying()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void HashNameComparisonChecksLongEqualPrefix(bool mismatch)
     {
         var charged = 0;
         var work = new DomReadWork(units => { charged += units; if (charged >= 256) throw new OperationCanceledException(); }, default);
-        Caught.Exception(() => BrowserMapImages.HashName("#" + new string('x', 8192), work)).Should().BeOfType<OperationCanceledException>();
+        var name = new string('x', 8192);
+        var raw = "#" + (mismatch ? name[..^1] + "y" : name);
+        var reference = BrowserMapImages.HashName(raw, work)!.Value;
+        charged.Should().Be(0);
+        Caught.Exception(() => reference.Matches(name, work)).Should().BeOfType<OperationCanceledException>();
         charged.Should().Be(256);
+    }
+
+    [Test]
+    public void HashNameLengthMismatchDoesNotScanOrCopyTheSuffix()
+    {
+        var charged = 0;
+        var work = new DomReadWork(units => charged += units, default);
+        var reference = BrowserMapImages.HashName("#" + new string('x', 8192), work)!.Value;
+        reference.Matches("x", work).Should().BeFalse();
+        work.Check();
+        charged.Should().Be(1);
     }
 
     [Test]
