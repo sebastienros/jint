@@ -24,12 +24,18 @@ internal sealed partial class NativeCssQuery
     private NativeCssProperty Overflow(Element element, string name, ref SelectorMatchWork matching)
     {
         var state = StateOf(element, ref matching);
-        if (state.Computed.TryGetValue(name, out var cached)) return cached;
+        if (state.Computed.TryGetValue(name, out var cached))
+        {
+            _diagnostics?.CacheHit(element, name);
+            return cached;
+        }
         WarmParents(element, name, ref matching);
         var x = GetPropertyCore(element, "overflow-x", ref matching, adjust: false);
         var y = GetPropertyCore(element, "overflow-y", ref matching, adjust: false);
         state.Computed.Add("overflow-x", Adjust(x, y));
+        _diagnostics?.ComputedPublished(element, "overflow-x");
         state.Computed.Add("overflow-y", Adjust(y, x));
+        _diagnostics?.ComputedPublished(element, "overflow-y");
         matching.VerifyRead();
         Verify();
         return state.Computed[name];

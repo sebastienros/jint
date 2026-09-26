@@ -67,7 +67,8 @@ internal static partial class NativeCssStyleSheets
         Install(document, owner, text, sourceUrl, owner.LocalName == "link" ? sourceUrl : baseUrl, work);
     }
 
-    internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateQuery(Document document, DomRealm realm)
+    internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateQuery(Document document, DomRealm realm,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
         var page = PageRuntime.FindBrowsingContext(realm.Engine, document)?.Media ?? PageMediaEnvironment.Default;
@@ -102,7 +103,8 @@ internal static partial class NativeCssStyleSheets
         var query = new NativeCssQuery(document, sheets, [], media, selectors,
             CssEnvironmentSnapshot.Create([], work), work,
             new NativeCssMetrics { FontSize = MediaQuery.PixelsPerEm, RootFontSize = MediaQuery.PixelsPerEm },
-            readInlineAttributes: true, systemColors: NativeCssBrowserDefaults.Palette(media.ColorScheme == "dark", work));
+            readInlineAttributes: true, systemColors: NativeCssBrowserDefaults.Palette(media.ColorScheme == "dark", work),
+            diagnostics: diagnostics);
         var matching = new SelectorMatchWork(document, realm.CancellationToken, realm.Engine.Constraints.Check);
         return (query, matching);
     }

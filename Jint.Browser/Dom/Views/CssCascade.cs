@@ -21,10 +21,11 @@ internal static class CssCascade
         private readonly Dictionary<Element, NativeCssComputedStyle> _views = new();
         private SelectorMatchWork _matching = matching;
 
-        internal static Traversal? For(Document? document, StyleScope scope = StyleScope.All)
+        internal static Traversal? For(Document? document, StyleScope scope = StyleScope.All,
+            NativeCssQueryDiagnostics? diagnostics = null)
         {
             if (document is null || NativeCssStyleSheets.RealmOf(document) is not { } realm) return null;
-            var input = NativeCssStyleSheets.CreateQuery(document, realm);
+            var input = NativeCssStyleSheets.CreateQuery(document, realm, diagnostics);
             return new(input.Query, input.Matching);
         }
 

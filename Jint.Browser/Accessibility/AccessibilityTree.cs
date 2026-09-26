@@ -5,6 +5,7 @@ using Jint.HtmlParser;
 
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
+using Jint.Browser.Styling;
 
 namespace Jint.Browser.Accessibility;
 
@@ -35,12 +36,13 @@ internal static class AccessibilityTree
     });
 
     /// <summary>Builds the accessibility tree of <paramref name="document"/>.</summary>
-    internal static AxNode Build(Document document, AccessibilityOptions? options = null)
+    internal static AxNode Build(Document document, AccessibilityOptions? options = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
         options ??= AccessibilityOptions.Default;
-        var builder = new Builder(document, options);
+        var builder = new Builder(document, options, diagnostics);
 
         var children = new List<AxNode>();
         if (document.DocumentElement is not null)
@@ -82,13 +84,14 @@ internal static class AccessibilityTree
     /// <c>&lt;div&gt;</c> with nothing on it — yields its first surviving descendant rather than nothing,
     /// so a caller always gets the subtree it asked about.
     /// </remarks>
-    internal static AxNode? Build(Element element, AccessibilityOptions? options = null)
+    internal static AxNode? Build(Element element, AccessibilityOptions? options = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(element);
 
         options ??= AccessibilityOptions.Default;
         var document = element.OwnerDocument ?? throw new ArgumentException("The element does not belong to a document.", nameof(element));
-        var builder = new Builder(document, options);
+        var builder = new Builder(document, options, diagnostics);
 
         var nodes = new List<AxNode>();
         builder.Visit(element, InheritedReasonFor(element, builder), nodes, suppressText: false);
@@ -244,11 +247,11 @@ internal static class AccessibilityTree
         private readonly AccessibleName _names;
         private readonly CssCascade.Traversal? _cascade;
 
-        internal Builder(Document document, AccessibilityOptions options)
+        internal Builder(Document document, AccessibilityOptions options, NativeCssQueryDiagnostics? diagnostics)
         {
             _document = document;
             _options = options;
-            Visibility = new ElementVisibility(options.UseComputedStyle);
+            Visibility = new ElementVisibility(options.UseComputedStyle, diagnostics: diagnostics);
             _cascade = Visibility.CreateTraversal(document);
             _names = new AccessibleName(Visibility, _cascade);
         }

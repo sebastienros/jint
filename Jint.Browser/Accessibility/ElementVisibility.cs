@@ -1,6 +1,7 @@
 using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
+using Jint.Browser.Styling;
 
 namespace Jint.Browser.Accessibility;
 
@@ -17,22 +18,29 @@ internal sealed class ElementVisibility
 {
     private readonly bool _useComputedStyle;
     private readonly DomReadWork? _work;
+    private readonly NativeCssQueryDiagnostics? _diagnostics;
     private bool _cascadeAvailable = true;
     private bool _cascadeAnswered;
 
-    internal ElementVisibility(bool useComputedStyle, DomReadWork? work = null)
+    internal ElementVisibility(bool useComputedStyle, DomReadWork? work = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         _useComputedStyle = useComputedStyle;
         _work = work;
+        _diagnostics = diagnostics;
     }
 
     internal CssCascade.Traversal? CreateTraversal(Document? document)
     {
         _work?.Check();
-        var traversal = _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, scope: CssCascade.StyleScope.Visibility) : null;
+        var traversal = _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, scope: CssCascade.StyleScope.Visibility, diagnostics: _diagnostics) : null;
         _work?.Check();
         return traversal;
     }
+
+    private NativeCssComputedStyle? ComputedOf(Element element, CssCascade.Traversal? traversal) =>
+        traversal is not null ? traversal.Of(element) : _diagnostics is null ? CssCascade.Of(element)
+            : CreateTraversal(element.OwnerDocument)?.Of(element);
 
     /// <summary>
     /// Whether the CSS cascade answered at least once, so a caller can say which source a verdict came from.
@@ -97,7 +105,7 @@ internal sealed class ElementVisibility
         if (_useComputedStyle && _cascadeAvailable)
         {
             _work?.Check();
-            if ((traversal is null ? CssCascade.Of(element) : traversal.Of(element)) is { } computed
+            if (ComputedOf(element, traversal) is { } computed
                 && Dom.Views.CssCascade.ValueOf(computed, "display") is { } display
                 && Dom.Views.CssCascade.ValueOf(computed, "visibility") is { } visibility)
             {
@@ -125,7 +133,7 @@ internal sealed class ElementVisibility
         }
 
         _work?.Check();
-        if ((traversal is null ? CssCascade.Of(element) : traversal.Of(element)) is { } computed
+        if (ComputedOf(element, traversal) is { } computed
             && Dom.Views.CssCascade.ValueOf(computed, "white-space-collapse") is { } whiteSpace)
         {
             _work?.Check();

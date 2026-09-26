@@ -25,6 +25,9 @@ internal sealed record NativeCssProperty(string Name, string Text, CssPropertyVa
 internal sealed partial class NativeCssQuery
 {
     internal const string Invalidated = "The native CSS query was invalidated by mutation.";
+    private readonly NativeCssQueryDiagnostics.QueryRecord? _diagnostics;
+    internal NativeCssQueryDiagnostics.QueryRecord? Diagnostics => _diagnostics;
+
     private readonly Document _document;
     private readonly ulong _documentStamp;
     private readonly CssMutationStamp _resourceStamp;
@@ -46,7 +49,8 @@ internal sealed partial class NativeCssQuery
         IReadOnlyList<(Element Element, CssDeclarationBlock Block)> inline,
         CssMediaEnvironment media, in SelectorEnvironment selectors,
         CssEnvironmentSnapshot environment, CssValueWork work, NativeCssMetrics? metrics = null,
-        bool readInlineAttributes = false, NativeCssSystemColors? systemColors = null)
+        bool readInlineAttributes = false, NativeCssSystemColors? systemColors = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         _document = document;
         _documentStamp = document.MutationStamp;
@@ -75,6 +79,7 @@ internal sealed partial class NativeCssQuery
             _inline.Add(item.Element, (item.Block, item.Block.Stamp));
         }
         Verify();
+        _diagnostics = diagnostics?.QueryStarted();
     }
 
     internal NativeCssProperty GetProperty(Element element, string name, ref SelectorMatchWork matching)
@@ -121,8 +126,16 @@ internal sealed partial class NativeCssQuery
         {
             _work.Charge(1);
             var state = StateOf(current, ref matching);
-            if (!ReferenceEquals(current, element) && state.Computed.TryGetValue(name, out result!)) break;
-            if ((adjust ? state.Computed : state.Unadjusted).TryGetValue(name, out result!)) break;
+            if (!ReferenceEquals(current, element) && state.Computed.TryGetValue(name, out result!))
+            {
+                _diagnostics?.CacheHit(current, name);
+                break;
+            }
+            if ((adjust ? state.Computed : state.Unadjusted).TryGetValue(name, out result!))
+            {
+                _diagnostics?.CacheHit(current, name);
+                break;
+            }
             var candidate = Winner(state, name, ref matching, substitute: true);
             var value = candidate is { WasSubstituted: true } ? candidate.Resolved : candidate?.Declaration.Value;
             var disposition = NativeCssDisposition.Cascaded;
@@ -156,6 +169,7 @@ internal sealed partial class NativeCssQuery
             if (adjust && name == "display") value = Display(current, value, ref matching);
             result = new(name, ColorText(current, name, value, ref matching), value, candidate?.Source, disposition);
             (adjust ? state.Computed : state.Unadjusted).Add(name, result);
+            _diagnostics?.ComputedPublished(current, name);
             break;
         }
         while (pending.TryPop(out var item))
@@ -170,6 +184,7 @@ internal sealed partial class NativeCssQuery
                 Disposition = item.Disposition
             };
             (adjust ? item.State.Computed : item.State.Unadjusted).Add(name, result);
+            _diagnostics?.ComputedPublished(item.State.Element, name);
         }
         matching.VerifyRead();
         Verify();
@@ -257,8 +272,10 @@ internal sealed partial class NativeCssQuery
             if (origin == NativeCssOrigin.Author &&
                 !ReferenceEquals(rule.ParentStyleSheet?.Attachment.OwnerNode?.TreeShadowRoot, element.TreeShadowRoot))
                 continue;
+            _diagnostics?.RuleAttempted(element, rule);
             if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
             {
+                _diagnostics?.RuleMatched(element, rule);
                 state.Matches.Add(rule);
                 Add(state, new(rule, rule.Style, origin, specificity, order, false));
             }
@@ -279,6 +296,7 @@ internal sealed partial class NativeCssQuery
         matching.VerifyRead();
         Verify();
         _states.Add(element, state);
+        _diagnostics?.StatePublished(element);
         return state;
     }
 
@@ -428,7 +446,11 @@ internal sealed partial class NativeCssQuery
     private NativeCssProperty Custom(Element element, string name, ref SelectorMatchWork matching)
     {
         var state = StateOf(element, ref matching);
-        if (state.Computed.TryGetValue(name, out var cached)) return cached;
+        if (state.Computed.TryGetValue(name, out var cached))
+        {
+            _diagnostics?.CacheHit(element, name);
+            return cached;
+        }
         var snapshot = Variables(state, ref matching);
         var text = "";
         if (snapshot.TryGet(name, _work, out var binding))
@@ -448,6 +470,7 @@ internal sealed partial class NativeCssQuery
         var property = new NativeCssProperty(name, text, null, CustomWinner(state, name)?.Source, NativeCssDisposition.Cascaded);
         Verify();
         state.Computed.Add(name, property);
+        _diagnostics?.ComputedPublished(element, name);
         return property;
     }
 
