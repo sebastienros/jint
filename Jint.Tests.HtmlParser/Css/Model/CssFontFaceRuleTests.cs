@@ -81,6 +81,16 @@ public sealed class CssFontFaceRuleTests
         block.Count.Should().Be(1);
     }
 
+
+    [Test]
+    public void DescriptorLeafIgnoresNestedRuleSyntaxWithoutWalkingIt()
+    {
+        var sheet = CssStyleSheet.Parse("@font-face{font-family:Known;@font-feature-values Unfinished{unknown:x}src:url(font.woff)}");
+        var rule = (CssFontFaceRule) sheet.Rules[0];
+        rule.Rules.Count.Should().Be(0);
+        rule.Style.GetPropertyValue("font-family").Should().Be("Known");
+    }
+
     [Test]
     public void TargetReadAndWriteDoNotDemandUnrelatedPendingDescriptors()
     {
@@ -98,7 +108,7 @@ public sealed class CssFontFaceRuleTests
     }
 
     [TestCase("url(bad) format(unknown),local(Valid Name),url(good) format(woff2) tech(variations)",
-        "local(Valid Name), url(\"good\") format(\"woff2\") tech(variations)")]
+        "local(\"Valid Name\"), url(\"good\") format(\"woff2\") tech(variations)")]
     [TestCase("url(bad) tech(unknown), url(good)", "url(\"good\")")]
     [TestCase("url(good) format('woff2-variations')", "url(\"good\") format(\"woff2\") tech(variations)")]
     [TestCase("local('MiXeD'), rubbish, url(next)", "local(\"MiXeD\"), url(\"next\")")]
@@ -127,6 +137,7 @@ public sealed class CssFontFaceRuleTests
     [TestCase("font-weight", "0.99999999999999999999")]
     [TestCase("font-weight", "100 200 300")]
     [TestCase("font-style", "oblique 91deg")]
+    [TestCase("font-style", "oblique 90.00000000000000000001deg")]
     [TestCase("font-style", "oblique 1turn")]
     [TestCase("font-style", "inherit")]
     [TestCase("font-family", "serif")]

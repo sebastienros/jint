@@ -308,7 +308,8 @@ internal sealed class CssStyleSheet
                 foreach (var item in parser.ParseBlockContents(descriptorBlock))
                 {
                     work.Charge(1);
-                    if (item.Kind == CssBlockItemKind.Declaration) declarations.Add(item.Declaration);
+                    if (item.Kind == CssBlockItemKind.Declarations)
+                        foreach (var declaration in item.Declarations) { work.Charge(1); declarations.Add(declaration); }
                 }
                 return new CssFontFaceRule(CssDeclarationBlock.FromDeclarations(source, declarations,
                     CssDeclarationContext.FontFace, options?.Limits.MaxNestingDepth ?? 0, work), syntax.Span);

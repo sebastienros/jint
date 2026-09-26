@@ -170,7 +170,7 @@ public sealed class LayoutPropertyGrammarTests
         CssPropertyRegistry.Completed["justify-items"].InitialValue.Should().Be("legacy");
         CssPropertyRegistry.Completed["flex"].Longhands.Should().Equal("flex-grow", "flex-shrink", "flex-basis");
         CssPropertyRegistry.Completed["flex"].ResetOnlyLonghands.Should().BeEmpty();
-        CssPropertyParser.Parse("width", "1px", CssDeclarationContext.FontFace).Status.Should().Be(CssPropertyStatus.UnimplementedGrammar);
+        CssPropertyParser.Parse("width", "1px", CssDeclarationContext.FontFace).Status.Should().Be(CssPropertyStatus.UnsupportedProperty);
         CssPropertyParser.Parse("min-inline-size", "1px").Status.Should().Be(CssPropertyStatus.UnimplementedGrammar);
     }
 

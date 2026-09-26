@@ -126,8 +126,11 @@ internal static class CssFontFaceDescriptorParser
         var first = parts[0];
         if (Function(first, "local"))
         {
-            if (parts.Count != 1 || Family(Parts(first.Values, work), work) is not { } family) return null;
-            return new(CssFontSourceKind.Local, family, null, Array.Empty<string>(), "local(" + family + ")");
+            var arguments = Parts(first.Values, work);
+            if (parts.Count != 1 || Family(arguments, work) is null) return null;
+            var name = string.Join(" ", arguments.Select(argument => argument.Token.Text));
+            work.Charge(name.Length);
+            return new(CssFontSourceKind.Local, name, null, Array.Empty<string>(), "local(" + Quote(name, work) + ")");
         }
         string url;
         if (first.Kind == CssComponentKind.Token && first.Token.Kind == CssTokenKind.Url) url = first.Token.Text;
