@@ -32,7 +32,9 @@ selection, inheritance/defaulting, origin/rule rollback, deferred values, media 
 source identity and invalidation have actual-source tests in `Jint.Tests.HtmlParser`.
 Typed numeric computation converts absolute/viewport/font-metric lengths and simplifies the
 shared math graph on demand. Unresolved percentage bases stay typed percentages/calculations;
-font metrics must be supplied explicitly. Browser supplies its existing 16px initial font-size model for em/rem; it supplies no glyph or line-height metrics. CurrentColor follows the inherited color dependency, and named colors compute to absolute
+font metrics must be supplied explicitly. Browser supplies its 16px initial font size and
+actual computed parent/root sizes for em/rem; it supplies no glyph or line-height metrics.
+CurrentColor follows the inherited color dependency, and named colors compute to absolute
 coordinates. System colors require an explicit immutable host palette; the Browser handoff
 supplies an explicit neutral light/dark canvas palette; other system colors retain a missing-input failure. Layer rollback remains explicitly pending. Supported display keywords blockify/inlinify from their box context, and overflow axes compute jointly. Cascade, read-only
 declaration, generated bindings, native node tracking and CSS protocol consumers now target
@@ -46,3 +48,7 @@ their owner tree scope. Inheritance follows native shadow hosts and fresh slot a
 Document stylesheet lists exclude shadow sheets; matching and coverage can request both.
 Inline source reads use the shared bounded descendant-text producer. Type and media owner
 attributes reconcile at CSS demand, with fetched link text retained independently.
+
+Computed-declaration mutation rejection retains the existing principal-realm exception
+branding. Correctly branding exceptions from mutators borrowed across realms remains
+separate core binding work.
