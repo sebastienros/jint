@@ -287,7 +287,16 @@ internal sealed class CssDeclarationBlock
     private static CssPropertyMetadata? Shorthand(string name) =>
         CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } entry ? entry : null;
 
-    private static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
+    internal static CssDeclaration[] ExpandValue(string name, CssPropertyValue value, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var entries = new List<CssDeclaration>();
+        Install(entries, name, value, false, value.Span, work, value.Text, "");
+        work.CheckCancellation();
+        return entries.ToArray();
+    }
+
+    internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
     {
         var first = Find(entries, shorthand.Longhands[0], work);
         if (first is null) return "";

@@ -19,6 +19,28 @@ internal sealed class CssSubstitutedValue
     internal int TokenCount => Root.TokenCount;
     internal int SpellingLength => Root.SpellingLength;
 
+    // Validation reads the projected components directly: concatenated spelling is never retokenized.
+    internal CssReferenceInput AsReferenceInput(CssValueWork work)
+    {
+        work.CheckCancellation();
+        var source = new System.Text.StringBuilder(SpellingLength);
+        foreach (var origin in _origins)
+        {
+            work.Charge(1);
+            if (origin.IsSyntheticCloser) source.Append(origin.SyntheticCloser);
+            else
+            {
+                var spelling = origin.Source.SourceSlice(origin.SourceSpan);
+                work.Charge(spelling.Length);
+                source.Append(spelling);
+            }
+        }
+        work.CheckCancellation();
+        var text = source.ToString();
+        work.Charge(text.Length);
+        return CssReferenceInput.FromComponents(text, Components, Root.Depth, work);
+    }
+
     internal CssSourceOriginRange OriginsFor(CssSourceSpan projectionSpan)
     {
         if (projectionSpan.Start < 0 || projectionSpan.Length < 0 ||
@@ -73,7 +95,14 @@ internal sealed class CssSubstitutedValue
                     ? new CssSourceSpan(originalEnd - 1, 1)
                     : new CssSourceSpan(originalEnd, 0);
                 origins.Add(new CssProjectedTokenOrigin(new CssSourceSpan(position, 1),
-                    segment.Source!, closer, !original.IsClosed));
+                    segment.Source!, closer, !original.IsClosed,
+                    original.Kind == CssComponentKind.Function ? ')' : original.OpeningDelimiter switch
+                    {
+                        '(' => ')',
+                        '[' => ']',
+                        '{' => '}',
+                        _ => throw new InvalidOperationException("Unknown CSS block delimiter.")
+                    }));
                 position++;
                 work.CheckCancellation();
                 var children = output[^1].ToArray();
@@ -142,18 +171,20 @@ internal sealed class CssSubstitutedValue
 internal readonly struct CssProjectedTokenOrigin
 {
     internal CssProjectedTokenOrigin(CssSourceSpan projectionSpan, CssReferenceInput source,
-        CssSourceSpan sourceSpan, bool isSyntheticCloser)
+        CssSourceSpan sourceSpan, bool isSyntheticCloser, char syntheticCloser = '\0')
     {
         ProjectionSpan = projectionSpan;
         Source = source;
         SourceSpan = sourceSpan;
         IsSyntheticCloser = isSyntheticCloser;
+        SyntheticCloser = syntheticCloser;
     }
 
     internal CssSourceSpan ProjectionSpan { get; }
     internal CssReferenceInput Source { get; }
     internal CssSourceSpan SourceSpan { get; }
     internal bool IsSyntheticCloser { get; }
+    internal char SyntheticCloser { get; }
 }
 
 internal readonly struct CssSourceOriginRange

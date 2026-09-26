@@ -19,6 +19,8 @@
     <PackageReference Include="Verify.DiffPlex" />
     <PackageReference Include="Verify.NUnit" />
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.cs" Link="Styling\NativeCssQuery.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.cs" Link="Styling\NativeCssStyleSheets.cs" />
     <Using Include="NUnit.Framework" />
     <Using Include="AwesomeAssertions" />
     <Using Remove="Acornima" />

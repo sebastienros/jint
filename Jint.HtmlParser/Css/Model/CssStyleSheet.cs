@@ -33,11 +33,14 @@ internal sealed class CssStyleSheet
     }
 
     internal static CssStyleSheet Parse(string source, CssParseOptions? options = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        Parse(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal static CssStyleSheet Parse(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
         var parser = new CssSyntaxParser(source, options, cancellationToken);
         var syntax = parser.ParseStyleSheet();
-        var work = new CssValueWork(cancellationToken);
         var sheet = new CssStyleSheet();
         foreach (var item in syntax)
         {
@@ -58,10 +61,13 @@ internal sealed class CssStyleSheet
     }
 
     internal void ReplaceText(string source, CssParseOptions? options = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        ReplaceText(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void ReplaceText(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
-        var replacement = Parse(source, options, cancellationToken);
-        var work = new CssValueWork(cancellationToken);
+        var replacement = Parse(source, options, work, cancellationToken);
         foreach (var rule in replacement._rules) { work.Charge(1); rule.Attach(this, null, work); }
         _rules.EnsureCapacity(replacement._rules.Count);
         work.CheckCancellation();
