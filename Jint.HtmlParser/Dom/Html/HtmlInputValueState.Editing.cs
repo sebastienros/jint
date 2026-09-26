@@ -61,6 +61,5 @@ internal sealed partial class HtmlInputValueState
         if (_numberPresentation is null) return;
         _numberPresentation = null;
         MarkChanged();
-        SetSelection(default);
     }
 }

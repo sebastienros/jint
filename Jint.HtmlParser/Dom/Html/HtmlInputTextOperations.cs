@@ -41,14 +41,15 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!HtmlInputValueState.IsTextType(state.Type))
+        if (!state.HasEditingBuffer)
         {
             if (HtmlInputValueState.IsSupportedType(state.Type) || !HtmlInputTypes.Info(state.Type).SelectApplies) return;
             state.RequireAvailable();
             return;
         }
         state.RequireAvailable();
-        state.SetSelection(Normalize(0, state.GetTextLength(cancellationToken), null, state.GetTextLength(cancellationToken)));
+        var length = (uint) state.GetEditingValue(cancellationToken).Length;
+        state.SetSelection(Normalize(0, length, null, length));
     }
 
     internal static void SetRangeText(HtmlInputValueState state, string replacement, CancellationToken cancellationToken)

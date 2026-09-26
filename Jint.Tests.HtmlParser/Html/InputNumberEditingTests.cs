@@ -110,7 +110,7 @@ public class InputNumberEditingTests
             default: input.SetAttribute("type", "text"); input.SetAttribute("type", "number"); break;
         }
         state.BadInput.Should().BeFalse(); state.GetEditingValue(default).Should().Be(state.GetValue(default));
-        state.Selection.Should().Be(default(HtmlTextSelection));
+        state.Selection.Should().Be(path == "step" ? new HtmlTextSelection(1, 1, HtmlSelectionDirection.None) : default(HtmlTextSelection));
         if (path != "type") state.LastValueChangeOrigin.Should().Be(HtmlValueChangeOrigin.NonUser);
         state.UserValidity.Should().Be(path != "reset");
     }
@@ -187,5 +187,43 @@ public class InputNumberEditingTests
         state.GetValue(default).Should().Be("0001"); state.GetEditingValue(default).Should().Be("0001"); state.BadInput.Should().BeFalse();
         state.DirtyValue.Should().BeFalse(); input.OwnerDocument.MutationStamp.Should().Be(stamp);
         State(clone).GetEditingValue(default).Should().Be("0001");
+    }
+
+    [Test]
+    public void ScriptReplacementMovesCaretToEndAndNextEditAppends()
+    {
+        var state = State(Input()); Edit(state, "-");
+        state.SetValue("123", default);
+        state.GetEditingValue(default).Should().Be("123");
+        state.Selection.Should().Be(new HtmlTextSelection(3, 3, HtmlSelectionDirection.None));
+        var position = (int) state.Selection.Start;
+        var display = state.GetEditingValue(default);
+        state.ApplyUserValue(display.Insert(position, "4"), new(4, 4, HtmlSelectionDirection.None), default);
+        state.GetValue(default).Should().Be("1234");
+    }
+
+    [Test]
+    public void EqualScriptValuePreservesSelectionAndClearedDisplayClampsIt()
+    {
+        var state = State(Input("1"));
+        state.SetEditingSelection(0, 1, "backward", default);
+        state.SetValue("1", default);
+        state.Selection.Should().Be(new HtmlTextSelection(0, 1, HtmlSelectionDirection.Backward));
+        state.ApplyUserValue("0001", new(2, 4, HtmlSelectionDirection.Backward), default);
+        state.SetValueAsNumber(1, default);
+        state.GetEditingValue(default).Should().Be("1");
+        state.Selection.Should().Be(new HtmlTextSelection(1, 1, HtmlSelectionDirection.Backward));
+    }
+
+    [TestCase("1e")]
+    [TestCase("0001")]
+    public void SelectUsesPresentationWithoutGrantingPublicSelection(string display)
+    {
+        var state = State(Input()); Edit(state, display);
+        state.Select(default);
+        state.Selection.Should().Be(new HtmlTextSelection(0, (uint) display.Length, HtmlSelectionDirection.None));
+        state.GetSelection(default).Should().BeNull();
+        Assert.Throws<DomException>(() => state.SetSelectionRange(0, 1, null, default))!.Name.Should().Be("InvalidStateError");
+        state.GetEditingValue(default).Should().Be(display);
     }
 }

@@ -26,7 +26,10 @@ value results. UserValidity is preserved. Selection-only edits retain ordinary f
 No native operation dispatches input/change events or attribute mutation records.
 
 Script value assignment (including equal API writes), successful numeric setters/steps and reset
-clear presentation. Effective type changes discard number UI selection/presentation; same-state
+clear presentation. A changed API value moves the editing caret to its end, matching text writes;
+an equal write preserves selection unless dropping presentation requires clamping to API length.
+Number select() selects the actual display length without granting public selection APIs.
+Effective type changes discard number UI selection/presentation; same-state
 type spelling changes preserve them. Failures, unchanged steps, unrelated attributes and dirty
 default writes preserve the editor. Clone/import copy only API/dirty authority and reset interaction
 metadata; adoption retains the actual state. Fresh parsed and cold cloned numbers stay cold.

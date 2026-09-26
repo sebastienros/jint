@@ -156,21 +156,22 @@ internal sealed partial class HtmlInputValueState
         }
         var prepared = Sanitize(value, checkpoint, cancellationToken);
         var changed = !IsAvailable || !string.Equals(_value, prepared, StringComparison.Ordinal);
+        var clearedDisplay = Type == HtmlInputType.Number && _numberPresentation is not null;
         cancellationToken.ThrowIfCancellationRequested();
         MakeAvailable();
         CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
         ClearNumberPresentation();
-        if (Type == HtmlInputType.Number) SetSelection(default);
         SetDirty(true);
         if (changed)
         {
-            if (HasTextBuffer)
+            if (HasEditingBuffer)
             {
                 ClampSelection((uint) prepared.Length);
                 SetSelection(HtmlInputTextOperations.Normalize((uint) prepared.Length, (uint) prepared.Length, null, (uint) prepared.Length));
             }
             else SetSelection(default);
         }
+        else if (clearedDisplay) ClampSelection((uint) prepared.Length);
     }
 
     internal void SetDefaultValue(string value, CancellationToken cancellationToken)
