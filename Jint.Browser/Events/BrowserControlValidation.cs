@@ -171,9 +171,21 @@ internal static class BrowserControlValidation
         }
         // Unimplemented native value families throw here. They never become a successful validity result.
         var value = state.GetValue(work.Token);
-        if (!HtmlInputValueState.IsTextType(state.Type)) return ControlValidityFlags.None;
-        var flags = required && value.Length == 0 && !state.ReadOnly && !EventDom.Disabled(realm, element)
+        var flags = required && HtmlInputTypes.Info(state.Type).RequiredApplies
+            && value.Length == 0 && !state.ReadOnly && !EventDom.Disabled(realm, element)
             ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
+        // HTML's range and step constraints use the native numeric/temporal lattice; Browser does not
+        // reparse attributes or derive a second coordinate from the exposed value string.
+        // https://html.spec.whatwg.org/multipage/input.html#the-min-and-max-attributes
+        var numeric = state.GetNumericFacts(work.Token);
+        if (numeric.Applies)
+        {
+            if (numeric.Underflow) flags |= ControlValidityFlags.RangeUnderflow;
+            if (numeric.Overflow) flags |= ControlValidityFlags.RangeOverflow;
+            if (numeric.StepMismatch) flags |= ControlValidityFlags.StepMismatch;
+            return flags;
+        }
+        if (!HtmlInputValueState.IsTextType(state.Type)) return flags;
         if (value.Length > 0)
         {
             if (state.Type == HtmlInputType.Email && !EmailList(value, work.Attribute(element, "multiple") is not null, work)

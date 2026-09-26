@@ -7,6 +7,20 @@ namespace Jint.Tests.Browser.Events;
 
 public sealed class ControlValidationTests
 {
+    [TestCase("<input id=t type=number required>", (int) ControlValidityFlags.ValueMissing)]
+    [TestCase("<input id=t type=date required>", (int) ControlValidityFlags.ValueMissing)]
+    [TestCase("<input id=t type=number min=3 max=7 step=2 value=8>", (int) (ControlValidityFlags.RangeOverflow | ControlValidityFlags.StepMismatch))]
+    [TestCase("<input id=t type=number min=3 step=2 value=1>", (int) ControlValidityFlags.RangeUnderflow)]
+    [TestCase("<input id=t type=date min=2024-01-02 step=2 value=2024-01-03>", (int) ControlValidityFlags.StepMismatch)]
+    [TestCase("<input id=t type=range required value=invalid>", (int) ControlValidityFlags.None)]
+    [TestCase("<input id=t type=number value=3 pattern=x minlength=8 maxlength=0>", (int) ControlValidityFlags.None)]
+    public void NumericAndTemporalValidityUsesNativeFactsAndStateApplicability(string markup, int expected)
+    {
+        var realm = DomRealm.Of(new Engine());
+        var input = ContentDom.ElementById(ContentDom.Parse(markup), "t")!;
+        BrowserControlValidation.Read(realm, input).Flags.Should().Be((ControlValidityFlags) expected);
+    }
+
     [Test]
     public void LengthConstraintsUseNativeUserEditProvenance()
     {
