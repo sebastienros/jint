@@ -38,7 +38,23 @@ internal sealed partial class HtmlTokenizer
         {
             case State.Data:
                 if (c == '&') { _referenceStart = _input.Offset; Take(); _returnState = State.Data; _state = State.CharacterReference; return false; }
-                if (c == '<') { _tokenStart = _input.Offset; Take(); _state = State.TagOpen; return false; }
+                if (c == '<')
+                {
+                    // Deliver the preceding characters before starting markup: tree
+                    // processing can change the adjusted current node for this opener.
+                    if (_text.Length != 0)
+                    {
+                        _markupOpenerAfterText = true;
+                        FlushText(out token);
+                        return true;
+                    }
+                    _markupOpenerAfterText = false;
+                    _declarationAllowCData = _readAllowCData;
+                    _tokenStart = _input.Offset;
+                    Take();
+                    _state = State.TagOpen;
+                    return false;
+                }
                 if (c == '\0') Error("unexpected-null-character");
                 var textOffset = _input.Offset;
                 Text(Take(), textOffset);
@@ -141,7 +157,7 @@ internal sealed partial class HtmlTokenizer
                 if (Prefix("[CDATA[", false, out var waitCData))
                 {
                     ConsumeCount(7);
-                    if (_allowCData) { _state = State.CData; _tokenStart = -1; }
+                    if (_declarationAllowCData) { _state = State.CData; _tokenStart = -1; }
                     else { Error("cdata-in-html-content"); _comment.Clear(); Append(_comment, "[CDATA["); _state = State.BogusComment; }
                     return false;
                 }

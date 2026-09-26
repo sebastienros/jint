@@ -84,6 +84,227 @@ public class HtmlTokenizerContextTests
         Assert.Fail("Tokenizer did not finish.");
     }
 
+    private static List<HtmlToken> ScanWithReadContext(string source, int split, int quota,
+        bool initialCData, Func<HtmlToken, bool, bool> afterToken,
+        ParseDiagnosticCollector? diagnostics = null)
+    {
+        var tokenizer = new HtmlTokenizer(new HtmlTokenizerContext(diagnostics: diagnostics));
+        var tokens = new List<HtmlToken>();
+        var allowCData = initialCData;
+        void DrainPart(HtmlReadStatus expected)
+        {
+            for (var i = 0; i < 100_000; i++)
+            {
+                var status = tokenizer.Read(quota, allowCData, default, out var token);
+                if (status == HtmlReadStatus.Token)
+                {
+                    tokens.Add(token);
+                    allowCData = afterToken(token, allowCData);
+                    continue;
+                }
+                if (status == HtmlReadStatus.Yielded) continue;
+                Assert.That(status, Is.EqualTo(expected));
+                return;
+            }
+            Assert.Fail("Tokenizer did not finish.");
+        }
+        tokenizer.AppendInput(source[..split]);
+        DrainPart(HtmlReadStatus.NeedInput);
+        tokenizer.AppendInput(source[split..], true);
+        DrainPart(HtmlReadStatus.Complete);
+        return tokens;
+    }
+
+    [Test]
+    public void DataTextIsDeliveredBeforeTheFollowingMarkupOpener()
+    {
+        const string source = "x<![CDATA[y]]>";
+        var tokenizer = new HtmlTokenizer(default);
+        tokenizer.AppendInput(source, true);
+        Assert.That(tokenizer.Read(1_000, false, default, out var first), Is.EqualTo(HtmlReadStatus.Token));
+        Assert.That(first.Kind, Is.EqualTo(HtmlTokenKind.Text));
+        Assert.That(first.Data, Is.EqualTo("x"));
+        Assert.That(first.Offset, Is.Zero);
+        Assert.That(tokenizer.ConsumedInput, Is.EqualTo(1));
+        Assert.Throws<InvalidOperationException>(() => tokenizer.SetAllowCData(true));
+        var tokens = new List<HtmlToken> { first };
+        for (var i = 0; i < 100; i++)
+        {
+            var status = tokenizer.Read(1_000, true, default, out var token);
+            if (status == HtmlReadStatus.Token) { tokens.Add(token); continue; }
+            Assert.That(status, Is.EqualTo(HtmlReadStatus.Complete));
+            break;
+        }
+        Assert.That(Signature(tokens), Is.EqualTo("T:xy|EOF|"));
+        Assert.That(tokens[1].Offset, Is.EqualTo(10));
+
+        var diagnostics = new ParseDiagnosticCollector();
+        var html = ScanWithReadContext(source, source.Length, 1_000, true,
+            (token, current) => token.Kind == HtmlTokenKind.Text ? false : current, diagnostics);
+        Assert.That(Signature(html), Is.EqualTo("T:x|C:[CDATA[y]]|EOF|"));
+        Assert.That(html[1].Offset, Is.EqualTo(1));
+        Assert.That(diagnostics.Items.Select(x => (x.Code, x.Offset)),
+            Is.EqualTo(new[] { ("html/cdata-in-html-content", 10L) }));
+    }
+
+    [Test]
+    public void ReadContextFollowsBuilderUpdatesAtEveryShortCDataOpenerSplit()
+    {
+        const string source = "x<![CDATA[y]]>";
+        for (var split = 0; split <= source.Length; split++)
+            foreach (var quota in new[] { 1, 3, 1_000 })
+            {
+                var foreign = ScanWithReadContext(source, split, quota, false,
+                    (token, current) => token.Kind == HtmlTokenKind.Text ? true : current);
+                Assert.That(Signature(foreign), Is.EqualTo("T:xy|EOF|"), $"foreign split={split}, quota={quota}");
+                var html = ScanWithReadContext(source, split, quota, true,
+                    (token, current) => token.Kind == HtmlTokenKind.Text ? false : current);
+                Assert.That(Signature(html), Is.EqualTo("T:x|C:[CDATA[y]]|EOF|"), $"html split={split}, quota={quota}");
+            }
+    }
+
+    [Test]
+    public void SuspendedReferenceAndDeclarationKeepTheirOwnContexts()
+    {
+        var reference = new HtmlTokenizer(default);
+        reference.AppendInput("x&am");
+        Assert.That(reference.Read(1_000, false, default, out var text), Is.EqualTo(HtmlReadStatus.Token));
+        Assert.That(text.Data, Is.EqualTo("x"));
+        Assert.Throws<InvalidOperationException>(() => reference.SetAllowCData(true));
+        reference.AppendInput("p;<![CDATA[y]]>", true);
+        var tokens = new List<HtmlToken> { text };
+        for (var i = 0; i < 100; i++)
+        {
+            var status = reference.Read(1_000, true, default, out var token);
+            if (status == HtmlReadStatus.Token) { tokens.Add(token); continue; }
+            Assert.That(status, Is.EqualTo(HtmlReadStatus.Complete));
+            break;
+        }
+        Assert.That(Signature(tokens), Is.EqualTo("T:x&y|EOF|"));
+
+        foreach (var initial in new[] { false, true })
+        {
+            var declaration = new HtmlTokenizer(default);
+            declaration.AppendInput("<![CDA");
+            Assert.That(declaration.Read(1_000, initial, default, out _), Is.EqualTo(HtmlReadStatus.NeedInput));
+            Assert.Throws<InvalidOperationException>(() => declaration.SetAllowCData(!initial));
+            declaration.AppendInput("TA[y]]>", true);
+            tokens.Clear();
+            for (var i = 0; i < 100; i++)
+            {
+                var status = declaration.Read(1, !initial, default, out var token);
+                if (status == HtmlReadStatus.Token) { tokens.Add(token); continue; }
+                if (status == HtmlReadStatus.Yielded) continue;
+                Assert.That(status, Is.EqualTo(HtmlReadStatus.Complete));
+                break;
+            }
+            Assert.That(Signature(tokens), Is.EqualTo(initial ? "T:y|EOF|" : "C:[CDATA[y]]|EOF|"));
+        }
+    }
+
+    [Test]
+    public void DeclarationContextIsLatchedWhenTheLessThanSignIsConsumed()
+    {
+        const string source = "<![CDATA[y]]>";
+        foreach (var initial in new[] { false, true })
+            foreach (var splitInput in new[] { false, true })
+            {
+                var tokenizer = new HtmlTokenizer(default);
+                tokenizer.AppendInput(splitInput ? "<" : source, !splitInput);
+                var status = tokenizer.Read(splitInput ? 1_000 : 1, initial, default, out _);
+                Assert.That(status, Is.EqualTo(splitInput ? HtmlReadStatus.NeedInput : HtmlReadStatus.Yielded));
+                Assert.That(tokenizer.ConsumedInput, Is.EqualTo(1));
+                Assert.Throws<InvalidOperationException>(() => tokenizer.SetAllowCData(!initial));
+                if (splitInput) tokenizer.AppendInput(source[1..], true);
+                var tokens = new List<HtmlToken>();
+                for (var i = 0; i < 100; i++)
+                {
+                    status = tokenizer.Read(3, !initial, default, out var token);
+                    if (status == HtmlReadStatus.Token) { tokens.Add(token); continue; }
+                    if (status == HtmlReadStatus.Yielded) continue;
+                    Assert.That(status, Is.EqualTo(HtmlReadStatus.Complete));
+                    break;
+                }
+                Assert.That(Signature(tokens), Is.EqualTo(initial ? "T:y|EOF|" : "C:[CDATA[y]]|EOF|"),
+                    $"initial={initial}, splitInput={splitInput}");
+            }
+    }
+
+    [Test]
+    public void CDataTextFlushDoesNotChangeAnOpenDeclarationOrTheNextOne()
+    {
+        const int length = 5_000;
+        var source = "<![CDATA[" + new string('a', length) + "]]><![CDATA[z]]>";
+        foreach (var quota in new[] { 1, 7, 1_000 })
+        {
+            var tokens = ScanWithReadContext(source, source.Length, quota, true,
+                (token, current) => token.Kind == HtmlTokenKind.Text ? false : current);
+            Assert.That(string.Concat(tokens.Where(x => x.Kind == HtmlTokenKind.Text).Select(x => x.Data)),
+                Is.EqualTo(new string('a', length)), $"quota={quota}");
+            Assert.That(tokens.Any(x => x.Kind == HtmlTokenKind.Comment && x.Data == "[CDATA[z]]"),
+                Is.True, $"quota={quota}");
+            Assert.That(tokens.Where(x => x.Kind == HtmlTokenKind.Text).Max(x => x.Data.Length),
+                Is.LessThanOrEqualTo(4096));
+        }
+    }
+
+    [Test]
+    public void ConsecutiveDeclarationsEachLatchTheReadContextAtTheirOpener()
+    {
+        const string source = "<![CDATA[a]]><![CDATA[b]]>";
+        foreach (var split in new[] { 0, 1, 2, 9, 13, source.Length })
+        {
+            var tokens = ScanWithReadContext(source, split, 1, true,
+                (token, current) => token.Kind == HtmlTokenKind.Text ? false : current);
+            Assert.That(Signature(tokens), Is.EqualTo("T:a|C:[CDATA[b]]|EOF|"), $"split={split}");
+        }
+    }
+
+    [Test]
+    public void ReadContextPreservesLinearWorkAndTerminalBounds()
+    {
+        static long Work(int length)
+        {
+            var tokenizer = new HtmlTokenizer(default);
+            tokenizer.AppendInput("x<![CDATA[" + new string('a', length) + "]]>", true);
+            var allowCData = false;
+            var textLength = 0;
+            for (var i = 0; i < 100_000; i++)
+            {
+                var status = tokenizer.Read(7, allowCData, default, out var token);
+                if (status == HtmlReadStatus.Token)
+                {
+                    if (token.Kind == HtmlTokenKind.Text) { textLength += token.Data.Length; allowCData = true; }
+                    continue;
+                }
+                if (status == HtmlReadStatus.Yielded) continue;
+                Assert.That(status, Is.EqualTo(HtmlReadStatus.Complete));
+                Assert.That(textLength, Is.EqualTo(length + 1));
+                return tokenizer.WorkCount;
+            }
+            Assert.Fail("Tokenizer did not finish.");
+            return 0;
+        }
+        Assert.That(Work(20_000), Is.LessThan(Work(10_000) * 3));
+
+        var limited = new HtmlTokenizer(new HtmlTokenizerContext(new ParseLimits { MaxTokenCharacters = 8 }));
+        limited.AppendInput("x<![CDATA[0123456789]]>", true);
+        Assert.That(limited.Read(1_000, false, default, out var first), Is.EqualTo(HtmlReadStatus.Token));
+        Assert.That(first.Data, Is.EqualTo("x"));
+        Assert.Throws<ParseLimitException>(() => limited.Read(1_000, true, default, out _));
+        Assert.Throws<InvalidOperationException>(() => limited.Read(1, true, default, out _));
+
+        var canceled = new HtmlTokenizer(default);
+        canceled.AppendInput("x<![CDATA[" + new string('a', 20_000) + "]]>", true);
+        Assert.That(canceled.Read(1_000, false, default, out var before), Is.EqualTo(HtmlReadStatus.Token));
+        Assert.That(before.Data, Is.EqualTo("x"));
+        Assert.That(canceled.Read(10, true, default, out _), Is.EqualTo(HtmlReadStatus.Yielded));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => canceled.Read(10, false, cancellation.Token, out _));
+        Assert.Throws<InvalidOperationException>(() => canceled.Read(10, true, default, out _));
+    }
+
     [Test]
     public void CDataContextChangesAtCompleteTagBoundariesAcrossChunksAndQuotas()
     {

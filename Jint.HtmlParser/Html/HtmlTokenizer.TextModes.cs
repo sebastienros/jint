@@ -36,7 +36,7 @@ internal sealed partial class HtmlTokenizer
     }
 
     private bool CanSetModeAfterToken() =>
-        !_ended && !_hasPending && _tokenStart < 0 && _referenceStart < 0 && _text.Length == 0 &&
+        !_ended && !_hasPending && !_markupOpenerAfterText && _tokenStart < 0 && _referenceStart < 0 && _text.Length == 0 &&
         _state is State.Data or State.RcData or State.RawText or State.ScriptData or State.PlainText;
 
     private State ModeBaseState() => _textMode switch

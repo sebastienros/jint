@@ -13,6 +13,9 @@ internal sealed partial class HtmlTokenizer
     private readonly HtmlInput _input = new();
     private readonly ParseDiagnosticCollector? _diagnostics;
     private bool _allowCData;
+    private bool _readAllowCData;
+    private bool _declarationAllowCData;
+    private bool _markupOpenerAfterText;
     private readonly long _maxInput;
     private readonly int _maxToken;
     private readonly StringBuilder _text = new();
@@ -90,7 +93,13 @@ internal sealed partial class HtmlTokenizer
         _input.Append(chunk, isFinal);
     }
 
-    internal HtmlReadStatus Read(int workQuota, CancellationToken cancellationToken, out HtmlToken token)
+    internal HtmlReadStatus Read(int workQuota, CancellationToken cancellationToken, out HtmlToken token) =>
+        Read(workQuota, _allowCData, cancellationToken, out token);
+
+    // HTML Standard §13.2.5.42: a declaration uses the adjusted current node's
+    // context from when its < opener begins, even across later input/work yields.
+    internal HtmlReadStatus Read(int workQuota, bool allowCDataForNextDeclaration,
+        CancellationToken cancellationToken, out HtmlToken token)
     {
         token = default;
         if (_terminal) throw new InvalidOperationException("The tokenizer session is terminal.");
@@ -101,6 +110,7 @@ internal sealed partial class HtmlTokenizer
             cancellationToken.ThrowIfCancellationRequested();
         }
         _hasAcceptedRead = true;
+        _readAllowCData = allowCDataForNextDeclaration;
         _canSetTextMode = false;
         _canSetCDataContext = false;
         if (_hasPending)
