@@ -1,3 +1,4 @@
+using Jint.Browser.Events;
 using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
@@ -34,6 +35,67 @@ internal static class DomInputMembers
         realm.Engine.Constraints.Check();
         realm.CancellationToken.ThrowIfCancellationRequested();
         return JsValue.Undefined;
+    }
+
+    // HTML §4.10.20: offsets and direction are the native UTF-16 selection, with
+    // the existing Events queue carrying the selection range algorithm's events.
+    internal static JsValue SelectionOffset(DomRealm realm, Element input, bool start)
+    {
+        var selection = ValueState(realm, input).GetSelection(realm.NativeReadCheckpoint, realm.CancellationToken);
+        return selection is { } value ? DomConvert.Number(start ? value.Start : value.End) : JsValue.Null;
+    }
+
+    internal static JsValue SelectionDirection(DomRealm realm, Element input)
+    {
+        var selection = ValueState(realm, input).GetSelection(realm.NativeReadCheckpoint, realm.CancellationToken);
+        if (selection is null) return JsValue.Null;
+        return DomConvert.Text(selection.Value.Direction switch
+        {
+            HtmlSelectionDirection.Forward => "forward",
+            HtmlSelectionDirection.Backward => "backward",
+            _ => "none",
+        });
+    }
+
+    internal static JsValue SetSelectionOffset(DomRealm realm, Element input, uint offset, bool start)
+    {
+        var state = ValueState(realm, input);
+        var previous = state.Selection;
+        if (start) state.SetSelectionStart(offset, realm.NativeReadCheckpoint, realm.CancellationToken);
+        else state.SetSelectionEnd(offset, realm.NativeReadCheckpoint, realm.CancellationToken);
+        SelectionChanged(realm, input, previous, state.Selection);
+        return JsValue.Undefined;
+    }
+
+    internal static JsValue SetSelectionRange(DomRealm realm, Element input, JsValue[] arguments)
+    {
+        const string member = "HTMLInputElement.setSelectionRange";
+        // Finish WebIDL conversions before demanding any native current value state.
+        var start = DomConvert.RequiredUInt32(arguments, 0, member);
+        var end = DomConvert.RequiredUInt32(arguments, 1, member);
+        var direction = DomConvert.OptionalText(arguments, 2, null);
+        var state = ValueState(realm, input);
+        var previous = state.Selection;
+        state.SetSelectionRange(start, end, direction, realm.NativeReadCheckpoint, realm.CancellationToken);
+        SelectionChanged(realm, input, previous, state.Selection);
+        return JsValue.Undefined;
+    }
+
+    internal static JsValue Select(DomRealm realm, Element input)
+    {
+        var state = ValueState(realm, input);
+        var previous = state.Selection;
+        state.Select(realm.NativeReadCheckpoint, realm.CancellationToken);
+        SelectionChanged(realm, input, previous, state.Selection);
+        return JsValue.Undefined;
+    }
+
+    private static void SelectionChanged(DomRealm realm, Element input, HtmlTextSelection previous, HtmlTextSelection current)
+    {
+        if (previous == current) return;
+        SelectionChange.Schedule(realm, input);
+        var wrapper = realm.WrapNode(input);
+        realm.Engine.Tasks.Post(() => ActivationBehaviors.Fire(wrapper, "select", bubbles: true, composed: false));
     }
 
     // HTML §4.10.5.3.9: the first matching ID in the ordinary tree must itself be a datalist.

@@ -835,6 +835,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLOListElementStart =
         ReflectedAttribute.Numeric("HTMLOListElement.start", "start", ReflectedKind.Long, 1);
 
+    /// <summary><c>HTMLOListElement.type</c> reflects <c>type</c> as a text.</summary>
+    internal static readonly ReflectedAttribute HTMLOListElementType =
+        ReflectedAttribute.Text("HTMLOListElement.type", "type");
+
     /// <summary><c>HTMLObjectElement.align</c> reflects <c>align</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLObjectElementAlign =
         ReflectedAttribute.Text("HTMLObjectElement.align", "align");

@@ -9102,7 +9102,7 @@
         {
           "DomName": "select",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.select\");\nself.Target.SelectAll(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.select\");\nreturn global::Jint.Browser.Dom.DomInputMembers.Select(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlInputElement.SelectAll"
@@ -9110,7 +9110,7 @@
         {
           "DomName": "selectionDirection",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectionDirection);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SelectionDirection(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlInputElement.SelectionDirection"
@@ -9118,16 +9118,16 @@
         {
           "DomName": "selectionEnd",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionEnd);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionEnd\");\nself.Target.SelectionEnd = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLInputElement.selectionEnd\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SelectionOffset(self.Realm, self.Target, start: false);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"HTMLInputElement.selectionEnd\"), start: false);",
           "Length": 0,
           "Origin": "IHtmlInputElement.SelectionEnd"
         },
         {
           "DomName": "selectionStart",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionStart);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionStart\");\nself.Target.SelectionStart = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLInputElement.selectionStart\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SelectionOffset(self.Realm, self.Target, start: true);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"HTMLInputElement.selectionStart\"), start: true);",
           "Length": 0,
           "Origin": "IHtmlInputElement.SelectionStart"
         },
@@ -9142,7 +9142,7 @@
         {
           "DomName": "setSelectionRange",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setSelectionRange\");\nself.Target.Select(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLInputElement.setSelectionRange\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"HTMLInputElement.setSelectionRange\"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.setSelectionRange\");\nreturn global::Jint.Browser.Dom.DomInputMembers.SetSelectionRange(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IHtmlInputElement.Select"
@@ -10146,8 +10146,8 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOListElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOListElement.type\");\nself.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLOListElement.type\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOListElement.type\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLOListElementType.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOListElement.type\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLOListElementType.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlOrderedListElement.Type"
         }
@@ -10230,7 +10230,7 @@
         {
           "DomName": "contentDocument",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.contentDocument\");\nreturn self.Realm.WrapNodeValue(self.Target.ContentDocument);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.contentDocument\");\nreturn global::Jint.Browser.Dom.DomFrameMembers.ContentDocument(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlObjectElement.ContentDocument"
@@ -10238,7 +10238,7 @@
         {
           "DomName": "contentWindow",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.contentWindow\");\nreturn global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.ContentWindow);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLObjectElement.contentWindow\");\nreturn global::Jint.Browser.Dom.DomFrameMembers.ContentWindow(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlObjectElement.ContentWindow"
@@ -18078,6 +18078,15 @@
       "Attribute": "src",
       "Type": "url",
       "Factory": "ReflectedAttribute.Url(\"HTMLMediaElement.src\", \"src\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLOListElementType",
+      "Qualified": "HTMLOListElement.type",
+      "Attribute": "type",
+      "Type": "text",
+      "Factory": "ReflectedAttribute.Text(\"HTMLOListElement.type\", \"type\")",
       "Replaced": true,
       "SetterOnly": false
     }
