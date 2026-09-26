@@ -1,4 +1,5 @@
 using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
 using Jint.Browser.Extraction;
@@ -73,7 +74,7 @@ public sealed partial class Page
 
         var captured = await _loop.PostAsync((bool Clicked, NavigationRequest? Navigation) (engine) =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
                 return (Clicked: false, Navigation: (NavigationRequest?) null);
             }
@@ -186,7 +187,7 @@ public sealed partial class Page
 
         var captured = await _loop.PostAsync((bool Tapped, NavigationRequest? Navigation) (engine) =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
                 return (Tapped: false, Navigation: (NavigationRequest?) null);
             }
@@ -286,7 +287,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
                 return false;
             }
@@ -332,7 +333,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
                 return false;
             }
@@ -379,7 +380,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not { } element)
             {
                 return false;
             }
@@ -470,13 +471,15 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" } select)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" } select)
             {
                 return false;
             }
 
-            var option = select.Options.FirstOrDefault(o => string.Equals(o.Value, value, StringComparison.Ordinal))
-                ?? select.Options.FirstOrDefault(o => string.Equals(o.Text.Trim(), value, StringComparison.Ordinal));
+            var token = runtime.Dom.CancellationToken;
+            var options = select.GetHtmlState()!.GetSelectState(token)!.Options.Snapshot(token);
+            var option = options.FirstOrDefault(o => string.Equals(o.GetHtmlState()!.GetOptionState(token)!.GetValue(token), value, StringComparison.Ordinal))
+                ?? options.FirstOrDefault(o => string.Equals(o.GetHtmlState()!.GetOptionState(token)!.GetText(token), value, StringComparison.Ordinal));
 
             if (option is null)
             {
@@ -596,7 +599,7 @@ public sealed partial class Page
         => _loop.PostAsync(engine =>
         {
             if (PageRuntime.Find(engine) is not { } runtime
-                || ElementLocator.Find(runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input
+                || ElementLocator.Find(runtime.Dom, runtime.Document, target, index) is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input
                 || !FileSelection.IsFileInput(input))
             {
                 return false;
@@ -649,7 +652,7 @@ public sealed partial class Page
         ArgumentNullException.ThrowIfNull(selector);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return WaitForAsync(engine => ElementLocator.Find(PageRuntime.Find(engine)?.Document, selector, index) is not null, timeout);
+        return WaitForAsync(engine => ElementLocator.Find(DomRealm.Of(engine), PageRuntime.Find(engine)?.Document, selector, index) is not null, timeout);
     }
 
     /// <summary>Waits until <paramref name="text"/> appears in the document's rendered text.</summary>
