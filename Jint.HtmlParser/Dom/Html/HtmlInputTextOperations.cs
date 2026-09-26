@@ -41,29 +41,39 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!HtmlInputValueState.IsTextType(state.Type))
+        if (!HtmlInputValueState.IsTextType(state.Type) && state.Type != HtmlInputType.Number)
         {
             if (HtmlInputValueState.IsSupportedType(state.Type) || !HtmlInputTypes.Info(state.Type).SelectApplies) return;
             state.RequireAvailable();
             return;
         }
         state.RequireAvailable();
-        state.SetSelection(Normalize(0, state.GetTextLength(cancellationToken), null, state.GetTextLength(cancellationToken)));
+        var length = (uint) state.GetEditingValue(cancellationToken).Length;
+        state.SetSelection(Normalize(0, length, null, length));
     }
 
     internal static void SetRangeText(HtmlInputValueState state, string replacement, CancellationToken cancellationToken)
+        => SetRangeText(state, replacement, null, cancellationToken);
+    internal static void SetRangeText(HtmlInputValueState state, string replacement, Action<int>? checkpoint,
+        CancellationToken cancellationToken)
     {
         RequirePublicSelection(state, cancellationToken);
-        SetRangeText(state, replacement, state.Selection.Start, state.Selection.End, HtmlRangeTextMode.Preserve, cancellationToken);
+        SetRangeText(state, replacement, state.Selection.Start, state.Selection.End, HtmlRangeTextMode.Preserve, checkpoint, cancellationToken);
     }
     internal static void SetRangeText(HtmlInputValueState state, string replacement, uint start, uint end,
         HtmlRangeTextMode mode, CancellationToken cancellationToken)
+        => SetRangeText(state, replacement, start, end, mode, null, cancellationToken);
+    internal static void SetRangeText(HtmlInputValueState state, string replacement, uint start, uint end,
+        HtmlRangeTextMode mode, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(replacement);
         RequirePublicSelection(state, cancellationToken);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check(); work.Step();
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         if (start > end)
         {
+            work.Finish();
             state.SetDirty(true);
             throw new DomException("IndexSizeError", "The start offset exceeds the end offset.");
         }
@@ -72,18 +82,22 @@ internal static class HtmlInputTextOperations
         start = Math.Min(start, (uint) oldValue.Length);
         end = Math.Min(end, (uint) oldValue.Length);
         var length = checked((long) oldValue.Length - (end - start) + replacement.Length);
+        var initialSteps = work.Steps;
         cancellationToken.ThrowIfCancellationRequested();
         var spliced = string.Create(checked((int) length),
-            (oldValue, replacement, start, end, cancellationToken), static (span, input) =>
+            (oldValue, replacement, start, end, cancellationToken, checkpoint, initialSteps), static (span, input) =>
         {
-            var work = new HtmlTextWork(input.cancellationToken);
+            var work = new HtmlTextWork(input.cancellationToken, input.checkpoint, input.initialSteps);
             var destination = 0;
             for (var i = 0; i < input.start; i++) { work.Step(); span[destination++] = input.oldValue[i]; }
             foreach (var character in input.replacement) { work.Step(); span[destination++] = character; }
             for (var i = (int) input.end; i < input.oldValue.Length; i++) { work.Step(); span[destination++] = input.oldValue[i]; }
             work.Check();
         });
-        var prepared = state.Sanitize(spliced, cancellationToken);
+        // Exactly one unit was consumed for each character actually copied.
+        work.ContinueFrom(unchecked(initialSteps + (int) length));
+        var prepared = state.Sanitize(spliced, ref work);
+        var changed = !work.StringEquals(oldValue, prepared);
         var insertedEnd = checked((long) start + replacement.Length);
         var delta = checked((long) replacement.Length - (end - start));
         var next = mode switch
@@ -95,8 +109,8 @@ internal static class HtmlInputTextOperations
                 MapEndpoint(oldSelection.End, start, end, insertedEnd, delta, true), HtmlSelectionDirection.None),
             _ => throw new ArgumentOutOfRangeException(nameof(mode))
         };
-        cancellationToken.ThrowIfCancellationRequested();
-        state.CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
+        work.Step(); work.Finish();
+        state.CommitValue(prepared, HtmlValueChangeOrigin.NonUser, changed);
         state.SetDirty(true);
         state.ClampSelection((uint) prepared.Length);
         state.SetSelection(Normalize(next.Start, next.End, null, (uint) prepared.Length));
@@ -106,15 +120,15 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        return state.HasTextBuffer ? state.Selection : null;
+        return state.HasEditingBuffer ? state.Selection : null;
     }
     internal static bool SetEditingSelection(HtmlInputValueState state, uint start, uint end, string? direction,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!state.HasTextBuffer) return false;
-        var next = Normalize(start, end, direction, state.GetTextLength(cancellationToken));
+        if (!state.HasEditingBuffer) return false;
+        var next = Normalize(start, end, direction, (uint) state.GetEditingValue(cancellationToken).Length);
         cancellationToken.ThrowIfCancellationRequested();
         state.SetSelection(next);
         return true;
@@ -128,6 +142,8 @@ internal static class HtmlInputTextOperations
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(value);
+        if (state.Type == HtmlInputType.Number)
+            return state.ApplyNumberUserValue(value, selection, checkpoint, cancellationToken);
         var work = new HtmlTextWork(cancellationToken, checkpoint);
         work.Check();
         work.Step();

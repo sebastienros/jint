@@ -28,6 +28,12 @@ internal readonly struct HtmlInputNumericConstraints
         string? step, string? defaultValue, Action<long>? checkpoint, CancellationToken cancellationToken)
     {
         var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return Create(type, minimum, maximum, step, defaultValue, ref work);
+    }
+    internal static HtmlInputNumericConstraints Create(HtmlInputType type, string? minimum, string? maximum,
+        string? step, string? defaultValue, ref HtmlInputValueWork work)
+    {
+        var cancellationToken = work.Token;
         cancellationToken.ThrowIfCancellationRequested();
         var applies = type is HtmlInputType.Number or HtmlInputType.Range || HtmlInputTemporalSyntax.IsTemporal(type);
         if (!applies) return new(type, false, null, null, null, default);
@@ -71,7 +77,7 @@ internal readonly struct HtmlInputNumericConstraints
         var work = new HtmlInputValueWork(checkpoint, cancellationToken);
         return TryParse(type, source, out number, ref work);
     }
-    private static bool TryParse(HtmlInputType type, string source, out double number, ref HtmlInputValueWork work)
+    internal static bool TryParse(HtmlInputType type, string source, out double number, ref HtmlInputValueWork work)
     {
         if (type is HtmlInputType.Number or HtmlInputType.Range)
             return HtmlInputNumberSyntax.TryGetNumber(source, false, out number, ref work) == HtmlInputNumericParseResult.Success;
@@ -80,11 +86,17 @@ internal readonly struct HtmlInputNumericConstraints
 
     internal HtmlInputNumericFacts GetFacts(string value, CancellationToken cancellationToken = default)
     {
+        var work = new HtmlInputValueWork(null, cancellationToken);
+        return GetFacts(value, ref work);
+    }
+    internal HtmlInputNumericFacts GetFacts(string value, ref HtmlInputValueWork work)
+    {
+        var cancellationToken = work.Token;
         ArgumentNullException.ThrowIfNull(value);
         cancellationToken.ThrowIfCancellationRequested();
         var reversed = Type == HtmlInputType.Time && Minimum is { } min && Maximum is { } max && min.CompareTo(max) > 0;
         var number = 0d;
-        var parses = Applies && TryParse(Type, value, out number, cancellationToken);
+        var parses = Applies && TryParse(Type, value, out number, ref work);
         var underflow = false;
         var overflow = false;
         var mismatch = false;
@@ -130,8 +142,13 @@ internal readonly struct HtmlInputNumericConstraints
     internal HtmlInputStepResult GetStep(string value, int count, bool down, Action<long>? checkpoint,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(value);
         var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return GetStep(value, count, down, ref work);
+    }
+    internal HtmlInputStepResult GetStep(string value, int count, bool down, ref HtmlInputValueWork work)
+    {
+        var cancellationToken = work.Token;
+        ArgumentNullException.ThrowIfNull(value);
         work.Check();
         if (!Applies) return new(HtmlInputStepStatus.Inapplicable, null);
         if (Step is not { } step) return new(HtmlInputStepStatus.NoAllowedStep, null);

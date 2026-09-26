@@ -15,9 +15,9 @@ using DomNodeType = AngleSharp.Dom.NodeType;
 namespace Jint.Benchmark;
 
 /// <summary>
-/// AngleSharp control rows for a future Jint.HtmlParser comparison. Each operation consumes a cached source
+/// AngleSharp control rows for paired native HTML/XML comparisons and a pending CSSOM comparison. Each operation consumes a cached source
 /// string and produces a complete document, stylesheet or declaration block. Parser construction is outside
-/// the measurement; the future candidate must use the same lifetime and output level. No engine is involved.
+/// the measurement; the paired candidate uses the same configuration lifetime and output level. No engine is involved.
 /// </summary>
 [MemoryDiagnoser]
 [BenchmarkCategory("HtmlParserCorpus")]

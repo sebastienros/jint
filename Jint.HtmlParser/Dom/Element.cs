@@ -205,7 +205,7 @@ public sealed class Element : Node
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
-            MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
+            MutationTracking.QueueAttribute(this, attribute, oldValue, matches);
             HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
@@ -249,7 +249,7 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
-        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
+        MutationTracking.QueueAttribute(this, attribute, attribute.Value);
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
@@ -413,7 +413,7 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
-        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
+        MutationTracking.QueueAttribute(this, attribute, null);
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,

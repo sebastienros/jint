@@ -239,6 +239,7 @@ internal sealed partial class HtmlTreeBuilder
                     continue;
                 }
                 var poppedEof = _token.Kind == HtmlTokenKind.EndOfFile;
+                if (poppedEof && _open.Count != 0) { SchedulePopTo(0, reprocess: false); continue; }
                 FinishToken();
                 return new HtmlParseStep(poppedEof ? HtmlParseStepKind.Complete : HtmlParseStepKind.Yielded);
             }
@@ -256,6 +257,8 @@ internal sealed partial class HtmlTreeBuilder
             if (!reprocess)
             {
                 var eof = _token.Kind == HtmlTokenKind.EndOfFile;
+                // HTML Standard §13.2.7 stop parsing empties the open stack.
+                if (eof && _open.Count != 0) { SchedulePopTo(0, reprocess: false); continue; }
                 FinishToken();
                 return new HtmlParseStep(eof ? HtmlParseStepKind.Complete : HtmlParseStepKind.Yielded);
             }
@@ -480,6 +483,14 @@ internal sealed partial class HtmlTreeBuilder
         if (_resetModeIndexes.Count > 0 && _resetModeIndexes[^1] == index) _resetModeIndexes.RemoveAt(_resetModeIndexes.Count - 1);
         if (!AllowedOpenAtEof(element)) _unexpectedOpenCount--;
         Charge(1);
+        // HTML Standard §13.2.6: option completion runs after its contents are
+        // parsed, including implied closure and EOF recovery. Native selectedcontent
+        // replacement is one coherent mutation boundary, not a cooperative walk.
+        if (IsHtmlElement(element, "option"))
+        {
+            HtmlSelectedContent.MaybeCloneOption(element, _cancellationToken);
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
         return element;
     }
 
