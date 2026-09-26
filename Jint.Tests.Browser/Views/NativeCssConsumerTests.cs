@@ -168,17 +168,19 @@ public sealed class NativeCssConsumerTests
         foreach (var width in new[] { 50, 60 })
         {
             await page.EvaluateAsync<int>("globalThis.previousQueryStamp = queryStamp()");
-            // Each explicit native install is a separate mutation scope. This proves post-operation
-            // refresh and reuse; the scope itself conservatively invalidates the retained query.
-            await page.RunOnLoopAsync(engine =>
+            // Publish through the resource-only lane: no DOM write or conservative mutation scope
+            // can invalidate the warm query, so the resource revision must refresh it.
+            await page.RunResourcePublicationOnLoopAsync(engine =>
             {
                 var runtime = PageRuntime.Find(engine)!;
                 var document = runtime.Document!;
                 var link = DomDocumentReads.ById(runtime.Dom, document, "extra")!;
                 NativeCssStyleSheets.SheetOf(runtime.Dom, link).Should().NotBeNull();
                 var stamp = document.MutationStamp;
+                var resources = NativeCssStyleSheets.Stamp(document);
                 NativeCssStyleSheets.Install(document, link, "#box { width:" + width + "px; }", "", "", new CssValueWork(default));
                 document.MutationStamp.Should().Be(stamp);
+                NativeCssStyleSheets.Stamp(document).Should().NotBe(resources);
                 return true;
             });
             (await page.EvaluateAsync<string>("""

@@ -582,6 +582,13 @@ public sealed partial class Page : IAsyncDisposable
     });
 
     /// <summary>
+    /// Runs instrumented resource publication on the page loop under its normal task budget.
+    /// The callback must not write native tree links or attributes: resource revisions own its
+    /// invalidation, so it deliberately does not open a layout mutation scope.
+    /// </summary>
+    internal Task<T> RunResourcePublicationOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
+
+    /// <summary>
     /// Registers the one thing that hears what the page does, which is what a protocol target is.
     /// </summary>
     /// <param name="observer">The watcher, or <see langword="null"/> to stop watching.</param>
