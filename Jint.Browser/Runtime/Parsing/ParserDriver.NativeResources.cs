@@ -202,13 +202,12 @@ internal sealed partial class ParserDriver
         var request = new object();
         source.StyleRequest = request;
         source.Signature = url;
+        bool Current() => CurrentStyleSheetSource(link, document, source, request, url);
         if (url is null)
         {
-            FailSubresource(link, href, "The stylesheet URL is invalid.",
-                () => ReferenceEquals(source.StyleRequest, request));
+            FailSubresource(link, href, "The stylesheet URL is invalid.", Current);
             return;
         }
-        bool Current() => CurrentStyleSheetSource(link, document, source, request, url);
         void Failed(string message)
         {
             if (!Current()) return;
@@ -236,7 +235,7 @@ internal sealed partial class ParserDriver
         source.Signature = null;
     }
 
-    private bool CurrentStyleSheetSource(Element link, Document document, ResourceSource source, object request, string url)
+    private bool CurrentStyleSheetSource(Element link, Document document, ResourceSource source, object request, string? url)
     {
         var work = new CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check);
         var reads = new DomReadWork(work.Charge, _cancellationToken);

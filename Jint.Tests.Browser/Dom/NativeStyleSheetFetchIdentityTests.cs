@@ -52,6 +52,26 @@ public sealed class NativeStyleSheetFetchIdentityTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task InvalidUrlErrorDoesNotFollowARemovedOrAdoptedLink(bool adopt)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<link id=sheet rel=stylesheet>", "https://requests.test/root");
+        await page.EvaluateAsync("""
+            window.errors=0;
+            const link=document.getElementById('sheet');
+            link.onerror=()=>errors++;
+            link.href='http://[';
+            link.remove();
+            """ + (adopt ? "document.implementation.createHTMLDocument().head.appendChild(link);" : ""));
+        (await page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await page.EvaluateAsync<int>("errors")).Should().Be(0);
+        // The failure is current when reported; its later element event loses ownership.
+        page.Errors.Should().ContainSingle();
+    }
+
     [TestCase("success")]
     [TestCase("failure")]
     [TestCase("timeout")]
