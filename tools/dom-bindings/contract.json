@@ -4747,7 +4747,7 @@
           "DomName": "body",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.body\");\nreturn self.Realm.Hooks.Body(self.Realm, self.Target);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.body\");\nself.Target.Body = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, \"Document.body\", \"HTMLElement\"); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.body\");\nreturn global::Jint.Browser.Dom.DomLegacyDocumentMembers.SetBody(self.Realm, self.Target, global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"Document.body\", \"HTMLElement\"));",
           "Length": 0,
           "Origin": "IDocument.Body (hook)"
         },
@@ -4962,8 +4962,8 @@
         {
           "DomName": "designMode",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.designMode\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.DesignMode);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.designMode\");\nself.Target.DesignMode = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.designMode\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.designMode\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentEditing.Get(self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.designMode\");\nreturn global::Jint.Browser.Dom.DomDocumentEditing.Set(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.designMode\"));",
           "Length": 0,
           "Origin": "IDocument.DesignMode"
         },
@@ -5050,7 +5050,7 @@
         {
           "DomName": "execCommand",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.execCommand\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ExecuteCommand(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.execCommand\"), global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, \"\")!));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.execCommand\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.execCommand\");\n_ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false);\n_ = global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, \"\")!;\n// This Browser has no command provider.\nreturn global::Jint.Native.JsBoolean.False;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocument.ExecuteCommand"
@@ -5274,7 +5274,7 @@
         {
           "DomName": "queryCommandEnabled",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandEnabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandEnabled(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandEnabled\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandEnabled\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandEnabled\");\n// This Browser has no command provider.\nreturn global::Jint.Native.JsBoolean.False;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocument.IsCommandEnabled"
@@ -5282,7 +5282,7 @@
         {
           "DomName": "queryCommandIndeterm",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandIndeterm\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandIndeterminate(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandIndeterm\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandIndeterm\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandIndeterm\");\n// This Browser has no command provider.\nreturn global::Jint.Native.JsBoolean.False;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocument.IsCommandIndeterminate"
@@ -5290,7 +5290,7 @@
         {
           "DomName": "queryCommandState",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandState\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandExecuted(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandState\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandState\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandState\");\n// This Browser has no command provider.\nreturn global::Jint.Native.JsBoolean.False;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocument.IsCommandExecuted"
@@ -5298,7 +5298,7 @@
         {
           "DomName": "queryCommandSupported",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandSupported\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandSupported(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandSupported\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandSupported\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandSupported\");\n// This Browser has no command provider.\nreturn global::Jint.Native.JsBoolean.False;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocument.IsCommandSupported"
@@ -5306,7 +5306,7 @@
         {
           "DomName": "queryCommandValue",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCommandValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandValue\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.queryCommandValue\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.queryCommandValue\");\n// This Browser has no command provider.\nreturn global::Jint.Browser.Dom.DomConvert.Text(\"\");",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocument.GetCommandValue"
@@ -6303,7 +6303,7 @@
         {
           "DomName": "accessKeyLabel",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.accessKeyLabel\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.AccessKeyLabel);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.accessKeyLabel\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserHtmlSemantics.AccessKeyLabel(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlElement.AccessKeyLabel"
@@ -6335,16 +6335,16 @@
         {
           "DomName": "contentEditable",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contentEditable\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.ContentEditable);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contentEditable\");\nself.Target.ContentEditable = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLElement.contentEditable\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contentEditable\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserHtmlSemantics.GetContentEditable(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contentEditable\");\nreturn global::Jint.Browser.Dom.BrowserHtmlSemantics.SetContentEditable(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLElement.contentEditable\"));",
           "Length": 0,
           "Origin": "IHtmlElement.ContentEditable"
         },
         {
           "DomName": "contextMenu",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contextMenu\");\nreturn self.Realm.WrapNodeValue(self.Target.ContextMenu);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contextMenu\");\nself.Target.ContextMenu = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLElement.contextMenu\", \"HTMLMenuElement\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contextMenu\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.BrowserHtmlSemantics.GetContextMenu(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.contextMenu\");\nreturn global::Jint.Browser.Dom.BrowserHtmlSemantics.SetContextMenu(self.Realm, self.Target, global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, \"HTMLElement.contextMenu\", \"HTMLMenuElement\"));",
           "Length": 0,
           "Origin": "IHtmlElement.ContextMenu"
         },
@@ -6367,8 +6367,8 @@
         {
           "DomName": "draggable",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.draggable\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDraggable);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.draggable\");\nself.Target.IsDraggable = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.draggable\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserHtmlSemantics.GetDraggable(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.draggable\");\nreturn global::Jint.Browser.Dom.BrowserHtmlSemantics.SetDraggable(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlElement.IsDraggable"
         },
@@ -6391,7 +6391,7 @@
         {
           "DomName": "forceSpellCheck",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.forceSpellCheck\");\nself.Target.DoSpellCheck(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.forceSpellCheck\");\nreturn global::Jint.Browser.Dom.BrowserHtmlSemantics.ForceSpellCheck(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlElement.DoSpellCheck"
@@ -6415,7 +6415,7 @@
         {
           "DomName": "isContentEditable",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.isContentEditable\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsContentEditable);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.isContentEditable\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserHtmlSemantics.IsContentEditable(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlElement.IsContentEditable"
@@ -6479,8 +6479,8 @@
         {
           "DomName": "spellcheck",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.spellcheck\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSpellChecked);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.spellcheck\");\nself.Target.IsSpellChecked = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.spellcheck\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserHtmlSemantics.GetSpellcheck(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.spellcheck\");\nreturn global::Jint.Browser.Dom.BrowserHtmlSemantics.SetSpellcheck(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlElement.IsSpellChecked"
         },
@@ -6503,8 +6503,8 @@
         {
           "DomName": "translate",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.translate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsTranslated);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.translate\");\nself.Target.IsTranslated = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.translate\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.BrowserHtmlSemantics.GetTranslate(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLElement.translate\");\nreturn global::Jint.Browser.Dom.BrowserHtmlSemantics.SetTranslate(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false));",
           "Length": 0,
           "Origin": "IHtmlElement.IsTranslated"
         }
@@ -8259,7 +8259,7 @@
         {
           "DomName": "requestAutocomplete",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.requestAutocomplete\");\nself.Target.RequestAutocomplete(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLFormElement.requestAutocomplete\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"HTMLFormElement.requestAutocomplete\", \"NotSupportedError\", \"No autofill service is available.\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlFormElement.RequestAutocomplete"
@@ -8426,8 +8426,8 @@
         {
           "DomName": "manifest",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Manifest);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nself.Target.Manifest = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLHtmlElement.manifest\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken).Attribute(self.Target, \"manifest\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nself.Target.SetAttributeNS(null, \"manifest\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLHtmlElement.manifest\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlHtmlElement.Manifest"
         },
@@ -9570,7 +9570,7 @@
         {
           "DomName": "import",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.import\");\nreturn self.Realm.WrapNodeValue(self.Target.Import);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.import\");\n// There is no HTML import document producer.\nreturn global::Jint.Native.JsValue.Null;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ILinkImport.Import"

@@ -760,7 +760,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.body", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.body");
-                    self.Target.Body = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Element>(args, 0, "Document.body", "HTMLElement"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomLegacyDocumentMembers.SetBody(self.Realm, self.Target, global::Jint.Browser.Dom.DomBindings.NullableArgument<global::Jint.HtmlParser.Element>(args, 0, "Document.body", "HTMLElement"));
                 }))
             .Accessor("characterSet",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.characterSet", static (thisObj, args) =>
@@ -943,12 +943,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.designMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.designMode");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DesignMode);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomDocumentEditing.Get(self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.designMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.designMode");
-                    self.Target.DesignMode = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.designMode"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomDocumentEditing.Set(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.designMode"));
                 }))
             .Accessor("dir",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.dir", static (thisObj, args) =>
@@ -1028,7 +1028,11 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.execCommand", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.execCommand");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ExecuteCommand(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.execCommand"), global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, "")!));
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.execCommand");
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false);
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, "")!;
+                    // This Browser has no command provider.
+                    return global::Jint.Native.JsBoolean.False;
                 }),
                 length: 1)
             .Accessor("fgColor",
@@ -1222,35 +1226,45 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandEnabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.queryCommandEnabled");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandEnabled(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandEnabled")));
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandEnabled");
+                    // This Browser has no command provider.
+                    return global::Jint.Native.JsBoolean.False;
                 }),
                 length: 1)
             .Method("queryCommandIndeterm",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandIndeterm", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.queryCommandIndeterm");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandIndeterminate(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandIndeterm")));
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandIndeterm");
+                    // This Browser has no command provider.
+                    return global::Jint.Native.JsBoolean.False;
                 }),
                 length: 1)
             .Method("queryCommandState",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.queryCommandState");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandExecuted(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandState")));
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandState");
+                    // This Browser has no command provider.
+                    return global::Jint.Native.JsBoolean.False;
                 }),
                 length: 1)
             .Method("queryCommandSupported",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandSupported", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.queryCommandSupported");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandSupported(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandSupported")));
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandSupported");
+                    // This Browser has no command provider.
+                    return global::Jint.Native.JsBoolean.False;
                 }),
                 length: 1)
             .Method("queryCommandValue",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.queryCommandValue");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCommandValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandValue")));
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandValue");
+                    // This Browser has no command provider.
+                    return global::Jint.Browser.Dom.DomConvert.Text("");
                 }),
                 length: 1)
             .Method("querySelector",
