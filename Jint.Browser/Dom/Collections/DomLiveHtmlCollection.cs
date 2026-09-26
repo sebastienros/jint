@@ -84,6 +84,9 @@ internal sealed class DomLiveHtmlCollection : DomHtmlCollection<Element>
         }
     }
 
+    internal override Element? Item(uint index)
+        => TryGetElementAt(index, out var element) ? element : null;
+
     public int Count => Length;
 
     /// <summary>
