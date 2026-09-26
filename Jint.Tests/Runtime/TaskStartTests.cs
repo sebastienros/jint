@@ -94,6 +94,31 @@ public sealed class TaskStartTests
         budget.Depth.Should().Be(0);
     }
 
+    [Test]
+    public void AnOriginalScriptFailureDoesNotRunPendingWorkDuringItsUnwind()
+    {
+        using var engine = new Engine();
+        var budget = new Budget();
+        engine.Tasks.ConfigureTaskBudget(budget);
+        var hooks = 0;
+        engine.Tasks.ConfigureTaskStart(() =>
+        {
+            hooks++;
+            throw new InvalidOperationException("pending native failure");
+        });
+        var reactions = 0;
+        engine.SetValue("record", new Action(() => reactions++));
+        Caught.Exception(() => engine.Execute("Promise.resolve().then(() => record()); throw new Error('original script failure')"))
+            .Should().BeOfType<JavaScriptException>().Which.Message.Should().Contain("original script failure");
+        hooks.Should().Be(0);
+        reactions.Should().Be(0);
+        budget.Depth.Should().Be(0);
+        engine.Tasks.ConfigureTaskStart(() => budget.Depth.Should().Be(1));
+        engine.Tasks.ProcessTask();
+        reactions.Should().Be(1);
+        budget.Depth.Should().Be(0);
+    }
+
 #if NET8_0_OR_GREATER
     [Test]
     public void AnIdleCallbackStartsInsideItsBudgetAndRetainsItsReactionCheckpoint()
