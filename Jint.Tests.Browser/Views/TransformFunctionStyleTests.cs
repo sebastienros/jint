@@ -1,6 +1,7 @@
 #nullable enable
 
 using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Selectors;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Layout;
@@ -182,8 +183,12 @@ public sealed class TransformFunctionStyleTests
             var style = CssCascade.Traversal.For(runtime.Document!)!.Of(element);
             var property = style.GetProperty("transform");
             using (runtime.Dom.MutateLayout()) element.SetAttribute("style", "transform:translateX(20px)");
-            Action stale = () => ResolvedStyle.Transform(style, property, element, runtime);
-            stale.Should().Throw<InvalidOperationException>().WithMessage(NativeCssQuery.Invalidated);
+            string? published = null;
+            Action stale = () => published = ResolvedStyle.Transform(style, property, element, runtime);
+            // Either snapshot guard may detect the mutation first; no other refusal is accepted.
+            stale.Should().ThrowExactly<InvalidOperationException>().Which.Message.Should()
+                .BeOneOf(NativeCssQuery.Invalidated, SelectorMatchWork.Invalidated);
+            published.Should().BeNull();
             return true;
         });
     }
