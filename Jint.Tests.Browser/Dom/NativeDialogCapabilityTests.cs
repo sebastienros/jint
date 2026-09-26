@@ -132,14 +132,19 @@ public sealed class NativeDialogCapabilityTests
         if (candidate) dialog.AppendChild(target);
         for (var i = 0; i < 1024; i++) target.SetAttributeNS(null, "data-" + i, "x");
         var charged = 0;
+        var batches = new List<int>();
         var work = new DomReadWork(units =>
         {
+            batches.Add(units);
             charged += units;
             if (charged >= 256) throw new OperationCanceledException();
         }, default);
         var state = BrowserDialogState.Of(realm, dialog);
         Caught.Exception(() => state.Show(realm, work)).Should().BeOfType<OperationCanceledException>();
         state.IsOpen(realm).Should().BeFalse();
-        charged.Should().Be(256);
+        // A focus candidate first charges its descendant link, then IsFocusable flushes that one
+        // unit before the attribute scan reaches its next 256-unit checkpoint.
+        charged.Should().Be(candidate ? 257 : 256);
+        batches.Should().OnlyContain(units => units <= 256);
     }
 }
