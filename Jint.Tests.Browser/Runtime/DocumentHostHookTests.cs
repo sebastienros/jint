@@ -157,7 +157,8 @@ public sealed class DocumentHostHookTests
                   'application/xml');
                 [xml.baseURI, xml.documentElement.baseURI, xml.documentElement.firstElementChild.baseURI].join('|');
                 """))
-            .Should().Be("about:blank|about:blank|about:blank");
+            // HTML parseFromString inherits the associated document URL; XML base elements do not change it.
+            .Should().Be("https://page.example/root/|https://page.example/root/|https://page.example/root/");
     }
 
     /// <summary>
