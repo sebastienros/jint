@@ -75,7 +75,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     /// whose length probe is a field read, and it stays where it is.
     /// </para>
     /// </remarks>
-    private Element? ElementAt(uint index) => _collection.Item(index) as Element;
+    private Element? ElementAt(uint index) => _collection.GetItem(index) as Element;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every

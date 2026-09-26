@@ -7,7 +7,7 @@ namespace Jint.Browser.Dom.Collections;
 internal abstract class DomHtmlCollection<T> : IEnumerable<T> where T : Node
 {
     internal abstract int Length { get; }
-    internal virtual T? Item(uint index)
+    internal virtual T? GetItem(uint index)
     {
         foreach (var candidate in this)
         {
