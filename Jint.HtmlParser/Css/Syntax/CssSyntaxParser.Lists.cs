@@ -278,7 +278,9 @@ internal sealed partial class CssSyntaxParser
         return new CssDeclarationSyntax(name.Text, components, important,
             new CssSourceSpan(name.Span.Start, spanEnd - name.Span.Start),
             new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart),
-            TrimLexicalBoundaryWhitespace(lexicalValueStart, retokenizeEnd, components));
+            TrimLexicalBoundaryWhitespace(lexicalValueStart, retokenizeEnd, components),
+            ValueTermination(components, new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart),
+                new Values.CssValueWork(_cancellationToken)));
     }
 
     // Comments occupy source gaps, not tokens. Trim only whitespace tokens touching the

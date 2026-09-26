@@ -45,14 +45,7 @@ internal static class CssPropertyParser
         var entry = CssPropertyRegistry.Find(name, context);
         if (entry is null)
         {
-            if (name == "all") return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "V0:all-reset");
-            if (CssPropertyCatalog.Obligations.TryGetValue(name, out var family))
-            {
-                if (family == "V9" && ordinary) return CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
-                return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar,
-                    ordinary ? family + ":" + name : "context-audit:" + context + ":" + name);
-            }
-            return CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
+            return NameFailure(name, context)!.Value;
         }
         var analysis = CssReferenceParser.Analyze(input, CssReferenceUse.PropertyValue, work);
         if (analysis.Kind == CssReferenceAnalysisKind.InvalidSyntax) return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
@@ -83,6 +76,24 @@ internal static class CssPropertyParser
         var second = parts.Count == 1 ? first : Keyword(parts[1], keywords);
         if (second == "overlay") second = "auto";
         return second is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Pair(first, second, parts[0].Span));
+    }
+
+    // Mutation routes without a value still require completed name/context metadata. In
+    // particular, removal must not invent the longhand/reset membership of a pending shorthand.
+    internal static CssPropertyResult? NameFailure(string normalizedName, CssDeclarationContext context)
+    {
+        var ordinary = context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe;
+        if (normalizedName.Length > 2 && normalizedName.StartsWith("--", StringComparison.Ordinal))
+            return ordinary ? null : CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
+        if (CssPropertyRegistry.Find(normalizedName, context) is not null) return null;
+        if (normalizedName == "all") return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "V0:all-reset");
+        if (CssPropertyCatalog.Obligations.TryGetValue(normalizedName, out var family))
+        {
+            if (family == "V9" && ordinary) return CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
+            return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar,
+                ordinary ? family + ":" + normalizedName : "context-audit:" + context + ":" + normalizedName);
+        }
+        return CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
     }
 
     private static CssPropertyResult Numeric(CssPropertyGrammar grammar, CssReferenceInput input,
