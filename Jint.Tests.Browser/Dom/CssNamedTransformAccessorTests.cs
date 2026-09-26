@@ -110,7 +110,7 @@ public sealed class CssNamedTransformAccessorTests
                     let conversions = 0, getterError, setterError;
                     try { descriptor.get.call(receiver); } catch (caught) { getterError = caught; }
                     try {
-                        descriptor.set.call(receiver, {toString() { conversions++; return value; }});
+                        descriptor.set.call(receiver, {toString() { conversions++; return value; } });
                     } catch (caught) { setterError = caught; }
                     return getterError instanceof TypeError && setterError instanceof TypeError && conversions === 0;
                 });
