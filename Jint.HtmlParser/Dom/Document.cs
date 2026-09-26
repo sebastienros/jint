@@ -29,6 +29,9 @@ public sealed class Document : Node
     private readonly bool _isTemplateContentsOwnerDocument;
     private readonly CustomElementRegistryIdentity? _creationDefaultCustomElementRegistry;
     internal List<WeakReference<EndpointBucket>>? RangeBuckets;
+    internal int RangeSweepCursor;
+    internal List<WeakReference<DomNodeIterator>>? IteratorSlots;
+    internal int IteratorSweepCursor;
     private ulong _mutationStamp;
     private bool _mayHaveMutationRegistrations;
     // Browser installs an agent-level collector. Native mutations notify at the

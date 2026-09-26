@@ -27,6 +27,7 @@ public abstract partial class Node
     internal ShadowRoot? TreeShadowRoot;
 
     internal EndpointBucket? RangeEndpoints;
+    internal List<WeakReference<DomNodeIterator>>? RootIterators;
 
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 
@@ -524,6 +525,7 @@ public abstract partial class Node
         }
 
         LiveTraversalTracking.Remove(node, parent, knownIndex);
+        IteratorTracking.Remove(node, parent as Document ?? parent.OwnerDocument!);
         var formRemoval = HtmlFormAssociation.BeforeRemoval(node, parent);
         var previousSibling = node.PreviousSibling;
         var nextSibling = node.NextSibling;
@@ -639,6 +641,7 @@ public abstract partial class Node
                 var oldDocument = current.Node._ownerDocument;
                 current.Node._ownerDocument = current.Owner;
                 LiveTraversalTracking.Rehome(current.Node.RangeEndpoints, current.Owner);
+                IteratorTracking.Rehome(current.Node.RootIterators, current.Owner);
                 if (current.Node.MutationRegistrations is not null)
                 {
                     current.Owner.MarkMutationRegistrationsPresent();

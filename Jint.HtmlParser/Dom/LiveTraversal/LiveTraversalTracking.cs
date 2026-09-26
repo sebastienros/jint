@@ -6,6 +6,7 @@ internal sealed class EndpointBucket
 {
     internal readonly WeakReference<object> Owner;
     internal Document Document;
+    internal int Index = -1;
     internal readonly List<EndpointHandle> Entries = [];
     internal EndpointBucket(DomNodeIdentity owner, Document document)
     {
@@ -28,6 +29,7 @@ internal static class LiveTraversalTracking
 
     internal static EndpointHandle Register(DomRange range, bool start, DomNodeIdentity identity)
     {
+        Sweep(DocumentOf(identity));
         var bucket = identity.Node?.RangeEndpoints ?? identity.Attribute?.RangeEndpoints;
         if (bucket is null)
         {
@@ -55,21 +57,61 @@ internal static class LiveTraversalTracking
             if (owner is Node node) node.RangeEndpoints = null;
             else ((Attr) owner).RangeEndpoints = null;
         }
-        bucket.Document.RangeBuckets?.RemoveAll(slot => !slot.TryGetTarget(out var target) || ReferenceEquals(target, bucket));
+        RemoveIndex(bucket);
     }
 
     private static void Index(EndpointBucket bucket, Document document)
     {
         var index = document.RangeBuckets ??= [];
-        index.RemoveAll(static slot => !slot.TryGetTarget(out var target) || !target.Owner.TryGetTarget(out _) ||
-            target.Entries.TrueForAll(static entry => !entry.Range.TryGetTarget(out _)));
+        bucket.Index = index.Count;
         index.Add(new(bucket));
+    }
+
+    private static void RemoveIndex(EndpointBucket bucket)
+    {
+        if (bucket.Index < 0) return;
+        RemoveSlot(bucket.Document, bucket.Index);
+        bucket.Index = -1;
+    }
+
+    private static void RemoveSlot(Document document, int index)
+    {
+        var slots = document.RangeBuckets!;
+        if (slots[index].TryGetTarget(out var removed)) removed.Index = -1;
+        var last = slots.Count - 1;
+        if (index != last)
+        {
+            slots[index] = slots[last];
+            if (slots[index].TryGetTarget(out var moved)) moved.Index = index;
+        }
+        slots.RemoveAt(last);
+        if (slots.Count == 0) document.RangeBuckets = null;
+    }
+
+    private static void Sweep(Document document)
+    {
+        for (var scanned = 0; scanned < 8 && document.RangeBuckets is { Count: > 0 } slots; scanned++)
+        {
+            var index = document.RangeSweepCursor % slots.Count;
+            if (!slots[index].TryGetTarget(out var bucket)) { RemoveSlot(document, index); continue; }
+            bucket.Entries.RemoveAll(static entry => !entry.Range.TryGetTarget(out _));
+            if (bucket.Entries.Count == 0)
+            {
+                if (bucket.Owner.TryGetTarget(out var owner))
+                {
+                    if (owner is Node node) node.RangeEndpoints = null;
+                    else ((Attr) owner).RangeEndpoints = null;
+                }
+                RemoveIndex(bucket);
+            }
+            else document.RangeSweepCursor = index + 1;
+        }
     }
 
     internal static void Rehome(EndpointBucket? bucket, Document document)
     {
         if (bucket is null || ReferenceEquals(bucket.Document, document)) return;
-        bucket.Document.RangeBuckets?.RemoveAll(slot => !slot.TryGetTarget(out var target) || ReferenceEquals(target, bucket));
+        RemoveIndex(bucket);
         bucket.Document = document;
         Index(bucket, document);
     }
@@ -129,7 +171,7 @@ internal static class LiveTraversalTracking
                 range.Repair(entry.Start, next);
             }
         }
-        buckets.RemoveAll(static slot => !slot.TryGetTarget(out var target) || !target.Owner.TryGetTarget(out _));
+        Sweep(document);
     }
 
     internal static void Adjust(EndpointBucket bucket, Func<BoundaryPoint, BoundaryPoint> adjustment)

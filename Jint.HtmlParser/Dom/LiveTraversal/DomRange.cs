@@ -129,35 +129,57 @@ internal sealed partial class DomRange
     {
         if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) return false;
         if (node.Node?.ParentNode is null) return true;
-        var before = Beside(node, false);
+        var work = new TraversalWork(cancellationToken);
+        uint index = 0;
+        for (var sibling = node.Node.PreviousSibling; sibling is not null; sibling = sibling.PreviousSibling) { index++; work.Step(); }
+        work.Check();
+        var before = new BoundaryPoint(new(node.Node.ParentNode), index);
         return BoundaryOrder.Compare(before with { Offset = before.Offset + 1 }, Start, cancellationToken) > 0 &&
                BoundaryOrder.Compare(before, End, cancellationToken) < 0;
     }
     internal string GetText(CancellationToken cancellationToken)
     {
         var work = new TraversalWork(cancellationToken);
-        if (Collapsed) return string.Empty;
-        var builder = new StringBuilder();
+        if (Collapsed) { work.Check(); return string.Empty; }
         var root = GetCommonAncestor(cancellationToken).Node;
-        for (var node = root; node is not null; node = NativeTraversal.Next(node, root!, ref work))
+        if (root is null) { work.Check(); return string.Empty; }
+        var builder = new StringBuilder();
+        var first = BoundaryNode(Start, root, ref work);
+        var stop = BoundaryNode(End, root, ref work);
+        // CharacterData's boundary node is included, but its ending slice is bounded.
+        for (var node = first; node is not null; node = NativeTraversal.Next(node, root, ref work))
         {
             work.Step();
-            if (node is not Text and not CDataSection) continue;
-            var identity = new DomNodeIdentity(node);
-            var length = BoundaryOrder.GetLength(identity);
-            var from = Start.Container.Equals(identity) ? Start.Offset : 0;
-            var to = End.Container.Equals(identity) ? End.Offset : length;
-            if (BoundaryOrder.Compare(new(identity, length), Start, cancellationToken) <= 0 ||
-                BoundaryOrder.Compare(new(identity, 0), End, cancellationToken) >= 0) continue;
-            for (var i = from; i < to; i++)
+            var isEnd = ReferenceEquals(node, End.Container.Node);
+            if (ReferenceEquals(node, stop) && (End.Container.Node is not { } endNode || !IsData(endNode))) break;
+            if (node is Text or CDataSection)
             {
-                builder.Append(node is Text text ? text.DataAt((int) i) : ((CDataSection) node).Data[(int) i]);
-                work.Step();
+                var from = ReferenceEquals(node, Start.Container.Node) ? Start.Offset : 0;
+                var to = isEnd ? End.Offset : BoundaryOrder.GetLength(new(node));
+                for (var i = from; i < to; i++)
+                {
+                    builder.Append(node is Text text ? text.DataAt((int) i) : ((CDataSection) node).Data[(int) i]);
+                    work.Step();
+                }
             }
+            if (isEnd && IsData(node)) break;
+            if (ReferenceEquals(node, stop)) break;
         }
         work.Check();
-        return builder.ToString();
+        var result = builder.ToString();
+        work.Check();
+        return result;
     }
+    internal static bool IsData(Node node) => node is Text or CDataSection or Comment or ProcessingInstruction;
+    private static Node? BoundaryNode(BoundaryPoint point, Node root, ref TraversalWork work)
+    {
+        var node = point.Container.Node;
+        if (node is null || IsData(node)) return node;
+        var child = node.FirstChild;
+        for (uint i = 0; i < point.Offset; i++) { child = child!.NextSibling; work.Step(); }
+        return child ?? NativeTraversal.Following(node, root, ref work);
+    }
+
 }
 
 internal struct TraversalWork
@@ -173,6 +195,10 @@ internal static class NativeTraversal
     internal static Node? Next(Node node, Node root, ref TraversalWork work)
     {
         if (node.FirstChild is { } child) { work.Step(); return child; }
+        return Following(node, root, ref work);
+    }
+    internal static Node? Following(Node node, Node root, ref TraversalWork work)
+    {
         while (!ReferenceEquals(node, root))
         {
             work.Step();
