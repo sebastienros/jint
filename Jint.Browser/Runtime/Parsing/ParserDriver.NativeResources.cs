@@ -12,7 +12,7 @@ internal sealed partial class ParserDriver
     private readonly List<WeakReference<ResourceWatch>> _resourceWatchReferences = [];
     private readonly HashSet<Element> _pendingStyleCompletions = [];
     private readonly ConditionalWeakTable<Element, ResourceSource> _resourceSources = new();
-    private readonly Queue<(ResourceWatch Watch, MutationRecord Record)> _resourceRecords = new();
+    private readonly Queue<(ResourceWatch Watch, MutationRecord Record, bool ImageDelegated)> _resourceRecords = new();
     private readonly List<Element> _candidateShadowHosts = [];
     private readonly HashSet<Element> _inlineStyles = [];
     private readonly HashSet<Element> _changedScripts = [];
@@ -67,13 +67,23 @@ internal sealed partial class ParserDriver
             // Freeze cross-root order at arrival. No tree reads, fetch, CSS or script here.
             if (!weak.TryGetTarget(out var driver)) { watch.Subscription.Dispose(); return; }
             if (driver._disposed || !watch.Active) return;
-            foreach (var record in pending.TakeRecords()) driver._resourceRecords.Enqueue((watch, record));
+            foreach (var record in pending.TakeRecords()) driver.CaptureResourceRecord(watch, record);
             driver.QueueResourceDrain(watch);
         };
         _resourceWatches.Add(root, watch);
         _resourceWatchReferences.Add(new(watch));
         if (--_resourceAttachmentsUntilSweep == 0) CompactResourceWatches();
         return watch;
+    }
+
+    private void CaptureResourceRecord(ResourceWatch watch, MutationRecord record)
+    {
+        // Freeze delegation on arrival: a later mutator can install an image watch before
+        // delivery, but that new subscription did not observe this earlier document record.
+        var delegated = watch.Root is not Element && record.Kind == MutationRecordKind.Attributes &&
+            record.Target is Element element && _resourceWatches.TryGetValue(element, out var imageWatch) &&
+            imageWatch.Active && ReferenceEquals(imageWatch.Document, watch.Document);
+        _resourceRecords.Enqueue((watch, record, delegated));
     }
 
     private void RetireResourceWatch(ResourceWatch watch)
@@ -190,7 +200,7 @@ internal sealed partial class ParserDriver
             {
                 // Capture happens on arrival; transient observation ends at this safe delivery boundary.
                 foreach (var remaining in entry.Watch.Subscription.TakeRecordsForDelivery())
-                    _resourceRecords.Enqueue((entry.Watch, remaining));
+                    CaptureResourceRecord(entry.Watch, remaining);
             }
             if (!entry.Watch.Active)
             {
@@ -230,9 +240,7 @@ internal sealed partial class ParserDriver
                 if (entry.Watch.Root is Element && !ReferenceEquals(element.OwnerDocument, entry.Watch.Document)) continue;
                 // The element-owned image subscription captures this write as well. Its arrival is
                 // guaranteed before the native call returns; process it once, including failed requests.
-                if (entry.Watch.Root is not Element &&
-                    _resourceWatches.TryGetValue(element, out var imageWatch) && imageWatch.Active &&
-                    ReferenceEquals(imageWatch.Document, entry.Watch.Document)) continue;
+                if (entry.ImageDelegated) continue;
                 if (element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
                     && (record.AttributeName != "src" || Attribute(element, "src") is null)) continue;
                 if (element is { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg })

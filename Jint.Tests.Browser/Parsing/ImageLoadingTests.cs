@@ -1,4 +1,6 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
 using Jint.Tests.Browser.Navigation;
 
 namespace Jint.Tests.Browser.Parsing;
@@ -234,6 +236,27 @@ public class ImageLoadingTests
             """);
         await loopback.Page.WaitForIdleAsync(Timeout);
         loopback.Server.Received.Should().NotContain(request => request.Path == "/a.img");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task InstallingAnImageWatchDoesNotDiscardAnEarlierNativeSourceWrite()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: "<img id=a>");
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var image = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "a")!;
+            image.SetAttribute("src", "/a.img");
+            // The document record arrived before this unrelated write installed an image watch.
+            engine.Execute("a.setAttribute('alt', 'later')");
+            return true;
+        });
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<int>("a.naturalWidth")).Should().Be(9);
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
         loopback.Page.Errors.Should().BeEmpty();
     }
 
