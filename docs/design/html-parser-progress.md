@@ -2,28 +2,24 @@
 
 ## Scope and workflow
 
-**Active continuation from `0b9b921de`:** the full replacement goal resumed after the finite
-wrap-up below. Browser cutover chat `01a0db4d-a396-7e33-a770-ace95e2ad537` is active again in
-`414c`. New Sol High chats implement D7b2 checkedness/radio state (`757c`,
-`01a0db8d-f2c1-7623-a908-49742dafdd77`) and validated CSS declaration blocks (`16aa`,
-`01a0db8e-10ce-7671-ac02-2e224a13bb8d`). Range read-operation budget callbacks are isolated in
-`e3b0`, chat `01a0db90-31aa-7a92-922a-b084def3fd98`. Astra High owns design and review. Completed D6/H8
-owners released their files; D7b2 now exclusively owns the required Element/HtmlElementState/NodeCloner
-hooks as well as the checkedness/form lifecycle files. CSS declarations do not own DOM, selectors,
-Browser or public facade files. No PRs. Historical finalization/cleanup counts below remain unchanged.
+**Latest user-directed finalization (September 25):** three independently reviewed parser slices
+are integrated: checkedness/radio state `ee422cefc`, original script source coordinates `9bc9157cf`,
+and internal CSS declarations `6e8915d7c`, `e8925567e`, `c9925b18c`. Fresh common Release non-corpus
+tests pass **4,482/4,482**, net8/net10, zero failures/skips (`/private/tmp/jint-finalize-all-parser.log`).
+The checkedness lifecycle XML run preserves all 256 known failure names exactly, with 3,766/4,022
+passing (`/private/tmp/jint-finalize-checkedness-xml.log`). No conformance or speedup acceptance claim.
 
-**Latest finalization (September 25):** four more reviewed implementation slices are integrated
-through `616bb320b`: public Range/traversal and subscriptions (`b55a70797`, `6e90de6e6`), native HTML
-script handoff (`1001437d9`), initial validated CSS property core (`1763825d7`, `c45bb5671`, `0c05ccd37`),
-and selector interaction state (`616bb320b`). Final common Release parser gate: **4,158/4,158 passed**, zero failures/skips across net8/net10.
-Browser contract/staleness checks: 44/44; unsigned packed consumer: both TFMs pass; inventory: six pass.
-The 256 known XML debt failures are unchanged. No timing or speedup claim.
+All three completed chats are archived after review and common tests. Totals: **68 archived completed
+chats**, 44 previously removed worktrees, and 24 completed clean checkouts retained because managed
+archive identities are unavailable. The incomplete Browser cutover is saved at `1b723d891` in `414c`
+(932 Release compilation errors); the native accessibility/extraction leaf in `68c5` is also preserved
+unfinished. Production Browser remains on AngleSharp. No new feature chats or PRs were created during
+this finalization pass. See [the resume checkpoint](html-parser-resume.md) for exact commit mappings,
+cleanup inventory, known gaps and resumption instructions.
 
-Sixty-four completed chats are archived; twenty completed clean checkouts await managed archive
-identities. Only the unfinished Browser chat remains open, clean at `763a3ae363` in `414c`; its build
-still has 1,058 errors, so its production changes were not integrated. All implementation turns have
-stopped. No new feature chat or PR was created in this finalization pass. Exact source/common commit
-mapping, logs, cleanup inventory and next work are in [the resume checkpoint](html-parser-resume.md).
+Earlier continuation prerequisites integrated compact CSS source ownership (`c3256b793`), O(1)
+attribute indexing (`4f5d7109b`), Range read budgets (`2b6cc11f2`) and custom-property lexical spans
+(`ba5f3adcb`). The finite work remains part of the larger unfinished replacement objective.
 
 ### Previous checkpoint history
 

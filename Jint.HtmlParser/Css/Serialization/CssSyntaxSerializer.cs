@@ -1,11 +1,24 @@
 using System.Text;
 using Jint.HtmlParser.Css.Model.Syntax;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.HtmlParser.Css.Serialization;
 
 // CSS Syntax Level 3, §9: https://drafts.csswg.org/css-syntax/#serialization
 internal static class CssSyntaxSerializer
 {
+    internal static string SerializeIdentifier(string value, CssValueWork? work = null)
+    {
+        work?.CheckCancellation();
+        var builder = new StringBuilder();
+        AppendIdentifier(builder, value, work: work);
+        work?.CheckCancellation();
+        var result = builder.ToString();
+        work?.Charge(result.Length);
+        work?.CheckCancellation();
+        return result;
+    }
+
     internal static string SerializeStyleSheet(IReadOnlyList<CssSyntaxRule> rules)
     {
         var builder = new StringBuilder();
@@ -205,10 +218,11 @@ internal static class CssSyntaxSerializer
     }
 
     private static void AppendIdentifier(StringBuilder builder, string value, bool escapeFirst = false,
-        bool allowLeadingDigit = false)
+        bool allowLeadingDigit = false, CssValueWork? work = null)
     {
         for (var index = 0; index < value.Length; index++)
         {
+            work?.Charge(1);
             var character = value[index];
             if (char.IsHighSurrogate(character) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]))
             {

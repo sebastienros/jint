@@ -113,6 +113,7 @@ public sealed class Document : Node
     }
     internal ulong MutationStamp => _mutationStamp;
     internal bool HasFormIndex { get; set; }
+    internal HtmlCheckedWorkProbe? CheckedWorkProbe { get; set; }
     internal bool MayHaveMutationRegistrations => _mayHaveMutationRegistrations;
     internal void MarkMutationRegistrationsPresent() => _mayHaveMutationRegistrations = true;
     internal void MarkMutation()

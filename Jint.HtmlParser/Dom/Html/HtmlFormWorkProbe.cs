@@ -18,6 +18,8 @@ internal sealed class HtmlFormWorkProbe : IDisposable
     }
 
     internal long Visits { get; private set; }
+    internal long ResetCandidates { get; private set; }
+    internal void ResetCandidate() => ResetCandidates++;
 
     internal void Visit() => Visits++;
 

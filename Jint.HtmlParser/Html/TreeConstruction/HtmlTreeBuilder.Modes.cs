@@ -175,6 +175,13 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool InText()
     {
+        if (_token.Kind is HtmlTokenKind.EndTag or HtmlTokenKind.EndOfFile && IsHtmlElement(Current, "script"))
+        {
+            var state = Current.GetHtmlState()!.Script!;
+            var changes = _token.Kind == HtmlTokenKind.EndTag ? _token.SourceChanges : _tokenizer.SourceChanges;
+            if (state.ParserSourceChanges != changes && state.ParserSourceLocation is { } source)
+                state.ParserSourceLocation = source.AsMixed();
+        }
         if (_token.Kind == HtmlTokenKind.EndOfFile)
         {
             Error("eof-in-text");
