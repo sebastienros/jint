@@ -66,13 +66,22 @@ internal static class CssMathExponential
         // double.MaxValue when the exact length is still representable.
         var exponent = System.Math.ILogB(maximum);
         var squares = 0d;
+        var correction = 0d;
         foreach (var value in values)
         {
             work.Charge(1);
             var scaled = System.Math.ScaleB(value, -exponent);
-            squares = System.Math.FusedMultiplyAdd(scaled, scaled, squares);
+            var square = scaled * scaled;
+            var next = squares + square;
+            // Keep both the multiplication and addition roundoff. Repeated
+            // near-limit legs can otherwise round the sum up to a power of two
+            // and turn a finite length into infinity after rescaling.
+            var addRoundoff = squares >= square ? (squares - next) + square :
+                (square - next) + squares;
+            correction += addRoundoff + System.Math.FusedMultiplyAdd(scaled, scaled, -square);
+            squares = next;
         }
-        var result = System.Math.ScaleB(System.Math.Sqrt(squares), exponent);
+        var result = System.Math.ScaleB(System.Math.Sqrt(squares + correction), exponent);
         work.CheckCancellation();
         return result;
     }

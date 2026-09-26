@@ -139,6 +139,21 @@ public sealed class MathExponentialTests
         CssMathExponential.Hypot([nearMaximum, smallLeg], work).Should().Be(expectedNearMaximum);
         MathTest.Parse("hypot(1.797689170944583e308, 3.775155583210863e305)", MathTest.Number)
             .Value.GetNode(0).Numeric.Value.Should().Be(expectedNearMaximum);
+        CssMathExponential.Hypot([smallLeg, 0d, nearMaximum, -0d], work)
+            .Should().Be(expectedNearMaximum);
+        // For 18 exact binary64 legs, a 120-digit calculation gives
+        // 1.7976931348623154661e308, also rounding one ULP below MaxValue.
+        const double equalLeg = 4.2372033538454866e307;
+        var equalLegs = Enumerable.Repeat(equalLeg, 18).ToArray();
+        CssMathExponential.Hypot(equalLegs, work).Should().Be(expectedNearMaximum);
+        MathTest.Parse("hypot(" + string.Join(", ", Enumerable.Repeat("4.2372033538454866e307", 18)) + ")",
+            MathTest.Number).Value.GetNode(0).Numeric.Value.Should().Be(expectedNearMaximum);
+        var wide = new double[256];
+        for (var i = 0; i < 18; i++) wide[i * 14] = i % 2 == 0 ? equalLeg : -equalLeg;
+        CssMathExponential.Hypot(wide, work).Should().Be(expectedNearMaximum);
+        var scaledLegs = equalLegs.Select(x => System.Math.ScaleB(x, -10)).ToArray();
+        CssMathExponential.Hypot(scaledLegs, work)
+            .Should().Be(System.Math.ScaleB(expectedNearMaximum, -10));
         CssMathExponential.Hypot([double.MaxValue, double.MaxValue], work)
             .Should().Be(double.PositiveInfinity);
         Assert.Throws<ArgumentException>(() => CssMathExponential.Hypot([], work));
