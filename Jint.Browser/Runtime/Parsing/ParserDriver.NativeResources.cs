@@ -538,6 +538,9 @@ internal sealed partial class ParserDriver
         var dom = FrameWindows.DocumentRealm(_runtime, document);
         dom.AssociateContext(context);
         Parse(document, markup, isSrcdoc: srcdoc is not null);
+        // HTML's fragment navigation selects an indicated element from this completed
+        // child document, just as FinishLoad does for the principal document.
+        DomDocumentState.SelectNavigationTarget(dom, document);
         dom.RecordSubtree(document);
         QueueResourceEvent(frame, "load", afterParse: true);
     }
