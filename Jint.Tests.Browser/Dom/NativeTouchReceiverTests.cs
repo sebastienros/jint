@@ -17,7 +17,7 @@ public sealed class NativeTouchReceiverTests
             var target = document.getElementById('target');
             var calls = 0;
             var handler = () => calls++;
-            var descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'ontouchstart');
+            var descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'ontouchstart');
             target.ontouchstart = handler;
             var same = descriptor.get.call(target) === handler;
             var rejected = false;

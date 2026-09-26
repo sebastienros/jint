@@ -13,6 +13,7 @@ public sealed class NativeFileMimeTests
     [TestCase("sheet.xls", "application/excel")]
     [TestCase("audio.mp3", "audio/mpeg3")]
     [TestCase("archive.sv4cpio", "application/x-sv4cpio")]
+    [TestCase("magic.mc", "\tapplication/x-magic-cap-package-1.0")]
     [TestCase("bytecode.pyc", "applicaiton/x-bytecode.python")]
     [TestCase("data.JSON", "application/json")]
     [TestCase("table.csv", "text/csv")]
