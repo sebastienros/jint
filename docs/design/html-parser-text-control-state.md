@@ -11,6 +11,32 @@ WebIDL conversion, editing UI decisions, script, events, focus, tasks, compositi
 namespace/local-name match is required even in XML documents; uppercase/no-namespace lookalikes do not
 acquire input or textarea state. No AngleSharp state store remains behind migrated getters.
 
+## Resumed implementation amendment: independent value components
+
+Astra review on September 25 authorizes a completed internal text/default/default-on component
+before every numeric, color and file family is complete. This supersedes the all-22-family landing
+restriction below, but does not publish or claim a complete public HtmlInputState.
+`HtmlInputValueState` owns one value/dirty/origin/user-validity/selection store, with stable
+`HtmlElementState.InputValue` for actual HTML inputs. `HtmlInputTextOperations` reuses the existing
+sanitizer and applicability table. Numeric and later families extend this same store/coordinator.
+
+Complete text/search/tel/url/email/password plus Default and DefaultOn modes, their cross-mode
+transitions, text reset, default reflection, selection/range-edit and user-edit operations. Email's
+internal edit selection stays separate from inapplicable public selection. Preserve HTML transition
+ordering and checkedness coordination. Same-state spelling changes preserve state.
+
+An unfinished numeric/temporal/range/color/file transition cannot fabricate an empty/default result
+or restore a stale prior text buffer. Mark dependent value state unavailable with its named missing
+capability until the concrete family is integrated. The type attribute and independent checkedness
+remain usable. No mutation-history log or public completion claim; these intermediate blockers must
+be removed as the required components land before production acceptance.
+
+The text owner implements new files/tests first. The select owner currently reserves shared native
+mutation files; transfer narrow HtmlElementState/Element/Attr/NodeCloner/HtmlInputStateChanges hooks
+at a coherent checkpoint. Preserve complete parser-attribute batches, cached metadata, clone/import
+value/dirty state, adoption identity, and callback-free native mutations. Pure reads allocate no
+second state store and do not invalidate the document.
+
 ## Evidence and consumer corrections
 
 Use the HTML Living Standard inspected at its 2026-09-22 revision:

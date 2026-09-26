@@ -1,6 +1,42 @@
 # Jint.HtmlParser resume checkpoint
 
-**Latest user-directed finalization (September 25):** reviewed native checkedness/radio state,
+**User resumed implementation (September 25):** continue until the replacement compiles and works;
+the finite wrap-up below is historical. Production completion requires native Browser builds on both
+supported TFMs, required Browser behavior/fixture verification, removal of production AngleSharp
+references, standalone parsing entry points, and equivalent paired benchmark acceptance. Existing
+conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
+No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
+
+**Current integrated checkpoint: `6e3273234`.** Reviewed number parsing/shortest formatting
+(`c9885646d`) and contextual HTML fragments with bounded parser form association
+(`df35c6263`, `6e3273234`) pass **5,224/5,224** fresh Release non-corpus tests across net8/net10,
+zero failures/skips (`/private/tmp/jint-resumed-fragments-common.log`). Browser work remains isolated;
+its latest build stops at early declaration errors that mask later diagnostics. No passing native
+Browser build or speedup claim yet. CSS media, input value state and select state are under review.
+
+Current owners:
+
+| Work | Chat | Checkout |
+| --- | --- | --- |
+| Browser DOM/generator/runtime/parser integration | `01a0db4d-a396-7e33-a770-ace95e2ad537` | `414c` |
+| Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
+| Native CSS sheets/rules/media/declarations | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
+| Native select/option state and shared native mutation hooks | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
+| Internal input text/default value component | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
+| Pure native input numeric/temporal algorithms | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
+| Native CSS sizing/flex/alignment properties | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
+| Contextual HTML fragments and parser form-pointer hookup | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
+
+Events excludes shared `BrowserEventRealm.cs` and `DomHostHooks.cs`, retained by the Browser owner.
+Select owns narrow Element/HtmlElementState/Attr/Node/CharacterNodes/NodeCloner hooks; numeric
+helpers own new InputValues files only, and fragments own tokenizer/treebuilder/session paths.
+CSS model work must preserve named unfinished-grammar blockers, rather than accepting invalid or
+unimplemented declarations silently. Reviewed completed slices continue to land in common, and
+Browser changes remain in `414c` until the package builds and works. Reopening CSS and input state leaves 66 completed
+chats archived and 22 completed checkouts awaiting managed archive identities; previous counts below
+refer to the finite checkpoint.
+
+**Historical user-directed finalization (September 25, before resumption):** reviewed native checkedness/radio state,
 script source coordinates, and internal CSS declaration blocks are integrated through `c9925b18c`.
 Fresh common Release non-corpus tests pass **4,482/4,482**, net8/net10, zero failures/skips:
 `/private/tmp/jint-finalize-all-parser.log`. Production Browser still uses AngleSharp; its unfinished

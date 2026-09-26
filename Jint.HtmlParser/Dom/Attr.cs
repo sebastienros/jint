@@ -47,6 +47,7 @@ public sealed class Attr
         {
             ArgumentNullException.ThrowIfNull(value);
             var owner = OwnerElement;
+            if (owner is not null) HtmlInputStateChanges.BeforeAttributeChanged(owner, NamespaceUri, LocalName);
             var oldValue = _value;
             var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
                 LocalName, NamespaceUri);
@@ -55,9 +56,9 @@ public sealed class Attr
             if (owner is not null)
             {
                 HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
+                MutationTracking.QueueAttribute(owner, LocalName, NamespaceUri, oldValue, matches);
                 HtmlInputStateChanges.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
                 SlotAssignment.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
-                MutationTracking.QueueAttribute(owner, LocalName, NamespaceUri, oldValue, matches);
             }
         }
     }
