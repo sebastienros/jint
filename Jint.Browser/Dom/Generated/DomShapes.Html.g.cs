@@ -1565,7 +1565,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLDataListElement.options", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLDataListElement.options");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Options);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomHtmlElementCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.DomHtmlElementCollectionKind.DatalistOptions));
                 }))
             .Build();
 
@@ -1762,7 +1762,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.elements", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.elements");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Elements);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomHtmlElementCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.DomHtmlElementCollectionKind.FieldsetControls));
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.form", static (thisObj, args) =>
@@ -1792,7 +1792,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLFieldSetElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    return global::Jint.Browser.Dom.DomConvert.Text("fieldset");
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFieldSetElement.validationMessage", static (thisObj, args) =>
@@ -3461,7 +3461,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.areas", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMapElement.areas");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Areas);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.DomHtmlElementCollection.Of(self.Realm, self.Target, global::Jint.Browser.Dom.DomHtmlElementCollectionKind.MapAreas));
                 }))
             .Accessor("images",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.images", static (thisObj, args) =>
@@ -4408,7 +4408,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLOutputElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    return global::Jint.Browser.Dom.DomConvert.Text("output");
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.validationMessage", static (thisObj, args) =>
