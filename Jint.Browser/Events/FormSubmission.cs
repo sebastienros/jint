@@ -1,4 +1,5 @@
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Syntax;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -41,7 +42,7 @@ internal static class FormSubmission
     /// <param name="form">The form owner, or <see langword="null"/> when the button has none — in which case
     /// nothing happens at all, which is what a submit button outside a form does.</param>
     /// <param name="submitter">The button that started it, or <see langword="null"/> for the form itself.</param>
-    internal static void Submit(DomRealm realm, IHtmlFormElement? form, IHtmlElement? submitter)
+    internal static void Submit(DomRealm realm, Element? form, Element? submitter)
     {
         if (form is null || IsConstructingEntryList(realm, form))
         {
@@ -77,7 +78,7 @@ internal static class FormSubmission
     /// The lower half on its own: <c>form.submit()</c> submits without validating and without firing
     /// <c>submit</c> at all.
     /// </summary>
-    internal static void SubmitWithoutEvent(DomRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
+    internal static void SubmitWithoutEvent(DomRealm realm, Element form, Element? submitter)
     {
         var eventRealm = BrowserEventRealm.Of(realm.Engine);
         eventRealm.ActivationHost.SubmitForm(eventRealm, form, submitter);
@@ -88,7 +89,7 @@ internal static class FormSubmission
     /// as if <paramref name="submitterValue"/> had been clicked, validating first that it really is a submit
     /// button of this form.
     /// </summary>
-    internal static void RequestSubmit(DomRealm realm, IHtmlFormElement form, JsValue submitterValue)
+    internal static void RequestSubmit(DomRealm realm, Element form, JsValue submitterValue)
     {
         if (submitterValue.IsNullOrUndefined())
         {
@@ -96,7 +97,7 @@ internal static class FormSubmission
             return;
         }
 
-        if (submitterValue is not DomNodeObject { Node: IHtmlElement candidate } || !IsSubmitButton(candidate))
+        if (submitterValue is not DomNodeObject { Node: Element candidate } || !IsSubmitButton(candidate))
         {
             Throw.TypeError(realm.OwningRealm, "Failed to execute 'requestSubmit' on 'HTMLFormElement': The specified element is not a submit button.");
             return;
@@ -122,12 +123,7 @@ internal static class FormSubmission
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-form-reset — fire the
     /// cancelable <c>reset</c> event and, if it survives, run the reset algorithm on every control.
     /// </summary>
-    /// <remarks>
-    /// The default action is AngleSharp's <c>IHtmlFormElement.Reset()</c>, which is the reset algorithm and
-    /// nothing else: it restores every control's value and checkedness to its default and fires nothing, so it
-    /// is exactly the half this one is missing.
-    /// </remarks>
-    internal static void Reset(DomRealm realm, IHtmlFormElement? form)
+    internal static void Reset(DomRealm realm, Element? form)
     {
         using var mutation = realm.MutateLayout();
         if (form is null)
@@ -144,13 +140,7 @@ internal static class FormSubmission
 
         if (target.DispatchEvent(resetEvent))
         {
-            // The default action is AngleSharp's, and its inventory is `form.elements` — AngleSharp's own
-            // ownership rule, which `Dom/divergences.md` records as the one half of #3939 the binding cannot
-            // reach. The file-input half deliberately walks the same collection rather than
-            // `HtmlFormOwner.ControlsOf`, so that both halves of one reset agree about which controls it is
-            // about; splitting them would clear an explicitly associated file input and leave the text input
-            // beside it alone.
-            form.Reset();
+            BrowserFormReset.Reset(realm, form);
             Dom.Files.FileTransferRealm.Of(realm.Engine).ResetForm(form);
         }
     }
@@ -173,7 +163,7 @@ internal static class FormSubmission
     /// with.
     /// </para>
     /// </remarks>
-    private static bool Validate(DomRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
+    private static bool Validate(DomRealm realm, Element form, Element? submitter)
     {
         if (form.HasContentAttribute("novalidate") || submitter?.HasContentAttribute("formnovalidate") == true)
         {
@@ -189,27 +179,9 @@ internal static class FormSubmission
         // AngleSharp's own ownership rule put in it, and then submit a different set.
         foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
         {
-            if (element is not IValidation validation)
+            if (!BrowserControlValidation.WillValidate(realm, element)
+                || BrowserControlValidation.Read(realm, element).IsValid)
             {
-                continue;
-            }
-
-            try
-            {
-                // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#candidate-for-constraint-validation:
-                // a button, a disabled or readonly control, a control inside a disabled fieldset and an
-                // output are all barred from constraint validation, and `willValidate` is the one member that
-                // answers all of those at once. Without it every `<button type=button>` in the form would be
-                // examined, which is not what "the form's constraints" means.
-                if (!validation.WillValidate || validation.Validity.IsValid)
-                {
-                    continue;
-                }
-            }
-            catch (Exception)
-            {
-                // A validity model that cannot answer is not a reason to refuse a submission the page asked
-                // for; AngleSharp's raises for a control whose type it does not fully model.
                 continue;
             }
 
@@ -238,17 +210,29 @@ internal static class FormSubmission
     /// step 1's flag, read as the submission algorithm's own step 1: a <c>formdata</c> listener that submits
     /// the same form again must not recurse. The runtime owns the flag because it owns the entry list.
     /// </summary>
-    private static bool IsConstructingEntryList(DomRealm realm, IHtmlFormElement form)
+    private static bool IsConstructingEntryList(DomRealm realm, Element form)
         => PageRuntime.Find(realm.Engine)?.SubmittingForms.Contains(form) == true;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/forms.html#concept-submit-button — a button or input whose type
     /// makes it submit its form.
     /// </summary>
-    internal static bool IsSubmitButton(IHtmlElement element) => element switch
+    internal static bool IsSubmitButton(Element element)
+        => element.NamespaceUri == Namespaces.Html && element.LocalName switch
+        {
+            "button" => IsSubmitButtonType(element),
+            "input" => EventDom.InputType(element) is "submit" or "image",
+            _ => false,
+        };
+
+    // HTML's missing/invalid button type is Auto, including its command and select-child exclusions.
+    private static bool IsSubmitButtonType(Element button)
     {
-        IHtmlButtonElement button => string.Equals(button.Type, "submit", StringComparison.Ordinal),
-        IHtmlInputElement input => input.Type is "submit" or "image",
-        _ => false,
-    };
+        var type = button.GetAttributeNodeNS(null, "type")?.Value ?? string.Empty;
+        if (CssAscii.EqualsIgnoreCase(type, "submit")) return true;
+        if (CssAscii.EqualsIgnoreCase(type, "reset") || CssAscii.EqualsIgnoreCase(type, "button")) return false;
+        return !button.HasContentAttribute("command") && !button.HasContentAttribute("commandfor")
+            && button.ParentNode is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" };
+    }
+
 }

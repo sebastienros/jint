@@ -521,13 +521,15 @@ internal sealed partial class CustomElementRegistry
             if (node is Element element)
             {
                 visit(element);
-                if (element.AttachedShadowRoot is { } shadow) pending.Push(shadow);
+
             }
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
             {
                 _runtime.Engine.Constraints.Check();
                 pending.Push(child);
             }
+            // Shadow-including tree order visits the shadow tree before the host's light children.
+            if (node is Element { AttachedShadowRoot: { } shadow }) pending.Push(shadow);
         }
     }
 }

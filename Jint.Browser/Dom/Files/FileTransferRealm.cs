@@ -157,6 +157,7 @@ internal sealed class FileTransferRealm
         if (!IsFileInput(input)) return;
         Detach(input);
         _ = Attach(input, files, external: true);
+        input.OwnerDocument!.MarkMutation();
     }
 
     internal JsValue InputValue(Element input)
@@ -257,6 +258,7 @@ internal sealed class FileTransferRealm
     private void ClearInput(Element input, bool preserveList)
     {
         if (!_inputFiles.TryGetValue(input, out var state)) return;
+        var hadFiles = state.Files.Length != 0;
         if (state.External)
         {
             Detach(input);
@@ -267,6 +269,7 @@ internal sealed class FileTransferRealm
             state.Files.Clear();
             if (!preserveList) Detach(input);
         }
+        if (hadFiles) input.OwnerDocument!.MarkMutation();
     }
 
     private bool IsFileInput(Element input)

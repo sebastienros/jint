@@ -137,7 +137,7 @@ internal static class CustomElementCreation
         // The lower-casing AngleSharp does for an HTML document, done here as well because the lookup happens
         // before the element exists. A definition's name can only be lower-case, so this is what lets
         // `createElement('X-THING')` find one.
-        var lowered = document.Kind == DocumentKind.Html ? AsciiLower(localName) : localName;
+        var lowered = !namespaced && document.Kind == DocumentKind.Html ? AsciiLower(localName) : localName;
         // https://dom.spec.whatwg.org/#validate-and-extract: `createElementNS` takes a *qualified* name, and
         // everything after it — the definition lookup, the element the constructor has to produce — is about
         // the local name that validate-and-extract splits out of it. `createElement` does no extraction at

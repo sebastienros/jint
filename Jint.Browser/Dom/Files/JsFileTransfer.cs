@@ -97,7 +97,7 @@ internal sealed class JsDataTransfer : ObjectInstance
         "none", "copy", "copyLink", "copyMove", "link", "linkMove", "move", "all", "uninitialized",
     };
 
-    private IElement? _dragImage;
+    private Element? _dragImage;
     private int _hotspotX;
     private int _hotspotY;
     private JsValue? _types;
@@ -192,7 +192,7 @@ internal sealed class JsDataTransfer : ObjectInstance
 
     internal JsValue SetDragImage(JsValue[] arguments)
     {
-        _dragImage = DomBindings.Argument<IElement>(arguments, 0, "DataTransfer.setDragImage");
+        _dragImage = DomBindings.Argument<Element>(arguments, 0, "DataTransfer.setDragImage");
         _hotspotX = DomConvert.RequiredInt32(arguments, 1, "DataTransfer.setDragImage");
         _hotspotY = DomConvert.RequiredInt32(arguments, 2, "DataTransfer.setDragImage");
         return JsValue.Undefined;

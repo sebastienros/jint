@@ -1,10 +1,31 @@
 namespace Jint.HtmlParser;
 
-// One counter spans scans and copies in a text algorithm. A callback is only a test seam;
-// production callers pass no callback and still receive cancellation every 256 work units.
-internal struct HtmlTextWork(CancellationToken cancellationToken, Action<int>? checkpoint = null)
+// One invocation counter spans scans, copies and comparisons. Browser can supply
+// its native constraint checkpoint; cancellation is checked every 256 work units.
+internal struct HtmlTextWork(CancellationToken cancellationToken, Action<int>? checkpoint = null, int initialSteps = 0)
 {
-    private int _steps;
+    private int _steps = initialSteps;
+    internal int Steps => _steps;
+    internal void ContinueFrom(int steps) => _steps = steps;
+
+    internal void Finish()
+    {
+        if ((_steps & 255) != 0) checkpoint?.Invoke(_steps);
+        Check();
+    }
+
+    internal bool StringEquals(string left, string right)
+    {
+        Step();
+        if (ReferenceEquals(left, right)) return true;
+        if (left.Length != right.Length) return false;
+        for (var i = 0; i < left.Length; i++)
+        {
+            Step();
+            if (left[i] != right[i]) return false;
+        }
+        return true;
+    }
 
     internal void Step()
     {
@@ -28,8 +49,13 @@ internal static class HtmlTextSanitizer
     internal static string SanitizeInput(HtmlInputType type, string value, bool multiple,
         Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(value);
         var work = new HtmlTextWork(cancellationToken, checkpoint);
+        return SanitizeInput(type, value, multiple, ref work);
+    }
+
+    internal static string SanitizeInput(HtmlInputType type, string value, bool multiple, ref HtmlTextWork work)
+    {
+        ArgumentNullException.ThrowIfNull(value);
         work.Check();
         var result = type switch
         {
@@ -51,8 +77,13 @@ internal static class HtmlTextSanitizer
     internal static string NormalizeTextAreaValue(string rawValue, Action<int>? checkpoint,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(rawValue);
         var work = new HtmlTextWork(cancellationToken, checkpoint);
+        return NormalizeTextAreaValue(rawValue, ref work);
+    }
+
+    internal static string NormalizeTextAreaValue(string rawValue, ref HtmlTextWork work)
+    {
+        ArgumentNullException.ThrowIfNull(rawValue);
         work.Check();
         var firstCr = -1;
         var pairs = 0;

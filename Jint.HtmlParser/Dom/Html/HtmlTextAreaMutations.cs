@@ -51,6 +51,11 @@ internal static class HtmlTextAreaMutations
         CancellationToken cancellationToken)
     {
         var work = new HtmlTextWork(cancellationToken, checkpoint);
+        return CollectChildText(element, ref work);
+    }
+
+    internal static string CollectChildText(Element element, ref HtmlTextWork work)
+    {
         work.Check();
         long length = 0;
         for (var child = element.FirstChild; child is not null; child = child.NextSibling)

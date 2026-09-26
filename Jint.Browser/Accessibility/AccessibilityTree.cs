@@ -543,9 +543,9 @@ internal static class AccessibilityTree
                 return aria.ToLowerInvariant();
             }
 
-            if (element is IHtmlInputElement input)
+            if (HtmlCheckableState.Get(element) is { Type: HtmlInputType.Checkbox or HtmlInputType.Radio } input)
             {
-                return input.IsIndeterminate ? "mixed" : input.IsChecked ? "true" : "false";
+                return input.Type == HtmlInputType.Checkbox && input.Indeterminate ? "mixed" : input.Checked ? "true" : "false";
             }
 
             return null;
@@ -581,9 +581,9 @@ internal static class AccessibilityTree
                 return Flag(aria);
             }
 
-            if (role is "option" && element is IHtmlOptionElement option)
+            if (role is "option" && element is { NamespaceUri: Namespaces.Html, LocalName: "option" })
             {
-                return option.IsSelected;
+                return element.GetHtmlState()!.GetOptionState(CancellationToken.None)!.Selected;
             }
 
             return null;

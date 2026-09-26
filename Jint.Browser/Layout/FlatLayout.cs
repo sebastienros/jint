@@ -54,11 +54,25 @@ internal sealed class FlatLayout
     private readonly List<int> _depths = [];
     private List<FlatBox>? _boxes;
 
-    private FlatLayout(double viewportWidth, double viewportHeight, double scrollY)
+    private FlatLayout(double viewportWidth, double viewportHeight, double scrollY, Action? checkpoint, CancellationToken token)
     {
+        _checkpoint = checkpoint;
+        _token = token;
         ViewportWidth = viewportWidth;
         ViewportHeight = viewportHeight;
         ScrollY = scrollY;
+    }
+
+    private readonly Action? _checkpoint;
+    private readonly CancellationToken _token;
+    private int _work;
+    private void Step()
+    {
+        if ((++_work & 255) == 0)
+        {
+            _token.ThrowIfCancellationRequested();
+            _checkpoint?.Invoke();
+        }
     }
 
     /// <summary>The width available to the root box.</summary>
@@ -95,16 +109,19 @@ internal sealed class FlatLayout
         double viewportWidth,
         double viewportHeight,
         double scrollY,
-        SizeQuery? sizes = null)
+        SizeQuery? sizes = null,
+        Action? checkpoint = null, CancellationToken token = default)
     {
-        var layout = new FlatLayout(viewportWidth, viewportHeight, scrollY);
+        token.ThrowIfCancellationRequested();
+        checkpoint?.Invoke();
+        var layout = new FlatLayout(viewportWidth, viewportHeight, scrollY, checkpoint, token);
         var cascade = sizes is null ? visibility.CreateTraversal(document) : sizes.Cascade;
 
         if (document?.DocumentElement is { } root && IsRendered(root, visibility, cascade))
         {
             if (layout.Walk(root, visibility, cascade))
             {
-                layout.Arrange(sizes ?? new SizeQuery(document, visibility, viewportWidth, cascade));
+                layout.Arrange(sizes ?? new SizeQuery(document, visibility, viewportWidth, cascade, checkpoint, token));
             }
         }
 
@@ -163,6 +180,7 @@ internal sealed class FlatLayout
     {
         for (var i = 0; i < _elements.Count; i++)
         {
+            Step();
             if (ReferenceEquals(_elements[i], element))
             {
                 return i;
@@ -257,14 +275,18 @@ internal sealed class FlatLayout
         }
     }
 
-    private static Element[] NativeChildren(Element parent)
+    private static IReadOnlyList<Element> NativeChildren(Element parent, Action? checkpoint, CancellationToken token)
     {
         var children = new List<Element>();
+        var work = 0;
         for (var child = parent.FirstChild; child is not null; child = child.NextSibling)
         {
+            if ((++work & 255) == 0) { token.ThrowIfCancellationRequested(); checkpoint?.Invoke(); }
             if (child is Element element) children.Add(element);
         }
-        return children.ToArray();
+        token.ThrowIfCancellationRequested();
+        checkpoint?.Invoke();
+        return children;
     }
 
     private bool Walk(Element root, ElementVisibility visibility, CssCascade.Traversal? cascade)
@@ -275,19 +297,17 @@ internal sealed class FlatLayout
 
         while (stack.Count > 0)
         {
+            Step();
             var (element, depth) = stack.Pop();
             _elements.Add(element);
             _depths.Add(depth);
             hasFlexRows = hasFlexRows || FlexRow.IsHorizontal(element, cascade);
 
-            var children = NativeChildren(element);
-            for (var i = children.Length - 1; i >= 0; i--)
+            for (var child = element.LastChild; child is not null; child = child.PreviousSibling)
             {
-                var child = children[i];
-                if (IsRendered(child, visibility, cascade))
-                {
-                    stack.Push((child, depth + 1));
-                }
+                Step();
+                if (child is Element candidate && IsRendered(candidate, visibility, cascade))
+                    stack.Push((candidate, depth + 1));
             }
         }
 
@@ -304,8 +324,23 @@ internal sealed class FlatLayout
         Document? document,
         ElementVisibility visibility,
         double viewportWidth,
-        CssCascade.Traversal? cascade)
+        CssCascade.Traversal? cascade, Action? checkpoint = null, CancellationToken token = default)
     {
+        private int _work;
+        private readonly Dictionary<Element, IReadOnlyList<Element>> _children = new(ReferenceEqualityComparer.Instance);
+        private IReadOnlyList<Element> Children(Element element)
+        {
+            if (!_children.TryGetValue(element, out var children))
+            {
+                children = NativeChildren(element, checkpoint, token);
+                _children.Add(element, children);
+            }
+            return children;
+        }
+        private void Step()
+        {
+            if ((++_work & 255) == 0) { token.ThrowIfCancellationRequested(); checkpoint?.Invoke(); }
+        }
         internal CssCascade.Traversal? Cascade => cascade;
 
         private readonly Dictionary<Element, bool> _rendered = new(ReferenceEqualityComparer.Instance);
@@ -329,6 +364,7 @@ internal sealed class FlatLayout
             var ancestors = new Stack<Element>();
             for (var element = target; !_positions.ContainsKey(element); element = (element.ParentNode as Element)!)
             {
+                Step();
                 if (ReferenceEquals(element, document?.DocumentElement))
                 {
                     _positions.Add(element, FlatBox.Empty);
@@ -340,6 +376,7 @@ internal sealed class FlatLayout
 
             while (ancestors.TryPop(out var element))
             {
+                Step();
                 if (_positions.ContainsKey(element))
                 {
                     continue;
@@ -351,9 +388,10 @@ internal sealed class FlatLayout
                 var reverse = horizontal && FlexRow.IsReversed(parent, cascade);
                 var (next, offset) = _childrenPlaced.TryGetValue(parent, out var placed)
                     ? placed : (0, horizontal ? (reverse ? WidthOf(parent) : 0) : RowHeight);
-                var children = NativeChildren(parent);
-                for (; next < children.Length; next++)
+                var children = Children(parent);
+                for (; next < children.Count; next++)
                 {
+                    Step();
                     var child = children[next];
                     if (!HasBox(child))
                     {
@@ -421,6 +459,7 @@ internal sealed class FlatLayout
             var rendered = false;
             for (Element? element = target; element is not null; element = (element.ParentNode as Element))
             {
+                Step();
                 if (_rendered.TryGetValue(element, out rendered))
                 {
                     break;
@@ -436,6 +475,7 @@ internal sealed class FlatLayout
 
             while (ancestors.TryPop(out var ancestor))
             {
+                Step();
                 rendered = rendered && IsRendered(ancestor, visibility, cascade);
                 _rendered.Add(ancestor, rendered);
             }
@@ -448,6 +488,7 @@ internal sealed class FlatLayout
             var ancestors = new Stack<Element>();
             for (var element = target; !_widths.ContainsKey(element); element = (element.ParentNode as Element)!)
             {
+                Step();
                 if (ReferenceEquals(element, document?.DocumentElement))
                 {
                     _widths.Add(element, viewportWidth);
@@ -459,6 +500,7 @@ internal sealed class FlatLayout
 
             while (ancestors.TryPop(out var element))
             {
+                Step();
                 if (_widths.ContainsKey(element))
                 {
                     continue;
@@ -468,10 +510,11 @@ internal sealed class FlatLayout
                 var width = _widths[parent];
                 if (FlexRow.IsHorizontal(parent, cascade))
                 {
-                    var children = NativeChildren(parent).Where(HasBox).ToArray();
-                    var widths = FlexRow.Widths(children, width, cascade);
+                    var children = Children(parent).Where(HasBox).ToArray();
+                    var widths = FlexRow.Widths(children, width, cascade, Step, token);
                     for (var i = 0; i < children.Length; i++)
                     {
+                        Step();
                         _widths.Add(children[i], widths[i]);
                     }
                 }
@@ -490,6 +533,7 @@ internal sealed class FlatLayout
             var element = target;
             while (!_heights.ContainsKey(element))
             {
+                Step();
                 if ((element.ParentNode as Element) is not { } parent
                     || !FlexRow.IsHorizontal(parent, cascade)
                     || FlexRow.Alignment(element, parent, cascade) != "stretch")
@@ -504,6 +548,7 @@ internal sealed class FlatLayout
 
             while (ancestors.TryPop(out element))
             {
+                Step();
                 _heights.Add(element, _heights[(element.ParentNode as Element)!] - RowHeight);
             }
 
@@ -521,6 +566,7 @@ internal sealed class FlatLayout
             var result = 0;
             while (true)
             {
+                Step();
                 if (_rows.TryGetValue(element, out var known))
                 {
                     result = Math.Min(known, bound);
@@ -536,9 +582,10 @@ internal sealed class FlatLayout
 
                 while (pending.TryPop(out var frame))
                 {
+                    Step();
                     var rows = frame.Next == 0 ? frame.Rows
                         : frame.Horizontal ? Math.Max(frame.Rows, result + 1) : frame.Rows + result;
-                    if (rows >= frame.Limit || frame.Next == NativeChildren(frame.Element).Length)
+                    if (rows >= frame.Limit || frame.Next == Children(frame.Element).Count)
                     {
                         result = Math.Min(rows, frame.Limit);
                         if (rows < frame.Limit)
@@ -548,7 +595,7 @@ internal sealed class FlatLayout
                         continue;
                     }
 
-                    element = NativeChildren(frame.Element)[frame.Next];
+                    element = Children(frame.Element)[frame.Next];
                     bound = frame.Horizontal ? frame.Limit - 1 : frame.Limit - rows;
                     pending.Push((frame.Element, frame.Next + 1, rows, frame.Limit, frame.Horizontal));
                     break;
@@ -567,6 +614,7 @@ internal sealed class FlatLayout
             pending.Push((target, false));
             while (pending.TryPop(out var item))
             {
+                Step();
                 var (element, visited) = item;
                 if (_rows.ContainsKey(element))
                 {
@@ -588,8 +636,9 @@ internal sealed class FlatLayout
                     }
 
                     pending.Push((element, true));
-                    foreach (var child in NativeChildren(element))
+                    foreach (var child in Children(element))
                     {
+                        Step();
                         pending.Push((child, false));
                     }
                 }
@@ -597,8 +646,9 @@ internal sealed class FlatLayout
                 {
                     var rows = 0;
                     var horizontal = FlexRow.IsHorizontal(element, cascade);
-                    foreach (var child in NativeChildren(element))
+                    foreach (var child in Children(element))
                     {
+                        Step();
                         rows = horizontal ? Math.Max(rows, _rows[child]) : rows + _rows[child];
                     }
 
