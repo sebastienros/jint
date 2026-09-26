@@ -58,11 +58,36 @@ public sealed class NativeCssKeyframesBindingTests
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<style>@keyframes fade-out {from {opacity:1} to {opacity:0}} #target {width:40px;height:10px}</style><div id='target'></div>");
+        await page.SetContentAsync("<style>#target {width:40px;height:10px}</style><div id='target'></div>");
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[0].style.width")).Should().Be("40px");
+        var before = await Dimensions();
+
+        await page.EvaluateAsync("document.styleSheets[0].insertRule('@keyframes fade-out {from {opacity:1} to {opacity:0}}',0)");
         (await page.EvaluateAsync<bool>("document.styleSheets[0].cssRules[0] instanceof CSSKeyframesRule")).Should().BeTrue();
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('target')).width")).Should().Be("40px");
-        (await page.EvaluateAsync<bool>("document.getElementById('target').getClientRects().length===1")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[1].style.width")).Should().Be("40px");
+        (await Dimensions()).Should().Be(before, "unused keyframes do not change the ordinary box");
+
+        await page.EvaluateAsync("document.styleSheets[0].deleteRule(0)");
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[0].style.width")).Should().Be("40px");
+        (await Dimensions()).Should().Be(before, "removing unused keyframes preserves the same box");
         page.Errors.Should().BeEmpty();
+
+        async Task<string> Dimensions()
+        {
+            (await page.EvaluateAsync<bool>("""
+                (() => {
+                  const element = document.getElementById('target');
+                  const style = getComputedStyle(element);
+                  const rect = element.getBoundingClientRect();
+                  return rect.width > 0 && rect.height > 0 &&
+                    style.width === rect.width + 'px' && style.height === rect.height + 'px' &&
+                    element.getClientRects().length === 1;
+                })()
+                """)).Should().BeTrue("resolved dimensions agree with the represented rectangle");
+            (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('target')).opacity"))
+                .Should().Be("1", "unused keyframe declarations never enter the ordinary cascade");
+            return await page.EvaluateAsync<string>("(() => { const rect = document.getElementById('target').getBoundingClientRect(); return [rect.width,rect.height].join('|'); })()") ?? "";
+        }
     }
 
     private static DomTestFixture Create(string css)
