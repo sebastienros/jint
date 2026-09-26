@@ -52,10 +52,13 @@ public sealed class ControlValidationTests
         var engine = new Engine();
         engine.Execute("RegExp.prototype.exec = () => { throw new Error('overridden'); }");
         var realm = DomRealm.Of(engine);
-        var input = ContentDom.ElementById(ContentDom.Parse("<input id=t pattern='[a-z&&[^q]]+' value=abc>"), "t")!;
+        // ECMAScript §22.2.1: intersection operands admit a NestedClass, not a bare ClassSetRange.
+        var input = ContentDom.ElementById(ContentDom.Parse("<input id=t pattern='[[a-z]&&[^q]]+' value=abc>"), "t")!;
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
         realm.WrapNode(input).Set("value", "q", throwOnError: true);
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.PatternMismatch);
+        input.SetAttribute("pattern", "[a-z&&[^q]]+");
+        BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
         input.SetAttribute("pattern", "[");
         BrowserControlValidation.Read(realm, input).Flags.Should().Be(ControlValidityFlags.None);
     }
