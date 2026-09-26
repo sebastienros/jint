@@ -6,6 +6,7 @@ using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.Properties;
+using Jint.HtmlParser.Css.Values.References;
 using Jint.HtmlParser.Css.Values.Transforms;
 
 namespace Jint.Browser.Dom.Views;
@@ -84,9 +85,9 @@ internal static class ResolvedStyle
                 var right = Read(name + "-right");
                 var bottom = Read(name + "-bottom");
                 var left = Read(name + "-left");
-                var shorthand = left != right ? top + " " + right + " " + bottom + " " + left :
-                    bottom != top ? top + " " + right + " " + bottom :
-                    right != top ? top + " " + right : top;
+                var shorthand = !CssSubstitutionArguments.Equals(left, right, style.Work) ? top + " " + right + " " + bottom + " " + left :
+                    !CssSubstitutionArguments.Equals(bottom, top, style.Work) ? top + " " + right + " " + bottom :
+                    !CssSubstitutionArguments.Equals(right, top, style.Work) ? top + " " + right : top;
                 style.Work.Charge(shorthand.Length);
                 return Finish(shorthand);
             }
