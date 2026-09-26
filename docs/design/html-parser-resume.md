@@ -76,11 +76,21 @@ resource, selector and CSS grammar issues plus stale WPT exclusions. This is a f
 In particular, unsupported native `:checked` and other state predicates cause many layout tests to fail
 before reaching cache assertions. Fix production behavior and review expectation corrections individually.
 
-Engine-free CSS query/completed-source registration (`72d88eda1`) is under review: avoid repeated
-owner-to-root walks during completed-style registration, which would make deep style trees quadratic.
-Custom-property serialization also needs preserved lexical substitution pieces, including comments;
-generic token serialization must not replace the authored spelling. Native META insertion capture and
-Browser delivery remain in progress. No full Browser, final framework, or speedup acceptance yet.
+Subsequent isolated `00658cf48` focused Browser gate: **462 total, 410 passed, 52 failed, zero skipped**
+(`/private/tmp/native-browser-state-image-ce-inert-net10-test.log`). All selected image-loading,
+custom-element reaction, accessibility/golden, inert CSS, text-extraction, and event-timing cases pass.
+Most remaining failures are missing validity/editability selector facts; imports, child target selection,
+resource-only cache coverage, and separately reviewed legacy literals remain. Native query factory /
+state-selector / work gate passes **33/35**, with two new fixture-initialization assumptions under repair;
+all factory scaling/cancellation cases pass (`/private/tmp/native-queryfactory-elementstate-net10-test.log`).
+
+Engine-free CSS registration (`72d88eda1` + `ec7e37fcc`) is source-clear and integrated in isolated
+Browser: verified-root association avoids repeated ancestor walks; deep-style scaling is tested.
+Custom-property lexical serialization (`5e7313c21`) is under review. Native META capture (`e04b78bf6`)
+needs failed-prefix textarea invalidation, failure-aware range scheduling, and truly preallocated
+failure publication before integration. Browser delivery remains in progress. Typography/media and
+host control facts have dedicated implementation owners. No full Browser, final framework, or speedup
+acceptance yet.
 
 Native two-phase mutation notifications and frozen attribute values pass **15/15** focused fresh
 Release net10 tests at isolated `39e027033`, zero failures/skips
@@ -138,7 +148,8 @@ Current owners:
 | Browser contract/generator/native binding consumers | `01a0dbf5-ad50-79d2-9253-109314f39e60` | `b78d` |
 | Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
 | Browser demand-driven CSS cascade and style consumers | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
-| Native CSS nesting and bounded parent-reference evaluation | `01a0dcba-a79a-78c3-bf32-08d08a406acb` | `cc99` |
+| Native CSS nesting and demand-driven selector state/fact contracts | `01a0dcba-a79a-78c3-bf32-08d08a406acb` | `cc99` |
+| Native CSS supports grouping model and bindings | `01a0dcf9-5974-7d13-9ebf-e82b0d4ebf40` | `2187` |
 | Browser-only task-drain deferral (common verified, chat archived) | `01a0dccf-f06a-7fc0-8b93-34b98f3e110e` | `6711`, retained without managed archive identity |
 | Native select/option state (complete, chat archived) | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
 | Lazy input/value/checkedness producers (complete, chat archived) | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
@@ -146,7 +157,7 @@ Current owners:
 | CSS layout/color grammars (complete, chat archived) | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
 | HTML facade/option completion/paired benchmarks (complete, chat archived) | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
 | Browser lazy media/canvas/dialog capabilities | `01a0dc24-22c8-79d1-a3fd-f6a671706229` | `7778` |
-| Native CSS.supports queries and Browser adapter | `01a0dc8b-46e1-7570-a17f-0c709bc93fa9` | `71b3` |
+| Native CSS.supports queries, typography and media features | `01a0dc8b-46e1-7570-a17f-0c709bc93fa9` | `71b3` |
 
 Events excludes shared `BrowserEventRealm.cs` and `DomHostHooks.cs`, retained by the Browser owner.
 Select owns narrow Element/HtmlElementState/Attr/Node/CharacterNodes/NodeCloner hooks; numeric
