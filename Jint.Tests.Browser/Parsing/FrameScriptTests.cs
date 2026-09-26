@@ -5,6 +5,26 @@ namespace Jint.Tests.Browser.Parsing;
 
 public class FrameScriptTests
 {
+    [Test]
+    public async Task ChildModuleScriptsDoNotExecuteInThePrincipalRealm()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child", "<script type=module>parent.childModuleRan = true;</script>")
+            .MapHtml("/", "<iframe src=/child></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            var child = frames[0].document;
+            var script = child.createElement('script');
+            script.type = 'module';
+            script.textContent = 'parent.dynamicChildModuleRan = true';
+            child.body.append(script);
+            """);
+        (await loopback.Page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>(
+            "typeof childModuleRan === 'undefined' && typeof dynamicChildModuleRan === 'undefined'"))
+            .Should().BeTrue();
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task AFrameCreatedAfterPageLoadRunsItsScriptAndLoadsOnce(bool srcdoc)
