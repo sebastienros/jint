@@ -5,6 +5,7 @@ public sealed class Attr
 {
     internal EndpointBucket? RangeEndpoints;
     internal List<WeakReference<DomNodeIterator>>? RootIterators;
+    internal int IteratorRootSweepCursor;
     private string _value;
     private string? _prefix;
 

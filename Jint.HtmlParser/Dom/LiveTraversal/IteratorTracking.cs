@@ -2,17 +2,34 @@ namespace Jint.HtmlParser;
 
 internal static class IteratorTracking
 {
-    internal static void Register(DomNodeIterator iterator)
+    internal static void Register(DomNodeIterator iterator, Action<int>? workCheckpoint = null)
     {
+        var work = new RegistrationWork(workCheckpoint);
         var document = LiveTraversalTracking.DocumentOf(iterator.Root);
-        Sweep(document);
+        Sweep(document, ref work);
         iterator.TrackingDocument = document;
         var slots = document.IteratorSlots ??= [];
         iterator.TrackingIndex = slots.Count;
         slots.Add(new(iterator));
+        work.Step();
         var roots = iterator.Root.Node is { } node ? node.RootIterators ??= [] : iterator.Root.Attribute!.RootIterators ??= [];
-        roots.RemoveAll(static slot => !slot.TryGetTarget(out _));
+        var cursor = iterator.Root.Node?.IteratorRootSweepCursor ?? iterator.Root.Attribute!.IteratorRootSweepCursor;
+        var budget = Math.Min(8, roots.Count);
+        for (var scanned = 0; scanned < budget && roots.Count != 0; scanned++)
+        {
+            work.Step();
+            var index = cursor % roots.Count;
+            if (!roots[index].TryGetTarget(out _))
+            {
+                roots[index] = roots[^1];
+                roots.RemoveAt(roots.Count - 1);
+            }
+            else cursor = index + 1;
+        }
+        if (iterator.Root.Node is { } root) root.IteratorRootSweepCursor = cursor;
+        else iterator.Root.Attribute!.IteratorRootSweepCursor = cursor;
         roots.Add(new(iterator));
+        work.Step();
     }
     private static void RemoveSlot(Document document, int index)
     {
@@ -29,8 +46,15 @@ internal static class IteratorTracking
     }
     private static void Sweep(Document document)
     {
-        for (var scanned = 0; scanned < 8 && document.IteratorSlots is { Count: > 0 } slots; scanned++)
+        var work = new RegistrationWork(null);
+        Sweep(document, ref work);
+    }
+    private static void Sweep(Document document, ref RegistrationWork work)
+    {
+        var budget = Math.Min(8, document.IteratorSlots?.Count ?? 0);
+        for (var scanned = 0; scanned < budget && document.IteratorSlots is { Count: > 0 } slots; scanned++)
         {
+            work.Step();
             var index = document.IteratorSweepCursor % slots.Count;
             if (!slots[index].TryGetTarget(out _)) RemoveSlot(document, index);
             else document.IteratorSweepCursor = index + 1;

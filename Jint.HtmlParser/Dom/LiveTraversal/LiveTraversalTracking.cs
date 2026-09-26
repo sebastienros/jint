@@ -7,6 +7,7 @@ internal sealed class EndpointBucket
     internal readonly WeakReference<object> Owner;
     internal Document Document;
     internal int Index = -1;
+    internal int EntrySweepCursor;
     internal readonly List<EndpointHandle> Entries = [];
     internal EndpointBucket(DomNodeIdentity owner, Document document)
     {
@@ -20,6 +21,7 @@ internal sealed class EndpointHandle(DomRange range, bool start, EndpointBucket 
     internal readonly WeakReference<DomRange> Range = new(range);
     internal readonly bool Start = start;
     internal readonly EndpointBucket Bucket = bucket;
+    internal int Index = -1;
 }
 
 internal static class LiveTraversalTracking
@@ -27,9 +29,11 @@ internal static class LiveTraversalTracking
     internal static Document DocumentOf(DomNodeIdentity identity)
         => identity.Node as Document ?? identity.Node?.OwnerDocument ?? identity.Attribute!.OwnerDocument;
 
-    internal static EndpointHandle Register(DomRange range, bool start, DomNodeIdentity identity)
+    internal static EndpointHandle Register(DomRange range, bool start, DomNodeIdentity identity,
+        Action<int>? workCheckpoint = null)
     {
-        Sweep(DocumentOf(identity));
+        var work = new RegistrationWork(workCheckpoint);
+        Sweep(DocumentOf(identity), ref work);
         var bucket = identity.Node?.RangeEndpoints ?? identity.Attribute?.RangeEndpoints;
         if (bucket is null)
         {
@@ -39,9 +43,11 @@ internal static class LiveTraversalTracking
             else identity.Attribute!.RangeEndpoints = bucket;
             Index(bucket, document);
         }
-        bucket.Entries.RemoveAll(static entry => !entry.Range.TryGetTarget(out _));
+        PruneEntries(bucket, ref work);
         var handle = new EndpointHandle(range, start, bucket);
+        handle.Index = bucket.Entries.Count;
         bucket.Entries.Add(handle);
+        work.Step();
         return handle;
     }
 
@@ -49,8 +55,39 @@ internal static class LiveTraversalTracking
     {
         if (handle is null) return;
         var bucket = handle.Bucket;
-        bucket.Entries.Remove(handle);
-        bucket.Entries.RemoveAll(static entry => !entry.Range.TryGetTarget(out _));
+        if (handle.Index >= 0) RemoveEntry(bucket, handle.Index);
+        var work = new RegistrationWork(null);
+        PruneEntries(bucket, ref work);
+        ReleaseEmptyBucket(bucket);
+    }
+
+    private static void RemoveEntry(EndpointBucket bucket, int index)
+    {
+        var entries = bucket.Entries;
+        entries[index].Index = -1;
+        var last = entries.Count - 1;
+        if (index != last)
+        {
+            entries[index] = entries[last];
+            entries[index].Index = index;
+        }
+        entries.RemoveAt(last);
+    }
+
+    private static void PruneEntries(EndpointBucket bucket, ref RegistrationWork work)
+    {
+        var budget = Math.Min(8, bucket.Entries.Count);
+        for (var scanned = 0; scanned < budget && bucket.Entries.Count != 0; scanned++)
+        {
+            work.Step();
+            var index = bucket.EntrySweepCursor % bucket.Entries.Count;
+            if (!bucket.Entries[index].Range.TryGetTarget(out _)) RemoveEntry(bucket, index);
+            else bucket.EntrySweepCursor = index + 1;
+        }
+    }
+
+    private static void ReleaseEmptyBucket(EndpointBucket bucket)
+    {
         if (bucket.Entries.Count != 0) return;
         if (bucket.Owner.TryGetTarget(out var owner))
         {
@@ -90,20 +127,20 @@ internal static class LiveTraversalTracking
 
     private static void Sweep(Document document)
     {
-        for (var scanned = 0; scanned < 8 && document.RangeBuckets is { Count: > 0 } slots; scanned++)
+        var work = new RegistrationWork(null);
+        Sweep(document, ref work);
+    }
+
+    private static void Sweep(Document document, ref RegistrationWork work)
+    {
+        var budget = Math.Min(8, document.RangeBuckets?.Count ?? 0);
+        for (var scanned = 0; scanned < budget && document.RangeBuckets is { Count: > 0 } slots; scanned++)
         {
+            work.Step();
             var index = document.RangeSweepCursor % slots.Count;
             if (!slots[index].TryGetTarget(out var bucket)) { RemoveSlot(document, index); continue; }
-            bucket.Entries.RemoveAll(static entry => !entry.Range.TryGetTarget(out _));
-            if (bucket.Entries.Count == 0)
-            {
-                if (bucket.Owner.TryGetTarget(out var owner))
-                {
-                    if (owner is Node node) node.RangeEndpoints = null;
-                    else ((Attr) owner).RangeEndpoints = null;
-                }
-                RemoveIndex(bucket);
-            }
+            PruneEntries(bucket, ref work);
+            if (bucket.Entries.Count == 0) ReleaseEmptyBucket(bucket);
             else document.RangeSweepCursor = index + 1;
         }
     }
@@ -185,4 +222,11 @@ internal static class LiveTraversalTracking
             }
         }
     }
+}
+
+// Invocation-local counting for deterministic registration-complexity regressions.
+internal struct RegistrationWork(Action<int>? checkpoint)
+{
+    private int _steps;
+    internal void Step() => checkpoint?.Invoke(++_steps);
 }

@@ -8,12 +8,14 @@ internal sealed partial class DomRange
 {
     private EndpointHandle? _startHandle;
     private EndpointHandle? _endHandle;
-    internal DomRange(Document document)
+    internal DomRange(Document document) : this(document, null) { }
+
+    internal DomRange(Document document, Action<int>? registrationCheckpoint)
     {
         ArgumentNullException.ThrowIfNull(document);
         Start = End = new(new(document), 0);
-        _startHandle = LiveTraversalTracking.Register(this, true, Start.Container);
-        _endHandle = LiveTraversalTracking.Register(this, false, End.Container);
+        _startHandle = LiveTraversalTracking.Register(this, true, Start.Container, registrationCheckpoint);
+        _endHandle = LiveTraversalTracking.Register(this, false, End.Container, registrationCheckpoint);
     }
     internal BoundaryPoint Start { get; private set; }
     internal BoundaryPoint End { get; private set; }

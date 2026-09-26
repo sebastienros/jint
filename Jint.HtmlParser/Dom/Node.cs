@@ -28,6 +28,7 @@ public abstract partial class Node
 
     internal EndpointBucket? RangeEndpoints;
     internal List<WeakReference<DomNodeIterator>>? RootIterators;
+    internal int IteratorRootSweepCursor;
 
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 

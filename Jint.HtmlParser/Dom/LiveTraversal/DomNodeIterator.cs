@@ -9,11 +9,13 @@ internal sealed class DomNodeIterator
     private Pointer _reference;
     private Candidate? _candidate;
     private bool _active;
-    internal DomNodeIterator(DomNodeIdentity root, uint whatToShow)
+    internal DomNodeIterator(DomNodeIdentity root, uint whatToShow) : this(root, whatToShow, null) { }
+
+    internal DomNodeIterator(DomNodeIdentity root, uint whatToShow, Action<int>? registrationCheckpoint)
     {
         if (!root.IsValid) throw new ArgumentException("A valid identity is required.", nameof(root));
         Root = root; WhatToShow = whatToShow; _reference = new(root, true);
-        IteratorTracking.Register(this);
+        IteratorTracking.Register(this, registrationCheckpoint);
     }
     internal DomNodeIdentity Root { get; }
     internal uint WhatToShow { get; }
