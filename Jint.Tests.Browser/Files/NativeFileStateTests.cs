@@ -28,7 +28,7 @@ public sealed class NativeFileStateTests
     public void SharedListChangesInvalidateOnlyItsCurrentlyAssignedInputs()
     {
         using var fixture = DomTestFixture.Create("<input type=file id=upload>");
-        fixture.Execute("window.transfer = new DataTransfer(); document.getElementById('upload').files = transfer.files;");
+        fixture.Execute("var transfer = new DataTransfer(); document.getElementById('upload').files = transfer.files;");
         var assigned = fixture.Document.MutationStamp;
         fixture.Execute("transfer.items.add(new File(['x'], 'x.txt'));");
         fixture.Document.MutationStamp.Should().BeGreaterThan(assigned);
@@ -42,7 +42,7 @@ public sealed class NativeFileStateTests
     public void ClearingAnInputDetachesTheSharedListAndEngineDisposalReleasesNotifications()
     {
         var fixture = DomTestFixture.Create("<input type=file id=upload>");
-        fixture.Execute("window.transfer = new DataTransfer(); transfer.items.add(new File(['x'], 'x.txt')); document.getElementById('upload').files = transfer.files;");
+        fixture.Execute("var transfer = new DataTransfer(); transfer.items.add(new File(['x'], 'x.txt')); document.getElementById('upload').files = transfer.files;");
         fixture.Execute("document.getElementById('upload').value = '';");
         var cleared = fixture.Document.MutationStamp;
         fixture.Execute("transfer.items.add(new File(['y'], 'y.txt'));");
