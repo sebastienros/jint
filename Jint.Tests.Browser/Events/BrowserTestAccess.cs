@@ -96,11 +96,11 @@ internal static class BrowserTestAccess
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = Jint.Browser.Runtime.PageRuntime.Find(engine);
-            if (runtime is null)
+            if (runtime is null || runtime.Document is not { } document)
             {
                 return false;
             }
-            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document, elementId);
+            var element = DomDocumentReads.ById(runtime.Dom, document, elementId);
             if (element is null) return false;
 
             InputDispatcher.DispatchClick(runtime.Dom.WrapNode(element), ClickOptions.At(0, 0));
