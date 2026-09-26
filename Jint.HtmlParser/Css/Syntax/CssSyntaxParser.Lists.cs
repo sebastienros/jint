@@ -24,14 +24,14 @@ internal sealed partial class CssSyntaxParser
             if (rule is not null) rules.Add(rule);
         }
         var result = Copy(rules);
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
     }
 
     // §5.4.5 and §5.5.5: parse the mixed contents first, then project declarations.
     internal CssDeclarationSyntax[] ParseDeclarationList()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         var values = new List<CssComponentValue>();
         // §5.5.5 returns at the first top-level }, leaving subsequent input untouched.
         while (Current.Kind is not (CssTokenKind.None or CssTokenKind.CloseCurlyBracket))
@@ -60,7 +60,33 @@ internal sealed partial class CssSyntaxParser
             }
         }
         var result = Copy(declarations);
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
+        return result;
+    }
+
+    // CSS Animations 1 §3 consumes a qualified-rule-list, not mixed style-block contents.
+    internal CssRuleSyntax[] ParseQualifiedRuleList(CssComponentValue block)
+    {
+        CheckCancellation();
+        var rules = new List<CssRuleSyntax>();
+        var values = block.Values;
+        var index = 0;
+        var end = block.Span.Start + block.Span.Length - (block.IsClosed ? 1 : 0);
+        while (index < values.Count)
+        {
+            PollCancellation();
+            if (IsToken(values[index], CssTokenKind.Whitespace)) { index++; continue; }
+            // At-rules are consumed for recovery but never become keyframe children.
+            if (IsToken(values[index], CssTokenKind.AtKeyword))
+            {
+                ConsumeAtRule(values, ref index, end, block.IsClosed);
+                continue;
+            }
+            var rule = ConsumeQualifiedRule(values, ref index, end, nested: false);
+            if (rule is not null) rules.Add(rule);
+        }
+        var result = Copy(rules);
+        CheckCancellation();
         return result;
     }
 
@@ -74,7 +100,7 @@ internal sealed partial class CssSyntaxParser
             throw new ArgumentException("Expected a curly block from this input.", nameof(block));
         }
 
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         var values = block.Values;
         var blockEnd = block.Span.Start + block.Span.Length;
         var closed = block.IsClosed;
@@ -131,7 +157,7 @@ internal sealed partial class CssSyntaxParser
         }
         FlushRun();
         var result = new CssBlockSyntax(Copy(items));
-        _cancellationToken.ThrowIfCancellationRequested();
+        CheckCancellation();
         return result;
 
         void FlushRun()

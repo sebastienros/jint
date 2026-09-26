@@ -2,6 +2,7 @@ using System.Globalization;
 using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
+using Jint.HtmlParser.Css.Values.Transforms;
 
 namespace Jint.HtmlParser.Css.Values.Properties;
 
@@ -68,7 +69,26 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
-        if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.FlexBasis)
+        if (entry.Grammar == CssPropertyGrammar.TransformList)
+            return CssTransformListParser.Parse(parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.TextDecoration or CssPropertyGrammar.TextDecorationLine or
+            CssPropertyGrammar.TextDecorationStyle or CssPropertyGrammar.TextDecorationThickness)
+            return CssTextDecorationPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale)
+            return CssTransformParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+        if (entry.Grammar == CssPropertyGrammar.FontWeight)
+            return CssFontWeightPropertyParser.Parse(input, parts, work);
+        if (entry.Grammar == CssPropertyGrammar.FontSize)
+            return CssFontSizePropertyParser.Parse(parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.TextAlign or CssPropertyGrammar.TextAlignAll or CssPropertyGrammar.TextAlignLast)
+            return CssTextAlignPropertyParser.Parse(entry.Grammar, parts, work);
+        if (entry.Grammar is CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or
+            CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
+            return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);
+        if (entry.Grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.MarginSide or
+            CssPropertyGrammar.Padding or CssPropertyGrammar.PaddingSide)
+            return CssBoxPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.MinSizing or CssPropertyGrammar.MaxSizing or CssPropertyGrammar.FlexBasis)
             return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.FlexFactor or CssPropertyGrammar.FlexDirection or
             CssPropertyGrammar.FlexWrap or CssPropertyGrammar.Direction or CssPropertyGrammar.Flex or CssPropertyGrammar.FlexFlow)
@@ -85,6 +105,7 @@ internal static class CssPropertyParser
             CssPropertyGrammar.Position => "static relative absolute sticky fixed",
             CssPropertyGrammar.PointerEvents => "auto none visiblepainted visiblefill visiblestroke visible painted fill stroke all bounding-box",
             CssPropertyGrammar.BoxSizing => "content-box border-box",
+            CssPropertyGrammar.TransformBox => "content-box border-box fill-box stroke-box view-box",
             _ => "visible hidden clip scroll auto overlay"
         };
         if (parts.Count < 1 || parts.Count > (entry.Grammar == CssPropertyGrammar.Overflow ? 2 : 1)) return Invalid();

@@ -66,16 +66,19 @@ internal static partial class SelectorMatcher
             foreach (var predicate in program.Branches[0].Compounds[0].Predicates)
             {
                 work.Step();
-                if (!IsImplemented(predicate)) throw Unsupported(predicate.Kind.ToString());
+                if (!IsImplemented(predicate, work.Environment.ControlFactsFactory is not null)) throw Unsupported(predicate.Kind.ToString());
                 if (predicate.Arguments is not null) simple = false;
             }
             if (simple) return;
         }
         var pending = new Stack<(CompiledSelector Program, bool Relative)>();
+        var visited = new HashSet<(CompiledSelector Program, bool Relative)>();
         pending.Push((program, false));
         while (pending.Count != 0)
         {
             var (current, currentIsRelative) = pending.Pop();
+            work.Step();
+            if (!visited.Add((current, currentIsRelative))) continue;
             foreach (var branch in current.Branches)
             {
                 work.Step();
@@ -87,7 +90,7 @@ internal static partial class SelectorMatcher
                     foreach (var predicate in compound.Predicates)
                     {
                         work.Step();
-                        if (!IsImplemented(predicate)) throw Unsupported(predicate.Kind.ToString());
+                        if (!IsImplemented(predicate, work.Environment.ControlFactsFactory is not null)) throw Unsupported(predicate.Kind.ToString());
                         if (predicate.Arguments is not null)
                             pending.Push((predicate.Arguments, predicate.Kind == PredicateKind.Has));
                     }
@@ -97,12 +100,46 @@ internal static partial class SelectorMatcher
         cancellationToken.ThrowIfCancellationRequested();
     }
 
-    private static bool IsImplemented(Predicate predicate) => predicate.Kind switch
+    // CSS Conditional 4 §2.1: inspect capabilities without manufacturing a DOM node.
+    internal static bool Supports(CompiledSelector program, Values.CssValueWork work, bool hasControlFacts = false)
+    {
+        work.CheckCancellation();
+        var supported = program.Branches.Count == 1;
+        var pending = new Stack<CompiledSelector>();
+        var visited = new HashSet<CompiledSelector>(ReferenceEqualityComparer.Instance);
+        pending.Push(program);
+        while (pending.TryPop(out var current))
+        {
+            work.Charge(1);
+            if (!visited.Add(current)) continue;
+            supported &= current.Branches.Count != 0;
+            foreach (var branch in current.Branches)
+            {
+                work.Charge(1);
+                foreach (var compound in branch.Compounds)
+                {
+                    work.Charge(1);
+                    foreach (var predicate in compound.Predicates)
+                    {
+                        work.Charge(1);
+                        supported &= IsImplemented(predicate, hasControlFacts) && predicate.Kind != PredicateKind.WebkitUnknownPseudoElement;
+                        if (predicate.Arguments is not null) pending.Push(predicate.Arguments);
+                    }
+                }
+            }
+        }
+        work.CheckCancellation();
+        return supported;
+    }
+
+    private static bool IsImplemented(Predicate predicate, bool hasControlFacts = false) => predicate.Kind switch
     {
         PredicateKind.Id or PredicateKind.Class or PredicateKind.Attribute or
         PredicateKind.PseudoElement or PredicateKind.WebkitUnknownPseudoElement or
         PredicateKind.Picker or
         PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or
+        PredicateKind.Checked or PredicateKind.Indeterminate or PredicateKind.Open or PredicateKind.Closed or
+        PredicateKind.Link or PredicateKind.AnyLink or PredicateKind.Visited or
         PredicateKind.Enabled or PredicateKind.Disabled or PredicateKind.Required or PredicateKind.Optional or
         PredicateKind.Focus or PredicateKind.FocusWithin or PredicateKind.Active or PredicateKind.Target or
         PredicateKind.Hover or PredicateKind.FocusVisible or PredicateKind.Autofill or
@@ -113,6 +150,9 @@ internal static partial class SelectorMatcher
         PredicateKind.NthCol or PredicateKind.NthLastCol => predicate.Arguments is null,
         PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has =>
             predicate.Arguments is not null,
+        PredicateKind.Default or PredicateKind.PlaceholderShown or PredicateKind.ReadOnly or PredicateKind.ReadWrite or
+        PredicateKind.Valid or PredicateKind.Invalid or PredicateKind.InRange or PredicateKind.OutOfRange =>
+            hasControlFacts && predicate.Arguments is null,
         PredicateKind.Slotted => true,
         _ => false
     };
@@ -219,6 +259,24 @@ internal static partial class SelectorMatcher
                 return ReferenceEquals(element, scope);
             case PredicateKind.Root:
                 return element.ParentNode is Document;
+            case PredicateKind.Default:
+            case PredicateKind.PlaceholderShown:
+            case PredicateKind.ReadOnly:
+            case PredicateKind.ReadWrite:
+            case PredicateKind.Valid:
+            case PredicateKind.Invalid:
+            case PredicateKind.InRange:
+            case PredicateKind.OutOfRange:
+                return MatchControlState(predicate.Kind, element, ref work);
+            case PredicateKind.Checked:
+            case PredicateKind.Indeterminate:
+                return MatchFormState(predicate.Kind, element, ref work);
+            case PredicateKind.Open:
+            case PredicateKind.Closed:
+            case PredicateKind.Link:
+            case PredicateKind.AnyLink:
+            case PredicateKind.Visited:
+                return MatchElementState(predicate.Kind, element, ref work);
             case PredicateKind.Enabled:
             case PredicateKind.Disabled:
             case PredicateKind.Required:

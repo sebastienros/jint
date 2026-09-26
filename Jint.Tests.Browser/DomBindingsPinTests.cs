@@ -5,15 +5,10 @@ using AngleSharp.Dom;
 
 namespace Jint.Tests.Browser;
 
-/// <summary>
-/// The pin: <c>tools/dom-bindings/pin.json</c>, the central package versions, and the assemblies this
-/// process actually loaded all have to say the same thing.
-/// </summary>
+/// <summary>Historical upstream contract provenance: extraction pins and test-only assemblies agree.</summary>
 /// <remarks>
-/// A pin that drifts from the reference is the failure mode this exists for: the checked-in bindings would
-/// still be a faithful picture of <em>some</em> version of AngleSharp, and nothing would say which. Bumping
-/// is a code change — regenerate, read the diff of <c>Jint.Browser/Dom/Generated/</c>, and fix what it broke
-/// in the same pull request.
+/// The production Browser uses native models and the generator reads the explicit contract. A pin bump
+/// requires an upstream provenance audit and contract diff; these assemblies are test-only oracles.
 /// </remarks>
 public sealed class DomBindingsPinTests
 {
@@ -24,11 +19,11 @@ public sealed class DomBindingsPinTests
         var referenced = ReadPackageVersions();
 
         pinned.Should().Equal(referenced,
-            "tools/dom-bindings/pin.json records the AngleSharp versions Jint.Browser/Dom/Generated was produced from, and Directory.Packages.props records the ones Jint.Browser compiles against; they are the same two numbers");
+            "tools/dom-bindings/pin.json records the AngleSharp versions Jint.Browser/Dom/Generated was produced from, and Directory.Packages.props records the historical upstream versions this test-only provenance oracle loads; they are the same two numbers");
     }
 
     [Test]
-    public void TheLoadedAssembliesAreThePinnedOnes()
+    public void TheTestOnlyProvenanceAssembliesAreThePinnedOnes()
     {
         var pinned = ReadPin();
 

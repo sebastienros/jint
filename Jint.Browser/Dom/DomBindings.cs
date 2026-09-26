@@ -131,11 +131,50 @@ internal static class DomBindings
     {
         if (thisObject is IDomWrapper wrapper && wrapper.DomTarget is T target)
         {
+            // One native Element CLR type serves every element interface. A CLR cast alone would
+            // admit HTMLInputElement.value on a div; Web IDL's interface brand is immutable native state.
+            if (target is HtmlParser.Node or HtmlParser.Attr && wrapper is DomNodeObject node &&
+                member.IndexOf('.') is var separator and >= 0 && !node.Implements(member[..separator]))
+            {
+                IllegalInvocation(thisObject, member);
+            }
             return new DomBinding<T>(target, wrapper.DomRealm);
         }
 
         IllegalInvocation(thisObject, member);
         return default;
+    }
+
+    /// <summary>Node's receiver conversion, including native Attr's separate storage model.</summary>
+    internal static DomNodeObject BindNode(JsValue thisObject, string member)
+    {
+        if (thisObject is DomNodeObject node)
+        {
+            return node;
+        }
+        IllegalInvocation(thisObject, member);
+        return null!;
+    }
+
+    internal static DomNodeObject NodeArgument(JsValue[] arguments, int index, string member)
+    {
+        var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
+        if (value is DomNodeObject node)
+        {
+            return node;
+        }
+        ArgumentFailure(value, index, member);
+        return null!;
+    }
+
+    private static void ArgumentFailure(JsValue value, int index, string member)
+    {
+        var message = "Failed to execute '" + member + "': parameter " + (index + 1) + " is not of the expected type.";
+        if (value is ObjectInstance instance)
+        {
+            Throw.TypeError(instance.Engine.Realm, message);
+        }
+        Throw.TypeErrorNoEngine(message);
     }
 
     /// <summary>
@@ -158,10 +197,11 @@ internal static class DomBindings
     /// Unwraps an argument that has to be a wrapper over <typeparamref name="T"/>. WebIDL's interface-type
     /// conversion: anything else is a <c>TypeError</c>.
     /// </summary>
-    internal static T Argument<T>(JsValue[] arguments, int index, string member) where T : class
+    internal static T Argument<T>(JsValue[] arguments, int index, string member, string? requiredInterface = null) where T : class
     {
         var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
-        if (value is IDomWrapper wrapper && wrapper.DomTarget is T target)
+        if (value is IDomWrapper wrapper && wrapper.DomTarget is T target &&
+            (requiredInterface is null || wrapper is DomNodeObject node && node.Implements(requiredInterface)))
         {
             return target;
         }
@@ -179,10 +219,16 @@ internal static class DomBindings
     }
 
     /// <summary>The nullable form of <see cref="Argument{T}"/>: <c>null</c> and <c>undefined</c> pass.</summary>
-    internal static T? NullableArgument<T>(JsValue[] arguments, int index, string member) where T : class
+    internal static T? NullableArgument<T>(JsValue[] arguments, int index, string member, string? requiredInterface = null) where T : class
     {
         var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
-        return value.IsNullOrUndefined() ? null : Argument<T>(arguments, index, member);
+        return value.IsNullOrUndefined() ? null : Argument<T>(arguments, index, member, requiredInterface);
+    }
+
+    internal static HtmlParser.DomNodeIdentity IdentityArgument(JsValue[] arguments, int index, string member)
+    {
+        var wrapper = NodeArgument(arguments, index, member);
+        return wrapper.Attribute is { } attribute ? new(attribute) : new(wrapper.Node!);
     }
 
     private static void IllegalInvocation(JsValue thisObject, string member)

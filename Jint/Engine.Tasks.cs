@@ -66,6 +66,9 @@ public partial class Engine
         internal void ConfigureTaskBudget(IEventLoopTaskBudget budget)
             => _engine._eventLoop.ConfigureTaskBudget(budget);
 
+        internal void ConfigureTaskStart(Action taskStart)
+            => _engine._eventLoop.ConfigureTaskStart(taskStart);
+
         // The parser owns the current HTML task until it returns to its continuation. Keep the usual
         // evaluation checkpoint, but leave other tasks for the host's next explicit pump. Use only
         // around synchronous script execution, never across a fetch pump or an asynchronous wait.

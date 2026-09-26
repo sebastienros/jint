@@ -80,10 +80,11 @@ public sealed class DocumentHostHookTests
                 "page=kept"));
 
         (await fixture.Page.EvaluateAsync<string>("secondaryDuringParse"))
-            .Should().Be("about:blank|about:blank|about:blank|about:blank||complete|true|");
+            .Should().Be(string.Join("|", fixture.Url("/page/index.html"), fixture.Url("/page/index.html"),
+                fixture.Url("/page/index.html"), fixture.Url("/page/index.html"), "", "complete", "true", ""));
 
         (await fixture.Page.EvaluateAsync<string>("detachedDuringParse"))
-            .Should().Be("about:blank|about:blank|about:blank||loading|true|");
+            .Should().Be("about:blank|about:blank|about:blank||complete|true|");
 
         (await fixture.Page.EvaluateAsync<string>("pageCookieAfterSecondaryWrites"))
             .Should().Be("page=kept", "secondary documents have no access to the page's cookie jar");
@@ -108,7 +109,8 @@ public sealed class DocumentHostHookTests
                 second.remove();
                 [before, afterFirst, secondary.baseURI, secondary.body.baseURI].join('|');
                 """))
-            .Should().Be("https://first.example/root/|https://second.example/root/|about:blank|about:blank");
+            .Should().Be(string.Join("|", "https://first.example/root/", "https://second.example/root/",
+                fixture.Url("/page/index.html"), fixture.Url("/page/index.html")));
 
         fixture.Page.Errors.Should().BeEmpty();
     }
@@ -157,7 +159,8 @@ public sealed class DocumentHostHookTests
                   'application/xml');
                 [xml.baseURI, xml.documentElement.baseURI, xml.documentElement.firstElementChild.baseURI].join('|');
                 """))
-            .Should().Be("about:blank|about:blank|about:blank");
+            // HTML parseFromString inherits the associated document URL; XML base elements do not change it.
+            .Should().Be("https://page.example/root/|https://page.example/root/|https://page.example/root/");
     }
 
     /// <summary>

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
@@ -19,7 +19,7 @@ namespace Jint.Browser.DevTools;
 /// <para>
 /// <b>The tree is <c>Jint.Browser/Accessibility</c>'s and this only publishes it.</b> The roles are
 /// HTML-AAM's mapping table, the names accname 1.2's algorithm and the hidden verdict the CSS cascade's, all
-/// computed over AngleSharp's DOM with no engine and no layout — so what is here is the protocol vocabulary
+/// computed over the native DOM with no engine and no layout — so what is here is the protocol vocabulary
 /// on top: Chrome's <c>AXNode</c> shape, its <c>AXValue</c> types, and the <c>backendDOMNodeId</c> that ties
 /// every node back to the one the <c>DOM</c> domain addresses.
 /// </para>
@@ -260,7 +260,7 @@ internal sealed class AccessibilityDomain : AccessibilityDomainBase
     private AxNode Tree()
     {
         var document = PageRuntime.Find(_target.Runtime.Engine)?.Document
-            ?? Throw.ServerError<IDocument>("Document is not available");
+            ?? Throw.ServerError<Document>("Document is not available");
 
         return AccessibilityTree.Build(document, AccessibilityOptions.Full);
     }
@@ -290,10 +290,10 @@ internal sealed class AccessibilityDomain : AccessibilityDomainBase
     /// walk pruned — is refused rather than answered with the nearest one, because a client that asked about
     /// an element and was told about its parent would place it wrongly in its own tree.
     /// </remarks>
-    private static AxNode For(AxNode root, INode target)
+    private static AxNode For(AxNode root, object target)
         => Locate(root, target) ?? Throw.ServerError<AxNode>("No node with given id found");
 
-    private static AxNode? Locate(AxNode node, INode target)
+    private static AxNode? Locate(AxNode node, object target)
     {
         if (ReferenceEquals(node.Node, target))
         {
@@ -312,26 +312,26 @@ internal sealed class AccessibilityDomain : AccessibilityDomainBase
     }
 
     /// <summary>The node an identifier names, in Chrome's own wording when it names none.</summary>
-    private INode Resolve(int? nodeId, int? backendNodeId, string? objectId)
+    private object Resolve(int? nodeId, int? backendNodeId, string? objectId)
     {
         if (nodeId is { } id)
         {
-            return Tracker.ByNodeId(id) ?? Throw.ServerError<INode>("Could not find node with given id");
+            return Tracker.ByNodeId(id) ?? Throw.ServerError<object>("Could not find node with given id");
         }
 
         if (backendNodeId is { } backendId)
         {
-            return Tracker.ByBackendId(backendId) ?? Throw.ServerError<INode>("No node found for given backend id");
+            return Tracker.ByBackendId(backendId) ?? Throw.ServerError<object>("No node found for given backend id");
         }
 
         if (objectId is { Length: > 0 } handle)
         {
             return _objects.Table.Resolve(handle) is Dom.DomNodeObject wrapper
-                ? wrapper.Node
-                : Throw.ServerError<INode>("Object id doesn't reference a Node");
+                ? wrapper.DomTarget
+                : Throw.ServerError<object>("Object id doesn't reference a Node");
         }
 
-        return Throw.ServerError<INode>("Either nodeId, backendNodeId or objectId must be specified");
+        return Throw.ServerError<object>("Either nodeId, backendNodeId or objectId must be specified");
     }
 
     /// <summary>Refuses a frame identifier that is not this page's, in Chrome's own wording.</summary>

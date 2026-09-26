@@ -1,8 +1,6 @@
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Parser;
-using AngleSharp.Xhtml;
-using AngleSharp.Xml.Parser;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Html;
+using Jint.HtmlParser.Serialization;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -14,27 +12,9 @@ namespace Jint.Browser.Dom.Views;
 /// <c>DOMParser</c>: markup in, a document out, with nothing in it allowed to run.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Scripting is off for the document this produces</b>, which
-/// <a href="https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-domparser-parsefromstring">
-/// DOM Parsing</a> requires: the parsed document is "not a browsing context" and its scripts never run. That
-/// falls out of two things here rather than being enforced by one — the parser is given a browsing context of
-/// its own that carries no scripting service, and <c>IsScripting</c> is false so the parse itself treats
-/// <c>&lt;noscript&gt;</c> as markup. A <c>&lt;script&gt;</c> in the input becomes an element in the tree,
-/// with its text, and nothing else happens.
-/// </para>
-/// <para>
-/// <b>The XML half is AngleSharp's XML parser</b>, which is a separate package (<c>AngleSharp.Xml</c>, MIT,
-/// same project) referenced for exactly this. Writing an XML parser here instead would be the one thing this
-/// package is not for. A parse that fails answers the
-/// <a href="https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-domparser-parsefromstring">
-/// <c>parsererror</c> document</a> the standard prescribes, which is what a page tests for, rather than
-/// throwing.
-/// </para>
-/// <para>
-/// Each parse gets a fresh browsing context. The context is what a document's services hang off, and sharing
-/// one across parses would make every document this ever produced reachable from the last one.
-/// </para>
+/// The native parser produces the same objects the binding projects. Scripting is disabled for
+/// HTML parsing and XML syntax failures produce a parsererror document; cancellation and native
+/// resource failures remain failures rather than being converted to malformed-XML results.
 /// </remarks>
 internal sealed class JsDomParser : ObjectInstance
 {
@@ -45,10 +25,12 @@ internal sealed class JsDomParser : ObjectInstance
     private const string ParserErrorNamespace = "http://www.mozilla.org/newlayout/xml/parsererror.xml";
 
     private readonly PageRuntime _runtime;
+    private readonly DomRealm _realm;
 
     internal JsDomParser(PageRuntime runtime, ObjectInstance prototype) : base(runtime.Engine)
     {
         _runtime = runtime;
+        _realm = runtime.Dom;
         Prototype = prototype;
     }
 
@@ -98,48 +80,71 @@ internal sealed class JsDomParser : ObjectInstance
             _ => Unsupported(_runtime.Engine, type),
         };
 
-        return _runtime.Dom.WrapNode(document);
+        return _realm.WrapNode(document);
     }
 
-    private static IDocument ParseHtml(string source)
-        => new HtmlParser(new HtmlParserOptions { IsScripting = false }, NewContext()).ParseDocument(source);
+    private Document ParseHtml(string source)
+    {
+        var document = CreateDocument(DomContentType.Html);
+        var session = new HtmlParserSession(document, new HtmlParseOptions { ScriptingEnabled = false });
+        session.AppendInput(source, isFinal: true);
+        var cancellationToken = _runtime.Cancellation?.Token ?? CancellationToken.None;
+        while (true)
+        {
+            _runtime.Engine.Constraints.Check();
+            var step = session.Drive(4096, cancellationToken);
+            if (step.Kind == HtmlParseStepKind.Complete)
+            {
+                return document;
+            }
+            if (step.Kind != HtmlParseStepKind.Yielded)
+            {
+                throw new InvalidOperationException("The native HTML parser could not complete the supplied input: " + step.Kind + ".");
+            }
+        }
+    }
 
-    private static IDocument ParseXml(string source, string type)
+    private Document ParseXml(string source, string type)
     {
         try
         {
-            return new XmlParser(default, NewContext(type)).ParseDocument(source);
+            return XmlDocumentParser.Parse(source, CreateDocument(type), null,
+                _runtime.Cancellation?.Token ?? CancellationToken.None);
         }
-        catch (Exception exception) when (exception is not JavaScriptException)
+        catch (MarkupParseException exception)
         {
             return ErrorDocument(exception.Message, type);
         }
     }
 
-    /// <summary>
-    /// The document a failed XML parse answers: a <c>parsererror</c> element carrying the message, which is
-    /// what a page looks for with <c>doc.querySelector('parsererror')</c>.
-    /// </summary>
-    private static IDocument ErrorDocument(string message, string type)
+    private Document CreateDocument(string type)
     {
-        var text = message
-            .Replace("&", "&amp;", StringComparison.Ordinal)
-            .Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal);
+        var document = type == DomContentType.Html ? Document.CreateHtml() : Document.CreateXml(type);
+        DomDocumentMetadata.Initialize(document, DomDocumentMetadata.CreatorOrigin(_realm));
+        DomDocumentState.Of(document).Url = _realm.Document is { } associated
+            ? DomDocumentState.Of(associated).Url : _runtime.DocumentUrl;
+        return document;
+    }
 
-        var markup =
-            "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><parsererror xmlns=\"" + ParserErrorNamespace + "\">"
-            + text
-            + "</parsererror></body></html>";
-
-        return new XmlParser(new XmlParserOptions { IsSuppressingErrors = true }, NewContext(type)).ParseDocument(markup);
+    /// <summary>The parsererror document HTML's parseFromString algorithm requires on XML syntax failure.</summary>
+    private Document ErrorDocument(string message, string type)
+    {
+        var document = CreateDocument(type);
+        var html = document.CreateElementNS(Namespaces.Html, "html");
+        var body = document.CreateElementNS(Namespaces.Html, "body");
+        var error = document.CreateElementNS(ParserErrorNamespace, "parsererror");
+        document.AppendChild(html);
+        html.AppendChild(body);
+        body.AppendChild(error);
+        error.AppendChild(document.CreateTextNode(message));
+        return document;
     }
 
     /// <summary>
     /// https://webidl.spec.whatwg.org/#es-enumeration — a value outside the enumeration is a
     /// <c>TypeError</c>, built in the page's own realm.
     /// </summary>
-    private static IDocument Unsupported(Engine engine, string type)
+    private static Document Unsupported(Engine engine, string type)
     {
         Throw.TypeError(
             engine._mainRealm,
@@ -148,33 +153,13 @@ internal sealed class JsDomParser : ObjectInstance
         return null!;
     }
 
-    /// <summary>
-    /// A browsing context with the CSS services and nothing else: no requester, so a parsed document reaches
-    /// no network, and no scripting service, so its scripts are inert.
-    /// </summary>
-    private static IBrowsingContext NewContext() => BrowsingContext.New(ViewInstaller.ParserConfiguration);
 
-    /// <inheritdoc cref="NewContext()" />
-    /// <remarks>
-    /// The XML overload also carries the content type the caller named, because AngleSharp's document has
-    /// nowhere to put it — see <see cref="DomContentType"/>.
-    /// </remarks>
-    private static IBrowsingContext NewContext(string contentType)
-        => BrowsingContext.New(DomContentType.Declaring(ViewInstaller.ParserConfiguration, contentType));
 }
 
 /// <summary>
 /// <c>XMLSerializer</c>: a node out as XML-shaped markup.
 /// </summary>
-/// <remarks>
-/// AngleSharp's <c>XhtmlMarkupFormatter</c> is the
-/// <a href="https://w3c.github.io/DOM-Parsing/#dfn-xml-serialization">XML serialization</a> algorithm's
-/// practical equivalent: every element is closed, an empty element is self-closed, and text is escaped for
-/// XML rather than for HTML. What it does not do is the standard's namespace-prefix invention for a tree
-/// whose prefixes conflict, so a document built by hand out of two namespaces with one prefix serializes to
-/// markup that does not round-trip. Every document this package can produce — parsed, not hand-assembled —
-/// serializes correctly.
-/// </remarks>
+/// <remarks>The native serializer implements namespace fixup directly over the associated tree.</remarks>
 internal sealed class JsXmlSerializer : ObjectInstance
 {
     internal JsXmlSerializer(PageRuntime runtime, ObjectInstance prototype) : base(runtime.Engine)
@@ -207,7 +192,9 @@ internal sealed class JsXmlSerializer : ObjectInstance
     /// <summary>https://w3c.github.io/DOM-Parsing/#dom-xmlserializer-serializetostring.</summary>
     internal static JsValue SerializeToString(JsValue[] arguments)
     {
-        var node = DomBindings.Argument<INode>(arguments, 0, "XMLSerializer.serializeToString");
-        return JsString.Create(node.ToHtml(XhtmlMarkupFormatter.Instance));
+        var node = DomBindings.NodeArgument(arguments, 0, "XMLSerializer.serializeToString");
+        return JsString.Create(node.Attribute is { } attribute
+            ? XmlMarkupSerializer.Serialize(attribute, checkpoint: _ => node.DomRealm.Engine.Constraints.Check(), cancellationToken: node.DomRealm.CancellationToken)
+            : XmlMarkupSerializer.Serialize(node.Node!, checkpoint: _ => node.DomRealm.Engine.Constraints.Check(), cancellationToken: node.DomRealm.CancellationToken));
     }
 }

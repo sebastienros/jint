@@ -15,8 +15,7 @@ namespace Jint.Browser.Runtime;
 /// next state. <see cref="PageRuntime.SetMedia"/> is the one writer.
 /// </para>
 /// <para>
-/// <b>The preference values belong to the page; their CSS evaluation belongs to AngleSharp.Css.</b>
-/// <see cref="PageRenderDevice"/> exposes this value as its preference dictionary, so the cascade reads
+/// The native CSS cascade reads this same immutable preference dictionary, preserving
 /// the same defaults and emulated values as <c>matchMedia</c>, including touch and scripting state.
 /// </para>
 /// <para>

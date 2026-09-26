@@ -152,10 +152,8 @@ public class XmlDocumentLoadTests
         (await loopback.Page.EvaluateAsync<string>("document.documentElement.textContent"))
             .Should().Be("Dummy XHTML document");
 
-        // `document.title` is the empty string here and a browser answers the <title>: AngleSharp's
-        // XmlDocument inherits Document.GetTitle's `return String.Empty`. Dom/divergences.md carries the row;
-        // it is the same answer a `text/xml` frame and a DOMParser document already gave.
-        (await loopback.Page.EvaluateAsync<string>("document.title")).Should().BeEmpty();
+        // HTML's title algorithm reads the first HTML-namespace title in this XHTML document.
+        (await loopback.Page.EvaluateAsync<string>("document.title")).Should().Be("Dummy XHTML document");
 
         loopback.Page.Errors.Should().BeEmpty();
     }

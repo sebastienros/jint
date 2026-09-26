@@ -1,5 +1,5 @@
-using AngleSharp;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Runtime;
@@ -69,6 +69,7 @@ public sealed class DomReflectionTests
     public void AUrlAttributeReflectsAnAbsoluteUrl()
     {
         using var fixture = DomTestFixture.Create("<a id='a' href='/relative'>x</a><script id='s' src='sub/one.js'></script>");
+        DomDocumentState.Of(fixture.Document).Url = "http://localhost/";
 
         // The content attribute keeps what was written; the IDL attribute answers what it resolves to.
         fixture.Text("document.querySelector('#s').getAttribute('src')").Should().Be("sub/one.js");
@@ -115,7 +116,7 @@ public sealed class DomReflectionTests
             """);
         (await page.EvaluateAsync<string>("otherLink.href")).Should().Be("https://other.example/root/");
         await page.EvaluateAsync("secondary.getElementById('otherBase').remove()");
-        (await page.EvaluateAsync<string>("otherLink.href")).Should().BeEmpty();
+        (await page.EvaluateAsync<string>("otherLink.href")).Should().Be("https://document.example/root/page.html");
     }
 
     /// <summary>
@@ -382,7 +383,7 @@ public sealed class DomReflectionTests
 
         // The CLR side of the same element sees every write the IDL attribute made.
         fixture.Evaluate("document.querySelector('#a').dir = 'ltr'");
-        fixture.Document.QuerySelector("#a")!.GetAttribute("dir").Should().Be("ltr");
+        ContentDom.ElementById(fixture.Document, "a")!.GetAttribute("dir").Should().Be("ltr");
     }
 
     /// <summary>
@@ -474,7 +475,7 @@ public sealed class DomReflectionTests
     [Test]
     public void ANullableDomStringIsNullWhenAbsent()
     {
-        using var element = Element();
+        var element = Element();
         var reflected = ReflectedAttribute.Text("X.y", "y", nullable: true);
 
         reflected.Get(element.Value).Should().Be(JsValue.Null);
@@ -556,7 +557,7 @@ public sealed class DomReflectionTests
     public void ALimitedUnsignedLongWithFallbackWritesTheDefaultForAnOutOfRangeValue()
     {
         using var fixture = DomTestFixture.Create("<div id='a'></div>");
-        using var element = Element();
+        var element = Element();
 
         var realm = DomRealm.Of(fixture.Engine);
         var reflected = ReflectedAttribute.Numeric("X.y", "y", ReflectedKind.LimitedUnsignedLongWithFallback, 20);
@@ -592,7 +593,7 @@ public sealed class DomReflectionTests
                      (ReflectedKind.ClampedUnsignedLong, 1d, "1"),
                  })
         {
-            using var element = Element();
+            var element = Element();
             var reflected = ReflectedAttribute.Numeric("X.y", "y", kind, fallback, min: 1, max: 1000);
             reflected.Set(realm, element.Value, [JsNumber.Create(2147483648d)]);
 
@@ -609,14 +610,14 @@ public sealed class DomReflectionTests
     public void TheLimitedIntegerSettersRefuseAnOutOfRangeValueWithAnIndexSizeError()
     {
         using var fixture = DomTestFixture.Create("<div id='a'></div>");
-        using var element = Element();
+        var element = Element();
 
         var realm = DomRealm.Of(fixture.Engine);
 
         var limitedLong = ReflectedAttribute.Numeric("X.y", "y", ReflectedKind.LimitedLong, -1);
         var refusal = Assert.Throws<JavaScriptException>(() => limitedLong.Set(realm, element.Value, [JsNumber.Create(-1)]));
         refusal!.Message.Should().Be("Failed to execute 'X.y': the value must not be negative.");
-        element.Value.HasAttribute("y").Should().BeFalse();
+        element.Value.GetAttributeNode("y").Should().BeNull();
 
         var limitedUnsigned = ReflectedAttribute.Numeric("X.z", "z", ReflectedKind.LimitedUnsignedLong, 1);
         Assert.Throws<JavaScriptException>(() => limitedUnsigned.Set(realm, element.Value, [JsNumber.Create(0)]))!
@@ -625,7 +626,7 @@ public sealed class DomReflectionTests
 
     private static void Reflects(ReflectedKind kind, double fallback, string attribute, double expected, long min = 0, long max = 0)
     {
-        using var element = Element();
+        var element = Element();
 
         element.Value.SetAttribute("y", attribute);
         ReflectedAttribute.Numeric("X.y", "y", kind, fallback, min, max)
@@ -635,15 +636,11 @@ public sealed class DomReflectionTests
     /// <summary>One detached element to read and write attributes on, with the document that owns it.</summary>
     private static Owned Element()
     {
-        var context = BrowsingContext.New(Configuration.Default);
-        var document = context.OpenAsync(response => response.Content("<div></div>")).GetAwaiter().GetResult();
-        return new Owned(document, document.QuerySelector("div")!);
+        var document = MarkupParser.ParseHtml("<div></div>");
+        return new Owned(document, ContentDom.First(document, "div")!);
     }
 
     private static string Literal(string value) => "'" + value.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
 
-    private sealed record Owned(IDocument Document, IElement Value) : IDisposable
-    {
-        public void Dispose() => Document.Dispose();
-    }
+    private sealed record Owned(Document Document, global::Jint.HtmlParser.Element Value);
 }

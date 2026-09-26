@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Session;
@@ -71,13 +73,14 @@ internal sealed class PerformanceDomain : Jint.DevTools.Domains.PerformanceDomai
         EmptyParameters parameters,
         CommandContext context)
     {
-        var document = PageRuntime.Find(_target.Runtime.Engine)?.Document;
+        var runtime = PageRuntime.Find(_target.Runtime.Engine);
+        var document = runtime?.Document;
 
         Jint.DevTools.Protocol.Performance.Metric[] metrics =
         [
             Metric("Timestamp", Stopwatch.GetTimestamp() / (double) Stopwatch.Frequency),
             Metric("Documents", document is null ? 0 : 1),
-            Metric("Nodes", document is null ? 0 : Count(document)),
+            Metric("Nodes", document is null ? 0 : Count(runtime!.Dom, document)),
         ];
 
         return new ValueTask<Jint.DevTools.Protocol.Performance.GetMetricsResponse>(
@@ -87,24 +90,30 @@ internal sealed class PerformanceDomain : Jint.DevTools.Domains.PerformanceDomai
     private static Jint.DevTools.Protocol.Performance.Metric Metric(string name, double value)
         => new() { Name = name, Value = value };
 
-    /// <summary>Every node of the document, counted with an explicit stack because the depth is a stranger's.</summary>
-    private static int Count(AngleSharp.Dom.INode root)
+    /// <summary>Every ordinary node of the document, counted through bounded native links without recursion.</summary>
+    private static int Count(DomRealm realm, Node root)
     {
-        var pending = new Stack<AngleSharp.Dom.INode>();
-        pending.Push(root);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
         var seen = 0;
-
-        while (pending.Count > 0)
+        Node? current = root;
+        while (current is not null)
         {
-            var current = pending.Pop();
+            work.Step();
             seen++;
-
-            foreach (var child in current.ChildNodes)
+            if (current.FirstChild is { } child)
             {
-                pending.Push(child);
+                current = child;
+                continue;
             }
+            while (!ReferenceEquals(current, root) && current.NextSibling is null)
+            {
+                work.Step();
+                current = current.ParentNode!;
+            }
+            current = ReferenceEquals(current, root) ? null : current.NextSibling;
         }
-
+        work.Check();
         return seen;
     }
 }

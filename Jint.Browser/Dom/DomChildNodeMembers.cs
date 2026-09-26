@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 
 namespace Jint.Browser.Dom;
@@ -21,7 +21,7 @@ namespace Jint.Browser.Dom;
 /// assertions of exactly that; the divergence register keeps the upstream half.
 /// </para>
 /// <para>
-/// The receiver is an <c>INode</c> because DOM declares these on the <c>ChildNode</c> mixin, which
+/// The receiver is a native <c>Node</c> because DOM declares these on the <c>ChildNode</c> mixin, which
 /// <c>Element</c>, <c>CharacterData</c> and <c>DocumentType</c> include; the hook is one method for all three
 /// for the same reason the generated members are one mixin's.
 /// </para>
@@ -29,9 +29,9 @@ namespace Jint.Browser.Dom;
 internal static class DomChildNodeMembers
 {
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-before</summary>
-    internal static void Before(DomRealm realm, INode node, JsValue[] arguments)
+    internal static void Before(DomRealm realm, Node node, JsValue[] arguments)
     {
-        var parent = node.Parent;
+        var parent = node.ParentNode;
         if (parent is null)
         {
             return;
@@ -51,9 +51,9 @@ internal static class DomChildNodeMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-after</summary>
-    internal static void After(DomRealm realm, INode node, JsValue[] arguments)
+    internal static void After(DomRealm realm, Node node, JsValue[] arguments)
     {
-        var parent = node.Parent;
+        var parent = node.ParentNode;
         if (parent is null)
         {
             return;
@@ -69,9 +69,9 @@ internal static class DomChildNodeMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-replacewith</summary>
-    internal static void ReplaceWith(DomRealm realm, INode node, JsValue[] arguments)
+    internal static void ReplaceWith(DomRealm realm, Node node, JsValue[] arguments)
     {
-        var parent = node.Parent;
+        var parent = node.ParentNode;
         if (parent is null)
         {
             return;
@@ -89,7 +89,7 @@ internal static class DomChildNodeMembers
 
         // "If this's parent is parent, replace this with node within parent" — this may no longer be a child
         // of parent, because the conversion moves an argument that was the receiver itself into the fragment.
-        if (ReferenceEquals(node.Parent, parent))
+        if (ReferenceEquals(node.ParentNode, parent))
         {
             parent.ReplaceChild(inserted, node);
             return;
@@ -102,7 +102,7 @@ internal static class DomChildNodeMembers
     /// The nearest preceding (or following) sibling of <paramref name="node"/> that is not itself one of the
     /// argument nodes, which is what the standard calls the viable previous (or next) sibling.
     /// </summary>
-    private static INode? Viable(INode node, JsValue[] arguments, bool forward)
+    private static Node? Viable(Node node, JsValue[] arguments, bool forward)
     {
         for (var sibling = forward ? node.NextSibling : node.PreviousSibling;
              sibling is not null;
@@ -117,7 +117,7 @@ internal static class DomChildNodeMembers
         return null;
     }
 
-    private static bool IsArgument(INode sibling, JsValue[] arguments)
+    private static bool IsArgument(Node sibling, JsValue[] arguments)
     {
         foreach (var argument in arguments)
         {
@@ -135,39 +135,7 @@ internal static class DomChildNodeMembers
     /// fragment, and a string becomes a text node in the receiver's node document. <c>null</c> means there
     /// was nothing to insert.
     /// </summary>
-    private static INode? ConvertNodes(DomRealm realm, INode node, JsValue[] arguments, string operation)
-    {
-        if (arguments.Length == 0)
-        {
-            return null;
-        }
+    private static Node? ConvertNodes(DomRealm realm, Node node, JsValue[] arguments, string operation)
+        => DomParentNodeMembers.ConvertNodes(realm, node, arguments, operation);
 
-        var nodes = DomConvert.NodeOrTextRest(realm, node, arguments, 0, Member(node, operation));
-
-        if (nodes.Length == 1)
-        {
-            return nodes[0];
-        }
-
-        var fragment = (node as IDocument ?? node.Owner!).CreateDocumentFragment();
-        foreach (var child in nodes)
-        {
-            fragment.AppendChild(child);
-        }
-
-        return fragment;
-    }
-
-    /// <summary>
-    /// The name a conversion failure is reported under. Only <c>NodeOrTextRest</c> reads it, and only for the
-    /// one case it cannot convert: a detached <c>DocumentType</c>, which has no node document to make a text
-    /// node in — so the interface alone is enough to place it.
-    /// </summary>
-    private static string Member(INode node, string operation)
-        => node switch
-        {
-            IElement => "Element.",
-            IDocumentType => "DocumentType.",
-            _ => "CharacterData.",
-        } + operation;
 }

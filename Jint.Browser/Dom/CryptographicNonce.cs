@@ -1,5 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom;
 
@@ -38,23 +38,18 @@ namespace Jint.Browser.Dom;
 /// </remarks>
 internal static class CryptographicNonce
 {
-    /// <summary>The content attribute the slot synchronises with.</summary>
-    private const string Attribute = "nonce";
-
-    private static readonly ConditionalWeakTable<IElement, Slot> _slots = new();
+    private static readonly ConditionalWeakTable<Element, Slot> _slots = new();
 
     /// <summary>
     /// The element's <c>[[CryptographicNonce]]</c>: the content attribute for an element no IDL setter has
     /// touched, and the last value that setter was given otherwise.
     /// </summary>
-    internal static string Get(IElement element)
+    internal static string Get(Element element, string? attribute)
     {
         if (!_slots.TryGetValue(element, out var slot))
         {
-            return element.GetAttribute(Attribute) ?? "";
+            return attribute ?? "";
         }
-
-        var attribute = element.GetAttribute(Attribute);
 
         if (!string.Equals(attribute, slot.Attribute, StringComparison.Ordinal))
         {
@@ -69,10 +64,10 @@ internal static class CryptographicNonce
     /// "On setting, set this's <c>[[CryptographicNonce]]</c> to the given value" — and nothing else, which is
     /// the whole point of the member.
     /// </summary>
-    internal static void Set(IElement element, string value)
+    internal static void Set(Element element, string value, string? attribute)
     {
         var slot = _slots.GetOrCreateValue(element);
-        slot.Attribute = element.GetAttribute(Attribute);
+        slot.Attribute = attribute;
         slot.Value = value;
     }
 

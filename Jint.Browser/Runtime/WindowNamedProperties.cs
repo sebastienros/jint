@@ -1,5 +1,5 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Object;
 
@@ -48,9 +48,9 @@ namespace Jint.Browser.Runtime;
 internal sealed class WindowNamedProperties : NamedPropertyObject
 {
     private readonly PageRuntime _runtime;
-    private readonly IDocument? _document;
+    private readonly Document? _document;
 
-    internal WindowNamedProperties(PageRuntime runtime, IDocument? document = null) : base(runtime.Engine)
+    internal WindowNamedProperties(PageRuntime runtime, Document? document = null) : base(runtime.Engine)
     {
         _runtime = runtime;
         _document = document;
@@ -81,13 +81,13 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
 
         if (name.Length != 0 && (_document ?? _runtime.Document) is { } document)
         {
-            if (document.GetElementById(name) is { } byId)
+            if (DomDocumentReads.ById(_runtime.Dom, document, name) is { } byId)
             {
                 value = _runtime.Dom.WrapNode(byId);
                 return true;
             }
 
-            foreach (var element in document.GetElementsByName(name))
+            foreach (var element in NamedElements(document, name))
             {
                 if (!IsNamedAccessKind(element))
                 {
@@ -96,7 +96,7 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
 
                 // HTML answers a frame's WindowProxy for `<iframe name=x>` and the element for everything
                 // else; a frame with no document has no window, and then the element is all there is.
-                if (element is IHtmlInlineFrameElement frame && FrameWindows.For(_runtime, frame) is { } window && !window.IsNull())
+                if (element is { NamespaceUri: Namespaces.Html, LocalName: "iframe" } && FrameWindows.For(_runtime, element) is { } window && !window.IsNull())
                 {
                     value = window;
                     return true;
@@ -165,14 +165,17 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
     /// The element kinds whose <c>name</c> content attribute is a supported property name. An <c>id</c> is one
     /// for <b>every</b> element; a <c>name</c> is one only for these.
     /// </summary>
-    private static bool IsNamedAccessKind(IElement element) => element is IHtmlAnchorElement
-        or IHtmlAreaElement
-        or IHtmlEmbedElement
-        or IHtmlFormElement
-        or IHtmlInlineFrameElement
-        or IHtmlImageElement
-        or IHtmlObjectElement
-        || element is IHtmlElement { LocalName: "frame" or "frameset" };
+    private static bool IsNamedAccessKind(Element element)
+        => element is { NamespaceUri: Namespaces.Html, LocalName: "a" or "area" or "embed" or "form" or "iframe" or "img" or "object" or "frame" or "frameset" };
+
+    private IEnumerable<Element> NamedElements(Document document, string name)
+    {
+        var work = new DomReadWork(_runtime.Dom.NativeReadCheckpoint, _runtime.Dom.CancellationToken);
+        work.Check();
+        foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
+            if (work.Equal(work.Attribute(element, "name"), name)) yield return element;
+        work.Check();
+    }
 
     /// <summary>
     /// Every supported property name, in tree order and without repeats — the two obligations
@@ -189,21 +192,24 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var element in document.All)
+        var work = new DomReadWork(_runtime.Dom.NativeReadCheckpoint, _runtime.Dom.CancellationToken);
+        work.Check();
+        foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
         {
-            if (element.Id is { Length: > 0 } id && seen.Add(id))
+            if (work.Attribute(element, "id") is { Length: > 0 } id && seen.Add(id))
             {
                 names.Add(id);
             }
 
             if (IsNamedAccessKind(element)
-                && element.GetAttribute("name") is { Length: > 0 } name
+                && work.Attribute(element, "name") is { Length: > 0 } name
                 && seen.Add(name))
             {
                 names.Add(name);
             }
         }
 
+        work.Check();
         return names;
     }
 }

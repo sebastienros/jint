@@ -1,43 +1,32 @@
-using AngleSharp;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Accessibility;
+using Jint.Browser.Styling;
 using Jint.Browser.Dom;
 using Jint.Native;
 
 namespace Jint.Tests.Browser;
 
-/// <summary>
-/// What every binding test needs: a document parsed by AngleSharp, an engine with the web APIs on, and the
-/// DOM interface objects installed on it.
-/// </summary>
-/// <remarks>
-/// There is no browser runtime yet — no <c>Window</c>, no navigation, no parser driver — so the document is
-/// parsed directly with AngleSharp's own parser and handed to the engine as a global. That is exactly the
-/// composition the runtime will make later; what it proves now is that the binding layer stands on its own,
-/// which is also what makes it something AngleSharp.Js could adopt without adopting anything else here.
-/// </remarks>
+/// <summary>Native binding fixture: a minimally parsed document and an engine with Web APIs.</summary>
+/// <remarks>Completed ordinary-tree styles are registered; CSS parsing and enhanced HTML state remain lazy.</remarks>
 internal sealed class DomTestFixture : IDisposable
 {
-    private DomTestFixture(IDocument document, Engine engine)
+    private DomTestFixture(Document document, Engine engine)
     {
         Document = document;
         Engine = engine;
     }
 
-    internal IDocument Document { get; }
+    internal Document Document { get; }
 
     internal Engine Engine { get; }
 
     /// <summary>Parses <paramref name="html"/> and installs it as <c>document</c> on a fresh engine.</summary>
     internal static DomTestFixture Create(string html)
     {
-        // WithCss() is what makes `element.style` answer anything at all: AngleSharp.Css registers the
-        // declaration factory the inline-style extension reads through, and without it GetStyle() answers
-        // null. WithDefaultLoader is deliberately absent, so nothing here can reach the network.
-        var context = BrowsingContext.New(Configuration.Default.WithCss());
-        var document = context.OpenAsync(response => response.Content(html)).GetAwaiter().GetResult();
-
         var engine = new Engine(options => options.UseWebApis());
+        var document = ContentDom.Parse(html, checkpoint: engine.Constraints.Check);
         DomBindings.Install(engine);
+        NativeCssStyleSheets.Associate(DomRealm.Of(engine), document);
         engine.SetValue("document", DomBindings.Wrap(engine, document));
 
         return new DomTestFixture(document, engine);
@@ -65,5 +54,5 @@ internal sealed class DomTestFixture : IDisposable
     /// <summary>Runs <paramref name="source"/> for its effect on the document.</summary>
     internal void Execute(string source) => Engine.Execute(source);
 
-    public void Dispose() => Document.Dispose();
+    public void Dispose() => Engine.Dispose();
 }

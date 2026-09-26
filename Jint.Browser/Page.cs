@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Browser.Workers;
 using Jint.Diagnostics;
@@ -148,7 +147,7 @@ public sealed partial class Page : IAsyncDisposable
             return;
         }
 
-        ReportTitle(PageRuntime.Find(engine)?.Document?.Title ?? "");
+        ReportTitle(PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
     }
 
     /// <summary>Tells the watcher the title, if it has moved since the last time it was told.</summary>
@@ -428,12 +427,13 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>The document's serialized markup, including the doctype.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> ContentAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance) ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { Document: { } document } runtime
+            ? Dom.DomHtmlMarkupFormatter.OuterHtml(runtime.Dom, document) : "");
 
     /// <summary>The document's title.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> TitleAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.Title ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
 
     /// <summary>Runs the page until it has nothing left to do, or until <paramref name="timeout"/> runs out.</summary>
     /// <param name="timeout">The ceiling on how long to keep pumping.</param>
@@ -582,6 +582,13 @@ public sealed partial class Page : IAsyncDisposable
     });
 
     /// <summary>
+    /// Runs instrumented resource publication on the page loop under its normal task budget.
+    /// The callback must not write native tree links or attributes: resource revisions own its
+    /// invalidation, so it deliberately does not open a layout mutation scope.
+    /// </summary>
+    internal Task<T> RunResourcePublicationOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
+
+    /// <summary>
     /// Registers the one thing that hears what the page does, which is what a protocol target is.
     /// </summary>
     /// <param name="observer">The watcher, or <see langword="null"/> to stop watching.</param>
@@ -713,8 +720,7 @@ public sealed partial class Page : IAsyncDisposable
 
         try
         {
-            load.Document.Dispose();
-            (load.Context as IDisposable)?.Dispose();
+            load.Context.Dispose();
         }
         catch (Exception)
         {

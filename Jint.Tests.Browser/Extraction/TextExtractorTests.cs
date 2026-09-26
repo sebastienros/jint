@@ -1,3 +1,4 @@
+using Jint.Browser.Accessibility;
 using Jint.Browser.Extraction;
 using Jint.Tests.Browser.Accessibility;
 
@@ -79,14 +80,14 @@ public sealed class TextExtractorTests
     [TestCaseSource(nameof(Cases))]
     public void CollectsTheRenderedText(string html, string expected)
     {
-        using var document = PageFixture.Parse(html);
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be(expected);
+        var document = PageFixture.Parse(html);
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be(expected);
     }
 
     [Test]
     public void ADocumentWithNoElementIdentifiedAnswersItsBody()
     {
-        using var document = PageFixture.Parse("<h1>Title</h1><p>Body</p>");
+        var document = PageFixture.Parse("<h1>Title</h1><p>Body</p>");
 
         TextExtractor.InnerText(document).Should().Be("Title\n\nBody");
     }
@@ -94,18 +95,18 @@ public sealed class TextExtractorTests
     [Test]
     public void ADisplayNoneFromAStyleSheetIsSkippedToo()
     {
-        using var document = PageFixture.Parse("<style>.gone{display:none}</style><div id=t>a<span class=gone>b</span>c</div>");
+        var document = PageFixture.Parse("<style>.gone{display:none}</style><div id=t>a<span class=gone>b</span>c</div>");
 
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be("ac");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be("ac");
     }
 
     [Test]
     public void WithoutTheCascadeTheInlineStyleStillAnswers()
     {
-        using var document = PageFixture.ParseWithoutCss("<div id=t>a<span style='display:none'>b</span>c<div>d</div></div>");
+        var document = PageFixture.Parse("<div id=t>a<span style='display:none'>b</span>c<div>d</div></div>");
 
         // The block break still lands, because HtmlDisplay's table is what supplies it either way.
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be("ac\nd");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!, useComputedStyle: false).Should().Be("ac\nd");
     }
 
     [Test]
@@ -113,8 +114,8 @@ public sealed class TextExtractorTests
     {
         // The declared value only wins where it differs from HTML's suggested rendering, which is what keeps
         // AngleSharp's incomplete default sheet from calling every <section> inline.
-        using var document = PageFixture.Parse("<div id=t>a<span style='display:block'>b</span>c</div>");
+        var document = PageFixture.Parse("<div id=t>a<span style='display:block'>b</span>c</div>");
 
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be("a\nb\nc");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be("a\nb\nc");
     }
 }

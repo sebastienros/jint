@@ -1,5 +1,6 @@
 using System.Numerics;
 using Jint.HtmlParser.Css.Syntax;
+using Jint.HtmlParser.Css.Values;
 using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
 using ComplexSelector = Jint.HtmlParser.Css.Selectors.CompiledSelector.Complex;
 
@@ -20,25 +21,46 @@ internal static class SelectorCompiler
         return compiler.Compile(values);
     }
 
+    // CSS Conditional 4: one complex selector, without forgiving-list recovery.
+    internal static CompiledSelector CompileSupports(string source, CssComponentValueList values,
+        CssParseOptions? options, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var result = new Worker(source, new SelectorParseContext(limits: options?.Limits), work.Token, supportsWork: work).Compile(values);
+        work.CheckCancellation();
+        return result;
+    }
+
     internal sealed class Worker
     {
         private readonly int _sourceLength;
         private readonly string _source;
         private readonly SelectorParseContext _context;
         private readonly CancellationToken _cancellation;
+        private readonly Action? _checkpoint;
         private int _work;
+        private readonly CssValueWork? _supportsWork;
+        private HashSet<int>? _nestingContainers;
 
-        internal Worker(string source, SelectorParseContext context, CancellationToken cancellation)
+        internal Worker(string source, SelectorParseContext context, CancellationToken cancellation,
+            Action? checkpoint = null, CssValueWork? supportsWork = null)
         {
+            _supportsWork = supportsWork;
             _source = source;
             _sourceLength = source.Length;
             _context = context;
             _cancellation = cancellation;
+            _checkpoint = checkpoint;
         }
 
         internal CompiledSelector Compile(CssComponentValueList values)
         {
-            var stack = new List<Frame> { new(values, false, false, false, true, _sourceLength) };
+            if (_context.NestingParent is not null) FindNestingContainers(values);
+            var stack = new List<Frame>
+            {
+                new(values, false, _context.NestingParent is not null, false, true, _sourceLength,
+                    nestingRoot: _context.NestingParent is not null, singleBranch: _supportsWork is not null)
+            };
             while (stack.Count != 0)
             {
                 Poll();
@@ -52,11 +74,11 @@ internal static class SelectorCompiler
                         continue;
                     }
                     if (!frame.Done) continue;
-                    var result = new CompiledSelector(Freeze(frame.Branches), frame.MaximumSpecificity);
+                    var result = new CompiledSelector(Freeze(frame.Branches), frame.MaximumSpecificity, frame.ContainsNesting);
                     stack.RemoveAt(stack.Count - 1);
                     if (stack.Count == 0)
                     {
-                        _cancellation.ThrowIfCancellationRequested();
+                        Check();
                         return result;
                     }
                     stack[^1].Accept(result);
@@ -67,7 +89,7 @@ internal static class SelectorCompiler
                     for (var i = stack.Count - 1; i >= 0; i--)
                     {
                         Poll();
-                        if (!stack[i].Forgiving) continue;
+                        if (_supportsWork is not null || !stack[i].Forgiving) continue;
                         forgiving = i;
                         break;
                     }
@@ -79,6 +101,44 @@ internal static class SelectorCompiler
             throw new InvalidOperationException();
         }
 
+        // §3.1 counts & inside unknown/forgiven functions too. Scan once, without recursion;
+        // quoted ampersands remain string tokens and never count as nesting selectors.
+        private void FindNestingContainers(CssComponentValueList values)
+        {
+            var containers = new HashSet<int>();
+            _nestingContainers = containers;
+            var pending = new Stack<(CssComponentValue Value, bool Exit)>();
+            foreach (var value in values) { Poll(); pending.Push((value, false)); }
+            while (pending.TryPop(out var item))
+            {
+                Poll();
+                var value = item.Value;
+                if (value.Kind == CssComponentKind.Token) continue;
+                if (!item.Exit)
+                {
+                    pending.Push((value, true));
+                    foreach (var child in value.Values) { Poll(); pending.Push((child, false)); }
+                    continue;
+                }
+                foreach (var child in value.Values)
+                {
+                    Poll();
+                    if (IsDelim(child, '&') || containers.Contains(child.Span.Start))
+                    {
+                        containers.Add(value.Span.Start);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ObserveNesting(Frame frame, CssComponentValue value)
+        {
+            if (_context.NestingParent is not null &&
+                (IsDelim(value, '&') || _nestingContainers?.Contains(value.Span.Start) == true))
+                frame.BranchContainsNesting = frame.ContainsNesting = true;
+        }
+
         private Frame? Step(Frame f)
         {
             if (f.Index >= f.Values.Count)
@@ -87,6 +147,7 @@ internal static class SelectorCompiler
                 return null;
             }
             var value = f.Values[f.Index];
+            ObserveNesting(f, value);
             if (IsSpace(value))
             {
                 f.HadSpace = true;
@@ -185,6 +246,15 @@ internal static class SelectorCompiler
             var value = values[f.Index];
             if ((compound.PseudoElement || f.PseudoElementContext) && !IsToken(value, CssTokenKind.Colon))
                 throw Error("selector/invalid-syntax", value.Span.Start);
+            // CSS Nesting §4: & matches the parent list as :is(), including its maximum specificity.
+            if (IsDelim(value, '&') && _context.NestingParent is { } parent)
+            {
+                compound.Predicates.Add(new Predicate(PredicateKind.Is, value.Span, arguments: parent, nestingReference: true));
+                compound.End = value.Span.Start + value.Span.Length;
+                f.BranchContainsNesting = f.ContainsNesting = true;
+                f.Index++;
+                return true;
+            }
             if (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '[')
             {
                 compound.Predicates.Add(ParseAttribute(value));
@@ -217,6 +287,7 @@ internal static class SelectorCompiler
             var nameIndex = f.Index + (pseudoElement ? 2 : 1);
             if (nameIndex >= values.Count) throw Error("selector/invalid-syntax", f.EndOffset);
             var nameValue = values[nameIndex];
+            ObserveNesting(f, nameValue);
             var name = nameValue.Kind == CssComponentKind.Function ? nameValue.FunctionName :
                 IsIdent(nameValue) ? nameValue.Token.Text : null;
             if (name is null) throw Error("selector/invalid-syntax", nameValue.Span.Start);
@@ -259,7 +330,7 @@ internal static class SelectorCompiler
                 f.Pending = new Pending(kind, span);
                 var pseudoElementContext = (kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not) &&
                     (f.PseudoElementContext || compound.PseudoElement);
-                child = new Frame(args, kind is PredicateKind.Is or PredicateKind.Where,
+                child = new Frame(args, _supportsWork is null && (kind is PredicateKind.Is or PredicateKind.Where),
                     kind == PredicateKind.Has, kind != PredicateKind.Has && f.InsideHas,
                     false, argumentEnd,
                     compoundOnly: pseudoElementContext || kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
@@ -747,7 +818,15 @@ internal static class SelectorCompiler
 
         private void Poll()
         {
-            if ((++_work & 255) == 0) _cancellation.ThrowIfCancellationRequested();
+            _supportsWork?.Charge(1);
+            if ((++_work & 255) == 0) Check();
+        }
+
+        private void Check()
+        {
+            _cancellation.ThrowIfCancellationRequested();
+            _checkpoint?.Invoke();
+            _cancellation.ThrowIfCancellationRequested();
         }
 
         private int ContainerEndOffset(CssComponentValue container, char closing)
@@ -812,6 +891,9 @@ internal static class SelectorCompiler
             internal readonly CssComponentValueList Values;
             internal readonly bool Forgiving;
             internal readonly bool Relative;
+            internal readonly bool NestingRoot;
+            internal bool BranchContainsNesting;
+            internal bool ContainsNesting;
             internal bool InsideHas;
             internal readonly bool AllowPseudoElements;
             internal readonly bool CompoundOnly;
@@ -835,9 +917,9 @@ internal static class SelectorCompiler
 
             internal Frame(CssComponentValueList values, bool forgiving, bool relative, bool insideHas,
                 bool allowPseudoElements, int endOffset, bool compoundOnly = false,
-                bool singleBranch = false, bool pseudoElementContext = false)
+                bool singleBranch = false, bool pseudoElementContext = false, bool nestingRoot = false)
             {
-                Values = values; Forgiving = forgiving; Relative = relative; InsideHas = insideHas;
+                Values = values; Forgiving = forgiving; Relative = relative; NestingRoot = nestingRoot; InsideHas = insideHas;
                 AllowPseudoElements = allowPseudoElements; EndOffset = endOffset;
                 CompoundOnly = compoundOnly; SingleBranch = singleBranch;
                 PseudoElementContext = pseudoElementContext;
@@ -847,6 +929,8 @@ internal static class SelectorCompiler
             {
                 var pending = Pending ?? throw new InvalidOperationException();
                 Pending = null;
+                BranchContainsNesting |= child.ContainsNesting;
+                ContainsNesting |= child.ContainsNesting;
                 Compound!.Predicates.Add(new Predicate(pending.Kind, pending.Span,
                     arguments: child, a: pending.A, b: pending.B));
             }
@@ -865,6 +949,16 @@ internal static class SelectorCompiler
                     var start = LeadingStart >= 0 ? LeadingStart :
                         BranchStart >= 0 ? BranchStart : Compounds[0].Span.Start;
                     var end = Compounds[^1].Span.Start + Compounds[^1].Span.Length;
+                    // CSS Nesting §3.1: prepend a typed parent reference for relative branches.
+                    if (NestingRoot && (!BranchContainsNesting || Leading is not null))
+                    {
+                        var parent = worker._context.NestingParent!;
+                        Compounds.Insert(0, new Compound(NamespaceMode.Any, null, null, false,
+                            new[] { new Predicate(PredicateKind.Is, Span(start, start), arguments: parent, nestingReference: true) }, Span(start, start)));
+                        Combinators.Insert(0, Leading ?? Combinator.Descendant);
+                        Specificity = SelectorSpecificity.Add(Specificity, parent.MaximumSpecificity);
+                        Leading = null;
+                    }
                     Branches.Add(new ComplexSelector(Freeze(Compounds), Freeze(Combinators), Leading,
                         Span(start, end), Specificity));
                     if (Specificity.CompareTo(MaximumSpecificity) > 0)
@@ -931,6 +1025,7 @@ internal static class SelectorCompiler
                 BranchStart = -1; HadSpace = false; Leading = null; LeadingStart = -1;
                 PendingCombinator = null;
                 Specificity = default;
+                BranchContainsNesting = false;
             }
         }
 

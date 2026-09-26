@@ -9,9 +9,6 @@
 
 namespace Jint.Browser.Dom;
 
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
-
 internal static partial class DomInterfaces
 {
     /// <summary>The members of <c>ApplicationCache</c>.</summary>
@@ -28,28 +25,28 @@ internal static partial class DomInterfaces
             .Method("abort",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ApplicationCache.abort", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.abort");
-                    self.Target.Abort(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.abort");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.abort");
                 }),
                 length: 0)
             .Accessor("status",
                 global::Jint.Browser.Dom.DomFailures.Guard("ApplicationCache.status", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.status");
-                    return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Status));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.status");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.status");
                 }))
             .Method("swapCache",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ApplicationCache.swapCache", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.swapCache");
-                    self.Target.Swap(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.swapCache");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.swapCache");
                 }),
                 length: 0)
             .Method("update",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ApplicationCache.update", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.update");
-                    self.Target.Update(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "ApplicationCache.update");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "ApplicationCache.update");
                 }),
                 length: 0)
             .Build();
@@ -62,49 +59,55 @@ internal static partial class DomInterfaces
             .Method("back",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("History.back", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.back");
-                    self.Target.Back(); return global::Jint.Native.JsValue.Undefined;
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.back");
+                    return global::Jint.Browser.Runtime.HistoryInstaller.Traverse(runtime, -1);
                 }),
                 length: 0)
             .Method("forward",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("History.forward", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.forward");
-                    self.Target.Forward(); return global::Jint.Native.JsValue.Undefined;
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.forward");
+                    return global::Jint.Browser.Runtime.HistoryInstaller.Traverse(runtime, 1);
                 }),
                 length: 0)
             .Method("go",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("History.go", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.go");
-                    self.Target.Go(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0)); return global::Jint.Native.JsValue.Undefined;
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.go");
+                    return global::Jint.Browser.Runtime.HistoryInstaller.Traverse(runtime, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0));
                 }),
                 length: 0)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("History.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(runtime.Page.History.Length);
                 }))
             .Method("pushState",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("History.pushState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.pushState");
-                    self.Target.PushState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.pushState"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.pushState");
+                    var state = global::Jint.Browser.Dom.DomConvert.At(args, 0);
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.pushState");
+                    var url = global::Jint.Browser.Dom.DomConvert.NullableText(args, 2);
+                    return global::Jint.Browser.Runtime.HistoryInstaller.Update(runtime, [state, global::Jint.Native.JsValue.Undefined, global::Jint.Browser.Dom.DomConvert.Text(url)], replace: false);
                 }),
                 length: 2)
             .Method("replaceState",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("History.replaceState", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.replaceState");
-                    self.Target.ReplaceState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.replaceState"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.replaceState");
+                    var state = global::Jint.Browser.Dom.DomConvert.At(args, 0);
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.replaceState");
+                    var url = global::Jint.Browser.Dom.DomConvert.NullableText(args, 2);
+                    return global::Jint.Browser.Runtime.HistoryInstaller.Update(runtime, [state, global::Jint.Native.JsValue.Undefined, global::Jint.Browser.Dom.DomConvert.Text(url)], replace: true);
                 }),
                 length: 2)
             .Accessor("state",
                 global::Jint.Browser.Dom.DomFailures.Guard("History.state", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.state");
-                    return global::Jint.Browser.Dom.DomConvert.Any(self.Realm, self.Target.State);
+                    var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, "History.state");
+                    return global::Jint.Browser.Runtime.HistoryInstaller.State(runtime);
                 }))
             .Build();
 
@@ -116,80 +119,96 @@ internal static partial class DomInterfaces
             .Accessor("appName",
                 global::Jint.Browser.Dom.DomFailures.Guard("Navigator.appName", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.appName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.appName");
+                    return global::Jint.Native.JsString.Create("Netscape");
                 }))
             .Accessor("appVersion",
                 global::Jint.Browser.Dom.DomFailures.Guard("Navigator.appVersion", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.appVersion");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Version);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.appVersion");
+                    return global::Jint.Browser.Dom.DomNativeNavigatorMembers.AppVersion(self.Realm, self.Target);
                 }))
             .Method("isContentHandlerRegistered",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.isContentHandlerRegistered", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.isContentHandlerRegistered");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsContentHandlerRegistered(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.isContentHandlerRegistered"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.isContentHandlerRegistered")));
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.isContentHandlerRegistered");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.isContentHandlerRegistered");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.isContentHandlerRegistered");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.isContentHandlerRegistered", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 2)
             .Method("isProtocolHandlerRegistered",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.isProtocolHandlerRegistered", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.isProtocolHandlerRegistered");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsProtocolHandlerRegistered(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.isProtocolHandlerRegistered"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.isProtocolHandlerRegistered")));
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.isProtocolHandlerRegistered");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.isProtocolHandlerRegistered");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.isProtocolHandlerRegistered");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.isProtocolHandlerRegistered", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 2)
             .Accessor("onLine",
                 global::Jint.Browser.Dom.DomFailures.Guard("Navigator.onLine", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.onLine");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsOnline);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.onLine");
+                    var runtime = global::Jint.Browser.Runtime.NavigatorInstaller.Runtime(thisObj, "Navigator.onLine");
+                    return global::Jint.Browser.Runtime.NavigatorInstaller.Online(runtime);
                 }))
             .Accessor("platform",
                 global::Jint.Browser.Dom.DomFailures.Guard("Navigator.platform", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.platform");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Platform);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.platform");
+                    var runtime = global::Jint.Browser.Runtime.NavigatorInstaller.Runtime(thisObj, "Navigator.platform");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Runtime.NavigatorInstaller.PlatformOf(runtime));
                 }))
             .Method("registerContentHandler",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.registerContentHandler", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.registerContentHandler");
-                    self.Target.RegisterContentHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.registerContentHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.registerContentHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Navigator.registerContentHandler")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.registerContentHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.registerContentHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.registerContentHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Navigator.registerContentHandler");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.registerContentHandler", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 3)
             .Method("registerProtocolHandler",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.registerProtocolHandler", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.registerProtocolHandler");
-                    self.Target.RegisterProtocolHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.registerProtocolHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.registerProtocolHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Navigator.registerProtocolHandler")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.registerProtocolHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.registerProtocolHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.registerProtocolHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Navigator.registerProtocolHandler");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.registerProtocolHandler", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 3)
             .Method("unregisterContentHandler",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.unregisterContentHandler", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.unregisterContentHandler");
-                    self.Target.UnregisterContentHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.unregisterContentHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.unregisterContentHandler")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.unregisterContentHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.unregisterContentHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.unregisterContentHandler");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.unregisterContentHandler", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 2)
             .Method("unregisterProtocolHandler",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.unregisterProtocolHandler", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.unregisterProtocolHandler");
-                    self.Target.UnregisterProtocolHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.unregisterProtocolHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.unregisterProtocolHandler")); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.unregisterProtocolHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.unregisterProtocolHandler");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.unregisterProtocolHandler");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.unregisterProtocolHandler", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 2)
             .Accessor("userAgent",
                 global::Jint.Browser.Dom.DomFailures.Guard("Navigator.userAgent", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.userAgent");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserAgent);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.userAgent");
+                    return self.Target.Engine.NavigatorUserAgentValue;
                 }))
             .Method("yieldForStorageUpdates",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Navigator.yieldForStorageUpdates", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.yieldForStorageUpdates");
-                    self.Target.WaitForStorageUpdates(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, "Navigator.yieldForStorageUpdates");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Navigator.yieldForStorageUpdates", "NotSupportedError", "This Navigator member has no native service provider.");
                 }),
                 length: 0)
             .Build();

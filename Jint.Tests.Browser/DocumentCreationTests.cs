@@ -185,12 +185,22 @@ public sealed class DocumentCreationTests
             """)
             .Should().Be("null|null|null");
 
-        // The document that is showing keeps its Location, and WebIDL's [PutForwards=href] setter is a
-        // TypeError on the ones that have none rather than a navigation nobody can see.
-        fixture.Bool("document.location !== null").Should().BeTrue();
+        fixture.Bool("document.location === null").Should().BeTrue();
+        // WebIDL's [PutForwards=href] setter raises TypeError when there is no Location.
         fixture.Text(
             "(() => { const d = new Document(); try { d.location = '/x' } catch (e) { return e.constructor.name } return 'no throw' })()")
             .Should().Be("TypeError");
+    }
+
+    [Test]
+    public async Task AShowingDocumentKeepsItsLocation()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Page);
+        (await page.EvaluateAsync<bool>("document.location !== null && document.location === location"))
+            .Should().BeTrue();
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]

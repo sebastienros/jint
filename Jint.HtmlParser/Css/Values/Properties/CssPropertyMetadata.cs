@@ -9,8 +9,12 @@ internal enum CssDeclarationContext
 internal enum CssPropertyGrammar
 {
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
-    Sizing, FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
-    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color
+    Sizing, MinSizing, MaxSizing, Margin, MarginSide, Padding, PaddingSide,
+    FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
+    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
+    WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
+    TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
+    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -42,7 +46,7 @@ internal static class CssPropertyRegistry
             }
         });
         work?.CheckCancellation();
-        return result;
+        return CssPropertyEffects.Canonical(result);
     }
 
     private readonly record struct NameNormalization(string Name, CssValueWork? Work);
@@ -71,12 +75,45 @@ internal static class CssPropertyRegistry
         // Sizing 3 §3.1, Flexbox 1 §§5/7, Alignment 3 §§6/7, Writing Modes 3 §2.1.
         Add("width", CssPropertyGrammar.Sizing, "auto");
         Add("height", CssPropertyGrammar.Sizing, "auto");
+        // Box 4 §§3/4; Sizing 3 §§3.1.2/3.1.3. Physical properties only.
+        Add("min-width", CssPropertyGrammar.MinSizing, "auto");
+        Add("min-height", CssPropertyGrammar.MinSizing, "auto");
+        Add("max-width", CssPropertyGrammar.MaxSizing, "none");
+        Add("max-height", CssPropertyGrammar.MaxSizing, "none");
+        foreach (var side in new[] { "top", "right", "bottom", "left" })
+        {
+            Add("margin-" + side, CssPropertyGrammar.MarginSide, "0px");
+            Add("padding-" + side, CssPropertyGrammar.PaddingSide, "0px");
+        }
+        Shorthand("margin", CssPropertyGrammar.Margin, "0px", ["margin-top", "margin-right", "margin-bottom", "margin-left"]);
+        Shorthand("padding", CssPropertyGrammar.Padding, "0px", ["padding-top", "padding-right", "padding-bottom", "padding-left"]);
         Add("flex-basis", CssPropertyGrammar.FlexBasis, "auto");
         Add("flex-grow", CssPropertyGrammar.FlexFactor, "0");
         Add("flex-shrink", CssPropertyGrammar.FlexFactor, "1");
         Add("flex-direction", CssPropertyGrammar.FlexDirection, "row");
         Add("flex-wrap", CssPropertyGrammar.FlexWrap, "nowrap");
         Add("direction", CssPropertyGrammar.Direction, "ltr", true);
+        // CSS Fonts 4 §2.2. Descriptors remain a separate context obligation.
+        Add("font-weight", CssPropertyGrammar.FontWeight, "normal", true);
+        // CSS Fonts 4 §2.5; the host initial font size supplies medium at computation.
+        Add("font-size", CssPropertyGrammar.FontSize, "medium", true);
+        // CSS Text 4 §§7.1/7.3/7.4: text-align resets both inherited longhands.
+        Add("text-align-all", CssPropertyGrammar.TextAlignAll, "start", true);
+        Add("text-align-last", CssPropertyGrammar.TextAlignLast, "auto", true);
+        Shorthand("text-align", CssPropertyGrammar.TextAlign, "start", ["text-align-all", "text-align-last"]);
+        // Text Decoration 4 §§2.1–2.6. Decoration propagation is independent of inheritance.
+        Add("text-decoration-line", CssPropertyGrammar.TextDecorationLine, "none");
+        Add("text-decoration-thickness", CssPropertyGrammar.TextDecorationThickness, "auto");
+        Add("text-decoration-style", CssPropertyGrammar.TextDecorationStyle, "solid");
+        Add("text-decoration-color", CssPropertyGrammar.Color, "currentcolor");
+        Shorthand("text-decoration", CssPropertyGrammar.TextDecoration, "none auto solid currentcolor",
+            ["text-decoration-line", "text-decoration-thickness", "text-decoration-style", "text-decoration-color"]);
+        // CSS Transforms 2 §5 and §12; Transforms 1 §6.
+        Add("translate", CssPropertyGrammar.Translate, "none");
+        Add("rotate", CssPropertyGrammar.Rotate, "none");
+        Add("scale", CssPropertyGrammar.Scale, "none");
+        Add("transform", CssPropertyGrammar.TransformList, "none");
+        Add("transform-box", CssPropertyGrammar.TransformBox, "view-box");
         Add("align-items", CssPropertyGrammar.AlignItems, "normal");
         Add("align-self", CssPropertyGrammar.AlignSelf, "auto");
         Add("justify-items", CssPropertyGrammar.JustifyItems, "legacy");
@@ -85,6 +122,12 @@ internal static class CssPropertyRegistry
         Shorthand("flex-flow", CssPropertyGrammar.FlexFlow, "row nowrap", ["flex-direction", "flex-wrap"]);
         Shorthand("place-items", CssPropertyGrammar.PlaceItems, "normal legacy", ["align-items", "justify-items"]);
         Shorthand("place-self", CssPropertyGrammar.PlaceSelf, "auto", ["align-self", "justify-self"]);
+        // CSS Text 4 §§3–5.1. Grammar/computed values only, independent of layout.
+        Add("white-space-collapse", CssPropertyGrammar.WhiteSpaceCollapse, "collapse", true);
+        Add("text-wrap-mode", CssPropertyGrammar.TextWrapMode, "wrap", true);
+        Add("white-space-trim", CssPropertyGrammar.WhiteSpaceTrim, "none");
+        Shorthand("white-space", CssPropertyGrammar.WhiteSpace, "normal",
+            ["white-space-collapse", "text-wrap-mode", "white-space-trim"]);
         return new System.Collections.ObjectModel.ReadOnlyDictionary<string, CssPropertyMetadata>(entries);
 
         void Shorthand(string name, CssPropertyGrammar grammar, string initial, string[] longhands) =>

@@ -1,8 +1,8 @@
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.Events;
 
@@ -21,7 +21,7 @@ namespace Jint.Browser.Dom.Views;
 /// (<see cref="XPathEvaluation"/> says why). Everything else in this folder is a <em>view</em> onto the DOM
 /// that AngleSharp does have and that the generator already emits: <c>Range</c>, <c>TreeWalker</c> and
 /// <c>NodeIterator</c> are generated, and only the members whose signatures the conversion table could not
-/// cross arrive from <c>overrides.json</c>'s additions. <see cref="DomTreeWalker"/> is the one exception in
+/// cross arrive from <c>overrides.json</c>'s additions. <see cref="Jint.HtmlParser.DomTreeWalker"/> is the one exception in
 /// the other direction — the <em>shape</em> is still generated, and only the walk behind it is this
 /// package's, because AngleSharp's does not terminate.
 /// </para>
@@ -42,12 +42,6 @@ internal static class ViewInstaller
     private static readonly JsObjectShape _xPathExpression = BuildXPathExpressionShape();
     private static readonly JsObjectShape _xPathResult = BuildXPathResultShape();
     private static readonly JsObjectShape _cssNamespace = BuildCssNamespaceShape();
-
-    /// <summary>
-    /// The configuration a <c>DOMParser</c> document is parsed with: the CSS services, so that
-    /// <c>element.style</c> answers on the result, and nothing else — no requester, no scripting.
-    /// </summary>
-    internal static IConfiguration ParserConfiguration { get; } = CaseSensitiveSvgFactory.Configure(Configuration.Default.WithCss());
 
     /// <summary>Installs the globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
     internal static void Install(PageRuntime runtime)
@@ -182,7 +176,12 @@ internal static class ViewInstaller
     private static JsObjectShape BuildCssNamespaceShape() => new JsObjectShape.Builder()
         .ToStringTag("CSS")
         .Method("escape", static (_, args) => JsCssNamespace.Escape(args), length: 1)
-        .Method("supports", static (_, args) => JsCssNamespace.Supports(args), length: 1)
+        .PerRealmSlot("supports", static owner =>
+        {
+            var realm = DomRealm.Of(owner.Engine, owner.CreationRealm);
+            return new ClrFunction(owner.Engine, realm.OwningRealm, "supports",
+                (_, args) => JsCssNamespace.Supports(realm, args), 1);
+        }, enumerable: true)
         .Build();
 
     /// <summary>https://w3c.github.io/geolocation/#geolocation_interface</summary>

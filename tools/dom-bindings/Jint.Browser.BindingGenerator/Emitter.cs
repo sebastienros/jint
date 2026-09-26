@@ -70,8 +70,8 @@ internal sealed class Emitter
 
         foreach (var model in _model.Interfaces)
         {
-            builder.Append("    /// <summary>The <c>").Append(model.DomName).Append("</c> interface, projected from <c>")
-                .Append(model.ClrTypeName).Append("</c>.</summary>\n")
+            builder.Append("    /// <summary>The <c>").Append(System.Security.SecurityElement.Escape(model.DomName)).Append("</c> interface, projected from <c>")
+                .Append(System.Security.SecurityElement.Escape(model.ClrTypeName)).Append("</c>.</summary>\n")
                 .Append("    internal static readonly DomInterfaceDefinition ").Append(model.FieldName).Append(";\n\n");
         }
 
@@ -156,9 +156,9 @@ internal sealed class Emitter
     {
         var builder = new StringBuilder(Header);
 
-        // AngleSharp and AngleSharp.Css both declare an AngleSharp.Dom.ElementExtensions, so a member that
-        // AngleSharp spells as an extension method is called in extension form and the namespace comes in
-        // here — naming either class by its full name is CS0433 whichever one is meant.
+        // Imports belong to the member bodies in the explicit contract. Native bodies use qualified
+        // helpers and need no legacy extension namespaces. The optional metadata extractor still records
+        // extension imports to disambiguate the pinned assemblies' identically named extension classes.
         foreach (var extensionNamespace in _model.ExtensionNamespaces)
         {
             builder.Append("using ").Append(extensionNamespace).Append(";\n");
@@ -406,14 +406,14 @@ internal sealed class Emitter
             builder.Append("        _ => global::Jint.Native.JsString.Create(value.ToString()),\n    };\n\n");
 
             builder.Append("    internal static ").Append(model.ClrFullName).Append(" To").Append(model.HelperName)
-                .Append("(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch\n    {\n");
+                .Append("(global::Jint.Native.JsValue value, string member)\n    {\n        var text = global::Jint.Runtime.TypeConverter.ToString(value);\n        return text switch\n        {\n");
 
             foreach (var (field, literal) in model.Values)
             {
                 builder.Append("        ").Append(CSharpNames.Literal(literal)).Append(" => ").Append(model.ClrFullName).Append('.').Append(field).Append(",\n");
             }
 
-            builder.Append("        _ => DomConvert.BadEnumValue<").Append(model.ClrFullName).Append(">(value, member),\n    };\n");
+            builder.Append("        _ => DomConvert.BadEnumValue<").Append(model.ClrFullName).Append(">(value, text, member),\n        };\n    }\n");
         }
 
         builder.Append("}\n");

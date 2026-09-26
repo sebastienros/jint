@@ -129,7 +129,7 @@ public sealed class CssMediaRuleTests
         var view = sheet.Rules;
         var old = (CssMediaRule) view[0];
         var before = sheet.Stamp;
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.ReplaceText("@media screen { @supports (x:y) {} }"));
+        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.ReplaceText("@media screen { @container (width > 1px) {} }"));
         sheet.Stamp.Should().Be(before);
         view[0].Should().BeSameAs(old);
         sheet.ReplaceText("b {}");

@@ -1,7 +1,6 @@
 ﻿using System.Net.Http;
 using System.Runtime.ExceptionServices;
 using System.Text;
-using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Fetch;
@@ -125,7 +124,7 @@ public sealed partial class Page
         var captured = await _loop.PostAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine);
-            if (runtime?.Document?.QuerySelector(selector) is not IHtmlFormElement form)
+            if (runtime?.Document is not { } document || Dom.DomSelectors.QuerySelector(runtime.Dom, document, selector) is not Jint.HtmlParser.Element { NamespaceUri: Jint.HtmlParser.Namespaces.Html, LocalName: "form" } form)
             {
                 return null;
             }
@@ -486,6 +485,7 @@ public sealed partial class Page
 
         try
         {
+            var creator = await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(url))).ConfigureAwait(false);
             var loaderId = NextLoaderId();
             _observer?.NavigationStarted(url, loaderId);
 
@@ -498,7 +498,7 @@ public sealed partial class Page
 
             await _loop.PostAsync(engine => Commit(
                 engine,
-                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId))).ConfigureAwait(false);
+                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId, Creator: creator))).ConfigureAwait(false);
         }
         finally
         {
@@ -563,6 +563,7 @@ public sealed partial class Page
         }
 
         var href = target.Serialize();
+        var creator = await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(href))).ConfigureAwait(false);
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL equal to the
         // current one with fragments excluded, and whose own fragment is non-null, keeps the document, the
@@ -627,7 +628,8 @@ public sealed partial class Page
                 // Reload also forces a new document for POST and history traversal; those retain their own navigation types.
                 NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
                 RedirectCount: redirectCount,
-                ContentType: contentType)));
+                ContentType: contentType,
+                Creator: creator)));
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -755,7 +757,7 @@ public sealed partial class Page
         var runtime = PageRuntime.Find(engine)!;
         runtime.NavigationType = request.NavigationType;
         runtime.NavigationRedirectCount = request.RedirectCount;
-        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType);
+        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType, request.Creator);
 
         if (history == HistoryMode.Traverse)
         {
@@ -817,12 +819,18 @@ public sealed partial class Page
         string referrer,
         Action<NavigationPhase>? onPhase,
         string loaderId,
-        string contentType = Dom.DomContentType.Html)
+        string contentType = Dom.DomContentType.Html,
+        DocumentCreationFacts? creator = null)
     {
         // The previous document goes first, and the page describes nothing until the new one exists. The
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
         // that throws leaves a page with no document rather than one describing a document that is gone.
         var previous = _load;
+        // Header order matters. This preference belongs only to the response's new document.
+        var defaultStyle = response?.Headers.LastOrDefault(header =>
+            string.Equals(header.Name, "default-style", StringComparison.OrdinalIgnoreCase)).Value;
+        var creationOrigin = Dom.DomDocumentOrigin.InheritsCreator(url)
+            ? creator?.Origin ?? Dom.DomDocumentOrigin.Opaque() : Dom.DomDocumentOrigin.FromUrl(url);
         _load = null;
         _url = url;
         _referrer = referrer;
@@ -833,6 +841,8 @@ public sealed partial class Page
         var runtime = PageRuntime.Find(engine)!;
         runtime.DocumentUrl = url;
         runtime.Referrer = referrer;
+        runtime.DocumentCreationOrigin = creationOrigin;
+        runtime.DocumentCreationBaseUrl = Dom.DomDocumentOrigin.InheritsCreator(url) ? creator?.BaseUrl : null;
         _loaderId = loaderId;
         CancelNetworkIdle();
 
@@ -856,14 +866,16 @@ public sealed partial class Page
             {
                 Reached(runtime, phase, loaderId);
                 onPhase?.Invoke(phase);
-            });
+            }, Dom.DomDocumentMetadata.ParseLastModified(response?.Header("last-modified")), defaultStyle);
 
             _load = load;
-            _mainFrame = Frame.Build(this, load.Document, url);
+            _mainFrame = Frame.Build(this, runtime, load.Document, url);
             return null;
         }
         finally
         {
+            runtime.DocumentCreationOrigin = null;
+            runtime.DocumentCreationBaseUrl = null;
             _observer?.DocumentLoadFinished();
         }
     }
@@ -893,7 +905,7 @@ public sealed partial class Page
         }
 
         observer.Phase(phase, loaderId);
-        ReportTitle(runtime.Document?.Title ?? "");
+        ReportTitle(Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document));
 
         if (phase == NavigationPhase.Loaded)
         {
@@ -931,6 +943,7 @@ public sealed partial class Page
 
         _url = url;
         runtime.DocumentUrl = url;
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
         SignalNavigation();
         _observer?.SameDocumentNavigated(url, _loaderId);
 
@@ -952,6 +965,7 @@ public sealed partial class Page
         var url = _history.Current?.Url ?? previous;
         _url = url;
         runtime.DocumentUrl = url;
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
         SignalNavigation();
         _observer?.SameDocumentNavigated(url, _loaderId);
 
@@ -1122,6 +1136,15 @@ public sealed partial class Page
         string? InlineContent = null,
         Exception? PreflightFailure = null);
 
+    private DocumentCreationFacts CreationFactsOf(Engine engine, bool includeBaseUrl)
+        => _load is { } load
+            ? new DocumentCreationFacts(Dom.DomDocumentState.Of(load.Document).Origin,
+                includeBaseUrl ? Dom.DomDocumentState.BaseUri(load.Document, engine.Constraints.Check,
+                    PageRuntime.Find(engine)!.Cancellation?.Token ?? CancellationToken.None) : null)
+            : new DocumentCreationFacts(Dom.DomDocumentOrigin.Opaque(), null);
+
+    private sealed record DocumentCreationFacts(Dom.DomDocumentOrigin Origin, string? BaseUrl);
+
     /// <summary>What the loop is handed once the document's bytes are in.</summary>
     private sealed record CommitRequest(
         string Url,
@@ -1134,7 +1157,8 @@ public sealed partial class Page
         string LoaderId,
         int NavigationType = 0,
         int RedirectCount = 0,
-        string ContentType = Dom.DomContentType.Html);
+        string ContentType = Dom.DomContentType.Html,
+        DocumentCreationFacts? Creator = null);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

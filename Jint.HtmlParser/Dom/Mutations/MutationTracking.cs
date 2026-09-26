@@ -16,8 +16,10 @@ internal static class MutationTracking
         }
 
         MutationMatches? matches = null;
+        Node root = target;
         for (var ancestor = target; ancestor is not null; ancestor = ancestor.ParentNode)
         {
+            root = ancestor;
             if (ancestor.MutationRegistrations is not { } registrations)
             {
                 continue;
@@ -34,8 +36,21 @@ internal static class MutationTracking
 
                 (matches ??= new MutationMatches()).Add(entry.Registration.Subscription,
                     kind == MutationRecordKind.Attributes && options.AttributeOldValue ||
-                    kind == MutationRecordKind.CharacterData && options.CharacterDataOldValue);
+                    kind == MutationRecordKind.CharacterData && options.CharacterDataOldValue,
+                    kind == MutationRecordKind.ChildList && entry.Registration.Subscription.CaptureHtmlMetaInsertions);
             }
+        }
+
+        if (kind == MutationRecordKind.ChildList && matches is not null)
+        {
+            // Reuse the observer match's ordinary ancestor walk. Resolve only a
+            // shadow root's host chain, without widening observer matching across it.
+            while (root is ShadowRoot shadow)
+            {
+                root = shadow.Host;
+                while (root.ParentNode is { } parent) root = parent;
+            }
+            matches.TargetWasConnected = root is Document;
         }
 
         return matches;
@@ -71,7 +86,8 @@ internal static class MutationTracking
     }
 
     internal static void QueueChildList(Node target, Node? added, Node? removed,
-        Node? previousSibling, Node? nextSibling, MutationMatches? matches = null)
+        Node? previousSibling, Node? nextSibling, MutationMatches? matches = null,
+        IReadOnlyList<HtmlMetaInsertion>? htmlMetaInsertions = null)
     {
         matches ??= Match(target, MutationRecordKind.ChildList);
         if (matches is null)
@@ -81,11 +97,12 @@ internal static class MutationTracking
 
         var addedNodes = added is null ? MutationRecord.EmptyNodes : SnapshotSingle(added);
         var removedNodes = removed is null ? MutationRecord.EmptyNodes : SnapshotSingle(removed);
-        EmitChildList(target, addedNodes, removedNodes, previousSibling, nextSibling, matches);
+        EmitChildList(target, addedNodes, removedNodes, previousSibling, nextSibling, matches, htmlMetaInsertions);
     }
 
     internal static void QueueChildList(Node target, IReadOnlyList<Node>? added, IReadOnlyList<Node>? removed,
-        Node? previousSibling, Node? nextSibling, MutationMatches? matches = null)
+        Node? previousSibling, Node? nextSibling, MutationMatches? matches = null,
+        IReadOnlyList<HtmlMetaInsertion>? htmlMetaInsertions = null)
     {
         matches ??= Match(target, MutationRecordKind.ChildList);
         if (matches is null)
@@ -95,7 +112,7 @@ internal static class MutationTracking
 
         var addedNodes = Snapshot(added);
         var removedNodes = Snapshot(removed);
-        EmitChildList(target, addedNodes, removedNodes, previousSibling, nextSibling, matches);
+        EmitChildList(target, addedNodes, removedNodes, previousSibling, nextSibling, matches, htmlMetaInsertions);
     }
 
     internal static void QueueAttribute(Element target, Attr attribute,
@@ -112,13 +129,17 @@ internal static class MutationTracking
         var qualifiedName = attribute.Name;
         var previousQualifiedName = replaced is not null && !string.Equals(replaced.Prefix, attribute.Prefix, StringComparison.Ordinal)
             ? replaced.Name : null;
+        // Notification invokes a trusted pending callback. Freeze the transition before the first
+        // subscription can reenter and change or remove the attribute for later subscriptions.
+        var newValue = ReferenceEquals(attribute.OwnerElement, target) ? attribute.Value : null;
         foreach (var entry in matches.Entries)
         {
-            entry.Subscription.Queue(new MutationRecord(MutationRecordKind.Attributes, target,
+            entry.Subscription.Enqueue(new MutationRecord(MutationRecordKind.Attributes, target,
                 attributeName: attribute.LocalName, attributeNamespace: attribute.NamespaceUri,
                 oldValue: entry.OldValue ? oldValue : null, attributeQualifiedName: qualifiedName,
-                attributePreviousQualifiedName: previousQualifiedName));
+                attributePreviousQualifiedName: previousQualifiedName, attributeNewValue: newValue));
         }
+        Notify(matches);
     }
 
     internal static void QueueCharacterData(Node target, string? oldValue, MutationMatches? matches = null)
@@ -131,9 +152,10 @@ internal static class MutationTracking
 
         foreach (var entry in matches.Entries)
         {
-            entry.Subscription.Queue(new MutationRecord(MutationRecordKind.CharacterData, target,
+            entry.Subscription.Enqueue(new MutationRecord(MutationRecordKind.CharacterData, target,
                 oldValue: entry.OldValue ? oldValue : null));
         }
+        Notify(matches);
     }
 
     private static ReadOnlyCollection<Node> SnapshotSingle(Node node) => Array.AsReadOnly(new[] { node });
@@ -155,13 +177,24 @@ internal static class MutationTracking
     }
 
     private static void EmitChildList(Node target, IReadOnlyList<Node> added, IReadOnlyList<Node> removed,
-        Node? previousSibling, Node? nextSibling, MutationMatches matches)
+        Node? previousSibling, Node? nextSibling, MutationMatches matches, IReadOnlyList<HtmlMetaInsertion>? htmlMetaInsertions)
     {
         foreach (var entry in matches.Entries)
         {
-            entry.Subscription.Queue(new MutationRecord(MutationRecordKind.ChildList, target,
-                added, removed, previousSibling, nextSibling));
+            entry.Subscription.Enqueue(new MutationRecord(MutationRecordKind.ChildList, target,
+                added, removed, previousSibling, nextSibling, targetWasConnected: matches.TargetWasConnected,
+                htmlMetaInsertions: entry.CaptureHtmlMetaInsertions ? htmlMetaInsertions : null));
         }
+        Notify(matches);
+    }
+
+    private static void Notify(MutationMatches matches)
+    {
+        // DOM §4.3.2 queues each interested observer's record before scheduling delivery.
+        // Reuse the captured matches so reentrant notifications cannot reorder the outer
+        // record behind nested records in a later subscription. Host exceptions still
+        // propagate immediately and stop subsequent signals; all records are already queued.
+        for (var i = 0; i < matches.Entries.Count; i++) matches.Entries[i].Subscription.NotifyIfPending();
     }
 }
 
@@ -170,25 +203,27 @@ internal sealed class MutationMatches
     private readonly List<MutationMatch> _entries = [];
     internal IReadOnlyList<MutationMatch> Entries => _entries;
     internal bool NeedsOldValue { get; private set; }
+    internal bool CaptureHtmlMetaInsertions { get; private set; }
+    internal bool TargetWasConnected { get; set; }
 
-    internal void Add(MutationSubscription subscription, bool oldValue)
+    internal void Add(MutationSubscription subscription, bool oldValue, bool captureHtmlMetaInsertions)
     {
         NeedsOldValue |= oldValue;
+        CaptureHtmlMetaInsertions |= captureHtmlMetaInsertions;
         for (var i = 0; i < _entries.Count; i++)
         {
             if (ReferenceEquals(_entries[i].Subscription, subscription))
             {
-                if (oldValue)
-                {
-                    _entries[i] = new MutationMatch(subscription, true);
-                }
+                var existing = _entries[i];
+                _entries[i] = new MutationMatch(subscription, existing.OldValue || oldValue,
+                    existing.CaptureHtmlMetaInsertions || captureHtmlMetaInsertions);
 
                 return;
             }
         }
 
-        _entries.Add(new MutationMatch(subscription, oldValue));
+        _entries.Add(new MutationMatch(subscription, oldValue, captureHtmlMetaInsertions));
     }
 }
 
-internal readonly record struct MutationMatch(MutationSubscription Subscription, bool OldValue);
+internal readonly record struct MutationMatch(MutationSubscription Subscription, bool OldValue, bool CaptureHtmlMetaInsertions);

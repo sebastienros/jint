@@ -181,6 +181,7 @@ internal sealed partial class HtmlTreeBuilder
         // budget, so a long chain yields without an arbitrary pass limit.
         while (true)
         {
+            if (HasCompletedStyles) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             if (_templateOperation is not null)
             {
                 if (!AdvanceTemplateOperation()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
@@ -211,7 +212,8 @@ internal sealed partial class HtmlTreeBuilder
             }
             if (_pendingPopTarget >= 0)
             {
-                while (_open.Count > _pendingPopTarget && _remaining > 0) Pop();
+                while (_open.Count > _pendingPopTarget && _remaining > 0 && !HasCompletedStyles) Pop();
+                if (HasCompletedStyles) return new HtmlParseStep(HtmlParseStepKind.Yielded);
                 if (_open.Count > _pendingPopTarget) return new HtmlParseStep(HtmlParseStepKind.Yielded);
                 if (_clearFormattingAfterPop)
                 {
@@ -491,6 +493,7 @@ internal sealed partial class HtmlTreeBuilder
             HtmlSelectedContent.MaybeCloneOption(element, _cancellationToken);
             _cancellationToken.ThrowIfCancellationRequested();
         }
+        CompleteStyle(element);
         return element;
     }
 

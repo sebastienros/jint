@@ -40,6 +40,10 @@
     <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Explicit controls for native parser comparisons; these never enter production packages. -->
+    <PackageReference Include="AngleSharp" PrivateAssets="all" />
+    <PackageReference Include="AngleSharp.Css" PrivateAssets="all" />
+    <PackageReference Include="AngleSharp.Xml" PrivateAssets="all" />
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Microsoft.ClearScript.V8" />
     <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x64" />

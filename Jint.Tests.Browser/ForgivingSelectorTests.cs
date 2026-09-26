@@ -1,5 +1,5 @@
-using AngleSharp;
-using AngleSharp.Css.Parser;
+using Jint.HtmlParser.Css;
+using Jint.HtmlParser.Css.Selectors;
 using Jint.Browser.Dom;
 
 namespace Jint.Tests.Browser;
@@ -113,22 +113,20 @@ public sealed class ForgivingSelectorTests
     [TestCase(":is([title='a\\\nb'])")]
     public void NativeValidBranchSourceAndSpecificityArePreserved(string selector)
     {
-        using var fixture = DomTestFixture.Create("<p></p>");
-        var normalized = DomForgivingSelectors.Normalize(fixture.Document, selector);
-        normalized.Should().Be(selector);
-        var parser = fixture.Document.Context.GetService<ICssSelectorParser>()!;
-        parser.ParseSelector(normalized)!.Specificity.Should().Be(parser.ParseSelector(selector)!.Specificity);
-        // This exercises branch filtering directly. DOM entry points normalize string continuations
-        // in DomSelectorText first; SelectorStringContinuationTests covers that value correction.
+        using var fixture = DomTestFixture.Create("<p id='target' class='a,b' title='ab'></p>");
+        SelectorCompiler.Compile(selector, context: null, CancellationToken.None).MaximumSpecificity.Should().Be(new SelectorSpecificity(0, 1, 0));
+        fixture.Engine.SetValue("selector", selector);
+        fixture.Text("document.querySelector(selector)?.id").Should().Be("target");
     }
 
     [TestCase("\n")]
     [TestCase("\r\n")]
     public void EscapedNewlinesInStringsDoNotInventFunctionBoundaries(string newline)
     {
-        using var fixture = DomTestFixture.Create("<p></p>");
+        using var fixture = DomTestFixture.Create("<p id='target' title='a:is(p),b'></p>");
         var selector = "[title='a\\" + newline + ":is(p),b']";
-        DomForgivingSelectors.Normalize(fixture.Document, selector).Should().Be(selector);
+        fixture.Engine.SetValue("selector", selector);
+        fixture.Text("document.querySelector(selector)?.id").Should().Be("target");
     }
 
 }

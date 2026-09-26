@@ -16,7 +16,8 @@ public sealed class MutationRecord
     internal MutationRecord(MutationRecordKind kind, Node target, IReadOnlyList<Node>? addedNodes = null,
         IReadOnlyList<Node>? removedNodes = null, Node? previousSibling = null, Node? nextSibling = null,
         string? attributeName = null, string? attributeNamespace = null, string? oldValue = null,
-        string? attributeQualifiedName = null, string? attributePreviousQualifiedName = null)
+        bool targetWasConnected = false, string? attributeQualifiedName = null,
+        string? attributePreviousQualifiedName = null, string? attributeNewValue = null, IReadOnlyList<HtmlMetaInsertion>? htmlMetaInsertions = null)
     {
         Kind = kind;
         Target = target;
@@ -28,7 +29,10 @@ public sealed class MutationRecord
         AttributeNamespace = attributeNamespace;
         AttributeQualifiedName = attributeQualifiedName;
         AttributePreviousQualifiedName = attributePreviousQualifiedName;
+        AttributeNewValue = attributeNewValue;
+        HtmlMetaInsertions = htmlMetaInsertions ?? Array.Empty<HtmlMetaInsertion>();
         OldValue = oldValue;
+        TargetWasConnected = targetWasConnected;
     }
 
     public MutationRecordKind Kind { get; }
@@ -41,7 +45,14 @@ public sealed class MutationRecord
     public string? AttributeNamespace { get; }
     public string? OldValue { get; }
 
+    // Trusted host lifecycle signal at the mutation's original match point.
+    // It is not a public MutationObserver field and never reads today's tree.
+    internal bool TargetWasConnected { get; }
     // Immutable host metadata for qualified-name protocols; DOM attributeName remains localName.
     internal string? AttributeQualifiedName { get; }
     internal string? AttributePreviousQualifiedName { get; }
+    // The actual value at this transition, or null for removal; never today's attribute lookup.
+    // Internal host history only, not a public MutationObserver field.
+    internal string? AttributeNewValue { get; }
+    internal IReadOnlyList<HtmlMetaInsertion> HtmlMetaInsertions { get; }
 }

@@ -1,5 +1,8 @@
 namespace Jint.HtmlParser.Css.Media;
 
+[Flags]
+internal enum CssPointerCapabilities { Unknown = 0, None = 1, Coarse = 2, Fine = 4 }
+
 // Snapshot supplied by the host; evaluation never calls out or retains a document/device service.
 internal sealed record CssMediaEnvironment
 {
@@ -14,6 +17,10 @@ internal sealed record CssMediaEnvironment
     internal bool Grid { get; init; }
     internal string Pointer { get; init; } = "fine";
     internal string Hover { get; init; } = "hover";
+    // MQ4 §7.3: all-input capabilities are independent of the primary input device.
+    internal CssPointerCapabilities AnyPointer { get; init; } = CssPointerCapabilities.Fine;
+    internal string AnyHover { get; init; } = "hover";
+    internal string DisplayMode { get; init; } = "browser";
     internal string ColorScheme { get; init; } = "light";
     internal string ReducedMotion { get; init; } = "no-preference";
     internal string ReducedTransparency { get; init; } = "no-preference";

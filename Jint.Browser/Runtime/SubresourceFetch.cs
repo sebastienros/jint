@@ -11,7 +11,10 @@ namespace Jint.Browser.Runtime;
 /// <param name="Url">The URL the resource ended up at, serialized without its fragment.</param>
 /// <param name="Fragment">The last hop's fragment: null when absent, empty when an explicit trailing <c>#</c>.</param>
 /// <param name="Status">The status of the final response.</param>
-internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status)
+/// <param name="LastModified">The final response's resource timestamp, when its header is valid.</param>
+/// <param name="DefaultStyle">The final response's preferred stylesheet set name, when supplied.</param>
+internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status,
+    DateTimeOffset? LastModified = null, string? DefaultStyle = null)
 {
     /// <summary>
     /// The body decoded as text, with the charset the response declared, then the caller's hint, then UTF-8.
@@ -160,10 +163,16 @@ internal static class SubresourceFetch
                 .SendForStreamAsync(client, snapshot, policy, cancellationToken, observation)
                 .ConfigureAwait(false);
 
+            // Freeze document metadata before observers or an awaited body can mutate a
+            // retained response. Each header sets the preference in order; the last wins,
+            // including an empty value. A comma inside a name is not a list separator.
+            var response = exchange.Response;
+            var defaultStyle = response.Headers.TryGetValues("Default-Style", out var styles)
+                ? styles.LastOrDefault() : null;
+
             // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
             observation?.FinalResponse(exchange);
 
-            var response = exchange.Response;
             var bytes = await ReadBoundedAsync(response, request.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
 
             // The body half of that same debt: a subresource reads its own bytes, so nothing else can hand
@@ -184,7 +193,8 @@ internal static class SubresourceFetch
                     "'" + final + "' answered " + status.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
             }
 
-            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status);
+            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status,
+                response.Content.Headers.LastModified, defaultStyle);
         }
         catch (SubresourceFetchException)
         {

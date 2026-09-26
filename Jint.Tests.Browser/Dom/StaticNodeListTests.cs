@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.Browser.Dom.Collections;
+using Jint.Browser.Accessibility;
 using Jint.Native;
 
 namespace Jint.Tests.Browser;
@@ -342,7 +343,7 @@ public sealed class StaticNodeListTests
             })();
             """);
 
-        var node = new WeakReference(fixture.Document.QuerySelector(".foo")!);
+        var node = new WeakReference(ContentDom.Descendants(fixture.Document).First(element => ContentDom.ClassNames(element).Contains("foo")));
         return (node, wrapper!, list!);
     }
 

@@ -64,15 +64,20 @@ public sealed class SelectorStringContinuationTests
         }
     }
 
-    [TestCase("p")]
-    [TestCase("[title='a\\62']")]
-    [TestCase("/* 'a\\\nb' */ p")]
-    [TestCase("[title='a\\\\\nb']")]
-    [TestCase("p\\\n[title='ab']")]
-    [TestCase("[title=a\\\nb]")]
-    [TestCase("[title='a\\\nb\nb']")]
-    public void OtherTokensAndBadStringsAreNotRewritten(string selector)
-        => DomSelectorText.NormalizeStringContinuations(selector).Should().BeSameAs(selector);
+    [TestCase("p", true)]
+    [TestCase("[title='a\\62']", true)]
+    [TestCase("/* 'a\\\nb' */ p", true)]
+    [TestCase("[title='a\\\\\nb']", false)]
+    [TestCase("p\\\n[title='ab']", false)]
+    [TestCase("[title=a\\\nb]", false)]
+    [TestCase("[title='a\\\nb\nb']", false)]
+    public void OtherTokensRemainValidAndBadStringsAreRejected(string selector, bool valid)
+    {
+        using var fixture = DomTestFixture.Create("<p title='ab'></p>");
+        fixture.Engine.SetValue("selector", selector);
+        fixture.Text("try { String(document.querySelectorAll(selector).length); } catch (e) { e.name; }")
+            .Should().Be(valid ? "1" : "SyntaxError");
+    }
 
     [TestCase("\n")]
     [TestCase("\r")]

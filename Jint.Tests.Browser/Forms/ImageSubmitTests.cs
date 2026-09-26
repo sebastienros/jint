@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AngleSharp.Html.Dom;
 using Jint.Browser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
@@ -30,7 +29,7 @@ public sealed class ImageSubmitTests
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var input = (IHtmlInputElement) runtime.Document!.GetElementById("image")!;
+            var input = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "image")!;
             var box = runtime.Layout.Current().ClientBoxOf(input)!.Value;
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
                 MouseInputKind.Released, box.X + x, box.Y + y, 0, 0, 1, EventModifiers.None, 0, 0));
@@ -78,7 +77,7 @@ public sealed class ImageSubmitTests
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var input = (IHtmlInputElement) runtime.Document!.GetElementById("image")!;
+            var input = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "image")!;
             var box = runtime.Layout.Current().ClientBoxOf(input)!.Value;
             InputDispatcher.DispatchTouch(runtime, new TouchInput(
                 TouchInputKind.Start, [TouchPointInput.At(box.X + x, box.Y + y)], EventModifiers.None));
@@ -166,8 +165,8 @@ public sealed class ImageSubmitTests
         {
             var runtime = PageRuntime.Find(engine)!;
             var layout = runtime.Layout.Current();
-            var image = (IHtmlInputElement) runtime.Document!.GetElementById("image")!;
-            var elsewhere = runtime.Document.GetElementById("elsewhere")!;
+            var image = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "image")!;
+            var elsewhere = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "elsewhere")!;
             var from = layout.ClientBoxOf(image)!.Value;
             var to = layout.ClientBoxOf(elsewhere)!.Value;
 

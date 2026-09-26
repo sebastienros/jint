@@ -1,11 +1,8 @@
 using System.Net.Http;
 using Acornima;
 using Jint.Browser.Dom;
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
-using AngleSharp.Io;
-using AngleSharp.Scripting;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Html;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.Events;
@@ -15,41 +12,20 @@ using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser.Runtime.Parsing;
 
-/// <summary>
-/// One document's parse: AngleSharp tokenizing on a thread of its own, every script and every subresource it
-/// asks for served back on the page loop, and the load lifecycle fired at the end.
-/// </summary>
+/// <summary>One native parse, its script handoffs, subresource loads and load lifecycle.</summary>
 /// <remarks>
-/// <para>
-/// <b>The shape is the design's baton</b> (<c>docs/design/headless-browser.md</c> §6), and
-/// <see cref="ParserBaton"/> carries the argument for it. What this class adds is the script scheduling on
-/// top: HTML's <i>prepare a script element</i> as far as AngleSharp does not already implement it, the
-/// module half it does not implement at all, and the lifecycle events a page can actually hear.
-/// </para>
-/// <para>
-/// <b>Who runs what.</b> A classic script — inline, external, <c>defer</c> or <c>async</c> — is prepared and
-/// ordered by AngleSharp, which is what buys parser-blocking, document order, the deferred queue and the
-/// <c>document.write</c> insertion point for nothing. A module script, an import map and everything with an
-/// unknown type is invisible to AngleSharp, because <see cref="PageScriptingService.SupportsType"/> answers
-/// <see langword="false"/> for them, and this class runs the modules itself after the parse — which is where
-/// HTML puts them anyway, modules being deferred by definition.
-/// </para>
-/// <para>
-/// <b>The divergences this shape costs</b>, each of them a scheduling one rather than an ordering one:
-/// a <c>defer</c> or <c>async</c> script's <i>download</i> is not overlapped with the parse (see
-/// <see cref="PageResourceLoader"/>); an <c>async</c> script executes in document order at the end of the
-/// parse rather than the instant its fetch lands, because AngleSharp queues both kinds together; and a
-/// deferred classic script runs before a module script that precedes it in the document, because they are
-/// two queues rather than HTML's one.
-/// </para>
+/// HTML §13.2: tokenizer and script run on the page loop. Cooperative parser quotas check
+/// the page budget without pumping unrelated tasks. Parser-blocking resource waits use
+/// <see cref="ParserBaton"/>'s existing budgeted resource pump.
 /// </remarks>
-internal sealed class ParserDriver : IDisposable
+internal sealed partial class ParserDriver : IDisposable
 {
     private readonly PageRuntime _runtime;
     private readonly PageNetwork _network;
     private readonly PageNetworkRecorder _requests;
     private readonly HttpClient _client;
     private readonly ParserBaton _baton;
+    private readonly Engine.TaskOperations _resourceTasks;
     private readonly string _url;
     private readonly long _maxBytes;
     private readonly int _maxRedirects;
@@ -57,13 +33,16 @@ internal sealed class ParserDriver : IDisposable
     private readonly CancellationToken _cancellationToken;
 
     private bool _importMapRead;
-    private IHtmlScriptElement? _importMapElement;
-    private IBrowsingContext? _context;
+    private Element? _importMapElement;
+    private DomBrowsingContext? _context;
     private int _frameDocuments;
     private bool _tokenizing;
     private int _pendingResourceEvents;
     private TaskCompletionSource? _resourceEventsCompleted;
-    private Queue<(IElement Element, string Type, bool AfterParse)>? _deferredResourceEvents;
+    private Queue<(Element Element, string Type, bool AfterParse, Func<bool>? IsCurrent)>? _deferredResourceEvents;
+
+    // A supplied position can have an opaque (null) origin; omitted position uses the page default.
+    private readonly record struct FetchSource(UrlRecord? Referrer, UrlRecord? Origin);
 
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
@@ -76,6 +55,7 @@ internal sealed class ParserDriver : IDisposable
         _maxRedirects = runtime.Options.MaxRedirects;
         _timeout = runtime.Options.SubresourceTimeout;
         _cancellationToken = cancellationToken;
+        _resourceTasks = runtime.Engine.Tasks;
         _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
     }
 
@@ -93,147 +73,77 @@ internal sealed class ParserDriver : IDisposable
         string markup,
         string url,
         string contentType,
-        Action<NavigationPhase>? onPhase)
+        Action<NavigationPhase>? onPhase,
+        DateTimeOffset? lastModified = null,
+        string? defaultStyle = null)
     {
         using var construction = runtime.Layout.BeginMutation();
-        using var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
-        return driver.Run(markup, contentType, onPhase);
+        var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
+        runtime.Parser = driver;
+        runtime.Engine.Disposed += (_, _) => driver.Dispose();
+        try { return driver.Run(markup, contentType, onPhase, lastModified, defaultStyle); }
+        catch { driver.Dispose(); runtime.Parser = null; throw; }
     }
 
     /// <summary>Releases the baton, once the parse it served has finished.</summary>
-    public void Dispose() => _baton.Dispose();
-
-    private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase)
+    private bool _disposed;
+    public void Dispose()
     {
-        // WithCss registers the declaration factory `element.style`, the computed-style cascade and the
-        // styling service <link rel=stylesheet> needs; the resource loader is what makes AngleSharp ask for
-        // anything at all, and is therefore what makes the baton necessary. There is deliberately no
-        // WithDefaultLoader: every byte a document pulls goes through the page's own network position.
-        // The render device is what the cascade resolves a relative length and an `@media` rule against;
-        // without one AngleSharp.Css raises rather than answering for `width: 100%` (see PageRenderDevice).
-        // The attribute observers are the last of them: one answers a custom element's
-        // `attributeChangedCallback`, and one keeps file-input state aligned with type mutations. They run
-        // for every element of this document,
-        // attached or not, where a mutation record needs the element to be under the observed document
-        // and `el.setAttribute` before insertion is the commonest thing a component does. `.With` adds a
-        // service rather than replacing one, so AngleSharp's own observer keeps working.
-        var documents = new PageDocumentFactory();
-        var configuration = Dom.CaseSensitiveSvgFactory.Configure(Configuration.Default).MaterializeServices()
-            // Before WithXml, which reaches into whichever DefaultDocumentFactory the configuration holds
-            // and registers its creators on it: this one subclasses it, so WithXml finds it and this parse
-            // keeps every mapping AngleSharp contributes. PageDocumentFactory says what it then widens.
-            .WithOnly<AngleSharp.Dom.IDocumentFactory>(documents).MaterializeServices()
-            .WithCss().MaterializeServices()
-            // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
-            // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
-            // and disconnected clones can all match instead of the one HTML indicated element. The same
-            // factory also owns HTML §4.15's disabled state, which is what :enabled and :disabled ask
-            // about: AngleSharp reads the boolean `disabled` attribute's value rather than its presence on
-            // an optgroup or a fieldset, disables neither of those from the select or the outer fieldset
-            // above it, and gives a link a disabled state at all. HTML §4.16.3's :default is the same
-            // shape: AngleSharp calls every button in a form its default button and no checkbox or radio
-            // one at all. The same section's :open is a `return false` there and :closed is not registered
-            // at all, so a page spelling the latter got a SyntaxError out of every selector API. And its
-            // :valid, :invalid, :in-range and :out-of-range all read CheckValidity(), which folds
-            // §4.10.19.2's "barred from constraint validation" into the same false as a failing
-            // constraint, so a disabled control was :invalid and every fieldset was :valid. Three more
-            // read an attribute without asking whether it applies to the type state it is written on -
-            // :read-write, :placeholder-shown and, for a progress element, :indeterminate, whose radio
-            // button group rule is missing outright. And one pair is why the factory takes the runtime at
-            // all: :focus and :focus-within are AngleSharp's IElement.IsFocused, a flag nothing assigns, so
-            // they have to read the page's own focus - Events/FocusController, which is what
-            // document.activeElement and every focus event already answer from.
-            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime)).MaterializeServices()
-            // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
-            // content type is an XML MIME type is parsed by the XML parser, and without the creators
-            // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
-            // as `text/xml` came back as an *HTML* document with the text inside an `<html><body>` skeleton,
-            // so `documentElement.tagName` was `HTML` and every XML rule a page then asked about was the
-            // wrong document's. What it does *not* route is `application/xhtml+xml` and every other `+xml`
-            // type, which is what PageDocumentFactory widens. AngleSharp.Xml is referenced for `DOMParser`
-            // either way, so this costs a service registration and no dependency.
-            .WithXml().MaterializeServices()
-            // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — a document's language is the
-            // document's. AngleSharp resolves an element with no inherited language through
-            // `IBrowsingContext.GetCulture()`, which without this is whatever `CultureInfo.CurrentCulture`
-            // the host thread happens to carry: `:lang(en)` then matches an element that declared no
-            // language at all on an English machine and matches nothing on an invariant one, so a page's
-            // selectors answer differently on two machines running the same document. The engine's own
-            // culture is the page's — `Options.Culture`, which a host sets through `ConfigureEngine` and
-            // which itself defaults to the current culture, so nothing moves for an embedder who sets
-            // none — and it is what a document is parsed and matched against here.
-            .WithCulture(_runtime.Engine.Options.Culture)
-            .WithOnly<AngleSharp.Css.IStylingService>(new PageStylingService(this))
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var weak in _resourceWatchReferences) if (weak.TryGetTarget(out var watch)) watch.Subscription.Dispose();
+        foreach (var weak in _scriptSubscriptions) if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
+        _scriptSubscriptions.Clear();
+        _changedScripts.Clear();
+        _resourceWatches.Clear();
+        _resourceWatchReferences.Clear();
+        _pendingStyleCompletions.Clear();
+        ClearNativeRecovery();
+        _resourceRecords.Clear();
+        _candidateShadowHosts.Clear();
+        _baton.Dispose();
+    }
 
-            .With(new PageResourceLoader(this))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new FrameAttributeObserver(this))
-            .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new Dom.Files.FileInputAttributeObserver(_runtime));
-
-        // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled
-        // — the scripting service is simply not registered, which is how AngleSharp is told a document has
-        // scripting disabled: no <script> is prepared, and <noscript> parses as the markup it is rather than
-        // as text. Refusing each script instead would leave the document believing it could run one.
-        if (_runtime.ScriptingEnabled)
-        {
-            configuration = configuration.With(new PageScriptingService(this));
-        }
-
-        // After WithXml, because what it takes is the creator WithXml registered.
-        documents.ReadXmlWithTheXmlParser();
-
-        var context = BrowsingContext.New(configuration.MaterializeServices());
+    private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase,
+        DateTimeOffset? lastModified, string? defaultStyle)
+    {
+        var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html, contentType, new CustomElementRegistryIdentity(isScoped: false));
+        DomDocumentMetadata.Initialize(document, _runtime.DocumentCreationOrigin ?? DomDocumentOrigin.FromUrl(_url), lastModified);
+        DomDocumentState.Of(document).AboutBaseUrl = _runtime.DocumentCreationBaseUrl;
+        ApplyDefaultStyle(document, defaultStyle);
+        var context = new DomBrowsingContext(document);
         _context = context;
         _runtime.Dom.AssociateContext(context);
-        IDocument document;
-
+        _runtime.Document = document;
         try
         {
-            document = Parse(context, markup, contentType);
+            Parse(document, markup);
+            _runtime.Dom.RecordSubtree(document);
+            if (_runtime.Options.MaxDomNodes is var maxNodes and > 0 && Exceeds(document, maxNodes))
+            {
+                throw new NavigationFailedException(_url, "The document has more than the "
+                    + maxNodes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " nodes BrowserOptions.MaxDomNodes allows.");
+            }
+            onPhase?.Invoke(NavigationPhase.Committed);
+            FinishLoad(document, onPhase);
+            return new PageLoad(document, context, ScriptsRun);
         }
         catch
         {
-            // The context is this method's until a PageLoad owns it, so a parse that never produced one takes
-            // its context with it rather than leaving it to the collector.
-            (context as IDisposable)?.Dispose();
+            _runtime.Document = null;
+            context.Dispose();
             throw;
         }
+    }
 
-        _runtime.Document ??= document;
-        _runtime.Dom.AssociateDocument(document, associatedGlobal: true);
-        _runtime.Dom.RecordSubtree(document);
-
-        if (_runtime.Options.MaxDomNodes is var maxNodes and > 0 && Exceeds(document, maxNodes))
-        {
-            // Before the lifecycle events, so a document over the limit never gets DOMContentLoaded or load:
-            // there is nothing to show and the navigation says so. The parse itself cannot be stopped part
-            // way — AngleSharp owns it, and its scripts have already run — so this is the first moment the
-            // size is known.
-            _runtime.Document = null;
-            document.Dispose();
-            (context as IDisposable)?.Dispose();
-
-            throw new NavigationFailedException(
-                _url,
-                "The document has more than the "
-                + maxNodes.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " nodes BrowserOptions.MaxDomNodes allows.");
-        }
-
-        if (_baton.ParserHopped)
-        {
-            Report(
-                PageErrorKind.ScriptError,
-                "AngleSharp resumed the parse on another thread. The baton kept the DOM to one holder, but a "
-                + "step of the parse suspended where this driver expected none: see Jint.Browser/Runtime/AGENTS.md, "
-                + "'the parser driver'.",
-                _url);
-        }
-
-        onPhase?.Invoke(NavigationPhase.Committed);
-        FinishLoad(document, onPhase);
-        return new PageLoad(document, context, ScriptsRun);
+    // https://html.spec.whatwg.org/multipage/document-lifecycle.html#initialise-the-document-object
+    // Apply response metadata to this fresh document before it is published. No CSS is parsed.
+    private void ApplyDefaultStyle(Document document, string? defaultStyle)
+    {
+        if (defaultStyle is not null)
+            global::Jint.Browser.Styling.NativeCssStyleSheets.SetDefaultStyle(document, defaultStyle,
+                new global::Jint.HtmlParser.Css.Values.CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check));
     }
 
     /// <summary>
@@ -244,157 +154,40 @@ internal sealed class ParserDriver : IDisposable
     /// something a stranger wrote; and it stops at the first node past the limit rather than counting a tree
     /// whose whole point is to be too large.
     /// </remarks>
-    private static bool Exceeds(INode node, int limit)
+    private bool Exceeds(Node node, int limit)
     {
-        var pending = new Stack<INode>();
+        var pending = new Stack<Node>();
         pending.Push(node);
         var seen = 0;
 
+        var work = new DomReadWork(_runtime.Dom.NativeReadCheckpoint, _cancellationToken);
+        work.Check();
         while (pending.Count > 0)
         {
+            work.Step();
             var current = pending.Pop();
             if (++seen > limit)
             {
+                work.Check();
                 return true;
             }
 
-            foreach (var child in current.ChildNodes)
+            for (var child = current.FirstChild; child is not null; child = child.NextSibling)
             {
+                work.Step();
                 pending.Push(child);
             }
         }
 
+        work.Check();
         return false;
-    }
-
-    /// <summary>
-    /// Runs AngleSharp's parse on a thread of its own and serves it from the loop until it is finished.
-    /// </summary>
-    private IDocument Parse(IBrowsingContext context, string markup, string contentType)
-    {
-        var url = _url;
-        IDocument? document = null;
-        Exception? failure = null;
-
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                // The content type is stated rather than left to AngleSharp, which otherwise guesses one from
-                // the address: a document fetched from `/notes.txt` would be given AngleSharp's plain-text
-                // document factory and the markup below — already the plain-text wrapper the navigate rules
-                // asked for — would end up inside a second <pre>. It is the *navigate* rules' answer rather
-                // than the response's own: a text document arrives here as the `<pre>` skeleton HTML's read
-                // text produced and is therefore `text/html`, while an XML MIME type arrives as its own bytes
-                // and selects the XML parser through PageDocumentFactory. The charset is always utf-8 because
-                // the bytes were decoded before this method saw them, so a `<meta charset>` or an XML
-                // declaration naming another one must not be believed a second time.
-                document = context
-                    .OpenAsync(response => response
-                        .Content(markup)
-                        .Address(url)
-                        .Header(HeaderNames.ContentType, contentType + "; charset=utf-8"))
-                    .GetAwaiter()
-                    .GetResult();
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-            finally
-            {
-                completion.TrySetResult();
-            }
-        })
-        {
-            IsBackground = true,
-            Name = "Jint.Browser page parser",
-        };
-
-        thread.Start();
-        _tokenizing = true;
-
-        try
-        {
-            if (!_baton.Serve(completion.Task))
-            {
-                // The page is closing. The parser thread is a background one and its next hand-off
-                // fails, so there is nothing left to wait for and nothing to show.
-                throw new OperationCanceledException("The page was closed while its document was being parsed.");
-            }
-        }
-        finally
-        {
-            _tokenizing = false;
-        }
-
-        if (failure is not null)
-        {
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
-        }
-
-        return document!;
-    }
-
-    // ---------------------------------------------------------------------------------------------------
-    // What the parser asks for. Every one of these is called on the parser thread (or, for a script a
-    // running script inserted, on the loop itself) and answers only once the work is finished.
-    // ---------------------------------------------------------------------------------------------------
-
-    /// <summary>Fetches an external classic script's source, or answers <see langword="null"/> if it must not run.</summary>
-    internal IResponse? FetchScript(IHtmlScriptElement script, string url)
-    {
-        var handedOver = HandsOver;
-
-        return Serve(() =>
-        {
-            _runtime.Document ??= _context?.Active ?? script.Owner;
-            if (script.Owner is { } owner && IsFrameDocument(owner) && !CanRunFrame(owner))
-            {
-                RefuseFrameScript(url);
-                return null;
-            }
-
-            // https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element step 12: a
-            // classic script carrying `nomodule` is not run — and not fetched — by anything that supports
-            // module scripts, which this does.
-            if (script.HasAttribute("nomodule"))
-            {
-                return null;
-            }
-
-            return Fetch(url, script, "script", PageRequestKind.Script, handedOver);
-        });
-    }
-
-    /// <summary>Fetches an external style sheet so that AngleSharp.Css can parse it into the document.</summary>
-    /// <remarks>
-    /// A frame's style sheet is fetched like the page's own: the cascade is what
-    /// <c>getComputedStyle</c> and the box model read, and neither needs a realm. Only a script does.
-    /// </remarks>
-    internal IResponse? FetchStyleSheet(IHtmlLinkElement link, string url)
-    {
-        var handedOver = HandsOver;
-
-        return Serve(() =>
-        {
-            if (link.Owner is { } owner && !IsFrameDocument(owner))
-            {
-                _runtime.Document ??= owner;
-            }
-
-            _runtime.Layout.DisableReuse();
-            return Fetch(url, link, "stylesheet", PageRequestKind.Stylesheet, handedOver);
-        });
     }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/semantics.html#link-type-stylesheet — queue the resource
     /// event after processing the stylesheet, not when its bytes arrive.
     /// </summary>
-    internal void StyleSheetProcessed(IHtmlLinkElement link, Exception? error = null)
+    internal void StyleSheetProcessed(Element link, Exception? error = null)
     {
         Serve<object?>(() =>
         {
@@ -404,7 +197,7 @@ internal sealed class ParserDriver : IDisposable
             }
             else if (!_cancellationToken.IsCancellationRequested)
             {
-                FailSubresource(link, link.Href ?? _url, "The stylesheet could not be processed: " + error.Message);
+                FailSubresource(link, Attribute(link, "href") ?? _url, "The stylesheet could not be processed: " + error.Message);
             }
 
             return null;
@@ -444,38 +237,47 @@ internal sealed class ParserDriver : IDisposable
     /// really does wait for one, and <c>AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet</c>
     /// pins that its <c>load</c> arrives while it does.
     /// </param>
-    private void QueueResourceEvent(IElement element, string type, bool afterParse)
+    /// <param name="isCurrent">Whether the request still owns this event when it is delivered.</param>
+    private void QueueResourceEvent(Element element, string type, bool afterParse, Func<bool>? isCurrent = null)
     {
         if (_cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        if (_pendingResourceEvents++ == 0)
-        {
-            _resourceEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        }
+        BeginResourceDelay();
 
         // The processor assigns link.Sheet after the styling service returns, before the next hand-off.
-        _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse));
+        _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse, isCurrent));
     }
 
-    private void DeliverResourceEvent(IElement element, string type, bool afterParse)
+    private void BeginResourceDelay()
+    {
+        if (_pendingResourceEvents++ == 0)
+            _resourceEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private void EndResourceDelay()
+    {
+        if (--_pendingResourceEvents == 0) _resourceEventsCompleted!.TrySetResult();
+    }
+
+    private void DeliverResourceEvent(Element element, string type, bool afterParse, Func<bool>? isCurrent)
     {
         // Engine.Execute drains tasks even for a script inserted by another script. Resource events must
         // wait for the outermost script element to return and restore document.currentScript first — and an
         // image's for the tokenizer as well, for the reason QueueResourceEvent gives.
         if (_runtime.CurrentScript is not null || (afterParse && _tokenizing))
         {
-            (_deferredResourceEvents ??= new()).Enqueue((element, type, afterParse));
+            (_deferredResourceEvents ??= new()).Enqueue((element, type, afterParse, isCurrent));
             return;
         }
 
         try
         {
-            if (!_cancellationToken.IsCancellationRequested)
+            if (!_cancellationToken.IsCancellationRequested && (isCurrent?.Invoke() ?? true))
             {
-                if (type == "load" && element is IHtmlInlineFrameElement frame)
+                if (type == "load" && IsHtml(element, "iframe") && element is { } frame)
                 {
                     FinishFrame(frame);
                 }
@@ -487,10 +289,7 @@ internal sealed class ParserDriver : IDisposable
         }
         finally
         {
-            if (--_pendingResourceEvents == 0)
-            {
-                _resourceEventsCompleted!.TrySetResult();
-            }
+            EndResourceDelay();
         }
     }
 
@@ -521,7 +320,7 @@ internal sealed class ParserDriver : IDisposable
                 continue;
             }
 
-            _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(entry.Element, entry.Type, entry.AfterParse));
+            _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(entry.Element, entry.Type, entry.AfterParse, entry.IsCurrent));
         }
     }
 
@@ -532,78 +331,6 @@ internal sealed class ParserDriver : IDisposable
             RequestInitiator.Subresource,
             PageRequestKind.Script,
             "child-frame scripting requires a same-origin, unsandboxed document");
-
-    /// <summary>
-    /// https://html.spec.whatwg.org/multipage/iframe-embed-object.html#process-the-iframe-attributes — the
-    /// document a child frame's <c>src</c> names, fetched so that AngleSharp can open it into the nested
-    /// browsing context it has already made for the element.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The nested context is AngleSharp's, not this driver's.</b> <c>HtmlFrameElementBase.SetupElement</c>
-    /// creates a child context for every frame element it builds and asks the resource loader for the
-    /// document to put in it; until this method existed that request was refused, so <c>ContentDocument</c>
-    /// stayed <see langword="null"/> and <c>load</c> never arrived
-    /// (<a href="https://github.com/sebastienros/jint/issues/3771">#3771</a>). Answering it is the whole of
-    /// what gives a frame a document.
-    /// </para>
-    /// <para>
-    /// Child classic scripts are dispatched through the same baton in their document's realm.
-    /// <see cref="CanRunFrame"/> restricts execution to same-origin, unsandboxed contexts.
-    /// </para>
-    /// <para>
-    /// <b>The ceiling is <see cref="BrowserOptions.MaxFrameDocuments"/></b>, counted over the whole load
-    /// rather than per document, because a frame's document may hold frames of its own: a page pointing a
-    /// frame at itself would otherwise recurse until the parser thread's stack ran out. Over the ceiling a
-    /// frame is recorded as not fetched, exactly as every frame was before.
-    /// </para>
-    /// <para>
-    /// <b><c>about:blank</c> is answered here rather than fetched.</b> It is the commonest frame source
-    /// there is and no network position can answer it: HTML says it is an empty HTML document, so that is
-    /// what is handed back, without a socket and without a row in <see cref="Page.Requests"/> — a page that
-    /// asked for nothing made no request.
-    /// </para>
-    /// </remarks>
-    internal IResponse? FetchFrame(IHtmlInlineFrameElement frame, string url)
-    {
-        var handedOver = HandsOver;
-
-        return Serve(() =>
-        {
-            _runtime.Layout.DisableReuse();
-            var ceiling = _runtime.Options.MaxFrameDocuments;
-
-            if (ceiling <= 0 || _frameDocuments >= ceiling)
-            {
-                _requests.RecordNotFetched(
-                    url,
-                    RequestInitiator.Subresource,
-                    PageRequestKind.Frame,
-                    ceiling <= 0
-                        ? "a frame's document is not fetched: BrowserOptions.MaxFrameDocuments is zero"
-                        : "a frame's document is not fetched: this page has already reached the "
-                            + ceiling.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                            + " frame documents BrowserOptions.MaxFrameDocuments allows");
-                return null;
-            }
-
-            _frameDocuments++;
-
-            // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#about:blank — "a resource whose
-            // representation is the empty byte sequence, parsed as HTML".
-            if (string.Equals(url, "about:blank", StringComparison.OrdinalIgnoreCase))
-            {
-                return PageResourceLoader.Answer(url, [], "text/html; charset=utf-8");
-            }
-
-            return Fetch(
-                url,
-                frame,
-                "frame document",
-                PageRequestKind.Frame,
-                handedOver);
-        });
-    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/images.html#update-the-image-data — the image an
@@ -647,9 +374,8 @@ internal sealed class ParserDriver : IDisposable
     /// nothing was attempted and an <c>error</c> would say something was.
     /// </para>
     /// </remarks>
-    internal IResponse? FetchImage(IElement image, string requested)
+    private FetchedBody? FetchImage(Element image, string requested)
     {
-        var handedOver = HandsOver;
 
         return Serve(() =>
         {
@@ -706,7 +432,7 @@ internal sealed class ParserDriver : IDisposable
             // success and the failure arm. A ceiling refusal above deliberately does not get here.
             request.Requested = true;
 
-            var fetched = FetchBytes(url, image, "image", PageRequestKind.Image, handedOver);
+            var fetched = FetchBytes(url, image, "image", PageRequestKind.Image, mayPump: false);
 
             if (fetched is null)
             {
@@ -729,7 +455,7 @@ internal sealed class ParserDriver : IDisposable
             Media.PageImages.Complete(request, width, height);
             QueueResourceEvent(image, "load", afterParse: true);
 
-            return PageResourceLoader.Answer(fetched.Value.Url, fetched.Value.Bytes, fetched.Value.ContentType);
+            return fetched;
         });
     }
 
@@ -742,130 +468,52 @@ internal sealed class ParserDriver : IDisposable
     /// <c>IResourceLoader</c> are what a frame's document asks. The context is therefore the only thing that
     /// separates the two, and it is what says which document a script belongs to.
     /// </remarks>
-    private bool IsFrameDocument(IDocument document)
-        => _context is not null && !ReferenceEquals(document.Context, _context);
+    private bool IsFrameDocument(Document document)
+        => !ReferenceEquals(DomBrowsingContext.Of(document), _context);
 
-    private bool CanRunFrame(IDocument document)
-        => FrameWindows.CanRunScripts(_runtime, document);
+    private bool CanRunFrame(Document document) => FrameWindows.CanRunScripts(_runtime, document);
 
-    /// <summary>
-    /// Whether a call arriving now would cross from the parser thread to the loop — as opposed to already
-    /// being on the loop, which is where a script that inserted a script element is.
-    /// </summary>
-    private bool HandsOver => Environment.CurrentManagedThreadId != _baton.LoopThreadId;
-
-    /// <summary>
-    /// Records a reference the page will not follow, and answers the empty response that says so.
-    /// </summary>
-    internal IResponse? RefuseSubresource(IElement source, string url)
-    {
-        _requests.RecordNotFetched(url, RequestInitiator.Subresource, KindNotFetched(source), ReasonNotFetched(source));
-        return null;
-    }
-
-    /// <summary>Runs one classic script, on the page loop, and fires what HTML says it fires.</summary>
-    internal void RunClassicScript(IResponse response, ScriptOptions options)
-    {
-        if (options.Element is not { } element)
-        {
-            return;
-        }
-
-        Serve<object?>(() =>
-        {
-            _runtime.Document ??= _context?.Active ?? options.Document.Context.Creator ?? options.Document;
-            _runtime.Dom.AssociateDocument(_runtime.Document, associatedGlobal: true);
-            if (IsFrameDocument(options.Document))
-            {
-                if (!CanRunFrame(options.Document))
-                {
-                    return null;
-                }
-                FrameWindows.ForDocument(_runtime, options.Document);
-                using var frameScope = new RealmScope(_runtime.Engine,
-                    FrameWindows.DocumentRealm(_runtime, options.Document).OwningRealm);
-                var dom = FrameWindows.DocumentRealm(_runtime, options.Document);
-                if (options.Document.ReadyState != DocumentReadyState.Loading)
-                {
-                    SetFrameReadyState(dom, "interactive");
-                }
-                Execute(response, element);
-                return null;
-            }
-
-            // AngleSharp advances its own readiness before it runs the deferred queue, which is the one
-            // moment this driver cannot observe from outside the parse — so it is read here, on the way in.
-            ObserveReadiness(options.Document);
-
-            // A script boundary is one of the two moments a parser-created custom element can become
-            // custom (the other is the end of the parse): AngleSharp creates a parser element with no
-            // notification to hook, so an element written in the markup before this script is upgraded
-            // here, which is where a browser would already have constructed it. It costs nothing for a
-            // document that has defined nothing.
-            _runtime.CustomElementsIfCreated?.UpgradeParsedElements();
-
-            // And the import map, for the same reason: a classic script's dynamic import() runs during the
-            // parse, so the map has to be in force by then rather than only when the modules run.
-            ReadImportMapEarly(options.Document);
-            Execute(response, element);
-            return null;
-        });
-    }
-
-    /// <summary>
-    /// Hands <paramref name="work"/> to the loop, or runs it here when this <i>is</i> the loop — which it is
-    /// for a script a running script inserted, whose whole chain happens inside a job the loop is running.
-    /// </summary>
-    private T Serve<T>(Func<T> work) => HandsOver ? _baton.RunOnLoop(work) : work();
-
-    /// <summary>
-    /// The fetch itself, on the loop. Pumping while it is in flight is what makes a page's timers fire
-    /// during a parser-blocking load; a fetch a <i>script</i> triggered blocks instead, because pumping from
-    /// inside a running script would run the page's jobs in the middle of one.
-    /// </summary>
-    private IResponse? Fetch(
-        string url,
-        IElement source,
-        string what,
-        PageRequestKind kind,
-        bool mayPump)
-    {
-        return FetchBytes(url, source, what, kind, mayPump) is { } fetched
-            ? PageResourceLoader.Answer(fetched.Url, fetched.Bytes, fetched.ContentType)
-            : null;
-    }
+    // Every native parser call is already on the page loop.
+    private static T Serve<T>(Func<T> work) => work();
 
     /// <summary>
     /// The bytes of one subresource, before anything has been made of them.
     /// </summary>
     /// <remarks>
-    /// <see cref="Fetch"/> wraps them into the response AngleSharp reads; the image lane needs the bytes
+    /// The native resource consumer receives these bytes; the image lane needs the bytes
     /// themselves, because <see cref="Media.ImageHeader"/> is what decides between the completely-available
     /// and the broken state and it has to decide before the element hears anything.
     /// </remarks>
     private FetchedBody? FetchBytes(
         string url,
-        IElement source,
+        Element source,
         string what,
         PageRequestKind kind,
-        bool mayPump)
+        bool mayPump,
+        Action<string>? onFailure = null,
+        FetchSource? fetchSource = null)
     {
+        void Failed(string message)
+        {
+            if (onFailure is null) FailSubresource(source, url, message);
+            else onFailure(message);
+        }
         var target = UrlParser.Parse(url);
 
         if (target is null)
         {
-            FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
+            Failed("'" + url + "' is not a URL a page can load.");
             return null;
         }
 
         if (DataUrl.Is(target))
         {
-            return FetchDataUrl(target, source, url, what);
+            return FetchDataUrl(target, url, what, Failed);
         }
 
         if (!PageUrl.IsNetworkScheme(target))
         {
-            FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
+            Failed("'" + url + "' is not a URL a page can load.");
             return null;
         }
 
@@ -874,10 +522,11 @@ internal sealed class ParserDriver : IDisposable
         // derives the `Origin` header from it, never the path. `DocumentFetch` and `fetch()` pass the same
         // shape for the same reason.
         var documentUrl = UrlParser.Parse(_runtime.DocumentUrl);
+        var position = fetchSource ?? new FetchSource(documentUrl, documentUrl);
         var request = new SubresourceRequest(
             target,
-            documentUrl,
-            documentUrl,
+            position.Referrer,
+            position.Origin,
             _maxBytes,
             _maxRedirects,
             RequestInitiator.Subresource,
@@ -890,11 +539,19 @@ internal sealed class ParserDriver : IDisposable
 
         try
         {
-            var fetched = mayPump ? _baton.PumpUntil(fetch) : fetch.GetAwaiter().GetResult();
+            FetchedSubresource fetched;
+            if (mayPump)
+            {
+                // The outer native parse owns a CPU turn, while the resource wait owns the
+                // subresource timeout. Nested callback tasks retain their own actual turn bounds.
+                _runtime.Engine.Constraints.Check();
+                using (_runtime.Budget.BeginTurn()) fetched = _baton.PumpUntil(fetch);
+            }
+            else fetched = fetch.GetAwaiter().GetResult();
             return new FetchedBody(
                 fetched.Bytes,
                 ResponseUrl(fetched.Url, fetched.Fragment),
-                fetched.ContentType);
+                fetched.ContentType, fetched.LastModified, fetched.DefaultStyle);
         }
         catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
         {
@@ -903,13 +560,13 @@ internal sealed class ParserDriver : IDisposable
         }
         catch (OperationCanceledException)
         {
-            FailSubresource(source, url, "The " + what + " '" + url + "' did not answer within "
+            Failed("The " + what + " '" + url + "' did not answer within "
                 + _timeout.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seconds.");
             return null;
         }
         catch (Exception exception)
         {
-            FailSubresource(source, url, "The " + what + " '" + url + "' could not be loaded: " + exception.Message);
+            Failed("The " + what + " '" + url + "' could not be loaded: " + exception.Message);
             return null;
         }
     }
@@ -933,19 +590,17 @@ internal sealed class ParserDriver : IDisposable
     /// <see cref="SubresourceFetch"/> checks it over the wire; a page may not escape it by inlining.
     /// </para>
     /// </remarks>
-    private FetchedBody? FetchDataUrl(UrlRecord target, IElement source, string url, string what)
+    private FetchedBody? FetchDataUrl(UrlRecord target, string url, string what, Action<string> failed)
     {
         if (!DataUrl.TryProcess(target, out var content))
         {
-            FailSubresource(source, url, "The " + what + " '" + url + "' is not a valid data: URL.");
+            failed("The " + what + " '" + url + "' is not a valid data: URL.");
             return null;
         }
 
         if (content.Body.LongLength > _maxBytes)
         {
-            FailSubresource(
-                source,
-                url,
+            failed(
                 "The " + what + " '" + url + "' carries more than the "
                     + _maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     + " bytes a page may load.");
@@ -958,7 +613,8 @@ internal sealed class ParserDriver : IDisposable
     }
 
     /// <summary>One subresource's bytes, the URL they were answered under, and what the server called them.</summary>
-    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType);
+    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType,
+        DateTimeOffset? LastModified = null, string? DefaultStyle = null);
 
     /// <summary>The URL a fetched subresource is answered under.</summary>
     /// <remarks>
@@ -994,14 +650,14 @@ internal sealed class ParserDriver : IDisposable
     /// https://html.spec.whatwg.org/multipage/webappapis.html — a resource that failed to load fires
     /// <c>error</c> at the element that asked for it, and the page carries on loading.
     /// </summary>
-    private void FailSubresource(IElement source, string url, string message)
+    private void FailSubresource(Element source, string url, string message, Func<bool>? isCurrent = null)
     {
         Report(PageErrorKind.ReportedError, message, url);
-        if (source is IHtmlLinkElement)
+        if (IsHtml(source, "link"))
         {
-            QueueResourceEvent(source, "error", afterParse: false);
+            QueueResourceEvent(source, "error", afterParse: false, isCurrent);
         }
-        else if (source is IHtmlImageElement or IHtmlInputElement)
+        else if (IsHtml(source, "img") || IsHtml(source, "input"))
         {
             QueueResourceEvent(source, "error", afterParse: true);
         }
@@ -1017,7 +673,7 @@ internal sealed class ParserDriver : IDisposable
     /// a script registered — so the one a page can hear is this one. Neither bubbles, which is HTML's rule
     /// for a resource event.
     /// </remarks>
-    private void FireAt(INode node, string type)
+    private void FireAt(Node node, string type)
     {
         if (_runtime.Dom.WrapNode(node) is { } wrapper)
         {
@@ -1029,11 +685,11 @@ internal sealed class ParserDriver : IDisposable
     // Script execution.
     // ---------------------------------------------------------------------------------------------------
 
-    private void Execute(IResponse response, IHtmlScriptElement element)
+    private void Execute(FetchedBody? response, Element element)
     {
-        var external = !string.IsNullOrEmpty(element.Source);
+        var external = response is not null;
 
-        if (element.HasAttribute("nomodule"))
+        if (element.NamespaceUri == Namespaces.Html && Attribute(element, "nomodule") is not null)
         {
             return;
         }
@@ -1045,8 +701,8 @@ internal sealed class ParserDriver : IDisposable
 
         if (external)
         {
-            text = Read(response, element);
-            source = response.Address?.Href ?? element.Source!;
+            text = Read(response!.Value, element);
+            source = response!.Value.Url;
             location = source;
         }
         else
@@ -1055,8 +711,8 @@ internal sealed class ParserDriver : IDisposable
             // *filename* is the document's URL, so that is what the engine is given as the source name, and
             // the line the script starts on is a parsing offset rather than part of the name. The page's own
             // error recorder still gets the `url:line` string it always did, which is the one a host reads.
-            text = element.Text ?? "";
-            source = element.Owner?.Url ?? _url;
+            text = ScriptTextOf(element);
+            source = DomDocumentState.Of(element.OwnerDocument!).Url;
             line = LineOf(element, text);
             location = source + ":" + line;
         }
@@ -1077,13 +733,13 @@ internal sealed class ParserDriver : IDisposable
         // body's handlers are the window's, so nothing else would build that wrapper; doing it here is what
         // lets `<body onerror>` hear an exception from a script that follows it in the document. After the
         // first script it is one lookup in the wrapper cache.
-        if (element.Owner is { } owner)
+        if (element.OwnerDocument is { } owner)
         {
             Events.EventHandlerContentAttributes.InstallBodyHandlers(_runtime.Dom, owner);
         }
 
         var previous = _runtime.CurrentScript;
-        var scriptDom = _runtime.Dom.RealmOfDocument(element.Owner!);
+        var scriptDom = _runtime.Dom.RealmOfDocument(element.OwnerDocument!);
         var previousInDocument = scriptDom.CurrentScript;
         scriptDom.CurrentScript = element;
 
@@ -1099,6 +755,8 @@ internal sealed class ParserDriver : IDisposable
             // each script is bounded and a document is not failed for containing many. See PageBudget.
             using (_runtime.Budget.BeginTurn())
             {
+                RecoverNativeMutationNotifications();
+                using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
                 _runtime.Engine.Execute(text, source, ParsingFrom(line));
             }
         }
@@ -1154,38 +812,22 @@ internal sealed class ParserDriver : IDisposable
     /// The script's source text, decoded with the response's charset, then the element's, then the
     /// document's.
     /// </summary>
-    private static string Read(IResponse response, IHtmlScriptElement element)
+    private static string Read(FetchedBody response, Element element)
     {
-        var bytes = ReadAll(response.Content);
-        var contentType = response.Headers.TryGetValue(HeaderNames.ContentType, out var declared) ? declared : null;
-        var fallback = element.CharacterSet is { Length: > 0 } charset ? charset : element.Owner?.CharacterSet;
-        var address = response.Address?.Href ?? "";
-        return new FetchedSubresource(bytes, contentType, address, UrlParser.Parse(address)?.Fragment, 200).Text(fallback);
-    }
-
-    private static byte[] ReadAll(Stream? stream)
-    {
-        if (stream is null)
-        {
-            return [];
-        }
-
-        if (stream is MemoryStream memory)
-        {
-            return memory.ToArray();
-        }
-
-        using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
-        return buffer.ToArray();
+        var fallback = element.GetAttribute("charset") is { Length: > 0 } charset
+            ? charset : DomDocumentState.Of(element.OwnerDocument!).CharacterSet;
+        return new FetchedSubresource(response.Bytes, response.ContentType, response.Url,
+            UrlParser.Parse(response.Url)?.Fragment, 200).Text(fallback);
     }
 
     // ---------------------------------------------------------------------------------------------------
     // After the parse: modules, then the lifecycle.
     // ---------------------------------------------------------------------------------------------------
 
-    private void FinishLoad(IDocument document, Action<NavigationPhase>? onPhase)
+    private void FinishLoad(Document document, Action<NavigationPhase>? onPhase)
     {
+        if (_runtime.Document is { } nativeDocument) DomDocumentState.SelectNavigationTarget(_runtime.Dom, nativeDocument);
+
         // The handler content attributes on <body> that HTML redirects to the window — onload above all —
         // belong to a target the body's own wrapper is what registers them on. Every other element's arrive
         // with its wrapper; see EventHandlerContentAttributes.InstallBodyHandlers for why this one cannot.
@@ -1287,42 +929,29 @@ internal sealed class ParserDriver : IDisposable
     /// <para>
     /// AngleSharp fires its own <c>load</c> into its own listener list, which holds nothing a script
     /// registered; <see cref="FireAt"/> is the one a page can hear. A <c>&lt;frame&gt;</c> is not here
-    /// because it never gets a document — see <see cref="IsLegacyFrame"/>.
+    /// because legacy frame documents are unavailable.
     /// </para>
     /// </remarks>
-    private void FireFrameLoads(IDocument document)
+    private void FireFrameLoads(Document document)
     {
-        foreach (var element in document.QuerySelectorAll("iframe, frame"))
+        foreach (var element in NativeElements(document))
         {
-            if (element is not IHtmlInlineFrameElement { ContentDocument: not null })
-            {
-                continue;
-            }
-
-            FinishFrame((IHtmlInlineFrameElement) element);
+            if (IsHtml(element, "iframe") && DomBrowsingContext.OfFrame(element)?.Active is not null)
+                FinishFrame(element);
         }
     }
 
-    private void FinishFrame(IHtmlInlineFrameElement frame)
+    private void FinishFrame(Element frame)
     {
-        if (!Dom.Views.DomViewMembers.IsConnected(frame).AsBoolean() || frame.ContentDocument is not { } document)
-        {
-            return;
-        }
+        if (!ShadowTree.IsConnected(frame, _cancellationToken) || DomBrowsingContext.OfFrame(frame)?.Active is not { } document) return;
         var dom = FrameWindows.DocumentRealm(_runtime, document);
-        if (dom.LoadCompleted)
-        {
-            return;
-        }
+        if (dom.LoadCompleted) return;
         dom.LoadCompleted = true;
         if (CanRunFrame(document))
         {
             FrameWindows.ForDocument(_runtime, document);
             using var scope = new RealmScope(_runtime.Engine, dom.OwningRealm);
-            if (_runtime.ScriptingEnabled)
-            {
-                Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
-            }
+            if (_runtime.ScriptingEnabled) Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
             SetFrameReadyState(dom, "interactive");
             PageEvents.Fire(_runtime, dom.WrapNode(document), "DOMContentLoaded", bubbles: true);
             FireFrameLoads(document);
@@ -1332,10 +961,7 @@ internal sealed class ParserDriver : IDisposable
             PageEvents.Member(shown, "persisted", JsBoolean.False);
             PageEvents.Dispatch(_runtime, dom.WindowTarget!, shown);
         }
-        else
-        {
-            FireFrameLoads(document);
-        }
+        else FireFrameLoads(document);
         FireAt(frame, "load");
     }
 
@@ -1347,24 +973,6 @@ internal sealed class ParserDriver : IDisposable
         }
         dom.ReadyState = state;
         PageEvents.Fire(_runtime, dom.WrapNode(dom.Document!), "readystatechange");
-    }
-
-    private sealed class FrameAttributeObserver(ParserDriver driver) : IAttributeObserver
-    {
-        // The native attribute step opens the document synchronously. Only queue the Jint lifecycle here:
-        // delivery waits for the enclosing script and parser, just like image completion, and duplicate
-        // setup notifications cannot load the same document twice.
-        public void NotifyChange(IElement host, string name, string? value)
-        {
-            if (host is IHtmlInlineFrameElement && name is "src" or "srcdoc")
-            {
-                driver.Serve<object?>(() =>
-                {
-                    driver.QueueResourceEvent(host, "load", afterParse: true);
-                    return null;
-                });
-            }
-        }
     }
 
     /// <summary>Moves the page's <c>document.readyState</c> and fires <c>readystatechange</c> at the document.</summary>
@@ -1384,22 +992,10 @@ internal sealed class ParserDriver : IDisposable
     }
 
     /// <summary>
-    /// Called from the scripting service before a script AngleSharp queued runs, so that a deferred script
-    /// sees the readiness HTML says it sees.
-    /// </summary>
-    internal void ObserveReadiness(IDocument document)
-    {
-        if (!IsFrameDocument(document) && document.ReadyState != DocumentReadyState.Loading)
-        {
-            SetReadyState("interactive");
-        }
-    }
-
-    /// <summary>
     /// https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-module-system —
     /// the document's import map, then every module script in document order.
     /// </summary>
-    private void RunModules(IDocument document)
+    private void RunModules(Document document)
     {
         var loader = _runtime.Modules;
         if (loader is null)
@@ -1409,19 +1005,22 @@ internal sealed class ParserDriver : IDisposable
 
         loader.BaseUrl = BaseUrlOf(document);
 
-        var modules = new List<IHtmlScriptElement>();
+        var modules = new List<Element>();
         var mapSeen = _importMapRead;
 
-        foreach (var element in document.QuerySelectorAll("script"))
+        foreach (var element in NativeElements(document))
         {
-            if (element is not IHtmlScriptElement script)
+            if (!IsHtml(element, "script"))
             {
                 continue;
             }
 
-            var type = script.Type ?? "";
+            var script = element;
+            var flags = script.GetHtmlState()!.Script!;
+            if (!ReferenceEquals(flags.PreparationTimeDocument, document)) continue;
+            var type = ScriptType(script);
 
-            if (string.Equals(type, "importmap", StringComparison.OrdinalIgnoreCase))
+            if (type == NativeScriptType.ImportMap)
             {
                 if (mapSeen)
                 {
@@ -1443,7 +1042,7 @@ internal sealed class ParserDriver : IDisposable
                 continue;
             }
 
-            if (string.Equals(type, "module", StringComparison.OrdinalIgnoreCase))
+            if (type == NativeScriptType.Module)
             {
                 modules.Add(script);
             }
@@ -1465,14 +1064,15 @@ internal sealed class ParserDriver : IDisposable
     /// document applies to every module, because the modules all run after the parse and there is no moment
     /// at which one of them could have resolved without it.
     /// </remarks>
-    private void ReadImportMapEarly(IDocument document)
+    private void ReadImportMapEarly(Document document)
     {
         if (_importMapRead || _runtime.Modules is not { } loader)
         {
             return;
         }
 
-        if (document.QuerySelector("script[type='importmap']") is not IHtmlScriptElement script)
+        var script = NativeElements(document).FirstOrDefault(element => IsHtml(element, "script") && ScriptType(element) == NativeScriptType.ImportMap && ReferenceEquals(element.GetHtmlState()!.Script!.PreparationTimeDocument, document));
+        if (script is null)
         {
             return;
         }
@@ -1482,9 +1082,9 @@ internal sealed class ParserDriver : IDisposable
         loader.Map = ReadImportMap(script, loader.BaseUrl);
     }
 
-    private ImportMap? ReadImportMap(IHtmlScriptElement script, string baseUrl)
+    private ImportMap? ReadImportMap(Element script, string baseUrl)
     {
-        if (!string.IsNullOrEmpty(script.Source))
+        if (!string.IsNullOrEmpty(Attribute(script, "src")))
         {
             // https://html.spec.whatwg.org/multipage/webappapis.html#import-map-processing-model: an import
             // map is inline text, and an external one is a parse error rather than a fetch.
@@ -1493,7 +1093,7 @@ internal sealed class ParserDriver : IDisposable
         }
 
         var problems = new List<string>();
-        var map = ImportMap.Parse(script.Text ?? "", baseUrl, problems);
+        var map = ImportMap.Parse(ScriptTextOf(script), baseUrl, problems);
 
         foreach (var problem in problems)
         {
@@ -1503,11 +1103,14 @@ internal sealed class ParserDriver : IDisposable
         return map;
     }
 
-    private void RunModule(PageModuleScriptLoader loader, IHtmlScriptElement script)
+    private void RunModule(PageModuleScriptLoader loader, Element script)
     {
+        var state = _resourceSources.GetValue(script, static _ => new ResourceSource());
+        if (state.ModuleStarted) return;
+        state.ModuleStarted = true;
         string specifier;
 
-        if (script.Source is { Length: > 0 } source)
+        if (Attribute(script, "src") is { Length: > 0 } source)
         {
             var resolved = PageUrl.Resolve(source, loader.BaseUrl);
 
@@ -1521,7 +1124,7 @@ internal sealed class ParserDriver : IDisposable
         }
         else
         {
-            var text = script.Text ?? "";
+            var text = ScriptTextOf(script);
 
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -1542,6 +1145,8 @@ internal sealed class ParserDriver : IDisposable
             // which is where a module's evaluation actually happens.
             using (_runtime.Budget.BeginTurn())
             {
+                RecoverNativeMutationNotifications();
+                using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
                 operation = _runtime.Engine.Modules.StartImport(specifier);
             }
         }
@@ -1595,36 +1200,8 @@ internal sealed class ParserDriver : IDisposable
         }
     }
 
-    private static string BaseUrlOf(IDocument document)
-        => document.BaseUri ?? document.Url;
-
-    /// <summary>What kind of resource a reference the page will not follow was, for the request log.</summary>
-    /// <remarks>
-    /// Neither a frame nor an image is here any more: <see cref="PageResourceLoader"/> routes each to
-    /// <see cref="FetchFrame"/> and <see cref="FetchImage"/>, which record their own refusals with the
-    /// reason each has and this one has not.
-    /// </remarks>
-    private static PageRequestKind KindNotFetched(IElement source)
-        => IsLegacyFrame(source) ? PageRequestKind.Frame : PageRequestKind.Other;
-
-    private static string ReasonNotFetched(IElement source) => source switch
-    {
-        IHtmlLinkElement link => "a <link rel=\"" + (link.Relation ?? "") + "\"> is not fetched: only a stylesheet is",
-        _ when IsLegacyFrame(source) => "a <frame>'s document is not fetched: AngleSharp has no HTMLFrameElement "
-            + "interface, so nothing script can reach would answer it",
-        _ => source.LocalName + " resources are not fetched: there is no rendering to need them",
-    };
-
-    /// <summary>Whether the element is a <c>&lt;frame&gt;</c> inside a <c>&lt;frameset&gt;</c>.</summary>
-    /// <remarks>
-    /// It asks AngleSharp for its document exactly as an <c>&lt;iframe&gt;</c> does, and it is refused where
-    /// an <c>&lt;iframe&gt;</c> is answered: AngleSharp declares no <c>IHtmlFrameElement</c>, so the binding
-    /// projects no <c>HTMLFrameElement</c> and there is no <c>contentDocument</c> for a page to read the
-    /// document through. Fetching it would be traffic whose result nothing could reach. The local name is
-    /// what names it, for the same reason <c>WindowNamedProperties.IsNamedAccessKind</c> uses one.
-    /// </remarks>
-    private static bool IsLegacyFrame(IElement source)
-        => source is IHtmlElement && string.Equals(source.LocalName, "frame", StringComparison.Ordinal);
+    private string BaseUrlOf(Document document)
+        => DomDocumentState.BaseUri(document, _runtime.Engine.Constraints.Check, _cancellationToken);
 
     /// <summary>
     /// The parsing options an inline script gets: the engine's own, plus the position in the document its
@@ -1713,47 +1290,8 @@ internal sealed class ParserDriver : IDisposable
             exception.Message,
             "ParserDriver");
 
-    /// <summary>The one-based line an inline script's first character is on.</summary>
-    /// <remarks>
-    /// AngleSharp records a source position only when the parser is asked to keep source references, which
-    /// the default parser is not; what it does expose is the parser's index into the document source, and
-    /// this call happens with that index just past the closing tag. Counting back over the script's own
-    /// newlines from there is exact for a document nothing has written into, and approximate afterwards —
-    /// <c>document.write</c> moves every later index by what it inserted.
-    /// </remarks>
-    private static int LineOf(IHtmlScriptElement element, string text)
-    {
-        var source = element.Owner?.Source;
-        var index = source?.Index ?? 0;
-
-        if (index <= 0)
-        {
-            return 1;
-        }
-
-        var full = source!.Text;
-        if (index > full.Length)
-        {
-            return 1;
-        }
-
-        var line = 1;
-        for (var i = 0; i < index; i++)
-        {
-            if (full[i] == '\n')
-            {
-                line++;
-            }
-        }
-
-        foreach (var c in text)
-        {
-            if (c == '\n')
-            {
-                line--;
-            }
-        }
-
-        return line < 1 ? 1 : line;
-    }
+    // Primary parser coordinates are exact. Inserted or mixed text is script-relative.
+    private static int LineOf(Element element, string text)
+        => element.GetHtmlState()?.Script?.ParserSourceLocation is { Kind: HtmlSourceKind.Primary, Line: > 0 and <= int.MaxValue } source
+            ? (int) source.Line : 1;
 }

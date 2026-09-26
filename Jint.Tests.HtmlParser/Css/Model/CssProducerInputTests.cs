@@ -13,6 +13,41 @@ namespace Jint.Tests.HtmlParser.Css.Model;
 [TestFixture]
 public sealed class CssProducerInputTests
 {
+    [TestCase("sheet")]
+    [TestCase("group")]
+    [TestCase("selector")]
+    [TestCase("append-medium")]
+    [TestCase("delete-medium")]
+    public void BindingMutationWorkCanInterruptOneLargeTokenBeforePublication(string operation)
+    {
+        var sheet = CssStyleSheet.Parse("a { opacity:.25; } @media screen {}");
+        var rule = (CssStyleRule) sheet.Rules[0];
+        var group = (CssMediaRule) sheet.Rules[1];
+        var media = group.Media;
+        var before = sheet.Serialize();
+        var stamp = sheet.Stamp;
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 3) throw new OperationCanceledException();
+        });
+        var prefix = "/*" + new string('x', 20000) + "*/";
+        void Edit()
+        {
+            switch (operation)
+            {
+                case "sheet": sheet.InsertRule(prefix + "b {}", 0, null, work, work.Token); break;
+                case "group": group.InsertRule(prefix + "b {}", 0, null, work, work.Token); break;
+                case "selector": rule.SetSelectorText(prefix + "b", null, work, work.Token); break;
+                case "append-medium": media.AppendMedium(prefix + "print", null, work, work.Token); break;
+                case "delete-medium": media.DeleteMedium(prefix + "screen", null, work, work.Token); break;
+            }
+        }
+        Assert.Throws<OperationCanceledException>(Edit);
+        sheet.Stamp.Should().Be(stamp);
+        sheet.Serialize().Should().Be(before);
+    }
+
     [Test]
     public void SelectorAndDeclarationsConsumeTheSameSheetParseWithOriginalOffsets()
     {
@@ -50,8 +85,10 @@ public sealed class CssProducerInputTests
         var selector = new SelectorCompiler.Worker(source, new SelectorParseContext(), default).Compile(syntax.Prelude);
         selector.Branches.Count.Should().Be(1);
         var body = parser.ParseBlockContents(syntax.Block!.Value);
-        var failure = Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.FromDeclarations(source,
-            body[0].Declarations, CssDeclarationContext.Style, 0, new CssValueWork(default)))!;
+        var work = new CssValueWork(default);
+        var block = CssDeclarationBlock.FromDeclarations(source, body[0].Declarations, CssDeclarationContext.Style, 0, work);
+        block.ResolveProperty("display", work)!.Value.Text.Should().Be("block");
+        var failure = Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveAll(work))!;
         failure.PropertyName.Should().Be("border-color");
         failure.Blocker.Should().Be("V1:border-color");
         failure.Span.Start.Should().Be(source.IndexOf("border-color", StringComparison.Ordinal));

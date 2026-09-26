@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Acornima.Ast;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Function;
@@ -182,7 +181,7 @@ internal static class EventHandlerContentAttributes
     {
         // The length check is what keeps this off the cost of an ordinary wrapper: most elements in a document
         // carry no attribute at all, and asking is cheaper than taking an enumerator to find that out.
-        if (wrapper.Node is not IElement element || element.Attributes.Length == 0)
+        if (wrapper.Node is not Element element || element.AttributeCount == 0)
         {
             return;
         }
@@ -209,9 +208,9 @@ internal static class EventHandlerContentAttributes
     /// whose only script is a <c>body</c> attribute would never have had a body wrapper at all. Building it
     /// once, when the parse ends, is what makes the oldest way of running a script after load work.
     /// </remarks>
-    internal static void InstallBodyHandlers(DomRealm dom, IDocument document)
+    internal static void InstallBodyHandlers(DomRealm dom, Document document)
     {
-        if (document.Body is { } body)
+        if (DomDocumentElements.Body(document) is { } body)
         {
             dom.WrapNode(body);
         }
@@ -224,7 +223,7 @@ internal static class EventHandlerContentAttributes
     /// <returns>The target the handler belongs to, which is the window for a body handler HTML redirects.</returns>
     internal static JsEventTarget? Reconcile(DomNodeObject wrapper, string type)
     {
-        var element = wrapper.Node as IElement;
+        var element = wrapper.Node as Element;
         var target = TargetFor(wrapper, element, type);
         if (target is null)
         {
@@ -245,7 +244,7 @@ internal static class EventHandlerContentAttributes
         // A document carries no content attributes, so its handler slot has only the IDL half; the null here
         // removes a handler the markup no longer declares, and for a document there never was one. An
         // element's attribute is read only for a type an element can carry it for.
-        var attribute = element is not null && IsElementHandlerType(type) ? element.GetAttribute("on" + type) : null;
+        var attribute = element is not null && IsElementHandlerType(type) ? element.GetAttributeNS(null, "on" + type) : null;
         var sources = _sources.GetOrCreateValue(target);
         var known = sources.TryGetLast(type, out var last);
 
@@ -323,7 +322,7 @@ internal static class EventHandlerContentAttributes
     /// is still reconciled at the next dispatch or IDL read — it merely takes its position then.
     /// </para>
     /// </remarks>
-    internal static void AttributeChanged(DomRealm realm, IElement element, string name)
+    internal static void AttributeChanged(DomRealm realm, Element element, string name)
     {
         if (name.Length <= 2 || (name[0] | 0x20) != 'o' || (name[1] | 0x20) != 'n')
         {
@@ -400,11 +399,11 @@ internal static class EventHandlerContentAttributes
     /// Which target owns this handler: the element, or the window for one of the names HTML redirects from
     /// <c>&lt;body&gt;</c> and <c>&lt;frameset&gt;</c>.
     /// </summary>
-    private static JsEventTarget? TargetFor(DomNodeObject wrapper, IElement? element, string type)
+    private static JsEventTarget? TargetFor(DomNodeObject wrapper, Element? element, string type)
     {
         // AngleSharp models <frameset> with the plain IHtmlElement, so the local name is the test; a body and
         // a frameset carry the same redirected handler names.
-        if (element is IHtmlBodyElement or IHtmlElement { LocalName: "frameset" } && _bodyHandlerLookup.Contains(type))
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } && _bodyHandlerLookup.Contains(type))
         {
             return wrapper.DomRealm.WindowTarget;
         }
@@ -564,7 +563,7 @@ internal static class EventHandlerContentAttributes
         /// The document's URL, so that an exception escaping the handler is reported against the document the
         /// attribute is in — which is what HTML's <c>filename</c> is for an inline handler.
         /// </summary>
-        private string SourceName() => _wrapper.Node.Owner?.Url ?? "";
+        private string SourceName() => _wrapper.Node?.OwnerDocument is { } document ? DomDocumentState.Of(document).Url : "";
 
         /// <summary>
         /// https://html.spec.whatwg.org/multipage/webappapis.html#concept-n-noscript — whether scripting is
@@ -582,7 +581,7 @@ internal static class EventHandlerContentAttributes
                 return true;
             }
 
-            var document = _wrapper.Node as IDocument ?? _wrapper.Node.Owner;
+            var document = _wrapper.Node as Document ?? _wrapper.Node?.OwnerDocument;
             return ReferenceEquals(document, runtime.Document)
                 || document is not null
                 && runtime.Dom.TryGetDocumentRealm(document, out var owner)
@@ -600,20 +599,20 @@ internal static class EventHandlerContentAttributes
             Jint.Runtime.Environments.Environment scope = realm.GlobalEnv;
             var dom = _wrapper.DomRealm;
 
-            if (_wrapper.Node is not IElement element)
+            if (_wrapper.Node is not Element element)
             {
                 // A document's own handler: the document is the target, so it is the only object environment.
-                return _wrapper.Node is IDocument document
+                return _wrapper.Node is Document document
                     ? Wrap(engine, dom.WrapNode(document), scope)
                     : scope;
             }
 
-            if (element.Owner is { } owner)
+            if (element.OwnerDocument is { } owner)
             {
                 scope = Wrap(engine, dom.WrapNode(owner), scope);
             }
 
-            if (FormOwner(engine, element) is { } form)
+            if (FormOwner(dom, element) is { } form)
             {
                 scope = Wrap(engine, dom.WrapNode(form), scope);
             }
@@ -635,9 +634,9 @@ internal static class EventHandlerContentAttributes
         /// category is its definition's <c>formAssociated</c>, which only the registry can say, and this is
         /// the one lane that reads a form owner and can reach one.
         /// </remarks>
-        private static IHtmlFormElement? FormOwner(Engine engine, IElement element)
-            => CustomElements.CustomElementRegistry.Of(engine)?.TryGetRecord(element) is { FormAssociated: true }
-                ? HtmlFormOwner.OfFormAssociatedCustomElement(element)
+        private static Element? FormOwner(DomRealm dom, Element element)
+            => CustomElements.CustomElementRegistry.Of(dom.Engine)?.TryGetRecord(element) is { FormAssociated: true }
+                ? HtmlFormOwner.OfFormAssociatedCustomElement(element, dom.NativeReadCheckpoint, dom.CancellationToken)
                 : HtmlFormOwner.Of(element);
 
         /// <summary>

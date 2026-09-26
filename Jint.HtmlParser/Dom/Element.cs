@@ -10,6 +10,10 @@ internal enum ParsedAttributeMergeCheckpoint
 public sealed class Element : Node
 {
     private List<Attr>? _attributes;
+    private object? _attributeStructureIdentity;
+    // Demanded only for an attribute-absence proof; parsing and mutations allocate no token.
+    internal object GetAttributeStructureIdentity() => _attributeStructureIdentity ??= new object();
+    internal object? ExistingAttributeStructureIdentity => _attributeStructureIdentity;
     private HtmlElementState? _htmlState;
     internal HtmlFormAssociationState? FormAssociationState;
     internal SlotElementState? SlotState;
@@ -232,6 +236,7 @@ public sealed class Element : Node
                 attribute.LocalName, attribute.NamespaceUri);
             _attributes ??= [];
             _attributes[_attributes.IndexOf(previous)] = attribute;
+            _attributeStructureIdentity = null;
             previous.OwnerElement = null;
             attribute.OwnerElement = this;
             attribute.Rehome(OwnerDocument!);
@@ -279,6 +284,7 @@ public sealed class Element : Node
 
         HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, null);
         _attributes!.Remove(attribute);
+        _attributeStructureIdentity = null;
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
@@ -318,12 +324,14 @@ public sealed class Element : Node
         var work = new HtmlSelectWork(document.SelectWorkProbe, context, cancellationToken);
         work.Check();
         _attributes = new List<Attr>(source._attributes.Count);
+        _attributeStructureIdentity = null;
         foreach (var attribute in source._attributes)
         {
             work.Step();
             var copy = NodeCloner.CloneAttribute(attribute, document);
             copy.OwnerElement = this;
             _attributes.Add(copy);
+            _attributeStructureIdentity = null;
             ScriptAttributeAdded(copy);
         }
         work.Check();
@@ -380,6 +388,7 @@ public sealed class Element : Node
         var selectInitialization = HtmlSelectMutations.PrepareInitialization(this, result, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
+        _attributeStructureIdentity = null;
         HtmlInputStateChanges.Initialize(this, preparedInput);
         HtmlSelectMutations.Initialize(this, selectInitialization);
         if (scriptAsyncAdded) GetHtmlState()!.Script!.ForceAsync = false;
@@ -443,6 +452,7 @@ public sealed class Element : Node
         HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
         _attributes ??= [];
         _attributes.Add(attribute);
+        _attributeStructureIdentity = null;
         attribute.OwnerElement = this;
         attribute.Rehome(OwnerDocument!);
         ScriptAttributeAdded(attribute);

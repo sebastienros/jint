@@ -1,20 +1,20 @@
 using System.Collections;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
 /// Adapts an element's <c>data-*</c> attributes to HTML's <c>DOMStringMap</c> naming algorithms.
 /// </summary>
-internal sealed class DomStringMapAdapter : IStringMap
+internal sealed class DomStringMapAdapter : IEnumerable<KeyValuePair<string, string>>
 {
     private const string Prefix = "data-";
     private const string Member = "DOMStringMap";
 
     private readonly DomRealm _realm;
-    private readonly IElement _element;
+    private readonly Element _element;
 
-    internal DomStringMapAdapter(DomRealm realm, IElement element)
+    internal DomStringMapAdapter(DomRealm realm, Element element)
     {
         _realm = realm;
         _element = element;

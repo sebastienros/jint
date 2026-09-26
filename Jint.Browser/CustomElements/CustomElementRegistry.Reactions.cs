@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -31,17 +31,21 @@ namespace Jint.Browser.CustomElements;
 /// </remarks>
 internal sealed partial class CustomElementRegistry
 {
-    private List<IElement> _elementQueue = [];
+    private List<Element> _elementQueue = [];
     private readonly Action _checkpoint;
     private bool _scheduled;
 
     /// <summary>The record <paramref name="element"/> already has, or <see langword="null"/>.</summary>
-    internal CustomElementRecord? TryGetRecord(IElement element)
+    internal CustomElementRecord? TryGetRecord(Element element)
         => _records.TryGetValue(element, out var record) ? record : null;
 
     /// <summary>The record <paramref name="element"/> has, created on first use.</summary>
-    internal CustomElementRecord RecordFor(IElement element)
-        => _records.GetValue(element, static _ => new CustomElementRecord());
+    internal CustomElementRecord RecordFor(Element element)
+    {
+        var record = _records.GetValue(element, static _ => new CustomElementRecord());
+        ObserveAttributes(element, record);
+        return record;
+    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#concept-try-upgrade — look up a definition
@@ -53,21 +57,21 @@ internal sealed partial class CustomElementRegistry
     /// document holds, or one a member just made in a <c>createHTMLDocument</c>, finds no definition however
     /// many the page has defined. See <see cref="Lookup"/>.
     /// </remarks>
-    internal void TryUpgrade(IElement element)
+    internal void TryUpgrade(Element element)
     {
         if (_byName.Count == 0 || StateOf(element) != CustomElementState.Undefined)
         {
             return;
         }
 
-        if (Lookup(element.Owner, DomNamespaces.Of(element), element.LocalName, IsValueOf(element)) is { } definition)
+        if (Lookup(element.OwnerDocument, element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
         {
             EnqueueUpgrade(element, definition);
         }
     }
 
     /// <summary>Tries to upgrade every element of <paramref name="root"/>'s subtree, in tree order.</summary>
-    internal void UpgradeSubtree(INode root)
+    internal void UpgradeSubtree(Node root)
     {
         if (_byName.Count == 0)
         {
@@ -99,7 +103,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>Adds a reaction to <paramref name="element"/>'s queue and puts it on the element queue.</summary>
-    private void Enqueue(IElement element, CustomElementRecord record, in CustomElementReaction reaction)
+    private void Enqueue(Element element, CustomElementRecord record, in CustomElementReaction reaction)
     {
         record.Reactions.Enqueue(reaction);
 
@@ -115,7 +119,7 @@ internal sealed partial class CustomElementRegistry
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#enqueue-a-custom-element-upgrade-reaction.
     /// </summary>
-    private void EnqueueUpgrade(IElement element, CustomElementDefinition definition)
+    private void EnqueueUpgrade(Element element, CustomElementDefinition definition)
         => Enqueue(element, RecordFor(element), new CustomElementReaction(CustomElementReactionKind.Upgrade, definition, null, null, null));
 
     /// <summary>
@@ -123,14 +127,14 @@ internal sealed partial class CustomElementRegistry
     /// which is a no-op unless the element is custom and the definition has the callback.
     /// </summary>
     private void EnqueueCallback(
-        IElement element,
+        Element element,
         CustomElementRecord record,
         CustomElementReactionKind kind,
         string? name = null,
         string? oldValue = null,
         string? newValue = null,
-        IDocument? oldDocument = null,
-        IDocument? newDocument = null)
+        Document? oldDocument = null,
+        Document? newDocument = null)
     {
         if (record.State != CustomElementState.Custom || record.Definition is not { } definition)
         {
@@ -187,6 +191,12 @@ internal sealed partial class CustomElementRegistry
     /// </remarks>
     internal void Drain()
     {
+        if (Environment.CurrentManagedThreadId != _runtime.LoopThreadId)
+        {
+            Schedule();
+            return;
+        }
+        FlushNativeMutations();
         if (_elementQueue.Count == 0)
         {
             return;
@@ -239,7 +249,7 @@ internal sealed partial class CustomElementRegistry
         Drain();
     }
 
-    private void Invoke(IElement element, in CustomElementReaction reaction)
+    private void Invoke(Element element, in CustomElementReaction reaction)
     {
         if (reaction.Kind == CustomElementReactionKind.Upgrade)
         {
@@ -319,7 +329,7 @@ internal sealed partial class CustomElementRegistry
     /// element, then <c>connectedCallback</c> — because those reactions go on the element's own queue, which
     /// the drain that is running this upgrade continues into.
     /// </remarks>
-    internal void Upgrade(IElement element, CustomElementDefinition definition)
+    internal void Upgrade(Element element, CustomElementDefinition definition)
     {
         var record = RecordFor(element);
 
@@ -330,75 +340,94 @@ internal sealed partial class CustomElementRegistry
 
         record.Definition = definition;
         record.State = CustomElementState.Failed;
-        record.FormAssociated = definition.FormAssociated;
-        Snapshot(element, record, definition);
-
-        if (definition.AttributeChangedCallback is not null)
-        {
-            foreach (var attribute in element.Attributes)
-            {
-                if (definition.Observes(attribute.LocalName))
-                {
-                    Enqueue(element, record, new CustomElementReaction(
-                        CustomElementReactionKind.AttributeChanged,
-                        definition,
-                        attribute.LocalName,
-                        null,
-                        attribute.Value));
-                }
-            }
-        }
-
-        if (definition.ConnectedCallback is not null && IsConnected(element))
-        {
-            Enqueue(element, record, new CustomElementReaction(CustomElementReactionKind.Connected, definition, null, null, null));
-        }
-
-        // The wrapper is built now rather than by the constructor, because it is what `super()` hands back:
-        // the construction stack holds the element being upgraded, and the base constructor returns it.
-        var wrapper = _runtime.Dom.WrapNode(element);
-        definition.ConstructionStack.Add(wrapper);
-
+        record.FormAssociated = definition.IsAutonomous && definition.FormAssociated;
+        var succeeded = false;
+        var stackPushed = false;
         try
         {
-            if (definition.DisableShadow && element.ShadowRoot is not null)
+            if (record.FormAssociated) HtmlFormState.SetFormAssociatedCustomElement(element, true);
+            Snapshot(element, record, definition);
+
+            if (definition.AttributeChangedCallback is not null)
             {
-                var engine = _runtime.Engine;
-                var error = engine._mainRealm.Intrinsics.DomException.CreateException(
-                    DomExceptionNames.NotSupported,
-                    "The custom element '" + definition.Name + "' disabled shadow, so an element that already has a shadow root cannot be upgraded.");
-                var location = engine._lastSyntaxElement?.Location ?? default;
-                Throw.JavaScriptException(engine, error, in location);
+                foreach (var attribute in element.Attributes)
+                {
+                    if (definition.Observes(attribute.LocalName))
+                    {
+                        Enqueue(element, record, new CustomElementReaction(
+                            CustomElementReactionKind.AttributeChanged,
+                            definition,
+                            attribute.LocalName,
+                            null,
+                            attribute.Value));
+                    }
+                }
             }
 
-            record.State = CustomElementState.Precustomized;
-
-            var constructed = _runtime.Engine.Construct(definition.Constructor, [], definition.Constructor, null);
-
-            if (!ReferenceEquals(constructed, wrapper))
+            if (definition.ConnectedCallback is not null && IsConnected(element))
             {
-                Throw.TypeError(
-                    _runtime.Engine._mainRealm,
-                    "The custom element constructor for '" + definition.Name + "' did not produce the element being upgraded.");
+                Enqueue(element, record, new CustomElementReaction(CustomElementReactionKind.Connected, definition, null, null, null));
             }
-        }
-        catch (JavaScriptException exception)
-        {
-            // "If any of these steps threw exception: set element's custom element definition to null, empty
-            // element's custom element reaction queue, and report the exception." The element stays failed,
-            // which is what stops a second attempt from running the constructor again.
-            record.Definition = null;
-            record.Reactions.Clear();
-            record.State = CustomElementState.Failed;
-            Report(exception, definition.Name);
-            return;
+
+            // The wrapper is built now rather than by the constructor, because it is what `super()` hands back:
+            // the construction stack holds the element being upgraded, and the base constructor returns it.
+            var wrapper = _runtime.Dom.WrapNode(element);
+            definition.ConstructionStack.Add(wrapper);
+            stackPushed = true;
+
+            try
+            {
+                if (definition.DisableShadow && element.AttachedShadowRoot is not null)
+                {
+                    var engine = _runtime.Engine;
+                    var error = engine._mainRealm.Intrinsics.DomException.CreateException(
+                        DomExceptionNames.NotSupported,
+                        "The custom element '" + definition.Name + "' disabled shadow, so an element that already has a shadow root cannot be upgraded.");
+                    var location = engine._lastSyntaxElement?.Location ?? default;
+                    Throw.JavaScriptException(engine, error, in location);
+                }
+
+                record.State = CustomElementState.Precustomized;
+
+                var constructed = _runtime.Engine.Construct(definition.Constructor, [], definition.Constructor, null);
+
+                if (!ReferenceEquals(constructed, wrapper))
+                {
+                    Throw.TypeError(
+                        _runtime.Engine._mainRealm,
+                        "The custom element constructor for '" + definition.Name + "' did not produce the element being upgraded.");
+                }
+            }
+            catch (JavaScriptException exception)
+            {
+                // "If any of these steps threw exception: set element's custom element definition to null, empty
+                // element's custom element reaction queue, and report the exception." The element stays failed,
+                // which is what stops a second attempt from running the constructor again.
+                FailUpgrade(element, record);
+                Report(exception, definition.Name);
+                return;
+            }
+
+            // HTML upgrade steps 11 and 12: association is reset after construction,
+            // before the element enters the custom state.
+            if (record.FormAssociated) HtmlFormState.ResetOwner(element);
+            record.State = CustomElementState.Custom;
+            succeeded = true;
         }
         finally
         {
-            definition.ConstructionStack.RemoveAt(definition.ConstructionStack.Count - 1);
+            if (stackPushed) definition.ConstructionStack.RemoveAt(definition.ConstructionStack.Count - 1);
+            if (!succeeded) FailUpgrade(element, record);
         }
+    }
 
-        record.State = CustomElementState.Custom;
+    private static void FailUpgrade(Element element, CustomElementRecord record)
+    {
+        record.Definition = null;
+        record.Reactions.Clear();
+        record.State = CustomElementState.Failed;
+        if (record.FormAssociated) HtmlFormState.SetFormAssociatedCustomElement(element, false);
+        record.FormAssociated = false;
     }
 
     /// <summary>
@@ -424,7 +453,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>Remembers the current value of every observed attribute, so the next change has an old one.</summary>
-    private static void Snapshot(IElement element, CustomElementRecord record, CustomElementDefinition definition)
+    private static void Snapshot(Element element, CustomElementRecord record, CustomElementDefinition definition)
     {
         if (definition.ObservedAttributes.Length == 0)
         {
@@ -440,7 +469,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>DOM's custom element state for an element that has no record of its own yet.</summary>
-    internal CustomElementState StateOf(IElement element)
+    internal CustomElementState StateOf(Element element)
     {
         if (_records.TryGetValue(element, out var record))
         {
@@ -454,43 +483,42 @@ internal sealed partial class CustomElementRegistry
     /// Whether an element could ever become custom: an HTML element whose local name is a valid custom
     /// element name, or one carrying an <c>is</c>.
     /// </summary>
-    private static bool IsPotentiallyCustom(IElement element)
-        => string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
-        && (CustomElementNames.IsValid(element.LocalName) || element.HasAttribute("is"));
+    private static bool IsPotentiallyCustom(Element element)
+        => string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
+        && (CustomElementNames.IsValid(element.LocalName) || element.IsValue is not null);
 
     /// <summary>
     /// The element's <c>is</c> value: the one creation recorded, and otherwise the content attribute — which
     /// is what a parser-created element has, there being no hook on the parser's element creation.
     /// </summary>
-    private string? IsValueOf(IElement element)
+    private string? IsValueOf(Element element)
     {
         if (_records.TryGetValue(element, out var record) && record.IsValue is { } recorded)
         {
             return recorded;
         }
 
-        var attribute = element.GetAttribute("is");
-        return string.IsNullOrEmpty(attribute) ? null : attribute;
+        return element.IsValue;
     }
 
     /// <summary>Whether <paramref name="element"/> would be one of <paramref name="definition"/>'s candidates.</summary>
-    private bool Matches(IElement element, CustomElementDefinition definition)
-        => string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
+    private bool Matches(Element element, CustomElementDefinition definition)
+        => string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
         && string.Equals(element.LocalName, definition.LocalName, StringComparison.Ordinal)
         && StateOf(element) == CustomElementState.Undefined
         && (definition.IsAutonomous || string.Equals(IsValueOf(element), definition.Name, StringComparison.Ordinal));
 
     /// <summary>https://dom.spec.whatwg.org/#connected, shadow-including.</summary>
-    private static bool IsConnected(INode node)
+    private static bool IsConnected(Node node)
     {
-        for (INode? current = node; current is not null;)
+        for (Node? current = node; current is not null;)
         {
-            if (current is IDocument)
+            if (current is Document)
             {
                 return true;
             }
 
-            current = current is IShadowRoot shadow ? shadow.Host : current.Parent;
+            current = current is ShadowRoot shadow ? shadow.Host : current.ParentNode;
         }
 
         return false;
@@ -502,25 +530,25 @@ internal sealed partial class CustomElementRegistry
     /// pushed in reverse so that popping gives tree order. Nothing it calls runs script — a walk only ever
     /// enqueues — so the tree cannot change under it.
     /// </remarks>
-    private static void Walk(INode root, Action<IElement> visit)
+    private void Walk(Node root, Action<Element> visit)
     {
-        var pending = new Stack<INode>();
+        var pending = new Stack<Node>();
         pending.Push(root);
-
-        while (pending.Count > 0)
+        while (pending.TryPop(out var node))
         {
-            var node = pending.Pop();
-
-            if (node is IElement element)
+            _runtime.Engine.Constraints.Check();
+            if (node is Element element)
             {
                 visit(element);
-            }
 
-            var children = node.ChildNodes;
-            for (var i = children.Length - 1; i >= 0; i--)
-            {
-                pending.Push(children[i]);
             }
+            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
+            {
+                _runtime.Engine.Constraints.Check();
+                pending.Push(child);
+            }
+            // Shadow-including tree order visits the shadow tree before the host's light children.
+            if (node is Element { AttachedShadowRoot: { } shadow }) pending.Push(shadow);
         }
     }
 }

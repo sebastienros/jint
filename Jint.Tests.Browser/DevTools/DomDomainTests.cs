@@ -25,6 +25,92 @@ public class DomDomainTests
     private const int Row = 16;
 
     [Test]
+    public async Task ReplacingAnAttributePrefixReconcilesTheOldClientNameAtTheNextCheckpoint()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await Content(session, attachment, "<div id=a></div>");
+        await session.ResultAsync("DOM.enable", "{}", attachment);
+        await session.ResultAsync("DOM.getDocument", """{"depth":-1}""", attachment);
+        await session.EvaluateAsync("document.getElementById('a').setAttributeNS('urn:test', 'first:local', 'one')", attachment);
+        (await session.EventAsync("DOM.attributeModified", sessionId: attachment))
+            .GetProperty("name").GetString().Should().Be("first:local");
+        await session.EvaluateAsync(
+            """
+            const replacement = document.createAttributeNS('urn:test', 'second:local');
+            replacement.value = 'two';
+            document.getElementById('a').setAttributeNodeNS(replacement);
+            """, attachment);
+        (await session.EventAsync("DOM.attributeRemoved", sessionId: attachment))
+            .GetProperty("name").GetString().Should().Be("first:local");
+        var modified = await session.EventAsync("DOM.attributeModified", 1, attachment);
+        modified.GetProperty("name").GetString().Should().Be("second:local");
+        modified.GetProperty("value").GetString().Should().Be("two");
+    }
+
+    [Test]
+    public async Task NamespacedAttributeRemovalReportsTheQualifiedNameFromItsMutation()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await Content(session, attachment, "<div id=a></div>");
+        await session.ResultAsync("DOM.enable", "{}", attachment);
+        await session.ResultAsync("DOM.getDocument", """{"depth":-1}""", attachment);
+        await session.EvaluateAsync("document.getElementById('a').setAttributeNS('urn:test', 'first:local', 'one')", attachment);
+        (await session.EventAsync("DOM.attributeModified", sessionId: attachment))
+            .GetProperty("name").GetString().Should().Be("first:local");
+        await session.EvaluateAsync(
+            """
+            const element = document.getElementById('a');
+            window.localNames = [];
+            new MutationObserver(records => localNames.push(...records.map(record => record.attributeName)))
+              .observe(element, {attributes: true});
+            element.removeAttributeNS('urn:test', 'local');
+            """, attachment);
+        (await session.EventAsync("DOM.attributeRemoved", sessionId: attachment))
+            .GetProperty("name").GetString().Should().Be("first:local");
+        (await session.EvaluateAsync("localNames.join('|')", attachment))
+            .GetProperty("value").GetString().Should().Be("local", "the script-visible record keeps DOM's local-name contract");
+    }
+
+    [Test]
+    public async Task AttributeHandlesAndXPathResultsKeepTheSameNativeIdentityAfterRemoval()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await Content(session, attachment, "<div id=a data-x=before></div>");
+        var handle = await Handle(session, attachment, "window.savedAttr = document.getElementById('a').getAttributeNode('data-x'); savedAttr");
+        handle.Subtype.Should().Be("node");
+        handle.ClassName.Should().Be("Attr");
+        handle.Description.Should().Be("data-x");
+        var nodeId = (await session.ResultAsync("DOM.requestNode", $$"""{"objectId":"{{handle.ObjectId}}"}""", attachment))
+            .GetProperty("nodeId").GetInt32();
+        var described = (await session.ResultAsync("DOM.describeNode", $$"""{"nodeId":{{nodeId}}}""", attachment)).GetProperty("node");
+        described.GetProperty("nodeType").GetInt32().Should().Be(2);
+        described.GetProperty("nodeName").GetString().Should().Be("data-x");
+        described.GetProperty("nodeValue").GetString().Should().Be("before");
+        described.GetProperty("childNodeCount").GetInt32().Should().Be(0);
+        described.TryGetProperty("parentId", out _).Should().BeFalse();
+
+        var search = await session.ResultAsync("DOM.performSearch", """{"query":"//@data-x"}""", attachment);
+        search.GetProperty("resultCount").GetInt32().Should().Be(1);
+        var results = await session.ResultAsync("DOM.getSearchResults",
+            $$"""{"searchId":"{{search.GetProperty("searchId").GetString()}}","fromIndex":0,"toIndex":1}""", attachment);
+        results.GetProperty("nodeIds")[0].GetInt32().Should().Be(nodeId);
+        await session.ResultAsync("DOM.setNodeValue", $$"""{"nodeId":{{nodeId}},"value":"after"}""", attachment);
+        (await session.EvaluateAsync("document.getElementById('a').getAttribute('data-x')", attachment))
+            .GetProperty("value").GetString().Should().Be("after");
+        await session.EvaluateAsync("document.getElementById('a').removeAttribute('data-x')", attachment);
+
+        var resolved = (await session.ResultAsync("DOM.resolveNode", $$"""{"nodeId":{{nodeId}}}""", attachment)).GetProperty("object");
+        var same = await session.ResultAsync("Runtime.callFunctionOn",
+            $$"""{"objectId":"{{resolved.GetProperty("objectId").GetString()}}","functionDeclaration":"function(){return this === window.savedAttr && this.ownerElement === null && this.value === 'after';}"}""", attachment);
+        same.GetProperty("result").GetProperty("value").GetBoolean().Should().BeTrue();
+        (await session.ErrorAsync("DOM.removeNode", $$"""{"nodeId":{{nodeId}}}""", attachment))
+            .GetProperty("message").GetString().Should().Be("Cannot remove detached node");
+    }
+
+    [Test]
     public async Task GetDocumentAnswersTheDocumentAndTheDepthTheClientAskedFor()
     {
         await using var session = await PageSession.CreateAsync();
@@ -59,7 +145,7 @@ public class DomDomainTests
     {
         await using var session = await PageSession.CreateAsync();
         var attachment = await session.OpenPageAsync();
-        await Content(session, attachment, "<div id='a' class='one two'>hi</div>");
+        await Content(session, attachment, "<div id='a' class='one two one'>hi</div>");
 
         // A node reaches a client as a handle whose subtype says what it is -- which is what makes a client
         // library build an element handle out of it rather than a plain object handle.

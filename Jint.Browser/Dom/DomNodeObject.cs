@@ -1,173 +1,133 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Events;
 using Jint.WebApi.Events;
 
 namespace Jint.Browser.Dom;
 
-/// <summary>
-/// The wrapper for an AngleSharp <see cref="INode"/>. It derives from Jint's <c>JsEventTarget</c> rather
-/// than from <see cref="DomObject"/>, which is what puts it on the engine's tree-dispatch lane: capture,
-/// target and bubble over a real event path, <c>composedPath()</c>, and retargeting all come from the engine
-/// once the seams below answer.
-/// </summary>
+/// <summary>A native node (or Attr) on Jint's DOM event dispatch lane.</summary>
 /// <remarks>
-/// <para>
-/// <b>The one seam that must not be forgotten is <see cref="IsNode"/></b>, because it is what selects the
-/// lane at all: a target that overrides <c>GetParent</c> without it dispatches to itself alone, in silence.
-/// </para>
-/// <para>
-/// <b>What is deliberately not here yet.</b> Assigned slots answer <see langword="null"/>, so flat-tree
-/// dispatch through <c>&lt;slot&gt;</c> is still absent; answering a wrong slot would be worse than answering
-/// none. The activation behaviours below <i>are</i> here — <c>Events/ActivationBehaviors</c> is the table, and
-/// it is what makes a checkbox toggle, a <c>&lt;summary&gt;</c> open its <c>&lt;details&gt;</c> and a submit
-/// button reach its form.
-/// </para>
+/// Attr is a Node in Web IDL while the native tree deliberately models it outside its Node
+/// hierarchy. Keeping both in this one wrapper family preserves the JavaScript prototype and
+/// event-target contract without adding an attribute to the native child-link tree.
 /// </remarks>
 internal class DomNodeObject : JsEventTarget, IDomWrapper
 {
-    internal DomNodeObject(DomRealm realm, DomInterfaceDefinition definition, INode node)
+    internal DomNodeObject(DomRealm realm, DomInterfaceDefinition definition, object target)
         : base(realm.Engine, realm.OwningRealm)
     {
         DomRealm = realm;
         Definition = definition;
-        Node = node;
+        DomTarget = target;
         Prototype = realm.PrototypeOf(definition);
     }
 
-    /// <summary>The node this wrapper projects.</summary>
-    internal INode Node { get; }
+    public object DomTarget { get; }
 
-    /// <inheritdoc />
-    public object DomTarget => Node;
+    internal Node? Node => DomTarget as Node;
 
-    /// <inheritdoc />
+    internal Attr? Attribute => DomTarget as Attr;
+
     public DomRealm DomRealm { get; }
 
-    /// <summary>The interface whose prototype this wrapper was given.</summary>
     internal DomInterfaceDefinition Definition { get; }
 
-    /// <summary>
-    /// Selects the engine's tree-dispatch lane. Everything else on this class is only consulted because this
-    /// answers <see langword="true"/>.
-    /// </summary>
+    private static long _nextPositionOrder;
+    internal long PositionOrder { get; } = Interlocked.Increment(ref _nextPositionOrder);
+
+    /// <summary>Checks the immutable native Web IDL identity, independent of a script's prototype writes.</summary>
+    internal bool Implements(string interfaceName)
+    {
+        for (var definition = Definition; definition is not null; definition = definition.Parent)
+        {
+            if (string.Equals(definition.Name, interfaceName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     internal override bool IsNode => true;
 
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#default-passive-value — the three node targets DOM names beside the
-    /// <c>Window</c>: the document, its document element and its body element.
-    /// </summary>
-    /// <remarks>
-    /// Read only for a <c>touchstart</c>, <c>touchmove</c>, <c>wheel</c> or <c>mousewheel</c> listener, which
-    /// the engine tests for first, so every other <c>addEventListener</c> on a node costs nothing. The
-    /// comparisons are against the node's <i>own</i> document rather than the page's, which is what makes a
-    /// document a <c>DOMParser</c> produced answer about itself.
-    /// </remarks>
-    internal override bool IsDefaultPassiveTarget => Node switch
+    internal override bool IsDefaultPassiveTarget => DomTarget switch
     {
-        IDocument => true,
-        IElement element => element.Owner is { } owner
-            && (ReferenceEquals(element, owner.DocumentElement) || ReferenceEquals(element, owner.Body)),
+        Document => true,
+        Element element when element.OwnerDocument is { } document =>
+            ReferenceEquals(element, document.DocumentElement) ||
+            ReferenceEquals(element, DomDocumentElements.Body(document)),
         _ => false,
     };
 
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#get-the-parent — the node tree parent, and for a shadow root the host.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The shadow-root clause is stated as "the host, unless the event's composed flag is unset and the shadow
-    /// root is the root of the event's path's first struct's invocation target". The second half is dropped
-    /// here because it is always true when this method is reached: the dispatcher walks up from the dispatch
-    /// target, so arriving at a shadow root means the target is inside it — and if a nested shadow root sat
-    /// between them, a non-composed event would already have stopped at that one. A shadow root dispatched at
-    /// directly is its own root, so the reduction holds there too.
-    /// </para>
-    /// <para>
-    /// One clause is deliberately absent: a slottable's parent is its assigned slot, and
-    /// <see cref="JsEventTarget.AssignedSlot"/> answers <see langword="null"/> until R2 has a flat tree to
-    /// answer from.
-    /// </para>
-    /// <para>
-    /// A document's parent is the window for every event but <c>load</c>, which is what puts a window listener
-    /// on a bubbling event's path and keeps <c>load</c> off it. The window is
-    /// <see cref="Dom.DomRealm.WindowTarget"/>, published by the runtime that installs one; with no runtime
-    /// the document is the root of every path, which is what a document with no browsing context is.
-    /// </para>
-    /// </remarks>
     internal override JsEventTarget? GetParent(JsEvent ev)
     {
-        // The dispatcher calls this exactly once per event path item, before any listener runs, which makes it
-        // the one place a handler content attribute a script changed since the wrapper was built can be
-        // noticed without an observer. It costs one GetAttribute, and only for a type that can be a handler.
         if (EventHandlerContentAttributes.IsHandlerType(ev.TypeName))
         {
             EventHandlerContentAttributes.Reconcile(this, ev.TypeName);
         }
 
-        if (Node is IShadowRoot shadowRoot)
+        if (DomTarget is ShadowRoot shadow)
         {
-            return !ev.Composed || shadowRoot.Host is not { } host ? null : DomRealm.WrapNode(host);
+            // DOM's shadow-root parent algorithm stops a non-composed event only
+            // at the root of its original invocation target. A slotted light-tree
+            // target therefore crosses this root even when the event is not composed.
+            if (!ev.Composed && ev.Path is { Count: > 0 } path &&
+                ReferenceEquals(path[0].InvocationTarget.GetRoot(), this))
+            {
+                return null;
+            }
+            return DomRealm.WrapNode(shadow.Host);
         }
 
-        if (Node is IDocument)
+        if (DomTarget is Document)
         {
-            return string.Equals(ev.EventType.ToString(), "load", StringComparison.Ordinal) ? null : DomRealm.WindowTarget;
+            return string.Equals(ev.EventType.ToString(), "load", StringComparison.Ordinal)
+                ? null
+                : DomRealm.WindowTarget;
         }
 
-        return TreeParent;
+        return AssignedSlot ?? TreeParent;
     }
 
-    /// <summary>
-    /// The node tree parent, used by retargeting and by <c>composedPath()</c>. A shadow root's parent is its
-    /// host, which <see cref="ShadowHost"/> answers separately; here it is the plain
-    /// <see cref="INode.Parent"/>, which AngleSharp leaves <see langword="null"/> for a shadow root.
-    /// </summary>
-    internal override JsEventTarget? TreeParent
-        => Node.Parent is { } parent ? DomRealm.WrapNode(parent) : null;
+    internal override JsEventTarget? TreeParent => DomTarget is Node { ParentNode: { } parent }
+        ? DomRealm.WrapNode(parent)
+        : null;
 
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#concept-tree-root, walked over AngleSharp's nodes rather than over their
-    /// wrappers.
-    /// </summary>
-    /// <remarks>
-    /// The engine's default climbs <see cref="TreeParent"/>, and every step of that projects a wrapper the
-    /// walk then throws away; this reads <see cref="INode.Parent"/> and projects the root alone. Dispatch
-    /// asks once per event, so what it saves is one wrapper lookup per ancestor of the target.
-    /// </remarks>
     internal override JsEventTarget GetRoot()
     {
-        var root = Node;
-        while (root.Parent is { } parent)
+        if (DomTarget is not Node node)
+        {
+            return this;
+        }
+
+        var root = node;
+        while (root.ParentNode is { } parent)
         {
             root = parent;
         }
 
-        return ReferenceEquals(root, Node) ? this : DomRealm.WrapNode(root);
+        return ReferenceEquals(root, node) ? this : DomRealm.WrapNode(root);
     }
 
-    /// <inheritdoc />
-    internal override bool IsShadowRoot => Node is IShadowRoot;
+    internal override bool IsSlot => DomTarget is Element { NamespaceUri: Namespaces.Html, LocalName: "slot" };
 
-    /// <summary>
-    /// A closed shadow root hides its contents from <c>composedPath()</c>. AngleSharp models the mode on
-    /// <see cref="IShadowRoot"/> and nowhere else, so this is the whole of it.
-    /// </summary>
-    internal override bool IsClosedShadowRoot => Node is IShadowRoot { Mode: ShadowRootMode.Closed };
+    internal override JsEventTarget? AssignedSlot => Node is { } node && SlotAssignment.GetAssignedSlot(node) is { } slot
+        ? DomRealm.WrapNode(slot)
+        : null;
 
-    /// <inheritdoc />
-    internal override JsEventTarget? ShadowHost
-        => Node is IShadowRoot { Host: { } host } ? DomRealm.WrapNode(host) : null;
+    internal override bool IsShadowRoot => DomTarget is ShadowRoot;
 
-    /// <inheritdoc />
-    internal override bool HasActivationBehavior => ActivationBehaviors.Has(Node);
+    internal override bool IsClosedShadowRoot => DomTarget is ShadowRoot { Mode: ShadowRootMode.Closed };
 
-    /// <inheritdoc />
+    internal override JsEventTarget? ShadowHost => DomTarget is ShadowRoot shadow
+        ? DomRealm.WrapNode(shadow.Host)
+        : null;
+
+    internal override bool HasActivationBehavior => Node is { } node && ActivationBehaviors.Has(node);
+
     internal override void ActivationBehavior(JsEvent ev) => ActivationBehaviors.Run(this, ev);
 
-    /// <inheritdoc />
     internal override void LegacyPreActivationBehavior() => ActivationBehaviors.LegacyPreActivationBehavior(this);
 
-    /// <inheritdoc />
     internal override void LegacyCanceledActivationBehavior() => ActivationBehaviors.LegacyCanceledActivationBehavior(this);
 
     public override string ToString() => "[object " + Definition.Name + "]";

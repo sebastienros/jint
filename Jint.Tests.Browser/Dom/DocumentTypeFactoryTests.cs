@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 
 namespace Jint.Tests.Browser.Dom;
@@ -28,7 +28,7 @@ public class DocumentTypeFactoryTests
             """).Should().Be(true);
         var native = ((DomNodeObject) fixture.Engine.GetValue("node")).Node;
         native.Should().BeSameAs(fixture.Document.Doctype);
-        ((IDocumentType) native).Name.Should().Be(name);
+        ((DocumentType) native!).Name.Should().Be(name);
         fixture.Engine.Evaluate("""
             var other = document.implementation.createHTMLDocument();
             other.doctype.remove();

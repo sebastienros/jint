@@ -18,7 +18,9 @@ public abstract partial class Node
         }
 
         _mutationRegistrations.Add(new NodeMutationRegistration(registration, transient));
-        (this as Document ?? OwnerDocument!).MarkMutationRegistrationsPresent();
+        var document = this as Document ?? OwnerDocument!;
+        document.MarkMutationRegistrationsPresent();
+        if (registration.Subscription.CaptureHtmlMetaInsertions) document.MarkHtmlMetaCapturePresent();
         if (transient)
         {
             registration.Subscription.AddTransientNode(this);

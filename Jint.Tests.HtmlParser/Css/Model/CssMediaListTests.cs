@@ -66,7 +66,7 @@ public sealed class CssMediaListTests
         list.Count.Should().Be(1);
         Assert.Throws<DomException>(() => list.DeleteMedium("print"))!.Name.Should().Be("NotFoundError");
         before = list.Stamp;
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => list.SetMediaText("(any-pointer:fine)"))!.Blocker.Should().Be("R2:media-feature:any-pointer");
+        Assert.Throws<CssIncompleteRuleGrammarException>(() => list.SetMediaText("(color-gamut:srgb)"))!.Blocker.Should().Be("R2:media-feature:color-gamut");
         list.Stamp.Should().Be(before);
         list.SetMediaText("");
         list.Count.Should().Be(0);

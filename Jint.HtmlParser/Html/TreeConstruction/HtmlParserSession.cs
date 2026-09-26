@@ -74,6 +74,17 @@ internal sealed partial class HtmlParserSession
     internal int ScriptNestingLevel => _requests.Count;
     internal long WorkCount => SaturatingAdd(_tokenizer.WorkCount, _builder.WorkCount);
 
+    // Read only at a returned parser boundary; insertion records precede stack Push.
+    internal bool IsStyleOpen(Element element) => !_terminal && _builder.IsStyleOpen(element);
+
+    internal bool TryTakeCompletedStyle(out Element? element, CancellationToken cancellationToken = default)
+    {
+        Enter();
+        try { return _builder.TryTakeCompletedStyle(out element, cancellationToken); }
+        catch (OperationCanceledException) { Invalidate(); throw; }
+        finally { Exit(); }
+    }
+
     internal void AppendInput(string chunk, bool isFinal = false)
     {
         Enter();
@@ -175,6 +186,12 @@ internal sealed partial class HtmlParserSession
         try
         {
             if (frame is not null) CheckActiveFrame(frame);
+            if (_builder.HasCompletedStyles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _builder.BeginDriveRootTracking();
+                return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            }
             if (_complete && !_terminal) return new HtmlParseStep(HtmlParseStepKind.Complete);
             CheckActive();
             cancellationToken.ThrowIfCancellationRequested();
@@ -213,6 +230,11 @@ internal sealed partial class HtmlParserSession
                     var before = _builder.WorkCount;
                     var result = _builder.Process(remaining, cancellationToken);
                     remaining -= _builder.WorkCount - before;
+                    if (_builder.HasCompletedStyles)
+                    {
+                        if (result.Kind == HtmlParseStepKind.Complete) _complete = true;
+                        return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                    }
                     if (_builder.ScriptBoundary is { } script)
                     {
                         if (_requests.Count == 0)
@@ -297,6 +319,7 @@ internal sealed partial class HtmlParserSession
     private void InvalidateState()
     {
         _terminal = true;
+        _builder.ClearCompletedStyles();
         _checkpoint = null;
         _waitRequest = null;
         _pendingBlocker = null;

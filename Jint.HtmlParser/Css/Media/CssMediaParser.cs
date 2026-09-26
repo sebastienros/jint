@@ -335,8 +335,9 @@ internal static class CssMediaParser
     private static string[]? Discrete(string name) => name switch
     {
         "orientation" => ["portrait", "landscape"],
-        "pointer" => ["none", "coarse", "fine"],
-        "hover" => ["none", "hover"],
+        "pointer" or "any-pointer" => ["none", "coarse", "fine"],
+        "hover" or "any-hover" => ["none", "hover"],
+        "display-mode" => ["fullscreen", "standalone", "minimal-ui", "browser", "picture-in-picture"],
         "prefers-color-scheme" => ["light", "dark"],
         "prefers-reduced-motion" or "prefers-reduced-transparency" or "prefers-reduced-data" => ["no-preference", "reduce"],
         "prefers-contrast" => ["no-preference", "more", "less", "custom"],
@@ -346,9 +347,9 @@ internal static class CssMediaParser
     };
 
     private static bool KnownPending(string name) => name.StartsWith("--", StringComparison.Ordinal) || name is
-        "device-width" or "device-height" or "device-aspect-ratio" or "any-pointer" or "any-hover" or
+        "device-width" or "device-height" or "device-aspect-ratio" or
         "overflow-block" or "overflow-inline" or "horizontal-viewport-segments" or "vertical-viewport-segments" or
-        "display-mode" or "scan" or "update" or "environment-blending" or "color-gamut" or "dynamic-range" or
+        "scan" or "update" or "environment-blending" or "color-gamut" or "dynamic-range" or
         "inverted-colors" or "nav-controls" or "video-color-gamut" or "video-dynamic-range" or "ua-color-scheme";
 
     private static string ValueText(CssMediaFeature feature) => feature.Keyword ?? feature.SpecifiedValue;

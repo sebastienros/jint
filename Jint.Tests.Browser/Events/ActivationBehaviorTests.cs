@@ -11,6 +11,43 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class ActivationBehaviorTests
 {
+    [TestCase(null, "https://example.test/page")]
+    [TestCase("", "https://example.test/page")]
+    [TestCase("post", "https://base.test/forms/post")]
+    public void RecordingFormSubmissionResolvesOnlyANonemptyActionAgainstTheBase(string? action, string expected)
+    {
+        var document = global::Jint.Browser.Accessibility.ContentDom.Parse(
+            "<base href='https://base.test/forms/'><form id='f'></form>");
+        global::Jint.Browser.Dom.DomDocumentState.Of(document).Url = "https://example.test/page";
+        var form = global::Jint.Browser.Accessibility.ContentDom.ElementById(document, "f")!;
+        if (action is not null) form.SetAttribute("action", action);
+        var engine = new Engine(options => options.UseWebApis());
+        var realm = global::Jint.Browser.Events.BrowserEventRealm.Of(engine);
+        global::Jint.Browser.Events.BrowserActivationHost.Recording.SubmitForm(realm, form, submitter: null);
+        BrowserTestAccess.PendingActivations(engine).Should().Equal("FormSubmission " + expected);
+    }
+
+    [Test]
+    public async Task CanceledRadioActivationDoesNotRestoreAPeerMovedToAnotherGroup()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='a' type='radio' name='g' checked><input id='b' type='radio' name='g'>");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const a = document.getElementById('a');
+              const b = document.getElementById('b');
+              b.addEventListener('click', e => {
+                a.name = 'other';
+                e.preventDefault();
+              });
+              b.click();
+              return [a.checked, b.checked].join(',');
+            })()
+            """)).Should().Be("false,false");
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-click — <c>click()</c> fires a synthetic
     /// pointer event <b>with the not trusted flag set</b>, and its activation behaviour still runs. Trust
@@ -220,6 +257,24 @@ public sealed class ActivationBehaviorTests
         (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
         (await page.EvaluateAsync<string>("[document.getElementById('d').open, window.log.join('|')].join(',')"))
             .Should().Be("false,toggle:true|toggle:false");
+    }
+
+    [Test]
+    public async Task RepeatedSummaryActivationQueuesOneToggleWithTheFinalState()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<details id='d'><summary id='s'>More</summary></details>");
+        await page.EvaluateAsync(
+            """
+            window.toggles = [];
+            const d = document.getElementById('d');
+            d.addEventListener('toggle', () => toggles.push(d.open));
+            document.getElementById('s').click();
+            document.getElementById('s').click();
+            """);
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await page.EvaluateAsync<string>("toggles.join(',')")).Should().Be("false");
     }
 
     [Test]
@@ -459,7 +514,8 @@ public sealed class ActivationBehaviorTests
             """
             (() => {
               const s = document.getElementById('s');
-              const seen = [];
+              window.optionEvents = [];
+              const seen = window.optionEvents;
               s.addEventListener('input', e => seen.push('input:' + e.target.id));
               s.addEventListener('change', e => seen.push('change:' + e.target.id));
               document.getElementById('two').click();
@@ -468,8 +524,12 @@ public sealed class ActivationBehaviorTests
               return [after, seen.join('|'), document.getElementById('one').selected].join(',');
             })()
             """))
-            // Clicking the already-selected option changes nothing and fires nothing.
-            .Should().Be("2:1,input:s|change:s,false");
+            // Selectedness changes synchronously; select update notifications are queued.
+            .Should().Be("2:1,,false");
+
+        (await page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await page.EvaluateAsync<string>("window.optionEvents.join('|')")).Should().Be("input:s|change:s");
+        (await page.EvaluateAsync<int>("window.optionEvents.length")).Should().Be(2);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 
@@ -41,7 +42,7 @@ public class FlatLayoutTests
             CssRuleUsage.Arm(tracker);
             try
             {
-                var box = runtime.Layout.ClientBoxOf(document.GetElementById("target")!)!.Value;
+                var box = runtime.Layout.ClientBoxOf(DomDocumentReads.ById(runtime.Dom, document, "target")!)!.Value;
                 return (box.Height, runtime.Layout.ScrollY, Used: tracker.TakeDelta().Select(rule => rule.SelectorText).ToArray());
             }
             finally
@@ -77,7 +78,7 @@ public class FlatLayoutTests
             CssRuleUsage.Arm(tracker);
             try
             {
-                var box = runtime.Layout.ClientBoxOf(document.GetElementById("target")!)!.Value;
+                var box = runtime.Layout.ClientBoxOf(DomDocumentReads.ById(runtime.Dom, document, "target")!)!.Value;
                 return (box.Bottom, runtime.Layout.ScrollY, Used: tracker.TakeDelta().Select(rule => rule.SelectorText).ToArray());
             }
             finally
@@ -123,7 +124,7 @@ public class FlatLayoutTests
             await page.RunOnLoopAsync(engine =>
             {
                 var runtime = PageRuntime.Find(engine)!;
-                var target = runtime.Document!.GetElementById("target")!;
+                var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "target")!;
                 var box = runtime.Layout.ClientBoxOf(target);
                 var scroll = runtime.Layout.ScrollY;
                 var full = runtime.Layout.Current();

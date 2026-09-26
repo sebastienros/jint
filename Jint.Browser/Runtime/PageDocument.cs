@@ -1,5 +1,5 @@
-using AngleSharp;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime.Parsing;
 
 namespace Jint.Browser.Runtime;
@@ -23,12 +23,12 @@ internal static class PageDocument
         string markup,
         string url,
         string contentType,
-        Action<NavigationPhase>? onPhase = null)
-        => ParserDriver.Load(runtime, markup, url, contentType, onPhase);
+        Action<NavigationPhase>? onPhase = null, DateTimeOffset? lastModified = null, string? defaultStyle = null)
+        => ParserDriver.Load(runtime, markup, url, contentType, onPhase, lastModified, defaultStyle);
 }
 
 /// <summary>What one parse produced: the document, the context that owns it, and how much script ran.</summary>
-internal sealed record PageLoad(IDocument Document, IBrowsingContext Context, int ScriptsRun);
+internal sealed record PageLoad(Document Document, DomBrowsingContext Context, int ScriptsRun);
 
 /// <summary>
 /// How far a load has got, so that <see cref="WaitUntilState"/> can answer at three different points.

@@ -59,12 +59,23 @@ public sealed class CssStyleSheetTests
         Assert.Throws<DomException>(() => sheet.InsertRule("@media all {}", -1))!.Name.Should().Be("IndexSizeError");
         Assert.Throws<DomException>(() => sheet.InsertRule("a {} b {}", 0))!.Name.Should().Be("SyntaxError");
         Assert.Throws<DomException>(() => sheet.InsertRule("@unknown;", 0))!.Name.Should().Be("SyntaxError");
-        Assert.Throws<CssIncompleteGrammarException>(() => sheet.InsertRule("a {border-color:red}", 0))!.PropertyName.Should().Be("border-color");
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("@supports (x:y) {}", 0))!.Blocker.Should().Be("R2:supports");
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("a { & b {} }", 0))!.Blocker.Should().Be("C2:nesting-selector-context");
+        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("@container (width > 1px) {}", 0))!.Blocker.Should().Be("R2:container");
+        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("a { & b {} color:red; }", 0))!.Blocker.Should().Be("C2:interleaved-declarations");
         Assert.Throws<DomException>(() => sheet.DeleteRule(1))!.Name.Should().Be("IndexSizeError");
         sheet.Stamp.Should().Be(before);
         sheet.Rules.Count.Should().Be(1);
+    }
+
+    [Test]
+    public void RuleInsertionRetainsPendingDeclarationSyntaxUntilAnActualValueDemand()
+    {
+        var sheet = CssStyleSheet.Parse("a {}");
+        sheet.InsertRule("b { display:block; border-color:red; }", 1).Should().Be(1);
+        var rule = (CssStyleRule) sheet.Rules[1];
+        var stamp = sheet.Stamp;
+        rule.Style.GetPropertyValue("display").Should().Be("block");
+        Assert.Throws<CssIncompleteGrammarException>(() => _ = rule.CssText)!.PropertyName.Should().Be("border-color");
+        sheet.Stamp.Should().Be(stamp);
     }
 
     [Test]

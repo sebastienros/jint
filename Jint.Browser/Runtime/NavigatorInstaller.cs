@@ -92,13 +92,20 @@ internal static class NavigatorInstaller
         return culture.Name.Length != 0 ? culture.Name : "en-US";
     }
 
+    internal static string PlatformOf(PageRuntime runtime) => runtime.Emulation.Platform ?? "";
+    internal static JsValue Online(PageRuntime runtime)
+    {
+        _ = runtime;
+        return JsBoolean.True;
+    }
+
     private static void Attach(Engine engine, ObjectInstance navigatorPrototype)
     {
         // userAgent is deliberately absent: it is the one member the engine's own Navigator already declares,
         // and Engine.WebApi.UserAgent is what carries the page's string to it.
         Accessor(engine, navigatorPrototype, "language", static runtime => JsString.Create(LanguageOf(runtime)));
         Accessor(engine, navigatorPrototype, "languages", static runtime => Languages(runtime));
-        Accessor(engine, navigatorPrototype, "platform", static runtime => JsString.Create(runtime.Emulation.Platform ?? ""));
+        Accessor(engine, navigatorPrototype, "platform", static runtime => JsString.Create(PlatformOf(runtime)));
 
         // https://w3c.github.io/pointerevents/#dom-navigator-maxtouchpoints — zero is what a device with no
         // touch screen reports, and it is the second half of the `'ontouchstart' in window` test every
@@ -115,7 +122,7 @@ internal static class NavigatorInstaller
         // Both are true and neither is a guess: every request goes out over the context's own HttpClient, and
         // the context's cookie jar stores what a page sets. Emulation.setDocumentCookieDisabled does not move
         // the second, and says so.
-        Accessor(engine, navigatorPrototype, "onLine", static _ => JsBoolean.True);
+        Accessor(engine, navigatorPrototype, "onLine", static runtime => Online(runtime));
         Accessor(engine, navigatorPrototype, "cookieEnabled", static _ => JsBoolean.True);
 
         Accessor(engine, navigatorPrototype, "geolocation", static runtime => runtime.Views.Geolocation);
@@ -188,7 +195,7 @@ internal static class NavigatorInstaller
     /// The page behind the receiver, which is a <c>TypeError</c> for anything that is not this realm's
     /// navigator — the brand check the prototype's own <c>userAgent</c> makes, in the same words.
     /// </summary>
-    private static PageRuntime Runtime(JsValue thisObject, string member)
+    internal static PageRuntime Runtime(JsValue thisObject, string member)
     {
         if (thisObject is Jint.WebApi.Navigator.JsNavigator instance && PageRuntime.Find(instance.Engine) is { } runtime)
         {

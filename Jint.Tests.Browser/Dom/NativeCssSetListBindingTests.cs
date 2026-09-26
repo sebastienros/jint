@@ -1,0 +1,28 @@
+namespace Jint.Tests.Browser.Dom;
+
+public sealed class NativeCssSetListBindingTests
+{
+    [Test]
+    public void StylesheetSetNamesAreLiveStableAndShareTheActualDisabledAuthority()
+    {
+        using var dom = DomTestFixture.Create("<style title='a'>a{color:red}</style><style title='a'>b{color:blue}</style><style title='b'>c{color:green}</style>");
+        dom.Execute("var sheets=document.styleSheets; sheets.length; var names=document.styleSheetSets;");
+        dom.Bool("names instanceof DOMStringList && names===document.styleSheetSets && names.length===2 && names[0]==='a' && names.item(1)==='b'").Should().BeTrue();
+        dom.Bool("names.item(-1)===null && names.item(2)===null && names[2]===undefined && names.contains('a') && !names.contains('A')").Should().BeTrue();
+        dom.Execute("document.selectedStyleSheetSet='b';");
+        dom.Bool("document.selectedStyleSheetSet==='b' && document.lastStyleSheetSet==='b' && document.preferredStyleSheetSet==='a' && sheets[0].disabled && sheets[1].disabled && !sheets[2].disabled").Should().BeTrue();
+        dom.Execute("document.enableStyleSheetsForSet('a'); document.querySelector('style').title='c';");
+        dom.Bool("document.lastStyleSheetSet==='b' && names===document.styleSheetSets && names.length===3 && names[0]==='c' && names[1]==='a'").Should().BeTrue();
+        dom.Bool("(()=>{let converted=false;try{DOMStringList.prototype.contains.call({}, {toString(){converted=true;return 'a'}})}catch(error){return error instanceof TypeError && !converted}})()").Should().BeTrue();
+    }
+
+    [Test]
+    public void ShadowStylesheetListsRetainIdentityAndEnumerateOnlyTheirOwnTree()
+    {
+        using var dom = DomTestFixture.Create("<style>a{color:red}</style><div id='host'></div>");
+        dom.Execute("var host=document.getElementById('host'), shadow=host.attachShadow({mode:'open'}); shadow.innerHTML='<style>b{color:blue}</style>'; var list=shadow.styleSheets;");
+        dom.Bool("list instanceof StyleSheetList && list===shadow.styleSheets && list.length===1 && document.styleSheets.length===1").Should().BeTrue();
+        dom.Execute("shadow.appendChild(document.createElement('style')); host.remove();");
+        dom.Bool("list===shadow.styleSheets && list.length===0 && list.item(0)===null && list[0]===undefined").Should().BeTrue();
+    }
+}

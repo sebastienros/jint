@@ -1,5 +1,6 @@
-﻿using System.Globalization;
-using AngleSharp.Dom;
+using System.Globalization;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Accessibility;
 
 namespace Jint.Browser.Runtime;
@@ -33,10 +34,10 @@ internal static class ElementLocator
     /// asking about an element that is not there and a caller asking wrongly both want "no", and a selector
     /// arriving from a protocol client or an agent is input rather than code.
     /// </remarks>
-    internal static IElement? Find(IDocument? document, string target) => Find(document, target, 0);
+    internal static Element? Find(DomRealm realm, Document? document, string target) => Find(realm, document, target, 0);
 
     /// <summary>The indexed element <paramref name="target"/> names, or <see langword="null"/>.</summary>
-    internal static IElement? Find(IDocument? document, string target, int index)
+    internal static Element? Find(DomRealm realm, Document? document, string target, int index)
     {
         if (document is null || string.IsNullOrWhiteSpace(target))
         {
@@ -62,12 +63,12 @@ internal static class ElementLocator
             {
                 // The first match is what nearly every caller wants, and QuerySelector stops at it rather
                 // than walking the whole tree to build a collection the caller reads one element of.
-                return document.QuerySelector(target);
+                return DomSelectors.QuerySelector(realm, document, target);
             }
 
-            var elements = document.QuerySelectorAll(target);
-            var resolved = index >= 0 ? index : elements.Length + index;
-            return (uint) resolved < (uint) elements.Length ? elements[resolved] : null;
+            var elements = DomSelectors.QuerySelectorAll(realm, document, target);
+            var resolved = index >= 0 ? index : elements.Count + index;
+            return (uint) resolved < (uint) elements.Count ? elements[resolved] : null;
         }
         catch (DomException)
         {

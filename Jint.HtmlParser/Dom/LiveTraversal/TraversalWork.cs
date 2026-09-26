@@ -26,9 +26,10 @@ internal struct TraversalWork
         : this(default, default, checkpoint, token) { }
 
     internal TraversalWork(DomNodeIdentity first, DomNodeIdentity second,
-        Action<int>? checkpoint, CancellationToken token)
+        Action<int>? checkpoint, CancellationToken token, int initialCount = 0)
     {
         this = default;
+        _count = initialCount;
         _token = token;
         _checkpoint = checkpoint;
         if (checkpoint is not null)
@@ -61,6 +62,7 @@ internal struct TraversalWork
         Check();
     }
 
+    internal readonly int Count => _count;
     internal void Step() { if ((++_count & 255) == 0) Check(); }
 
     internal readonly void Check()

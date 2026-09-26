@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Native.Object;
@@ -16,7 +15,8 @@ namespace Jint.Browser.Runtime;
 /// <remarks>
 /// https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects —
 /// each document has independent intrinsics and global bindings in the page's engine. WindowProxy
-/// navigation and cross-origin access remain unsupported; DomFrameMembers gates exposed windows.
+/// navigation and cross-origin access remain unsupported; every exposed child window is gated by
+/// its actual frozen origin rather than by its URL.
 /// </remarks>
 internal static class FrameWindows
 {
@@ -24,9 +24,11 @@ internal static class FrameWindows
     /// The window of <paramref name="frame"/>, built on first use, or <see langword="null"/> when the frame
     /// has no document to be the window of.
     /// </summary>
-    internal static JsValue For(PageRuntime runtime, IHtmlInlineFrameElement frame)
+    internal static JsValue For(PageRuntime runtime, Element frame)
     {
-        if (frame.ContentDocument is not { } document)
+        if (DomBrowsingContext.OfFrame(frame)?.Active is not { } document
+            || frame.OwnerDocument is not { } owner
+            || !DomDocumentState.Of(owner).Origin.IsSameOrigin(DomDocumentState.Of(document).Origin))
         {
             return JsValue.Null;
         }
@@ -39,7 +41,7 @@ internal static class FrameWindows
     /// <summary>
     /// Gives a frame's document wrapper the <c>defaultView</c> its window is, once.
     /// </summary>
-    internal static void AttachDefaultView(PageRuntime runtime, IDocument document)
+    internal static void AttachDefaultView(PageRuntime runtime, Document document)
     {
         var dom = DocumentRealm(runtime, document);
         if (runtime.Dom.WrapNode(document) is not { } wrapper || wrapper.HasOwnProperty("defaultView"))
@@ -63,7 +65,7 @@ internal static class FrameWindows
     /// reached yet appears the moment it does; installing them would be a snapshot of whichever moment the
     /// installer ran.
     /// </remarks>
-    internal static JsValue At(PageRuntime runtime, int index, IDocument? document = null)
+    internal static JsValue At(PageRuntime runtime, int index, Document? document = null)
     {
         document ??= runtime.Document;
         if (index < 0 || document is null)
@@ -71,22 +73,35 @@ internal static class FrameWindows
             return JsValue.Undefined;
         }
 
-        var frames = document.QuerySelectorAll("iframe, frame");
-
-        if (index >= frames.Length || frames[index] is not IHtmlInlineFrameElement frame)
+        foreach (var frame in Frames(document))
         {
-            return JsValue.Undefined;
+            if (index-- != 0) continue;
+            var window = For(runtime, frame);
+            return window.IsNull() ? JsValue.Undefined : window;
         }
-
-        var window = For(runtime, frame);
-        return window.IsNull() ? JsValue.Undefined : window;
+        return JsValue.Undefined;
     }
 
-    /// <summary>How many child browsing contexts <paramref name="document"/> has, which is `window.length`.</summary>
-    internal static int Count(IDocument? document)
-        => document is null ? 0 : document.QuerySelectorAll("iframe, frame").Length;
+    /// <summary>The document's child browsing contexts, in native tree order.</summary>
+    internal static int Count(Document? document)
+    {
+        if (document is null) return 0;
+        var count = 0;
+        foreach (var unused in Frames(document)) count++;
+        return count;
+    }
 
-    internal static DomRealm DocumentRealm(PageRuntime runtime, IDocument document)
+    private static IEnumerable<Element> Frames(Document document)
+    {
+        foreach (var element in NodeTraversal.DescendantElements(document, CancellationToken.None))
+        {
+            if (element is { NamespaceUri: Namespaces.Html, LocalName: "iframe" or "frame" } &&
+                DomBrowsingContext.OfFrame(element)?.Active is not null)
+                yield return element;
+        }
+    }
+
+    internal static DomRealm DocumentRealm(PageRuntime runtime, Document document)
     {
         if (runtime.Dom.TryGetDocumentRealm(document, out var existing))
         {
@@ -105,7 +120,7 @@ internal static class FrameWindows
     // https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects
     // A child script can arrive before its frame's ContentDocument is published. The document's context
     // already identifies its parent; installation must not depend on an element lookup succeeding yet.
-    internal static ObjectInstance ForDocument(PageRuntime runtime, IDocument document)
+    internal static ObjectInstance ForDocument(PageRuntime runtime, Document document)
     {
         if (ReferenceEquals(document, runtime.Document))
         {
@@ -128,12 +143,12 @@ internal static class FrameWindows
         Own(window, "frames", window);
         Own(window, "document", dom.WrapNodeValue(document));
         Own(window, "top", runtime.Engine._mainRealm.GlobalObject);
-        Own(window, "parent", document.Context.Parent?.Active is { } parent
+        Own(window, "parent", DomBrowsingContext.Of(document)?.Parent?.Active is { } parent
             ? ForDocument(runtime, parent) : runtime.Engine._mainRealm.GlobalObject);
         Accessor("frameElement", () => runtime.Dom.WrapNodeValue(ElementOf(document)));
         Accessor("length", () => JsNumber.Create(Count(document)));
-        Accessor("name", () => JsString.Create(ElementOf(document)?.Name ?? ""));
-        Own(window, "origin", JsString.Create(PageUrl.OriginOf(document.Url)));
+        Accessor("name", () => JsString.Create(ElementOf(document)?.GetAttribute("name") ?? ""));
+        Own(window, "origin", JsString.Create(DomDocumentMetadata.Origin(document)));
         var location = Location(runtime.Engine, realm, document);
         window.DefineOwnPropertyUnchecked("location", new GetSetPropertyDescriptor(
             new ClrFunction(runtime.Engine, realm, "get location", (_, _) => location, 0),
@@ -153,44 +168,29 @@ internal static class FrameWindows
                 null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }
 
-    internal static IHtmlInlineFrameElement? ElementOf(IDocument document)
-    {
-        var parent = document.Context.Parent?.Active ?? document.Context.Creator;
-        if (parent is null)
-        {
-            return null;
-        }
-        foreach (var element in parent.QuerySelectorAll("iframe"))
-        {
-            if (element is IHtmlInlineFrameElement frame && ReferenceEquals(frame.ContentDocument, document))
-            {
-                return frame;
-            }
-        }
-        return null;
-    }
+    internal static Element? ElementOf(Document document)
+        => DomBrowsingContext.Of(document)?.FrameElement;
 
-    internal static bool CanRunScripts(PageRuntime runtime, IDocument document)
+    internal static bool CanRunScripts(PageRuntime runtime, Document document)
     {
         // Cross-origin WindowProxy access control and sandboxed globals are separate capabilities.
         // Do not expose the parent's raw global through a child which cannot normally reach it.
-        var origin = PageUrl.OriginOf(runtime.DocumentUrl);
-        if (origin == PageUrl.OpaqueOrigin || runtime.Document is not { } principal)
+        if (runtime.Document is not { } principal)
         {
             return false;
         }
-        for (var current = document; !ReferenceEquals(current.Context, principal.Context);)
+        var origin = DomDocumentState.Of(principal).Origin;
+        for (var current = document; !ReferenceEquals(DomBrowsingContext.Of(current), DomBrowsingContext.Of(principal));)
         {
-            if (!string.Equals(current.Url, "about:blank", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(PageUrl.OriginOf(current.Url), origin, StringComparison.Ordinal))
+            if (!origin.IsSameOrigin(DomDocumentState.Of(current).Origin))
             {
                 return false;
             }
-            if (ElementOf(current) is { } frame && frame.HasAttribute("sandbox"))
+            if (DomDocumentState.Of(current).ScriptsBlockedBySandbox)
             {
                 return false;
             }
-            if (current.Context.Parent?.Active is not { } parent)
+            if (DomBrowsingContext.Of(current)?.Parent?.Active is not { } parent)
             {
                 return false;
             }
@@ -206,10 +206,10 @@ internal static class FrameWindows
     /// A frame's <c>location</c>: the components of its document's URL, and nothing that navigates.
     /// </summary>
     /// <remarks>Setters refuse until frame navigation and WindowProxy replacement are implemented.</remarks>
-    private static JsObject Location(Engine engine, Realm realm, IDocument document)
+    private static JsObject Location(Engine engine, Realm realm, Document document)
     {
         var location = new JsObject(engine);
-        var href = document.Url ?? "";
+        var href = DomDocumentState.Of(document).Url ?? "";
 
         // `href` is the URL as the document carries it, never re-serialized: a document's URL is what it was
         // opened with, and a round trip through the parser would answer a normalized string for a frame that

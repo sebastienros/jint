@@ -1,5 +1,8 @@
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.Browser.Styling;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Properties;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
@@ -10,39 +13,15 @@ using ProtocolCss = Jint.DevTools.Protocol.CSS;
 namespace Jint.Browser.DevTools;
 
 /// <summary>
-/// The <c>CSS</c> domain: what AngleSharp.Css can answer about a node, and which of a page's rules were
+/// The <c>CSS</c> domain: what the native cascade can answer about a node, and which of a page's rules were
 /// used.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Reads only, and every editing command is honestly <c>-32601</c>.</b>
-/// <c>getComputedStyleForNode</c> is the cascade AngleSharp.Css resolves — the same one
-/// <c>window.getComputedStyle</c> answers from, so a front end and a page are told one story — and
-/// <c>getInlineStylesForNode</c> is the element's own <c>style</c> attribute. Rule-usage coverage, the
-/// <c>styleSheetAdded</c> stream and <c>getStyleSheetText</c> are in
-/// the other half of this class, <c>CssDomain.Coverage.cs</c>, and they need a sheet identifier
-/// and a range inside a sheet's text, which <c>CssStyleSheetTracker</c> and <c>CssStyleSheetText</c> are.
-/// What is still <i>not</i> here is everything that <i>edits</i> — <c>setStyleTexts</c>, <c>addRule</c>,
-/// <c>createStyleSheet</c> — and <c>getMatchedStylesForNode</c>, which would have to name the rule every
-/// declaration came from and AngleSharp.Css exposes no such thing.
-/// </para>
-/// <para>
-/// <b>A computed value here has no layout behind it.</b> A property the style sheets, the inline style or
-/// the user-agent defaults settled resolves; a percentage resolves against the page's viewport rather than
-/// a containing block, which is what <c>Runtime/PageRenderDevice</c> reports.
-/// <c>Dom/Views/ReadOnlyStyleDeclaration</c> says the same thing about the script-side member, and both are
-/// the same declaration.
-/// </para>
-/// <para>
-/// <b>The cascade can refuse to compute, and it is not a hypothetical</b>: a unit AngleSharp.Css has no
-/// conversion for, or a document whose browsing context has no CSS services at all, is a CLR exception out
-/// of <c>ComputeCurrentStyle()</c> rather than a declaration it skipped. <c>Dom/Views/CssCascade</c> is the
-/// one guard every caller shares, and here a cascade it cannot compute is a refusal naming the cause rather
-/// than an exception erupting into the protocol.
-/// </para>
-/// <para>
+/// Computed values and rule matching use the page's native on-demand cascade. Inline reads parse only
+/// the requested element's declaration block. Missing computation inputs and incomplete property grammars
+/// propagate named failures through the protocol's ordinary error reply.
+/// Editing commands and getMatchedStylesForNode remain outside this domain's implemented surface.
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/"/>.
-/// </para>
 /// </remarks>
 internal sealed partial class CssDomain : CSSDomainBase
 {
@@ -88,15 +67,16 @@ internal sealed partial class CssDomain : CSSDomainBase
     {
         var element = Element(parameters.NodeId);
         var computed = Computed(element);
-        var properties = new List<ProtocolCss.CSSComputedStyleProperty>(computed.Length);
+        var settled = computed.Enumerate();
+        var properties = new List<ProtocolCss.CSSComputedStyleProperty>(settled.Count);
 
-        for (var i = 0; i < computed.Length; i++)
+        foreach (var property in settled)
         {
-            var name = computed[i];
+            var name = property.Name;
             properties.Add(new ProtocolCss.CSSComputedStyleProperty
             {
                 Name = name,
-                Value = Dom.Views.CssCascade.ValueOf(computed, name) ?? "",
+                Value = property.Text,
             });
         }
 
@@ -117,7 +97,7 @@ internal sealed partial class CssDomain : CSSDomainBase
     /// <remarks>
     /// <c>attributesStyle</c> is absent rather than empty: it is the declaration a browser synthesizes from
     /// presentational attributes such as <c>&lt;body bgcolor&gt;</c> and <c>&lt;td width&gt;</c>, and
-    /// AngleSharp maps those in its default sheet rather than into a declaration this can publish. An element
+    /// the native cascade does not synthesize that declaration. An element
     /// with no <c>style</c> attribute answers an empty declaration, which is what Chrome does.
     /// </remarks>
     protected override ValueTask<ProtocolCss.GetInlineStylesForNodeResponse> GetInlineStylesForNodeAsync(
@@ -125,19 +105,22 @@ internal sealed partial class CssDomain : CSSDomainBase
         CommandContext context)
     {
         var element = Element(parameters.NodeId);
-        var inline = element.GetStyle();
-        var properties = new List<ProtocolCss.CSSProperty>(inline?.Length ?? 0);
+        var work = Work();
+        var inline = CssDeclarationBlock.Parse(element.GetAttribute("style") ?? "",
+            CssDeclarationContext.Style, null, work, work.Token);
+        var properties = new List<ProtocolCss.CSSProperty>(inline.Count);
 
-        for (var i = 0; i < (inline?.Length ?? 0); i++)
+        for (var i = 0; i < inline.Count; i++)
         {
-            var name = inline![i];
-            var value = inline.GetPropertyValue(name) ?? "";
+            work.Charge(1);
+            var name = inline.GetPropertyName(i);
+            var value = inline.GetPropertyValue(name, work);
 
             properties.Add(new ProtocolCss.CSSProperty
             {
                 Name = name,
                 Value = value,
-                Important = string.Equals(inline.GetPropertyPriority(name), "important", StringComparison.Ordinal),
+                Important = string.Equals(inline.GetPropertyPriority(name, work), "important", StringComparison.Ordinal),
                 Text = name + ": " + value,
             });
         }
@@ -154,10 +137,10 @@ internal sealed partial class CssDomain : CSSDomainBase
     }
 
     /// <summary>The element a <c>nodeId</c> names, in the <c>DOM</c> domain's own wording.</summary>
-    private IElement Element(int nodeId)
+    private Element Element(int nodeId)
     {
-        var node = _target.Nodes.ByNodeId(nodeId) ?? Throw.ServerError<INode>("Could not find node with given id");
-        return node as IElement ?? Throw.ServerError<IElement>("Node is not an Element");
+        var node = _target.Nodes.ByNodeId(nodeId) ?? Throw.ServerError<object>("Could not find node with given id");
+        return node as Element ?? Throw.ServerError<Element>("Node is not an Element");
     }
 
     /// <summary>The cascade for one element, or a refusal naming what could not be resolved.</summary>
@@ -165,10 +148,14 @@ internal sealed partial class CssDomain : CSSDomainBase
     /// A refusal rather than an empty declaration, because this domain has no way to say "some of it":
     /// a client reading an empty list would read it as a page that declares nothing.
     /// </remarks>
-    private static ICssStyleDeclaration Computed(IElement element)
+    private static NativeCssComputedStyle Computed(Element element)
         => Dom.Views.CssCascade.Of(element)
-        ?? Throw.ServerError<ICssStyleDeclaration>(
+        ?? Throw.ServerError<NativeCssComputedStyle>(
             "Computed style is not available",
-            "the document's cascade could not be resolved: either its browsing context has no AngleSharp.Css "
-            + "services registered, or a declaration in the matching cascade uses a unit AngleSharp.Css cannot convert");
+            "the document is not associated with a native styling host");
+    private CssValueWork Work()
+    {
+        var realm = PageRuntime.Find(_target.Runtime.Engine)?.Dom;
+        return new CssValueWork(realm?.CancellationToken ?? default, _target.Runtime.Engine.Constraints.Check);
+    }
 }

@@ -1,5 +1,5 @@
-using AngleSharp.Dom;
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Runtime;
@@ -196,6 +196,10 @@ public sealed class PageObserverTests
         }
 
         private static string? Greeting(PageRuntime runtime)
-            => runtime.Document?.QuerySelector("#greeting")?.TextContent;
+        {
+            if (runtime.Document is not { } document || DomDocumentReads.ById(runtime.Dom, document, "greeting") is not { } element)
+                return null;
+            return DomDescendantText.Read(element, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+        }
     }
 }

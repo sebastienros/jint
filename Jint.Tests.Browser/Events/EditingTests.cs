@@ -17,6 +17,68 @@ using Page = global::Jint.Browser.Page;
 /// </remarks>
 public sealed class EditingTests
 {
+    [Test]
+    public async Task AChangeListenerRefocusingTheControlKeepsTheNextEditBaseline()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<textarea id='t'></textarea><input id='other'>");
+        await page.EvaluateAsync(
+            """
+            const t = document.getElementById('t');
+            const other = document.getElementById('other');
+            window.changes = [];
+            t.addEventListener('change', () => {
+              changes.push(t.value);
+              if (changes.length === 1) t.focus();
+            });
+            t.focus();
+            """);
+        await BrowserTestAccess.DispatchKeyAsync(page, "x");
+        await page.EvaluateAsync("other.focus()");
+        await BrowserTestAccess.DispatchKeyAsync(page, "y");
+        await page.EvaluateAsync("t.blur()");
+        (await page.EvaluateAsync<string>("changes.join('|')")).Should().Be("x|xy");
+    }
+
+    [Test]
+    public async Task AReadOnlyAttributeInAnotherNamespaceDoesNotBarTextareaEditing()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<textarea id='t'>a</textarea>");
+        await page.EvaluateAsync(
+            """
+            const t = document.getElementById('t');
+            t.setAttributeNS('urn:foreign', 'readonly', '');
+            t.focus();
+            t.setSelectionRange(1, 1);
+            """);
+        await BrowserTestAccess.DispatchKeyAsync(page, "x");
+        (await page.EvaluateAsync<string>("t.value")).Should().Be("ax");
+    }
+
+    [Test]
+    public async Task CanceledBeforeInputDoesNotCreateTextOrMoveSelectionInAnEmptyEditingHost()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='editor' contenteditable></div>");
+        await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const editor = document.getElementById('editor');
+              editor.focus();
+              editor.addEventListener('beforeinput', e => e.preventDefault());
+              return '';
+            })()
+            """);
+        await page.TypeAsync("#editor", "x");
+        (await page.EvaluateAsync<string>(
+            "document.getElementById('editor').childNodes.length + ':' + getSelection().rangeCount"))
+            .Should().Be("0:0");
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-textarea-input-selectiondirection —
     /// <kbd>Shift</kbd> extends from the anchor, so the direction says which end the caret is at and a

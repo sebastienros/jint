@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -57,34 +56,39 @@ internal static class ContentEditing
     /// same way focusability is computed rather than read off <c>TabIndex</c>.
     /// </para>
     /// </remarks>
-    internal static IElement? HostOf(IElement? element)
+    internal static Element? HostOf(Element? element) => HostOf(element, null);
+
+    internal static Element? HostOf(Element? element, DomReadWork? work)
     {
         // A form control is neither an editing host nor inside one for this purpose: its value is text of its
         // own, and a `<input readonly>` in an editing host must not have its keys spliced into the host's.
-        if (element is IHtmlInputElement or IHtmlTextAreaElement or IHtmlSelectElement or IHtmlButtonElement)
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "input" or "textarea" or "select" or "button" })
         {
             return null;
         }
 
-        for (var candidate = element; candidate is not null; candidate = candidate.ParentElement)
+        for (var candidate = element; candidate is not null; candidate = (candidate.ParentNode as Element))
         {
-            if (candidate.GetAttribute("contenteditable") is not { } raw)
+            work?.Step();
+            if (!BrowserHtmlSemantics.IsEditableEligible(candidate)) return null;
+            // Eligible SVG/MathML roots can inherit editing, but only HTML elements are editing hosts.
+            if (candidate.NamespaceUri != Namespaces.Html) continue;
+            if (candidate.ParentNode is Document document
+                && DomDocumentState.IsDesignModeEnabled(document)) return candidate;
+            if ((work is null ? candidate.GetAttributeNS(null, "contenteditable") : work.Attribute(candidate, "contenteditable")) is not { } raw)
             {
                 continue;
             }
 
-            var state = raw.Trim();
-
             // "plaintext-only" is an editing host whose content is text, which is the only kind this edits
             // anyway, so the two true keywords and it are the same answer here.
-            if (state.Length == 0
-                || string.Equals(state, "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(state, "plaintext-only", StringComparison.OrdinalIgnoreCase))
+            var state = BrowserHtmlSemantics.ContentEditableState(raw, work);
+            if (state is BrowserContentEditableState.True or BrowserContentEditableState.PlaintextOnly)
             {
                 return candidate;
             }
 
-            if (string.Equals(state, "false", StringComparison.OrdinalIgnoreCase))
+            if (state == BrowserContentEditableState.False)
             {
                 return null;
             }
@@ -97,7 +101,7 @@ internal static class ContentEditing
 
     /// <summary>Runs the command a key asks for on an editing host.</summary>
     /// <returns><see langword="true"/> when the key was consumed by the editor.</returns>
-    internal static bool HandleKeyDown(DomRealm dom, IElement host, in KeyOptions options, bool allowInsertion)
+    internal static bool HandleKeyDown(DomRealm dom, Element host, in KeyOptions options, bool allowInsertion)
     {
         using var mutation = dom.MutateLayout();
         var extend = (options.Modifiers & EventModifiers.Shift) != EventModifiers.None;
@@ -110,14 +114,19 @@ internal static class ContentEditing
             return false;
         }
 
-        if (Caret(dom, host) is not { } caret)
+        if (!shortcut && allowInsertion && options.ProducedText is { Length: > 0 } produced && options.Key.Length == 1)
         {
-            return false;
+            return Insert(dom, host, produced, "insertText");
+        }
+
+        if (Caret(dom, host, create: options.Key is not ("Backspace" or "Delete")) is not { } caret)
+        {
+            return options.Key is "Backspace" or "Delete";
         }
 
         if (shortcut)
         {
-            Place(dom, caret.Text, 0, caret.Text.Length);
+            Place(dom, caret.Text, 0, caret.Text.Data.Length);
             return true;
         }
 
@@ -139,7 +148,7 @@ internal static class ContentEditing
                 return Move(dom, caret, 0, extend);
 
             case "End" or "ArrowDown":
-                return Move(dom, caret, caret.Text.Length, extend);
+                return Move(dom, caret, caret.Text.Data.Length, extend);
         }
 
         if (allowInsertion && options.ProducedText is { Length: > 0 } text && options.Key.Length == 1)
@@ -174,17 +183,17 @@ internal static class ContentEditing
     /// Replaces what is selected inside the host with <paramref name="text"/>, which is what
     /// <c>Input.insertText</c> and a printable key both do.
     /// </summary>
-    internal static bool Insert(DomRealm dom, IElement host, string text, string inputType)
+    internal static bool Insert(DomRealm dom, Element host, string text, string inputType)
     {
         using var mutation = dom.MutateLayout();
-        if (Caret(dom, host) is not { } caret)
-        {
-            return false;
-        }
-
         if (!TextEditing.FireBeforeInput(dom, host, inputType, JsString.Create(text)))
         {
             return true;
+        }
+
+        if (Caret(dom, host) is not { } caret)
+        {
+            return false;
         }
 
         var data = caret.Text.Data ?? "";
@@ -195,7 +204,7 @@ internal static class ContentEditing
         return true;
     }
 
-    private static bool Delete(DomRealm dom, IElement host, in EditingCaret caret, bool forward)
+    private static bool Delete(DomRealm dom, Element host, in EditingCaret caret, bool forward)
     {
         using var mutation = dom.MutateLayout();
         var data = caret.Text.Data ?? "";
@@ -258,7 +267,7 @@ internal static class ContentEditing
     /// Where the caret is, as an offset pair in one text node of <paramref name="host"/>, or
     /// <see langword="null"/> when the page has no selection to keep one in.
     /// </summary>
-    private static EditingCaret? Caret(DomRealm dom, IElement host)
+    private static EditingCaret? Caret(DomRealm dom, Element host, bool create = true)
     {
         if (PageRuntime.Find(dom.Engine) is not { } runtime)
         {
@@ -267,35 +276,34 @@ internal static class ContentEditing
 
         var selection = runtime.Views.Selection;
 
-        if (selection.Range is { Head: IText head } range
-            && ReferenceEquals(range.Tail, head)
+        if (selection.Range is { } range && range.Start.Container.Node is Text head
+            && ReferenceEquals(range.End.Container.Node, head)
             && IsInside(head, host))
         {
-            var length = (head.Data ?? "").Length;
-            return new EditingCaret(head, Math.Clamp(range.Start, 0, length), Math.Clamp(range.End, 0, length));
+            var length = (uint) head.Data.Length;
+            return new EditingCaret(head, (int) Math.Min(range.Start.Offset, length), (int) Math.Min(range.End.Offset, length));
         }
 
-        if (LastTextOf(host) is not { } text)
+        if (LastTextOf(dom, host, create) is not { } text)
         {
             return null;
         }
 
         var end = (text.Data ?? "").Length;
-        Place(dom, text, end, end);
         return new EditingCaret(text, end, end);
     }
 
     /// <summary>Puts the document's selection at one offset pair inside <paramref name="text"/>.</summary>
-    private static void Place(DomRealm dom, IText text, int start, int end)
+    private static void Place(DomRealm dom, Text text, int start, int end)
     {
-        if (PageRuntime.Find(dom.Engine) is not { } runtime || text.Owner is not { } document)
+        if (PageRuntime.Find(dom.Engine) is not { } runtime || text.OwnerDocument is not { } document)
         {
             return;
         }
 
-        var range = document.CreateRange();
-        range.StartWith(text, start);
-        range.EndWith(text, end);
+        var range = new DomRange(document);
+        range.SetStart(new DomNodeIdentity(text), (uint) start);
+        range.SetEnd(new DomNodeIdentity(text), (uint) end);
         runtime.Views.Selection.Range = range;
     }
 
@@ -303,21 +311,46 @@ internal static class ContentEditing
     /// The last text node of the host, or one created for it. An empty editing host has nowhere to put a
     /// character, and creating that node is the one structural thing this file does.
     /// </summary>
-    private static IText? LastTextOf(IElement host)
+    private static Text? LastTextOf(DomRealm dom, Element host, bool create)
     {
-        IText? last = null;
-
-        foreach (var descendant in host.Descendants<IText>())
+        Text? last = null;
+        var work = 0;
+        void Check()
         {
-            last = descendant;
+            if ((++work & 255) == 0)
+            {
+                dom.CancellationToken.ThrowIfCancellationRequested();
+                dom.NativeReadCheckpoint(256);
+            }
+        }
+        dom.CancellationToken.ThrowIfCancellationRequested();
+
+        // Read actual ordinary links; template contents and separate shadow trees are not descendants.
+        var current = host.FirstChild;
+        while (current is not null)
+        {
+            Check();
+            if (current is Text text) last = text;
+            if (current.FirstChild is { } child)
+            {
+                current = child;
+                continue;
+            }
+            while (current.NextSibling is null && !ReferenceEquals(current.ParentNode, host))
+            {
+                Check();
+                current = current.ParentNode!;
+            }
+            current = current.NextSibling;
         }
 
-        if (last is not null)
+        dom.CancellationToken.ThrowIfCancellationRequested();
+        if (last is not null || !create)
         {
             return last;
         }
 
-        if (host.Owner is not { } document)
+        if (host.OwnerDocument is not { } document)
         {
             return null;
         }
@@ -327,9 +360,9 @@ internal static class ContentEditing
         return created;
     }
 
-    private static bool IsInside(INode node, IElement host)
+    private static bool IsInside(Node node, Element host)
     {
-        for (INode? candidate = node; candidate is not null; candidate = candidate.Parent)
+        for (Node? candidate = node; candidate is not null; candidate = candidate.ParentNode)
         {
             if (ReferenceEquals(candidate, host))
             {
@@ -345,5 +378,5 @@ internal static class ContentEditing
     /// <param name="Start">The lower offset.</param>
     /// <param name="End">The upper offset, equal to <paramref name="Start"/> for a collapsed caret.</param>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct EditingCaret(IText Text, int Start, int End);
+    private readonly record struct EditingCaret(Text Text, int Start, int End);
 }

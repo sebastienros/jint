@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -8,51 +8,39 @@ using Jint.Runtime;
 namespace Jint.Browser.Observers;
 
 /// <summary>
-/// A <c>MutationObserver</c>: the callback, the registrations AngleSharp keeps for it, and the records it has
-/// not delivered yet.
+/// A <c>MutationObserver</c>: native registrations and records delivered on the engine's microtask queue.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The records are AngleSharp's; the timing is Jint's.</b> AngleSharp does the whole of DOM §4.3.4 —
-/// walking a mutated node's inclusive ancestors, matching each against the registered observer list, honouring
-/// <c>subtree</c> and <c>attributeFilter</c>, and clearing <c>oldValue</c> for an observer that did not ask
-/// for it. What it cannot do is <em>when</em>: with no <c>IEventLoop</c> service registered — and registering
-/// one would make a step of the parse genuinely asynchronous, which is the parser hop
-/// <c>Runtime/PageDocument</c> exists to avoid — AngleSharp's own queue runs inline, so its callback fires
-/// synchronously in the middle of <c>appendChild</c>. That inline call is used as the <em>arrival</em> of a
-/// record and nothing more: the records are parked here, and <see cref="MutationObserverLane"/> queues one
-/// microtask on the engine's job queue to deliver them at the microtask checkpoint, which is where
-/// <a href="https://dom.spec.whatwg.org/#notify-mutation-observers">notify mutation observers</a> belongs.
-/// </para>
-/// <para>
-/// <b>Two AngleSharp behaviours are corrected here rather than worked around silently</b>, and both are in
-/// <c>Jint.Browser/AGENTS.md</c>'s divergence table. Its <c>observe</c> validation raises a
-/// <c>DomException</c> where DOM raises a <c>TypeError</c>, and it resolves the dictionary's optional members
-/// differently from the specification — so the flags are resolved and validated here and handed over already
-/// settled, which leaves AngleSharp's own checks unreachable. And its <c>Disconnect</c> unregisters the
-/// observer from the document but leaves its registration list populated, so a later <c>observe</c> of any
-/// node silently resurrects every node it used to watch; a disconnect therefore throws its AngleSharp
-/// observer away and the next <c>observe</c> starts a new one.
-/// </para>
+/// Native mutation matching owns subtree, attribute filters, old values and detached-subtree transients.
+/// The native subscription callback performs scheduling only; no script runs inside a DOM mutation.
+/// <see cref="MutationObserverLane"/> delivers records at the
+/// <a href="https://dom.spec.whatwg.org/#notify-mutation-observers">mutation observer checkpoint</a>.
+/// Browser resolves WebIDL options and raises script TypeError before registering native options.
 /// </remarks>
-internal sealed class JsMutationObserver : ObjectInstance
+internal sealed class JsMutationObserver : ObjectInstance, IDisposable
 {
     private readonly PageRuntime _runtime;
     private readonly ICallable _callback;
-    private readonly List<IMutationRecord> _records = [];
-    private AngleSharp.Dom.MutationObserver _source;
+    private readonly MutationSubscription _source;
 
     internal JsMutationObserver(PageRuntime runtime, ObjectInstance prototype, ICallable callback)
         : base(runtime.Engine)
     {
         _runtime = runtime;
         _callback = callback;
-        _source = NewSource();
+        _source = new MutationSubscription();
+        _source.PendingRecord = _ => _runtime.MutationObservers.Enlist(this);
         Prototype = prototype;
     }
 
     /// <inheritdoc />
     public override string ToString() => "[object MutationObserver]";
+
+    void IDisposable.Dispose()
+    {
+        _source.Dispose();
+        _runtime.MutationObservers.Withdraw(this);
+    }
 
     /// <summary>The receiver check every member of the interface starts with.</summary>
     internal static JsMutationObserver Brand(JsValue thisObject, string member)
@@ -81,7 +69,7 @@ internal sealed class JsMutationObserver : ObjectInstance
     {
         var realm = _runtime.Engine._mainRealm;
 
-        if (arguments.At(0) is not IDomWrapper { DomTarget: INode node })
+        if (arguments.At(0) is not IDomWrapper { DomTarget: Node node })
         {
             Throw.TypeError(realm, "Failed to execute 'observe' on 'MutationObserver': parameter 1 is not of type 'Node'.");
             return JsValue.Undefined;
@@ -120,16 +108,16 @@ internal sealed class JsMutationObserver : ObjectInstance
             Throw.TypeError(realm, "Failed to execute 'observe' on 'MutationObserver': The options object may only set 'characterDataOldValue' to true when 'characterData' is true or not present.");
         }
 
-        // Every flag is passed as a settled value, so none of AngleSharp's own defaulting or validation runs.
-        _source.Connect(
-            node,
-            childList,
-            subtree,
-            attributes,
-            characterData,
-            attributeOldValue == true,
-            characterDataOldValue == true,
-            filter);
+        _source.Observe(node, new MutationObserverOptions
+        {
+            ChildList = childList,
+            Subtree = subtree,
+            Attributes = attributes,
+            CharacterData = characterData,
+            AttributeOldValue = attributeOldValue == true,
+            CharacterDataOldValue = characterDataOldValue == true,
+            AttributeFilter = filter,
+        });
 
         return JsValue.Undefined;
     }
@@ -142,10 +130,6 @@ internal sealed class JsMutationObserver : ObjectInstance
     {
         _source.Disconnect();
 
-        // A fresh one, because AngleSharp's Disconnect leaves its own registration list in place: reusing it
-        // would make the next observe() re-register every node this one used to watch.
-        _source = NewSource();
-        _records.Clear();
         _runtime.MutationObservers.Withdraw(this);
         return JsValue.Undefined;
     }
@@ -156,9 +140,8 @@ internal sealed class JsMutationObserver : ObjectInstance
     /// </summary>
     internal JsValue TakeRecords()
     {
-        var records = Drain();
-        _runtime.MutationObservers.Withdraw(this);
-        return records;
+        // The queued delivery must still clear detached-subtree transient registrations.
+        return WrapRecords(_source.TakeRecords());
     }
 
     /// <summary>
@@ -167,12 +150,13 @@ internal sealed class JsMutationObserver : ObjectInstance
     /// </summary>
     internal void Deliver()
     {
-        if (_records.Count == 0)
+        var nativeRecords = _source.TakeRecordsForDelivery();
+        if (nativeRecords.Count == 0)
         {
             return;
         }
 
-        var records = Drain();
+        var records = WrapRecords(nativeRecords);
 
         try
         {
@@ -189,48 +173,14 @@ internal sealed class JsMutationObserver : ObjectInstance
         }
     }
 
-    private AngleSharp.Dom.MutationObserver NewSource() => new(OnRecords);
-
-    /// <summary>
-    /// What AngleSharp calls, synchronously, from inside the mutation. Nothing but bookkeeping happens here —
-    /// no script runs — so re-entering the DOM operation that is still running is safe.
-    /// </summary>
-    private void OnRecords(IEnumerable<IMutationRecord> records, AngleSharp.Dom.MutationObserver source)
-    {
-        foreach (var record in records)
-        {
-            if (_runtime.MutationObservers.CaptureReplaceAll(this, record))
-            {
-                continue;
-            }
-
-            _records.Add(new DeliveredMutationRecord(record));
-        }
-
-        if (_records.Count > 0)
-        {
-            _runtime.MutationObservers.Enlist(this);
-        }
-    }
-
-    /// <summary>Adds a record synthesized by a DOM operation the AngleSharp surface cannot express.</summary>
-    internal void Queue(IMutationRecord record)
-    {
-        _records.Add(new DeliveredMutationRecord(record));
-        _runtime.MutationObservers.Enlist(this);
-    }
-
-    private JsArray Drain()
+    private JsArray WrapRecords(IReadOnlyList<MutationRecord> records)
     {
         var realm = _runtime.Engine._mainRealm;
-        var values = new JsValue[_records.Count];
-
-        for (var i = 0; i < _records.Count; i++)
+        var values = new JsValue[records.Count];
+        for (var i = 0; i < records.Count; i++)
         {
-            values[i] = _runtime.Dom.Wrap(_records[i]);
+            values[i] = _runtime.Dom.Wrap(records[i]);
         }
-
-        _records.Clear();
         return realm.Intrinsics.Array.ConstructFast(values);
     }
 

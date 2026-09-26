@@ -1,4 +1,4 @@
-﻿using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -21,24 +21,27 @@ namespace Jint.Browser.Dom.Views;
 /// <para>
 /// Nothing renders, so nothing is highlighted: the selection is a place to put a range and read it back —
 /// which is what <c>window.getSelection().toString()</c>, the one call a text-extracting agent makes, needs.
-/// Moving it does fire <c>selectionchange</c> at the document, queued and coalesced the way
-/// <c>Events/SelectionChange</c> describes; what no member here can see is a script mutating the boundary
-/// points of a <c>Range</c> it took out of <c>getRangeAt</c>, and that file says why.
+/// Moving it fires queued, coalesced <c>selectionchange</c> at the document. Native range
+/// subscriptions also observe direct boundary edits and repairs performed by tree mutations.
 /// </para>
 /// </remarks>
 internal sealed class JsSelection : ObjectInstance
 {
     private readonly PageRuntime _runtime;
-    private IRange? _range;
+    private DomRange? _range;
+    private RangeChangeSubscription? _subscription;
+    private Document? _subscriptionDocument;
+    private readonly Action _rangeChanged;
 
     internal JsSelection(PageRuntime runtime, ObjectInstance prototype) : base(runtime.Engine)
     {
         _runtime = runtime;
+        _rangeChanged = NativeRangeChanged;
         Prototype = prototype;
     }
 
     /// <inheritdoc />
-    public override string ToString() => _range?.ToString() ?? "";
+    public override string ToString() => _range?.GetText(_runtime.Dom.NativeReadCheckpoint, _runtime.Dom.CancellationToken) ?? "";
 
     /// <summary>The receiver check every member of the interface starts with.</summary>
     internal static JsSelection Brand(JsValue thisObject, string member)
@@ -67,13 +70,12 @@ internal sealed class JsSelection : ObjectInstance
     /// selection of its own, so a page that types into an editing host and then reads
     /// <c>getSelection().focusOffset</c> is told where the next character will go.
     /// </remarks>
-    internal IRange? Range
+    internal DomRange? Range
     {
         get => _range;
         set
         {
-            _range = value;
-            Moved();
+            SetRange(value);
         }
     }
 
@@ -81,24 +83,24 @@ internal sealed class JsSelection : ObjectInstance
     internal int RangeCount => _range is null ? 0 : 1;
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-anchornode.</summary>
-    internal JsValue AnchorNode => _range is null ? JsValue.Null : _runtime.Dom.WrapNodeValue(_range.Head);
+    internal JsValue AnchorNode => _range is null ? JsValue.Null : _runtime.Dom.WrapIdentity(_range.Start.Container);
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-anchoroffset.</summary>
-    internal int AnchorOffset => _range?.Start ?? 0;
+    internal uint AnchorOffset => _range?.Start.Offset ?? 0;
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-focusnode.</summary>
-    internal JsValue FocusNode => _range is null ? JsValue.Null : _runtime.Dom.WrapNodeValue(_range.Tail);
+    internal JsValue FocusNode => _range is null ? JsValue.Null : _runtime.Dom.WrapIdentity(_range.End.Container);
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-focusoffset.</summary>
-    internal int FocusOffset => _range?.End ?? 0;
+    internal uint FocusOffset => _range?.End.Offset ?? 0;
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-iscollapsed.</summary>
-    internal bool IsCollapsed => _range is null || _range.IsCollapsed;
+    internal bool IsCollapsed => _range is null || _range.Collapsed;
 
     /// <summary>
     /// https://w3c.github.io/selection-api/#dom-selection-type — <c>None</c>, <c>Caret</c> or <c>Range</c>.
     /// </summary>
-    internal string SelectionType => _range is null ? "None" : _range.IsCollapsed ? "Caret" : "Range";
+    internal string SelectionType => _range is null ? "None" : _range.Collapsed ? "Caret" : "Range";
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-getrangeat.</summary>
     internal JsValue GetRangeAt(JsValue[] arguments)
@@ -116,15 +118,14 @@ internal sealed class JsSelection : ObjectInstance
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-addrange — the second range is ignored.</summary>
     internal JsValue AddRange(JsValue[] arguments)
     {
-        var range = DomBindings.Argument<IRange>(arguments, 0, "Selection.addRange");
+        var range = DomBindings.Argument<DomRange>(arguments, 0, "Selection.addRange");
 
         // "If the selection's range list is not empty, abort these steps": a browser keeps the first range
         // and drops the second rather than replacing it, and a page that meant to replace calls
         // removeAllRanges() first. Nothing changed in that case, so nothing is scheduled either.
         if (_range is null)
         {
-            _range = range;
-            Moved();
+            SetRange(range);
         }
 
         return JsValue.Undefined;
@@ -133,12 +134,11 @@ internal sealed class JsSelection : ObjectInstance
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-removerange.</summary>
     internal JsValue RemoveRange(JsValue[] arguments)
     {
-        var range = DomBindings.Argument<IRange>(arguments, 0, "Selection.removeRange");
+        var range = DomBindings.Argument<DomRange>(arguments, 0, "Selection.removeRange");
 
         if (ReferenceEquals(_range, range))
         {
-            _range = null;
-            Moved();
+            SetRange(null);
         }
 
         return JsValue.Undefined;
@@ -149,8 +149,7 @@ internal sealed class JsSelection : ObjectInstance
     {
         if (_range is not null)
         {
-            _range = null;
-            Moved();
+            SetRange(null);
         }
 
         return JsValue.Undefined;
@@ -164,14 +163,13 @@ internal sealed class JsSelection : ObjectInstance
             return RemoveAllRanges();
         }
 
-        var node = DomBindings.Argument<INode>(arguments, 0, "Selection.collapse");
-        var offset = DomConvert.OptionalInt32(arguments, 1, 0);
+        var node = DomBindings.IdentityArgument(arguments, 0, "Selection.collapse");
+        var offset = DomConvert.OptionalUInt32(arguments, 1, 0);
 
         var range = NewRange("collapse");
-        range.StartWith(node, offset);
+        range.SetStart(node, offset);
         range.Collapse(true);
-        _range = range;
-        Moved();
+        SetRange(range);
         return JsValue.Undefined;
     }
 
@@ -191,19 +189,18 @@ internal sealed class JsSelection : ObjectInstance
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-selectallchildren.</summary>
     internal JsValue SelectAllChildren(JsValue[] arguments)
     {
-        var node = DomBindings.Argument<INode>(arguments, 0, "Selection.selectAllChildren");
+        var node = DomBindings.IdentityArgument(arguments, 0, "Selection.selectAllChildren");
         var range = NewRange("selectAllChildren");
-        range.SelectContent(node);
-        _range = range;
-        Moved();
+        range.SelectNodeContents(node);
+        SetRange(range);
         return JsValue.Undefined;
     }
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-containsnode.</summary>
     internal JsValue ContainsNode(JsValue[] arguments)
     {
-        var node = DomBindings.Argument<INode>(arguments, 0, "Selection.containsNode");
-        return _range is not null && _range.Intersects(node) ? JsBoolean.True : JsBoolean.False;
+        var node = DomBindings.IdentityArgument(arguments, 0, "Selection.containsNode");
+        return _range is not null && _range.IntersectsNode(node, _runtime.Dom.NativeReadCheckpoint, _runtime.Dom.CancellationToken) ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-deletefromdocument.</summary>
@@ -216,11 +213,39 @@ internal sealed class JsSelection : ObjectInstance
         }
 
         // Removing the content collapses the range, which is a boundary point of the selection moving.
-        var replacement = new DomProcessingInstructionAttributes.RangeDataReplacement(_range);
-        _range.ClearContent();
-        replacement.Complete();
+        _range.DeleteContents();
         Moved();
         return JsValue.Undefined;
+    }
+
+    private void SetRange(DomRange? range)
+    {
+        Disconnect();
+        _range = range;
+        if (range is not null && _runtime.Document is { } document)
+        {
+            _subscription = range.ObserveChanges(document);
+            _subscriptionDocument = document;
+            document.PendingRangeChanges = _rangeChanged;
+        }
+        Moved();
+    }
+
+    // The native notification is bookkeeping after all mutation phases. It queues a task;
+    // it never runs a listener from within a range or tree mutation.
+    private void NativeRangeChanged()
+    {
+        if (_subscription?.TakePendingChange() == true) Moved();
+    }
+
+    internal void Disconnect()
+    {
+        _subscription?.Dispose();
+        _subscription = null;
+        if (_subscriptionDocument is { } document && ReferenceEquals(document.PendingRangeChanges, _rangeChanged))
+            document.PendingRangeChanges = null;
+        _subscriptionDocument = null;
+        _range = null;
     }
 
     /// <summary>
@@ -236,7 +261,7 @@ internal sealed class JsSelection : ObjectInstance
         }
     }
 
-    private IRange NewRange(string member)
+    private DomRange NewRange(string member)
     {
         var document = _runtime.Document;
 

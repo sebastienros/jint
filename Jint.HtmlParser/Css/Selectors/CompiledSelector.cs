@@ -6,14 +6,16 @@ namespace Jint.HtmlParser.Css.Selectors;
 // Selectors Level 4, §3 and §17: https://drafts.csswg.org/selectors/#structure
 internal sealed class CompiledSelector
 {
-    internal CompiledSelector(IReadOnlyList<Complex> branches, SelectorSpecificity maximumSpecificity)
+    internal CompiledSelector(IReadOnlyList<Complex> branches, SelectorSpecificity maximumSpecificity, bool containsNesting = false)
     {
         Branches = branches;
         MaximumSpecificity = maximumSpecificity;
+        ContainsNesting = containsNesting;
     }
 
     internal IReadOnlyList<Complex> Branches { get; }
     internal SelectorSpecificity MaximumSpecificity { get; }
+    internal bool ContainsNesting { get; }
 
     internal static IReadOnlyList<T> Freeze<T>(List<T> values) =>
         new ReadOnlyCollection<T>(values.ToArray());
@@ -80,7 +82,7 @@ internal sealed class CompiledSelector
             AttributeOperator attributeOperator = AttributeOperator.Presence, string? value = null,
             char modifier = '\0', CompiledSelector? arguments = null,
             BigInteger a = default, BigInteger b = default,
-            IReadOnlyList<string>? textArguments = null)
+            IReadOnlyList<string>? textArguments = null, bool nestingReference = false)
         {
             Kind = kind;
             Span = span;
@@ -94,6 +96,7 @@ internal sealed class CompiledSelector
             A = a;
             B = b;
             TextArguments = textArguments;
+            IsNestingReference = nestingReference;
         }
 
         internal PredicateKind Kind { get; }
@@ -108,5 +111,6 @@ internal sealed class CompiledSelector
         internal BigInteger A { get; }
         internal BigInteger B { get; }
         internal IReadOnlyList<string>? TextArguments { get; }
+        internal bool IsNestingReference { get; }
     }
 }
