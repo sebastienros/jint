@@ -13,6 +13,12 @@ internal sealed class DomDocumentState
 
     internal static DomDocumentState Of(Document document) => States.GetValue(document, static _ => new DomDocumentState());
 
+    // HTML §6.8.2. Read-only predicate consumers do not allocate an editing sidecar.
+    internal static bool IsDesignModeEnabled(Document document)
+        => States.TryGetValue(document, out var state) && state.DesignModeEnabled;
+
+    internal bool DesignModeEnabled { get; set; }
+
     internal string Url { get; set; } = "about:blank";
     internal string Referrer { get; set; } = "";
     internal string ReadyState { get; set; } = "complete";
