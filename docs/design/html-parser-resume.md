@@ -42,6 +42,13 @@ demand correction is under review, including deferred-shorthand editing and whit
 Remaining legacy receiver types and production AngleSharp references still require removal before
 the replacement can be considered functional.
 
+Subsequent isolated source progress: token-list caching, native receiver mappings and production
+package-reference removal are reviewed; stylesheet association/history still has open findings.
+The reviewed CSS demand chain through `5440b533a` passes **1,275/1,275** fresh Release net10 CSS tests
+(`/tmp/jint-css-saturated-publication.log`), zero failures/skips. This is an isolated focused gate,
+not a common-worktree or Browser runtime pass. Native `CSS.supports` is being implemented separately;
+its query helper does not imply support for `@supports` stylesheet execution.
+
 The shared DOM/PI changes preserve the XML corpus's exact prior failure-name multiset:
 4,022 total, 3,766 passing, 256 known failures, zero skips, both TFMs
 (`/private/tmp/jint-resumed-h6f-xml.log`). This is unchanged debt, not a passing conformance gate.
@@ -88,6 +95,7 @@ Current owners:
 | CSS layout/color grammars (complete, chat archived) | `01a0dbc8-9d9a-73f0-a487-5027ce7b3501` | `08f4` |
 | HTML facade/option completion/paired benchmarks (complete, chat archived) | `01a0dbbf-2766-76f0-8065-4c7685e4a9cc` | `ceca` |
 | Browser lazy media/canvas/dialog capabilities | `01a0dc24-22c8-79d1-a3fd-f6a671706229` | `7778` |
+| Native CSS.supports queries and Browser adapter | `01a0dc8b-46e1-7570-a17f-0c709bc93fa9` | `71b3` |
 
 Events excludes shared `BrowserEventRealm.cs` and `DomHostHooks.cs`, retained by the Browser owner.
 Select owns narrow Element/HtmlElementState/Attr/Node/CharacterNodes/NodeCloner hooks; numeric
