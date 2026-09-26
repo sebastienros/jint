@@ -17,7 +17,7 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
             return _selectedCache;
         var result = new List<Element>();
         var work = new HtmlSelectWork(select.Element.OwnerDocument?.SelectWorkProbe, token);
-        foreach (var option in options) { work.Step(); if (option.GetHtmlState()!.Option!.Selected) result.Add(option); }
+        foreach (var option in options) { work.Step(); if (option.GetOptionCore(token).Selected) result.Add(option); }
         work.Check();
         _selectedCache = result;
         _membership = select.MembershipRevision;
@@ -38,7 +38,7 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
         foreach (var element in Current(token))
         {
             work.Step();
-            if (element.GetHtmlState()!.Option!.MatchesName(name, ref work))
+            if (element.GetHtmlState()!.GetOptionState(token)!.MatchesName(name, ref work))
             { work.Check(); return element; }
         }
         work.Check();
@@ -78,7 +78,7 @@ internal sealed class HtmlSelectOptions(HtmlSelectState select, bool selectedOnl
         for (uint i = 0; i < count; i++)
         {
             work.Step();
-            fragment.AppendClonedChild(select.Element.OwnerDocument.CreateElementNS(Namespaces.Html, "option"));
+            fragment.AppendClonedChild(select.Element.OwnerDocument.CreateElementNS(Namespaces.Html, "option"), token);
         }
         work.Check();
         select.Element.AppendChild(fragment);

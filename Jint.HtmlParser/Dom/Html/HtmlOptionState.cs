@@ -9,24 +9,26 @@ internal sealed class HtmlOptionState
     {
         Element = element;
         RefreshMetadata(token);
-        Selected = DefaultSelected;
+        _core = element.InitializeOptionCore(DefaultSelected);
     }
     internal HtmlOptionState(Element element, HtmlOptionMetadata metadata)
     {
         Element = element;
         ApplyMetadata(metadata);
-        Selected = DefaultSelected;
+        _core = element.InitializeOptionCore(DefaultSelected);
     }
     internal Element Element { get; }
-    internal bool Selected { get; private set; }
-    internal bool DirtySelectedness { get; private set; }
+    private readonly HtmlOptionCore _core;
+    internal bool Selected => _core.Selected;
+    internal bool DirtySelectedness => _core.DirtySelectedness;
     internal bool DefaultSelected { get; private set; }
     private string? _value;
     private string? _label;
     private string? _id;
     private string? _name;
-    internal HtmlSelectState? SelectionIndexOwner { get; set; }
-    internal int SelectedPosition { get; set; } = -1;
+    internal HtmlSelectState? SelectionIndexOwner => CachedNearestSelect?.ExistingSelectState is { } state &&
+        state.SelectedPosition(Element) >= 0 ? state : null;
+    internal int SelectedPosition => SelectionIndexOwner?.SelectedPosition(Element) ?? -1;
     internal void RefreshMetadata(CancellationToken token)
     {
         var work = new HtmlSelectWork(Element.OwnerDocument?.SelectWorkProbe, token);
@@ -51,14 +53,14 @@ internal sealed class HtmlOptionState
     }
     internal bool MatchesName(string name, ref HtmlSelectWork work)
         => HtmlSelectWork.StringEquals(_id, name, ref work) || HtmlSelectWork.StringEquals(_name, name, ref work);
-    internal Element? CachedNearestSelect { get; set; }
+    internal Element? CachedNearestSelect { get => _core.CachedNearestSelect; set => _core.CachedNearestSelect = value; }
     internal Element? GetForm(CancellationToken token)
         => HtmlSelectAncestry.GetNearestSelect(Element, token) is { } select ? HtmlFormState.GetOwner(select) : null;
     internal bool IsDisabled(CancellationToken token) => HtmlDisabledness.IsOptionDisabled(Element, token);
     internal int GetIndex(CancellationToken token)
     {
         var select = HtmlSelectAncestry.GetNearestSelect(Element, token);
-        return select is null ? 0 : Math.Max(0, select.GetHtmlState()!.Select!.IndexOf(Element, token));
+        return select is null ? 0 : Math.Max(0, select.GetHtmlState()!.GetSelectState(token)!.IndexOf(Element, token));
     }
     internal void SetDefaultSelected(bool value)
     {
@@ -67,24 +69,11 @@ internal sealed class HtmlOptionState
     }
     internal void SetSelected(bool value, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested();
-        var select = CachedNearestSelect?.GetHtmlState()!.Select;
-        if (select is null) Write(value, true);
-        else select.SetOptionSelected(this, value, token);
+        _core.SetSelected(value, token);
     }
     internal void Write(bool selected, bool dirty, bool markDocument = true)
-    {
-        if (Selected == selected && DirtySelectedness == dirty) return;
-        Selected = selected;
-        DirtySelectedness = dirty;
-        CachedNearestSelect?.GetHtmlState()!.Select!.SelectionChanged(this);
-        if (markDocument) Element.OwnerDocument!.MarkMutation();
-    }
-    internal void CopyFrom(HtmlOptionState source)
-    {
-        Selected = source.Selected;
-        DirtySelectedness = source.DirtySelectedness;
-    }
+        => _core.Write(selected, dirty, markDocument);
+    internal void CopyFrom(HtmlOptionState source) => _core.CopyFrom(source._core);
     internal string GetValue(CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
@@ -149,7 +138,7 @@ internal sealed class HtmlOptionState
         ArgumentNullException.ThrowIfNull(text);
         token.ThrowIfCancellationRequested();
         var option = document.CreateElementNS(Namespaces.Html, "option");
-        var state = option.GetHtmlState()!.Option!;
+        var state = option.GetHtmlState()!.GetOptionState(token)!;
         state.SetText(text, token);
         if (value is not null) state.SetValue(value);
         state.SetDefaultSelected(defaultSelected);

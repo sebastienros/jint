@@ -8,6 +8,8 @@ internal static class HtmlSelectedContent
         internal void Apply() => Target.ReplaceChildren(Fragment);
     }
     internal static Update? PrepareUpdate(HtmlSelectState select, Element? option, CancellationToken token)
+        => PrepareUpdate(select.Element.GetSelectCore(token), option, token);
+    private static Update? PrepareUpdate(HtmlSelectCore select, Element? option, CancellationToken token)
     {
         var target = select.GetEnabledSelectedContent(token);
         if (target is null || select.UpdatingSelectedContent) return null;
@@ -19,12 +21,14 @@ internal static class HtmlSelectedContent
         {
             work.Step();
             var clone = NodeCloner.Clone(child, option.OwnerDocument, true, cancellationToken: token);
-            fragment.AppendClonedChild(clone);
+            fragment.AppendClonedChild(clone, token);
         }
         work.Check();
         return new Update(target, fragment);
     }
     internal static void Apply(HtmlSelectState select, Update? update)
+        => Apply(select.Element.GetSelectCore(), update);
+    private static void Apply(HtmlSelectCore select, Update? update)
     {
         if (update is null) return;
         select.UpdatingSelectedContent = true;
@@ -32,17 +36,23 @@ internal static class HtmlSelectedContent
         finally { select.UpdatingSelectedContent = false; }
     }
     internal static void UpdateCurrent(HtmlSelectState select, CancellationToken token)
+        => UpdateCurrent(select.Element.GetSelectCore(token), token);
+    private static void UpdateCurrent(HtmlSelectCore select, CancellationToken token)
     {
-        var index = select.GetSelectedIndex(token);
-        var option = index < 0 ? null : select.Prepare(token)[index];
+        Element? option = null;
+        foreach (var candidate in HtmlSelectCore.Enumerate(select.Element, token))
+            if (candidate.GetOptionCore(token).Selected) { option = candidate; break; }
         var prepared = PrepareUpdate(select, option, token);
         token.ThrowIfCancellationRequested();
         Apply(select, prepared);
     }
     internal static void MaybeCloneOption(HtmlOptionState option, CancellationToken token)
+        => MaybeCloneOption(option.Element, token);
+    internal static void MaybeCloneOption(Element element, CancellationToken token)
     {
-        if (!option.Selected || option.CachedNearestSelect is not { } element) return;
-        var select = element.GetHtmlState()!.Select!;
+        var option = element.GetOptionCore(token);
+        if (!option.Selected || option.CachedNearestSelect is not { } owner) return;
+        var select = owner.GetSelectCore(token);
         var prepared = PrepareUpdate(select, option.Element, token);
         token.ThrowIfCancellationRequested();
         Apply(select, prepared);
@@ -89,13 +99,13 @@ internal static class HtmlSelectedContent
                     if (html.LocalName is "option" or "selectedcontent") { view.SelectedContentDisabled = true; break; }
                 }
                 if (view.SelectedContentDisabled || firstSelect is null) continue;
-                var select = firstSelect.GetHtmlState()!.Select!;
+                var select = firstSelect.GetSelectCore();
                 if (select.Multiple || select.UpdatingSelectedContent) continue;
                 UpdateCurrent(select, default);
                 ClearNonPrimary(select);
             }
             else if (!insertion && !content.GetHtmlState()!.SelectedContentDisabled && nearest is null && oldSelect is not null)
-                UpdateCurrent(oldSelect.GetHtmlState()!.Select!, default);
+                UpdateCurrent(oldSelect.GetSelectCore(), default);
         }
     }
     private static Element? InvalidateAncestors(Node? node)
@@ -105,11 +115,11 @@ internal static class HtmlSelectedContent
         {
             if (node is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" } select) continue;
             nearest ??= select;
-            select.GetHtmlState()!.Select!.InvalidateSelectedContent();
+            select.ExistingSelectCore?.InvalidateSelectedContent();
         }
         return nearest;
     }
-    private static void ClearNonPrimary(HtmlSelectState select)
+    private static void ClearNonPrimary(HtmlSelectCore select)
     {
         var candidates = new List<Element>();
         foreach (var element in NodeTraversal.DescendantElements(select.Element, default))
