@@ -345,3 +345,26 @@ errors and zero warnings. Native parser and runtime dependencies compiled;
 remaining errors include generated consumers and CSS/DevTools integration plus
 analyzer repairs. The build remains unsuccessful and Browser regressions remain
 unrun. Source integration and corrections continue; this is not a final gate.
+
+### Coherent HTML and CSS binding checkpoint
+
+Reviewed native CSS model bindings, stylesheet revision invalidation, HTML attribute
+semantics, form and selection callbacks, and editing consumers have been integrated.
+The next fresh Release net10.0 production inventory at
+`fed2ec409fcec956068424723358f3d922747281` completed with 80 errors and zero warnings
+(26.77 seconds). All diagnostics were generated consumers: HTML 50, DOM 20,
+SVG 7, media 2, and one collection accessor. No handwritten Browser source produced
+a diagnostic. The previous inventory at `aea66c249` had 131 errors. Neither snapshot
+is a successful build; Browser regression fixtures remain unrun.
+
+Document metadata now has a concrete production packet under source review: weak
+per-document origin and modification timestamp state, immutable tuple or opaque
+origin identity, creator facts captured before fetch yields, and the same pending
+origin published before new-document scripts and then assigned before parser scripts.
+Frame exposure uses that record, including indexed and named window access. Frozen
+sandbox origin and script facts inherit into child creation. Blank URL inheritance
+uses parsed paths and preserves the captured creator base URL. Response modification
+timestamps travel to the parser; manufactured documents use the getter's current
+local time when no resource timestamp exists. Domain relaxation remains explicitly
+unsupported after WebIDL conversion. These changes and their regression fixtures
+still require source acceptance and execution at the coordinated Browser gate.
