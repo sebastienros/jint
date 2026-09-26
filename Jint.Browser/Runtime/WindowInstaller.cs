@@ -236,7 +236,15 @@ internal static class WindowInstaller
 
     private static JsObjectShape BuildFrameWindowShape()
     {
-        var builder = new JsObjectShape.Builder().PerRealmSlot("constructor").ToStringTag("Window");
+        var builder = new JsObjectShape.Builder().PerRealmSlot("constructor").ToStringTag("Window")
+            .PerRealmSlot("getComputedStyle", static prototype =>
+            {
+                var engine = prototype.Engine;
+                var realm = prototype.CreationRealm;
+                var dom = DomRealm.Of(engine, realm);
+                return new ClrFunction(engine, realm, "getComputedStyle", (_, arguments) =>
+                    GetComputedStyle(RuntimeOf(engine, "getComputedStyle"), dom, arguments), 1);
+            }, enumerable: true);
         foreach (var type in _eventHandlers)
         {
             var handler = new EventHandlerAccessor(type);
@@ -520,23 +528,22 @@ internal static class WindowInstaller
     }
 
     private static JsValue GetComputedStyle(PageRuntime runtime, JsValue[] arguments)
+        => GetComputedStyle(runtime, runtime.Dom, arguments);
+
+    // CSSOM §7: the returned declaration belongs to the operation's realm. Its live read
+    // chooses the element's actual document and browsing context rather than principal geometry.
+    private static JsValue GetComputedStyle(PageRuntime runtime, DomRealm dom, JsValue[] arguments)
     {
         if (arguments.At(0) is not IDomWrapper { DomTarget: Element element })
         {
             Throw.TypeError(
-                runtime.Engine.Realm,
+                dom.OwningRealm,
                 "Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.");
             return JsValue.Undefined;
         }
 
-        // AngleSharp.Css's cascade, with the ten resolved values Dom/Views/ResolvedStyle answers over it.
-        // The pseudo-element argument is ignored, because the extension that takes one needs an AngleSharp
-        // IWindow and the window here is Jint's.
-        //
-        // Wrapped read-only, because CSSOM gives the result a computed flag and AngleSharp's declaration is
-        // an ordinary writable one that is also detached — so an unwrapped write would neither throw nor
-        // change anything a page can read. See Dom/Views/ReadOnlyStyleDeclaration.
-        return runtime.Dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(
+        // The pseudo-element argument remains outside the native cascade's implemented surface.
+        return dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(
             runtime,
             element,
             Dom.Views.CssCascade.Of(element, resolveInheritance: false)));
