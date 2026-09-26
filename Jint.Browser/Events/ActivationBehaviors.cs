@@ -75,8 +75,8 @@ internal static class ActivationBehaviors
         if (IsType(input, "checkbox"))
         {
             _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForCheckbox(HtmlCheckableState.Get(input)!.Checked, HtmlCheckableState.Get(input)!.Indeterminate));
-            HtmlCheckableState.Get(input)!.SetIndeterminate(false);
             HtmlCheckednessAlgorithms.Set(input, !HtmlCheckableState.Get(input)!.Checked, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.CancellationToken);
+            HtmlCheckableState.Get(input)!.SetIndeterminate(false);
             return;
         }
 
@@ -312,7 +312,7 @@ internal static class ActivationBehaviors
             return;
         }
 
-        if (ev.Target is DomNodeObject target && IsInsideInteractiveContent(label, target.Node))
+        if (ev.Target is DomNodeObject { Node: { } target } && IsInsideInteractiveContent(label, target))
         {
             return;
         }
@@ -442,8 +442,9 @@ internal static class ActivationBehaviors
 
     private static bool IsInteractiveContent(Element element) => element.NamespaceUri == Namespaces.Html && element.LocalName switch
     {
-        "a" or "button" or "details" or "embed" or "iframe" or "label" or "select" or "textarea" => true,
-        "input" => !string.Equals(element.GetAttribute("type"), "hidden", StringComparison.OrdinalIgnoreCase),
+        "button" or "details" or "embed" or "iframe" or "label" or "select" or "textarea" => true,
+        "a" => element.HasAttribute("href"),
+        "input" => HtmlInputTypes.Get(element) != HtmlInputType.Hidden,
         "audio" or "video" => element.HasAttribute("controls"),
         "img" or "object" => element.HasAttribute("usemap"),
         _ => false,

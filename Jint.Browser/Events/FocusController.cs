@@ -85,6 +85,13 @@ internal static class FocusController
 
         var realm = BrowserEventRealm.Of(dom.Engine);
         var previous = realm.FocusedElement;
+        if (previous is not null && (previous.OwnerDocument is not { } owner
+            || !IsConnectedTo(previous, owner)
+            || !ReferenceEquals(BrowserEventRealm.FocusedElementOf(owner), previous)))
+        {
+            realm.FocusedElement = null;
+            previous = null;
+        }
 
         if (ReferenceEquals(previous, element))
         {
