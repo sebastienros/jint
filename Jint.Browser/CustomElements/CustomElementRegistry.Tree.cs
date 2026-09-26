@@ -1,4 +1,5 @@
 using Jint.HtmlParser;
+using Jint.Browser.Dom;
 
 namespace Jint.Browser.CustomElements;
 
@@ -42,6 +43,14 @@ internal sealed partial class CustomElementRegistry
         EnsureWatchingTree(document);
     }
 
+    internal void EnsureWatchingNode(Node node)
+    {
+        if ((node as Document ?? node.OwnerDocument) is { } document) EnsureWatching(document);
+        var work = new DomReadWork(_ => _runtime.Engine.Constraints.Check(), _runtime.Dom.CancellationToken);
+        work.Check();
+        if (work.Root(node) is ShadowRoot shadow) EnsureWatchingTree(shadow);
+    }
+
     private void EnsureWatchingTree(Node root)
     {
         if (_trees.TryGetValue(root, out _)) return;
@@ -61,16 +70,17 @@ internal sealed partial class CustomElementRegistry
 
     private void ObserveAttributes(Element element, CustomElementRecord record)
     {
+        EnsureWatching(element.OwnerDocument!);
+        var work = new DomReadWork(_ => _runtime.Engine.Constraints.Check(), _runtime.Dom.CancellationToken);
+        work.Check();
+        var root = work.Root(element);
+        if (root is ShadowRoot) EnsureWatchingTree(root);
         if (record.NativeAttributes is not null) return;
         var subscription = element.OwnerDocument!.ObserveMutations(element,
             new MutationObserverOptions { Attributes = true, AttributeOldValue = true });
         subscription.PendingRecord = QueueNativeMutation;
         record.NativeAttributes = subscription;
         _nativeSubscriptions.Add(new WeakReference<MutationSubscription>(subscription));
-        EnsureWatching(element.OwnerDocument!);
-        var root = element as Node;
-        while (root.ParentNode is { } parent) root = parent;
-        if (root is ShadowRoot) EnsureWatchingTree(root);
     }
 
     private void ReleaseNativeSubscriptions()
@@ -97,6 +107,7 @@ internal sealed partial class CustomElementRegistry
                 var mutation = records[i];
                 if (mutation.Kind == MutationRecordKind.ChildList)
                 {
+                    if (!mutation.TargetWasConnected) continue;
                     foreach (var removed in mutation.RemovedNodes) Walk(removed, Disconnected);
                     foreach (var added in mutation.AddedNodes) Walk(added, Connected);
                 }
@@ -128,6 +139,7 @@ internal sealed partial class CustomElementRegistry
     {
         if (TryGetRecord(element) is { State: CustomElementState.Custom } record)
         {
+            ObserveAttributes(element, record);
             EnqueueCallback(element, record, CustomElementReactionKind.Connected);
             return;
         }

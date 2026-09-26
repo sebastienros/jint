@@ -51,6 +51,7 @@ internal static class DomFailures
         {
             return (receiver, arguments) =>
             {
+                PrepareCustomElements(receiver);
                 using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
                 JsValue result;
                 try { result = guarded(receiver, arguments); }
@@ -67,6 +68,7 @@ internal static class DomFailures
         {
             return (receiver, arguments) =>
             {
+                PrepareCustomElements(receiver);
                 using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
                 var replacement = new DomProcessingInstructionAttributes.RangeDataReplacement((receiver as IDomWrapper)?.DomTarget as DomRange);
                 JsValue result;
@@ -79,10 +81,17 @@ internal static class DomFailures
 
         return (receiver, arguments) =>
         {
+            PrepareCustomElements(receiver);
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
             try { return guarded(receiver, arguments); }
             finally { DrainCustomElements(receiver); }
         };
+    }
+
+    private static void PrepareCustomElements(JsValue receiver)
+    {
+        if (receiver is IDomWrapper { DomTarget: Node node } wrapper)
+            CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
     }
 
     private static void DrainCustomElements(JsValue receiver)

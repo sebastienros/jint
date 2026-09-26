@@ -57,6 +57,30 @@ public sealed class CustomElementReactionTests
     }
 
     [Test]
+    public async Task DetachedShadowMutationsDoNotReportConnectionAndMovingARecordedElementKeepsObservation()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + """
+          const host = document.createElement('div');
+          const shadow = host.attachShadow({mode: 'open'});
+          const child = document.createElement('x-thing');
+          child.id = 'child';
+          shadow.appendChild(child);
+          child.remove();
+          shadow.appendChild(child);
+          window.log.push('detached');
+          document.body.appendChild(host);
+          child.remove();
+          shadow.appendChild(child);
+        </script>
+        """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("detached|connected:child|disconnected:child|connected:child");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ConnectedFiresOnInsertionAndDisconnectedOnRemovalBeforeTheOperationReturns()
     {
         await using var browser = new Browser();
