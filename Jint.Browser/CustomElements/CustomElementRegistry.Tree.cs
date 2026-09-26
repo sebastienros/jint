@@ -272,6 +272,9 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
+        // Translate completed removal/insertion records before queuing upgrades for the
+        // new subtree, so old disconnection reactions precede new connection reactions.
+        registry.FlushNativeMutations();
         registry.UpgradeSubtree(root);
         registry.Drain();
     }

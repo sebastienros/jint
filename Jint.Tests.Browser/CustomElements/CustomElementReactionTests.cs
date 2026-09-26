@@ -14,7 +14,7 @@ public sealed class CustomElementReactionTests
     private static async Task<Page> PageWith(Browser browser, string body)
     {
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync(body);
+        await page.SetContentAsync("<body>" + body + "</body>");
         return page;
     }
 
