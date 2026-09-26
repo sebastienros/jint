@@ -562,7 +562,7 @@ public sealed class CascadeTraversalTests
         // The inert fixture has completed parsing: publish each completed style owner explicitly,
         // as the page parser does, before any cascade read. Queries only consume these resources.
         foreach (var owner in ContentDom.Descendants(fixture.Document)
-                     .Where(element => element.LocalName == "style" && element.NamespaceUri == Namespaces.Html))
+                     .Where(element => element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg))
         {
             NativeCssStyleSheets.Install(realm, owner, ContentDom.TextContent(owner), "about:blank");
         }
