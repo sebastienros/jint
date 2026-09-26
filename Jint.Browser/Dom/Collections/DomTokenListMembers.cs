@@ -42,9 +42,10 @@ internal static class DomTokenListMembers
         var work = Work(realm);
         Validate(realm, tokens, Member.Add, work);
         var next = Snapshot(list, work);
+        var present = Index(next, work);
         foreach (var token in tokens)
         {
-            if (!Contains(next, token, work)) next.Add(token);
+            if (present.Add(token)) next.Add(token);
         }
         Update(list, next, work);
         return JsValue.Undefined;
@@ -56,12 +57,15 @@ internal static class DomTokenListMembers
         var tokens = DomConvert.TextRest(arguments, 0);
         var work = Work(realm);
         Validate(realm, tokens, Member.Remove, work);
+        var removed = Index(tokens, work);
         var next = Snapshot(list, work);
-        for (var i = next.Count - 1; i >= 0; i--)
+        var retained = new List<string>(next.Count);
+        foreach (var existing in next)
         {
-            if (Contains(tokens, next[i], work)) next.RemoveAt(i);
+            work.Step();
+            if (!removed.Contains(existing)) retained.Add(existing);
         }
-        Update(list, next, work);
+        Update(list, retained, work);
         return JsValue.Undefined;
     }
 
@@ -101,14 +105,22 @@ internal static class DomTokenListMembers
         RefuseWhitespace(realm, token, Member.Replace, work);
         RefuseWhitespace(realm, replacement, Member.Replace, work);
         var tokens = Snapshot(list, work);
-        if (!Contains(tokens, token, work)) { work.Check(); return JsBoolean.False; }
-        var replaced = new List<string>(tokens.Count);
-        foreach (var existing in tokens)
+        var oldIndex = -1;
+        var newIndex = -1;
+        for (var i = 0; i < tokens.Count; i++)
         {
-            var next = work.Equal(existing, token) ? replacement : existing;
-            if (!Contains(replaced, next, work)) replaced.Add(next);
+            if (work.Equal(tokens[i], token)) oldIndex = i;
+            if (work.Equal(tokens[i], replacement)) newIndex = i;
         }
-        Write(list, Serialize(replaced, work), work);
+        if (oldIndex < 0) { work.Check(); return JsBoolean.False; }
+        // The earlier of the old/replacement entries keeps the ordered-set position.
+        if (newIndex >= 0 && newIndex != oldIndex)
+        {
+            tokens[Math.Min(oldIndex, newIndex)] = replacement;
+            tokens.RemoveAt(Math.Max(oldIndex, newIndex));
+        }
+        else tokens[oldIndex] = replacement;
+        Write(list, Serialize(tokens, work), work);
         return JsBoolean.True;
     }
 
@@ -135,20 +147,38 @@ internal static class DomTokenListMembers
     private static DomReadWork Work(DomRealm realm) => new(realm.NativeReadCheckpoint, realm.CancellationToken);
 
     private static List<string> Snapshot(DomAttributeTokenList list, DomReadWork work)
+        => list.ReadSnapshot(work);
+
+    private static HashSet<string> Index(IReadOnlyList<string> tokens, DomReadWork work)
     {
-        var tokens = new List<string>();
-        foreach (var token in list.Read(work)) tokens.Add(token);
+        var index = new HashSet<string>(new TokenComparer(work));
+        foreach (var token in tokens)
+        {
+            work.Step();
+            index.Add(token);
+        }
         work.Check();
-        return tokens;
+        return index;
     }
 
-    private static bool Contains(IReadOnlyList<string> tokens, string token, DomReadWork work)
+    // Invocation-local indexing charges the actual hash and collision character reads.
+    private sealed class TokenComparer(DomReadWork work) : IEqualityComparer<string>
     {
-        foreach (var existing in tokens)
+        public bool Equals(string? x, string? y)
         {
-            if (work.Equal(existing, token)) return true;
+            work.Step();
+            return ReferenceEquals(x, y) || y is not null && work.Equal(x, y);
         }
-        return false;
+        public int GetHashCode(string value)
+        {
+            var hash = 2166136261u;
+            foreach (var character in value)
+            {
+                work.Step();
+                hash = unchecked((hash ^ character) * 16777619u);
+            }
+            return unchecked((int) hash);
+        }
     }
 
     // https://dom.spec.whatwg.org/#concept-dtl-update

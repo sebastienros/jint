@@ -47,11 +47,42 @@ public sealed class NativeTokenMemberWorkTests
         DomTokenListMembers.Value(realm, list).AsString().Should().Be(element.GetAttribute("class"));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ManyArgumentsUseLinearChargedIndexWork(bool remove)
+    {
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        var realm = DomRealm.Of(engine);
+        var small = Measure(128);
+        var large = Measure(512);
+        large.Should().BeLessThanOrEqualTo(small * 6);
+
+        int Measure(int count)
+        {
+            var element = Document.CreateHtml().CreateElement("div");
+            var existing = Enumerable.Range(0, count).Select(i => "existing" + i.ToString("D6", System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+            element.SetAttribute("class", string.Join(" ", existing));
+            var arguments = (remove ? existing : Enumerable.Range(0, count).Select(i => "added" + i.ToString("D6", System.Globalization.CultureInfo.InvariantCulture)))
+                .Select(token => (JsValue) JsString.Create(token)).ToArray();
+            var list = DomAttributeTokenList.Of(element, "class");
+            probe.Count = 0;
+            if (remove) DomTokenListMembers.Remove(realm, list, arguments);
+            else DomTokenListMembers.Add(realm, list, arguments);
+            var checks = probe.Count;
+            if (remove) element.GetAttribute("class").Should().Be("");
+            else list.ReadLength(realm.NativeReadCheckpoint, realm.CancellationToken).Should().Be(count * 2);
+            return checks;
+        }
+    }
+
     private sealed class ReadProbe : Constraint
     {
         internal int Remaining;
+        internal int Count;
         public override void Check()
         {
+            Count++;
             if (Remaining > 0 && --Remaining == 0) throw new OperationCanceledException();
         }
         public override void Reset() { }
