@@ -14932,7 +14932,7 @@
   ],
   "StringEnums": [
     {
-      "ClrFullName": "global::AngleSharp.Css.Dom.ScrollBehavior",
+      "ClrFullName": "global::Jint.Browser.Dom.DomScrollBehavior",
       "HelperName": "ScrollBehavior",
       "Values": [
         {
@@ -14950,7 +14950,7 @@
       ]
     },
     {
-      "ClrFullName": "global::AngleSharp.Css.Dom.ScrollLogicalPosition",
+      "ClrFullName": "global::Jint.Browser.Dom.DomScrollLogicalPosition",
       "HelperName": "ScrollLogicalPosition",
       "Values": [
         {
@@ -14964,7 +14964,7 @@
       ]
     },
     {
-      "ClrFullName": "global::AngleSharp.Dom.AdjacentPosition",
+      "ClrFullName": "global::Jint.Browser.Dom.DomAdjacentPosition",
       "HelperName": "AdjacentPosition",
       "Values": [
         {
@@ -14986,7 +14986,7 @@
       ]
     },
     {
-      "ClrFullName": "global::AngleSharp.Dom.DocumentReadyState",
+      "ClrFullName": "global::Jint.Browser.Dom.DomDocumentReadyState",
       "HelperName": "DocumentReadyState",
       "Values": [
         {
@@ -15018,7 +15018,7 @@
       ]
     },
     {
-      "ClrFullName": "global::AngleSharp.Media.Dom.MediaControllerPlaybackState",
+      "ClrFullName": "global::Jint.Browser.Dom.DomMediaControllerPlaybackState",
       "HelperName": "MediaControllerPlaybackState",
       "Values": [
         {
@@ -15036,7 +15036,7 @@
       ]
     },
     {
-      "ClrFullName": "global::AngleSharp.Media.Dom.TextTrackMode",
+      "ClrFullName": "global::Jint.Browser.Dom.DomTextTrackMode",
       "HelperName": "TextTrackMode",
       "Values": [
         {

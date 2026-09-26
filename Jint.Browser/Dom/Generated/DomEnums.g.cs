@@ -16,103 +16,103 @@ namespace Jint.Browser.Dom;
 /// </summary>
 internal static class DomEnums
 {
-    internal static global::Jint.Native.JsValue FromAdjacentPosition(global::AngleSharp.Dom.AdjacentPosition value) => value switch
+    internal static global::Jint.Native.JsValue FromAdjacentPosition(global::Jint.Browser.Dom.DomAdjacentPosition value) => value switch
     {
-        global::AngleSharp.Dom.AdjacentPosition.BeforeBegin => global::Jint.Native.JsString.Create("beforebegin"),
-        global::AngleSharp.Dom.AdjacentPosition.AfterBegin => global::Jint.Native.JsString.Create("afterbegin"),
-        global::AngleSharp.Dom.AdjacentPosition.BeforeEnd => global::Jint.Native.JsString.Create("beforeend"),
-        global::AngleSharp.Dom.AdjacentPosition.AfterEnd => global::Jint.Native.JsString.Create("afterend"),
+        global::Jint.Browser.Dom.DomAdjacentPosition.BeforeBegin => global::Jint.Native.JsString.Create("beforebegin"),
+        global::Jint.Browser.Dom.DomAdjacentPosition.AfterBegin => global::Jint.Native.JsString.Create("afterbegin"),
+        global::Jint.Browser.Dom.DomAdjacentPosition.BeforeEnd => global::Jint.Native.JsString.Create("beforeend"),
+        global::Jint.Browser.Dom.DomAdjacentPosition.AfterEnd => global::Jint.Native.JsString.Create("afterend"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Dom.AdjacentPosition ToAdjacentPosition(global::Jint.Native.JsValue value, string member)
+    internal static global::Jint.Browser.Dom.DomAdjacentPosition ToAdjacentPosition(global::Jint.Native.JsValue value, string member)
     {
         var text = global::Jint.Runtime.TypeConverter.ToString(value);
         return text switch
         {
-        "beforebegin" => global::AngleSharp.Dom.AdjacentPosition.BeforeBegin,
-        "afterbegin" => global::AngleSharp.Dom.AdjacentPosition.AfterBegin,
-        "beforeend" => global::AngleSharp.Dom.AdjacentPosition.BeforeEnd,
-        "afterend" => global::AngleSharp.Dom.AdjacentPosition.AfterEnd,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.AdjacentPosition>(value, text, member),
+        "beforebegin" => global::Jint.Browser.Dom.DomAdjacentPosition.BeforeBegin,
+        "afterbegin" => global::Jint.Browser.Dom.DomAdjacentPosition.AfterBegin,
+        "beforeend" => global::Jint.Browser.Dom.DomAdjacentPosition.BeforeEnd,
+        "afterend" => global::Jint.Browser.Dom.DomAdjacentPosition.AfterEnd,
+        _ => DomConvert.BadEnumValue<global::Jint.Browser.Dom.DomAdjacentPosition>(value, text, member),
         };
     }
 
-    internal static global::Jint.Native.JsValue FromDocumentReadyState(global::AngleSharp.Dom.DocumentReadyState value) => value switch
+    internal static global::Jint.Native.JsValue FromDocumentReadyState(global::Jint.Browser.Dom.DomDocumentReadyState value) => value switch
     {
-        global::AngleSharp.Dom.DocumentReadyState.Loading => global::Jint.Native.JsString.Create("loading"),
-        global::AngleSharp.Dom.DocumentReadyState.Interactive => global::Jint.Native.JsString.Create("interactive"),
-        global::AngleSharp.Dom.DocumentReadyState.Complete => global::Jint.Native.JsString.Create("complete"),
+        global::Jint.Browser.Dom.DomDocumentReadyState.Loading => global::Jint.Native.JsString.Create("loading"),
+        global::Jint.Browser.Dom.DomDocumentReadyState.Interactive => global::Jint.Native.JsString.Create("interactive"),
+        global::Jint.Browser.Dom.DomDocumentReadyState.Complete => global::Jint.Native.JsString.Create("complete"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Dom.DocumentReadyState ToDocumentReadyState(global::Jint.Native.JsValue value, string member)
+    internal static global::Jint.Browser.Dom.DomDocumentReadyState ToDocumentReadyState(global::Jint.Native.JsValue value, string member)
     {
         var text = global::Jint.Runtime.TypeConverter.ToString(value);
         return text switch
         {
-        "loading" => global::AngleSharp.Dom.DocumentReadyState.Loading,
-        "interactive" => global::AngleSharp.Dom.DocumentReadyState.Interactive,
-        "complete" => global::AngleSharp.Dom.DocumentReadyState.Complete,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.DocumentReadyState>(value, text, member),
+        "loading" => global::Jint.Browser.Dom.DomDocumentReadyState.Loading,
+        "interactive" => global::Jint.Browser.Dom.DomDocumentReadyState.Interactive,
+        "complete" => global::Jint.Browser.Dom.DomDocumentReadyState.Complete,
+        _ => DomConvert.BadEnumValue<global::Jint.Browser.Dom.DomDocumentReadyState>(value, text, member),
         };
     }
 
-    internal static global::Jint.Native.JsValue FromMediaControllerPlaybackState(global::AngleSharp.Media.Dom.MediaControllerPlaybackState value) => value switch
+    internal static global::Jint.Native.JsValue FromMediaControllerPlaybackState(global::Jint.Browser.Dom.DomMediaControllerPlaybackState value) => value switch
     {
-        global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Waiting => global::Jint.Native.JsString.Create("waiting"),
-        global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Playing => global::Jint.Native.JsString.Create("playing"),
-        global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Ended => global::Jint.Native.JsString.Create("ended"),
+        global::Jint.Browser.Dom.DomMediaControllerPlaybackState.Waiting => global::Jint.Native.JsString.Create("waiting"),
+        global::Jint.Browser.Dom.DomMediaControllerPlaybackState.Playing => global::Jint.Native.JsString.Create("playing"),
+        global::Jint.Browser.Dom.DomMediaControllerPlaybackState.Ended => global::Jint.Native.JsString.Create("ended"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Media.Dom.MediaControllerPlaybackState ToMediaControllerPlaybackState(global::Jint.Native.JsValue value, string member)
+    internal static global::Jint.Browser.Dom.DomMediaControllerPlaybackState ToMediaControllerPlaybackState(global::Jint.Native.JsValue value, string member)
     {
         var text = global::Jint.Runtime.TypeConverter.ToString(value);
         return text switch
         {
-        "waiting" => global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Waiting,
-        "playing" => global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Playing,
-        "ended" => global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Ended,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Media.Dom.MediaControllerPlaybackState>(value, text, member),
+        "waiting" => global::Jint.Browser.Dom.DomMediaControllerPlaybackState.Waiting,
+        "playing" => global::Jint.Browser.Dom.DomMediaControllerPlaybackState.Playing,
+        "ended" => global::Jint.Browser.Dom.DomMediaControllerPlaybackState.Ended,
+        _ => DomConvert.BadEnumValue<global::Jint.Browser.Dom.DomMediaControllerPlaybackState>(value, text, member),
         };
     }
 
-    internal static global::Jint.Native.JsValue FromScrollBehavior(global::AngleSharp.Css.Dom.ScrollBehavior value) => value switch
+    internal static global::Jint.Native.JsValue FromScrollBehavior(global::Jint.Browser.Dom.DomScrollBehavior value) => value switch
     {
-        global::AngleSharp.Css.Dom.ScrollBehavior.Auto => global::Jint.Native.JsString.Create("auto"),
-        global::AngleSharp.Css.Dom.ScrollBehavior.Instant => global::Jint.Native.JsString.Create("instant"),
-        global::AngleSharp.Css.Dom.ScrollBehavior.Smooth => global::Jint.Native.JsString.Create("smooth"),
+        global::Jint.Browser.Dom.DomScrollBehavior.Auto => global::Jint.Native.JsString.Create("auto"),
+        global::Jint.Browser.Dom.DomScrollBehavior.Instant => global::Jint.Native.JsString.Create("instant"),
+        global::Jint.Browser.Dom.DomScrollBehavior.Smooth => global::Jint.Native.JsString.Create("smooth"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Css.Dom.ScrollBehavior ToScrollBehavior(global::Jint.Native.JsValue value, string member)
+    internal static global::Jint.Browser.Dom.DomScrollBehavior ToScrollBehavior(global::Jint.Native.JsValue value, string member)
     {
         var text = global::Jint.Runtime.TypeConverter.ToString(value);
         return text switch
         {
-        "auto" => global::AngleSharp.Css.Dom.ScrollBehavior.Auto,
-        "instant" => global::AngleSharp.Css.Dom.ScrollBehavior.Instant,
-        "smooth" => global::AngleSharp.Css.Dom.ScrollBehavior.Smooth,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollBehavior>(value, text, member),
+        "auto" => global::Jint.Browser.Dom.DomScrollBehavior.Auto,
+        "instant" => global::Jint.Browser.Dom.DomScrollBehavior.Instant,
+        "smooth" => global::Jint.Browser.Dom.DomScrollBehavior.Smooth,
+        _ => DomConvert.BadEnumValue<global::Jint.Browser.Dom.DomScrollBehavior>(value, text, member),
         };
     }
 
-    internal static global::Jint.Native.JsValue FromScrollLogicalPosition(global::AngleSharp.Css.Dom.ScrollLogicalPosition value) => value switch
+    internal static global::Jint.Native.JsValue FromScrollLogicalPosition(global::Jint.Browser.Dom.DomScrollLogicalPosition value) => value switch
     {
-        global::AngleSharp.Css.Dom.ScrollLogicalPosition.Start => global::Jint.Native.JsString.Create("start"),
-        global::AngleSharp.Css.Dom.ScrollLogicalPosition.End => global::Jint.Native.JsString.Create("end"),
+        global::Jint.Browser.Dom.DomScrollLogicalPosition.Start => global::Jint.Native.JsString.Create("start"),
+        global::Jint.Browser.Dom.DomScrollLogicalPosition.End => global::Jint.Native.JsString.Create("end"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Css.Dom.ScrollLogicalPosition ToScrollLogicalPosition(global::Jint.Native.JsValue value, string member)
+    internal static global::Jint.Browser.Dom.DomScrollLogicalPosition ToScrollLogicalPosition(global::Jint.Native.JsValue value, string member)
     {
         var text = global::Jint.Runtime.TypeConverter.ToString(value);
         return text switch
         {
-        "start" => global::AngleSharp.Css.Dom.ScrollLogicalPosition.Start,
-        "end" => global::AngleSharp.Css.Dom.ScrollLogicalPosition.End,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollLogicalPosition>(value, text, member),
+        "start" => global::Jint.Browser.Dom.DomScrollLogicalPosition.Start,
+        "end" => global::Jint.Browser.Dom.DomScrollLogicalPosition.End,
+        _ => DomConvert.BadEnumValue<global::Jint.Browser.Dom.DomScrollLogicalPosition>(value, text, member),
         };
     }
 
@@ -134,23 +134,23 @@ internal static class DomEnums
         };
     }
 
-    internal static global::Jint.Native.JsValue FromTextTrackMode(global::AngleSharp.Media.Dom.TextTrackMode value) => value switch
+    internal static global::Jint.Native.JsValue FromTextTrackMode(global::Jint.Browser.Dom.DomTextTrackMode value) => value switch
     {
-        global::AngleSharp.Media.Dom.TextTrackMode.Disabled => global::Jint.Native.JsString.Create("disabled"),
-        global::AngleSharp.Media.Dom.TextTrackMode.Hidden => global::Jint.Native.JsString.Create("hidden"),
-        global::AngleSharp.Media.Dom.TextTrackMode.Showing => global::Jint.Native.JsString.Create("showing"),
+        global::Jint.Browser.Dom.DomTextTrackMode.Disabled => global::Jint.Native.JsString.Create("disabled"),
+        global::Jint.Browser.Dom.DomTextTrackMode.Hidden => global::Jint.Native.JsString.Create("hidden"),
+        global::Jint.Browser.Dom.DomTextTrackMode.Showing => global::Jint.Native.JsString.Create("showing"),
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Media.Dom.TextTrackMode ToTextTrackMode(global::Jint.Native.JsValue value, string member)
+    internal static global::Jint.Browser.Dom.DomTextTrackMode ToTextTrackMode(global::Jint.Native.JsValue value, string member)
     {
         var text = global::Jint.Runtime.TypeConverter.ToString(value);
         return text switch
         {
-        "disabled" => global::AngleSharp.Media.Dom.TextTrackMode.Disabled,
-        "hidden" => global::AngleSharp.Media.Dom.TextTrackMode.Hidden,
-        "showing" => global::AngleSharp.Media.Dom.TextTrackMode.Showing,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Media.Dom.TextTrackMode>(value, text, member),
+        "disabled" => global::Jint.Browser.Dom.DomTextTrackMode.Disabled,
+        "hidden" => global::Jint.Browser.Dom.DomTextTrackMode.Hidden,
+        "showing" => global::Jint.Browser.Dom.DomTextTrackMode.Showing,
+        _ => DomConvert.BadEnumValue<global::Jint.Browser.Dom.DomTextTrackMode>(value, text, member),
         };
     }
 }
