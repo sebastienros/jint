@@ -70,8 +70,8 @@ internal sealed class Emitter
 
         foreach (var model in _model.Interfaces)
         {
-            builder.Append("    /// <summary>The <c>").Append(model.DomName).Append("</c> interface, projected from <c>")
-                .Append(model.ClrTypeName).Append("</c>.</summary>\n")
+            builder.Append("    /// <summary>The <c>").Append(System.Security.SecurityElement.Escape(model.DomName)).Append("</c> interface, projected from <c>")
+                .Append(System.Security.SecurityElement.Escape(model.ClrTypeName)).Append("</c>.</summary>\n")
                 .Append("    internal static readonly DomInterfaceDefinition ").Append(model.FieldName).Append(";\n\n");
         }
 
