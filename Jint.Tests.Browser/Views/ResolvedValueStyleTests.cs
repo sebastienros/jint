@@ -136,8 +136,10 @@ public sealed class ResolvedValueStyleTests
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
+        // Keep the media rule at the invalid rule's specificity so later source order wins
+        // after emulation without clearing the validity state whose warm cache is under test.
         await page.SetContentAsync("<style>#cb{width:var(--size);flex-shrink:0} #cb:invalid{width:300px}"
-            + "@media (max-width:600px){#cb{width:400px}}</style><div style='display:flex'>"
+            + "@media (max-width:600px){#cb:invalid{width:400px}}</style><div style='display:flex'>"
             + "<input id=cb style='--size:200px'><div id=t style='margin-top:10%'>a</div></div>");
         // Each percentage edge's containing block is the flex row, while cb's width follows its own cascade.
         (await page.EvaluateAsync<string>("getComputedStyle(cb).width")).Should().Be("200px");
