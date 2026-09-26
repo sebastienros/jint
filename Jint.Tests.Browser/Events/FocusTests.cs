@@ -9,6 +9,35 @@ public sealed class FocusTests
 {
     [TestCase("open")]
     [TestCase("closed")]
+    public async Task ShadowActiveElementRetargetsNestedFocusAndClearsAfterHostRemoval(string mode)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=outer></div><div id=unrelated></div>");
+        (await page.EvaluateAsync<string>(
+            $$"""
+            (() => {
+              const outer = document.getElementById('outer');
+              const first = outer.attachShadow({ mode: '{{mode}}' });
+              const nested = document.createElement('div');
+              first.appendChild(nested);
+              const second = nested.attachShadow({ mode: '{{mode}}' });
+              const input = document.createElement('input');
+              second.appendChild(input);
+              const unrelated = document.getElementById('unrelated').attachShadow({ mode: '{{mode}}' });
+              input.focus();
+              const result = [document.activeElement === outer, first.activeElement === nested,
+                              second.activeElement === input, unrelated.activeElement === null];
+              outer.remove();
+              result.push(first.activeElement === null, second.activeElement === null);
+              return result.join('|');
+            })()
+            """)).Should().Be("true|true|true|true|true|true");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("open")]
+    [TestCase("closed")]
     public async Task DocumentActiveElementRetargetsShadowFocusToTheHost(string mode)
     {
         await using var browser = new Browser();

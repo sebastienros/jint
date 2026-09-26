@@ -65,6 +65,29 @@ internal static class FocusController
         return ReferenceEquals(owner, document) ? RetargetToDocument(focused, document) : DomDocumentElements.Body(document);
     }
 
+    /// <summary>HTML DocumentOrShadowRoot.activeElement, retargeted within this shadow tree.</summary>
+    internal static Element? ActiveElement(BrowserEventRealm realm, ShadowRoot root)
+    {
+        var document = root.OwnerDocument!;
+        if (PageRuntime.Find(realm.Engine, document) is null) return null;
+        // Reuse document validation so removed or adopted focus cannot survive in a shadow exposure.
+        ActiveElement(realm, document);
+        if (realm.FocusedElement is not { } focused || !ReferenceEquals(focused.OwnerDocument, document)) return null;
+        var dom = DomRealm.Of(realm.Engine);
+        var work = new DomReadWork(dom.NativeReadCheckpoint, dom.CancellationToken);
+        work.Check();
+        Element candidate = focused;
+        while (true)
+        {
+            Node tree = candidate;
+            while (tree.ParentNode is { } parent) { work.Step(); tree = parent; }
+            if (ReferenceEquals(tree, root)) { work.Check(); return candidate; }
+            if (tree is not ShadowRoot shadow) { work.Check(); return null; }
+            work.Step();
+            candidate = shadow.Host;
+        }
+    }
+
     // User input reaches the actual focused control; document.activeElement is a retargeted exposure.
     internal static Element? InteractionTarget(BrowserEventRealm realm, Document document)
     {
