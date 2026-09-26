@@ -14,7 +14,7 @@ internal enum CssPropertyGrammar
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
-    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor,
+    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor, InsetSide,
     ContainerName, ContainerType, Container, WritingMode
 }
 
@@ -68,6 +68,9 @@ internal static class CssPropertyRegistry
         Add("background-clip", CssPropertyGrammar.BackgroundClip, "border-box");
         Add("opacity", CssPropertyGrammar.Opacity, "1");
         Add("position", CssPropertyGrammar.Position, "static");
+        // Positioned Layout 3 §3.1. Physical longhands only; signed length-percentage values.
+        foreach (var side in new[] { "top", "right", "bottom", "left" })
+            Add(side, CssPropertyGrammar.InsetSide, "auto");
         Add("pointer-events", CssPropertyGrammar.PointerEvents, "auto", true);
         // CSS UI 4 §5.1.1. Image cursors retain an explicit pending boundary.
         Add("cursor", CssPropertyGrammar.Cursor, "auto", true);
