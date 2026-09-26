@@ -228,6 +228,7 @@ public sealed class CssDeclarationBlockTests
     [TestCase("opacity", "var(--x", "var(--x)")]
     [TestCase("overflow", "var(--x", "var(--x)")]
     [TestCase("opacity", "var(--x)/* note   ", "var(--x)/* note   */")]
+    [TestCase("overflow", "var(--x)/* note   ", "var(--x)/* note   */")]
     public void EofRecoveryAlsoTerminatesDeferredOrdinaryAndShorthandValues(string name, string source, string expected)
     {
         var block = CssDeclarationBlock.Parse(name + ":" + source);
@@ -238,8 +239,11 @@ public sealed class CssDeclarationBlockTests
         reparsed.GetPropertyValue("display").Should().Be("block");
         var assigned = CssDeclarationBlock.Parse("");
         assigned.SetProperty(name, source);
+        assigned.GetPropertyValue(name).Should().Be(expected);
         assigned.SetProperty("display", "block");
-        CssDeclarationBlock.Parse(assigned.CssText).GetPropertyValue("display").Should().Be("block");
+        var assignedRoundTrip = CssDeclarationBlock.Parse(assigned.CssText);
+        assignedRoundTrip.GetPropertyValue("display").Should().Be("block");
+        assignedRoundTrip.GetPropertyValue(name).Should().Be(expected);
     }
 
     [Test]
