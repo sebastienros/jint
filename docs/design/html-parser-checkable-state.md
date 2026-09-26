@@ -1,11 +1,13 @@
 # D7b2 native checkbox and radio state
 
-Preparatory design for independent review, 2026-09-23. This document dispatches no implementation.
-It supplements [D7 form state](html-parser-form-state.md), the reviewed
+Astra-reviewed native implementation design. Current ownership and exact integration sequencing are
+in [the D7b2 dispatch handoff](html-parser-checkable-dispatch.md); that handoff supersedes the original
+D6s2-era reservations. It supplements [D7 form state](html-parser-form-state.md),
 [D7b1 input-state contract](html-parser-text-control-state.md), and
-[C3 selector decisions](html-parser-selectors.md). Shared native edits require a coordinator handoff
-**after D6s2**, with X4b/D7a/textarea ownership reconciled first. No Browser, parser, runtime or public
-API changes accompany this document. Benchmark timing and machine sampling remain on hold.
+[C3 selector decisions](html-parser-selectors.md). Implementation may start after the coordinator
+releases D6r6 shared files; H8's Element/HtmlElementState/NodeCloner hooks require a separate transfer.
+Keep public Input publication and full Browser acceptance distinct from this completed internal slice.
+No timing or speedup claim follows from the dispatch.
 
 ## Sources, decisions and current consumers
 
