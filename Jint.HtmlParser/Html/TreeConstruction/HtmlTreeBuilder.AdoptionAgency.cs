@@ -313,7 +313,7 @@ internal sealed partial class HtmlTreeBuilder
                 case AdoptionStage.RecreateInner:
                     var old = _open[_adoptionNodeIndex];
                     var entry = _formattingByElement[old];
-                    var recreated = CreateFromFormattingEntry(entry, old.ParentNode ?? old);
+                    var recreated = CreateFromFormattingEntry(entry, _adoptionCommonAncestor!);
                     ReplaceAdoptionOpen(_adoptionNodeIndex, recreated);
                     _formattingByElement.Remove(old);
                     entry.Element = recreated;

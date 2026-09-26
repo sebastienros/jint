@@ -94,19 +94,17 @@ public partial class HtmlTreeConstructionTests
         }
     }
 
-    [TestCase("<b id=outer><p>x", false)]
-    [TestCase("<b id=outer><i data-inner=kept><p>x", true)]
-    public void TemplateAdoptionRetainsInertOwnershipAtEveryYield(string prefix, bool hasInner)
+    [Test]
+    public void TemplateFinalReplacementRetainsInertOwnershipAtEveryYield()
     {
         var document = Document.CreateHtml();
         var session = new HtmlParserSession(document);
-        session.AppendInput("<template>" + prefix);
+        session.AppendInput("<template><b id=outer><p>x");
         DrainToNeedInput(session, 1);
         var template = (Element) document.DocumentElement!.FirstChild!.FirstChild!;
         var inertOwner = document.GetTemplateContentsOwnerDocument();
         var original = (Element) template.TemplateContent!.FirstChild!;
-        var oldInner = hasInner ? (Element) original.FirstChild! : null;
-        var paragraph = (Element) (oldInner ?? original).FirstChild!;
+        var paragraph = (Element) original.FirstChild!;
         var text = (Text) paragraph.FirstChild!;
         session.AppendInput("</b>", isFinal: true);
 
@@ -119,11 +117,6 @@ public partial class HtmlTreeConstructionTests
             original.GetAttributeNode("id")!.OwnerDocument.Should().BeSameAs(inertOwner);
             paragraph.OwnerDocument.Should().BeSameAs(inertOwner);
             text.OwnerDocument.Should().BeSameAs(inertOwner);
-            if (oldInner is not null)
-            {
-                oldInner.OwnerDocument.Should().BeSameAs(inertOwner);
-                oldInner.GetAttributeNode("data-inner")!.OwnerDocument.Should().BeSameAs(inertOwner);
-            }
             for (var child = paragraph.FirstChild; child is not null; child = child.NextSibling)
             {
                 child.OwnerDocument.Should().BeSameAs(inertOwner);
@@ -135,12 +128,49 @@ public partial class HtmlTreeConstructionTests
         step.Kind.Should().Be(HtmlParseStepKind.Complete);
         paragraph.FirstChild.Should().BeOfType<Element>().Which.GetAttribute("id").Should().Be("outer");
         ((Element) paragraph.FirstChild!).FirstChild.Should().BeSameAs(text);
-        if (hasInner)
+    }
+
+    [Test]
+    public void RelocatedInnerFormattingUsesTheStackCommonAncestorAsIntendedParent()
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<b><i data-inner=kept><p>x");
+        DrainToNeedInput(session, 1);
+        var body = (Element) document.DocumentElement!.LastChild!;
+        var oldI = (Element) body.FirstChild!.FirstChild!;
+        var paragraph = (Element) oldI.FirstChild!;
+        var text = (Text) paragraph.FirstChild!;
+        var foreignOwner = Document.CreateHtml();
+        foreignOwner.AdoptNode(oldI);
+        oldI.ParentNode.Should().BeNull();
+        paragraph.OwnerDocument.Should().BeSameAs(foreignOwner);
+        session.AppendInput("</b>", isFinal: true);
+
+        var builder = BuilderOf(session);
+        var lastNodeField = typeof(HtmlTreeBuilder).GetField("_adoptionLastNode",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        Element? recreated = null;
+        for (var turn = 0; turn < 100_000; turn++)
         {
-            var recreated = (Element) paragraph.ParentNode!;
-            recreated.GetAttribute("data-inner").Should().Be("kept");
-            recreated.GetAttributeNode("data-inner")!.OwnerDocument.Should().BeSameAs(inertOwner);
+            session.Drive(1, CancellationToken.None);
+            if (lastNodeField.GetValue(builder) is Element { LocalName: "i" } candidate &&
+                !ReferenceEquals(candidate, oldI))
+            {
+                recreated = candidate;
+                break;
+            }
+            if (turn == 99_999) throw new InvalidOperationException("Inner formatting recreation was not reached.");
         }
+        recreated.Should().NotBeNull();
+        recreated!.OwnerDocument.Should().BeSameAs(document);
+        recreated.GetAttribute("data-inner").Should().Be("kept");
+        recreated.GetAttributeNode("data-inner")!.OwnerDocument.Should().BeSameAs(document);
+        recreated.FirstChild.Should().BeSameAs(paragraph);
+        paragraph.OwnerDocument.Should().BeSameAs(document);
+        text.OwnerDocument.Should().BeSameAs(document);
+
+        DrainToCompletion(session, 1);
     }
 
     [Test]
