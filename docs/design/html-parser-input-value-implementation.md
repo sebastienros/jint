@@ -61,3 +61,17 @@ UTF-16/null/max offsets, four replacement modes, cancellation, readonly/disabled
 routes, parser attribute permutations, unsupported crossings, origin preservation, owned clone/import/
 adoption, nested mutation records, and allocation-free reads. These are authored native tests; they
 are not a claim that the pinned WPT corpus has been executed or passed for input value/selection.
+
+## User-edit work checkpoints
+
+Input and textarea retain their CancellationToken-only ApplyUserValue signatures and add an overload
+with Action<int>? checkpoint before the token. One invocation-owned counter spans native disabledness,
+readonly checks, sanitizer scanning/copies, cold textarea child projection, string comparison and
+selection preparation. Its final tail callback runs before any observable value/dirty/origin/selection
+commit. Browser supplies NativeReadCheckpoint to check its engine constraints; exceptions propagate
+unchanged. Read-only cold preparation does not publish textarea raw/API caches. The commit avoids
+another unpolled long string comparison. No per-edit counter object or callback wrapper is allocated.
+
+UserValueCheckpointTests covers cross-stage cadence, short-operation tail checks, ancestry/sanitizer/
+comparison cancellation, cold child projection, and constraint-callback exceptions. These tests assert
+coherent native state and original cancellation, with no timing assertion.

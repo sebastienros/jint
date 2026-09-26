@@ -270,7 +270,12 @@ internal sealed class HtmlInputValueState
     internal bool SetEditingSelection(uint start, uint end, string? direction, CancellationToken cancellationToken)
         => HtmlInputTextOperations.SetEditingSelection(this, start, end, direction, cancellationToken);
     internal bool ApplyUserValue(string value, HtmlTextSelection selection, CancellationToken cancellationToken)
-        => HtmlInputTextOperations.ApplyUserValue(this, value, selection, cancellationToken);
+        => ApplyUserValue(value, selection, null, cancellationToken);
+    internal bool ApplyUserValue(string value, HtmlTextSelection selection, Action<int>? checkpoint,
+        CancellationToken cancellationToken)
+        => HtmlInputTextOperations.ApplyUserValue(this, value, selection, checkpoint, cancellationToken);
+    internal string Sanitize(string value, ref HtmlTextWork work)
+        => HtmlTextSanitizer.SanitizeInput(Type, value, _multiple, ref work);
 
     internal void CopyFrom(HtmlInputValueState source)
     {
@@ -297,8 +302,10 @@ internal sealed class HtmlInputValueState
         MarkChanged();
     }
     internal void CommitValue(string value, HtmlValueChangeOrigin origin)
+        => CommitValue(value, origin, !string.Equals(_value, value, StringComparison.Ordinal));
+    internal void CommitValue(string value, HtmlValueChangeOrigin origin, bool changed)
     {
-        if (!string.Equals(_value, value, StringComparison.Ordinal)) { _value = value; MarkChanged(); }
+        if (changed) { _value = value; MarkChanged(); }
         SetOrigin(origin);
     }
     private void CommitAutomaticValue(string value)
