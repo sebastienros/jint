@@ -12027,8 +12027,8 @@
         {
           "DomName": "autofocus",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.autofocus\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Autofocus);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.autofocus\");\nself.Target.Autofocus = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.autofocus\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutofocus.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.autofocus\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutofocus.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.Autofocus"
         },
@@ -12051,24 +12051,24 @@
         {
           "DomName": "defaultValue",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.DefaultValue);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.defaultValue\");\nself.Target.DefaultValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.defaultValue\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.DefaultValue(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.defaultValue\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetValue(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.defaultValue\"), defaultValue: true);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.DefaultValue"
         },
         {
           "DomName": "dirName",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.dirName\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.DirectionName);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.dirName\");\nself.Target.DirectionName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.dirName\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.dirName\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDirName.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.dirName\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDirName.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.DirectionName"
         },
         {
           "DomName": "disabled",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.disabled\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.disabled\");\nself.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.disabled\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDisabled.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.disabled\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementDisabled.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.IsDisabled"
         },
@@ -12107,32 +12107,32 @@
         {
           "DomName": "name",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.name\");\nself.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.name\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.name\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementName.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.name\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementName.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.Name"
         },
         {
           "DomName": "placeholder",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.placeholder\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Placeholder);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.placeholder\");\nself.Target.Placeholder = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.placeholder\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.placeholder\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementPlaceholder.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.placeholder\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementPlaceholder.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.Placeholder"
         },
         {
           "DomName": "readOnly",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.readOnly\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsReadOnly);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.readOnly\");\nself.Target.IsReadOnly = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.readOnly\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementReadOnly.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.readOnly\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementReadOnly.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.IsReadOnly"
         },
         {
           "DomName": "required",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.required\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsRequired);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.required\");\nself.Target.IsRequired = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.required\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRequired.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.required\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRequired.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.IsRequired"
         },
@@ -12147,7 +12147,7 @@
         {
           "DomName": "select",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.select\");\nself.Target.SelectAll(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.select\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.Select(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectAll"
@@ -12155,7 +12155,7 @@
         {
           "DomName": "selectionDirection",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectionDirection);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionDirection\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Direction(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectionDirection"
@@ -12163,16 +12163,16 @@
         {
           "DomName": "selectionEnd",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionEnd);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nself.Target.SelectionEnd = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTextAreaElement.selectionEnd\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.End);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionEnd\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"HTMLTextAreaElement.selectionEnd\"), start: false);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectionEnd"
         },
         {
           "DomName": "selectionStart",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectionStart);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nself.Target.SelectionStart = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTextAreaElement.selectionStart\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.GetHtmlState()!.TextArea!.Selection.Start);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.selectionStart\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionOffset(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"HTMLTextAreaElement.selectionStart\"), start: true);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.SelectionStart"
         },
@@ -12187,7 +12187,7 @@
         {
           "DomName": "setSelectionRange",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setSelectionRange\");\nself.Target.Select(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLTextAreaElement.setSelectionRange\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"HTMLTextAreaElement.setSelectionRange\"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.setSelectionRange\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetSelectionRange(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IHtmlTextAreaElement.Select"
@@ -12195,7 +12195,7 @@
         {
           "DomName": "textLength",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.textLength\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.TextLength);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.textLength\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Dom.DomTextAreaMembers.Value(self.Realm, self.Target).Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.TextLength"
@@ -12203,7 +12203,7 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.type\");\nreturn global::Jint.Native.JsString.Create(\"textarea\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.Type"
@@ -12227,8 +12227,8 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.value\");\nself.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.value\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.value\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTextAreaMembers.Value(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.value\");\nreturn global::Jint.Browser.Dom.DomTextAreaMembers.SetValue(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.value\"), defaultValue: false);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.Value"
         },
@@ -12243,8 +12243,8 @@
         {
           "DomName": "wrap",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.wrap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Wrap);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.wrap\");\nself.Target.Wrap = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLTextAreaElement.wrap\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.wrap\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementWrap.Get(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLTextAreaElement.wrap\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementWrap.Set(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "IHtmlTextAreaElement.Wrap"
         }
@@ -16916,6 +16916,78 @@
       "Attribute": "type",
       "Type": "string",
       "Factory": "ReflectedAttribute.Text(\"HTMLScriptElement.type\", \"type\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementAutofocus",
+      "Qualified": "HTMLTextAreaElement.autofocus",
+      "Attribute": "autofocus",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLTextAreaElement.autofocus\", \"autofocus\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementDirName",
+      "Qualified": "HTMLTextAreaElement.dirName",
+      "Attribute": "dirname",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLTextAreaElement.dirName\", \"dirname\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementDisabled",
+      "Qualified": "HTMLTextAreaElement.disabled",
+      "Attribute": "disabled",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLTextAreaElement.disabled\", \"disabled\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementName",
+      "Qualified": "HTMLTextAreaElement.name",
+      "Attribute": "name",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLTextAreaElement.name\", \"name\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementPlaceholder",
+      "Qualified": "HTMLTextAreaElement.placeholder",
+      "Attribute": "placeholder",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLTextAreaElement.placeholder\", \"placeholder\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementReadOnly",
+      "Qualified": "HTMLTextAreaElement.readOnly",
+      "Attribute": "readonly",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLTextAreaElement.readOnly\", \"readonly\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementRequired",
+      "Qualified": "HTMLTextAreaElement.required",
+      "Attribute": "required",
+      "Type": "boolean",
+      "Factory": "ReflectedAttribute.Boolean(\"HTMLTextAreaElement.required\", \"required\")",
+      "Replaced": true,
+      "SetterOnly": false
+    },
+    {
+      "Field": "HTMLTextAreaElementWrap",
+      "Qualified": "HTMLTextAreaElement.wrap",
+      "Attribute": "wrap",
+      "Type": "string",
+      "Factory": "ReflectedAttribute.Text(\"HTMLTextAreaElement.wrap\", \"wrap\")",
       "Replaced": true,
       "SetterOnly": false
     }

@@ -755,9 +755,21 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLTextAreaElementAutocomplete =
         ReflectedAttribute.Text("HTMLTextAreaElement.autocomplete", "autocomplete");
 
+    /// <summary><c>HTMLTextAreaElement.autofocus</c> reflects <c>autofocus</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementAutofocus =
+        ReflectedAttribute.Boolean("HTMLTextAreaElement.autofocus", "autofocus");
+
     /// <summary><c>HTMLTextAreaElement.cols</c> reflects <c>cols</c> as a limited unsigned long with fallback.</summary>
     internal static readonly ReflectedAttribute HTMLTextAreaElementCols =
         ReflectedAttribute.Numeric("HTMLTextAreaElement.cols", "cols", ReflectedKind.LimitedUnsignedLongWithFallback, 20);
+
+    /// <summary><c>HTMLTextAreaElement.dirName</c> reflects <c>dirname</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementDirName =
+        ReflectedAttribute.Text("HTMLTextAreaElement.dirName", "dirname");
+
+    /// <summary><c>HTMLTextAreaElement.disabled</c> reflects <c>disabled</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementDisabled =
+        ReflectedAttribute.Boolean("HTMLTextAreaElement.disabled", "disabled");
 
     /// <summary><c>HTMLTextAreaElement.maxLength</c> reflects <c>maxlength</c> as a limited long.</summary>
     internal static readonly ReflectedAttribute HTMLTextAreaElementMaxLength =
@@ -767,9 +779,29 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLTextAreaElementMinLength =
         ReflectedAttribute.Numeric("HTMLTextAreaElement.minLength", "minlength", ReflectedKind.LimitedLong, -1);
 
+    /// <summary><c>HTMLTextAreaElement.name</c> reflects <c>name</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementName =
+        ReflectedAttribute.Text("HTMLTextAreaElement.name", "name");
+
+    /// <summary><c>HTMLTextAreaElement.placeholder</c> reflects <c>placeholder</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementPlaceholder =
+        ReflectedAttribute.Text("HTMLTextAreaElement.placeholder", "placeholder");
+
+    /// <summary><c>HTMLTextAreaElement.readOnly</c> reflects <c>readonly</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementReadOnly =
+        ReflectedAttribute.Boolean("HTMLTextAreaElement.readOnly", "readonly");
+
+    /// <summary><c>HTMLTextAreaElement.required</c> reflects <c>required</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementRequired =
+        ReflectedAttribute.Boolean("HTMLTextAreaElement.required", "required");
+
     /// <summary><c>HTMLTextAreaElement.rows</c> reflects <c>rows</c> as a limited unsigned long with fallback.</summary>
     internal static readonly ReflectedAttribute HTMLTextAreaElementRows =
         ReflectedAttribute.Numeric("HTMLTextAreaElement.rows", "rows", ReflectedKind.LimitedUnsignedLongWithFallback, 2);
+
+    /// <summary><c>HTMLTextAreaElement.wrap</c> reflects <c>wrap</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementWrap =
+        ReflectedAttribute.Text("HTMLTextAreaElement.wrap", "wrap");
 
     /// <summary><c>HTMLTimeElement.dateTime</c> reflects <c>datetime</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLTimeElementDateTime =
