@@ -108,6 +108,15 @@ internal struct SelectorMatchWork
         return HtmlRequiredness.GetState(element, ref _native);
     }
 
+    // Begin once per fresh helper invocation/context, not once per element's multi-helper read.
+    // The cached adapter translates that helper's cumulative counts into shared selector work.
+    internal Action<int> BeginControlProducerRead()
+    {
+        var cell = EnsureCell();
+        cell.BeginProducerRead();
+        return cell.ProducerCheckpoint;
+    }
+
     internal bool MatchCheckable(Element element, bool indeterminate)
     {
         var cell = EnsureCell();
