@@ -186,10 +186,12 @@ public sealed class NativeCssImportLoadingTests
     [TestCase("replace")]
     [TestCase("delete-ancestor")]
     [TestCase("unrelated")]
+    [TestCase("round-trip")]
     public async Task DescendantPublicationFollowsSourceAndOwnershipIdentityDuringAGatedFetch(string change)
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var requested = 0;
+        var pendingRequests = 0;
         const string body = "p{color:red}";
         await using var fixture = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/", """
@@ -209,6 +211,7 @@ public sealed class NativeCssImportLoadingTests
                     "remove" => "s.remove();",
                     "adopt" => "document.implementation.createHTMLDocument().head.appendChild(s);",
                     "replace" => "s.href='/replacement.css';",
+                    "round-trip" => "s.href='/replacement.css'; s.href='/root.css';",
                     "unrelated" => "child.cssRules[1].style.color='blue'; pending.media.mediaText='all'; document.head.appendChild(document.createElement('meta'));",
                     _ => "root.deleteRule(0);"
                 }, StringComparison.Ordinal))
@@ -217,6 +220,9 @@ public sealed class NativeCssImportLoadingTests
             .Map("/replacement.css", _ => LoopbackResponse.Css("p{color:blue}"))
             .Map("/pending.css", _ =>
             {
+                // A replacement graph can start while the old graph's fetch pumps. Only its old
+                // response is gated: a current replacement must be able to finish independently.
+                if (Interlocked.Increment(ref pendingRequests) != 1) return LoopbackResponse.Css(body);
                 Volatile.Write(ref requested, 1);
                 return new LoopbackResponse
                 {
@@ -235,7 +241,9 @@ public sealed class NativeCssImportLoadingTests
             (await fixture.Page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
             (await fixture.Page.EvaluateAsync<bool>(change == "unrelated"
                 ? "pending.styleSheet!==null && errors===0" : "pending.styleSheet===null && errors===0")).Should().BeTrue();
-            (await fixture.Page.EvaluateAsync<int>("loads")).Should().Be(change is "replace" or "unrelated" ? 1 : 0);
+            (await fixture.Page.EvaluateAsync<int>("loads")).Should().Be(change is "replace" or "unrelated" or "round-trip" ? 1 : 0);
+            if (change == "round-trip")
+                (await fixture.Page.EvaluateAsync<bool>("s.sheet!==root && s.sheet.cssRules[0].styleSheet.cssRules[0].styleSheet!==null")).Should().BeTrue();
             fixture.Page.Errors.Should().BeEmpty();
         }
         finally { release.TrySetResult(); }
