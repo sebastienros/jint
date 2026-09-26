@@ -13,6 +13,14 @@ The user's demand-driven architecture direction is recorded in
 input value sidecars and derived select models are becoming lazy. Numeric helpers are demand-only,
 and cascade/computed-style work belongs in Browser. Required historical state is preserved.
 
+Latest common gate at `0f7291a92`: **6,446/6,446** Release non-corpus tests pass across net8/net10,
+zero failures/skips (`/private/tmp/jint-resumed-lazy-checked-common.log`). Reviewed non-radio
+checkedness now stays cold; radios retain required history. PI attribute/data coherence and
+specified CSS colors are also integrated through `9df023c54`. The color owner is archived after
+review and common tests, with its clean worktree retained because no managed archive identity exists.
+Native Browser still does not compile; the binding owner's latest checkpoint reports 414 unique
+errors. Runtime and benchmark acceptance remain outstanding.
+
 The reviewed lazy input correction is integrated as `825eba36e` (source `9cfad83d8`): no value
 sidecar or sanitizer during fresh parsing/cold cloning, raw access remains cold, and semantic access
 initializes once without losing type/email mutation history. Fresh common Release gate:
