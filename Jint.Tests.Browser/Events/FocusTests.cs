@@ -7,6 +7,28 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class FocusTests
 {
+    [TestCase("open")]
+    [TestCase("closed")]
+    public async Task DocumentActiveElementRetargetsShadowFocusToTheHost(string mode)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='host'></div>");
+        (await page.EvaluateAsync<string>(
+            $$"""
+            (() => {
+              const host = document.getElementById('host');
+              const shadow = host.attachShadow({ mode: '{{mode}}' });
+              const input = document.createElement('input');
+              shadow.appendChild(input);
+              input.focus();
+              const focused = document.activeElement.id;
+              input.blur();
+              return focused + ':' + document.activeElement.tagName;
+            })()
+            """)).Should().Be("host:BODY");
+    }
+
     [Test]
     public async Task DetachedInputCannotTakeFocus()
     {

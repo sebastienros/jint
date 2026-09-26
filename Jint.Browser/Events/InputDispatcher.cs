@@ -53,7 +53,7 @@ internal static partial class InputDispatcher
         // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — clicking a focusable
         // element focuses it, and clicking anything else moves focus to the nearest focusable ancestor, which
         // is what makes a click on a <span> inside a <button> focus the button.
-        if (target.Node is Element clicked && NearestFocusable(clicked) is { } focusTarget)
+        if (target.Node is Element clicked && NearestFocusable(dom, clicked) is { } focusTarget)
         {
             FocusController.Focus(dom, focusTarget);
         }
@@ -135,7 +135,7 @@ internal static partial class InputDispatcher
                 Pointer(target, "pointerdown", options, cancelable: true, layout);
 
                 if (Mouse(target, "mousedown", options, cancelable: true)
-                    && NearestFocusable(hit) is { } focusTarget)
+                    && NearestFocusable(dom, hit) is { } focusTarget)
                 {
                     FocusController.Focus(dom, focusTarget);
                 }
@@ -571,7 +571,7 @@ internal static partial class InputDispatcher
             case "Enter" when EventDom.IsHtml(focused, "input") && TextEditing.IsEditable(focused):
                 // The value is committed by the press, so `change` fires here rather than waiting for focus to
                 // leave — which is what a page listening for it on a search box is written against.
-                TextEditing.CommitChange(dom, input);
+                TextEditing.CommitChange(dom, focused);
                 ImplicitSubmission(dom, focused);
                 return;
         }
@@ -634,7 +634,7 @@ internal static partial class InputDispatcher
 
         if (DefaultButton(form) is { } button)
         {
-            if (!IsDisabled(button))
+            if (!EventDom.Disabled(dom, button))
             {
                 FireSyntheticClick(dom.WrapNode(button), trusted: true);
             }
@@ -691,8 +691,6 @@ internal static partial class InputDispatcher
         return count;
     }
 
-    private static bool IsDisabled(Element element) => EventDom.Disabled(element);
-
     /// <summary>
     /// One keyboard event over <paramref name="options"/>.
     /// </summary>
@@ -737,11 +735,11 @@ internal static partial class InputDispatcher
     /// The nearest focusable element at or above <paramref name="element"/> — HTML's "if the element is not a
     /// focusable area, then the nearest ancestor that is".
     /// </summary>
-    private static Element? NearestFocusable(Element element)
+    private static Element? NearestFocusable(DomRealm dom, Element element)
     {
         for (Node? node = element; node is not null; node = node.ParentNode)
         {
-            if (node is Element candidate && FocusController.IsFocusable(candidate))
+            if (node is Element candidate && FocusController.IsFocusable(dom, candidate))
             {
                 return candidate;
             }

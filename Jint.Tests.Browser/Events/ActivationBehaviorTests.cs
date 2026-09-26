@@ -11,6 +11,22 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class ActivationBehaviorTests
 {
+    [TestCase(null, "https://example.test/page")]
+    [TestCase("", "https://example.test/page")]
+    [TestCase("post", "https://base.test/forms/post")]
+    public void RecordingFormSubmissionResolvesOnlyANonemptyActionAgainstTheBase(string? action, string expected)
+    {
+        var document = global::Jint.Browser.Accessibility.ContentDom.Parse(
+            "<base href='https://base.test/forms/'><form id='f'></form>");
+        global::Jint.Browser.Dom.DomDocumentState.Of(document).Url = "https://example.test/page";
+        var form = global::Jint.Browser.Accessibility.ContentDom.ElementById(document, "f")!;
+        if (action is not null) form.SetAttribute("action", action);
+        var engine = new Engine(options => options.UseWebApis());
+        var realm = global::Jint.Browser.Events.BrowserEventRealm.Of(engine);
+        global::Jint.Browser.Events.BrowserActivationHost.Recording.SubmitForm(realm, form, submitter: null);
+        BrowserTestAccess.PendingActivations(engine).Should().Equal("FormSubmission " + expected);
+    }
+
     [Test]
     public async Task CanceledRadioActivationDoesNotRestoreAPeerMovedToAnotherGroup()
     {
