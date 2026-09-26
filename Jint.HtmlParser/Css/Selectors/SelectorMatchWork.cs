@@ -108,6 +108,27 @@ internal struct SelectorMatchWork
         return HtmlRequiredness.GetState(element, ref _native);
     }
 
+    internal bool MatchCheckable(Element element, bool indeterminate)
+    {
+        var cell = EnsureCell();
+        cell.BeginProducerRead();
+        var matched = indeterminate
+            ? HtmlCheckableState.MatchesIndeterminate(element, cell.ProducerCheckpoint, _token)
+            : HtmlCheckableState.MatchesChecked(element, cell.ProducerCheckpoint, _token);
+        Verify();
+        return matched;
+    }
+    internal HtmlSelectMetadata SelectMetadata(Element element)
+    {
+        var cell = EnsureCell();
+        cell.BeginProducerRead();
+        var context = new HtmlSelectWorkContext(cell.ProducerCheckpoint, _token);
+        var work = new HtmlSelectWork(element.OwnerDocument?.SelectWorkProbe, context, _token);
+        var metadata = HtmlSelectMetadata.Read(element.Attributes, ref work);
+        Verify();
+        return metadata;
+    }
+
     internal sealed class Cell : ISlotQueryWork
     {
         internal HtmlDisabledWork Native;
@@ -133,6 +154,24 @@ internal struct SelectorMatchWork
             _checkpoint = checkpoint;
         }
         internal Action? CheckpointAdapter => _checkpoint is null ? null : Check;
+        private int _producerUnits;
+        private Action<int>? _producerCheckpoint;
+        internal Action<int> ProducerCheckpoint => _producerCheckpoint ??= ProducerPoll;
+        internal void BeginProducerRead()
+        {
+            Verify();
+            _producerUnits = 0;
+        }
+        // Helpers report cumulative counts. Every delta joins the selector invocation's counter;
+        // resetting the cursor at a new helper call preserves short reads' accumulated work.
+        private void ProducerPoll(int units)
+        {
+            var delta = units > _producerUnits ? units - _producerUnits : 0;
+            _producerUnits = units;
+            while (delta-- > 0) Step();
+            Check();
+        }
+
         internal void Observe(Node node)
         {
             if (ReferenceEquals(node, _root)) return;

@@ -436,8 +436,8 @@ public sealed class SelectorMatcherTests
     }
 
     [TestCase(":lang(en)")]
-    [TestCase(":checked")]
-    [TestCase("div, :checked")]
+    [TestCase(":valid")]
+    [TestCase("div, :valid")]
     public void UnimplementedFamiliesFailPreflightEvenWhenAnotherBranchMatches(string source)
     {
         var document = Document.CreateHtml();

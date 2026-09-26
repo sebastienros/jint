@@ -138,6 +138,8 @@ internal static partial class SelectorMatcher
         PredicateKind.PseudoElement or PredicateKind.WebkitUnknownPseudoElement or
         PredicateKind.Picker or
         PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or
+        PredicateKind.Checked or PredicateKind.Indeterminate or PredicateKind.Open or PredicateKind.Closed or
+        PredicateKind.Link or PredicateKind.AnyLink or PredicateKind.Visited or
         PredicateKind.Enabled or PredicateKind.Disabled or PredicateKind.Required or PredicateKind.Optional or
         PredicateKind.Focus or PredicateKind.FocusWithin or PredicateKind.Active or PredicateKind.Target or
         PredicateKind.Hover or PredicateKind.FocusVisible or PredicateKind.Autofill or
@@ -254,6 +256,15 @@ internal static partial class SelectorMatcher
                 return ReferenceEquals(element, scope);
             case PredicateKind.Root:
                 return element.ParentNode is Document;
+            case PredicateKind.Checked:
+            case PredicateKind.Indeterminate:
+                return MatchFormState(predicate.Kind, element, ref work);
+            case PredicateKind.Open:
+            case PredicateKind.Closed:
+            case PredicateKind.Link:
+            case PredicateKind.AnyLink:
+            case PredicateKind.Visited:
+                return MatchElementState(predicate.Kind, element, ref work);
             case PredicateKind.Enabled:
             case PredicateKind.Disabled:
             case PredicateKind.Required:

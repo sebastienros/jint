@@ -618,9 +618,9 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
-    /// Selectors §10.5: <c>:closed</c> is an element which has an open and a closed state and is in the
-    /// closed one, so it is not the complement of <c>:open</c> over every element — only over the four
-    /// categories HTML §4.16.3 gives the pair. AngleSharp registers no <c>:closed</c> selector at all, so the
+    /// Jint's compatibility extension <c>:closed</c> matches an applicable element in its closed state.
+    /// Current Selectors Level 4 does not define this pseudo-class. It is not the complement of
+    /// <c>:open</c> over every element; Jint preserves the categories below. AngleSharp registers none, so the
     /// whole selector was a parse failure and every API that took one threw a <c>SyntaxError</c>.
     /// </summary>
     [Test]
