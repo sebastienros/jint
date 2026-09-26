@@ -77,7 +77,7 @@ internal static partial class ContentDom
         => NodeTraversal.NextElementSibling(node, CancellationToken.None);
 
     internal static Element? ElementById(Node root, string id)
-        => id.Length == 0 ? null : Descendants(root).FirstOrDefault(element => element.GetAttribute("id") == id);
+        => id.Length == 0 ? null : Descendants(root).FirstOrDefault(element => element.GetAttributeNS(null, "id") == id);
 
     internal static Element? First(Node root, string localName)
         => Descendants(root).FirstOrDefault(element => element.LocalName == localName);
@@ -122,7 +122,7 @@ internal static partial class ContentDom
     }
 
     internal static IEnumerable<string> ClassNames(Element element)
-        => (element.GetAttribute("class") ?? string.Empty).Split([' ', '\t', '\n', '\r', '\f'], StringSplitOptions.RemoveEmptyEntries);
+        => (element.GetAttributeNS(null, "class") ?? string.Empty).Split([' ', '\t', '\n', '\r', '\f'], StringSplitOptions.RemoveEmptyEntries);
 
     internal static string? HtmlName(Element element) => element.NamespaceUri == Namespaces.Html ? element.LocalName : null;
 

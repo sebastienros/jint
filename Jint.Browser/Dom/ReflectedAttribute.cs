@@ -163,15 +163,6 @@ internal sealed class ReflectedAttribute
     /// <summary>The qualified member name — <c>HTMLElement.dir</c> — as a refusal names it.</summary>
     internal string Member { get; }
 
-    /// <summary>
-    /// Whether the IDL type is a <c>USVString</c> whose content attribute contains a URL, which is the one
-    /// kind whose <em>getter</em> has to resolve against the page runtime's current base URL rather than the
-    /// parsed document's. The generated getters make exactly this distinction — <c>ModelBuilder</c> emits
-    /// the realm overload for a <c>url</c> row and for no other — and it is here so that a shape written by
-    /// hand can make it too, rather than paying for the lookup on every reflected read.
-    /// </summary>
-    internal bool ReflectsUrl => _kind == ReflectedKind.Url;
-
     /// <summary>A <c>DOMString</c>, or a <c>DOMString?</c> when <paramref name="nullable"/>.</summary>
     /// <param name="member">The qualified member name.</param>
     /// <param name="attribute">The content attribute reflected.</param>
@@ -267,11 +258,11 @@ internal sealed class ReflectedAttribute
     /// </remarks>
     internal JsValue Get(DomRealm realm, Element element)
     {
-        if (_kind != ReflectedKind.Url) return Get(element, null, null);
+        if (_kind != ReflectedKind.Url) return Get(element, null, null, realm);
         var owner = element.OwnerDocument;
         var runtime = PageRuntime.Find(realm.Engine, owner);
         var baseUri = owner is null ? null : DomDocumentState.BaseUri(owner, realm.Engine.Constraints.Check, realm.CancellationToken);
-        return Get(element, baseUri, runtime?.DocumentUrl ?? (owner is null ? null : DomDocumentState.Of(owner).Url));
+        return Get(element, baseUri, runtime?.DocumentUrl ?? (owner is null ? null : DomDocumentState.Of(owner).Url), realm);
     }
 
     /// <summary>
@@ -287,6 +278,10 @@ internal sealed class ReflectedAttribute
         => _kind == ReflectedKind.Url
             ? Get(ElementIn(document), CurrentBaseUri(document), DomDocumentState.Of(document).Url)
             : Get(ElementIn(document), null, null);
+
+    /// <summary>The document-targeted getter with the calling realm's bounded attribute read.</summary>
+    internal JsValue Get(DomRealm realm, Document document)
+        => Get(ElementIn(document), null, null, realm);
 
     /// <summary>The same member's setter, which does nothing when the target element is absent.</summary>
     internal JsValue Set(DomRealm realm, Document document, JsValue[] arguments)
@@ -318,9 +313,11 @@ internal sealed class ReflectedAttribute
     private static string? CurrentBaseUri(Document? document)
         => document is null ? null : DomDocumentState.BaseUri(document);
 
-    private JsValue Get(Element? element, string? baseUri, string? documentUrl)
+    private JsValue Get(Element? element, string? baseUri, string? documentUrl, DomRealm? realm = null)
     {
-        var value = element?.GetAttribute(_attribute);
+        var value = element is null ? null : realm is null
+            ? element.GetAttributeNS(null, _attribute)
+            : DomContentAttributes.Get(realm, element, _attribute);
 
         switch (_kind)
         {
@@ -334,7 +331,7 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Bool(value is not null);
 
             case ReflectedKind.Nonce:
-                return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element));
+                return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element, value));
 
             case ReflectedKind.Url when _documentUrlWhenEmpty && string.IsNullOrEmpty(value):
                 // "...the element's node document's URL must be returned instead." The caller resolved which
@@ -367,7 +364,8 @@ internal sealed class ReflectedAttribute
             // "On setting, set this's [[CryptographicNonce]] to the given value." The content attribute is
             // untouched, which is what keeps a header-delivered policy's nonce out of a CSS selector.
             case ReflectedKind.Nonce:
-                CryptographicNonce.Set(element, TypeConverter.ToString(value));
+                var nonce = TypeConverter.ToString(value);
+                CryptographicNonce.Set(element, nonce, DomContentAttributes.Get(realm, element, _attribute));
                 return JsValue.Undefined;
 
             case ReflectedKind.Boolean:
@@ -376,11 +374,11 @@ internal sealed class ReflectedAttribute
                 // set to the empty string if the IDL attribute is set to true."
                 if (TypeConverter.ToBoolean(value))
                 {
-                    element.SetAttribute(_attribute, "");
+                    element.SetAttributeNS(null, _attribute, "");
                 }
                 else
                 {
-                    element.RemoveAttribute(_attribute);
+                    element.RemoveAttributeNS(null, _attribute);
                 }
 
                 DomHostHooks.NotifyDetailsOpenChanged(realm, element, wasOpen);
@@ -396,17 +394,17 @@ internal sealed class ReflectedAttribute
             // WebIDL's [LegacyNullToEmptyString]: null converts to "" rather than to "null". Only null,
             // and pointedly not undefined, which is what the corpus asserts of <body text> either way.
             case ReflectedKind.Text when _legacyNull && value.IsNull():
-                element.SetAttribute(_attribute, "");
+                element.SetAttributeNS(null, _attribute, "");
                 return JsValue.Undefined;
 
             // On setting, a URL attribute takes the value as given; resolution is the getter's business.
             case ReflectedKind.Text:
             case ReflectedKind.Enumerated:
-                element.SetAttribute(_attribute, TypeConverter.ToString(value));
+                element.SetAttributeNS(null, _attribute, TypeConverter.ToString(value));
                 return JsValue.Undefined;
 
             case ReflectedKind.Url:
-                element.SetAttribute(_attribute, UrlValues.ToUsvString(value));
+                element.SetAttributeNS(null, _attribute, UrlValues.ToUsvString(value));
                 return JsValue.Undefined;
 
             case ReflectedKind.Double:
@@ -730,7 +728,7 @@ internal sealed class ReflectedAttribute
     /// </summary>
     private JsValue SetInteger(Element element, long value)
     {
-        element.SetAttribute(_attribute, value.ToString(CultureInfo.InvariantCulture));
+        element.SetAttributeNS(null, _attribute, value.ToString(CultureInfo.InvariantCulture));
         return JsValue.Undefined;
     }
 
@@ -743,7 +741,7 @@ internal sealed class ReflectedAttribute
             return JsValue.Undefined;
         }
 
-        element.SetAttribute(_attribute, TypeConverter.ToString(value));
+        element.SetAttributeNS(null, _attribute, TypeConverter.ToString(value));
         return JsValue.Undefined;
     }
 
@@ -751,11 +749,11 @@ internal sealed class ReflectedAttribute
     {
         if (value.IsNullOrUndefined())
         {
-            element.RemoveAttribute(_attribute);
+            element.RemoveAttributeNS(null, _attribute);
         }
         else
         {
-            element.SetAttribute(_attribute, TypeConverter.ToString(value));
+            element.SetAttributeNS(null, _attribute, TypeConverter.ToString(value));
         }
 
         return JsValue.Undefined;

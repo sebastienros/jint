@@ -1,4 +1,4 @@
-using Jint.HtmlParser;
+﻿using Jint.HtmlParser;
 using Jint.Browser.Dom.Collections;
 using Jint.Native;
 
@@ -345,23 +345,10 @@ internal static class DomManualInterfaces
     /// </remarks>
     private static Func<JsValue, JsValue[], JsValue> Reflected(ReflectedAttribute attribute)
     {
-        if (attribute.ReflectsUrl)
-        {
-            // HTML §2.6.1's URL reflection resolves the content attribute against the document base, and
-            // inside a page runtime that is the runtime's current base rather than the parsed document's.
-            // It is the one kind whose getter needs the realm, which is the same distinction `ModelBuilder`
-            // makes for every generated `url` row and for no other.
-            return DomFailures.Guard(attribute.Member, (thisObject, _) =>
-            {
-                var self = DomBindings.Bind<Element>(thisObject, attribute.Member);
-                return attribute.Get(self.Realm, self.Target);
-            });
-        }
-
         return DomFailures.Guard(attribute.Member, (thisObject, _) =>
         {
             var self = DomBindings.Bind<Element>(thisObject, attribute.Member);
-            return attribute.Get(self.Target);
+            return attribute.Get(self.Realm, self.Target);
         });
     }
 

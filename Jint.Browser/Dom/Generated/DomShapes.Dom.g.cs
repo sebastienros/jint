@@ -705,7 +705,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.alinkColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.alinkColor");
-                    return global::Jint.Browser.Dom.DomReflected.DocumentAlinkColor.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentAlinkColor.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.alinkColor", static (thisObj, args) =>
                 {
@@ -741,7 +741,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.bgColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.bgColor");
-                    return global::Jint.Browser.Dom.DomReflected.DocumentBgColor.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentBgColor.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.bgColor", static (thisObj, args) =>
                 {
@@ -951,7 +951,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.dir", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.dir");
-                    return global::Jint.Browser.Dom.DomReflected.DocumentDir.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentDir.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.dir", static (thisObj, args) =>
                 {
@@ -1036,7 +1036,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.fgColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.fgColor");
-                    return global::Jint.Browser.Dom.DomReflected.DocumentFgColor.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentFgColor.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.fgColor", static (thisObj, args) =>
                 {
@@ -1163,7 +1163,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.linkColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.linkColor");
-                    return global::Jint.Browser.Dom.DomReflected.DocumentLinkColor.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentLinkColor.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.linkColor", static (thisObj, args) =>
                 {
@@ -1353,7 +1353,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.vlinkColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.vlinkColor");
-                    return global::Jint.Browser.Dom.DomReflected.DocumentVlinkColor.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentVlinkColor.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.vlinkColor", static (thisObj, args) =>
                 {
@@ -1590,12 +1590,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.className", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.className");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAttribute("class") ?? "");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomContentAttributes.Get(self.Realm, self.Target, "class") ?? "");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.className", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.className");
-                    self.Target.SetAttribute("class", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.className")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetAttributeNS(null, "class", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.className")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("clientHeight",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.clientHeight", static (thisObj, args) =>
@@ -1729,12 +1729,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.id");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAttribute("id") ?? "");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomContentAttributes.Get(self.Realm, self.Target, "id") ?? "");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.id");
-                    self.Target.SetAttribute("id", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.id")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetAttributeNS(null, "id", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.id")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("innerHTML",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.innerHTML", static (thisObj, args) =>

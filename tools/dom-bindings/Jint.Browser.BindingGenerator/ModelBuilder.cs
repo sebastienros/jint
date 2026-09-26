@@ -605,7 +605,7 @@ internal sealed class ModelBuilder
             var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
 
             var read = getterHook is null
-                ? descriptor + (entry.Type == "url" ? ".Get(self.Realm, self.Target)" : ".Get(self.Target)")
+                ? descriptor + ".Get(self.Realm, self.Target)"
                 : "self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target)";
 
             model.Members.Add(new MemberModel
