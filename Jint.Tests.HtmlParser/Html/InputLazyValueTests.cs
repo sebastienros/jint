@@ -42,8 +42,8 @@ public class InputLazyValueTests
     [TestCase("text", " ab ")]
     [TestCase("url", "ab")]
     [TestCase("email", "ab")]
-    [TestCase("number", null)]
-    [TestCase("date", null)]
+    [TestCase("number", "")]
+    [TestCase("date", "")]
     public void FirstSemanticReadInitializesOnceWithoutAdvancingStamp(string type, string? expected)
     {
         var input = Input(type, " a\r\nb ");
@@ -92,7 +92,7 @@ public class InputLazyValueTests
         email.RemoveAttribute("multiple");
         email.GetHtmlState()!.InputValue!.GetValue(default).Should().Be("a,b");
         email.GetAttribute("value").Should().Be(" a , b ");
-        var unavailable = Input("number", "42");
+        var unavailable = Input("color", "42");
         unavailable.SetAttribute("type", "text");
         unavailable.GetHtmlState()!.InputValue!.IsAvailable.Should().BeFalse();
         unavailable.GetHtmlState()!.InputValue!.ResetValue(default);
@@ -116,7 +116,7 @@ public class InputLazyValueTests
     [TestCase("radio")]
     public void UnknownValueToDefaultRemainsUnavailableUntilExplicitRecovery(string destination)
     {
-        var input = Input("number", "42");
+        var input = Input("color", "42");
         input.SetAttribute("type", destination);
         var state = input.GetHtmlState()!.InputValue!;
         state.IsAvailable.Should().BeFalse();

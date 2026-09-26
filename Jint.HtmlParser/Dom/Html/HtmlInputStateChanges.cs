@@ -29,17 +29,18 @@ internal static class HtmlInputStateChanges
     }
 
     // Initial/default reflection is reconstructible from the current attributes.
-    // A real type transition or email multiple toggle can lose sanitation history,
+    // Type, email multiple, and range constraint changes can lose sanitation history,
     // so conservatively materialize those before publication, even without a reader.
     internal static void BeforeAttributeChanged(Element element, string? namespaceUri, string localName,
         string? newValue)
     {
         if (namespaceUri is not null || element is not { NamespaceUri: Namespaces.Html, LocalName: "input" } ||
-            element.ExistingInputValueState is not null || localName is not ("type" or "multiple")) return;
+            element.ExistingInputValueState is not null || localName is not ("type" or "multiple" or "min" or "max" or "step")) return;
         var oldType = element.ExistingCheckedState?.Type ?? HtmlInputTypes.Parse(element.GetAttributeNS(null, "type"));
         if (localName == "type" && oldType != HtmlInputTypes.Parse(newValue) ||
             localName == "multiple" && oldType == HtmlInputType.Email &&
-            (element.GetAttributeNodeNS(null, "multiple") is null) != (newValue is null))
+            (element.GetAttributeNodeNS(null, "multiple") is null) != (newValue is null) ||
+            oldType == HtmlInputType.Range && localName is "min" or "max" or "step")
             _ = element.GetHtmlState()!.InputValue;
     }
 

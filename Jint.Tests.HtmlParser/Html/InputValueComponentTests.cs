@@ -143,7 +143,7 @@ public class InputValueComponentTests
     [Test]
     public void UnsupportedFamiliesAreNamedAndNeverReturnTextFallbacks()
     {
-        foreach (var type in new[] { "number", "range", "date", "month", "week", "time", "datetime-local", "color", "file" })
+        foreach (var type in new[] { "color", "file" })
         {
             var state = Create(type, "sentinel");
             state.IsAvailable.Should().BeFalse();
@@ -264,7 +264,7 @@ public class InputValueComponentTests
     {
         var state = Create("text", "default");
         state.SetValue("secret", default);
-        state.Element.SetAttribute("type", "number");
+        state.Element.SetAttribute("type", "color");
         state.IsAvailable.Should().BeFalse();
         state.Element.SetAttribute("type", "text");
         state.IsAvailable.Should().BeFalse();
@@ -419,7 +419,7 @@ public class InputValueComponentTests
     [Test]
     public void ExplicitRecoveryOfUnavailableDefaultModeAdvancesDocumentStamp()
     {
-        var state = Create("number");
+        var state = Create("color");
         state.Element.SetAttribute("type", "hidden");
         state.IsAvailable.Should().BeFalse();
         var stamp = state.Element.OwnerDocument!.MutationStamp;
