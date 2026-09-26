@@ -16,11 +16,32 @@ public sealed class NativeInputListBindingTests
         dom.Execute("first.remove();");
         dom.Bool("i.list===choices").Should().BeTrue();
         input.ExistingInputValueState.Should().BeNull();
-        dom.Execute("i.type='password';");
+    }
+
+    [TestCase("password", false)]
+    [TestCase("range", true)]
+    public void AColdListReadDoesNotCreateValueStateForTheParsedType(string type, bool associated)
+    {
+        using var dom = DomTestFixture.Create($"<input id=i type='{type}' list=choices><datalist id=choices></datalist>");
+        var input = ContentDom.ElementById(dom.Document, "i")!;
+        input.ExistingInputValueState.Should().BeNull();
+        dom.Bool("document.getElementById('i').list === document.querySelector('datalist')").Should().Be(associated);
+        input.ExistingInputValueState.Should().BeNull();
+    }
+
+    [Test]
+    public void AListReadPreservesValueStateDemandedByATypeTransition()
+    {
+        using var dom = DomTestFixture.Create("<input id=i list=choices><datalist id=choices></datalist>");
+        var input = ContentDom.ElementById(dom.Document, "i")!;
+        dom.Execute("var i=document.getElementById('i'), choices=document.querySelector('datalist'); i.type='password';");
+        var state = input.ExistingInputValueState;
+        state.Should().NotBeNull();
         dom.Bool("i.list===null").Should().BeTrue();
+        input.ExistingInputValueState.Should().BeSameAs(state);
         dom.Execute("i.type='range';");
         dom.Bool("i.list===choices").Should().BeTrue();
-        input.ExistingInputValueState.Should().BeNull();
+        input.ExistingInputValueState.Should().BeSameAs(state);
     }
 
     [Test]
