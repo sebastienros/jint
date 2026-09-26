@@ -612,7 +612,7 @@ internal static class EventHandlerContentAttributes
                 scope = Wrap(engine, dom.WrapNode(owner), scope);
             }
 
-            if (FormOwner(engine, element) is { } form)
+            if (FormOwner(dom, element) is { } form)
             {
                 scope = Wrap(engine, dom.WrapNode(form), scope);
             }
@@ -634,9 +634,9 @@ internal static class EventHandlerContentAttributes
         /// category is its definition's <c>formAssociated</c>, which only the registry can say, and this is
         /// the one lane that reads a form owner and can reach one.
         /// </remarks>
-        private static Element? FormOwner(Engine engine, Element element)
-            => CustomElements.CustomElementRegistry.Of(engine)?.TryGetRecord(element) is { FormAssociated: true }
-                ? HtmlFormOwner.OfFormAssociatedCustomElement(element)
+        private static Element? FormOwner(DomRealm dom, Element element)
+            => CustomElements.CustomElementRegistry.Of(dom.Engine)?.TryGetRecord(element) is { FormAssociated: true }
+                ? HtmlFormOwner.OfFormAssociatedCustomElement(element, dom.NativeReadCheckpoint, dom.CancellationToken)
                 : HtmlFormOwner.Of(element);
 
         /// <summary>
