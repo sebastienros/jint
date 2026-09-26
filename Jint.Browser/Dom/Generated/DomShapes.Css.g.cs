@@ -569,19 +569,24 @@ internal static partial class DomInterfaces
             .Accessor("keyText",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframeRule.keyText", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframeRule.keyText");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframeRule.keyText");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, "CSSKeyframeRule.keyText");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.KeyText(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframeRule.keyText", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframeRule.keyText");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframeRule.keyText");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, "CSSKeyframeRule.keyText");
+                    global::Jint.Browser.Styling.NativeCssBindings.SetKeyText(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframeRule.keyText")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("style",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframeRule.style", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframeRule.style");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframeRule.style");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, "CSSKeyframeRule.style");
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframeRule.style", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, "CSSKeyframeRule.style");
+                    global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframeRule.style"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Build();
 
@@ -590,49 +595,59 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CSSKeyframesRule")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("appendRule",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframesRule.appendRule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.appendRule");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.appendRule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.appendRule");
+                    global::Jint.Browser.Styling.NativeCssBindings.AppendKeyframe(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.appendRule")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Accessor("cssRules",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.cssRules", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.cssRules");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.cssRules");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.cssRules");
+                    return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Method("deleteRule",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframesRule.deleteRule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.deleteRule");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.deleteRule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.deleteRule");
+                    global::Jint.Browser.Styling.NativeCssBindings.DeleteKeyframe(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.deleteRule")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("findRule",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.findRule", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.findRule");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.findRule");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.findRule");
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.FindRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.findRule")));
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.length");
+                    self.Realm.Engine.Constraints.Check();
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Rules.Count);
+                }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.name");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.name");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Name(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframesRule.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.name");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.name");
+                    global::Jint.Browser.Styling.NativeCssBindings.SetName(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.name")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("rules",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.rules", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSKeyframesRule.rules");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSKeyframesRule.rules");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.rules");
+                    return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Build();
 

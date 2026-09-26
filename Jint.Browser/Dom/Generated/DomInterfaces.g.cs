@@ -69,10 +69,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSImportRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSImportRule;
 
-    /// <summary>The <c>CSSKeyframeRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSKeyframeRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssKeyframeRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSKeyframeRule;
 
-    /// <summary>The <c>CSSKeyframesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSKeyframesRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssKeyframesRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSKeyframesRule;
 
     /// <summary>The <c>CSSLayerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -734,7 +734,7 @@ internal static partial class DomInterfaces
 
         CSSKeyframeRule = Add(new DomInterfaceDefinition(
             "CSSKeyframeRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssKeyframeRule),
             BuildCSSKeyframeRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -743,12 +743,13 @@ internal static partial class DomInterfaces
 
         CSSKeyframesRule = Add(new DomInterfaceDefinition(
             "CSSKeyframesRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssKeyframesRule),
             BuildCSSKeyframesRule,
             CSSRule,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
-            DomWrapperKind.Object));
+            DomWrapperKind.Collection,
+            collectionAccessor: DomAccessorCSSKeyframesRule.Instance));
 
         CSSLayerRule = Add(new DomInterfaceDefinition(
             "CSSLayerRule",
