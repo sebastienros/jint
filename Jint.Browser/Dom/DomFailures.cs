@@ -66,6 +66,8 @@ internal static class DomFailures
         var node = wrapper.DomTarget switch
         {
             Node target => target,
+            Attr attribute => attribute.OwnerElement,
+            Collections.DomNamedNodeMap attributes => attributes.Owner,
             DomRange range => range.Start.Container.Node,
             _ => null,
         };
@@ -80,6 +82,8 @@ internal static class DomFailures
         var node = wrapper.DomTarget switch
         {
             Node target => target,
+            Attr attribute => attribute.OwnerElement,
+            Collections.DomNamedNodeMap attributes => attributes.Owner,
             DomRange range => range.Start.Container.Node,
             _ => null,
         };

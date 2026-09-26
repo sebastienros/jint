@@ -8,6 +8,7 @@ internal sealed class DomNamedNodeMap(Element owner)
 {
     private static readonly ConditionalWeakTable<Element, DomNamedNodeMap> Maps = new();
     internal static DomNamedNodeMap Of(Element owner) => Maps.GetValue(owner, static element => new(element));
+    internal Element Owner => owner;
     internal int Length => owner.AttributeCount;
     internal Attr? Item(uint index) => owner.GetAttributeAt(index);
     internal Attr? GetNamedItem(string name) => owner.GetAttributeNode(name);

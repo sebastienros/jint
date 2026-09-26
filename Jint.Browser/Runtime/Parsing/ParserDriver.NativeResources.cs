@@ -95,7 +95,11 @@ internal sealed partial class ParserDriver
             }
             else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
                 record.AttributeNamespace is null)
+            {
+                if (element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
+                    && (record.AttributeName != "src" || Attribute(element, "src") is null)) continue;
                 ProcessResourceElement(element);
+            }
         }
     }
 

@@ -57,6 +57,42 @@ public class ScriptLoadingTests
         loopback.Page.Errors.Should().BeEmpty();
     }
 
+    [Test]
+    public async Task NativeAttributeMapPreparesConnectedScriptBeforeTheCallerCanRemoveIt()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", "<body></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<int>("""
+            window.mapRuns = 0;
+            var script = document.createElement('script');
+            document.body.append(script);
+            var src = document.createAttribute('src');
+            src.value = 'data:text/javascript,window.mapRuns++';
+            script.attributes.setNamedItem(src);
+            script.remove();
+            mapRuns;
+            """)).Should().Be(1);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChangingDataScriptTypeAloneDoesNotPrepareIt()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", "<body></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("""
+            var script = document.createElement('script');
+            script.type = 'application/json';
+            script.textContent = 'window.typeChangeRan = true';
+            document.body.append(script);
+            script.type = 'text/javascript';
+            typeof typeChangeRan === 'undefined';
+            """)).Should().BeTrue();
+        (await loopback.Page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("typeof typeChangeRan === 'undefined'")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("defer")]
     [TestCase("async")]
     public async Task DeferredResourceWaitDoesNotConsumeTheNativeParseCpuTurn(string attribute)

@@ -9,11 +9,11 @@ public class FrameScriptTests
     public async Task ChildResourcesPrepareAtTheirOwnParserBoundary()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .Map("/child.js", _ => LoopbackResponse.Script("window.childExternal = 42;"))
-            .MapHtml("/child", "<script src=/child.js></script><script>window.sawExternal = childExternal === 42;</script>")
+            .Map("/child.css", _ => LoopbackResponse.Css("body { font-size: 33px; }"))
+            .MapHtml("/child", "<link rel=stylesheet href=/child.css><body><script>window.sawChildStyle = document.querySelector('link').sheet.cssRules.length === 1;</script>")
             .MapHtml("/", "<iframe src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
-        (await loopback.Page.EvaluateAsync<bool>("frames[0].sawExternal")).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("frames[0].sawChildStyle")).Should().BeTrue();
         loopback.Page.Errors.Should().BeEmpty();
     }
 
