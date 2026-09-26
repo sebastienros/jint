@@ -4419,8 +4419,8 @@
     },
     {
       "DomName": "DOMException",
-      "ClrTypeName": "AngleSharp.Dom.IDomException",
-      "ReceiverType": "global::AngleSharp.Dom.IDomException",
+      "ClrTypeName": "Jint.WebApi.DomException.JsDomException",
+      "ReceiverType": "global::Jint.WebApi.DomException.JsDomException",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4435,14 +4435,15 @@
         {
           "DomName": "code",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDomException>(thisObj, \"DOMException.code\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Code);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindDomException(thisObj, \"DOMException.code\");\nreturn self.Target.Code;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDomException.Code"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "DOMImplementation",
@@ -6191,8 +6192,8 @@
     },
     {
       "DomName": "File",
-      "ClrTypeName": "AngleSharp.Io.Dom.IFile",
-      "ReceiverType": "global::AngleSharp.Io.Dom.IFile",
+      "ClrTypeName": "Jint.WebApi.Files.JsFile",
+      "ReceiverType": "global::Jint.WebApi.Files.JsFile",
       "Parent": "Blob",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -6207,7 +6208,7 @@
         {
           "DomName": "lastModified",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFile>(thisObj, \"File.lastModified\");\nreturn global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.LastModified);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFile(thisObj, \"File.lastModified\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.LastModified);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IFile.LastModified"
@@ -6215,19 +6216,20 @@
         {
           "DomName": "name",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFile>(thisObj, \"File.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFile(thisObj, \"File.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IFile.Name"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "FileList",
-      "ClrTypeName": "AngleSharp.Io.Dom.IFileList",
-      "ReceiverType": "global::AngleSharp.Io.Dom.IFileList",
+      "ClrTypeName": "Jint.Browser.Dom.Files.JsFileList",
+      "ReceiverType": "global::Jint.Browser.Dom.Files.JsFileList",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -6236,13 +6238,13 @@
       "Group": "Io",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>FileList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorFileList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorFileList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Io.Dom.IFileList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Io.Dom.IFileList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Indexed access to an existing native FileList; values retain their original JS identity.</summary>\ninternal sealed class DomAccessorFileList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorFileList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => ((global::Jint.Browser.Dom.Files.JsFileList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n        => ((global::Jint.Browser.Dom.Files.JsFileList) target).TryGetIndex(index, out value);\n}\n",
       "AccessorReference": "DomAccessorFileList.Instance",
       "Members": [
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFileList>(thisObj, \"FileList.item\");\nreturn self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"FileList.item\")]);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFileList(thisObj, \"FileList.item\");\nvar index = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"FileList.item\");\nreturn self.Target.TryGetIndex((uint) index, out var value) ? value : global::Jint.Native.JsValue.Null;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IFileList.Item"
@@ -6250,14 +6252,15 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFileList>(thisObj, \"FileList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFileList(thisObj, \"FileList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IFileList.Length"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "HTMLAllCollection",
@@ -13021,8 +13024,8 @@
     },
     {
       "DomName": "MessagePort",
-      "ClrTypeName": "AngleSharp.Dom.Events.IMessagePort",
-      "ReceiverType": "global::AngleSharp.Dom.Events.IMessagePort",
+      "ClrTypeName": "Jint.WebApi.Messaging.JsMessagePort",
+      "ReceiverType": "global::Jint.WebApi.Messaging.JsMessagePort",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -13037,7 +13040,7 @@
         {
           "DomName": "close",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, \"MessagePort.close\");\nself.Target.Close(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindMessagePort(thisObj, \"MessagePort.close\");\nself.Target.Close(); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMessagePort.Close"
@@ -13045,7 +13048,7 @@
         {
           "DomName": "postMessage",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, \"MessagePort.postMessage\");\nself.Target.Send(global::Jint.Browser.Dom.DomConvert.At(args, 0)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindMessagePort(thisObj, \"MessagePort.postMessage\");\nself.Target.PostMessage(global::Jint.Browser.Dom.DomConvert.At(args, 0), null); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IMessagePort.Send"
@@ -13053,14 +13056,15 @@
         {
           "DomName": "start",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, \"MessagePort.start\");\nself.Target.Open(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindMessagePort(thisObj, \"MessagePort.start\");\nself.Target.Start(); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMessagePort.Open"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "MutationRecord",

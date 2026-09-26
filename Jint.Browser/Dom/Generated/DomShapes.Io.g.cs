@@ -58,13 +58,13 @@ internal static partial class DomInterfaces
             .Accessor("lastModified",
                 global::Jint.Browser.Dom.DomFailures.Guard("File.lastModified", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFile>(thisObj, "File.lastModified");
-                    return global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.LastModified);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFile(thisObj, "File.lastModified");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.LastModified);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("File.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFile>(thisObj, "File.name");
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFile(thisObj, "File.name");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }))
             .Build();
@@ -80,14 +80,15 @@ internal static partial class DomInterfaces
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("FileList.item", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFileList>(thisObj, "FileList.item");
-                    return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "FileList.item")]);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFileList(thisObj, "FileList.item");
+                    var index = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "FileList.item");
+                    return self.Target.TryGetIndex((uint) index, out var value) ? value : global::Jint.Native.JsValue.Null;
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("FileList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFileList>(thisObj, "FileList.length");
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindFileList(thisObj, "FileList.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Build();

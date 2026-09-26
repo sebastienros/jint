@@ -506,8 +506,8 @@ internal static partial class DomInterfaces
             .Accessor("code",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMException.code", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDomException>(thisObj, "DOMException.code");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Code);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindDomException(thisObj, "DOMException.code");
+                    return self.Target.Code;
                 }))
             .Build();
 
@@ -2144,22 +2144,22 @@ internal static partial class DomInterfaces
             .Method("close",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MessagePort.close", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, "MessagePort.close");
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindMessagePort(thisObj, "MessagePort.close");
                     self.Target.Close(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("postMessage",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MessagePort.postMessage", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, "MessagePort.postMessage");
-                    self.Target.Send(global::Jint.Browser.Dom.DomConvert.At(args, 0)); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindMessagePort(thisObj, "MessagePort.postMessage");
+                    self.Target.PostMessage(global::Jint.Browser.Dom.DomConvert.At(args, 0), null); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("start",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("MessagePort.start", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, "MessagePort.start");
-                    self.Target.Open(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindMessagePort(thisObj, "MessagePort.start");
+                    self.Target.Start(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Build();

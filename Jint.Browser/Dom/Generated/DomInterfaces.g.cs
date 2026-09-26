@@ -147,7 +147,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>Comment</c> interface, projected from <c>Jint.HtmlParser.Comment</c>.</summary>
     internal static readonly DomInterfaceDefinition Comment;
 
-    /// <summary>The <c>DOMException</c> interface, projected from <c>AngleSharp.Dom.IDomException</c>.</summary>
+    /// <summary>The <c>DOMException</c> interface, projected from <c>Jint.WebApi.DomException.JsDomException</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMException;
 
     /// <summary>The <c>DOMImplementation</c> interface, projected from <c>AngleSharp.Dom.IImplementation</c>.</summary>
@@ -174,10 +174,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>Element</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition Element;
 
-    /// <summary>The <c>File</c> interface, projected from <c>AngleSharp.Io.Dom.IFile</c>.</summary>
+    /// <summary>The <c>File</c> interface, projected from <c>Jint.WebApi.Files.JsFile</c>.</summary>
     internal static readonly DomInterfaceDefinition File;
 
-    /// <summary>The <c>FileList</c> interface, projected from <c>AngleSharp.Io.Dom.IFileList</c>.</summary>
+    /// <summary>The <c>FileList</c> interface, projected from <c>Jint.Browser.Dom.Files.JsFileList</c>.</summary>
     internal static readonly DomInterfaceDefinition FileList;
 
     /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlAllCollection</c>.</summary>
@@ -420,7 +420,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>MediaQueryList</c> interface, projected from <c>Jint.Browser.Runtime.JsMediaQueryList</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaQueryList;
 
-    /// <summary>The <c>MessagePort</c> interface, projected from <c>AngleSharp.Dom.Events.IMessagePort</c>.</summary>
+    /// <summary>The <c>MessagePort</c> interface, projected from <c>Jint.WebApi.Messaging.JsMessagePort</c>.</summary>
     internal static readonly DomInterfaceDefinition MessagePort;
 
     /// <summary>The <c>MutationRecord</c> interface, projected from <c>AngleSharp.Dom.IMutationRecord</c>.</summary>
@@ -971,7 +971,7 @@ internal static partial class DomInterfaces
 
         DOMException = Add(new DomInterfaceDefinition(
             "DOMException",
-            typeof(global::AngleSharp.Dom.IDomException),
+            typeof(global::Jint.WebApi.DomException.JsDomException),
             BuildDOMException,
             null,
             rootsAtEventTarget: false,
@@ -1055,7 +1055,7 @@ internal static partial class DomInterfaces
 
         File = Add(new DomInterfaceDefinition(
             "File",
-            typeof(global::AngleSharp.Io.Dom.IFile),
+            typeof(global::Jint.WebApi.Files.JsFile),
             BuildFile,
             Blob,
             rootsAtEventTarget: false,
@@ -1064,7 +1064,7 @@ internal static partial class DomInterfaces
 
         FileList = Add(new DomInterfaceDefinition(
             "FileList",
-            typeof(global::AngleSharp.Io.Dom.IFileList),
+            typeof(global::Jint.Browser.Dom.Files.JsFileList),
             BuildFileList,
             null,
             rootsAtEventTarget: false,
@@ -1831,7 +1831,7 @@ internal static partial class DomInterfaces
 
         MessagePort = Add(new DomInterfaceDefinition(
             "MessagePort",
-            typeof(global::AngleSharp.Dom.Events.IMessagePort),
+            typeof(global::Jint.WebApi.Messaging.JsMessagePort),
             BuildMessagePort,
             null,
             rootsAtEventTarget: true,

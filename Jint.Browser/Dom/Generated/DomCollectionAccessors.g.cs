@@ -160,25 +160,15 @@ internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>FileList</c> answers indexed and named property lookups.</summary>
+/// <summary>Indexed access to an existing native FileList; values retain their original JS identity.</summary>
 internal sealed class DomAccessorFileList : DomCollectionAccessor
 {
     internal static readonly DomAccessorFileList Instance = new();
 
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Io.Dom.IFileList) target).Length;
+    internal override uint Length(DomRealm realm, object target) => ((global::Jint.Browser.Dom.Files.JsFileList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var collection = (global::AngleSharp.Io.Dom.IFileList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
-    }
+        => ((global::Jint.Browser.Dom.Files.JsFileList) target).TryGetIndex(index, out value);
 }
 
 /// <summary>HTML §4.10.3's native form indexed and named getter.</summary>
