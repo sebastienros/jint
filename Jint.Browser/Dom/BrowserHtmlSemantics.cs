@@ -73,11 +73,10 @@ internal static class BrowserHtmlSemantics
         {
             work.Step();
             if (node is not Element candidate) break;
+            if (!IsEditableEligible(candidate)) break;
             if (candidate.NamespaceUri != Namespaces.Html)
             {
-                // The editable predicate admits svg/math roots, but not arbitrary foreign elements.
-                if (candidate.LocalName is "svg" or "math") continue;
-                break;
+                continue;
             }
             // A document child is an editing host in design mode, even with contenteditable=false.
             if (candidate.ParentNode is Document document && DomDocumentState.IsDesignModeEnabled(document))
@@ -94,9 +93,20 @@ internal static class BrowserHtmlSemantics
         return result;
     }
 
+    internal static bool IsEditableEligible(Element element)
+        => element.NamespaceUri == Namespaces.Html ||
+           element.NamespaceUri == Namespaces.Svg && element.LocalName == "svg" ||
+           element.NamespaceUri == Namespaces.MathMl && element.LocalName == "math";
+
     // HTML §6.8.5 permits a user-agent default. This headless implementation chooses false.
     internal static bool GetSpellcheck(DomRealm realm, Element element)
-        => InheritedBoolean(realm, element, "spellcheck", "true", "false", false);
+    {
+        var work = Work(realm);
+        var value = work.Attribute(element, "spellcheck");
+        var result = value is not null && (value.Length == 0 || work.EqualAsciiIgnoreCase(value, "true"));
+        work.Check();
+        return result;
+    }
 
     // https://html.spec.whatwg.org/multipage/dom.html#the-translate-attribute
     internal static bool GetTranslate(DomRealm realm, Element element)
@@ -156,7 +166,7 @@ internal static class BrowserHtmlSemantics
         var work = Work(realm);
         Element? result = null;
         if (Menus.TryGetValue(element, out var assignment) && assignment.Menu is { } assigned) result = assigned;
-        else if (work.Attribute(element, "contextmenu") is { } id && element.OwnerDocument is { } document)
+        else if (work.Attribute(element, "contextmenu") is { Length: > 0 } id && element.OwnerDocument is { } document)
         {
             foreach (var candidate in NodeTraversal.DescendantElements(document, work.Check, work.Token))
             {
