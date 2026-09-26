@@ -1,4 +1,7 @@
-using AngleSharp.Dom;
+using NativeDomException = Jint.HtmlParser.DomException;
+using Jint.HtmlParser;
+using Jint.Runtime.Interop;
+using Jint.WebApi;
 using Jint.Browser.Dom;
 
 namespace Jint.Tests.Browser;
@@ -59,62 +62,70 @@ public sealed class DomExceptionTests
             """).Should().Be(name + "/" + code);
     }
 
-    /// <summary>
-    /// The whole <see cref="DomError"/> table, so a pin bump that adds, renames or renumbers a value fails
-    /// here rather than in one page's <c>catch</c> block.
-    /// </summary>
-    /// <remarks>
-    /// <c>Validation</c> reads <c>InvalidAccessError</c> because AngleSharp numbers it 15, the value of
-    /// <c>InvalidAccess</c>, where WebIDL's legacy code for <c>ValidationError</c> is 16. That is the
-    /// divergence, asserted rather than described.
-    /// </remarks>
-    [Test]
-    public void EveryDomErrorNamesTheStandardsErrorName()
+    /// <summary>WebIDL's historical name/code table through actual native failure translation.</summary>
+    /// <remarks>Native failures carry explicit names, including ValidationError (16); no legacy enum adapter is involved.</remarks>
+    [TestCase("IndexSizeError", 1)]
+    [TestCase("DOMStringSizeError", 2)]
+    [TestCase("HierarchyRequestError", 3)]
+    [TestCase("WrongDocumentError", 4)]
+    [TestCase("InvalidCharacterError", 5)]
+    [TestCase("NoDataAllowedError", 6)]
+    [TestCase("NoModificationAllowedError", 7)]
+    [TestCase("NotFoundError", 8)]
+    [TestCase("NotSupportedError", 9)]
+    [TestCase("InUseAttributeError", 10)]
+    [TestCase("InvalidStateError", 11)]
+    [TestCase("SyntaxError", 12)]
+    [TestCase("InvalidModificationError", 13)]
+    [TestCase("NamespaceError", 14)]
+    [TestCase("InvalidAccessError", 15)]
+    [TestCase("ValidationError", 16)]
+    [TestCase("TypeMismatchError", 17)]
+    [TestCase("SecurityError", 18)]
+    [TestCase("NetworkError", 19)]
+    [TestCase("AbortError", 20)]
+    [TestCase("URLMismatchError", 21)]
+    [TestCase("QuotaExceededError", 22)]
+    [TestCase("TimeoutError", 23)]
+    [TestCase("InvalidNodeTypeError", 24)]
+    [TestCase("DataCloneError", 25)]
+    [TestCase("OperationError", 0)]
+    public void NativeFailureTranslationPreservesNameCodeReceiverRealmAndContinuation(string name, int code)
     {
-        var table = string.Join(
-            "\n",
-            Enum.GetNames<DomError>()
-                .Select(field => Enum.Parse<DomError>(field))
-                .Select(error => (int) error + " " + Enum.GetName(error) + " -> " + DomFailures.NameOf(new DomException(error))));
-
-        // The literal takes the source file's line endings, so both sides are normalized before they meet.
-        table.ReplaceLineEndings("\n").Should().Be(
-            """
-            1 IndexSizeError -> IndexSizeError
-            2 DomStringSize -> DOMStringSizeError
-            3 HierarchyRequest -> HierarchyRequestError
-            4 WrongDocument -> WrongDocumentError
-            5 InvalidCharacter -> InvalidCharacterError
-            6 NoDataAllowed -> NoDataAllowedError
-            7 NoModificationAllowed -> NoModificationAllowedError
-            8 NotFound -> NotFoundError
-            9 NotSupported -> NotSupportedError
-            10 InUse -> InUseAttributeError
-            11 InvalidState -> InvalidStateError
-            12 Syntax -> SyntaxError
-            13 InvalidModification -> InvalidModificationError
-            14 Namespace -> NamespaceError
-            15 InvalidAccess -> InvalidAccessError
-            15 InvalidAccess -> InvalidAccessError
-            17 TypeMismatch -> TypeMismatchError
-            18 Security -> SecurityError
-            19 Network -> NetworkError
-            20 Abort -> AbortError
-            21 UrlMismatch -> URLMismatchError
-            22 QuotaExceeded -> QuotaExceededError
-            23 Timeout -> TimeoutError
-            24 InvalidNodeType -> InvalidNodeTypeError
-            25 DataClone -> DataCloneError
-            """.ReplaceLineEndings("\n"));
+        using var fixture = DomTestFixture.Create(Page);
+        var engine = fixture.Engine;
+        var second = engine._host.CreateRealm();
+        WebApiRegistration.InstallInRealm(engine, second);
+        DomBindings.Install(engine, second);
+        var realm = DomRealm.Of(engine, second);
+        var document = Document.CreateHtml();
+        realm.AssociateDocument(document);
+        engine.SetValue("receiverDocument", realm.WrapNode(document));
+        engine.SetValue("ReceiverDOMException", second.Intrinsics.DomException);
+        engine.SetValue("ReceiverError", second.Intrinsics.Error);
+        engine.SetValue("ReceiverQuota", second.Intrinsics.QuotaExceededError);
+        engine.SetValue("expectedName", name);
+        engine.SetValue("expectedCode", code);
+        var guarded = DomFailures.Guard("Native.failure", (_, _) => throw new NativeDomException(name, "native refusal detail."));
+        engine.SetValue("nativeFailure", new ClrFunction(engine, "nativeFailure", (receiver, arguments) => guarded(receiver, arguments)));
+        fixture.Bool("""
+            (() => {
+                let caught=false, continued=false;
+                try { nativeFailure.call(receiverDocument); }
+                catch (error) {
+                    caught = error.name===expectedName && error.code===expectedCode &&
+                        error.message==="Failed to execute 'Native.failure': native refusal detail." &&
+                        error instanceof ReceiverDOMException && error instanceof ReceiverError &&
+                        !(error instanceof DOMException) &&
+                        (expectedName==='QuotaExceededError'
+                            ? error instanceof ReceiverQuota && error.constructor===ReceiverQuota
+                            : !(error instanceof ReceiverQuota));
+                }
+                continued=true;
+                return caught && continued;
+            })()
+            """).Should().BeTrue();
     }
-
-    /// <summary>
-    /// A <c>DomException</c> carrying no <see cref="DomError"/> is DOM's general refusal, because the string
-    /// AngleSharp puts in its <c>Name</c> in that case is a sentence rather than an error name.
-    /// </summary>
-    [Test]
-    public void ADomExceptionWithNoCodeIsAnInvalidStateError()
-        => DomFailures.NameOf(new DomException("The element has no parent.")).Should().Be("InvalidStateError");
 
     /// <summary>
     /// <c>QuotaExceededError</c> is an interface of its own rather than a name a <c>DOMException</c> wears,
@@ -166,8 +177,8 @@ public sealed class DomExceptionTests
 
     /// <summary>
     /// The message names the member that refused, in the wording <c>DomBindings</c> already uses for an
-    /// illegal invocation, and carries after it the sentence of whoever refused: AngleSharp's when the
-    /// refusal is its own, and ours when it is a step of an algorithm this package implements.
+    /// illegal invocation, and carries the actual native refusal detail. Legacy AngleSharp sentences are not copied into the
+    /// native parser; the precise prefix and native detail remain asserted.
     /// </summary>
     [Test]
     public void TheMessageNamesTheMemberThatRefused()
@@ -180,7 +191,7 @@ public sealed class DomExceptionTests
               try { d.appendChild(d); return 'no throw'; }
               catch (e) { return e.message; }
             })()
-            """).Should().Be("Failed to execute 'Node.appendChild': The operation would yield an incorrect node tree.");
+            """).Should().Be("Failed to execute 'Node.appendChild': The requested tree structure is invalid.");
 
         fixture.Text("""
             (function () {
@@ -194,7 +205,7 @@ public sealed class DomExceptionTests
               try { document.getElementById('a').removeChild(document.getElementById('b')); return 'no throw'; }
               catch (e) { return e.message; }
             })()
-            """).Should().Be("Failed to execute 'Node.removeChild': The object can not be found here.");
+            """).Should().Be("Failed to execute 'Node.removeChild': The node is not a child of this parent.");
     }
 
     /// <summary>

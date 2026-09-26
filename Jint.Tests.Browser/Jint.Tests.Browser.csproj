@@ -53,6 +53,9 @@
 
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" />
+    <!-- Historical upstream contract provenance only; these dependencies never flow to consumers. -->
+    <PackageReference Include="AngleSharp" PrivateAssets="all" />
+    <PackageReference Include="AngleSharp.Css" PrivateAssets="all" />
     <!--
       The only client library in this suite, and the only test in it that can claim client compatibility: it
       connects to an in-process server over a real socket, opens a page and drives it. It launches nothing and
