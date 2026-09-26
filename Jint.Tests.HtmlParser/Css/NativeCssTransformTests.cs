@@ -14,8 +14,8 @@ namespace Jint.Tests.HtmlParser.Css;
 public sealed class NativeCssTransformTests
 {
     [TestCase("translate", "-1in 20% 2pt", "-96px 20% 2.666667px")]
-    [TestCase("translate", "calc(-10px + 20%) 0", "calc(-10px + 20%)")]
-    [TestCase("translate", "calc(2em - 50%) -3vw", "calc(40px - 50%) -24px")]
+    [TestCase("translate", "calc(-10px + 20%) 0", "calc(20% - 10px)")]
+    [TestCase("translate", "calc(2em - 50%) -3vw", "calc(-50% + 40px) -24px")]
     [TestCase("translate", "0 0 0", "0px")]
     [TestCase("rotate", "-.25turn", "-90deg")]
     [TestCase("rotate", "45deg 1 2 3", "1 2 3 45deg")]
