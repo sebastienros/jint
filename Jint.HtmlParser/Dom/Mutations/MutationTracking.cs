@@ -126,12 +126,15 @@ internal static class MutationTracking
         var qualifiedName = attribute.Name;
         var previousQualifiedName = replaced is not null && !string.Equals(replaced.Prefix, attribute.Prefix, StringComparison.Ordinal)
             ? replaced.Name : null;
+        // Queue invokes a trusted pending callback. Freeze the transition before the first
+        // subscription can reenter and change or remove the attribute for later subscriptions.
+        var newValue = ReferenceEquals(attribute.OwnerElement, target) ? attribute.Value : null;
         foreach (var entry in matches.Entries)
         {
             entry.Subscription.Queue(new MutationRecord(MutationRecordKind.Attributes, target,
                 attributeName: attribute.LocalName, attributeNamespace: attribute.NamespaceUri,
                 oldValue: entry.OldValue ? oldValue : null, attributeQualifiedName: qualifiedName,
-                attributePreviousQualifiedName: previousQualifiedName));
+                attributePreviousQualifiedName: previousQualifiedName, attributeNewValue: newValue));
         }
     }
 
