@@ -104,8 +104,11 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
     }
 
     internal IReadOnlyList<string> FormNames(DomRealm caller)
+        => FormNames(caller.NativeReadCheckpoint, caller.CancellationToken);
+
+    internal IReadOnlyList<string> FormNames(Action<int>? checkpoint, CancellationToken token)
     {
-        var work = new DomReadWork(caller.NativeReadCheckpoint, caller.CancellationToken);
+        var work = new DomReadWork(checkpoint, token);
         work.Check();
         PrunePast(work);
         var names = new List<string>();
@@ -155,9 +158,12 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
     }
 
     internal bool HasFormName(DomRealm caller, string name)
+        => HasFormName(name, caller.NativeReadCheckpoint, caller.CancellationToken);
+
+    internal bool HasFormName(string name, Action<int>? checkpoint, CancellationToken token)
     {
         if (name.Length == 0) return false;
-        var work = new DomReadWork(caller.NativeReadCheckpoint, caller.CancellationToken);
+        var work = new DomReadWork(checkpoint, token);
         work.Check();
         PrunePast(work);
         // A visibility probe neither realizes every name nor adds a past-name entry.

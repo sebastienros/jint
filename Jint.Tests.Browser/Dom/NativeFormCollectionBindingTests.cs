@@ -1,7 +1,67 @@
+using Jint.Browser.Dom;
+using Jint.HtmlParser;
+
 namespace Jint.Tests.Browser.Dom;
 
 public sealed class NativeFormCollectionBindingTests
 {
+    [Test]
+    public void SingleNameVisibilityDoesNotEnumerateUnrelatedNames()
+    {
+        var small = VisibilityChecks(256);
+        var large = VisibilityChecks(2048);
+        large.Should().Be(small);
+
+        static int VisibilityChecks(int count)
+        {
+            using var dom = DomTestFixture.Create("<form id=f><input name=first>" + string.Concat(Enumerable.Repeat("<input name=unrelated>", count)) + "</form>");
+            var realm = DomRealm.Of(dom.Engine);
+            var form = DomDocumentReads.ById(realm, dom.Document, "f")!;
+            var source = DomFormControlsCollection.Of(realm, form);
+            var checks = 0;
+            source.HasFormName("first", _ => checks++, default).Should().BeTrue();
+            return checks;
+        }
+    }
+
+    [Test]
+    public void FullNameEnumerationChargesLinearWorkAndPreservesOrdering()
+    {
+        var small = EnumerationWork(256);
+        var large = EnumerationWork(512);
+        large.Should().BeLessThan(small * 3);
+
+        static long EnumerationWork(int count)
+        {
+            using var dom = DomTestFixture.Create("<form id=f>" + string.Concat(Enumerable.Range(0, count).Select(index => $"<input id=i{index:D4} name=n{index:D4}>")) + "</form>");
+            var realm = DomRealm.Of(dom.Engine);
+            var form = DomDocumentReads.ById(realm, dom.Document, "f")!;
+            var source = DomFormControlsCollection.Of(realm, form);
+            long work = 0;
+            var names = source.FormNames(units => work += units, default);
+            names.Should().HaveCount(count * 2);
+            names[0].Should().Be("i0000");
+            names[1].Should().Be("n0000");
+            names[^1].Should().Be($"n{count - 1:D4}");
+            return work;
+        }
+    }
+
+    [Test]
+    public void CustomOwnerReadsUseStoredNativeIdentityWithoutWalkingAttributes()
+    {
+        using var dom = DomTestFixture.Create("<form id=f><x-field id=c></x-field></form>");
+        var realm = DomRealm.Of(dom.Engine);
+        var form = DomDocumentReads.ById(realm, dom.Document, "f")!;
+        var custom = DomDocumentReads.ById(realm, dom.Document, "c")!;
+        HtmlFormState.SetFormAssociatedCustomElement(custom, true);
+        HtmlFormState.ResetOwner(custom);
+        for (var index = 0; index < 2048; index++) custom.SetAttribute($"data-{index}", "value");
+        var checks = 0;
+        HtmlFormOwner.OfFormAssociatedCustomElement(custom, units => { units.Should().Be(0); checks++; }, default).Should().BeSameAs(form);
+        checks.Should().Be(2);
+    }
+
     [Test]
     public void PastNamesSurviveRenameButNotAnOwnerTransitionBetweenReads()
     {
