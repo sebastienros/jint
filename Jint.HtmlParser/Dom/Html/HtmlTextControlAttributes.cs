@@ -27,10 +27,18 @@ internal static class HtmlTextControlAttributes
 
     internal static HtmlTextAreaWrapMode GetEffectiveTextAreaWrap(Element element,
         CancellationToken cancellationToken)
+        => GetEffectiveTextAreaWrap(element, null, cancellationToken);
+    internal static HtmlTextAreaWrapMode GetEffectiveTextAreaWrap(Element element, Action<int>? checkpoint,
+        CancellationToken cancellationToken)
+    {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var result = GetEffectiveTextAreaWrap(element, ref work);
+        work.Finish(); return result;
+    }
+    internal static HtmlTextAreaWrapMode GetEffectiveTextAreaWrap(Element element, ref HtmlTextWork work)
     {
         RequireTextArea(element);
-        var work = new HtmlTextWork(cancellationToken);
-        work.Check();
+        work.Check(); work.Step();
         var value = FindAttributeValue(element, "wrap", ref work);
         var result = value is not null && EqualsAsciiIgnoreCase(value, "hard", ref work)
             ? HtmlTextAreaWrapMode.Hard : HtmlTextAreaWrapMode.Soft;
@@ -39,10 +47,17 @@ internal static class HtmlTextControlAttributes
     }
 
     internal static long GetEffectiveTextAreaColumns(Element element, CancellationToken cancellationToken)
+        => GetEffectiveTextAreaColumns(element, null, cancellationToken);
+    internal static long GetEffectiveTextAreaColumns(Element element, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var result = GetEffectiveTextAreaColumns(element, ref work);
+        work.Finish(); return result;
+    }
+    internal static long GetEffectiveTextAreaColumns(Element element, ref HtmlTextWork work)
     {
         RequireTextArea(element);
-        var work = new HtmlTextWork(cancellationToken);
-        work.Check();
+        work.Check(); work.Step();
         var value = FindAttributeValue(element, "cols", ref work);
         var parsed = ParseNonNegativeInteger(value, ref work);
         work.Check();
@@ -54,10 +69,10 @@ internal static class HtmlTextControlAttributes
     {
         ArgumentNullException.ThrowIfNull(element);
         var work = new HtmlTextWork(cancellationToken, checkpoint);
-        work.Check();
+        work.Check(); work.Step();
         if (element.NamespaceUri != Namespaces.Html)
         {
-            work.Check();
+            work.Finish();
             return null;
         }
 
@@ -67,25 +82,25 @@ internal static class HtmlTextControlAttributes
             var type = HtmlInputTypes.Parse(FindAttributeValue(element, "type", ref work));
             if (!HtmlInputTypes.Info(type).LengthAndSizeApply)
             {
-                work.Check();
+                work.Finish();
                 return null;
             }
         }
         else if (element.LocalName != "textarea")
         {
-            work.Check();
+            work.Finish();
             return null;
         }
 
         var value = FindAttributeValue(element, attributeName, ref work);
         var result = ParseNonNegativeInteger(value, ref work);
-        work.Check();
+        work.Finish();
         return result;
     }
 
     private static string? FindAttributeValue(Element element, string name, ref HtmlTextWork work)
     {
-        foreach (var attribute in element.Attributes)
+        for (uint i = 0; element.GetAttributeAt(i) is { } attribute; i++)
         {
             work.Step();
             if (attribute.NamespaceUri is null && attribute.LocalName == name)
