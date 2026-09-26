@@ -100,7 +100,7 @@ public sealed class CustomPropertySerializationTests
             SubstitutionFixture.Specified("--a", replacement)).Value;
         var serialized = value.SerializeCustomProperty(new CssValueWork(default));
         serialized.Should().Be(replacement + (needsSeparator ? "/**/" : "") + whitespace + "b");
-        var reparsed = CssReferenceInput.Parse(serialized).Components;
+        var reparsed = CssReferenceInput.Parse(serialized, options: null).Components;
         reparsed.Count.Should().Be(value.Components.Count);
         for (var i = 0; i < reparsed.Count; i++)
         {
