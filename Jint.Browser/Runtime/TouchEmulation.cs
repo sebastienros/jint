@@ -190,8 +190,7 @@ internal static class TouchEmulation
     /// </remarks>
     private static DomNodeObject? Receiver(JsValue thisObject, string type)
     {
-        DomBindings.Bind<AngleSharp.Dom.INode>(thisObject, "on" + type);
-        return thisObject as DomNodeObject;
+        return DomBindings.BindNode(thisObject, "on" + type);
     }
 
     /// <summary>

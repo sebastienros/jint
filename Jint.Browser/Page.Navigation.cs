@@ -1,7 +1,6 @@
 ﻿using System.Net.Http;
 using System.Runtime.ExceptionServices;
 using System.Text;
-using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Fetch;

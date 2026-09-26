@@ -1,4 +1,3 @@
-using AngleSharp.Css.Dom;
 using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;

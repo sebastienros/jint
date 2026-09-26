@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Browser.Workers;
 using Jint.Diagnostics;

@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
 
 namespace Jint.Browser.Dom;
 

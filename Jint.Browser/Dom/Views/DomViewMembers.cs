@@ -1,7 +1,4 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
-using AngleSharp.Xml.Dom;
 using Jint.Browser.Observers;
 using Jint.Browser.Runtime;
 using Jint.Native;

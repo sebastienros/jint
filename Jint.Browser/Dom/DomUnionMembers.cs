@@ -1,4 +1,3 @@
-using AngleSharp.Html.Dom;
 using Jint.Native;
 
 namespace Jint.Browser.Dom;
