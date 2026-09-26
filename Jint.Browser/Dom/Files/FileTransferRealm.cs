@@ -154,14 +154,33 @@ internal sealed class FileTransferRealm
         return Attach(input, NewFileList());
     }
 
+    // Event-free selector/validation reads share their actual invocation work with pending type cleanup.
+    // This path does not create a file list and does not run an independent Engine checkpoint.
+    internal JsFileList? InputFiles(Element input, DomReadWork work)
+    {
+        work.Check();
+        FlushChanges(work);
+        if (input is not { NamespaceUri: Namespaces.Html, LocalName: "input" }
+            || HtmlInputTypes.Parse(work.Attribute(input, "type")) != HtmlInputType.File)
+        {
+            work.Check();
+            return null;
+        }
+        var result = _inputFiles.TryGetValue(input, out var state) ? state.Files : null;
+        work.Check();
+        return result;
+    }
+
     internal void SetInputFiles(Element input, JsFileList files)
     {
         FlushChanges();
         PruneFileStates();
         if (!IsFileInput(input)) return;
+        var changed = !_inputFiles.TryGetValue(input, out var previous) || !ReferenceEquals(previous.Files, files);
         Detach(input);
         _ = Attach(input, files, external: true);
         input.OwnerDocument!.MarkMutation();
+        if (changed) BrowserSelectorSemanticRevision.Advance(input.OwnerDocument);
     }
 
     internal JsValue InputValue(Element input)
@@ -233,24 +252,34 @@ internal sealed class FileTransferRealm
     }
 
     internal void FlushChanges()
+        => FlushChanges(null);
+
+    private void FlushChanges(DomReadWork? work)
     {
         while (_pendingChanges.TryDequeue(out var state))
         {
+            work?.Step();
             if (!_queuedChanges.Remove(state)) continue;
+            work?.Check();
             var records = state.Subscription.TakeRecordsForDelivery();
+            work?.Check();
             if (!state.Input.TryGetTarget(out var input)) continue;
             for (var i = 0; i < records.Count; i++)
             {
-                _engine.Constraints.Check();
-                var nextType = i + 1 < records.Count ? records[i + 1].OldValue : ReadInputType(input);
+                if (work is null) _engine.Constraints.Check();
+                else { work.Step(); work.Check(); }
+                var nextType = i + 1 < records.Count ? records[i + 1].OldValue
+                    : work is null ? ReadInputType(input) : work.Attribute(input, "type");
                 if ((HtmlInputTypes.Parse(records[i].OldValue) == HtmlInputType.File)
                     != (HtmlInputTypes.Parse(nextType) == HtmlInputType.File))
                 {
                     ClearInput(input, preserveList: false);
+                    work?.Check();
                     break;
                 }
             }
         }
+        work?.Check();
     }
 
     private void Detach(Element input)
@@ -273,6 +302,7 @@ internal sealed class FileTransferRealm
         {
             Detach(input);
             if (preserveList && IsFileInput(input)) _ = Attach(input, NewFileList());
+            BrowserSelectorSemanticRevision.Advance(input.OwnerDocument!);
         }
         else
         {
@@ -345,7 +375,11 @@ internal sealed class FileTransferRealm
     {
         internal void Changed()
         {
-            if (input.TryGetTarget(out var selectedInput)) selectedInput.OwnerDocument!.MarkMutation();
+            if (input.TryGetTarget(out var selectedInput))
+            {
+                selectedInput.OwnerDocument!.MarkMutation();
+                BrowserSelectorSemanticRevision.Advance(selectedInput.OwnerDocument);
+            }
             else
             {
                 // A shared DataTransfer list can outlive every input it was assigned to.

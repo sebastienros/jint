@@ -633,7 +633,7 @@ internal static partial class InputDispatcher
             return;
         }
 
-        if (DefaultButton(dom, form) is { } button)
+        if (BrowserFormDefaults.DefaultButton(dom, form) is { } button)
         {
             if (!EventDom.Disabled(dom, button))
             {
@@ -649,27 +649,6 @@ internal static partial class InputDispatcher
         }
 
         FormSubmission.Submit(dom, form, submitter: null);
-    }
-
-    /// <summary>
-    /// https://html.spec.whatwg.org/multipage/forms.html#default-button — the first submit button in tree
-    /// order among the form's controls.
-    /// </summary>
-    private static Element? DefaultButton(DomRealm dom, Element form)
-    {
-        // The inventory is the form's owned controls in tree order rather than `form.elements`, which excludes
-        // image buttons — so a form whose only submit button is `<input type=image>` had no default button at
-        // all, and one whose submit button sits outside it under a `form` attribute now has one.
-        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, token: dom.CancellationToken,
-            customElements: CustomElementRegistry.Of(dom.Engine)))
-        {
-            if (element.NamespaceUri == Namespaces.Html && FormSubmission.IsSubmitButton(element))
-            {
-                return element;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>

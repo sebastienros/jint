@@ -66,8 +66,10 @@ internal static class BrowserHtmlSemantics
     }
 
     internal static bool IsContentEditable(DomRealm realm, Element element)
+        => IsContentEditable(element, Work(realm));
+
+    internal static bool IsContentEditable(Element element, DomReadWork work)
     {
-        var work = Work(realm);
         var result = false;
         for (Node? node = element; node is not null; node = node.ParentNode)
         {

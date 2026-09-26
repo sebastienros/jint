@@ -43,6 +43,8 @@ internal static class BrowserControlValidation
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(message);
+        var previous = Behaviors.TryGetValue(element, out var existing) ? existing.CustomMessage : string.Empty;
+        if (string.Equals(previous, message, StringComparison.Ordinal)) return;
         if (message.Length == 0)
         {
             Behaviors.Remove(element);
@@ -51,20 +53,29 @@ internal static class BrowserControlValidation
         {
             Behaviors.GetOrCreateValue(element).CustomMessage = message;
         }
+        if (element.OwnerDocument is { } document) BrowserSelectorSemanticRevision.Advance(document);
     }
 
     internal static bool WillValidate(DomRealm realm, Element element)
+        => WillValidate(realm, element, Work(realm), null);
+
+    internal static bool WillValidate(DomRealm realm, Element element, DomReadWork work,
+        Func<Action<int>?>? nativeCheckpointFactory)
     {
-        var work = Work(realm);
-        var result = Candidate(realm, element, work);
+        var result = Candidate(realm, element, work, nativeCheckpointFactory);
         work.Check();
         return result;
     }
 
     internal static ControlValiditySnapshot Read(DomRealm realm, Element element)
+        => Read(realm, element, Work(realm), null);
+
+    // A producer supplies a fresh cumulative-counter adapter for each native helper invocation.
+    // Its Browser work is already invocation-owned; validity algorithms and caches stay authoritative here.
+    internal static ControlValiditySnapshot Read(DomRealm realm, Element element, DomReadWork work,
+        Func<Action<int>?>? nativeCheckpointFactory)
     {
-        var work = Work(realm);
-        var candidate = Candidate(realm, element, work);
+        var candidate = Candidate(realm, element, work, nativeCheckpointFactory);
         var flags = Behaviors.TryGetValue(element, out var behavior) && behavior.CustomMessage.Length > 0
             ? ControlValidityFlags.CustomError : ControlValidityFlags.None;
         if (element.NamespaceUri == Namespaces.Html)
@@ -72,20 +83,20 @@ internal static class BrowserControlValidation
             switch (element.LocalName)
             {
                 case "input":
-                    flags |= Input(realm, element, work);
+                    flags |= Input(realm, element, work, nativeCheckpointFactory);
                     break;
                 case "textarea":
                     var area = element.GetHtmlState()!.TextArea!;
-                    var value = area.GetValue(realm.NativeReadCheckpoint, work.Token);
+                    var value = area.GetValue(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
                     if (work.Attribute(element, "required") is not null && value.Length == 0
-                        && work.Attribute(element, "readonly") is null && !EventDom.Disabled(realm, element))
+                        && work.Attribute(element, "readonly") is null && !Disabled(realm, element, work, nativeCheckpointFactory))
                     {
                         flags |= ControlValidityFlags.ValueMissing;
                     }
-                    flags |= Length(realm, element, value, area.DirtyValue, area.LastValueChangeOrigin);
+                    flags |= Length(realm, element, value, area.DirtyValue, area.LastValueChangeOrigin, work, nativeCheckpointFactory);
                     break;
                 case "select":
-                    flags |= Select(realm, element, work);
+                    flags |= Select(realm, element, work, nativeCheckpointFactory);
                     break;
             }
         }
@@ -126,14 +137,20 @@ internal static class BrowserControlValidation
         return work;
     }
 
-    private static bool Candidate(DomRealm realm, Element element, DomReadWork work)
+    private static Action<int>? NativeCheckpoint(DomRealm realm, Func<Action<int>?>? factory)
+        => factory is null ? realm.NativeReadCheckpoint : factory();
+
+    private static bool Disabled(DomRealm realm, Element element, DomReadWork work, Func<Action<int>?>? factory)
+        => HtmlDisabledness.GetState(element, NativeCheckpoint(realm, factory), work.Token) == HtmlDisabledState.Disabled;
+
+    private static bool Candidate(DomRealm realm, Element element, DomReadWork work, Func<Action<int>?>? nativeCheckpointFactory)
     {
         if (element.NamespaceUri != Namespaces.Html) return false;
         var applicable = element.LocalName switch
         {
-            "input" => HtmlInputTypes.Get(element) is not (HtmlInputType.Hidden or HtmlInputType.Reset or HtmlInputType.Button),
+            "input" => HtmlInputTypes.Parse(work.Attribute(element, "type")) is not (HtmlInputType.Hidden or HtmlInputType.Reset or HtmlInputType.Button),
             "textarea" or "select" => true,
-            "button" => FormSubmission.IsSubmitButton(element),
+            "button" => BrowserFormDefaults.IsSubmitButton(element, work),
             _ => false,
         };
         if (!applicable)
@@ -142,9 +159,10 @@ internal static class BrowserControlValidation
                 throw new NotSupportedException("Form-associated custom-element validity requires its ElementInternals state.");
             return false;
         }
-        if (EventDom.Disabled(realm, element)) return false;
+        if (Disabled(realm, element, work, nativeCheckpointFactory)) return false;
         if (element.LocalName == "textarea" && work.Attribute(element, "readonly") is not null) return false;
-        if (element.LocalName == "input" && element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, work.Token)!.ReadOnly) return false;
+        if (element.LocalName == "input" && HtmlInputTypes.Info(HtmlInputTypes.Parse(work.Attribute(element, "type"))).ReadOnlyApplies
+            && work.Attribute(element, "readonly") is not null) return false;
         for (var ancestor = element.ParentNode; ancestor is not null; ancestor = ancestor.ParentNode)
         {
             work.Step();
@@ -153,31 +171,32 @@ internal static class BrowserControlValidation
         return true;
     }
 
-    private static ControlValidityFlags Input(DomRealm realm, Element element, DomReadWork work)
+    private static ControlValidityFlags Input(DomRealm realm, Element element, DomReadWork work,
+        Func<Action<int>?>? nativeCheckpointFactory)
     {
-        var state = element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, work.Token)!;
+        var state = element.GetHtmlState()!.GetInputValueState(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token)!;
         var required = work.Attribute(element, "required") is not null;
         if (state.Type == HtmlInputType.Checkbox)
-            return required && !HtmlCheckableState.Get(element, realm.NativeReadCheckpoint, work.Token)!.Checked ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
+            return required && !HtmlCheckableState.Get(element, NativeCheckpoint(realm, nativeCheckpointFactory), work.Token)!.Checked ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         if (state.Type == HtmlInputType.Radio)
         {
-            var group = HtmlCheckableState.GetRadioGroupFacts(element, realm.NativeReadCheckpoint, work.Token);
+            var group = HtmlCheckableState.GetRadioGroupFacts(element, NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
             return group.RequiredCount > 0 && group.CheckedCount == 0 ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         }
         if (state.Type == HtmlInputType.File)
         {
-            var files = Dom.Files.FileTransferRealm.Of(realm.Engine).InputFiles(element, create: false);
+            var files = Dom.Files.FileTransferRealm.Of(realm.Engine).InputFiles(element, work);
             return required && (files is null || files.Length == 0) ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         }
         // Unimplemented native value families throw here. They never become a successful validity result.
-        var value = state.GetValue(realm.NativeReadCheckpoint, work.Token);
+        var value = state.GetValue(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
         var flags = required && HtmlInputTypes.Info(state.Type).RequiredApplies
-            && value.Length == 0 && !state.ReadOnly && !EventDom.Disabled(realm, element)
+            && value.Length == 0 && !state.ReadOnly && !Disabled(realm, element, work, nativeCheckpointFactory)
             ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         // HTML's range and step constraints use the native numeric/temporal lattice; Browser does not
         // reparse attributes or derive a second coordinate from the exposed value string.
         // https://html.spec.whatwg.org/multipage/input.html#the-min-and-max-attributes
-        var numeric = state.GetNumericFacts(realm.NativeReadCheckpoint, work.Token);
+        var numeric = state.GetNumericFacts(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
         if (state.BadInput) flags |= ControlValidityFlags.BadInput;
         if (numeric.Applies)
         {
@@ -195,28 +214,31 @@ internal static class BrowserControlValidation
             if (PatternMismatch(realm, element, value, state.Type == HtmlInputType.Email && work.Attribute(element, "multiple") is not null, work))
                 flags |= ControlValidityFlags.PatternMismatch;
         }
-        return flags | Length(realm, element, value, state.DirtyValue, state.LastValueChangeOrigin);
+        return flags | Length(realm, element, value, state.DirtyValue, state.LastValueChangeOrigin, work, nativeCheckpointFactory);
     }
 
-    private static ControlValidityFlags Length(DomRealm realm, Element element, string value, bool dirty, HtmlValueChangeOrigin origin)
+    private static ControlValidityFlags Length(DomRealm realm, Element element, string value, bool dirty, HtmlValueChangeOrigin origin,
+        DomReadWork work, Func<Action<int>?>? nativeCheckpointFactory)
     {
         if (!dirty || origin != HtmlValueChangeOrigin.User) return ControlValidityFlags.None;
-        var maximum = HtmlTextControlAttributes.GetMaximumAllowedLength(element, realm.NativeReadCheckpoint, realm.CancellationToken);
-        var minimum = HtmlTextControlAttributes.GetMinimumAllowedLength(element, realm.NativeReadCheckpoint, realm.CancellationToken);
+        var maximum = HtmlTextControlAttributes.GetMaximumAllowedLength(element, NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
+        var minimum = HtmlTextControlAttributes.GetMinimumAllowedLength(element, NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
         var flags = maximum is { } max && value.Length > max ? ControlValidityFlags.TooLong : ControlValidityFlags.None;
         if (value.Length > 0 && minimum is { } min && value.Length < min) flags |= ControlValidityFlags.TooShort;
         return flags;
     }
 
-    private static ControlValidityFlags Select(DomRealm realm, Element element, DomReadWork work)
+    private static ControlValidityFlags Select(DomRealm realm, Element element, DomReadWork work,
+        Func<Action<int>?>? nativeCheckpointFactory)
     {
         if (work.Attribute(element, "required") is null) return ControlValidityFlags.None;
-        var state = element.GetHtmlState()!.GetSelectState(realm.NativeReadCheckpoint, work.Token)!;
-        var selected = state.SelectedOptions.Snapshot(realm.NativeReadCheckpoint, work.Token);
+        var state = element.GetHtmlState()!.GetSelectState(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token)!;
+        var selected = state.SelectedOptions.Snapshot(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
         if (selected.Count == 0) return ControlValidityFlags.ValueMissing;
-        var first = state.Options.Item(0, realm.NativeReadCheckpoint, work.Token);
-        if (selected.Count == 1 && ReferenceEquals(selected[0], first) && state.GetDisplaySize(realm.NativeReadCheckpoint, work.Token) == 1
-            && first!.GetHtmlState()!.GetOptionState(realm.NativeReadCheckpoint, work.Token)!.GetValue(realm.NativeReadCheckpoint, work.Token).Length == 0)
+        var first = state.Options.Item(0, NativeCheckpoint(realm, nativeCheckpointFactory), work.Token);
+        if (selected.Count == 1 && ReferenceEquals(selected[0], first) && state.GetDisplaySize(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token) == 1
+            && first!.GetHtmlState()!.GetOptionState(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token)!
+                .GetValue(NativeCheckpoint(realm, nativeCheckpointFactory), work.Token).Length == 0)
         {
             for (var parent = first.ParentNode; parent is not null && !ReferenceEquals(parent, element); parent = parent.ParentNode)
             {

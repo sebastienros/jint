@@ -24,6 +24,7 @@ internal static class DomDocumentEditing
             }
             work.Check();
             DomDocumentState.Of(document).DesignModeEnabled = true;
+            BrowserSelectorSemanticRevision.Advance(document);
             // The existing Selection implementation belongs to the displayed document.
             // A child or inert document must never reset or notify its principal's range.
             if (PageRuntime.Find(realm.Engine, document)?.ViewsIfCreated?.ExistingSelection?.Range is { } range)
@@ -37,7 +38,11 @@ internal static class DomDocumentEditing
         else if (work.EqualAsciiIgnoreCase(value, "off"))
         {
             work.Check();
-            DomDocumentState.Of(document).DesignModeEnabled = false;
+            if (DomDocumentState.IsDesignModeEnabled(document))
+            {
+                DomDocumentState.Of(document).DesignModeEnabled = false;
+                BrowserSelectorSemanticRevision.Advance(document);
+            }
         }
         work.Check();
         return JsValue.Undefined;

@@ -1,5 +1,4 @@
 using Jint.HtmlParser;
-using Jint.HtmlParser.Css.Syntax;
 using Jint.Browser.Dom;
 using Jint.Browser.CustomElements;
 using Jint.Browser.Runtime;
@@ -227,21 +226,6 @@ internal static class FormSubmission
     /// makes it submit its form.
     /// </summary>
     internal static bool IsSubmitButton(Element element)
-        => element.NamespaceUri == Namespaces.Html && element.LocalName switch
-        {
-            "button" => IsSubmitButtonType(element),
-            "input" => EventDom.InputType(element) is "submit" or "image",
-            _ => false,
-        };
-
-    // HTML's missing/invalid button type is Auto, including its command and select-child exclusions.
-    private static bool IsSubmitButtonType(Element button)
-    {
-        var type = button.GetAttributeNodeNS(null, "type")?.Value ?? string.Empty;
-        if (CssAscii.EqualsIgnoreCase(type, "submit")) return true;
-        if (CssAscii.EqualsIgnoreCase(type, "reset") || CssAscii.EqualsIgnoreCase(type, "button")) return false;
-        return !button.HasContentAttribute("command") && !button.HasContentAttribute("commandfor")
-            && button.ParentNode is not Element { NamespaceUri: Namespaces.Html, LocalName: "select" };
-    }
+        => BrowserFormDefaults.IsSubmitButton(element);
 
 }
