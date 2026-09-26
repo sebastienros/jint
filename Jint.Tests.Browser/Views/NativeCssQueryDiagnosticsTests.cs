@@ -14,6 +14,7 @@ public sealed class NativeCssQueryDiagnosticsTests
     {
         using var fixture = DomTestFixture.Create("<style>#box { opacity:.5; width:10px; }</style><div id=box></div>");
         var document = fixture.Document;
+        NativeCssStyleSheets.Associate(DomRealm.Of(fixture.Engine), document);
         var element = ContentDom.ElementById(document, "box")!;
         var diagnostics = new NativeCssQueryDiagnostics();
         var input = NativeCssStyleSheets.CreateQuery(document, DomRealm.Of(fixture.Engine), diagnostics);
@@ -44,6 +45,7 @@ public sealed class NativeCssQueryDiagnosticsTests
     {
         using var fixture = DomTestFixture.Create("<style>button { visibility:visible; width:10px; opacity:.5; }</style>"
             + "<div><button id=target>Save</button></div>");
+        NativeCssStyleSheets.Associate(DomRealm.Of(fixture.Engine), fixture.Document);
         var diagnostics = new NativeCssQueryDiagnostics(captureDetails: true);
         var first = AccessibilityTree.Build(fixture.Document, diagnostics: diagnostics);
         AccessibilitySnapshot.Render(first).Should().Contain("Save");
