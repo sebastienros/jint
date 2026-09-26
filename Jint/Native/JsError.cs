@@ -61,6 +61,13 @@ public sealed class JsError : ErrorInstance, IErrorData
     /// </summary>
     internal void EnsureMessageMaterialized() => MaterializeMessage();
 
+    /// <summary>
+    /// The value of the <c>message</c> own data property while it is still served from the virtual field, or
+    /// <see langword="null"/> when there is none there — never had one, deleted, or already materialized, in
+    /// which case <see cref="GetOwnProperty"/> is the answer. Reading it is a field load and runs nothing.
+    /// </summary>
+    internal JsValue? VirtualMessage => _message;
+
     public override JsValue Get(JsValue property, JsValue receiver)
     {
         // Fast path for the hot `error.message` read: serve from the field, no descriptor allocation.
