@@ -4,6 +4,7 @@ using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Styling;
+using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -12,9 +13,8 @@ public sealed class NativeCssQueryDiagnosticsTests
     [Test]
     public void BrowserQueryAndTraversalRemainLazyAndRecordRepeatedRequestedReads()
     {
-        using var fixture = DomTestFixture.Create("<style>#box { opacity:.5; width:10px; }</style><div id=box></div>");
+        using var fixture = Create("<style>#box { opacity:.5; width:10px; }</style><div id=box></div>");
         var document = fixture.Document;
-        NativeCssStyleSheets.Associate(DomRealm.Of(fixture.Engine), document);
         var element = ContentDom.ElementById(document, "box")!;
         var diagnostics = new NativeCssQueryDiagnostics();
         var input = NativeCssStyleSheets.CreateQuery(document, DomRealm.Of(fixture.Engine), diagnostics);
@@ -43,9 +43,8 @@ public sealed class NativeCssQueryDiagnosticsTests
     [Test]
     public void AccessibilitySnapshotsUseOneFreshQueryAndDoNotComputeUnrequestedProperties()
     {
-        using var fixture = DomTestFixture.Create("<style>button { visibility:visible; width:10px; opacity:.5; }</style>"
+        using var fixture = Create("<style>button { visibility:visible; width:10px; opacity:.5; }</style>"
             + "<div><button id=target>Save</button></div>");
-        NativeCssStyleSheets.Associate(DomRealm.Of(fixture.Engine), fixture.Document);
         var diagnostics = new NativeCssQueryDiagnostics(captureDetails: true);
         var first = AccessibilityTree.Build(fixture.Document, diagnostics: diagnostics);
         AccessibilitySnapshot.Render(first).Should().Contain("Save");
@@ -82,5 +81,20 @@ public sealed class NativeCssQueryDiagnosticsTests
         visibility.CreateTraversal(fixture.Document).Should().BeNull();
         AccessibilityTree.Build(fixture.Document, AccessibilityOptions.Default with { UseComputedStyle = false }, diagnostics);
         diagnostics.Queries.Should().BeEmpty();
+    }
+
+    private static DomTestFixture Create(string html)
+    {
+        var fixture = DomTestFixture.Create(html);
+        var realm = DomRealm.Of(fixture.Engine);
+        NativeCssStyleSheets.Associate(realm, fixture.Document);
+        // Parsing is complete. Publish raw sources at the simulated style completion boundary,
+        // before querying, without demanding CSS grammar or computed values.
+        foreach (var owner in ContentDom.Descendants(fixture.Document)
+                     .Where(element => element.LocalName == "style" && element.NamespaceUri == Namespaces.Html))
+        {
+            NativeCssStyleSheets.Install(realm, owner, ContentDom.TextContent(owner), "about:blank");
+        }
+        return fixture;
     }
 }
