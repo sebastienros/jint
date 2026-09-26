@@ -78,3 +78,34 @@ BuildRule and serializer. Preserve both sets of cases during integration; do not
 copy/cherry-pick keyframes into this native import branch. Browser must update old
 fixtures that expect an ordinary import to be a completion blocker. Compiler,
 routine Release/net10 tests and emitter runs belong exclusively to integration.
+
+## Coherent revision snapshots
+
+`CssStyleSheetRevisionSnapshot.Capture(roots, work)` (or the single-sheet overload)
+creates an immutable witness of the root and attached-child sheet revisions.
+`Count` reports retained witnesses; `IsCurrent(work)` returns false for any changed
+or saturated stamp. Cancellation and host failures propagate unchanged. Capture
+requires its final validation to succeed; it throws explicitly rather than retrying
+or returning a mixed snapshot.
+
+Capture records each revision when its sheet is discovered, before inspecting that
+sheet's outgoing imports. An iterative entry queue and reference identity set are
+allocated only after the first actual imported child is found. Attached descendants
+are included regardless of disabled state or media matching. Graph traversal
+deduplicates references, including roots also reached through imports. Cold captures
+without attached imports retain only root stamps; duplicate roots may retain duplicate
+witnesses, avoiding an identity set. Empty roots share one empty snapshot.
+
+The parse/insertion invariant puts imports in a leading prefix. Capture stops at the
+first non-import rule, so a no-import sheet costs one rule inspection regardless of
+its style-rule count. It performs no selector, declaration, CSS-text or DOM access.
+The witness never replaces or flattens the caller's root wrappers: origin, source
+order and inherited tree scope remain the consumer's responsibility.
+
+`IsCurrent` charges the witness count and performs one final host checkpoint before
+comparing any stamps. The comparison loop polls only the cancellation token at a
+bounded cadence and at exit; no host callback can mutate an already checked sheet.
+The graph is scanned once for capture and once for validation, with charged nodes,
+prefix edges and materialized references. No graph scan runs in a guard callback.
+Regression probes bound actual callback counts for deep graphs and cold sheets, and
+measure cold-path allocations after warming the same capture path.
