@@ -2,13 +2,20 @@
 
 ## Scope and workflow
 
-**User resumed the full replacement on September 25.** Six implementation owners now cover Browser
-bindings/runtime, Events and accessibility, native CSS sheets/media, select/option state, input numeric
-algorithms, and contextual HTML fragments. The first new binding pass reduced Browser build errors
+**User resumed the full replacement on September 25.** Eight implementation owners now cover Browser
+bindings/runtime, Events and accessibility, native CSS sheets/media, select/option state, input text
+state, input numeric algorithms, CSS layout properties, and contextual HTML fragments. The first new binding pass reduced Browser build errors
 from 932 to 718; this is progress, not a passing build. Exact chat ownership and completion gates are
 in [the resume checkpoint](html-parser-resume.md). No new performance claim or PR.
 
-**Latest user-directed finalization (September 25):** three independently reviewed parser slices
+Common `6e3273234` integrates reviewed number parsing/shortest formatting (`c9885646d`) and contextual
+HTML fragments with bounded form-pointer ownership (`df35c6263`, `6e3273234`). Fresh Release tests:
+**5,224/5,224** non-corpus cases across net8/net10, zero failures/skips;
+`/private/tmp/jint-resumed-fragments-common.log`. These include adoption and host moves while fragment
+parsing is suspended. Production Browser replacement, standalone HTML promotion and equivalent
+performance acceptance remain unfinished.
+
+**Historical user-directed finalization (September 25, before resumption):** three independently reviewed parser slices
 are integrated: checkedness/radio state `ee422cefc`, original script source coordinates `9bc9157cf`,
 and internal CSS declarations `6e8915d7c`, `e8925567e`, `c9925b18c`. Fresh common Release non-corpus
 tests pass **4,482/4,482**, net8/net10, zero failures/skips (`/private/tmp/jint-finalize-all-parser.log`).
