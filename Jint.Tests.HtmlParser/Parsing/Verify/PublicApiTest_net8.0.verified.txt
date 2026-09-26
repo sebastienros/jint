@@ -322,8 +322,15 @@
         public uint Length { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
         public string Target { get; }
+        public string? GetAttribute(string name) { }
+        public string[] GetAttributeNames() { }
+        public bool HasAttribute(string name) { }
+        public bool HasAttributes() { }
+        public void RemoveAttribute(string name) { }
         public void ReplaceData(uint offset, uint count, string data) { }
+        public void SetAttribute(string name, string value) { }
         public string SubstringData(uint offset, uint count) { }
+        public bool ToggleAttribute(string name, bool? force = default) { }
     }
     public sealed class Text : Jint.HtmlParser.Node
     {
