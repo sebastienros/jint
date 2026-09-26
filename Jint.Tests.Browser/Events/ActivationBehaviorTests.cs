@@ -514,7 +514,8 @@ public sealed class ActivationBehaviorTests
             """
             (() => {
               const s = document.getElementById('s');
-              const seen = [];
+              window.optionEvents = [];
+              const seen = window.optionEvents;
               s.addEventListener('input', e => seen.push('input:' + e.target.id));
               s.addEventListener('change', e => seen.push('change:' + e.target.id));
               document.getElementById('two').click();
@@ -523,8 +524,12 @@ public sealed class ActivationBehaviorTests
               return [after, seen.join('|'), document.getElementById('one').selected].join(',');
             })()
             """))
-            // Clicking the already-selected option changes nothing and fires nothing.
-            .Should().Be("2:1,input:s|change:s,false");
+            // Selectedness changes synchronously; select update notifications are queued.
+            .Should().Be("2:1,,false");
+
+        (await page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await page.EvaluateAsync<string>("window.optionEvents.join('|')")).Should().Be("input:s|change:s");
+        (await page.EvaluateAsync<int>("window.optionEvents.length")).Should().Be(2);
     }
 
     /// <summary>
