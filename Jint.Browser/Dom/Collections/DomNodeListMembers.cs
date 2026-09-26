@@ -1,11 +1,10 @@
-using AngleSharp.Dom;
 using Jint.Native;
 
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
 /// The <a href="https://dom.spec.whatwg.org/#interface-nodelist">DOM §4.2.10</a> <c>NodeList</c> members
-/// whose WebIDL contract <c>INodeList</c>'s CLR surface does not keep.
+/// whose WebIDL contract <c>DomNodeList</c>'s CLR surface does not keep.
 /// </summary>
 /// <remarks>
 /// One member so far, and it is the same shape as <see cref="DomTokenListMembers.Item"/>'s:
@@ -20,7 +19,7 @@ namespace Jint.Browser.Dom.Collections;
 internal static class DomNodeListMembers
 {
     /// <summary>https://dom.spec.whatwg.org/#dom-nodelist-item — <c>null</c> out of range, never a throw.</summary>
-    internal static JsValue Item(DomRealm realm, INodeList list, JsValue[] arguments)
+    internal static JsValue Item(DomRealm realm, DomNodeList list, JsValue[] arguments)
     {
         // WebIDL's unsigned long: -1 is 4294967295, which is out of range rather than an error, and that is
         // the whole of what an indexed getter promises.

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
@@ -10,9 +10,9 @@ namespace Jint.Browser.Dom;
 /// <summary>DOM §4.13's ordered attribute map, attached to the native PI identity.</summary>
 internal static class DomProcessingInstructionAttributes
 {
-    private static readonly ConditionalWeakTable<IProcessingInstruction, State> _states = new();
+    private static readonly ConditionalWeakTable<ProcessingInstruction, State> _states = new();
 
-    internal static JsValue Invoke(DomRealm realm, IProcessingInstruction node, string operation, JsValue[] arguments)
+    internal static JsValue Invoke(DomRealm realm, ProcessingInstruction node, string operation, JsValue[] arguments)
     {
         var member = "ProcessingInstruction." + operation;
         if (operation == "setAttribute")
@@ -87,14 +87,14 @@ internal static class DomProcessingInstructionAttributes
     }
 
     // Called only after a successful script-visible replace-data operation, including equal-value writes.
-    internal static void DataChanged(IProcessingInstruction node) => _states.Remove(node);
+    internal static void DataChanged(ProcessingInstruction node) => _states.Remove(node);
 
     // DOM §5.5 replaces data at CharacterData boundaries even when it removes an empty span.
     // Snapshot the native identities before the operation adjusts its live range endpoints.
-    internal readonly struct RangeDataReplacement(IRange? range)
+    internal readonly struct RangeDataReplacement(DomRange? range)
     {
-        private readonly IProcessingInstruction? _head = range is { IsCollapsed: false } ? range.Head as IProcessingInstruction : null;
-        private readonly IProcessingInstruction? _tail = range is { IsCollapsed: false } ? range.Tail as IProcessingInstruction : null;
+        private readonly ProcessingInstruction? _head = range is { Collapsed: false } ? range.Start.Container.Node as ProcessingInstruction : null;
+        private readonly ProcessingInstruction? _tail = range is { Collapsed: false } ? range.End.Container.Node as ProcessingInstruction : null;
 
         internal void Complete()
         {
@@ -109,7 +109,7 @@ internal static class DomProcessingInstructionAttributes
         }
     }
 
-    private static State Read(IProcessingInstruction node)
+    private static State Read(ProcessingInstruction node)
     {
         var state = _states.GetValue(node, static pi => Parse(pi.Data));
         if (!string.Equals(state.Data, node.Data, StringComparison.Ordinal))
@@ -120,7 +120,7 @@ internal static class DomProcessingInstructionAttributes
         return state;
     }
 
-    private static void Write(IProcessingInstruction node, State state)
+    private static void Write(ProcessingInstruction node, State state)
     {
         var data = new StringBuilder();
         foreach (var pair in state.Attributes)

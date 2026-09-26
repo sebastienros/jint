@@ -42,7 +42,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     // "this collection is live" means here, and the one test the read path below makes. A field rather than
     // `DomTarget is DomStaticNodeList` so that the test the live lane pays is a load and a null branch,
     // rather than a null branch and a type-handle compare.
-    private readonly INode[]? _nodes;
+    private readonly HtmlParser.Node[]? _nodes;
 
     // One slot per index of that snapshot, filled on the index's first read. Allocated on the first indexed
     // read, so a match a page only takes the `length` of costs nothing for it. A null slot means "not read
@@ -110,7 +110,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool TryGetStaticIndex(INode[] nodes, uint index, out JsValue value)
+    private bool TryGetStaticIndex(HtmlParser.Node[] nodes, uint index, out JsValue value)
     {
         if (index >= (uint) nodes.Length)
         {

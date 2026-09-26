@@ -1,43 +1,63 @@
-using AngleSharp;
-using AngleSharp.Dom;
+using System.Runtime.CompilerServices;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom;
 
-/// <summary>
-/// <a href="https://html.spec.whatwg.org/multipage/document-sequences.html#doc-bc">A document's browsing
-/// context</a>: the browsing context whose active document it is, and <see langword="null"/> when nothing is
-/// showing it.
-/// </summary>
+/// <summary>Browser-owned association between a browsing context and its active native document.</summary>
 /// <remarks>
-/// <para>
-/// <b>Every document this package can build has an AngleSharp browsing context, and only one of them has
-/// HTML's.</b> <c>DOMParser</c>, <c>new Document()</c>, <c>DOMImplementation.createDocument</c> and
-/// <c>createHTMLDocument</c> each parse into a context of their own — <see cref="DomContentType"/> says why
-/// they have to — so <c>document.Context is not null</c> answers <see langword="true"/> for all four. What
-/// separates them from the page's document is the context's own <see cref="IBrowsingContext.Active"/>: it is
-/// the document being displayed, and nothing else.
-/// </para>
-/// <para>
-/// <b>It is here rather than on <see cref="DomHostHooks"/> because two unrelated algorithms name it.</b>
-/// HTML's <c>document.location</c> answers <see langword="null"/> for a document that is not fully active,
-/// and HTML §4.13.4's look-up-a-custom-element-definition returns null at step 1 for a document whose
-/// browsing context is null — so the same sentence gates a member of <c>Document</c> and every creation path
-/// that consults the registry. Two spellings of it is how one of them would come to answer about a document
-/// nobody can see.
-/// </para>
-/// <para>
-/// <b>It asks the document rather than the page</b>, which <c>PageRuntime.FindBrowsingContext</c> asks for
-/// the page's own browsing-context tree. The two agree on all four secondary spellings above — each gets a
-/// context that is not the page's — and this one needs no engine, so a binding installed without a page
-/// runtime still tells a displayed document from a manufactured one.
-/// </para>
+/// HTML §7.3: a DOMParser result or a manufactured document has no browsing context. The
+/// native DOM therefore carries no context field. This table is populated only when the page
+/// runtime commits a document or creates a child context, and retains the previous document's
+/// association without treating that document as active after replacement.
 /// </remarks>
-internal static class DomBrowsingContext
+internal sealed class DomBrowsingContext : IDisposable
 {
-    /// <summary>
-    /// The browsing context <paramref name="document"/> is the active document of, or
-    /// <see langword="null"/> when it is the active document of none.
-    /// </summary>
-    internal static IBrowsingContext? Of(IDocument? document)
-        => document?.Context is { } context && ReferenceEquals(context.Active, document) ? context : null;
+    private static readonly ConditionalWeakTable<Document, DomBrowsingContext> Documents = new();
+    private static readonly ConditionalWeakTable<Element, DomBrowsingContext> Frames = new();
+
+    internal DomBrowsingContext(Document document, DomBrowsingContext? parent = null, Element? frameElement = null)
+    {
+        Parent = parent;
+        FrameElement = frameElement;
+        if (frameElement is not null)
+        {
+            Frames.Add(frameElement, this);
+        }
+        Activate(document);
+    }
+
+    internal Document? Active { get; private set; }
+
+    internal DomBrowsingContext? Parent { get; }
+
+    internal Element? FrameElement { get; }
+
+    internal void Activate(Document document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (Documents.TryGetValue(document, out var existing) && !ReferenceEquals(existing, this))
+        {
+            throw new ArgumentException("The document is associated with another browsing context.", nameof(document));
+        }
+        Documents.GetValue(document, _ => this);
+        Active = document;
+    }
+
+    /// <summary>The context whose active document is the supplied document, or null for an inert document.</summary>
+    internal static DomBrowsingContext? Of(Document? document)
+        => document is not null && Documents.TryGetValue(document, out var context) && ReferenceEquals(context.Active, document)
+            ? context
+            : null;
+
+    internal static DomBrowsingContext? OfFrame(Element frame)
+        => Frames.TryGetValue(frame, out var context) ? context : null;
+
+    public void Dispose()
+    {
+        Active = null;
+        if (FrameElement is not null)
+        {
+            Frames.Remove(FrameElement);
+        }
+    }
 }
