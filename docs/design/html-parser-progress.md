@@ -2,41 +2,51 @@
 
 ## Scope and workflow
 
-**Current continuation:** the full goal resumed after the finalized checkpoint. The user now explicitly
-prioritizes replacing production AngleSharp usage with the new library and fixing native gaps exposed
-by integration. Do not keep Browser migration waiting for every standalone feature to be finished.
-No PRs. Finalized/merged or abandoned chats are to be removed from active work; the available app tool
-archives rather than permanently deletes them, and managed worktree cleanup remains required.
+**Latest user-directed finalization (September 25):** the four remaining implementation chats
+have completed their current checkpoints and are archived. All changes passed independent Astra review and are
+integrated in the common worktree through `ed2578918`. Browser still uses AngleSharp; this finite
+wrap-up does not complete the original project. No PRs or performance timings were created.
 
-D7b1c native textarea is active in `3aad`, chat `01a0db32-26b3-7b90-a040-1a0f969affbc`, based on
-`016bb6c22`. It owns Node/Element/CharacterNodes/NodeCloner/HtmlElementState and textarea additions.
-A separate first commit also owns ShadowTree.cs/Shadow tests for registry and template-content stamp
-invalidation needed by serialization. It does not own parsers, Browser or event delivery.
-HTML serialization X3c is active in `5b44`, chat `01a0db35-8c1b-7f03-9fa1-5009f6ba68f5`.
-It owns new Serialization HTML/options/scalar files and tests, with only narrow work-stage additions.
-The native owner supplies the shadow stamp prerequisite separately; serializer code reads native state.
+| Completed checkpoint | Source | Common integration |
+| --- | --- | --- |
+| Shadow metadata mutation stamps | `6f1baf278` | `68f87d5e5` |
+| Explicit Browser binding contract, preserving generated runtime behavior | `538cc3016` | `88bc714a1` |
+| Tokenizer text delivery and latched declaration context | `cb989b780` | `26ec3073d` |
+| Native textarea state and reviewed corrections | `2901a8f5e`, `e96481ee9`, `4088b490d` | `b33556223`, `bcba1756c`, `398f37085` |
+| Internal HTML serializer | `489539170` | `ed2578918` |
 
-The production Browser migration owner is active in `7b39`, chat `01a0db36-97d7-7b90-a3a0-bfaaa7404cf6`.
-It owns Browser, binding generator/contract, matching tests and inventory, project references and a
-signed internal Browser friend grant. First checkpoint replaces AngleSharp reflection in binding
-metadata; then core native wrapper identity, XML/XPath and actual callers switch together. XML parsed
-into a second tree and copied back to AngleSharp is prohibited. Incomplete cutover stays isolated until
-reviewed compilable checkpoints pass common tests; native workers implement exact demonstrated gaps.
+Fresh common Release validation:
 
-Astra preflight identified the HTML text-before-CDATA tokenizer boundary prerequisite. For example,
-`<svg><foreignObject><p><b></p>x<![CDATA[y]]>` needs preceding text to reconstruct an HTML formatting
-node before CDATA eligibility is decided. The scanner must flush Data text before markup and latch
-session-provided context at the next declaration boundary without altering suspended tokens. This
-narrow tokenizer prerequisite precedes H7a foreign content, followed by contextual fragments. It is now
-active in `dc57`, chat `01a0db38-75c8-72b2-a01f-8fdeddf59284`, with exclusive tokenizer files/tests.
-The session/foreign tree consumer comes after its reviewed integration; no native or Browser overlap.
+- Parser non-corpus: **3,366/3,366**, zero failures/skips, net8/net10 combined;
+  `/private/tmp/jint-finalize-four-chats.log`.
+- Browser binding contract/staleness/prototype/identity: **44/44**, zero failures/skips, both TFMs;
+  `/private/tmp/jint-finalize-binding-contract.log`.
+- XML corpus: **4,022 total, 3,766 passed, 256 existing debt failures**, zero skips;
+  `/private/tmp/jint-finalize-four-chats-xml.log`. All 256 failing test names match the prior common
+  run exactly. This is unchanged acceptance debt, not a passing corpus claim.
+- Final source files match their reviewed worker commits. Independent textarea review additionally
+  checked 4,000 mixed-child cases and 36,000 suffix lengths against a normalization oracle.
 
-CSS next-execution preflight recommends C6s var/env over immutable selected snapshots. Before dispatch,
-record output provenance/C1 projection, bounded expansion metrics, immutable environment lookup timing
-and exact index normalization, and explicit pending-input semantics. Use consuming-property animation
-taint eligibility, not old animation-name heuristics. Execution serves native property/CSSOM consumers;
-remaining decisions are not a reason to defer production integration work.
+The tokenizer now delivers Data text before consuming `<` and latches its declaration context at
+that opener across quota/input suspensions. Foreign-content/session consumption remains future H7 work.
+Textarea includes raw/default/dirty state, selection, reset, editing, cloning and semantic child hooks;
+parser completion and selection-event transport remain separate. Serialization is internal, reads
+buffered text without flattening and verifies all owner stamps after callback-capable final work.
+Its inactive-template-owner test covers general invalidation; precise late-callback regression coverage
+remains a nonblocking test limitation recorded in review.
 
+Binding generation now reads an explicit checked-in contract and rejects invalid inheritance/member
+structure. Generated runtime bodies are unchanged; native Browser identity and production dependency
+removal have not started in this checkpoint. The migration must keep one native DOM and preserve real
+script/request/document.write boundaries, rather than convert between parallel trees.
+
+CSS substitution execution design is preserved in `faad4cf7e`: immutable selected snapshots, direct
+C1 component projection with source origins, exact expansion bounds, environment key normalization,
+pending capabilities and animation taint. No execution implementation was dispatched during finalization.
+
+Cleanup status is recorded in the resume checkpoint; completed chats are archived only after review,
+integration, common validation and stopping owned processes. Managed worktree identities remain absent
+from the app's artifact lists, so clean completed checkouts are retained rather than shell-deleted.
 
 **All six retained chats finalized at the user’s request on September 25.** The original project remains
 incomplete; Browser still uses AngleSharp. This pass integrated the already-started slices and archived their implementation chats, preserving
@@ -141,10 +151,9 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Fifty-three completed tasks have now been archived; forty-four worktrees are gone.
-  Final filesystem verification found architecture `dc58` removed after its task was archived.
-  Nine clean completed checkouts remain pending managed cleanup because attached identities are absent:
-  `ff28`, `a768`, `ba36`, `ad95`, `aebc`, `4983`, `b0f9`, `b0b0` and `4cb4`.
+  Fifty-seven completed tasks have now been archived; forty-four worktrees are gone.
+  Thirteen clean completed checkouts remain pending managed cleanup because attached identities are absent:
+  `ff28`, `a768`, `ba36`, `ad95`, `aebc`, `4983`, `b0f9`, `b0b0`, `4cb4`, `7b39`, `dc57`, `3aad`, `5b44`.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -152,6 +161,10 @@ the earlier repository direction to retain AngleSharp.
 
 | Task | Identity | State |
 | --- | --- | --- |
+| Browser explicit binding contract | `01a0db36-97d7-7b90-a3a0-bfaaa7404cf6` | Reviewed/integrated, 44 common binding tests pass; archived; managed cleanup pending |
+| Tokenizer context prerequisite | `01a0db38-75c8-72b2-a01f-8fdeddf59284` | Reviewed/integrated; archived; managed cleanup pending |
+| Native textarea and shadow stamps | `01a0db32-26b3-7b90-a040-1a0f969affbc` | Reviewed corrections integrated; archived; managed cleanup pending |
+| Internal HTML serializer | `01a0db35-8c1b-7f03-9fa1-5009f6ba68f5` | Reviewed/integrated; final common parser suite 3,366 passes; archived; managed cleanup pending |
 | Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | All existing design deliverables integrated; task archived; checkout removal verified |
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Existing corpus/comparison harness integrated and correctness-validated; archived; timings remain parent acceptance work |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated; archived, worktree removed |

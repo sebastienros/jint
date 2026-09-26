@@ -1,18 +1,15 @@
 # Jint.HtmlParser resume checkpoint
 
-**Resumed:** the subsequent goal continuation and updated objective prioritize actual production
-AngleSharp removal, fixing parser/native gaps as integration exposes them. The finalized state below
-is the starting checkpoint; see the implementation record for newly active owners.
-
-The user requested a token-budget pause, then asked to finalize the six retained chats and integrate
-their existing changes. That finite finalization pass is **complete**; all six chats are archived. The **original full project is
-not complete** and remains a later effort. Do not mistake completed implementation slices or archived
-chats for production AngleSharp replacement or full conformance/performance acceptance.
+**Latest checkpoint:** the user asked to finalize the four remaining chats and integrate their
+changes. Their reviewed implementation is now common through `ed2578918`. This is a functional
+checkpoint for resumption; the full parser/Browser replacement goal remains incomplete. Do not start
+another feature merely to finish this finite cleanup pass, and do not claim production AngleSharp
+removal or full conformance/performance acceptance.
 
 ## Common state
 
 - Worktree `/Users/sebastienros/.codex/worktrees/bd4c/jint`, branch `codex/html-parser-integration`.
-- Final production implementation checkpoint: **`6d55e76ed`**; later finalization commits update docs.
+- Latest implementation checkpoint: **`ed2578918`**; later finalization commits update docs.
 - Browser still uses AngleSharp. No PRs or benchmark timings were created. Fresh common Browser
   Release build passed both TFMs with zero warnings/errors: `/private/tmp/jint-finalize-browser-build.log`.
 - Reviewed HTML creation metadata is integrated as `ac2583318` (source `ef64460e2`).
@@ -21,13 +18,19 @@ chats for production AngleSharp replacement or full conformance/performance acce
 - Source-reviewed XML optional policies are integrated as `3169c483b` (source `dd367c16a`).
   All three complete 6,283-node projections matched the independent source packet; all previous
   policies are unchanged. No production XML parser or conformance exclusions were changed.
-- Latest common non-corpus Release parser tests: **3,270 passed**, zero failures/skips, net8/net10.
-  `/private/tmp/jint-finalize-all-integrated.log`.
+- Latest common non-corpus Release parser tests: **3,366 passed**, zero failures/skips, net8/net10.
+  `/private/tmp/jint-finalize-four-chats.log`.
+- Browser contract/staleness/prototype/identity tests: **44/44** across net8/net10, zero failures/skips;
+  `/private/tmp/jint-finalize-binding-contract.log`.
+- Browser binding contract `88bc714a1`, tokenizer context `26ec3073d`, shadow stamps `68f87d5e5`,
+  textarea state through `398f37085`, and internal HTML serializer `ed2578918` are integrated.
+  All final worker-owned files match the reviewed source. CSS execution design is saved as `faad4cf7e`.
 - Latest common XML corpus: **4,022 total, 3,766 passed, 256 expected debt failures, zero skips**.
   All failures are 127 pending required cases per TFM plus two census assertions. There are no
   harness/mismatch/optional-review failures. Optional policies: 27 verified, zero observed/adapter debt.
   OUTPUT remains 344 compared/42 pending, with 52 no-fetch alternatives.
-  `/private/tmp/jint-finalize-xml-corpus.log`. These failures remain visible acceptance debt.
+  `/private/tmp/jint-finalize-four-chats-xml.log`. All 256 failing names exactly match the preceding
+  common run. These failures remain visible acceptance debt.
 - Benchmark common correctness checks passed: 12 baseline fixtures; four native/AngleSharp XML/SVG
   comparisons and corruption probes; exhaustive primitive comparisons, all fresh Release net10.
   `/private/tmp/jint-finalize-benchmark-validation.log`. No timing or speedup evidence is implied.
@@ -45,10 +48,10 @@ found all corpus/comparison implementation deliverables already integrated. Thei
 and full-project design/implementation work are parent-project obligations, not unfinished branch edits.
 The XML harness chat is likewise finalized without pretending its remaining acceptance debt is resolved.
 
-All six retained chats are finalized and archived; no unmerged task-owned implementation remains.
-Fifty-three implementation chats are now archived, forty-four checkouts removed. Final filesystem
-verification found architecture `dc58` removed after archival. Nine completed clean
-checkouts remain because root/owner `list_artifacts` returns no managed worktree identity:
+All four newly finalized chats and the previous fifty-three implementation chats are archived; no
+unmerged task-owned implementation remains. Fifty-seven chats are archived and forty-four checkouts
+have been removed. Thirteen completed clean checkouts remain because root/owner `list_artifacts`
+returns no managed worktree identity:
 
 | Checkout | Chat ID | Completed slice |
 | --- | --- | --- |
@@ -61,14 +64,18 @@ checkouts remain because root/owner `list_artifacts` returns no managed worktree
 | `b0f9` | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | XML corpus harness/policies |
 | `b0b0` | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Benchmark corpus/harness |
 | `4cb4` | `01a0db10-f9d2-7501-872f-fcfe719fdbbb` | Exponential math |
+| `7b39` | `01a0db36-97d7-7b90-a3a0-bfaaa7404cf6` | Browser binding contract |
+| `dc57` | `01a0db38-75c8-72b2-a01f-8fdeddf59284` | Tokenizer context prerequisite |
+| `3aad` | `01a0db32-26b3-7b90-a040-1a0f969affbc` | Native textarea and shadow stamps |
+| `5b44` | `01a0db35-8c1b-7f03-9fa1-5009f6ba68f5` | Internal HTML serializer |
 
 Directories are `/Users/sebastienros/.codex/worktrees/<checkout>/jint`. Use managed archival when
 identities become available; do not bypass it with shell deletion. App computer-use access was also
 denied, so do not attempt a UI workaround. Git branches and chat history remain recoverable.
 
-No implementation/review task remains running. No new feature chats were started during finalization.
-At this checkpoint the larger project was paused; the subsequent continuation resumed it.
-Its goal must not be marked complete until production replacement and all acceptance gates pass.
+No implementation/review task remains running. No new feature chats were started during this
+finalization pass. The larger goal must not be marked complete until production replacement and
+all acceptance gates pass.
 
 ## Continuing the original project
 
@@ -77,8 +84,8 @@ for implementation. Review, integrate, and test in common before archiving final
 No PRs until requested. The [implementation record](html-parser-progress.md), dependency inventory and
 reviewed design documents preserve the full objective and finite dispatches.
 
-Required future work includes HTML foreign content/fragments/patch-shadow branches, HTML serialization
-and public facades, all remaining form/input state families, CSS substitution execution/colors/property
+Required future work includes HTML foreign content/fragments/patch-shadow branches, serialization
+public facades and Browser consumers, textarea parser/event hooks, all remaining form/input state families, CSS substitution execution/colors/property
 registry/CSSOM/cascade, Browser bindings/generator/events/scheduling and complete production AngleSharp
 cutover, full conformance/consumer verification, and equivalent paired performance acceptance.
 
@@ -101,20 +108,16 @@ remainders and uncapped finite-double calendar conversion. The 1,024-bit bound a
 integers; remainder alignment can exceed 2,098 bits. Root verified the pinned WPT huge-local empty-result
 assertion; keep the documented spec/WPT discrepancy explicit. No numeric runtime task was dispatched.
 
-Textarea D7b1c preflight is complete, no runtime implementation dispatched. Before dispatch, clarify the
-reviewed `html-parser-text-control-state.md` contract with these points:
+Textarea D7b1c is implemented and reviewed through `398f37085`. Preserve lazy raw freezing on an
+invalid range edit, clean-clone raw/child alignment, null-namespace readonly checks, automatic versus
+explicit selection steps, and intermediate replace-all clamps. The suffix algorithm is linear and
+handles CR/LF across adjacent text nodes and excluded children. Independent review checked 4,000
+mixed-child cases and 36,000 suffix lengths. Parser lifecycle and selection-event transport remain b1e.
 
-- Stable lazy `HtmlElementState.TextArea`/`HtmlTextAreaState` only; defer Input/general facade to b1d.
-- Native file scope: textarea/selection/mutation helpers plus HtmlElementState, Node, CharacterNodes,
-  NodeCloner and narrow Element access. Parser lifecycle/notifications stay in b1e.
-- Semantic children-changed hooks are independent of mutation-record suppression. Fragment destination
-  insertion hooks once after the entire sequence; individual removals retain intermediate steps.
-  Direct Comment/PI data replacement also hooks, although only Text/CDATA contributes child text.
-- Copy raw/dirty state before cloning descendants. Shallow clean clones initially retain copied raw
-  text despite an empty default; their next child change resumes child-derived projection. Adoption
-  retains identity. Parsed append invalidates in O(1) without flattening or reading Text.Data.
-- Separate automatic clamping and explicit selection steps for later notifications. Preserve destructive
-  intermediate clamps; avoid quadratic replace-all behavior. No placeholder event transport.
+The tokenizer prerequisite is complete; H7 foreign tree/session integration must supply the new
+per-read context and exercise the full formatting-reconstruction/CDATA case. The internal HTML
+serializer is complete for its reviewed slice, including template/shadow traversal and IsValue;
+public facade and Browser wiring remain separate. No performance claim follows from these tests.
 
 ## Evidence and validation
 
