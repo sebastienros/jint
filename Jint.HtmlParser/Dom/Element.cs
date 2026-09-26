@@ -63,6 +63,8 @@ public sealed class Element : Node
     public string TagName => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
     public DocumentFragment? TemplateContent { get; private set; }
     public int AttributeCount => _attributes?.Count ?? 0;
+    internal Attr? GetAttributeAt(uint index)
+        => _attributes is { } attributes && index < (uint) attributes.Count ? attributes[(int) index] : null;
     public IEnumerable<Attr> Attributes
     {
         get
