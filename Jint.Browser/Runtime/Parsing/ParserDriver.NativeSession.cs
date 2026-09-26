@@ -240,7 +240,7 @@ internal sealed partial class ParserDriver
         var resolved = PageUrl.Resolve(source, BaseUrlOf(script.OwnerDocument!));
         if (resolved is null)
         {
-            FailSubresource(script, source, "The script source is not a URL a page can load.");
+            FailSubresource(script, source, "The script source '" + source + "' is not a URL a page can load.");
             return null;
         }
         return FetchBytes(resolved, script, "script", PageRequestKind.Script, mayPump);

@@ -352,6 +352,17 @@ internal sealed partial class ParserDriver
             case "iframe":
                 LoadFrame(element);
                 return;
+            case "embed":
+                // HTML §4.8.6 needs a plugin host. Preserve the refused reference in the request
+                // log without opening a transport or announcing a resource event.
+                var requested = Attribute(element, "src");
+                var reference = _resourceSources.GetValue(element, static _ => new ResourceSource());
+                if (reference.Signature == requested) return;
+                reference.Signature = requested;
+                if (!string.IsNullOrEmpty(requested) && IsResourceConnected(element))
+                    _requests.RecordNotFetched(requested, RequestInitiator.Subresource, PageRequestKind.Other,
+                        "an <embed> is not fetched: no plugin host is available");
+                return;
             case "img":
                 FetchImage(element, Attribute(element, "src") ?? "");
                 return;
@@ -519,7 +530,7 @@ internal sealed partial class ParserDriver
         if (ceiling <= 0 || _frameDocuments >= ceiling)
         {
             _requests.RecordNotFetched(url, RequestInitiator.Subresource, PageRequestKind.Frame,
-                "The frame document limit has been reached.");
+                "The BrowserOptions.MaxFrameDocuments limit has been reached.");
             return;
         }
         _frameDocuments++;
