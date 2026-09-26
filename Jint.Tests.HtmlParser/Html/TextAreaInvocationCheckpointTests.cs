@@ -34,8 +34,9 @@ public class TextAreaInvocationCheckpointTests
             else if (operation == "selection") state.SetSelectionRange(1, 2, null, checkpoint, token);
             else state.Select(checkpoint, token);
         }
-        var exception = Assert.Throws<OperationCanceledException>(() => Run(n => { counts.Add(n); cancellation.Cancel(); }, cancellation.Token));
-        exception!.CancellationToken.Should().Be(cancellation.Token); counts.Should().Equal(256);
+        var exception = Assert.Throws<OperationCanceledException>(() => Run(n => { counts.Add(n); if (n >= 256) cancellation.Cancel(); }, cancellation.Token));
+        exception!.CancellationToken.Should().Be(cancellation.Token);
+        counts.Should().Equal(2, 256);
         state.DirtyValue.Should().BeFalse(); state.Selection.Should().Be(default(HtmlTextSelection));
         element.OwnerDocument.MutationStamp.Should().Be(stamp);
         Assert.Throws<InvalidOperationException>(() => Run(_ => throw new InvalidOperationException("budget"), default));
@@ -50,9 +51,9 @@ public class TextAreaInvocationCheckpointTests
     {
         var element = TextArea(new string('x', 60)); var state = State(element); var counts = new List<int>();
         state.GetValue(counts.Add, default).Length.Should().Be(60);
-        counts.Should().Equal(123); // One entry, two child visits, sixty copies, sixty normalization reads.
+        counts.Should().Equal(2, 63, 123); // Allocation boundaries retain actual visits/copies; normalization continues the counter.
         counts.Clear(); state.GetValue(counts.Add, default).Length.Should().Be(60); counts.Should().Equal(1);
-        counts.Clear(); state.GetDefaultValue(counts.Add, default).Length.Should().Be(60); counts.Should().Equal(63);
+        counts.Clear(); state.GetDefaultValue(counts.Add, default).Length.Should().Be(60); counts.Should().Equal(2, 63, 63);
     }
 
     [TestCase("wrap")]
@@ -84,8 +85,10 @@ public class TextAreaInvocationCheckpointTests
             else if (operation == "reset") state.Reset(checkpoint, token);
             else state.SetRangeText(new string('b', 1000), 1, 2, HtmlRangeTextMode.End, checkpoint, token);
         }
-        var exception = Assert.Throws<OperationCanceledException>(() => Run(n => { counts.Add(n); cancellation.Cancel(); }, cancellation.Token));
-        exception!.CancellationToken.Should().Be(cancellation.Token); counts.Should().Equal(256);
+        var exception = Assert.Throws<OperationCanceledException>(() => Run(n => { counts.Add(n); if (n >= 256) cancellation.Cancel(); }, cancellation.Token));
+        exception!.CancellationToken.Should().Be(cancellation.Token);
+        if (operation == "reset") counts.Should().Equal(1, 256);
+        else counts.Should().Equal(256);
         Snapshot(state).Should().Be(before); element.OwnerDocument.MutationStamp.Should().Be(stamp);
         Assert.Throws<InvalidOperationException>(() => Run(_ => throw new InvalidOperationException("budget"), default));
         Snapshot(state).Should().Be(before); element.OwnerDocument.MutationStamp.Should().Be(stamp);
@@ -109,7 +112,7 @@ public class TextAreaInvocationCheckpointTests
         using var cancellation = new CancellationTokenSource();
         Assert.Throws<OperationCanceledException>(() => target.CopyFrom(source, _ => cancellation.Cancel(), cancellation.Token));
         Snapshot(target).Should().Be(before);
-        var counts = new List<int>(); source.GetValue(counts.Add, default).Should().Be("abc"); counts.Should().Equal(9);
+        var counts = new List<int>(); source.GetValue(counts.Add, default).Should().Be("abc"); counts.Should().Equal(2, 6, 9);
         sourceElement.OwnerDocument.MutationStamp.Should().Be(sourceStamp); targetElement.OwnerDocument.MutationStamp.Should().Be(targetStamp);
     }
 
