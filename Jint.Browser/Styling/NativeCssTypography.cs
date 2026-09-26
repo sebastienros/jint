@@ -56,16 +56,16 @@ internal sealed partial class NativeCssQuery
             var initial = value.Text is "larger" or "smaller" ? 0 : InitialFontSize();
             var size = value.Text switch
             {
-                "xx-small" => initial * 3 / 5,
-                "x-small" => initial * 3 / 4,
-                "small" => initial * 8 / 9,
+                "xx-small" => ScaleFontSize(initial, 3, 5),
+                "x-small" => ScaleFontSize(initial, 3, 4),
+                "small" => ScaleFontSize(initial, 8, 9),
                 "medium" => initial,
-                "large" => initial * 6 / 5,
-                "x-large" => initial * 3 / 2,
-                "xx-large" => initial * 2,
-                "xxx-large" => initial * 3,
-                "larger" => parentSize * 1.2,
-                "smaller" => parentSize / 1.2,
+                "large" => ScaleFontSize(initial, 6, 5),
+                "x-large" => ScaleFontSize(initial, 3, 2),
+                "xx-large" => ScaleFontSize(initial, 2, 1),
+                "xxx-large" => ScaleFontSize(initial, 3, 1),
+                "larger" => ScaleFontSize(parentSize, 6, 5),
+                "smaller" => ScaleFontSize(parentSize, 5, 6),
                 _ => throw new InvalidOperationException("Unvalidated font-size keyword.")
             };
             return Number("font-size", new CssMathNumeric(size, CssNumericKind.Dimension, CssUnit.Px, value.Span));
@@ -81,6 +81,21 @@ internal sealed partial class NativeCssQuery
     }
 
     private double InitialFontSize() => Metric("font-size", _media.InitialFontSize, "initial-font-size");
+
+    // Separate binary exponents so neither multiplication nor division loses a finite
+    // representable result before the final scale. Keep zero/nonfinite math on its existing path.
+    internal static double ScaleFontSize(double value, double basis, double divisor)
+    {
+        if (value == 0 || basis == 0 || divisor == 0 ||
+            !double.IsFinite(value) || !double.IsFinite(basis) || !double.IsFinite(divisor))
+            return value * basis / divisor;
+        var valueExponent = System.Math.ILogB(value);
+        var basisExponent = System.Math.ILogB(basis);
+        var divisorExponent = System.Math.ILogB(divisor);
+        var mantissa = System.Math.ScaleB(value, -valueExponent) * System.Math.ScaleB(basis, -basisExponent)
+            / System.Math.ScaleB(divisor, -divisorExponent);
+        return System.Math.ScaleB(mantissa, valueExponent + basisExponent - divisorExponent);
+    }
 
     private double ComputedFontSize(Element element, ref SelectorMatchWork matching)
     {

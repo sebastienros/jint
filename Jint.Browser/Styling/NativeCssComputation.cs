@@ -81,7 +81,7 @@ internal sealed partial class NativeCssQuery
         if (name == "opacity" && numeric.Kind == CssNumericKind.Percentage)
             return new(numeric.Value / 100, CssNumericKind.Number, CssUnit.None, numeric.Span);
         if (name == "font-size" && numeric.Kind == CssNumericKind.Percentage)
-            return new(numeric.Value * Metric(name, percentageBasis, "parent-font-size") / 100,
+            return new(ScaleFontSize(numeric.Value, Metric(name, percentageBasis, "parent-font-size"), 100),
                 CssNumericKind.Dimension, CssUnit.Px, numeric.Span);
         if (name == "font-size" && numeric.Kind == CssNumericKind.Number && numeric.Value == 0)
             return new(0, CssNumericKind.Dimension, CssUnit.Px, numeric.Span);

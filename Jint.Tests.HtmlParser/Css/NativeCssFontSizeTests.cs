@@ -6,6 +6,7 @@ using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.HtmlParser.Css;
@@ -121,6 +122,49 @@ public sealed class NativeCssFontSizeTests
             CssEnvironmentSnapshot.Create([], work), work);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(root, "font-size", ref matching).Text.Should().Be("72px");
+    }
+
+    [TestCase("1e308%", 16d, 1.6e307)]
+    [TestCase("200%", 1e307, 2e307)]
+    [TestCase("small", 1e308, 8.888888888888889e307)]
+    public void FiniteScalingDoesNotOverflowBeforeItsRepresentableResult(string declared, double initial, double expected)
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        document.AppendChild(root);
+        var work = new CssValueWork(default);
+        var query = new NativeCssQuery(document, [], [(root, CssDeclarationBlock.Parse("font-size:" + declared))],
+            new CssMediaEnvironment { InitialFontSize = initial }, new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work);
+        var matching = new SelectorMatchWork(document, default);
+        var value = query.GetProperty(root, "font-size", ref matching).Value!;
+        CssMathNumbers.ParseFinite(value.Numeric.Number, value.Numeric.Unit, work)
+            .Should().BeApproximately(expected, expected * 1e-14);
+    }
+
+    [Test]
+    public void LargeComputedParentAndTinyPercentageScalingKeepRepresentableResults()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        var child = document.CreateElement("div");
+        document.AppendChild(root);
+        root.AppendChild(child);
+        var work = new CssValueWork(default);
+        var query = Query(document, [(root, CssDeclarationBlock.Parse("font-size:1e307px")),
+            (child, CssDeclarationBlock.Parse("font-size:200%"))], work);
+        var matching = new SelectorMatchWork(document, default);
+        var value = query.GetProperty(child, "font-size", ref matching).Value!;
+        CssMathNumbers.ParseFinite(value.Numeric.Number, value.Numeric.Unit, work)
+            .Should().BeApproximately(2e307, 2e293);
+
+        // This subnormal percentage would disappear if divided by 100 before multiplication.
+        // Check the arithmetic before the existing six-decimal CSS serialization policy.
+        var scaled = NativeCssQuery.ScaleFontSize(double.Epsilon, 1e308, 100);
+        scaled.Should().BeApproximately(4.940656458412465e-18, 1e-32);
+        NativeCssQuery.ScaleFontSize(1e-308, 1e308, 100).Should().BeApproximately(0.01, 1e-16);
+        double.IsNaN(NativeCssQuery.ScaleFontSize(0, double.PositiveInfinity, 100)).Should().BeTrue();
+        NativeCssQuery.ScaleFontSize(double.PositiveInfinity, 16, 100).Should().Be(double.PositiveInfinity);
     }
 
     [TestCase(false)]

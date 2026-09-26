@@ -26,3 +26,8 @@ CSS-wide/deferred values, cache publication counts, demand isolation and cancell
 8192 dependencies. Browser coverage observes live cascade changes while preserving specified
 CSSOM values. Two previous missing-font-size fixtures now test the still-missing zero-advance
 metric explicitly because em size is supplied by the completed cascade.
+
+Percentage and keyword scaling separate binary exponents before multiplying/dividing finite
+nonzero operands. Only the final scale may overflow or underflow; existing zero/nonfinite math
+and CSS serialization policies remain unchanged. Regressions cover large percentages, large
+computed parents and keyword bases, and subnormal percentages combined with large finite bases.
