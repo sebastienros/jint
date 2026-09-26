@@ -2,6 +2,16 @@
 
 ## Scope and workflow
 
+**Current checkpoint (September 26):** the isolated native Browser and its test project compile with
+zero warnings/errors and no production AngleSharp dependencies. The first full Browser gate failed
+279 of 3,964 cases; subsequent focused gates include **280/286 Browser**, **87/87 native query/state**,
+and **217/219 native supports/media/lexical** cases. Reviewed fixes and new feature slices continue;
+these overlapping focused results are not a new full-suite total. The benchmark project compiles,
+but paired timing and speedup acceptance remain outstanding. Routine builds/tests use Release/net10;
+all supported TFMs are deferred to the final gate. Common integration and exact current evidence are
+tracked in [the resume checkpoint](html-parser-resume.md). The chronological entries below describe
+earlier states, including compile failures that have since been fixed. No PRs.
+
 **User resumed the full replacement on September 25.** Eight implementation owners now cover Browser
 bindings/runtime, Events and accessibility, native CSS sheets/media, select/option state, input text
 state, input numeric algorithms, CSS layout properties, and contextual HTML fragments. The first new binding pass reduced Browser build errors

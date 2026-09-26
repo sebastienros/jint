@@ -84,13 +84,44 @@ resource-only cache coverage, and separately reviewed legacy literals remain. Na
 state-selector / work gate passes **33/35**, with two new fixture-initialization assumptions under repair;
 all factory scaling/cancellation cases pass (`/private/tmp/native-queryfactory-elementstate-net10-test.log`).
 
+Subsequent isolated gates supersede those focused failure inventories:
+
+- Native query factory, selector state and font weight: **87/87 passed** at `40ff526e9`
+  (`/private/tmp/native-queryfactory-state-fontweight-net10-test.log`).
+- Native supports, lexical serialization and media: **217/219 passed**, zero skipped, at `cd920e5b7`
+  (`/private/tmp/native-supports-lexical-media-net10-test.log`). The two new lexical fixtures used invalid
+  declaration inputs. Reviewed test repair `715d4762c` preserves exact token-boundary assertions with
+  valid function-contained delimiters; its rerun is pending.
+- Browser supports, media, reflection, collection counts, loaded stylesheet moves and geometry:
+  **280/286 passed**, zero skipped, at `9e1195ba2`
+  (`/private/tmp/native-browser-supports-media-reflection-count-net10-test.log`). Remaining failures
+  are font-size computation, physical padding support and explicitly reviewed SVG reflection / detached
+  document readiness expectations. The latter focused fixture gate now passes **18/18**
+  (`/private/tmp/native-browser-svg-ready-fixtures-net10-test.log`).
+- The internal healthy task-start hook passes **16/16** focused core cases and **3/3** public automatic
+  task-drain cases, net10 (`/private/tmp/native-core-task-start-net10-test.log`,
+  `/private/tmp/native-core-public-automatic-net10-test.log`). An additional original-unwind regression
+  is source-clear; its net10 rerun remains pending. Browser recovery wiring is separate.
+
+Native META capture through `a79485ce4` is now source-clear, including preallocated failed-prefix
+publication, textarea invalidation and deferred cross-document Range targets; focused tests are running
+in the isolated integration checkout. Native host-fact wiring through `79438c221` is source-clear;
+ordinary candidates share document witnesses rather than accumulating quadratic observations. Browser
+file-history reconciliation must finish before seed capture and retain its cursor across cancellation;
+the producer and DOM/CSS consumers remain unfinished. Font-size finite scaling is source-clear through
+`7f180d98a`. Physical spacing, individual transforms and passive keyframes have separate owners.
+
+The benchmark project freshly compiles with zero warnings/errors at `1e6049eda`
+(`/private/tmp/native-benchmark-build.log`). AngleSharp dependencies are explicit benchmark-only
+references; no timing comparison has run. These isolated results do not replace the failed full Browser
+gate, common-worktree validation or final all-framework/API/package checks.
+
 Engine-free CSS registration (`72d88eda1` + `ec7e37fcc`) is source-clear and integrated in isolated
 Browser: verified-root association avoids repeated ancestor walks; deep-style scaling is tested.
-Custom-property lexical serialization (`5e7313c21`) is under review. Native META capture (`e04b78bf6`)
-needs failed-prefix textarea invalidation, failure-aware range scheduling, and truly preallocated
-failure publication before integration. Browser delivery remains in progress. Typography/media and
-host control facts have dedicated implementation owners. No full Browser, final framework, or speedup
-acceptance yet.
+Custom-property lexical serialization (`5e7313c21` + `324533eda`) is source-clear and integrated.
+The native META blockers described above are repaired; Browser delivery remains in progress.
+Typography/media and host control facts have dedicated implementation owners. No full Browser,
+final framework, or speedup acceptance yet.
 
 Native two-phase mutation notifications and frozen attribute values pass **15/15** focused fresh
 Release net10 tests at isolated `39e027033`, zero failures/skips
@@ -150,6 +181,8 @@ Current owners:
 | Browser demand-driven CSS cascade and style consumers | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
 | Native CSS nesting and demand-driven selector state/fact contracts | `01a0dcba-a79a-78c3-bf32-08d08a406acb` | `cc99` |
 | Native CSS supports grouping model and bindings | `01a0dcf9-5974-7d13-9ebf-e82b0d4ebf40` | `2187` |
+| Native individual transforms and Browser computation | `01a0dd07-2a1f-7d82-860e-46276a70de8a` | `529a` |
+| Native passive classic keyframes and CSSOM bindings | `01a0dd0d-ea51-7291-a2e6-4e0c5addd14a` | `280c` |
 | Browser-only task-drain deferral (common verified, chat archived) | `01a0dccf-f06a-7fc0-8b93-34b98f3e110e` | `6711`, retained without managed archive identity |
 | Native select/option state (complete, chat archived) | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
 | Lazy input/value/checkedness producers (complete, chat archived) | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
