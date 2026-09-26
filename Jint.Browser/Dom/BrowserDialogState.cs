@@ -62,8 +62,10 @@ internal sealed class BrowserDialogState
         if (open) FocusController.Focus(realm, control);
     }
 
+#pragma warning disable CA1822 // Keep the unsupported operation on the concrete dialog receiver API.
     internal JsValue ShowModal(DomRealm realm)
         => DomFailures.Refuse(realm, "HTMLDialogElement.showModal", "NotSupportedError", "Modal dialogs are not available.");
+#pragma warning restore CA1822
 
     internal void Close(DomRealm realm, string? result = null, DomReadWork? work = null)
     {

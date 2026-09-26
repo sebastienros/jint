@@ -40,14 +40,14 @@ internal sealed partial class BrowserMediaState
         }
         catch (MediaSourceException)
         {
-            operation?.DisposeToken();
+            operation?.Dispose();
             operation = null;
             request = null;
             invalidSource = true;
         }
         catch
         {
-            operation?.DisposeToken();
+            operation?.Dispose();
             throw;
         }
 
@@ -76,7 +76,8 @@ internal sealed partial class BrowserMediaState
         // callbacks cancel transport; they never run script, fetch, or inspect a DOM tree.
         var subscription = owner.ObserveMutations(_element, new MutationObserverOptions
         {
-            Attributes = true, AttributeFilter = ["src"],
+            Attributes = true,
+            AttributeFilter = ["src"],
             ChildList = !ReferenceEquals(selection.Element, _element),
             Subtree = !ReferenceEquals(selection.Element, _element)
         });
@@ -90,7 +91,7 @@ internal sealed partial class BrowserMediaState
         {
             subscription.Dispose();
             if (cancel) operation.Cancel();
-            operation.DisposeToken();
+            operation.Dispose();
             engine.Disposed -= disposed;
         }
         disposed = (_, _) => Release(cancel: true);
@@ -158,7 +159,7 @@ internal sealed partial class BrowserMediaState
         }
         finally
         {
-            operation.DisposeToken();
+            operation.Dispose();
         }
         parser.TryPostResourceCompletion(() => complete(error));
     }
@@ -203,7 +204,7 @@ internal sealed partial class BrowserMediaState
         realm.Engine.Constraints.Check();
     }
 
-    private sealed class LoadOperation
+    private sealed class LoadOperation : IDisposable
     {
         private readonly object _gate = new();
         private CancellationTokenSource? _cancellation = new();
@@ -219,13 +220,14 @@ internal sealed partial class BrowserMediaState
                 _cancellation?.Cancel();
             }
         }
-        internal void DisposeToken()
+        public void Dispose()
         {
             lock (_gate)
             {
                 _cancellation?.Dispose();
                 _cancellation = null;
             }
+            GC.SuppressFinalize(this);
         }
     }
 
