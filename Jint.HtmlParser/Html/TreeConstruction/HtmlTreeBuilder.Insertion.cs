@@ -29,25 +29,31 @@ internal sealed partial class HtmlTreeBuilder
             if (templateIndex > tableIndex)
             {
                 var template = _open[templateIndex];
-                return new InsertionLocation(template.TemplateContent ??
-                    throw new InvalidOperationException("HTML template has no contents."), null);
+                return AdjustTemplateLocation(new InsertionLocation(template, null));
             }
             if (tableIndex < 0)
-                return new InsertionLocation(AdjustTemplateTarget(_open[0]), null);
+                return AdjustTemplateLocation(new InsertionLocation(_open[0], null));
 
             var table = _open[tableIndex];
             if (table.ParentNode is { } parent)
                 return new InsertionLocation(parent, table);
             if (tableIndex > 0)
-                return new InsertionLocation(AdjustTemplateTarget(_open[tableIndex - 1]), null);
-            return new InsertionLocation(AdjustTemplateTarget(_open[0]), null);
+                return AdjustTemplateLocation(new InsertionLocation(_open[tableIndex - 1], null));
+            return AdjustTemplateLocation(new InsertionLocation(_open[0], null));
         }
 
-        return new InsertionLocation(AdjustTemplateTarget(target), null);
+        return AdjustTemplateLocation(new InsertionLocation(target, null));
     }
 
-    private static Node AdjustTemplateTarget(Node target) =>
-        target is Element { TemplateContent: { } contents } ? contents : target;
+    private static InsertionLocation AdjustTemplateLocation(InsertionLocation location)
+    {
+        if (location.Parent is not Element { TemplateContent: { } contents } template) return location;
+        if (template.TemplatePatchState is not { } patch) return new InsertionLocation(contents, null);
+        return new InsertionLocation(patch.InsertionTarget,
+            patch.EndMarker is { } end && ReferenceEquals(end.ParentNode, patch.InsertionTarget) ? end : null);
+    }
+
+    private static Node AdjustTemplateTarget(Node target) => AdjustTemplateLocation(new InsertionLocation(target, null)).Parent;
 
     private void InsertAt(InsertionLocation location, Node node)
     {

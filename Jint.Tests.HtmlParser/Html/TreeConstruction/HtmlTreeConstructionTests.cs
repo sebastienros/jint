@@ -52,16 +52,12 @@ public partial class HtmlTreeConstructionTests
         ((ProcessingInstruction) document.DocumentElement.LastChild!.FirstChild!).Target.Should().Be("InBody");
     }
 
-    [TestCase("<template for=target>", "Templates", "<html><head></head></html>")]
-    public void UnsupportedBranchStopsBeforeItsMutation(string source, string family, string priorTree)
+    [Test]
+    public void MissingPatchMarkersUseOrdinaryTemplateRecovery()
     {
-        var parsed = Parse(source);
-        parsed.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        parsed.Step.MissingFeature.Should().Be(Enum.Parse<HtmlMissingFeature>(family));
-        parsed.Step.Offset.Should().Be(0);
-        Serialize(parsed.Document).Should().Be(priorTree);
-        Assert.Throws<InvalidOperationException>(() => parsed.Session.Drive(1, CancellationToken.None));
-        Assert.Throws<InvalidOperationException>(() => parsed.Session.AppendInput(""));
+        var parsed = Parse("<template for=target>", 1);
+        parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        Serialize(parsed.Document).Should().Be("<html><head><template></template></head><body></body></html>");
     }
 
     [Test]

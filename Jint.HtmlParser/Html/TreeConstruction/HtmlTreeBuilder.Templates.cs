@@ -10,27 +10,38 @@ internal sealed partial class HtmlTreeBuilder
     // makes its fragment context part of IsParsingTemplateContents.
     private readonly List<Mode> _templateModes = [];
     private bool _templateHasFor;
-    private bool _templateOrdinaryShadowFallback;
+    private bool _templateHasValidShadowMode;
+    private string? _templateForValue;
+    private bool _templateDelegatesFocus;
+    private bool _templateSerializable;
+    private bool _templateClonable;
+    private bool _templateManualSlotAssignment;
+    private bool _templateKeepRegistryNull;
 
     private bool IsParsingTemplateContents => Last("template") >= 0 || _fragmentContext is { NamespaceUri: Namespaces.Html, LocalName: "template" };
 
     private void StartTemplate()
     {
-        // The document parser's allow-declarative-shadow-roots flag is false.
-        // A valid shadowrootmode therefore takes the specified ordinary return
-        // branch, even if this token also spells a `for` attribute.
-        if (_templateHasFor && !_templateOrdinaryShadowFallback)
-        {
-            Missing(HtmlMissingFeature.Templates);
-            return;
-        }
-
         PushFormattingMarker();
         _framesetOk = false;
         _mode = Mode.InTemplate;
         _templateModes.Add(Mode.InTemplate);
         Charge(1);
-        InsertTokenElement();
+        if (_templateHasValidShadowMode)
+        {
+            if (!_context.AllowDeclarativeShadowRoots || ReferenceEquals(AdjustedCurrent, _open[0]))
+            { InsertTokenElement(); return; }
+            StartDeclarativeShadowTemplate();
+            return;
+        }
+        if (!_templateHasFor) { InsertTokenElement(); return; }
+        var location = FindAdjustedInsertionLocation(_headInsertionOverride);
+        var fallbackTarget = _headInsertionOverride ?? CurrentParent;
+        var scope = location.Parent;
+        if (scope is Element { TemplateContent: { } contents }) scope = contents;
+        var template = InsertElement("template", _preparedAttributes, attributeWork: _preparedAttributeWork,
+            isValue: _preparedIsValue, onlyAddToStack: true);
+        _templateOperation = new TemplateOperation(template, scope, _templateForValue!, fallbackTarget);
     }
 
     private bool EndTemplate()
@@ -44,6 +55,11 @@ internal sealed partial class HtmlTreeBuilder
 
         if (!TryGenerateAllImpliedEndTagsThoroughly()) return false;
         if (!IsHtmlElement(Current, "template")) Error("misnested-template-end-tag");
+        if (_open[template].TemplatePatchState is { } patch)
+        {
+            _templateOperation = new TemplateOperation(_open[template], patch, template);
+            return true;
+        }
         ScheduleTemplatePop(template, reprocess: false);
         return true;
     }
