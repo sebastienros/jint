@@ -201,6 +201,9 @@ internal sealed class CssStyleSheet
             }
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
                 frames.Push((media.Rules, 0, null));
+            // Container conditions depend on the matched element/property, so retain their children cold.
+            else if (rule is CssContainerRule container)
+                frames.Push((container.Rules, 0, null));
             else if (rule is CssSupportsRule { Matches: true } supports)
                 frames.Push((supports.Rules, 0, null));
             else if (rule is CssImportRule { StyleSheet: { } child } && !child.Disabled &&

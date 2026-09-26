@@ -31,6 +31,6 @@ internal sealed class CssContainerCondition(CssContainerInstruction[] instructio
             }
         }
         work.CheckCancellation();
-        return stack[0];
+        return stack.Count == 0 ? CssMediaTruth.True : stack[0];
     }
 }
