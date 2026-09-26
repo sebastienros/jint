@@ -26,11 +26,15 @@ internal sealed class CssDeclarationBlock
     }
 
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context = CssDeclarationContext.Style,
-        CssParseOptions? options = null, CancellationToken cancellationToken = default)
+        CssParseOptions? options = null, CancellationToken cancellationToken = default) =>
+        Parse(source, context, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context,
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
         var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
         return FromDeclarations(source, syntax, context, options?.Limits.MaxNestingDepth ?? 0,
-            new CssValueWork(cancellationToken));
+            work);
     }
 
     // A sheet/rule builder shares its C1 parse and work state. No syntax editor or sheet is retained.

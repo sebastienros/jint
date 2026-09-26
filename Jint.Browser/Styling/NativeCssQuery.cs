@@ -6,6 +6,7 @@ using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Css.Values.References;
 
@@ -33,23 +34,29 @@ internal sealed partial class NativeCssQuery
     private readonly Dictionary<Element, State> _states = new();
     private readonly CssMediaEnvironment _media;
     private readonly NativeCssMetrics _metrics;
+    private readonly NativeCssSystemColors? _systemColors;
     private readonly SelectorEnvironment _selectors;
     private readonly CssEnvironmentSnapshot _environment;
     private readonly CssValueWork _work;
+    private readonly bool _readInlineAttributes;
+    private List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order)>? _rules;
 
     internal NativeCssQuery(Document document, IReadOnlyList<NativeCssSheet> sheets,
         IReadOnlyList<(Element Element, CssDeclarationBlock Block)> inline,
         CssMediaEnvironment media, in SelectorEnvironment selectors,
-        CssEnvironmentSnapshot environment, CssValueWork work, NativeCssMetrics? metrics = null)
+        CssEnvironmentSnapshot environment, CssValueWork work, NativeCssMetrics? metrics = null,
+        bool readInlineAttributes = false, NativeCssSystemColors? systemColors = null)
     {
         _document = document;
         _documentStamp = document.MutationStamp;
         _resourceStamp = NativeCssStyleSheets.Stamp(document);
         _media = media;
         _metrics = metrics ?? new NativeCssMetrics();
+        _systemColors = systemColors;
         _selectors = selectors;
         _environment = environment;
         _work = work;
+        _readInlineAttributes = readInlineAttributes;
         _sheets = new NativeCssSheet[sheets.Count];
         _sheetStamps = new CssMutationStamp[sheets.Count];
         for (var i = 0; i < sheets.Count; i++)
@@ -114,6 +121,8 @@ internal sealed partial class NativeCssQuery
                 disposition = NativeCssDisposition.InvalidAtComputedValue;
             var inherit = value is null ? metadata.Inherited : value.Kind == CssPropertyValueKind.Keyword &&
                 (value.Text == "inherit" || value.Text == "unset" && metadata.Inherited);
+            inherit |= name == "color" && value is { Kind: CssPropertyValueKind.Color } &&
+                value.Color.Kind == CssColorKind.CurrentColor;
             if (inherit && current.ParentNode is Element parent)
             {
                 pending.Push((state, candidate?.Source, disposition == NativeCssDisposition.InvalidAtComputedValue
@@ -122,12 +131,14 @@ internal sealed partial class NativeCssQuery
                 current = parent;
                 continue;
             }
-            if (value is null || value.Kind == CssPropertyValueKind.Keyword && value.Text is "initial" or "inherit" or "unset")
+            if (value is null || inherit && current.ParentNode is not Element ||
+                value.Kind == CssPropertyValueKind.Keyword && value.Text is "initial" or "inherit" or "unset")
             {
                 value = CssPropertyParser.Parse(name, metadata.InitialValue).Value;
                 if (disposition != NativeCssDisposition.InvalidAtComputedValue) disposition = NativeCssDisposition.Initial;
             }
-            value = Compute(name, value);
+            value = value.Kind == CssPropertyValueKind.Color
+                ? ComputeColor(current, name, value, ref matching) : Compute(name, value);
             result = new(name, value.Serialize(), value, candidate?.Source, disposition);
             state.Computed.Add(name, result);
             break;
@@ -198,20 +209,41 @@ internal sealed partial class NativeCssQuery
         if (_states.TryGetValue(element, out var cached)) return cached;
         matching.Observe(element);
         var state = new State(element, _work);
-        long order = 0;
-        foreach (var input in _sheets)
-            foreach (var rule in input.Sheet.ApplicableStyleRules(_media, _work))
+        if (_rules is null)
+        {
+            var rules = new List<(CssStyleRule, NativeCssOrigin, long)>();
+            long order = 0;
+            foreach (var input in _sheets)
+                foreach (var rule in input.Sheet.ApplicableStyleRules(_media, _work))
+                {
+                    _work.Charge(1);
+                    rules.Add((rule, input.Origin, order++));
+                }
+            Verify();
+            _rules = rules;
+        }
+        foreach (var (rule, origin, order) in _rules)
+        {
+            _work.Charge(1);
+            if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
+            {
+                state.Matches.Add(rule);
+                Add(state, rule.Style, new(rule, rule.Style, origin, specificity, order, false));
+            }
+        }
+        if (_readInlineAttributes && !_inline.ContainsKey(element))
+            for (uint i = 0; i < (uint) element.AttributeCount; i++)
             {
                 _work.Charge(1);
-                if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
-                {
-                    state.Matches.Add(rule);
-                    Add(state, rule.Style, new(rule, rule.Style, input.Origin, specificity, order, false));
-                }
-                order++;
+                var attribute = element.GetAttributeAt(i)!;
+                if (attribute.NamespaceUri is not null || !CssSubstitutionArguments.Equals(attribute.LocalName, "style", _work)) continue;
+                var block = CssDeclarationBlock.Parse(attribute.Value, CssDeclarationContext.Style, null, _work, _work.Token);
+                Verify();
+                _inline.Add(element, (block, block.Stamp));
+                break;
             }
         if (_inline.TryGetValue(element, out var inline))
-            Add(state, inline.Block, new(null, inline.Block, NativeCssOrigin.Author, default, order, true));
+            Add(state, inline.Block, new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true));
         foreach (var candidates in state.Candidates.Values)
             candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
         matching.VerifyRead();

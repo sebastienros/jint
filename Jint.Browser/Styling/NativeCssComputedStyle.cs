@@ -17,7 +17,14 @@ internal sealed class NativeCssComputedStyle(NativeCssQuery query, Element eleme
         return "";
     }
     // CSSOM's computed flag makes cssText empty, even though individual values are readable.
-    internal string CssText => "";
+    internal string CssText
+    {
+        get
+        {
+            _matching.VerifyRead();
+            return "";
+        }
+    }
     internal int Length => Enumerate().Count;
     internal string this[int index]
     {

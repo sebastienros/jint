@@ -22,6 +22,7 @@
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.cs" Link="Styling\NativeCssQuery.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssComputation.cs" Link="Styling\NativeCssComputation.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssComputedStyle.cs" Link="Styling\NativeCssComputedStyle.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssColors.cs" Link="Styling\NativeCssColors.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.cs" Link="Styling\NativeCssStyleSheets.cs" />
     <Using Include="NUnit.Framework" />
     <Using Include="AwesomeAssertions" />

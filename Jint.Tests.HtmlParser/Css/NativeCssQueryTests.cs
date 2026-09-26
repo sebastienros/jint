@@ -5,6 +5,7 @@ using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Css.Values.References;
 
@@ -139,6 +140,8 @@ public sealed class NativeCssQueryTests
         document.AppendChild(root);
         var owner = document.CreateElement("style");
         root.AppendChild(owner);
+        var source = document.CreateTextNode("div { display:block; }");
+        owner.AppendChild(source);
         var work = new CssValueWork(default);
         NativeCssStyleSheets.Install(document, owner, "div { display:block; }",
             "https://example.test/a.css", "https://example.test/base/", work);
@@ -150,6 +153,7 @@ public sealed class NativeCssQueryTests
         var query = Query(document, sheets.ToArray());
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(root, "display", ref matching).Text.Should().Be("block");
+        source.Data = "div { display:none; }";
         NativeCssStyleSheets.Install(document, owner, "div { display:none; }",
             "https://example.test/a.css", "https://example.test/base/", work);
         Assert.Throws<InvalidOperationException>(() => query.GetProperty(root, "display", ref matching));
@@ -157,6 +161,7 @@ public sealed class NativeCssQueryTests
         sheet.Rules[0].CssText.Should().Contain("display: none");
 
         // An installation never invokes a pending property validator during HTML parsing.
+        source.Data = "div { background:red; }";
         NativeCssStyleSheets.Install(document, owner, "div { background:red; }", "", "", work);
         Assert.Throws<CssIncompleteGrammarException>(() => NativeCssStyleSheets.Get(document, work));
     }
@@ -228,6 +233,64 @@ public sealed class NativeCssQueryTests
         var query = Query(document, [], [(root, CssDeclarationBlock.Parse("visibility:hidden"))]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
+    }
+
+    [Test]
+    public void CurrentColorUsesInheritedColorAndTheElementsOwnComputedColor()
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("div");
+        var child = document.CreateElement("span");
+        parent.AppendChild(child);
+        var sheet = CssStyleSheet.Parse("div { color:red; } span { color:currentColor; background-color:currentColor; }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(child, "color", ref matching).Text.Should().Be("rgb(255, 0, 0)");
+        query.GetProperty(child, "background-color", ref matching).Text.Should().Be("rgb(255, 0, 0)");
+        query.GetProperty(parent, "background-color", ref matching).Text.Should().Be("rgba(0, 0, 0, 0)");
+    }
+
+    [Test]
+    public void SystemColorsUseOnlyAnExplicitImmutablePalette()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var matching = new SelectorMatchWork(document, default);
+        var query = Query(document, []);
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "color", ref matching))!
+            .Blocker.Should().Be("C6:system-color:canvastext");
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("inline");
+        var work = new CssValueWork(default);
+        var blue = CssColorParser.Parse(CssReferenceInput.Parse("blue", null, default).Components, 0, work).Value;
+        var palette = NativeCssSystemColors.Create([("canvastext", blue)], work);
+        query = new(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, systemColors: palette);
+        query.GetProperty(target, "color", ref matching).Text.Should().Be("rgb(0, 0, 255)");
+    }
+
+    [Test]
+    public void InlineSheetDemandReconcilesNativeTextWithoutReplacingFetchedLinkSource()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("div");
+        document.AppendChild(root);
+        var owner = document.CreateElement("style");
+        var source = document.CreateTextNode("div { display:block; }");
+        owner.AppendChild(source);
+        root.AppendChild(owner);
+        var link = document.CreateElement("link");
+        root.AppendChild(link);
+        var work = new CssValueWork(default);
+        NativeCssStyleSheets.Install(document, link, "div { opacity:.5; }", "https://example.test/a.css", "", work);
+        var sheets = NativeCssStyleSheets.Get(document, work);
+        var inline = sheets[0].Sheet;
+        var fetched = sheets[1].Sheet;
+        source.Data = "div { display:none; }";
+        sheets = NativeCssStyleSheets.Get(document, work);
+        sheets[0].Sheet.Should().BeSameAs(inline);
+        ((CssStyleRule) inline.Rules[0]).Style.GetPropertyValue("display").Should().Be("none");
+        sheets[1].Sheet.Should().BeSameAs(fetched);
+        ((CssStyleRule) fetched.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.5");
     }
 
     private static NativeCssQuery Query(Document document, NativeCssSheet[] sheets,
