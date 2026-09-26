@@ -273,6 +273,7 @@ internal static partial class NativeCssStyleSheets
     }
     internal sealed class Resource(string source, CssStyleSheetAttachment attachment)
     {
+        internal ulong SourceGeneration;
         internal string Source = source;
         internal CssStyleSheetAttachment Attachment = attachment;
         internal CssStyleSheet? Sheet;

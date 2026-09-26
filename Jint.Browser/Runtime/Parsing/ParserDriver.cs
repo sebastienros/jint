@@ -41,6 +41,9 @@ internal sealed partial class ParserDriver : IDisposable
     private TaskCompletionSource? _resourceEventsCompleted;
     private Queue<(Element Element, string Type, bool AfterParse, Func<bool>? IsCurrent)>? _deferredResourceEvents;
 
+    // A supplied position can have an opaque (null) origin; omitted position uses the page default.
+    private readonly record struct FetchSource(UrlRecord? Referrer, UrlRecord? Origin);
+
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
         _runtime = runtime;
@@ -242,13 +245,21 @@ internal sealed partial class ParserDriver : IDisposable
             return;
         }
 
-        if (_pendingResourceEvents++ == 0)
-        {
-            _resourceEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        }
+        BeginResourceDelay();
 
         // The processor assigns link.Sheet after the styling service returns, before the next hand-off.
         _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse, isCurrent));
+    }
+
+    private void BeginResourceDelay()
+    {
+        if (_pendingResourceEvents++ == 0)
+            _resourceEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private void EndResourceDelay()
+    {
+        if (--_pendingResourceEvents == 0) _resourceEventsCompleted!.TrySetResult();
     }
 
     private void DeliverResourceEvent(Element element, string type, bool afterParse, Func<bool>? isCurrent)
@@ -278,10 +289,7 @@ internal sealed partial class ParserDriver : IDisposable
         }
         finally
         {
-            if (--_pendingResourceEvents == 0)
-            {
-                _resourceEventsCompleted!.TrySetResult();
-            }
+            EndResourceDelay();
         }
     }
 
@@ -482,7 +490,8 @@ internal sealed partial class ParserDriver : IDisposable
         string what,
         PageRequestKind kind,
         bool mayPump,
-        Action<string>? onFailure = null)
+        Action<string>? onFailure = null,
+        FetchSource? fetchSource = null)
     {
         void Failed(string message)
         {
@@ -513,10 +522,11 @@ internal sealed partial class ParserDriver : IDisposable
         // derives the `Origin` header from it, never the path. `DocumentFetch` and `fetch()` pass the same
         // shape for the same reason.
         var documentUrl = UrlParser.Parse(_runtime.DocumentUrl);
+        var position = fetchSource ?? new FetchSource(documentUrl, documentUrl);
         var request = new SubresourceRequest(
             target,
-            documentUrl,
-            documentUrl,
+            position.Referrer,
+            position.Origin,
             _maxBytes,
             _maxRedirects,
             RequestInitiator.Subresource,

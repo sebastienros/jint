@@ -97,6 +97,7 @@ internal static partial class NativeCssStyleSheets
         resource.Disabled = false;
         resource.Loaded = false;
         resource.Replaced = false;
+        CssMutationStamp.Advance(ref resource.SourceGeneration);
         Jint.HtmlParser.Css.Model.Syntax.CssMutationStamp.Advance(ref resources.Version);
     }
 
