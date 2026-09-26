@@ -1,17 +1,21 @@
 namespace Jint.HtmlParser;
 
-/// <summary>Internal grammar context, limits and diagnostics for an HTML parse session.</summary>
-internal sealed class HtmlParseOptions
+/// <summary>Grammar context, resource limits and diagnostics for an inert HTML parse.</summary>
+public sealed class HtmlParseOptions
 {
     private ParseLimits _limits = ParseLimits.Unbounded;
 
-    internal bool ScriptingEnabled { get; init; }
+    /// <summary>Enables scripting-dependent grammar without executing scripts.</summary>
+    public bool ScriptingEnabled { get; init; }
 
-    internal ParseLimits Limits
+    /// <summary>Input, token and nesting bounds. Zero values disable individual bounds.</summary>
+    public ParseLimits Limits
     {
         get => _limits;
         init => _limits = value ?? throw new ArgumentNullException(nameof(value));
     }
 
-    internal ParseDiagnosticCollector? Diagnostics { get; init; }
+    /// <summary>Optional collector for recoverable HTML parse errors.</summary>
+    public ParseDiagnosticCollector? Diagnostics { get; init; }
+
 }

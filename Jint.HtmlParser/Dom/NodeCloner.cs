@@ -27,7 +27,7 @@ internal static class NodeCloner
                 pending.Push(frame);
                 var owner = frame.Copy as Document ?? frame.Copy.OwnerDocument!;
                 var copy = CopySingle(child, owner, frame.FallbackRegistry, cancellationToken);
-                frame.Copy.AppendClonedChild(copy);
+                frame.Copy.AppendClonedChild(copy, cancellationToken);
                 pending.Push(new Frame(child, copy, true, frame.FallbackRegistry));
                 continue;
             }
@@ -102,9 +102,7 @@ internal static class NodeCloner
                 element.CopyAttributesFrom(original, document, cancellationToken);
                 HtmlCheckednessAlgorithms.CopyCheckedness(original, element, cancellationToken);
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "option" })
-                    element.GetHtmlState()!.GetOptionState(cancellationToken)!.CopyFrom(original.GetHtmlState()!.GetOptionState(cancellationToken)!);
-                if (original is { NamespaceUri: Namespaces.Html, LocalName: "select" })
-                    element.GetHtmlState()!.GetSelectState(cancellationToken);
+                    element.GetOptionCore(cancellationToken).CopyFrom(original.GetOptionCore(cancellationToken));
                 if (original.ExistingInputValueState is { } inputValue)
                 {
                     // Charge the cold state boundary independently of the preceding

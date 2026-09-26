@@ -15,6 +15,7 @@ internal static class Program
             var parserAssembly = typeof(Document).Assembly;
             Require(parserAssembly.GetName().Name == "Jint.HtmlParser", "The parser package assembly was not loaded.");
 
+            CheckHtml();
             CheckXmlAndSvg();
             CheckNotationSurface();
             CheckFragmentOwnership();
@@ -27,6 +28,74 @@ internal static class Program
             Console.Error.WriteLine(error);
             return 1;
         }
+    }
+
+    private static void CheckHtml()
+    {
+        var options = new HtmlParseOptions();
+        Require(!options.ScriptingEnabled && ReferenceEquals(options.Limits, ParseLimits.Unbounded) &&
+            options.Diagnostics is null, "HTML option defaults changed.");
+        var empty = MarkupParser.ParseHtml("");
+        Require(empty.Kind == DocumentKind.Html && empty.ContentType == "text/html" &&
+            empty.DocumentElement?.LocalName == "html" && empty.DocumentElement.ChildCount == 2,
+            "Empty HTML did not create implied structure.");
+        var diagnostics = new ParseDiagnosticCollector(1);
+        var recovered = MarkupParser.ParseHtml("<p>one<p>two</unexpected></unexpected>", new() { Diagnostics = diagnostics });
+        Require(recovered.DocumentElement?.LastChild?.ChildCount == 2 &&
+            diagnostics.Items.Count == 1 && diagnostics.IsTruncated, "HTML recovery/diagnostic bound failed.");
+        var owner = Document.CreateHtml();
+        var context = owner.CreateElement("table");
+        var old = owner.CreateComment("unchanged");
+        context.AppendChild(old);
+        var fragment = MarkupParser.ParseHtmlFragment("<tr><td>x", context);
+        Require(ReferenceEquals(fragment.OwnerDocument, owner) && fragment.ParentNode is null &&
+            fragment.FirstChild is Element { LocalName: "tbody" } &&
+            ReferenceEquals(fragment.FirstChild.OwnerDocument, owner) && ReferenceEquals(context.FirstChild, old),
+            "Contextual HTML fragment ownership or recovery failed.");
+        var svg = owner.CreateElementNS(Namespaces.Svg, "svg");
+        Require(MarkupParser.ParseHtmlFragment("<circle/>", svg).FirstChild is Element { NamespaceUri: Namespaces.Svg },
+            "Foreign HTML fragment failed.");
+        var template = owner.CreateElement("template");
+        var templateFragment = MarkupParser.ParseHtmlFragment("<p>x", template);
+        Require(ReferenceEquals(templateFragment.OwnerDocument, owner) && template.TemplateContent?.ChildCount == 0,
+            "Public template context changed the result owner or existing content.");
+        foreach (var scripting in new[] { false, true })
+        {
+            var document = MarkupParser.ParseHtml("<script>throw 1</script><div><template shadowrootmode=open>x</template></div>",
+                new() { ScriptingEnabled = scripting });
+            Require(document.DocumentElement?.FirstChild?.FirstChild?.FirstChild is Text { Data: "throw 1" } &&
+                document.DocumentElement.LastChild?.FirstChild?.FirstChild is Element { LocalName: "template" },
+                "Public HTML changed script inertness or declarative-shadow permission.");
+        }
+        MarkupParser.ParseHtml("<br>", new() { Limits = new() { MaxInputCharacters = 4, MaxTokenCharacters = 4, MaxNestingDepth = 3 } });
+        foreach (var (limits, kind) in new[]
+        {
+            (new ParseLimits { MaxInputCharacters = 3 }, ParseLimitKind.InputCharacters),
+            (new ParseLimits { MaxTokenCharacters = 3 }, ParseLimitKind.TokenCharacters),
+            (new ParseLimits { MaxNestingDepth = 2 }, ParseLimitKind.NestingDepth)
+        })
+        {
+            try
+            {
+                MarkupParser.ParseHtml("<br>", new() { Limits = limits });
+                throw new InvalidOperationException("HTML exceeded its configured bound.");
+            }
+            catch (ParseLimitException error) { Require(error.Kind == kind, "HTML limit taxonomy changed."); }
+        }
+        using var cancellation = new System.Threading.CancellationTokenSource();
+        cancellation.Cancel();
+        try
+        {
+            MarkupParser.ParseHtml("", cancellationToken: cancellation.Token);
+            throw new InvalidOperationException("HTML ignored pre-cancellation.");
+        }
+        catch (OperationCanceledException) { }
+        try
+        {
+            MarkupParser.ParseHtmlFragment("", context, cancellationToken: cancellation.Token);
+            throw new InvalidOperationException("HTML fragment ignored pre-cancellation.");
+        }
+        catch (OperationCanceledException) { }
     }
 
     private static void CheckNotationSurface()

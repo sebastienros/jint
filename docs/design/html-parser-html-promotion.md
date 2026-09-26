@@ -11,17 +11,13 @@ detached fragment belonging to the supplied context's owner document. It never r
 context's children. Browser's internal fragment factory supplies a different actual target for
 template contents or shadow roots when its calling algorithm requires one.
 
-Promoted `HtmlParseOptions` contains `ScriptingEnabled` (false), shared `Limits` (Unbounded), optional
-`Diagnostics`, and HTML-specific `MaxCreatedNodes` (nonnegative, zero unbounded). The creation cap
-does not belong to generic `ParseLimits`, since other public parsers must not silently ignore it.
-The shared exception taxonomy may include `ParseLimitKind.CreatedNodes`.
-
-The cap counts actual parser node allocations before creation, including documents, result and
-template fragments, synthetic/implied/explicit/reconstructed elements, text, comments, PIs,
-doctypes, attributes and declarative shadow roots. Existing host/context nodes are excluded;
-movement/removal does not refund the count. This is separate from Browser's finished-document
-`MaxDomNodes` and wrapper bounds. Limit/cancellation failure terminates the parser; it does not
-promise rollback of already committed native mutations.
+Promoted `HtmlParseOptions` contains `ScriptingEnabled` (false), shared `Limits` (Unbounded), and
+optional `Diagnostics`. A creation cap is deferred: native select mutations and selectedcontent
+cloning can allocate nodes inside coherent DOM commits, so a counter around builder factories
+would not bound actual parser-caused creation. Adding exact per-invocation allocation plumbing is
+separate work; this promotion adds neither `MaxCreatedNodes` nor a new generic limit kind.
+Existing lexical limits and cancellation remain exact. Browser's `MaxDomNodes` continues to have
+its existing finished-document semantics. Failure does not roll back committed native mutations.
 
 BaseUrl is deliberately omitted from this first promotion. Real document URL metadata and WHATWG
 resolution remain owned by the Browser integration; no dormant string option or System.Uri
@@ -68,8 +64,7 @@ and cancellable. An existing coherent native DOM mutation is an atomic commit bo
 exceed the cooperative Drive quantum, with cancellation observed before and after the commit.
 The parser does not poll or yield halfway through range/iterator/slot/form/observer repair, promise
 a latency ceiling, or invent a per-descendant cost for opaque native work. Parser WorkCount
-counts the commit boundary only; it excludes that opaque internal mutation cost. Input and
-creation limits do not make atomic native mutations preemptible.
+counts the commit boundary only; it excludes that opaque internal mutation cost. Lexical limits do not make atomic native mutations preemptible.
 
 Any exception escaping that boundary terminates the session and preserves the original exception
 identity. A post-commit cancellation or throwing native notification leaves a coherent DOM and
