@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Events;
 
 namespace Jint.Tests.Browser.Events;
@@ -95,12 +96,12 @@ internal static class BrowserTestAccess
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = Jint.Browser.Runtime.PageRuntime.Find(engine);
-            var element = runtime?.Document?.GetElementById(elementId);
-
-            if (element is null || runtime is null)
+            if (runtime is null)
             {
                 return false;
             }
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document, elementId);
+            if (element is null) return false;
 
             InputDispatcher.DispatchClick(runtime.Dom.WrapNode(element), ClickOptions.At(0, 0));
             return true;

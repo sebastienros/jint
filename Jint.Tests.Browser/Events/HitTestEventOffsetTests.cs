@@ -1,6 +1,7 @@
 #nullable enable
 
 using Jint.Browser.Events;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Events;
@@ -31,7 +32,7 @@ public sealed class HitTestEventOffsetTests
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var target = runtime.Document!.GetElementById("target")!;
+            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document, "target")!;
             var box = runtime.Layout.Current().ClientBoxOf(target)!.Value;
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
                 MouseInputKind.Moved, box.X + 7, box.Y + 3, 0, 0, 1, EventModifiers.None, 0, 0));
@@ -72,7 +73,7 @@ public sealed class HitTestEventOffsetTests
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var target = runtime.Document!.GetElementById("target")!;
+            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document, "target")!;
             var box = runtime.Layout.Current().ClientBoxOf(target)!.Value;
             var kind = type switch
             {
