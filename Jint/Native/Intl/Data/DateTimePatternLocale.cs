@@ -34,12 +34,23 @@ internal sealed class DateTimePatternLocale
 
     private readonly string[] _slots;
     private readonly DateTimeSkeletonPattern[] _availableFormats;
+    private readonly DateTimeSkeletonPattern[] _ownFormats;
 
-    internal DateTimePatternLocale(string locale, string[] slots, DateTimeSkeletonPattern[] availableFormats)
+    /// <param name="locale">The CLDR locale.</param>
+    /// <param name="slots">Every slot, resolved.</param>
+    /// <param name="availableFormats">Every availableFormats entry, resolved, in ordinal order of the skeleton.</param>
+    /// <param name="parent">The locale's CLDR parent, or <see langword="null"/> for the root.</param>
+    /// <param name="ownFormats">
+    /// The entries the locale holds itself, in ordinal order of the skeleton: new, or different from its parent's.
+    /// For the root, every entry.
+    /// </param>
+    internal DateTimePatternLocale(string locale, string[] slots, DateTimeSkeletonPattern[] availableFormats, DateTimePatternLocale? parent, DateTimeSkeletonPattern[] ownFormats)
     {
         Locale = locale;
         _slots = slots;
         _availableFormats = availableFormats;
+        Parent = parent;
+        _ownFormats = ownFormats;
     }
 
     /// <summary>
@@ -48,10 +59,25 @@ internal sealed class DateTimePatternLocale
     internal string Locale { get; }
 
     /// <summary>
+    /// The locale this one inherits from under CLDR's parent-locale rules, or <see langword="null"/> for the root.
+    /// </summary>
+    internal DateTimePatternLocale? Parent { get; }
+
+    /// <summary>
     /// The <c>availableFormats</c> skeletons and their patterns, in ordinal order of the skeleton, without the
     /// skeletons with a quarter or week field and without CLDR's <c>-count-</c> and <c>-alt-</c> variants.
     /// </summary>
     internal ReadOnlySpan<DateTimeSkeletonPattern> AvailableFormats => _availableFormats;
+
+    /// <summary>
+    /// The <c>availableFormats</c> entries this locale holds itself rather than inherits — new, or different from
+    /// its <see cref="Parent"/>'s — in ordinal order of the skeleton; for the root, all of them.
+    /// </summary>
+    /// <remarks>
+    /// ICU adds a locale's own entries before its parent's, and its format matcher gives a tie to whichever it added
+    /// first, so the order a locale's entries were inherited in is part of what it formats with.
+    /// </remarks>
+    internal ReadOnlySpan<DateTimeSkeletonPattern> OwnFormats => _ownFormats;
 
     internal bool TryGetAvailableFormat(string skeleton, [NotNullWhen(true)] out string? pattern)
     {
@@ -149,7 +175,7 @@ internal sealed class DateTimePatternLocale
             slots[record.SlotIndexes[i]] = record.SlotValues[i];
         }
 
-        return new DateTimePatternLocale(locale, slots, Merge(_availableFormats, record.SetFormats, record.RemovedSkeletons));
+        return new DateTimePatternLocale(locale, slots, Merge(_availableFormats, record.SetFormats, record.RemovedSkeletons), this, record.SetFormats);
     }
 
     /// <summary>
