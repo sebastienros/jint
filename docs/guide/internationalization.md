@@ -49,15 +49,18 @@ does: the locale's `availableFormats` pattern nearest the request, fields it lac
 date and a time joined with `dateTimeFormats` ("at", "um", "à"), and CLDR's month, weekday, era and am/pm names in the
 context the pattern asks for. So `de` writes `Sa., 24. Dezember` and `ja` writes `12月24日(土)`, as V8 does, on every
 platform, and `resolvedOptions()` reports the fields of the pattern chosen. `formatMatcher: 'basic'` is answered the
-same way. The data is one deflated block per language (about 150 KB in the assembly), and only the languages a
-process formats in are inflated.
+same way. `formatRange()` and `formatRangeToParts()` write such a bag with CLDR's `intervalFormats`, as ICU's
+`DateIntervalFormat` does: `en` writes `Dec 24 – 27`, `de` `24.–27. Dez.`, `ja` `12/24～12/27`, with each part's
+`source` as the specification defines it. The data is one deflated block per language (about 210 KB in the
+assembly), and only the languages a process formats in are inflated.
 
 The patterns are not replaceable. The names are: a CLDR provider's `GetMonthNames`, `GetWeekdayNames`, `GetEraNames`
 or `GetDayPeriods` answer takes the place of CLDR's, in both the format and stand-alone contexts, where it differs
 from `DefaultCldrProvider.Instance`'s answer for the same arguments — so a provider that derives from
-`DefaultCldrProvider`, or delegates to it, without touching the names leaves CLDR's in place. `dateStyle`,
-`timeStyle` and `formatRange`'s collapsing, and the Chinese and Dangi calendars, still write .NET's patterns and
-names, and the other non-Gregorian calendars are written in the Gregorian patterns; those move onto CLDR in later
-steps of [#4158](https://github.com/sebastienros/jint/issues/4158).
+`DefaultCldrProvider`, or delegates to it, without touching the names leaves CLDR's in place, in a range as in a single
+date. `dateStyle` and `timeStyle` (and their ranges, which still drop the shared prefix and suffix of two whole dates),
+and the Chinese and Dangi calendars, still write .NET's patterns and names, and the other non-Gregorian calendars are
+written in the Gregorian patterns; those move onto CLDR in later steps of
+[#4158](https://github.com/sebastienros/jint/issues/4158).
 
 Choose providers before engine construction; the `Options` instance is frozen when an engine consumes it.
