@@ -288,7 +288,9 @@ public class ParsingLimitTests
             entered.Set();
             release.Wait(TimeSpan.FromSeconds(10));
         }));
-        var running = Task.Run(() => shadowRealm.Evaluate("block()"));
+        // A dedicated thread rather than the pool: the assertion below waits a fixed time for this to start, and on a
+        // loaded two-core CI runner the pool can take longer than that to inject a thread for a Task.Run.
+        var running = Task.Factory.StartNew(() => shadowRealm.Evaluate("block()"), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
         try
