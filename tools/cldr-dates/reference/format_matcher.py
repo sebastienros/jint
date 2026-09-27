@@ -331,7 +331,7 @@ def get_best_raw(ld, req, include_mask):
     return best
 
 
-def adjust_field_types(pattern, req, specified, fix_fractional=False, decimal='.'):
+def adjust_field_types(pattern, req, specified, fix_fractional=False, decimal='.', match_hour=True):
     out = []
     for tok in tokenize(pattern):
         if tok[0] == 'lit':
@@ -353,8 +353,8 @@ def adjust_field_types(pattern, req, specified, fix_fractional=False, decimal='.
         if rc == 'E' and rl < 3:
             rl = 3
         adj = rl
-        if f in (MINUTE, SECOND):
-            adj = ln   # V8 passes UDATPG_MATCH_HOUR_FIELD_LENGTH only
+        if f in (MINUTE, SECOND) or (f == HOUR and not match_hour):
+            adj = ln   # V8 passes UDATPG_MATCH_HOUR_FIELD_LENGTH only; ICU's own callers pass no option at all
         elif specified is not None and rc not in 'ce' and f in specified.orig:
             sl = specified.orig[f][1]
             pat_numeric = row[2] > 0
@@ -366,16 +366,16 @@ def adjust_field_types(pattern, req, specified, fix_fractional=False, decimal='.
     return ''.join(out)
 
 
-def get_best_appending(ld, req, missing_fields, decimal):
+def get_best_appending(ld, req, missing_fields, decimal, match_hour=True):
     if missing_fields == 0:
         return ''
     d, missing, extra, sk, pattern = get_best_raw(ld, req, missing_fields)
-    result = adjust_field_types(pattern, req, sk, decimal=decimal)
+    result = adjust_field_types(pattern, req, sk, decimal=decimal, match_hour=match_hour)
     if missing == 0 and extra == 0:
         return result
     frac = (1 << SECOND) | (1 << FRACSEC)
     if (missing & frac) == (1 << FRACSEC) and (missing_fields & frac) == frac:
-        result = adjust_field_types(pattern, req, sk, fix_fractional=True, decimal=decimal)
+        result = adjust_field_types(pattern, req, sk, fix_fractional=True, decimal=decimal, match_hour=match_hour)
         missing &= ~(1 << FRACSEC)
     guard = 0
     while missing:
@@ -384,7 +384,7 @@ def get_best_appending(ld, req, missing_fields, decimal):
             break
         start = missing
         d2, missing2, extra2, sk2, pattern2 = get_best_raw(ld, req, missing)
-        temp = adjust_field_types(pattern2, req, sk2, decimal=decimal)
+        temp = adjust_field_types(pattern2, req, sk2, decimal=decimal, match_hour=match_hour)
         found = start & ~missing2
         if found == 0:
             break
@@ -397,14 +397,15 @@ def get_best_appending(ld, req, missing_fields, decimal):
     return result
 
 
-def best_pattern(ld, skeleton_text, decimal='.'):
+def best_pattern(ld, skeleton_text, decimal='.', match_hour=True):
+    """getBestPattern; match_hour=False is ICU's default options (DateFormat::getBestPattern), True V8's."""
     req = Skeleton(skeleton_text)
     d, missing, extra, sk, pattern = get_best_raw(ld, req, -1)
     if missing == 0 and extra == 0:
-        return adjust_field_types(pattern, req, sk, decimal=decimal)
+        return adjust_field_types(pattern, req, sk, decimal=decimal, match_hour=match_hour)
     needed = req.mask()
-    date = get_best_appending(ld, req, needed & DATE_MASK, decimal)
-    time = get_best_appending(ld, req, needed & TIME_MASK, decimal)
+    date = get_best_appending(ld, req, needed & DATE_MASK, decimal, match_hour)
+    time = get_best_appending(ld, req, needed & TIME_MASK, decimal, match_hour)
     if not date:
         return time
     if not time:
