@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Text;
 using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.Temporal;
@@ -542,7 +543,8 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             return EpochNanosecondsToDateTime(instant.EpochNanoseconds);
         }
 
-        return ToDateTimeForRange(formattable);
+        // A time value outside DateTime's range keeps its real year, as format() does.
+        return ToDateTimeWithOriginalYear(formattable, out originalYear);
     }
 
     /// <summary>
@@ -859,6 +861,21 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         var isPlain = isTemporalInput && x is not JsInstant;
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
+        // A component bag is written through its range patterns (https://tc39.es/ecma402/#sec-formatdatetimerange is the
+        // concatenation of https://tc39.es/ecma402/#sec-partitiondatetimerangepattern's parts). dateStyle and timeStyle,
+        // and the Chinese and Dangi calendars, keep the lane below.
+        if (effectiveDtf.UsesComponentPattern)
+        {
+            var rangeParts = effectiveDtf.FormatRangeToParts(start, startOrigYear, end, endOrigYear, isPlain);
+            var builder = new ValueStringBuilder(stackalloc char[64]);
+            foreach (var part in rangeParts)
+            {
+                builder.Append(part.Value);
+            }
+
+            return builder.ToString();
+        }
+
         // Format both dates
         var startFormatted = effectiveDtf.Format(start, startOrigYear, isPlain: isPlain);
         var endFormatted = effectiveDtf.Format(end, endOrigYear, isPlain: isPlain);
@@ -947,6 +964,20 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         var isPlain = isTemporalInput && x is not JsInstant;
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
+        // https://tc39.es/ecma402/#sec-formatdatetimerangetoparts over a component bag's range patterns.
+        if (effectiveDtf.UsesComponentPattern)
+        {
+            var rangeParts = effectiveDtf.FormatRangeToParts(start, startOrigYear, end, endOrigYear, isPlain);
+            var array = new JsArray(Engine, (uint) rangeParts.Count);
+            for (var i = 0; i < rangeParts.Count; i++)
+            {
+                var part = rangeParts[i];
+                AddPartToResult(array, (uint) i, part.Type, part.Value, part.Source);
+            }
+
+            return array;
+        }
+
         // Get parts for both dates
         var startParts = effectiveDtf.FormatToParts(start, startOrigYear, isPlain: isPlain);
         var endParts = effectiveDtf.FormatToParts(end, endOrigYear, isPlain: isPlain);
@@ -1026,15 +1057,21 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
 
     private void AddPartToResult(JsArray result, ref uint index, string type, string value, string source)
     {
+        AddPartToResult(result, index++, type, value, source);
+    }
+
+    private void AddPartToResult(JsArray result, uint index, string type, string value, string source)
+    {
         var partObj = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
         partObj.Set("type", type);
         partObj.Set("value", value);
         partObj.Set("source", source);
-        result.SetIndexValue(index++, partObj, updateLength: true);
+        result.SetIndexValue(index, partObj, updateLength: true);
     }
 
     /// <summary>
-    /// Finds the length of the shared prefix between start and end parts,
+    /// dateStyle and timeStyle's range, until they are written through CLDR's patterns too (issue #4158): finds the
+    /// length of the shared prefix between start and end parts,
     /// but only if the prefix ends at a natural boundary (e.g., the ", " literal
     /// separating date from time components, or a multi-char literal separator).
     /// Internal separators like "/" and ":" within date/time groups are not natural boundaries.
@@ -1151,53 +1188,6 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         return 0;
-    }
-
-    private DateTime ToDateTimeForRange(JsValue value)
-    {
-        if (value is JsDate jsDate)
-        {
-            // Check if date is within .NET DateTime range
-            if (!jsDate.DateTimeRangeValid)
-            {
-                // Date is outside .NET range - return min/max based on sign
-                return jsDate.DateValue < 0 ? DateTime.MinValue : DateTime.MaxValue;
-            }
-
-            var dt = jsDate.ToDateTime();
-            if (dt == DateTime.MinValue)
-            {
-                // Invalid date
-                Throw.RangeError(_realm, "Invalid time value");
-            }
-            // ECMA-402 requires formatting in local time unless a specific timezone is provided
-            if (dt.Kind == DateTimeKind.Utc || dt.Kind == DateTimeKind.Unspecified)
-            {
-                dt = dt.ToLocalTime();
-            }
-            return dt;
-        }
-
-        var timeValue = TypeConverter.ToNumber(value);
-        DatePresentation presentation = timeValue;
-        presentation = presentation.TimeClip();
-
-        if (presentation.IsNaN)
-        {
-            Throw.RangeError(_realm, "Invalid time value");
-        }
-
-        // Clamp to .NET DateTime range if necessary
-        if (presentation.Value < JsDate.Min)
-        {
-            return DateTime.MinValue;
-        }
-        if (presentation.Value > JsDate.Max)
-        {
-            return DateTime.MaxValue;
-        }
-
-        return presentation.ToDateTime().ToLocalTime();
     }
 
     /// <summary>

@@ -93,9 +93,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// <summary>The pattern the format matcher chose for a component bag, once it is first needed.</summary>
     private DateTimeFormatPattern? _componentPattern;
 
-    /// <summary>The pattern <see cref="_hostNames"/> were read for, and a host provider's names per run of it.</summary>
-    private DateTimeFormatPattern? _hostNamesPattern;
+    /// <summary>The range patterns of the component bag's format record, once a range is first written.</summary>
+    private DateTimeIntervalFormat? _intervalFormat;
+
+    /// <summary>
+    /// The runs <see cref="_hostNames"/> were read for, and a host provider's names per run of them; and the same for
+    /// the range patterns, a few at most.
+    /// </summary>
+    private DateTimePatternRun[]? _hostNamesRuns;
     private string[]?[]? _hostNames;
+    private List<(DateTimePatternRun[] Runs, string[]?[]? Names)>? _rangeHostNames;
 
     /// <summary>Which of that pattern's date fields the value this formatter writes actually has.</summary>
     private readonly DateStyleFields _dateStyleFields;
@@ -1406,32 +1413,49 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// <param name="isPlain">If true, skip timezone conversion (for plain Temporal types)</param>
     internal List<DateTimePart> FormatToParts(DateTime dateTime, int? originalYear = null, bool isPlain = false)
     {
-        // Convert to specified timezone if one was provided
         // For plain Temporal types (isPlain=true), skip timezone conversion
         if (!isPlain)
         {
-            var beforeConversion = dateTime;
-            if (TimeZone != null)
-            {
-                dateTime = ConvertToTimeZone(dateTime, TimeZone);
-            }
-            else if (dateTime.Kind == DateTimeKind.Utc)
-            {
-                // No explicit timezone: convert UTC to engine's default timezone
-                var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;
-                dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, defaultTz);
-            }
-
-            // A conversion can carry the representative date over a year boundary - an instant just
-            // after midnight on 1 January in a zone behind UTC belongs to the previous year - and
-            // originalYear names the year of the value that went in. Move it by what the substitute
-            // moved by, so the printed year is the one the wall clock is actually in.
-            if (originalYear.HasValue && dateTime.Year != beforeConversion.Year)
-            {
-                originalYear += dateTime.Year - beforeConversion.Year;
-            }
+            dateTime = ToFormatterTimeZone(dateTime, ref originalYear);
         }
 
+        return FormatLocalToParts(dateTime, originalYear, isPlain);
+    }
+
+    /// <summary>
+    /// The wall-clock time of <paramref name="dateTime"/> in this formatter's time zone, or the engine's default one.
+    /// </summary>
+    private DateTime ToFormatterTimeZone(DateTime dateTime, ref int? originalYear)
+    {
+        var beforeConversion = dateTime;
+        if (TimeZone != null)
+        {
+            dateTime = ConvertToTimeZone(dateTime, TimeZone);
+        }
+        else if (dateTime.Kind == DateTimeKind.Utc)
+        {
+            // No explicit timezone: convert UTC to engine's default timezone
+            var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;
+            dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, defaultTz);
+        }
+
+        // A conversion can carry the representative date over a year boundary - an instant just
+        // after midnight on 1 January in a zone behind UTC belongs to the previous year - and
+        // originalYear names the year of the value that went in. Move it by what the substitute
+        // moved by, so the printed year is the one the wall clock is actually in.
+        if (originalYear.HasValue && dateTime.Year != beforeConversion.Year)
+        {
+            originalYear += dateTime.Year - beforeConversion.Year;
+        }
+
+        return dateTime;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatdatetimetoparts for a wall-clock time already in the formatter's time zone.
+    /// </summary>
+    private List<DateTimePart> FormatLocalToParts(DateTime dateTime, int? originalYear, bool isPlain)
+    {
         List<DateTimePart> result;
         if (DateStyle != null || TimeStyle != null)
         {
@@ -1451,11 +1475,19 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             FormatComponentPatternToParts(dateTime, result, originalYear);
         }
 
-        // Write [[NumberingSystem]]'s digits over every field, and nothing else: https://tc39.es/ecma402/#sec-formatdatetimepattern
-        // copies a "literal" through untouched, and the numbering system reaches a field's value only, through the
-        // FormatNumeric calls. The one separator this formatter writes itself, before a fractional second, is
-        // already the numbering system's. U+202F becomes a plain space in every part of every lane, so that
-        // format(), which is the concatenation of these parts, and formatToParts() never disagree.
+        FinishParts(result);
+        return result;
+    }
+
+    /// <summary>
+    /// Writes [[NumberingSystem]]'s digits over every field, and nothing else: https://tc39.es/ecma402/#sec-formatdatetimepattern
+    /// copies a "literal" through untouched, and the numbering system reaches a field's value only, through the
+    /// FormatNumeric calls. The one separator this formatter writes itself, before a fractional second, is
+    /// already the numbering system's. U+202F becomes a plain space in every part of every lane, so that
+    /// format(), which is the concatenation of these parts, and formatToParts() never disagree.
+    /// </summary>
+    private void FinishParts(List<DateTimePart> result)
+    {
         var rewritesDigits = _numberingSystem.RewritesDigits;
         for (var i = 0; i < result.Count; i++)
         {
@@ -1471,8 +1503,6 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 result[i] = new DateTimePart(part.Type, value);
             }
         }
-
-        return result;
     }
 
     private void FormatStyleToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear, bool isPlain = false)
@@ -1843,86 +1873,102 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </remarks>
     private void FormatComponentPatternToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear)
     {
-        var pattern = GetComponentPattern();
+        var runs = GetComponentPattern().Runs;
         ResolveCalendarFieldsForFormatting(dateTime, originalYear, out var calendarYear, out var calendarMonth, out var calendarDay);
-        var hostNames = GetHostNames(pattern);
-        var runs = pattern.Runs;
+        var hostNames = GetHostNames(runs);
         for (var i = 0; i < runs.Length; i++)
         {
-            var run = runs[i];
-            if (run.IsLiteral)
-            {
-                result.Add(new DateTimePart("literal", run.Literal!));
-                continue;
-            }
+            AppendRun(result, in runs[i], hostNames?[i], dateTime, originalYear, calendarYear, calendarMonth, calendarDay);
+        }
+    }
 
-            var names = hostNames?[i] ?? run.Names;
-            var length = run.Length;
-            switch (run.Field)
-            {
-                case 'G':
-                    result.Add(new DateTimePart("era", FormatEra(dateTime, originalYear, length, names)));
-                    break;
-                case 'y' or 'Y' or 'u' or 'r':
-                    var year = calendarYear ?? originalYear ?? dateTime.Year;
-                    if (year <= 0)
-                    {
-                        year = 1 - year;
-                    }
+    /// <summary>
+    /// One run of a pattern (https://tc39.es/ecma402/#sec-formatdatetimepattern step 15): a literal as the pattern
+    /// writes it, a field as the locale writes its value, with <paramref name="hostNames"/> in place of the run's CLDR
+    /// names where a host provider has its own.
+    /// </summary>
+    private void AppendRun(
+        List<DateTimePart> result,
+        in DateTimePatternRun run,
+        string[]? hostNames,
+        DateTime dateTime,
+        int? originalYear,
+        int? calendarYear,
+        int? calendarMonth,
+        int? calendarDay)
+    {
+        if (run.IsLiteral)
+        {
+            result.Add(new DateTimePart("literal", run.Literal!));
+            return;
+        }
 
-                    result.Add(new DateTimePart("year", length == 2 ? FormatTwoDigits(year % 100) : FormatPadded(year, length)));
-                    break;
-                case 'M' or 'L':
-                    result.Add(new DateTimePart("month", FormatMonth(dateTime.Month, calendarMonth, length, names)));
-                    break;
-                case 'd':
-                    result.Add(new DateTimePart("day", FormatPadded(calendarDay ?? dateTime.Day, length)));
-                    break;
-                case 'E' or 'c' or 'e':
-                    result.Add(new DateTimePart("weekday", names![(int) dateTime.DayOfWeek]));
-                    break;
-                case 'a' or 'b':
-                    result.Add(new DateTimePart("dayPeriod", names![dateTime.Hour < 12 ? 0 : 1]));
-                    break;
-                case 'B':
-                    result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime.Hour, TextualStyle(length))));
-                    break;
-                case 'h':
-                    result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour % 12 == 0 ? 12 : dateTime.Hour % 12, length)));
-                    break;
-                case 'K':
-                    result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour % 12, length)));
-                    break;
-                case 'H':
-                    result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour, length)));
-                    break;
-                case 'k':
-                    result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour == 0 ? 24 : dateTime.Hour, length)));
-                    break;
-                case 'm':
-                    result.Add(new DateTimePart("minute", FormatPadded(dateTime.Minute, length)));
-                    break;
-                case 's':
-                    result.Add(new DateTimePart("second", FormatPadded(dateTime.Second, length)));
-                    break;
-                case 'S':
-                    // floor(ms × 10^(digits - 3)), step 15.b; the fraction's own digits, zero-padded to its length.
-                    var fraction = length switch
-                    {
-                        1 => dateTime.Millisecond / 100,
-                        2 => dateTime.Millisecond / 10,
-                        _ => dateTime.Millisecond,
-                    };
-                    result.Add(new DateTimePart("fractionalSecond", FormatPadded(fraction, System.Math.Min(length, 3))));
-                    break;
-                case 'z' or 'Z' or 'O' or 'v' or 'V' or 'X' or 'x':
-                    result.Add(new DateTimePart("timeZoneName", GetFormattedTimeZoneName(dateTime, pattern.TimeZoneName ?? TimeZoneName)));
-                    break;
-                default:
-                    // A letter ECMA-402 has no part for; CLDR's Gregorian patterns write none.
-                    result.Add(new DateTimePart("unknown", new string(run.Field, length)));
-                    break;
-            }
+        var names = hostNames ?? run.Names;
+        var length = run.Length;
+        switch (run.Field)
+        {
+            case 'G':
+                result.Add(new DateTimePart("era", FormatEra(dateTime, originalYear, length, names)));
+                break;
+            case 'y' or 'Y' or 'u' or 'r':
+                var year = calendarYear ?? originalYear ?? dateTime.Year;
+                if (year <= 0)
+                {
+                    year = 1 - year;
+                }
+
+                result.Add(new DateTimePart("year", length == 2 ? FormatTwoDigits(year % 100) : FormatPadded(year, length)));
+                break;
+            case 'M' or 'L':
+                result.Add(new DateTimePart("month", FormatMonth(dateTime.Month, calendarMonth, length, names)));
+                break;
+            case 'd':
+                result.Add(new DateTimePart("day", FormatPadded(calendarDay ?? dateTime.Day, length)));
+                break;
+            case 'E' or 'c' or 'e':
+                result.Add(new DateTimePart("weekday", names![(int) dateTime.DayOfWeek]));
+                break;
+            case 'a' or 'b':
+                result.Add(new DateTimePart("dayPeriod", names![dateTime.Hour < 12 ? 0 : 1]));
+                break;
+            case 'B':
+                result.Add(new DateTimePart("dayPeriod", GetExtendedDayPeriod(dateTime.Hour, TextualStyle(length))));
+                break;
+            case 'h':
+                result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour % 12 == 0 ? 12 : dateTime.Hour % 12, length)));
+                break;
+            case 'K':
+                result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour % 12, length)));
+                break;
+            case 'H':
+                result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour, length)));
+                break;
+            case 'k':
+                result.Add(new DateTimePart("hour", FormatPadded(dateTime.Hour == 0 ? 24 : dateTime.Hour, length)));
+                break;
+            case 'm':
+                result.Add(new DateTimePart("minute", FormatPadded(dateTime.Minute, length)));
+                break;
+            case 's':
+                result.Add(new DateTimePart("second", FormatPadded(dateTime.Second, length)));
+                break;
+            case 'S':
+                // floor(ms × 10^(digits - 3)), step 15.b; the fraction's own digits, zero-padded to its length.
+                var fraction = length switch
+                {
+                    1 => dateTime.Millisecond / 100,
+                    2 => dateTime.Millisecond / 10,
+                    _ => dateTime.Millisecond,
+                };
+                result.Add(new DateTimePart("fractionalSecond", FormatPadded(fraction, System.Math.Min(length, 3))));
+                break;
+            case 'z' or 'Z' or 'O' or 'v' or 'V' or 'X' or 'x':
+                result.Add(new DateTimePart("timeZoneName", GetFormattedTimeZoneName(dateTime, DateTimeFormatPattern.TimeZoneNameStyle(run.Field, length))));
+                break;
+            default:
+                // A letter ECMA-402 has no part for; CLDR's Gregorian patterns write none.
+                result.Add(new DateTimePart("unknown", new string(run.Field, length)));
+                break;
         }
     }
 
@@ -1986,7 +2032,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
     /// <summary>
     /// The names a host <see cref="ICldrProvider"/> puts in place of the CLDR ones, per run of
-    /// <paramref name="pattern"/>, or null when the provider is the shipped one.
+    /// <paramref name="runs"/>, or null when the provider is the shipped one.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1997,10 +2043,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// default's, which reads .NET's culture data and has no format-context names at all.
     /// </para>
     /// <para>
-    /// Asked once per formatter, for the widths its pattern writes; the pattern of a formatter never changes.
+    /// Asked once per formatter, for the widths its pattern writes (the pattern of a formatter never changes), and
+    /// once for each range pattern it writes a range with.
     /// </para>
     /// </remarks>
-    private string[]?[]? GetHostNames(DateTimeFormatPattern pattern)
+    private string[]?[]? GetHostNames(DateTimePatternRun[] runs)
     {
         var provider = CldrProvider;
         if (ReferenceEquals(provider, DefaultCldrProvider.Instance))
@@ -2008,13 +2055,23 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             return null;
         }
 
-        if (ReferenceEquals(_hostNamesPattern, pattern))
+        if (ReferenceEquals(_hostNamesRuns, runs))
         {
             return _hostNames;
         }
 
+        if (_rangeHostNames is not null)
+        {
+            foreach (var (rangeRuns, names) in _rangeHostNames)
+            {
+                if (ReferenceEquals(rangeRuns, runs))
+                {
+                    return names;
+                }
+            }
+        }
+
         var shipped = DefaultCldrProvider.Instance;
-        var runs = pattern.Runs;
         string[]?[]? overrides = null;
         for (var i = 0; i < runs.Length; i++)
         {
@@ -2049,8 +2106,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
         }
 
-        _hostNamesPattern = pattern;
-        _hostNames = overrides;
+        if (_hostNamesRuns is null)
+        {
+            _hostNamesRuns = runs;
+            _hostNames = overrides;
+        }
+        else
+        {
+            (_rangeHostNames ??= []).Add((runs, overrides));
+        }
+
         return overrides;
     }
 
@@ -2089,6 +2154,173 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         return names;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-partitiondatetimerangepattern for a component bag: the parts of a range and the
+    /// source of each, from the range pattern of the largest calendar field in which the two dates differ.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The range patterns are <see cref="DateTimeIntervalFormat"/>'s, built from CLDR's intervalFormats the way ICU's
+    /// DateIntervalFormat builds them. The fields are compared in the order of the DateTime Range Pattern Record
+    /// (https://tc39.es/ecma402/#sec-datetimeformat-range-pattern-record): era, year, month and day in this formatter's
+    /// calendar, then am/pm, hour, minute, second, and the fractional second at the digits the format writes. The day
+    /// period that record lists after am/pm is read as the am/pm, as ICU reads it, so it never differs on its own.
+    /// </para>
+    /// <para>
+    /// When no field differs, or the first that does is one the format does not show (a <c>{ month, day }</c> bag and
+    /// two times on one day), the range is the start date alone, every part <c>shared</c>: the step that stops checking
+    /// fields once no range pattern covers them. Otherwise a part is written from the start date if its source is
+    /// <c>startRange</c> or <c>shared</c> and from the end date if it is <c>endRange</c>, and the literal text between
+    /// two fields is one part.
+    /// </para>
+    /// </remarks>
+    internal List<DateTimeRangePart> FormatRangeToParts(DateTime start, int? startYear, DateTime end, int? endYear, bool isPlain = false)
+    {
+        if (!isPlain)
+        {
+            start = ToFormatterTimeZone(start, ref startYear);
+            end = ToFormatterTimeZone(end, ref endYear);
+        }
+
+        ResolveCalendarFieldsForFormatting(start, startYear, out var startCalendarYear, out var startCalendarMonth, out var startCalendarDay);
+        ResolveCalendarFieldsForFormatting(end, endYear, out var endCalendarYear, out var endCalendarMonth, out var endCalendarDay);
+
+        var field = -1;
+        if (!string.Equals(EraKey(start, startYear), EraKey(end, endYear), StringComparison.Ordinal))
+        {
+            field = DateTimeIntervalFormat.Era;
+        }
+        else if ((startCalendarYear ?? startYear ?? start.Year) != (endCalendarYear ?? endYear ?? end.Year))
+        {
+            field = DateTimeIntervalFormat.Year;
+        }
+        else if ((startCalendarMonth ?? start.Month) != (endCalendarMonth ?? end.Month))
+        {
+            field = DateTimeIntervalFormat.Month;
+        }
+        else if ((startCalendarDay ?? start.Day) != (endCalendarDay ?? end.Day))
+        {
+            field = DateTimeIntervalFormat.Day;
+        }
+        else if (start.Hour < 12 != end.Hour < 12)
+        {
+            field = DateTimeIntervalFormat.AmPm;
+        }
+        else if (start.Hour != end.Hour)
+        {
+            field = DateTimeIntervalFormat.Hour;
+        }
+        else if (start.Minute != end.Minute)
+        {
+            field = DateTimeIntervalFormat.Minute;
+        }
+        else if (start.Second != end.Second)
+        {
+            field = DateTimeIntervalFormat.Second;
+        }
+        else
+        {
+            // floor(ms × 10^(fractionalSecondDigits - 3)), fractionalSecondDigits being 3 when the format writes none.
+            var scale = GetComponentPattern().FractionalSecondDigits switch
+            {
+                1 => 100,
+                2 => 10,
+                _ => 1,
+            };
+
+            if (start.Millisecond / scale != end.Millisecond / scale)
+            {
+                field = DateTimeIntervalFormat.FractionalSecond;
+            }
+        }
+
+        var range = field < 0 ? null : GetIntervalFormat().GetRangePattern(field);
+        List<DateTimeRangePart> result;
+        if (range is null)
+        {
+            var single = FormatLocalToParts(start, startYear, isPlain);
+            result = new List<DateTimeRangePart>(single.Count);
+            foreach (var part in single)
+            {
+                result.Add(new DateTimeRangePart(part.Type, part.Value, "shared"));
+            }
+
+            return result;
+        }
+
+        var runs = range.Runs;
+        var sources = range.Sources;
+        var hostNames = GetHostNames(runs);
+        var parts = new List<DateTimePart>(runs.Length);
+        for (var i = 0; i < runs.Length; i++)
+        {
+            if (sources[i] == DateTimeRangeSource.EndRange)
+            {
+                AppendRun(parts, in runs[i], hostNames?[i], end, endYear, endCalendarYear, endCalendarMonth, endCalendarDay);
+            }
+            else
+            {
+                AppendRun(parts, in runs[i], hostNames?[i], start, startYear, startCalendarYear, startCalendarMonth, startCalendarDay);
+            }
+        }
+
+        FinishParts(parts);
+
+        result = new List<DateTimeRangePart>(parts.Count);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var source = sources[i] switch
+            {
+                DateTimeRangeSource.StartRange => "startRange",
+                DateTimeRangeSource.EndRange => "endRange",
+                _ => "shared",
+            };
+
+            var part = parts[i];
+            var last = result.Count - 1;
+            if (last >= 0
+                && string.Equals(part.Type, "literal", StringComparison.Ordinal)
+                && string.Equals(result[last].Type, "literal", StringComparison.Ordinal)
+                && string.Equals(result[last].Source, source, StringComparison.Ordinal))
+            {
+                result[last] = new DateTimeRangePart("literal", result[last].Value + part.Value, source);
+            }
+            else
+            {
+                result.Add(new DateTimeRangePart(part.Type, part.Value, source));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// The range patterns of the component bag's format record, built for this locale, pattern and hour cycle once.
+    /// </summary>
+    private DateTimeIntervalFormat GetIntervalFormat()
+    {
+        return _intervalFormat ??= DateTimePatternGenerator.ForLocale(Locale).GetIntervalFormat(
+            GetComponentPattern(),
+            Hour is null ? "h23" : ResolvedHourCycle,
+            _numberingSystem.DecimalSeparator);
+    }
+
+    /// <summary>
+    /// What tells two dates' eras apart: before or in the common era for <c>gregory</c> and <c>iso8601</c>, and the
+    /// era's name for a calendar with eras of its own.
+    /// </summary>
+    private string? EraKey(DateTime dateTime, int? originalYear)
+    {
+        var calendar = Calendar ?? "gregory";
+        if (string.Equals(calendar, "gregory", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(calendar, "iso8601", StringComparison.OrdinalIgnoreCase))
+        {
+            return (originalYear ?? dateTime.Year) <= 0 ? "BC" : "AD";
+        }
+
+        return GetEraName(dateTime, calendar, "short", originalYear);
     }
 
     /// <summary>
@@ -2271,4 +2503,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     internal readonly record struct DateTimePart(string Type, string Value);
+
+    /// <summary>A part of a range, with the <c>source</c> <c>formatRangeToParts</c> reports.</summary>
+    internal readonly record struct DateTimeRangePart(string Type, string Value, string Source);
 }
