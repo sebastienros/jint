@@ -66,7 +66,7 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
     <PackageVersion Include="Okojo" Version="0.1.2-preview.1" />
     <PackageVersion Include="PublicApiGenerator" Version="11.5.4" />
-    <PackageVersion Include="PuppeteerSharp" Version="25.11.0" />
+    <PackageVersion Include="PuppeteerSharp" Version="25.12.0" />
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
