@@ -1,4 +1,5 @@
 using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Model.Syntax;
@@ -117,7 +118,9 @@ internal static partial class NativeCssBindings
     {
         Reconcile(realm, sheet);
         var work = MutationWork(realm, () => sheet.Stamp);
-        return sheet.InsertRule(text, index, null, work, work.Token);
+        var inserted = sheet.InsertRule(text, index, null, work, work.Token);
+        QueueImports(realm, sheet);
+        return inserted;
     }
     internal static int InsertRule(DomRealm realm, CssGroupingRule rule, string text, int index)
     {
@@ -129,7 +132,10 @@ internal static partial class NativeCssBindings
         Reconcile(realm, sheet);
         var work = MutationWork(realm, () => sheet.Stamp);
         sheet.DeleteRule(index, work);
+        QueueImports(realm, sheet);
     }
+    private static void QueueImports(DomRealm realm, CssStyleSheet sheet)
+        => PageRuntime.Find(realm.Engine)?.Parser?.QueueCssImports(sheet);
     internal static void DeleteRule(DomRealm realm, CssGroupingRule rule, int index)
     {
         var work = MutationWork(realm, () => rule.Stamp);

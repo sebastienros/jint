@@ -115,7 +115,10 @@ internal sealed partial class ParserDriver
             _resourceSources.TryGetValue(link, out var source) &&
             ReferenceEquals(source.StyleRequestDocument, watch.Document) &&
             ReferenceEquals(source.StyleRequestRoot, watch.Root))
+        {
+            NativeCssStyleSheets.InvalidateImportSourceAtArrival(watch.Document, link);
             InvalidateStyleRequest(source);
+        }
         // Freeze delegation on arrival: a later mutator can install an image watch before
         // delivery, but that new subscription did not observe this earlier document record.
         var delegated = watch.Root is not Element && record.Kind == MutationRecordKind.Attributes &&
@@ -504,8 +507,18 @@ internal sealed partial class ParserDriver
         {
             var work = new CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check);
             if (NativeCssStyleSheets.EligibleOwner(style, new DomReadWork(work.Charge, work.Token), work))
+            {
+                WatchInlineImportSource(style, document);
                 NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), style,
                     TextOf(style), DomDocumentState.Of(document).Url);
+                var result = LoadCssImports(style,
+                    () => ReferenceEquals(style.OwnerDocument, document) && IsResourceConnected(style) &&
+                        NativeCssStyleSheets.EligibleOwner(style, new DomReadWork(work.Charge, work.Token), work),
+                    mayPump: !_runtime.Engine.IsEvaluationInProgress);
+                if (result == CssImportLoadResult.Failed)
+                    QueueResourceEvent(style, "error", afterParse: false,
+                        () => ReferenceEquals(style.OwnerDocument, document) && IsResourceConnected(style));
+            }
         }
     }
 
@@ -577,10 +590,13 @@ internal sealed partial class ParserDriver
         var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200)
             .Text(DomDocumentState.Of(document).CharacterSet);
         NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), link, text, body.Url);
-        if (Current())
+        var imports = LoadCssImports(link, Current, mayPump: !_runtime.Engine.IsEvaluationInProgress,
+            inheritedCharset: ImportCharset(body.ContentType, DomDocumentState.Of(document).CharacterSet),
+            ownerRequestIdentityIsCurrent: () => ReferenceEquals(source.StyleRequest, request));
+        if (imports != CssImportLoadResult.Stale && Current())
         {
             source.StyleLoaded = true;
-            QueueResourceEvent(link, "load", afterParse: false, Current);
+            QueueResourceEvent(link, imports == CssImportLoadResult.Failed ? "error" : "load", afterParse: false, Current);
         }
     }
 

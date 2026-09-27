@@ -48,7 +48,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssConditionRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSConditionRule;
 
-    /// <summary>The <c>CSSContainerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSContainerRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssContainerRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSContainerRule;
 
     /// <summary>The <c>CSSCounterStyleRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -57,7 +57,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSDocumentRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSDocumentRule;
 
-    /// <summary>The <c>CSSFontFaceRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSFontFaceRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssFontFaceRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSFontFaceRule;
 
     /// <summary>The <c>CSSFontFeatureValuesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -116,6 +116,9 @@ internal static partial class DomInterfaces
 
     /// <summary>The <c>CSSStyleDeclaration</c> interface, projected from <c>Jint.Browser.Styling.NativeCssDeclaration</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleDeclaration;
+
+    /// <summary>The <c>CSSFontFaceDescriptors</c> interface, projected from <c>Jint.Browser.Styling.NativeCssFontFaceDescriptors</c>.</summary>
+    internal static readonly DomInterfaceDefinition CSSFontFaceDescriptors;
 
     /// <summary>The <c>CSSStyleRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleRule;
@@ -509,7 +512,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(163);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(164);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -671,7 +674,7 @@ internal static partial class DomInterfaces
 
         CSSContainerRule = Add(new DomInterfaceDefinition(
             "CSSContainerRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssContainerRule),
             BuildCSSContainerRule,
             CSSConditionRule,
             rootsAtEventTarget: false,
@@ -698,7 +701,7 @@ internal static partial class DomInterfaces
 
         CSSFontFaceRule = Add(new DomInterfaceDefinition(
             "CSSFontFaceRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssFontFaceRule),
             BuildCSSFontFaceRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -875,6 +878,16 @@ internal static partial class DomInterfaces
             typeof(global::Jint.Browser.Styling.NativeCssDeclaration),
             BuildCSSStyleDeclaration,
             null,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Collection,
+            collectionAccessor: DomAccessorCSSStyleDeclaration.Instance));
+
+        CSSFontFaceDescriptors = Add(new DomInterfaceDefinition(
+            "CSSFontFaceDescriptors",
+            typeof(global::Jint.Browser.Styling.NativeCssFontFaceDescriptors),
+            BuildCSSFontFaceDescriptors,
+            CSSStyleDeclaration,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Collection,

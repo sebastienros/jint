@@ -29,6 +29,7 @@ internal static partial class DomTypeMap
         DomInterfaces.CSSCharsetRule,
         DomInterfaces.CSSColorProfileRule,
         DomInterfaces.CSSCounterStyleRule,
+        DomInterfaces.CSSFontFaceDescriptors,
         DomInterfaces.CSSFontFaceRule,
         DomInterfaces.CSSFontFeatureValuesRule,
         DomInterfaces.CSSFontPaletteValuesRule,

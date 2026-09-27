@@ -36,7 +36,7 @@ internal sealed partial class NativeCssQuery
                 binding = selected ?? default;
                 return selected is not null;
             }
-            catch { _bindings.Clear(); query.AbortRead(); throw; }
+            catch (Exception exception) { _bindings.Clear(); query.AbortRead(exception); throw; }
         }
     }
 }

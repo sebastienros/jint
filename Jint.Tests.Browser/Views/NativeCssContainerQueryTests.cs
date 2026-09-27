@@ -126,6 +126,37 @@ public sealed class NativeCssContainerQueryTests
     }
 
     [Test]
+    public void OrdinaryPendingPropertyDoesNotPoisonContainerMetricReads()
+    {
+        using var fixture = Create("<style>@container (width:10px){#child{opacity:.5}}</style>"
+            + "<div style='container-type:inline-size'><span id=child></span></div>");
+        var input = Query(fixture);
+        var child = ContentDom.ElementById(fixture.Document, "child")!;
+        var metrics = new Metrics { Value = 10 };
+        input.Query.AttachContainerMetrics(metrics);
+        var opacity = input.Query.GetProperty(child, "opacity", ref input.Matching);
+        Assert.Throws<CssIncompleteGrammarException>(() => input.Query.GetProperty(child, "background", ref input.Matching))!
+            .PropertyName.Should().Be("background");
+        input.Query.GetProperty(child, "opacity", ref input.Matching).Should().BeSameAs(opacity);
+        opacity.Text.Should().Be("0.5");
+        metrics.Reads.Should().Be(1);
+    }
+
+    [Test]
+    public void PendingPropertyReachedByMetricProviderAbortsTheWholeRead()
+    {
+        using var fixture = Create("<style>@container (width:10px){#child{opacity:.5}}</style>"
+            + "<div style='container-type:inline-size'><span id=child></span></div>");
+        var input = Query(fixture);
+        var child = ContentDom.ElementById(fixture.Document, "child")!;
+        input.Query.AttachContainerMetrics(new Metrics { Value = 10,
+            OnWidth = () => input.Query.GetProperty(child, "background", ref input.Matching) });
+        Assert.Throws<CssIncompleteGrammarException>(() => input.Query.GetProperty(child, "opacity", ref input.Matching))!
+            .PropertyName.Should().Be("background");
+        Assert.Throws<InvalidOperationException>(() => input.Query.Verify())!.Message.Should().Contain("aborted");
+    }
+
+    [Test]
     public void ProviderMutationRejectsPublicationAndAbortsTheRead()
     {
         using var fixture = Create("<style>@container (width:10px){#child{opacity:.5}}</style>"

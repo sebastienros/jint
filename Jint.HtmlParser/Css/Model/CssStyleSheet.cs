@@ -307,14 +307,14 @@ internal sealed class CssStyleSheet
                     work.Charge(1);
                     if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace) return null;
                 }
-                var declarations = new List<CssDeclarationSyntax>();
+                var descriptors = new List<CssDeclarationSyntax>();
                 foreach (var item in parser.ParseBlockContents(descriptorBlock))
                 {
                     work.Charge(1);
                     if (item.Kind == CssBlockItemKind.Declarations)
-                        foreach (var declaration in item.Declarations) { work.Charge(1); declarations.Add(declaration); }
+                        foreach (var declaration in item.Declarations) { work.Charge(1); descriptors.Add(declaration); }
                 }
-                return new CssFontFaceRule(CssDeclarationBlock.FromDeclarations(source, declarations,
+                return new CssFontFaceRule(CssDeclarationBlock.FromDeclarations(source, descriptors,
                     CssDeclarationContext.FontFace, options?.Limits.MaxNestingDepth ?? 0, work), syntax.Span);
             }
             if (name == "media")

@@ -128,14 +128,14 @@ public sealed class CssPublicStyleSheetTests
     public void EveryCheckpointIncludingCompletionHonorsCancellation(string source)
     {
         var checkpoints = 0;
-        MarkupParser.ParseCssCore(source, null, default, () => checkpoints++);
+        MarkupParser.ParseCssCore(source, null, () => checkpoints++, default);
         checkpoints.Should().BeGreaterThan(0);
         for (var target = 1; target <= checkpoints; target++)
         {
             using var cancellation = new CancellationTokenSource();
             var calls = 0;
             Assert.Throws<OperationCanceledException>(() => MarkupParser.ParseCssCore(source, null,
-                cancellation.Token, () => { if (++calls == target) cancellation.Cancel(); }));
+                () => { if (++calls == target) cancellation.Cancel(); }, cancellation.Token));
             calls.Should().Be(target);
         }
     }
@@ -147,7 +147,7 @@ public sealed class CssPublicStyleSheetTests
         using var cancellation = new CancellationTokenSource();
         var calls = 0;
         Assert.Throws<OperationCanceledException>(() => MarkupParser.ParseCssCore(source, null,
-            cancellation.Token, () => { if (++calls == 10) cancellation.Cancel(); }));
+            () => { if (++calls == 10) cancellation.Cancel(); }, cancellation.Token));
         calls.Should().Be(10);
     }
 }

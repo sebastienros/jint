@@ -1,5 +1,6 @@
 using System.Text;
 using Jint.HtmlParser.Css.Serialization;
+using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Css.Values.References;

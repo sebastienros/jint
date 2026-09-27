@@ -19,6 +19,46 @@ internal sealed partial class ParserDriver
     private readonly Dictionary<CssStyleSheet, ImportNotification> _cssImportNotifications = new();
     private readonly HashSet<object> _activeCssImportSources = new();
     private readonly Dictionary<CssStyleSheet, int> _activeCssImportRoots = new();
+    private readonly ConditionalWeakTable<Element, InlineImportWatch> _inlineImportWatches = new();
+    private readonly List<WeakReference<MutationSubscription>> _inlineImportSubscriptions = new();
+
+    private sealed record InlineImportWatch(Document Document, MutationSubscription Subscription);
+
+    private void WatchInlineImportSource(Element owner, Document document)
+    {
+        if (_inlineImportWatches.TryGetValue(owner, out var existing))
+        {
+            if (ReferenceEquals(existing.Document, document)) return;
+            existing.Subscription.Dispose();
+            _inlineImportWatches.Remove(owner);
+        }
+        var subscription = document.ObserveMutations(owner, new MutationObserverOptions
+        {
+            ChildList = true,
+            CharacterData = true,
+            Attributes = true,
+            AttributeFilter = ["type"],
+            Subtree = true
+        });
+        var weak = new WeakReference<ParserDriver>(this);
+        subscription.PendingRecord = pending =>
+        {
+            var records = pending.TakeRecords();
+            if (!weak.TryGetTarget(out var driver) || driver._disposed)
+            {
+                pending.Dispose();
+                return;
+            }
+            if (!ReferenceEquals(owner.OwnerDocument, document)) return;
+            foreach (var record in records)
+                if (record.Kind != MutationRecordKind.Attributes || ReferenceEquals(record.Target, owner))
+                    NativeCssStyleSheets.InvalidateImportSourceAtArrival(document, owner);
+        };
+        _inlineImportWatches.Add(owner, new(document, subscription));
+        if ((_inlineImportSubscriptions.Count & 63) == 0)
+            _inlineImportSubscriptions.RemoveAll(static reference => !reference.TryGetTarget(out _));
+        _inlineImportSubscriptions.Add(new(subscription));
+    }
 
     private sealed class ImportSheetState
     {
@@ -438,6 +478,10 @@ internal sealed partial class ParserDriver
 
     private void DisposeCssImports()
     {
+        foreach (var reference in _inlineImportSubscriptions)
+            if (reference.TryGetTarget(out var subscription)) subscription.Dispose();
+        _inlineImportSubscriptions.Clear();
+        _inlineImportWatches.Clear();
         foreach (var notification in _cssImportNotifications.Values)
         {
             if (!notification.Delaying) continue;

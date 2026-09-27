@@ -18,7 +18,9 @@ or viewport substitution for a selected container's metric.
 
 One invocation owns the native query, traversal, optional size query, dependency guards and completed
 metric cache. A cycle reports `C6:container-layout-cycle`; cross-layer depth has a named 64-entry limit.
-Failure discards the invocation. Reuse must retain its captured DOM/CSS/resource/semantic/media/viewport
+Container/geometry failures, cancellation and invalidation discard the invocation. An unsupported
+ordinary property outside a container dependency still throws without poisoning completed independent
+property reads. Reuse must retain its captured DOM/CSS/resource/semantic/media/viewport
 and layout witnesses; unfinished measurements are never cached.
 
 `CssSubstitutionSnapshot.CreateQueryLayer` is an explicit invocation-affine adapter. Only a requested
@@ -28,4 +30,4 @@ copied and shareable, and reject query-bound parents or supplied binding scopes.
 reference program may retain a query layer. The executor and its scope-keyed cycle behavior are shared.
 
 Specification: https://drafts.csswg.org/css-conditional-5/#container-rule
-This source packet requires normal binding regeneration and Release validation by the compiler owner.
+The native container interfaces are included in the generated Browser binding contract.

@@ -91,6 +91,7 @@ internal sealed partial class ParserDriver : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        DisposeCssImports();
         foreach (var weak in _resourceWatchReferences) if (weak.TryGetTarget(out var watch)) watch.Subscription.Dispose();
         foreach (var weak in _scriptSubscriptions) if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
         _scriptSubscriptions.Clear();

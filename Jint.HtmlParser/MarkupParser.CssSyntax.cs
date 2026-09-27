@@ -11,11 +11,11 @@ public static partial class MarkupParser
     /// </remarks>
     public static CssStyleSheetSyntax ParseCss(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        ParseCssCore(source, options, cancellationToken, checkpoint: null);
+        ParseCssCore(source, options, checkpoint: null, cancellationToken);
 
     // CSS Syntax Level 3, §5.5.1: https://drafts.csswg.org/css-syntax/#parse-stylesheet
     internal static CssStyleSheetSyntax ParseCssCore(string source, CssParseOptions? options,
-        CancellationToken cancellationToken, Action? checkpoint)
+        Action? checkpoint, CancellationToken cancellationToken)
     {
         var rules = new CssSyntaxParser(source, options, cancellationToken, checkpoint).ParseStyleSheet();
         var result = new CssStyleSheetSyntax(source, rules);

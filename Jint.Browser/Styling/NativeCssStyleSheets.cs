@@ -342,7 +342,6 @@ internal static partial class NativeCssStyleSheets
         internal string Source = source;
         internal CssStyleSheetAttachment Attachment = attachment;
         internal CssStyleSheet? Sheet;
-        internal object SourceGeneration = new();
         internal object? ImportHintGeneration;
         internal bool ImportHint;
         internal bool Replaced;

@@ -153,9 +153,12 @@ internal static class CssContainerParser
         else if (name.StartsWith("max-", StringComparison.Ordinal)) { name = name[4..]; comparison = CssMediaComparison.LessEqual; }
         var axis = name switch
         {
-            "width" => CssContainerAxis.Width, "inline-size" => CssContainerAxis.InlineSize,
-            "height" => CssContainerAxis.Height, "block-size" => CssContainerAxis.BlockSize,
-            "aspect-ratio" or "orientation" => CssContainerAxis.Both, _ => CssContainerAxis.Unknown
+            "width" => CssContainerAxis.Width,
+            "inline-size" => CssContainerAxis.InlineSize,
+            "height" => CssContainerAxis.Height,
+            "block-size" => CssContainerAxis.BlockSize,
+            "aspect-ratio" or "orientation" => CssContainerAxis.Both,
+            _ => CssContainerAxis.Unknown
         };
         if (axis == CssContainerAxis.Unknown) { program.Add(new(CssMediaOperation.Unknown)); return true; }
         var pixels = 0d;

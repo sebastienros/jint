@@ -1,9 +1,12 @@
 #nullable enable
+using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Accessibility;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
+using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
+using Jint.Runtime;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -96,9 +99,15 @@ public sealed class NativeCssContainerLayoutTests
             + "'<style>@container panel (width:1px){#child{opacity:.5}}</style><div id=child></div>'");
         await page.RunOnLoopAsync(engine =>
         {
-            Assert.Throws<CssIncompleteGrammarException>(() => engine.Evaluate(
-                "getComputedStyle(host.shadowRoot.getElementById('child')).opacity"))!
+            var runtime = PageRuntime.Find(engine)!;
+            var child = DomBindings.Bind<Element>(engine.Evaluate("host.shadowRoot.getElementById('child')"),
+                "container metric test").Target;
+            var style = CssCascade.Traversal.For(runtime.Document)!.Of(child);
+            Assert.Throws<CssIncompleteGrammarException>(() => style.GetPropertyValue("opacity"))!
                 .Blocker.Should().Be("C6:container-flat-tree-metric");
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate(
+                "getComputedStyle(host.shadowRoot.getElementById('child')).opacity"))!
+                .Message.Should().Be("Failed to execute 'CSSStyleDeclaration.opacity': Unimplemented CSS grammar: C6:container-flat-tree-metric");
             return true;
         });
     }

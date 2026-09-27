@@ -69,8 +69,13 @@ internal sealed partial class NativeCssQuery
         }
     }
 
-    private void AbortRead()
+    private void AbortRead(Exception exception)
     {
+        // An unsupported ordinary property does not invalidate completed independent reads.
+        // Geometry failures still discard the whole invocation, including nested property failures.
+        if (exception is CssIncompleteGrammarException { PropertyName: not "container" } &&
+            !_activeDependencies.Exists(static dependency => dependency.Kind is "condition" or "metric"))
+            return;
         _aborted = true;
         _containerWidths.Clear();
         _containerConditions.Clear();

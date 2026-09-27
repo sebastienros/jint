@@ -3,7 +3,6 @@ using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Browser.Styling;
 using Jint.HtmlParser.Css.Model;
-using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -14,15 +13,15 @@ public sealed class NativeImportedStyleRevisionTests
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<style>@import 'child.css';</style><div id=box></div>");
+        await page.SetContentAsync("<style>@import 'data:text/css,%23box%7Bdisplay%3Ablock%7D';</style><div id=box></div>");
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
             var document = runtime.Document!;
             var owner = ContentDom.Descendants(document).Single(element => element.LocalName == "style");
             var root = NativeCssStyleSheets.SheetOf(runtime.Dom, owner)!;
-            var child = CssStyleSheet.Parse("#box { display:block }");
-            ((CssImportRule) root.Rules[0]).SetStyleSheet(child, null, null, new CssValueWork(default));
+            var child = ((CssImportRule) root.Rules[0]).StyleSheet!;
+            child.Should().NotBeNull();
             engine.SetValue("changeImportedStyle", () =>
             {
                 var nativeStamp = document.MutationStamp;

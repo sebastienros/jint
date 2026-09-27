@@ -26,7 +26,7 @@ public sealed class TextDecorationPropertyGrammarTests
         var keywords = new[] { "underline", "overline", "line-through", "blink" };
         var lines = keywords.Where((_, index) => (flags & (1 << index)) != 0).ToArray();
         var expected = string.Join(" ", lines);
-        var source = string.Join(" ", lines.Reverse());
+        var source = string.Join(" ", Enumerable.Reverse(lines));
         foreach (var context in new[] { CssDeclarationContext.Style, CssDeclarationContext.Keyframe })
         {
             var parsed = CssPropertyParser.Parse("text-decoration-line", source, context);

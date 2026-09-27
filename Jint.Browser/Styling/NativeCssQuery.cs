@@ -94,7 +94,7 @@ internal sealed partial class NativeCssQuery
     {
         using var guard = EnterDependency(element, "property-input", name);
         try { return HasPropertyInputCore(element, name, ref matching); }
-        catch { AbortRead(); throw; }
+        catch (Exception exception) { AbortRead(exception); throw; }
     }
 
     private bool HasPropertyInputCore(Element element, string name, ref SelectorMatchWork matching)
@@ -116,7 +116,7 @@ internal sealed partial class NativeCssQuery
         if (normalize) name = CssPropertyRegistry.NormalizeName(name, _work);
         using var guard = EnterDependency(element, adjust ? "property" : "unadjusted-property", name);
         try { return GetPropertyValueCore(element, name, ref matching, adjust); }
-        catch { AbortRead(); throw; }
+        catch (Exception exception) { AbortRead(exception); throw; }
     }
 
     private NativeCssProperty GetPropertyValueCore(Element element, string name, ref SelectorMatchWork matching, bool adjust)
@@ -275,13 +275,13 @@ internal sealed partial class NativeCssQuery
             Verify();
             return result.AsReadOnly();
         }
-        catch { AbortRead(); throw; }
+        catch (Exception exception) { AbortRead(exception); throw; }
     }
 
     internal IReadOnlyList<NativeCssProperty> Enumerate(Element element, ref SelectorMatchWork matching)
     {
         try { return EnumerateCore(element, ref matching); }
-        catch { AbortRead(); throw; }
+        catch (Exception exception) { AbortRead(exception); throw; }
     }
 
     private IReadOnlyList<NativeCssProperty> EnumerateCore(Element element, ref SelectorMatchWork matching)
