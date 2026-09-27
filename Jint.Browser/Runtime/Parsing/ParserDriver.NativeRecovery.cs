@@ -13,7 +13,7 @@ internal sealed partial class ParserDriver
     private bool _recoveringNativeNotifications;
 
     internal bool HasPendingNativeRecovery => !_disposed &&
-        (_pendingNativeDocuments.Count != 0 || _activeResourceRecord is not null || _resourceRecords.Count != 0 || _pendingFrameDocuments.Count != 0);
+        (_pendingNativeDocuments.Count != 0 || _activeResourceRecord is not null || _resourceRecords.Count != 0 || _pendingFrameDocuments.Count != 0 || HasPendingCssImportRecovery);
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct ResourceEnvelope(ResourceWatch Watch, MutationRecord Record, bool ImageDelegated);
@@ -41,6 +41,7 @@ internal sealed partial class ParserDriver
                 _pendingNativeDocumentSet.Remove(document);
             }
             DrainResourceRecords();
+            RecoverCssImportNotifications();
         }
         finally { _recoveringNativeNotifications = false; }
         PumpPendingFrameDocuments();

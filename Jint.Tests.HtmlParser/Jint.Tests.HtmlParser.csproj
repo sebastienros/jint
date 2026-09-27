@@ -33,6 +33,7 @@
     <Compile Include="..\Jint.Browser\Styling\NativeCssBrowserDefaults.cs" Link="Styling\NativeCssBrowserDefaults.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssSheetSets.cs" Link="Styling\NativeCssSheetSets.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.cs" Link="Styling\NativeCssStyleSheets.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.Imports.cs" Link="Styling\NativeCssStyleSheets.Imports.cs" />
     <Compile Include="..\Jint.Browser\DevTools\CssStyleSheetText.cs" Link="Styling\CssStyleSheetText.cs" />
     <Compile Include="..\Jint.Browser\Dom\DomDescendantText.cs" Link="Styling\DomDescendantText.cs" />
     <Compile Include="..\Jint.Browser\Dom\DomReadWork.cs" Link="Styling\DomReadWork.cs" />

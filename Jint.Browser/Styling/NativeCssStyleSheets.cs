@@ -118,14 +118,16 @@ internal static partial class NativeCssStyleSheets
             SourceUrl = source,
             BaseUrl = Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) ? baseUri : source
         };
+        var generation = new object();
         if (resources.Owners.TryGetValue(owner, out var entry))
         {
             entry.Loaded = true;
             entry.Source = text;
             entry.Attachment = attachment;
+            entry.SourceGeneration = generation;
             entry.Replaced = true;
         }
-        else resources.Owners.Add(owner, new Resource(text, attachment));
+        else resources.Owners.Add(owner, new Resource(text, attachment) { SourceGeneration = generation });
         CssMutationStamp.Advance(ref resources.Version);
         AssociateOwner(document, owner, work, verifiedRoot);
         work.CheckCancellation();
@@ -183,35 +185,98 @@ internal static partial class NativeCssStyleSheets
                     continue;
                 var ownerWork = new DomReadWork(work.Charge, work.Token);
                 if (!EligibleOwner(element, ownerWork, work)) continue;
-                if (resource.Sheet is null)
-                {
-                    var sheet = CssStyleSheet.Parse(resource.Source, null, parsing, work.Token);
-                    sheet.SetAttachment(resource.Attachment);
-                    Verify();
-                    sheet.Disabled = resource.Disabled;
-                    resource.Sheet = sheet;
-                    resource.Replaced = false;
-                }
-                else if (resource.Replaced)
-                {
-                    resource.Sheet.ReplaceText(resource.Source, null, parsing, work.Token);
-                    Verify();
-                    resource.Sheet.SetAttachment(resource.Attachment);
-                    resource.Replaced = false;
-                }
-                var media = ownerWork.Attribute(element, "media") ?? "";
-                if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, work))
-                {
-                    resource.Sheet.Media.SetMediaText(media, null, parsing, work.Token);
-                    Verify();
-                    resource.MediaSource = media;
-                }
-                result.Add(new(resource.Sheet, NativeCssOrigin.Author));
+                var source = CaptureImportSource(document, element, parsing)
+                    ?? throw new InvalidOperationException(NativeCssQuery.Invalidated);
+                result.Add(new(EnsureSheet(source, parsing), NativeCssOrigin.Author));
             }
         }
         Verify();
         return result.AsReadOnly();
     }
+
+    // Queries and the import loader share the actual model. Source-only installation remains lazy.
+    internal static CssStyleSheet EnsureSheet(CssImportSource source, CssValueWork work)
+    {
+        var expectedSheet = source.Resource.Sheet;
+        var guarded = CssValueWork.Guard(work, () =>
+        {
+            work.CheckCancellation();
+            if (!IsCurrent(source) || !ReferenceEquals(source.Resource.Sheet, expectedSheet))
+                throw new CssImportSourceStaleException();
+        });
+        guarded.CheckCancellation();
+        var resource = source.Resource;
+        var cold = resource.Sheet is null;
+        var sheet = resource.Sheet ?? CssStyleSheet.Parse(source.Source, null, guarded, guarded.Token);
+        if (!cold && resource.Replaced)
+        {
+            sheet.ReplaceText(source.Source, null, guarded, guarded.Token);
+            // ReplaceText already passed its final guarded callback and committed. Record that
+            // progress before any fallible metadata read, so recovery cannot replay the source
+            // over a CSSOM edit made by a later callback on this same sheet.
+            if (!IsCurrent(source) || !ReferenceEquals(resource.Sheet, sheet)) throw new CssImportSourceStaleException();
+            sheet.SetAttachment(source.Attachment);
+            resource.Replaced = false;
+            source.Materialized(sheet);
+        }
+        while (true)
+        {
+            // Source identity does not change for mutable owner metadata. Read media under a
+            // document witness and retry an intervening DOM write before committing that text.
+            var documentStamp = source.Document.MutationStamp;
+            if (documentStamp == ulong.MaxValue) throw new CssImportSourceStaleException();
+            var metadataWork = CssValueWork.Guard(guarded, () =>
+            {
+                guarded.CheckCancellation();
+                if (documentStamp != source.Document.MutationStamp) throw new CssImportMetadataChangedException();
+            });
+            string media;
+            try
+            {
+                metadataWork.CheckCancellation();
+                media = new DomReadWork(metadataWork.Charge, metadataWork.Token).Attribute(source.Owner, "media") ?? "";
+                if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, metadataWork))
+                {
+                    var mediaStamp = sheet.Media.Stamp;
+                    var producerWork = CssValueWork.Guard(metadataWork, () =>
+                    {
+                        metadataWork.CheckCancellation();
+                        if (!mediaStamp.CanReuse || sheet.Media.Stamp != mediaStamp) throw new CssImportMediaChangedException();
+                    });
+                    try { sheet.Media.SetMediaText(media, null, producerWork, producerWork.Token); }
+                    catch (CssImportMediaChangedException)
+                    {
+                        // An existing sheet's reentrant CSSOM media write wins over this earlier
+                        // owner read. A private candidate cannot receive such a write.
+                        if (cold) throw new CssImportSourceStaleException();
+                    }
+                }
+                // Media's own producer has now committed. A later CSSOM edit is authoritative;
+                // only another DOM metadata write requires rereading the attribute.
+                guarded.CheckCancellation();
+                if (documentStamp != source.Document.MutationStamp) continue;
+            }
+            catch (CssImportMetadataChangedException) { continue; }
+            if (!IsCurrent(source)) throw new CssImportSourceStaleException();
+            guarded.Token.ThrowIfCancellationRequested();
+            // Callback-free publication: disabled is still the resource's authority while cold.
+            // Attachment is immutable for this generation; media was proved against its DOM read.
+            sheet.SetAttachment(source.Attachment);
+            if (cold)
+            {
+                sheet.Disabled = resource.Disabled;
+                resource.Sheet = sheet;
+                expectedSheet = sheet;
+            }
+            source.Materialized(sheet);
+            resource.Replaced = false;
+            resource.MediaSource = media;
+            return sheet;
+        }
+    }
+
+    private sealed class CssImportMetadataChangedException : Exception { }
+    private sealed class CssImportMediaChangedException : Exception { }
 
     private static void ObserveDisabled(Element owner)
     {
@@ -277,6 +342,9 @@ internal static partial class NativeCssStyleSheets
         internal string Source = source;
         internal CssStyleSheetAttachment Attachment = attachment;
         internal CssStyleSheet? Sheet;
+        internal object SourceGeneration = new();
+        internal object? ImportHintGeneration;
+        internal bool ImportHint;
         internal bool Replaced;
         internal string? MediaSource;
         internal bool Disabled;
