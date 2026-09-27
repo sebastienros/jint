@@ -688,31 +688,6 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// Gets the default hour cycle for a locale.
-    /// Most locales use h12, but some use h23 (24-hour format without leading zero for midnight).
-    /// </summary>
-    internal static string GetDefaultHourCycle(string locale)
-    {
-        // Most English-speaking locales use 12-hour format
-        var lang = IntlUtilities.GetLanguageSubtag(locale).ToLowerInvariant();
-
-        // 24-hour format locales
-        if (lang is "de" or "fr" or "it" or "es" or "pt" or "nl" or "ru" or "pl" or "sv" or "da" or "nb" or "fi")
-        {
-            return "h23";
-        }
-
-        // Japanese uses h11 for 12-hour format (0-11 instead of 1-12)
-        if (string.Equals(lang, "ja", StringComparison.Ordinal))
-        {
-            return "h11";
-        }
-
-        // Default to 12-hour format h12 (1-12)
-        return "h12";
-    }
-
-    /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions
     /// </summary>
     [JsFunction]
@@ -757,8 +732,8 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         // Per ECMA-402, timeStyle implies hour formatting
         if (dateTimeFormat.Hour != null || dateTimeFormat.TimeStyle != null)
         {
-            // Use provided hourCycle or derive default from locale
-            var hourCycle = dateTimeFormat.HourCycle ?? GetDefaultHourCycle(dateTimeFormat.Locale);
+            // The cycle the formatter writes with: an option's or keyword's, or the locale's own
+            var hourCycle = dateTimeFormat.ResolvedHourCycle;
             result.CreateDataPropertyOrThrow("hourCycle", hourCycle);
             result.CreateDataPropertyOrThrow("hour12", string.Equals(hourCycle, "h11", StringComparison.Ordinal) ||
                                  string.Equals(hourCycle, "h12", StringComparison.Ordinal));

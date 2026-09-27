@@ -240,15 +240,13 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             // Option or hour12 provided - they override extension
             if (hour12.HasValue)
             {
-                if (hour12.Value)
-                {
-                    var lang = IntlUtilities.GetLanguageSubtag(resolvedLocale).ToLowerInvariant();
-                    hourCycle = string.Equals(lang, "ja", StringComparison.Ordinal) ? "h11" : "h12";
-                }
-                else
-                {
-                    hourCycle = "h23";
-                }
+                // https://tc39.es/ecma402/#sec-createdatetimeformat
+                // If hour12 is true, then
+                //   Let hc be resolvedLocaleData.[[hourCycle12]].
+                // Else if hour12 is false, then
+                //   Let hc be resolvedLocaleData.[[hourCycle24]].
+                var localeHourCycles = Data.TimeData.GetHourCycles(resolvedLocale);
+                hourCycle = hour12.Value ? Data.TimeData.GetHourCycle12(localeHourCycles) : Data.TimeData.GetHourCycle24(localeHourCycles);
             }
             else
             {
@@ -265,6 +263,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
         else
         {
+            // "If hc is null, set hc to resolvedLocaleData.[[hourCycle]]." That is a table lookup a formatter
+            // without an hour never needs, so JsDateTimeFormat.ResolvedHourCycle makes it on first use.
             hourCycle = null;
         }
 
