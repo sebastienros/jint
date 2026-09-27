@@ -6,8 +6,9 @@ an embedded resource with CLDR's Gregorian date and time patterns and names for 
 it came from. [`DateTimePatternData`](../../Jint/Native/Intl/Data/DateTimePatternData.cs) reads it. It is the
 `[[LocaleData]]` [issue #4158](https://github.com/sebastienros/jint/issues/4158) moves `Intl.DateTimeFormat` onto:
 a component bag is resolved against it by the format matcher,
-[`DateTimePatternGenerator`](../../Jint/Native/Intl/DateTimePatternGenerator.cs), whose reference model and golden
-table are under [`reference/`](#the-format-matchers-reference-model). `dateStyle`, `timeStyle` and `formatRange` do not
+[`DateTimePatternGenerator`](../../Jint/Native/Intl/DateTimePatternGenerator.cs), and its ranges are written with its
+interval patterns by [`DateTimeIntervalFormat`](../../Jint/Native/Intl/DateTimeIntervalFormat.cs); their reference models
+and golden tables are under [`reference/`](#the-format-matchers-reference-model). `dateStyle` and `timeStyle` do not
 read it yet.
 
 **The build never runs the generator.** Both outputs are committed, and regenerating them is a manual step taken
@@ -41,21 +42,29 @@ For each locale, from the `gregorian` calendar:
   `fields/<field>/displayName`), which is what ICU puts in their `{2}`.
 - `months` and `days`, `format` and `stand-alone`, every width; `eras` (`eraAbbr`, `eraNames`, `eraNarrow`); and the
   `format` `am`/`pm` day periods in three widths.
+- `dateTimeFormats/intervalFormats`: `intervalFormatFallback`, and each skeleton's pattern for each greatest-difference
+  letter ICU reads (`G y M d a B h H m`; CLDR's `-alt-` variants are left out). They are stored as ICU's
+  `DateIntervalInfo` ends up holding them, one pattern per skeleton and field (`a` and `B` are one field, and so are `h`
+  and `H`): each from the nearest locale of the parent chain that has it — a locale's own being the letters whose
+  pattern differs from its parent's — and within one locale the first letter in binary order, so `zh-Hant`'s `B`
+  pattern for `h` is read and its `a` one is not.
 
-`intervalFormats` (for `formatRange`), the flexible day periods and the other calendars are not extracted yet.
+The flexible day periods and the other calendars are not extracted yet.
 
 The run fails, listing every problem at once, unless: cldr-dates-full and `availableLocales.json` name the same
 locales; every value is present and non-empty, with twelve months, seven weekdays, two eras and am/pm; every pattern
 parses (every quote closed) and uses only the letters ECMA-402's fields map to, `GyMLdEcabBhHKkmsSzvO`; every join
 and appendItems pattern places `{0}` and `{1}` (and appendItems only `{2}` besides) with no letter outside quotes; the
-XML's and cldr-core's parent tables agree; and every locale's parent chain reaches the root through locales cldr-json
-carries. Then it decodes what it wrote, independently of the writer, and requires every locale to come back exactly.
+XML's and cldr-core's parent tables agree; every locale's parent chain reaches the root through locales cldr-json
+carries; and every interval pattern splits into its two dates where a field letter recurs (ICU's
+`splitPatternInto2Part`), and every fallback places both. Then it decodes what it wrote, independently of the writer, and requires every locale to come back exactly.
 
 CLDR 48.2 itself breaks the letter rule six times — `de-CH` `GyMEd` and `gd` `yMMM`, `ksh` `yM` and `sc` `yM` use the
 week-numbering year `Y`, and `fa` and `fa-AF` have an `HHmmZ` skeleton — and writes one numbering-system override,
 `haw`'s short date (`M=romanlow`). They are kept as CLDR writes them (the override is dropped: the resource has
 nowhere to put it) and are listed by name in `CldrLocale.cs`, so a new one fails the run, and so does a listed one
-that no longer occurs. `Jint.Tests` pins the same list.
+that no longer occurs. `Jint.Tests` pins the same list. So is `fa`'s (and `fa-AF`'s) `GyMMM` month pattern,
+`LLL تا MMM y G`, which repeats no letter (`KnownUnsplittableIntervals`).
 
 ## Regenerating
 
@@ -79,7 +88,7 @@ fail the test.
 All integers are unsigned LEB128 varints; a string is a varint byte length followed by UTF-8.
 
 ```text
-file:   "JDTP"  version=1  varint indexLength  varint indexDeflatedLength  index (raw deflate)  blocks
+file:   "JDTP"  version=2  varint indexLength  varint indexDeflatedLength  index (raw deflate)  blocks
 index:  string cldrVersion
         varint slotCount, slotCount x string slotName
         varint blockCount, blockCount x { string language, varint offset, varint deflatedLength, varint length,
@@ -89,9 +98,15 @@ block:  one record per locale, in the index's order (raw deflate; offset counted
 record: varint n, n x { varint gap, string value }        slots: the index is the previous one + gap + 1
         varint n, n x { string skeleton, string pattern } availableFormats entries new or different, in ordinal order
         varint n, n x string skeleton                     availableFormats entries the parent has and this locale drops
+        varint n, n x { string skeleton, byte field, string pattern }
+                                                          interval patterns new or different, in ordinal order
+        varint n, n x { string skeleton, byte field }     interval patterns the parent has and this locale drops
 ```
 
-A **slot** is one fixed-position value; the 178 of them are listed in
+An interval pattern's field is one of `G y M d a h m`, the letter ICU's interval index names it by. Version 1 had no
+interval lists.
+
+A **slot** is one fixed-position value; the 179 of them are listed in
 [`SlotLayout.cs`](Jint.CldrDates.Generator/SlotLayout.cs), each named by its JSON path, and the index carries the
 names so the loader can check them against its own offsets. Every locale but the root (`und`) stores only what
 differs from its **CLDR parent** ([TR35](https://www.unicode.org/reports/tr35/#Parent_Locales)): the parent table's
@@ -128,11 +143,41 @@ python reference/format_matcher.py golden <cldr-json-root> icu-golden.tsv > refe
 ```
 
 `compare` prints every row where the model and ICU disagree. Run with the design's wider set — every cldr-json
-locale ICU resolves to itself, 641 of them — the model agreed with Node on 16,023 of 16,025 formatted strings. The two
-that differ are data rather than matching: CLDR 48.2 joins an `fr-ML` date and time with `{1}, {0}` where Node's
-CLDR 48.0 writes `{1} {0}` (its `dateStyle` + `timeStyle` output shows the same), and `tok` (Toki Pona) writes a date
-and time from data that differs between the two releases. A change to the matcher goes into the model first,
-then into the port, and the table is regenerated in the same pull request.
+locale ICU resolves to itself, 641 of them, in the comma-separated `PROBE_LOCALES` both scripts read — the model agreed
+with Node on 16,023 of 16,025 formatted strings. The two that differ are data rather than matching: CLDR 48.2 joins an
+`fr-ML` date and time with `{1}, {0}` where Node's CLDR 48.0 writes `{1} {0}` (its `dateStyle` + `timeStyle` output
+shows the same), and `tok` (Toki Pona) writes a date and time from data that differs between the two releases. A change
+to the matcher goes into the model first, then into the port, and the table is regenerated in the same pull request.
+
+## The interval format's reference model
+
+[`reference/interval_format.py`](reference/interval_format.py) is a model of ICU's `DateIntervalFormat` as V8 drives it,
+on top of `format_matcher.py`, and `DateTimeIntervalFormat` is its C# port: V8 creates the interval format for the
+skeleton of the pattern the matcher chose, with the resolved hour cycle; the skeleton is split into a date and a time
+and normalized, the nearest interval skeleton is found and its pattern widened to the request, a date skeleton is
+extended by the field that differs (`MMMd` to `yMMMd`), a date and a time on one day are the date once joined to the
+time's interval by the medium `dateTimeFormats`, and any other range is the two whole dates in the fallback. It writes
+[`reference/range-golden.tsv`](reference/range-golden.tsv), which `IntlDateTimeFormatRangeTests` embeds: the 51 locales,
+15 bags and up to six pairs of dates, each differing first in the field it is named after, with the text and every
+part's type, source and length.
+
+```sh
+node reference/probe-range-golden.js > icu-range-golden.tsv
+python reference/interval_format.py compare <cldr-json-root> icu-range-golden.tsv
+python reference/interval_format.py golden <cldr-json-root> icu-range-golden.tsv > reference/range-golden.tsv
+python reference/interval_format.py ties <cldr-json-root>
+```
+
+With Node 24.19 every one of the table's 3,570 rows has the same text, and 3,566 the same parts. The other four are
+V8 reporting as `shared` a part ICU writes from the end date, which the specification does not allow a shared part:
+`fa` writes the month stand-alone before the dash and in the format context after it, two fields to ICU, and `sw`
+writes the month of a month range once, after the second day; the model and Jint report those parts as the end date's.
+Over the 641 locales the model agrees with Node on 44,837 of 44,870 rows; the others are those two shapes (`fa`,
+`fa-AF`, `sw` and its regions, `wae`), `fr-ML` and `tok`'s data as above, and `yo`'s (and `yo-BJ`'s) `yMMMEd` year pattern,
+which repeats the year inside its first date, so that ICU splits it there and writes part of the start from the end
+date where Jint writes each part from the date its source names. `ties` reports every interval skeleton lookup with
+two candidates at the least distance, where ICU's hash-table order would decide: there is none, so walking the
+skeletons in ordinal order is exact.
 
 ## Moving to a later CLDR release
 
@@ -142,7 +187,8 @@ then into the port, and the table is regenerated in the same pull request.
    whether it belongs in `KnownLetterExceptions` or `KnownNumberingOverrides`, with a comment saying what it is.
 3. Update the expectations in `Jint.Tests/Runtime/IntlDateTimePatternDataTests.cs`: CLDR's values for a handful of
    locales, the locale count and the list of known letter exceptions.
-4. Regenerate [`reference/golden.tsv`](#the-format-matchers-reference-model) from the new release.
+4. Regenerate [`reference/golden.tsv`](#the-format-matchers-reference-model) and
+   [`reference/range-golden.tsv`](#the-interval-formats-reference-model) from the new release.
 5. Run `Jint.Tests`.
 
 Update from a release, never entry by entry: the data is CLDR's own, under the Unicode License v3
