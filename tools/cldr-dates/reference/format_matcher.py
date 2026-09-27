@@ -21,7 +21,15 @@ What it models, in ICU's own terms (icu4c/source/i18n/dtptngen.cpp):
   * getBestAppending (date and time halves, appendItems, the fractional-second fix-up);
   * the dateTimeFormat choice by month width (the atTime variants, as ICU 72+ does);
   * adjustFieldTypes with UDATPG_MATCH_HOUR_FIELD_LENGTH (V8's option) and the specified-skeleton rule;
-  * V8's hour-cycle replacement in the chosen pattern.
+  * V8's hour-cycle replacement in the chosen pattern;
+  * dateStyle and timeStyle as V8's DateTimeStylePattern gets them from ICU (style_pattern), and Temporal's
+    AdjustDateTimeStyleFormat over them (adjust_style_format); the golden-styles table Jint.Tests reads:
+
+  python format_matcher.py style-cases <cldr-json-root> > style-cases.tsv
+  node probe-styles.js style-cases.tsv > icu-styles.tsv
+  python format_matcher.py compare-styles <cldr-json-root> icu-styles.tsv
+  python format_matcher.py golden-styles <cldr-json-root> icu-styles.tsv > golden-styles.tsv
+
 basic_format_matcher is the ECMA-402 BasicFormatMatcher run literally over the same candidates, kept for contrast:
 it matches ICU on only about half of the bags, which is why Jint treats formatMatcher 'basic' as best fit.
 """
@@ -240,10 +248,12 @@ def own_formats_chain(root, locale):
 # ---------------------------------------------------------------------------------------------------
 class LocaleData:
     def __init__(self, root, locale):
+        self.root = root
         self.locale = locale
         main = os.path.join(root, 'package', 'main', locale)
         g = json.load(open(os.path.join(main, 'ca-gregorian.json'), encoding='utf-8'))['main'][locale]['dates']['calendars']['gregorian']
         self.g = g
+        self.zone_names = json.load(open(os.path.join(main, 'timeZoneNames.json'), encoding='utf-8'))['main'][locale]['dates']['timeZoneNames']
         fields = json.load(open(os.path.join(root, 'package', 'main', locale, 'dateFields.json'), encoding='utf-8'))
         self.fields = fields['main'][locale]['dates']['fields']
         dtf = g['dateTimeFormats']
@@ -557,7 +567,9 @@ def render(ld, pattern, date):
             w = {4: 'wide', 5: 'narrow'}.get(ln, 'abbreviated')
             out.append(g['dayPeriods']['format'][w]['pm' if date['hour'] >= 12 else 'am'])
         elif ch == 'B':
-            out.append('<B>')
+            out.append(flexible_day_period(ld, date['hour'], date['minute'], ln))
+        elif ch == 'z':
+            out.append(utc_zone_name(ld, ln))
         elif ch in 'hHkK':
             h = date['hour']
             v = {'h': (h % 12) or 12, 'K': h % 12, 'H': h, 'k': h or 24}[ch]
@@ -572,6 +584,48 @@ def render(ld, pattern, date):
             out.append('<' + ch * ln + '>')
     # Jint writes a plain space where CLDR 42+ has U+202F, in format() and formatToParts() alike.
     return ''.join(out).replace(' ', ' ')
+
+
+def utc_zone_name(ld, length):
+    """What ICU writes for the UTC zone: CLDR's Etc/UTC short (z) or long (zzzz) standard name, and where the locale has
+    none, the localized GMT format — its zero form for z, and for zzzz the long form with the offset written out
+    ("GMT+00:00"). Only the golden tables' timeZone: 'UTC' is modelled."""
+    names = ld.zone_names
+    utc = names.get('zone', {}).get('Etc', {}).get('UTC', {})
+    width = 'long' if length >= 4 else 'short'
+    name = utc.get(width, {}).get('standard')
+    if name:
+        return name
+    if width == 'short':
+        return names.get('gmtZeroFormat', 'GMT')
+    # The long form writes the locale's hourFormat with two-digit hours, whatever it says ("+H:mm" in vmw, "+HH.mm" in nds).
+    positive = names.get('hourFormat', '+HH:mm;-HH:mm').split(';')[0].replace('HH', 'H').replace('H', '00').replace('mm', '00')
+    return names.get('gmtFormat', 'GMT{0}').replace('{0}', positive)
+
+
+_day_period_rules = None
+
+
+def flexible_day_period(ld, hour, minute, length):
+    """CLDR's flexible day period (B) for a time, as ICU picks it: the locale's dayPeriodRuleSet (the locale's own, then
+    its language's), the period whose [from, before) holds the time, named in the format context. Neither golden
+    instant is midnight or noon, so the 'at' rules never apply."""
+    global _day_period_rules
+    if _day_period_rules is None:
+        _day_period_rules = json.load(open(os.path.join(ld.root, 'core', 'package', 'supplemental', 'dayPeriods.json'), encoding='utf-8'))['supplemental']['dayPeriodRuleSet']
+    rules = _day_period_rules.get(ld.locale) or _day_period_rules.get(ld.locale.split('-')[0]) or _day_period_rules['root']
+    minutes = hour * 60 + minute
+    period = None
+    for name, rule in rules.items():
+        if '_from' not in rule:
+            continue
+        start = int(rule['_from'][:2]) * 60 + int(rule['_from'][3:])
+        end = int(rule['_before'][:2]) * 60 + int(rule['_before'][3:])
+        if start <= minutes < end if start < end else (minutes >= start or minutes < end):
+            period = name
+            break
+    width = {4: 'wide', 5: 'narrow'}.get(length, 'abbreviated')
+    return ld.g['dayPeriods']['format'][width][period]
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -735,11 +789,205 @@ def compare(root, node_tsv):
     print('same', same, 'diff', diff)
 
 
+# ---------------------------------------------------------------------------------------------------
+# dateStyle and timeStyle, as V8's DateTimeStylePattern (js-date-time-format.cc) drives ICU: the locale's dateFormats
+# and timeFormats (ECMA-402 DateTimeStyleFormat), a date and a time joined by the atTime dateTimeFormats of the date's
+# width (ICU 72+'s SimpleDateFormat for a date and a time style), and, where the resolved hour cycle is not the one the
+# style pattern writes, the pattern's skeleton (DateTimePatternGenerator::staticGetSkeleton) with its day period dropped
+# and its hour letter replaced (V8's ReplaceSkeleton), matched again by best_pattern and given the cycle's hour letter.
+HOUR_LETTER = {'h11': 'K', 'h12': 'h', 'h23': 'H', 'h24': 'k'}
+STYLES = ('full', 'long', 'medium', 'short')
+
+
+def style_format(ld, block, style):
+    p = ld.g[block][style]
+    return p.get('_value') if isinstance(p, dict) else p
+
+
+def pattern_hour_cycle(pattern):
+    """V8's HourCycleFromPattern: the cycle of the pattern's first hour letter outside quotes, or None."""
+    in_quote = False
+    for c in pattern:
+        if c == "'":
+            in_quote = not in_quote
+        elif not in_quote and c in 'hHkK':
+            return CYCLE[c]
+    return None
+
+
+def style_skeleton(pattern, hc):
+    """staticGetSkeleton, then ReplaceSkeleton: each field of the pattern once, in field order, without a day period,
+    and with the resolved cycle's hour letter."""
+    sk = Skeleton(pattern)
+    out = ''
+    for f in sorted(sk.orig):
+        ch, ln = sk.orig[f]
+        if ch in 'abB':
+            continue
+        out += (HOUR_LETTER[hc] if ch in 'hHkK' else ch) * ln
+    return out
+
+
+def style_pattern(ld, date_style, time_style, hc):
+    """The pattern a dateStyle and/or timeStyle formatter writes with in the resolved hour cycle hc."""
+    if date_style is None:
+        pattern = style_format(ld, 'timeFormats', time_style)
+    else:
+        date = style_format(ld, 'dateFormats', date_style)
+        if time_style is None:
+            return date
+        time = style_format(ld, 'timeFormats', time_style)
+        pattern = ld.dt_formats_at[date_style].replace('{1}', '\u0001').replace('{0}', time).replace('\u0001', date)
+    if pattern_hour_cycle(pattern) == hc:
+        return pattern
+    return replace_hour_cycle(best_pattern(ld, style_skeleton(pattern, hc)), hc)
+
+
+# Temporal's AdjustDateTimeStyleFormat (https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat): the style's
+# format when it has no field the Temporal type lacks, and otherwise the format matcher run over the fields it has that
+# the type allows. The formatter drops the style the type cannot have first (a PlainDate keeps the dateStyle, a
+# PlainTime the timeStyle), so "timeStyle is ignored when dateStyle is present" holds in every locale.
+TEMPORAL_ALLOWED = {
+    'PlainDate': ('weekday', 'era', 'year', 'month', 'day'),
+    'PlainYearMonth': ('era', 'year', 'month'),
+    'PlainMonthDay': ('month', 'day'),
+    'PlainTime': ('dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits'),
+    'PlainDateTime': ('weekday', 'era', 'year', 'month', 'day', 'dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits'),
+}
+RECORD_KEYS = ['weekday', 'era', 'year', 'month', 'day', 'dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits', 'timeZoneName']
+
+
+def adjust_style_format(ld, base, hc, allowed):
+    """The adjusted pattern, and the component bag it was matched from (None where the style's format stands)."""
+    record = record_of(base)
+    if all(k in allowed for k in record):
+        return base, None
+    bag = {k: record[k] for k in RECORD_KEYS if k in record and k in allowed}
+    pattern = best_pattern(ld, skeleton_from_options(bag, hc))
+    if 'hour' in bag:
+        pattern = replace_hour_cycle(pattern, hc)
+    return pattern, bag
+
+
+STYLE_CASES = [('d_' + s, {'dateStyle': s}) for s in STYLES] + [('t_' + s, {'timeStyle': s}) for s in STYLES] + [
+    ('dt_%s_%s' % (d, t), {'dateStyle': d, 'timeStyle': t}) for d in STYLES for t in STYLES] + [
+    ('t_short_h23', {'timeStyle': 'short', 'hourCycle': 'h23'}),
+    ('t_short_h12', {'timeStyle': 'short', 'hourCycle': 'h12'}),
+    ('t_short_h11', {'timeStyle': 'short', 'hourCycle': 'h11'}),
+    ('t_short_h24', {'timeStyle': 'short', 'hourCycle': 'h24'}),
+    ('t_medium_12', {'timeStyle': 'medium', 'hour12': True}),
+    ('t_medium_24', {'timeStyle': 'medium', 'hour12': False}),
+    ('t_full_h23', {'timeStyle': 'full', 'hourCycle': 'h23'}),
+    ('t_long_h12', {'timeStyle': 'long', 'hourCycle': 'h12'}),
+    ('dt_full_short_h23', {'dateStyle': 'full', 'timeStyle': 'short', 'hourCycle': 'h23'}),
+    ('dt_short_medium_h12', {'dateStyle': 'short', 'timeStyle': 'medium', 'hourCycle': 'h12'}),
+    ('dt_long_long_12', {'dateStyle': 'long', 'timeStyle': 'long', 'hour12': True}),
+    ('dt_medium_full_24', {'dateStyle': 'medium', 'timeStyle': 'full', 'hour12': False}),
+] + [('PYM_' + s, {'temporal': 'PlainYearMonth', 'dateStyle': s}) for s in STYLES] + [
+    ('PMD_' + s, {'temporal': 'PlainMonthDay', 'dateStyle': s}) for s in STYLES] + [
+    ('PD_full', {'temporal': 'PlainDate', 'dateStyle': 'full'}),
+    ('PD_short', {'temporal': 'PlainDate', 'dateStyle': 'short'}),
+    ('PT_full', {'temporal': 'PlainTime', 'timeStyle': 'full'}),
+    ('PT_long', {'temporal': 'PlainTime', 'timeStyle': 'long'}),
+    ('PT_medium', {'temporal': 'PlainTime', 'timeStyle': 'medium'}),
+    ('PDT_full_full', {'temporal': 'PlainDateTime', 'dateStyle': 'full', 'timeStyle': 'full'}),
+    ('PDT_long_long', {'temporal': 'PlainDateTime', 'dateStyle': 'long', 'timeStyle': 'long'}),
+    ('PDT_short_full', {'temporal': 'PlainDateTime', 'dateStyle': 'short', 'timeStyle': 'full'}),
+    ('PDT_medium_medium', {'temporal': 'PlainDateTime', 'dateStyle': 'medium', 'timeStyle': 'medium'}),
+]
+
+
+def resolve_style(root, locale, options):
+    """The pattern, the component bag an ICU engine can be asked for the same text with, and the resolvedOptions string,
+    for one style case. A Temporal case's bag is the one AdjustDateTimeStyleFormat matched, and its resolvedOptions are
+    that bag's format record, which is what the bag reports when an ICU engine is asked for it."""
+    ld = LocaleData(root, locale)
+    preferred, h12, h24 = hour_cycles(root, locale)
+    hc = options.get('hourCycle') or (h12 if options.get('hour12') is True else h24 if options.get('hour12') is False else preferred)
+    date_style = options.get('dateStyle')
+    time_style = options.get('timeStyle')
+    pattern = style_pattern(ld, date_style, time_style, hc)
+    probe = {k: v for k, v in options.items() if k != 'temporal'}
+    ro = ','.join('%s=%s' % (k, options[k]) for k in ('dateStyle', 'timeStyle') if k in options)
+    if time_style is not None:
+        ro += ',hourCycle=' + hc
+    temporal = options.get('temporal')
+    if temporal is not None:
+        allowed = TEMPORAL_ALLOWED[temporal]
+        pattern, bag = adjust_style_format(ld, pattern, hc, allowed)
+        if bag is not None:
+            record = record_of(pattern)
+            ro = ','.join('%s=%s' % (k, record[k]) for k in RECORD_KEYS if k in record)
+            probe = dict(bag)
+            if 'hour' in record:
+                ro += ',hourCycle=' + hc
+                probe['hourCycle'] = hc
+    return ld, pattern, probe, ro
+
+
+def read_locales(path):
+    """The locales a run covers: the golden table's, or one per line of a file (the design's wider set)."""
+    if path is None:
+        return LOCALES
+    return [line.strip() for line in open(path, encoding='utf-8') if line.strip()]
+
+
+def style_cases(root, locales_path=None):
+    """What probe-styles.js asks ICU for: locale, case and the Intl.DateTimeFormat options, one line each."""
+    for locale in read_locales(locales_path):
+        for name, options in STYLE_CASES:
+            ld, pattern, probe, ro = resolve_style(root, locale, options)
+            print('\t'.join([locale, name, json.dumps(probe, separators=(',', ':'))]))
+
+
+def golden_styles(root, icu_tsv):
+    """Writes the style golden table: locale, case, options, pattern, the text at each of DATES, the UTC zone name the
+    text writes (empty for none), resolvedOptions, and last what ICU writes where it differs from the model."""
+    icu = load_icu(icu_tsv)
+    print('# Generated by tools/cldr-dates/reference/format_matcher.py golden-styles from cldr-json 48.2.0; do not edit.')
+    print('# The last column is what ICU (Node 24.19, ICU 78.3) writes where it differs from the model: text@1|text@2|resolvedOptions.')
+    print('# A Temporal case (options.temporal) is compared with ICU through the component bag AdjustDateTimeStyleFormat matched.')
+    print('# locale\tcase\toptions\tpattern\t' + '\t'.join('text@%04d-%02d-%02dT%02d:%02d:%02dZ' % (d['year'], d['month'], d['day'], d['hour'], d['minute'], d['second']) for d in DATES) + '\tzone\tresolvedOptions\ticu')
+    for locale in LOCALES:
+        for name, options in STYLE_CASES:
+            ld, pattern, probe, ro = resolve_style(root, locale, options)
+            texts = [render(ld, pattern, d) for d in DATES]
+            zones = [tok for tok in tokenize(pattern) if tok[0] == 'field' and tok[1] == 'z']
+            zone = utc_zone_name(ld, zones[0][2]) if zones else ''
+            reference = icu[(locale, name)]
+            differs = '' if reference == texts + [ro] else '|'.join(reference)
+            print('\t'.join([locale, name, json.dumps(options, separators=(',', ':')), escape(pattern)] + [escape(t) for t in texts] + [escape(zone), ro, escape(differs)]))
+
+
+def compare_styles(root, node_tsv, locales_path=None):
+    """Compares the style golden table's model with an ICU reference written by probe-styles.js."""
+    ref = load_icu(node_tsv)
+    same = diff = 0
+    for locale in read_locales(locales_path):
+        for name, options in STYLE_CASES:
+            ld, pattern, probe, ro = resolve_style(root, locale, options)
+            texts = [render(ld, pattern, d) for d in DATES]
+            expected = ref.get((locale, name))
+            ok = expected is not None and expected[:len(texts)] == texts
+            ro_ok = expected is not None and len(expected) > len(texts) and expected[len(texts)] == ro
+            same += ok
+            diff += not ok
+            if not ok or not ro_ok:
+                print(('!!' if not ok else 'ro') + '\t%s\t%s\t%r\t%r\ticu=%r' % (locale, name, pattern, texts + [ro], expected))
+    print('same', same, 'diff', diff)
+
+
 if __name__ == '__main__':
     if len(sys.argv) >= 4 and sys.argv[1] == 'golden':
         golden(sys.argv[2], sys.argv[3])
     elif len(sys.argv) >= 4 and sys.argv[1] == 'compare':
         compare(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 3 and sys.argv[1] == 'style-cases':
+        style_cases(sys.argv[2], sys.argv[3] if len(sys.argv) >= 4 else None)
+    elif len(sys.argv) >= 4 and sys.argv[1] == 'golden-styles':
+        golden_styles(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 4 and sys.argv[1] == 'compare-styles':
+        compare_styles(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) >= 5 else None)
     else:
         print(__doc__)
         sys.exit(2)
