@@ -135,10 +135,10 @@ internal sealed class BindingModel
     internal SortedSet<string> HtmlCollectionElements { get; } = new(StringComparer.Ordinal);
 
     /// <summary>The collection receiver family named by the explicit contract.</summary>
-    internal string HtmlCollectionOpenType { get; set; } = "global::AngleSharp.Dom.IHtmlCollection";
+    internal string HtmlCollectionOpenType { get; set; } = "global::Jint.Browser.Dom.Collections.DomHtmlCollection";
 
     /// <summary>The least-specific element receiver, emitted after specialized cases.</summary>
-    internal string HtmlCollectionDefaultElement { get; set; } = "global::AngleSharp.Dom.IElement";
+    internal string HtmlCollectionDefaultElement { get; set; } = "global::Jint.HtmlParser.Element";
 
     /// <summary>
     /// The namespaces holding the extension classes a generated member calls. They are emitted as <c>using</c>

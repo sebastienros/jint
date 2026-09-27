@@ -1,6 +1,9 @@
 # HTML parser replacement inventory (A1)
 
-This is a locked description of the **current** AngleSharp dependency surface on the integration branch. It is an input to the replacement work, not a claim that the replacement already implements these contracts. Run from the repository root:
+This locks the remaining AngleSharp references and the native binding surface. Package dependencies
+are now confined to `Jint.Benchmark` for `Jint.HtmlParser` comparisons. Source tokens also include
+historical generator metadata and tests policing this boundary; a token is not a runtime dependency.
+The inventory is not a claim of complete behavioral parity. Run from the repository root:
 
 ```sh
 python3 tools/html-parser-inventory/inventory.py
@@ -14,12 +17,15 @@ When an intentional source, binding or baseline change makes the check fail, run
 | JSON section | Source and meaning |
 | --- | --- |
 | `source` | Every hand-written C#, project, props or targets file with an AngleSharp token outside a comment, with runtime/generator/test/benchmark classification, replacement task family, exact reference lines and a SHA-256 for production and generator files. The full-file hash is intentional: `using AngleSharp.Dom` makes unqualified `INode` calls invisible to a token search, so any edit to a native consumer gets reviewed. |
-| `generated` | Every generated shape method, accessor, constant, constructor and symbol slot, plus the four iterable methods installed through `DomIterableMembers.ValueIterator`, with interface and owner; registry interfaces, interfaces with no emitted member, override and extension-source hashes, and hashes of all checked-in `.g.cs` files. The existing `DomBindingsStalenessTests` remains the authority that those files match the pinned assemblies. |
-| `packages` | Direct project/props/targets references (including inline versions), central package versions and the two-assembly binding generator pin. The four Browser runtime packages are AngleSharp, AngleSharp.Css, AngleSharp.Xml and AngleSharp.XPath. |
+| `generated` | Every generated shape method, accessor, constant, constructor and symbol slot, plus the four iterable methods installed through `DomIterableMembers.ValueIterator`, with interface and owner; registry interfaces, interfaces with no emitted member, override and extension-source hashes, and hashes of all checked-in `.g.cs` files. `DomBindingsStalenessTests` checks these files against the explicit native contract, without upstream assemblies. |
+| `packages` | Direct project/props/targets references (including inline versions), central package versions and historical binding provenance. Only `Jint.Benchmark` references AngleSharp, AngleSharp.Css and AngleSharp.Xml. AngleSharp.XPath and the old AngleSharp.Js binding comparison harness have been removed. |
 | `api` | The five approved Jint public API snapshots by hash, and top-level Browser public type and source member declarations. The latter are source references for migration review; Browser has no compiled public API snapshot yet, so A2 must add one for the new package. |
 | `wpt` | The shared vendored WPT commit, the browser lane's measured census table and the exclusions source hash. The census is the existing Windows baseline and must be remeasured by its own gate; this script does not run WPT or infer new pass/fail outcomes. |
 
-The lock currently records **193** AngleSharp-bearing source/build files, **1,691** generated shape members across **163** registered interfaces, and the browser WPT census of **392** vendored documents, **9** synthesized wrappers, **66,916** registrations and **239** not passing. These numbers are derived by the tool and will change if the checked-in sources change.
+The lock records **1,728** generated shape members across **164** registered interfaces. Its browser
+WPT census remains the historical table of **392** vendored documents, **9** synthesized wrappers,
+**66,916** registrations and **239** not passing, not a fresh native-parser conformance result.
+Run the relevant suites before claiming parity.
 
 ## Replacement ownership
 

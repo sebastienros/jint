@@ -167,7 +167,7 @@ internal sealed partial class HtmlTreeBuilder
             ProcessCharacters();
             if (_missing is { } textFamily)
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, textFamily, _token.Offset);
-            if (_textIndex < _token.Data.Length) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            if (_textIndex < _token.DataSlice.Length) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             FinishToken();
             return new HtmlParseStep(HtmlParseStepKind.Yielded);
         }
@@ -360,27 +360,29 @@ internal sealed partial class HtmlTreeBuilder
         while (_preparedAttributeIndex < attributes.Count && _remaining > 0)
         {
             var item = attributes[_preparedAttributeIndex];
-            _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
+            var formatting = IsFormatting(_token.Name!);
+            if (formatting) item = new HtmlAttribute(item.Name, item.Value);
+            _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.ValueSlice);
             if (item.Name == "is") _preparedIsValue = item.Value;
             if (item.Name is "color" or "face" or "size") _foreignFontBreakout = true;
             if (item.Name == "encoding")
-                _foreignAnnotationEncoding = AsciiEquals(item.Value, "text/html") || AsciiEquals(item.Value, "application/xhtml+xml");
+                _foreignAnnotationEncoding = AsciiEquals(item.ValueSlice.Span, "text/html") || AsciiEquals(item.ValueSlice.Span, "application/xhtml+xml");
             if (_token.Name == "template")
             {
                 if (item.Name == "for") { _templateHasFor = true; _templateForValue = item.Value; }
                 if (item.Name == "shadowrootmode" &&
-                    (string.Equals(item.Value, "open", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(item.Value, "closed", StringComparison.OrdinalIgnoreCase)))
+                    (item.ValueSlice.Span.Equals("open", StringComparison.OrdinalIgnoreCase) ||
+                     item.ValueSlice.Span.Equals("closed", StringComparison.OrdinalIgnoreCase)))
                     _templateHasValidShadowMode = true;
                 if (item.Name == "shadowrootdelegatesfocus") _templateDelegatesFocus = true;
                 if (item.Name == "shadowrootserializable") _templateSerializable = true;
                 if (item.Name == "shadowrootclonable") _templateClonable = true;
                 if (item.Name == "shadowrootcustomelementregistry") _templateKeepRegistryNull = true;
-                if (item.Name == "shadowrootslotassignment" && AsciiEquals(item.Value, "manual")) _templateManualSlotAssignment = true;
+                if (item.Name == "shadowrootslotassignment" && AsciiEquals(item.ValueSlice.Span, "manual")) _templateManualSlotAssignment = true;
             }
-            var itemWork = 1L + item.Name.Length + item.Value.Length;
+            var itemWork = 1L + item.Name.Length + item.ValueSlice.Length;
             _preparedAttributeWork = _preparedAttributeWork > long.MaxValue - itemWork ? long.MaxValue : _preparedAttributeWork + itemWork;
-            var formattingWork = IsFormatting(_token.Name!) ? PrepareFormattingAttribute(item) : 0;
+            var formattingWork = formatting ? PrepareFormattingAttribute(item) : 0;
             Charge(itemWork + formattingWork);
         }
         return _preparedAttributeIndex == attributes.Count;
@@ -568,7 +570,7 @@ internal sealed partial class HtmlTreeBuilder
         Charge(_token.Data.Length + (_token.Name?.Length ?? 0) + 1L);
     }
 
-    private void InsertText(ReadOnlySpan<char> text)
+    private void InsertText(StringSlice text)
     {
         if (text.IsEmpty) return;
         var location = FindAdjustedInsertionLocation();

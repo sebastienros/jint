@@ -48,9 +48,13 @@ internal sealed class CssTokenizer
 
         if (IsWhitespace(c))
         {
-            var text = new StringBuilder();
-            do { AppendCodePoint(text, Consume()); } while (IsWhitespace(Peek()));
-            return Make(CssTokenKind.Whitespace, start, text: text.ToString());
+            var text = new ValueStringBuilder(stackalloc char[128]);
+            try
+            {
+                do { AppendCodePoint(ref text, Consume()); } while (IsWhitespace(Peek()));
+                return Make(CssTokenKind.Whitespace, start, text: text.ToString());
+            }
+            finally { text.Dispose(); }
         }
 
         if (c is '\'' or '"')
@@ -219,61 +223,65 @@ internal sealed class CssTokenizer
     private CssToken ConsumeUrl(int start)
     {
         while (IsWhitespace(Peek())) Consume();
-        var text = new StringBuilder();
-        while (true)
+        var text = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            var c = Peek();
-            if (c < 0)
+            while (true)
             {
-                _eofRecoverySuffix += ")";
-                Report("css/unexpected-eof", _position);
-                return Make(CssTokenKind.Url, start, text: text.ToString());
-            }
-            if (c == ')')
-            {
-                Consume();
-                return Make(CssTokenKind.Url, start, text: text.ToString());
-            }
-            if (IsWhitespace(c))
-            {
-                do { Consume(); } while (IsWhitespace(Peek()));
-                if (Peek() == ')')
-                {
-                    Consume();
-                    return Make(CssTokenKind.Url, start, text: text.ToString());
-                }
-                if (Peek() < 0)
+                var c = Peek();
+                if (c < 0)
                 {
                     _eofRecoverySuffix += ")";
                     Report("css/unexpected-eof", _position);
                     return Make(CssTokenKind.Url, start, text: text.ToString());
                 }
-                ConsumeBadUrlRemainder();
-                Report("css/bad-url", start);
-                return Make(CssTokenKind.BadUrl, start);
-            }
-            if (c is '"' or '\'' or '(' || IsNonPrintable(c))
-            {
-                ConsumeBadUrlRemainder();
-                Report("css/bad-url", start);
-                return Make(CssTokenKind.BadUrl, start);
-            }
-            if (c == '\\')
-            {
-                if (!IsValidEscape(c, Peek(1)))
+                if (c == ')')
+                {
+                    Consume();
+                    return Make(CssTokenKind.Url, start, text: text.ToString());
+                }
+                if (IsWhitespace(c))
+                {
+                    do { Consume(); } while (IsWhitespace(Peek()));
+                    if (Peek() == ')')
+                    {
+                        Consume();
+                        return Make(CssTokenKind.Url, start, text: text.ToString());
+                    }
+                    if (Peek() < 0)
+                    {
+                        _eofRecoverySuffix += ")";
+                        Report("css/unexpected-eof", _position);
+                        return Make(CssTokenKind.Url, start, text: text.ToString());
+                    }
+                    ConsumeBadUrlRemainder();
+                    Report("css/bad-url", start);
+                    return Make(CssTokenKind.BadUrl, start);
+                }
+                if (c is '"' or '\'' or '(' || IsNonPrintable(c))
                 {
                     ConsumeBadUrlRemainder();
                     Report("css/bad-url", start);
                     return Make(CssTokenKind.BadUrl, start);
                 }
-                Consume();
-                AppendCodePoint(text, ConsumeEscape());
-            }
-            else
-            {
-                AppendCodePoint(text, Consume());
+                if (c == '\\')
+                {
+                    if (!IsValidEscape(c, Peek(1)))
+                    {
+                        ConsumeBadUrlRemainder();
+                        Report("css/bad-url", start);
+                        return Make(CssTokenKind.BadUrl, start);
+                    }
+                    Consume();
+                    AppendCodePoint(ref text, ConsumeEscape());
+                }
+                else
+                {
+                    AppendCodePoint(ref text, Consume());
+                }
             }
         }
+        finally { text.Dispose(); }
     }
 
     private void ConsumeBadUrlRemainder()
@@ -292,50 +300,58 @@ internal sealed class CssTokenizer
 
     private CssToken ConsumeString(int start, int quote)
     {
-        var text = new StringBuilder();
-        while (true)
+        var text = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            var c = Peek();
-            if (c < 0)
+            while (true)
             {
-                _eofRecoverySuffix += (char) quote;
-                Report("css/unexpected-eof", _position);
-                return Make(CssTokenKind.String, start, text: text.ToString());
+                var c = Peek();
+                if (c < 0)
+                {
+                    _eofRecoverySuffix += (char) quote;
+                    Report("css/unexpected-eof", _position);
+                    return Make(CssTokenKind.String, start, text: text.ToString());
+                }
+                if (c == quote)
+                {
+                    Consume();
+                    return Make(CssTokenKind.String, start, text: text.ToString());
+                }
+                if (c == '\n')
+                {
+                    Report("css/bad-string", _position);
+                    return Make(CssTokenKind.BadString, start);
+                }
+                if (c == '\\')
+                {
+                    Consume();
+                    if (Peek() < 0) { _eofRecoverySuffix += "\n"; continue; }
+                    if (Peek() == '\n') { Consume(); continue; }
+                    AppendCodePoint(ref text, ConsumeEscape());
+                }
+                else AppendCodePoint(ref text, Consume());
             }
-            if (c == quote)
-            {
-                Consume();
-                return Make(CssTokenKind.String, start, text: text.ToString());
-            }
-            if (c == '\n')
-            {
-                Report("css/bad-string", _position);
-                return Make(CssTokenKind.BadString, start);
-            }
-            if (c == '\\')
-            {
-                Consume();
-                if (Peek() < 0) { _eofRecoverySuffix += "\n"; continue; }
-                if (Peek() == '\n') { Consume(); continue; }
-                AppendCodePoint(text, ConsumeEscape());
-            }
-            else AppendCodePoint(text, Consume());
         }
+        finally { text.Dispose(); }
     }
 
     private string ConsumeName()
     {
-        var text = new StringBuilder();
-        while (true)
+        var text = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            if (IsName(Peek())) AppendCodePoint(text, Consume());
-            else if (IsValidEscape(Peek(), Peek(1)))
+            while (true)
             {
-                Consume();
-                AppendCodePoint(text, ConsumeEscape());
+                if (IsName(Peek())) AppendCodePoint(ref text, Consume());
+                else if (IsValidEscape(Peek(), Peek(1)))
+                {
+                    Consume();
+                    AppendCodePoint(ref text, ConsumeEscape());
+                }
+                else return text.ToString();
             }
-            else return text.ToString();
         }
+        finally { text.Dispose(); }
     }
 
     private int ConsumeEscape()
@@ -474,10 +490,10 @@ internal sealed class CssTokenizer
     private static bool IsName(int c) => IsNameStart(c) || IsDigit(c) || c == '-';
     private static bool IsValidEscape(int first, int second) => first == '\\' && second != '\n';
     private static bool IsNonPrintable(int c) => c is >= 0 and <= 8 or 11 or >= 14 and <= 31 or 127;
-    private static void AppendCodePoint(StringBuilder builder, int c)
+    private static void AppendCodePoint(ref ValueStringBuilder builder, int c)
     {
         if (c <= char.MaxValue) builder.Append((char) c);
-        else builder.Append(char.ConvertFromUtf32(c));
+        else new Rune(c).EncodeToUtf16(builder.AppendSpan(2));
     }
 
     private void Report(string code, int offset) => _diagnostics?.Add(code, _baseOffset + offset);

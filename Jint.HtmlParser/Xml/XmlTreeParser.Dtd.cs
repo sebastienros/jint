@@ -627,75 +627,84 @@ internal sealed partial class XmlTreeParser
 
     private string NormalizeDtdDefault(string value, int offset, bool replacementSource)
     {
-        var result = new StringBuilder(value.Length);
-        for (var i = 0; i < value.Length; i++)
+        var result = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            var c = value[i];
-            WorkUnit();
-            if (c == '<') Error("xml/invalid-markup", offset);
-            if (c == '&')
+            for (var i = 0; i < value.Length; i++)
             {
-                var start = ++i;
-                while (i < value.Length && value[i] != ';')
+                var c = value[i];
+                WorkUnit();
+                if (c == '<') Error("xml/invalid-markup", offset);
+                if (c == '&')
                 {
-                    WorkUnit();
-                    i++;
-                }
-                if (i == value.Length) Error("xml/invalid-markup", offset);
-                var reference = value.AsSpan(start, i - start);
-                if (reference.IsEmpty) Error("xml/invalid-markup", offset);
-                if (reference[0] == '#')
-                {
-                    result.Append(DecodeCharacterReference(reference, offset));
+                    var start = ++i;
+                    while (i < value.Length && value[i] != ';')
+                    {
+                        WorkUnit();
+                        i++;
+                    }
+                    if (i == value.Length) Error("xml/invalid-markup", offset);
+                    var reference = value.AsSpan(start, i - start);
+                    if (reference.IsEmpty) Error("xml/invalid-markup", offset);
+                    if (reference[0] == '#')
+                    {
+                        result.Append(DecodeCharacterReference(reference, offset));
+                        continue;
+                    }
+                    ValidateEntityReferenceName(reference, offset);
+                    var name = reference.ToString();
+                    var predefined = name switch
+                    {
+                        "amp" => "&",
+                        "lt" => "<",
+                        "gt" => ">",
+                        "apos" => "'",
+                        "quot" => "\"",
+                        _ => null
+                    };
+                    if (predefined is not null) result.Append(predefined);
+                    else AppendCopy(ref result, ResolveGeneralEntity(name, offset, inAttribute: true));
                     continue;
                 }
-                ValidateEntityReferenceName(reference, offset);
-                var name = reference.ToString();
-                var predefined = name switch
+                if (char.IsHighSurrogate(c))
                 {
-                    "amp" => "&",
-                    "lt" => "<",
-                    "gt" => ">",
-                    "apos" => "'",
-                    "quot" => "\"",
-                    _ => null
-                };
-                if (predefined is not null) result.Append(predefined);
-                else AppendCopy(result, ResolveGeneralEntity(name, offset, inAttribute: true));
-                continue;
+                    if (i + 1 == value.Length || !char.IsLowSurrogate(value[i + 1]))
+                        Error("xml/invalid-character", offset);
+                    result.Append(c);
+                    result.Append(value[++i]);
+                    WorkUnit();
+                    continue;
+                }
+                if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
+                if (c == '\r' && !replacementSource && i + 1 < value.Length && value[i + 1] == '\n') i++;
+                result.Append(IsWhitespace(c) ? ' ' : c);
             }
-            if (char.IsHighSurrogate(c))
-            {
-                if (i + 1 == value.Length || !char.IsLowSurrogate(value[i + 1]))
-                    Error("xml/invalid-character", offset);
-                result.Append(c).Append(value[++i]);
-                WorkUnit();
-                continue;
-            }
-            if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
-            if (c == '\r' && !replacementSource && i + 1 < value.Length && value[i + 1] == '\n') i++;
-            result.Append(IsWhitespace(c) ? ' ' : c);
+            return Materialize(ref result);
         }
-        return Materialize(result);
+        finally { result.Dispose(); }
     }
 
     private string CollapseSpaces(string value)
     {
-        var result = new StringBuilder(value.Length);
-        var pendingSpace = false;
-        foreach (var c in value)
+        var result = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            WorkUnit();
-            if (c == ' ')
+            var pendingSpace = false;
+            foreach (var c in value)
             {
-                pendingSpace = result.Length != 0;
-                continue;
+                WorkUnit();
+                if (c == ' ')
+                {
+                    pendingSpace = result.Length != 0;
+                    continue;
+                }
+                if (pendingSpace) result.Append(' ');
+                result.Append(c);
+                pendingSpace = false;
             }
-            if (pendingSpace) result.Append(' ');
-            result.Append(c);
-            pendingSpace = false;
+            return Materialize(ref result);
         }
-        return Materialize(result);
+        finally { result.Dispose(); }
     }
 
     private string ReadAttributeType()

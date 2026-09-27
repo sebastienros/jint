@@ -8,53 +8,32 @@
       "references": [
         "<PackageVersion Include=\"AngleSharp\" Version=\"1.8.2\" />",
         "<PackageVersion Include=\"AngleSharp.Css\" Version=\"1.1.2\" />",
-        "<PackageVersion Include=\"AngleSharp.Xml\" Version=\"1.2.0\" />",
-        "<PackageVersion Include=\"AngleSharp.XPath\" Version=\"2.0.6\" />"
+        "<PackageVersion Include=\"AngleSharp.Xml\" Version=\"1.2.0\" />"
       ],
-      "sha256": "9d9ed180b30a1f70f9f17917e9546f0a2c2ac13104eef8078cea5cf1d8ceae0b"
+      "sha256": "2140a1240410977c8ce2b3ea229f0f73826f7bea2f44b820e2414264793a5238"
     },
     {
-      "path": "Jint.Benchmark/BindingComparison/Baseline/Baseline.csproj",
+      "path": "Jint.Benchmark/HtmlControlsParserComparisonBenchmark.cs",
       "category": "benchmark",
       "owner": "A3:comparison",
       "references": [
-        "<PackageReference Include=\"AngleSharp\" Version=\"[1.8.0]\" />",
-        "<PackageReference Include=\"AngleSharp.Js\" Version=\"[1.1.0]\" />"
+        "using AngleSharp.Dom;",
+        "using AngleSharp.Html.Dom;",
+        "using AngleSharp.Html.Parser;",
+        "using AngleHtmlParser = global::AngleSharp.Html.Parser.HtmlParser;",
+        "var pending = new Stack<AngleSharp.Dom.INode>(); pending.Push(document);"
       ]
     },
     {
-      "path": "Jint.Benchmark/BindingComparison/Baseline/BindingSession.cs",
+      "path": "Jint.Benchmark/HtmlParserComparisonBenchmark.cs",
       "category": "benchmark",
       "owner": "A3:comparison",
       "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Scripting;",
-        "internal const string Arm = \"AngleSharp.Js reflection\";"
-      ]
-    },
-    {
-      "path": "Jint.Benchmark/BindingComparison/Candidate/BindingSession.cs",
-      "category": "benchmark",
-      "owner": "A3:comparison",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Benchmark/BindingComparison/Candidate/Candidate.csproj",
-      "category": "benchmark",
-      "owner": "A3:comparison",
-      "references": [
-        "<PackageReference Include=\"AngleSharp\" Version=\"[1.8.0]\" />"
-      ]
-    },
-    {
-      "path": "Jint.Benchmark/BindingComparison/Shared/Comparison.cs",
-      "category": "benchmark",
-      "owner": "A3:comparison",
-      "references": [
-        ".Where(a => new[] { \"Jint\", \"AngleSharp\", \"AngleSharp.Js\", \"Acornima\", \"BenchmarkDotNet\" }.Contains(a.GetName().Name))"
+        "using AngleSharp.Dom;",
+        "using AngleSharp.Html.Dom;",
+        "using AngleSharp.Html.Parser;",
+        "using AngleHtmlParser = global::AngleSharp.Html.Parser.HtmlParser;",
+        "var pending = new Stack<(AngleSharp.Dom.INode Left, ParserModel.Node Right, IDocument LeftOwner, ParserModel.Document RightOwner)>();"
       ]
     },
     {
@@ -71,6 +50,16 @@
         "using AngleHtmlParser = global::AngleSharp.Html.Parser.HtmlParser;",
         "using DomNode = AngleSharp.Dom.INode;",
         "using DomNodeType = AngleSharp.Dom.NodeType;"
+      ]
+    },
+    {
+      "path": "Jint.Benchmark/Jint.Benchmark.csproj",
+      "category": "benchmark",
+      "owner": "A3:comparison",
+      "references": [
+        "<PackageReference Include=\"AngleSharp\" />",
+        "<PackageReference Include=\"AngleSharp.Css\" />",
+        "<PackageReference Include=\"AngleSharp.Xml\" />"
       ]
     },
     {
@@ -95,1652 +84,11 @@
       ]
     },
     {
-      "path": "Jint.Browser/Accessibility/AccessibilityTree.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "41303d928794de01e4448a78aab071f882c8c9121fe0438acc7d85519262b1a7"
-    },
-    {
-      "path": "Jint.Browser/Accessibility/AccessibleName.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "898901e94c7977505039fdcd14bd533772dcf67aa4c51c21628c6971fa66b8db"
-    },
-    {
-      "path": "Jint.Browser/Accessibility/AxNode.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "707bd8b7be85a761238e91903a5afa21b18201fe4ff40495134e7d168a1408b5"
-    },
-    {
-      "path": "Jint.Browser/Accessibility/ControlValue.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "3c85061e2b85a4ee61afcd52871e2444a08e007352cc9d2d898a8b0268622002"
-    },
-    {
-      "path": "Jint.Browser/Accessibility/ElementVisibility.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "e2fc88d7a23f8d27c53b5fd4f7baca844d3d0d540401c317191dcfb0ca6c3286"
-    },
-    {
-      "path": "Jint.Browser/Accessibility/HtmlDisplay.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "d032c58710fd152c078d1524666802e5742e4d4823d8e25325ce920af413133e"
-    },
-    {
-      "path": "Jint.Browser/Accessibility/ImplicitRole.cs",
-      "category": "runtime",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "2850e2d296835f40152ed094289cf50c538428e9ec1677d898541f7487ff540f"
-    },
-    {
-      "path": "Jint.Browser/CustomElements/CustomElementCreation.cs",
-      "category": "runtime",
-      "owner": "B3:custom-elements",
-      "references": [
-        "using AngleSharp.Dom;",
-        "var lowered = document is AngleSharp.Html.Dom.IHtmlDocument ? localName.ToLowerInvariant() : localName;"
-      ],
-      "sha256": "5ac4a71d81525df499cfc21cf4f3996c73c89a6cf84172f99a300d904e38a547"
-    },
-    {
-      "path": "Jint.Browser/CustomElements/CustomElementRecord.cs",
-      "category": "runtime",
-      "owner": "B3:custom-elements",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "0b6fe15b02ff2f335bfa3411e0f829370077dbef4d2c8432b1b08b2840fc5bbd"
-    },
-    {
-      "path": "Jint.Browser/CustomElements/CustomElementRegistry.Construction.cs",
-      "category": "runtime",
-      "owner": "B3:custom-elements",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "0793696cee052ddeddbbcf654771866ea79d0075ebed8b1179afda676c9088a4"
-    },
-    {
-      "path": "Jint.Browser/CustomElements/CustomElementRegistry.Reactions.cs",
-      "category": "runtime",
-      "owner": "B3:custom-elements",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "ffd8fb9a148c4462e104d18a33e00d4921f92ebd30dfe9b7c190cbcb3465edf3"
-    },
-    {
-      "path": "Jint.Browser/CustomElements/CustomElementRegistry.Tree.cs",
-      "category": "runtime",
-      "owner": "B3:custom-elements",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "43c219361001a97e706eab1a1d4b5aad89460eafc2e9bc49db3bbd73667a10c9"
-    },
-    {
-      "path": "Jint.Browser/CustomElements/CustomElementRegistry.cs",
-      "category": "runtime",
-      "owner": "B3:custom-elements",
-      "references": [
-        "using AngleSharp.Dom;",
-        "catch (AngleSharp.Dom.DomException)",
-        "if (probe is AngleSharp.Html.Dom.IHtmlUnknownElement)"
-      ],
-      "sha256": "56bdc421b7bfd354a8be8124b87a5e820fec32353e9d96785dd3d2911bcaf6ab"
-    },
-    {
-      "path": "Jint.Browser/DevTools/AcceptedDomains.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "private static int Count(AngleSharp.Dom.INode root)",
-        "var pending = new Stack<AngleSharp.Dom.INode>();"
-      ],
-      "sha256": "1209ef5d72a7f2f72b1d228d1f218443fab2d7bdce7d5103fb03512db8b5b356"
-    },
-    {
-      "path": "Jint.Browser/DevTools/AccessibilityDomain.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "a04e798981ed7756d6536af8a3bf704e58c314a5fa8bb3a8edc63dac57da6fca"
-    },
-    {
-      "path": "Jint.Browser/DevTools/CssDomain.Coverage.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "a90c49f50741fd8e3b584e4ff052d08a14da6fbdf6f45590b58f1a42a67e34e3"
-    },
-    {
-      "path": "Jint.Browser/DevTools/CssDomain.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;",
-        "\"the document's cascade could not be resolved: either its browsing context has no AngleSharp.Css \"",
-        "+ \"services registered, or a declaration in the matching cascade uses a unit AngleSharp.Css cannot convert\");"
-      ],
-      "sha256": "273dc13c99984b93d2e62ac2d2850b3ad99d442f6a1159923144e74875360730"
-    },
-    {
-      "path": "Jint.Browser/DevTools/CssStyleSheetText.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Css.Dom;"
-      ],
-      "sha256": "00e5a3961dda34dc373ba884e1be7d8244e81dff12df67e9b96057fe4409e36f"
-    },
-    {
-      "path": "Jint.Browser/DevTools/CssStyleSheetTracker.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "eb075e6ceaa242ca16bde8ae0c081e6cab3962a75d6ccce09fc4e02510c07c16"
-    },
-    {
-      "path": "Jint.Browser/DevTools/DomDomain.Events.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.XPath;"
-      ],
-      "sha256": "5a9a82516158d7822d9c09652ce88d042335aa28be3a3cbf3c702968e3149bf2"
-    },
-    {
-      "path": "Jint.Browser/DevTools/DomDomain.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "562356128c03f3ba40076696b3700c5e99ef4b08b8f4f221458d1aa9e155eb76"
-    },
-    {
-      "path": "Jint.Browser/DevTools/DomNodeTracker.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "381968bd1a23340ee2dc1ae761e4a122ce7a23665ea6678b0b2abd4269df2c8c"
-    },
-    {
-      "path": "Jint.Browser/DevTools/DomRemoteObjectDescriber.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "12a2d9038aa4cc0d4b292ffaa757d9ba856ecf1314c70466ced2e027d1445e31"
-    },
-    {
-      "path": "Jint.Browser/DevTools/JintDomain.cs",
-      "category": "runtime",
-      "owner": "R4:protocol",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "3f575a8cf9ee5327bd918c9ac5b5b6660e033bffcaaec1bf6a3224253728795d"
-    },
-    {
-      "path": "Jint.Browser/Dom/AriaElementReferences.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "c0108b8e95093361b7aea3241768769b3c0f2aa9c94943df42b433d9235305c7"
-    },
-    {
-      "path": "Jint.Browser/Dom/AriaElementReflection.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "1857f0d4ec8113673f947c3f10ae8d2b47a4d6052db0fc91aa71868c479c9387"
-    },
-    {
-      "path": "Jint.Browser/Dom/AriaReflection.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "45399aa622da0d2255c2a117c312f7680a60f90f3a76ac8983937115218ad7ca"
-    },
-    {
-      "path": "Jint.Browser/Dom/CaseSensitiveSvgFactory.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Svg.Dom;"
-      ],
-      "sha256": "cb0c33d568321eb8f357f069266e06992371ea5d2748044527881d88276e5521"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomAttributeTokenList.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "d462de192198a0a2ac772816b95f6f809853d1f9710ae5a6d5088fdbe4d14ca6"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomCollectionObject.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "b8cdac9cc9dee2430ff5f4be49ee5cbf647231f0ff93ec0b92b846111555afa8"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomElementFilter.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "89768a7e0950f007d948b995cc095769e6caba50dea5fac97696fba565a134fc"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomElementWalker.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "29fe8509ead1296f9ec8e8e679d8b249786e3c833d3df240627407e80cdc18ab"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomHtmlAllCollectionObject.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "df116693d304a8e933fbeb2d08faa71db8db7df0fc02b1b6f379dd05524be1be"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomHtmlCollectionObject.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e8a5ebd12f6354ab53fd77cc90448a729d24f47e71e5b50b7f574208aa7f7c50"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomIndexedNodeObject.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "6f69d5112022062b238d36fa30b765f143428ef9c125e729b8018df1d0b8ccc4"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomLabelNodeList.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "b32a6295877f04fe386e7546dd63da041bf0bc0429274d37d6d945308760f4ca"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomLiveHtmlCollection.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;",
-        "|| (element is AngleSharp.Html.Dom.IHtmlElement"
-      ],
-      "sha256": "9cfd974ab6895f88e8940d6d45dbe59f81b6486647908d64bab969a0c34aa6b1"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomNodeListMembers.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "80d5854df887d44d80a44da0342cc647f3efb1ca74c1f3b2cd09506ba1e77bf5"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomStaticNodeList.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "f403c471430d5dada83584368725d49f6835d49ce3463b3d19e1806094fcf956"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomStringMapAdapter.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "807fa5ca9d941b83a699806d3523c6b5e9e2e83822bd7e1ae3ed4b2556977231"
-    },
-    {
-      "path": "Jint.Browser/Dom/Collections/DomTokenListMembers.cs",
-      "category": "runtime",
-      "owner": "B2:collections",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "792ee7866943b65f0bd5d0fb3305e9f54c1571ce9f0a44510e77cd503599a799"
-    },
-    {
-      "path": "Jint.Browser/Dom/CryptographicNonce.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "b91efca9612332b7a37341aa342b0e77d5e012e27f36e9708a0a26102adf4364"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomBrowsingContext.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "fab40cee20e9ac7b1d04a45671de7b9b2803f9b3b728b1f87fb35b6f9d95bca0"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomCharacterDataMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "1d8978cfac275741bfb87d4e211e2c2e3aab0224e8aceaaefadd1ca67c0fe541"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomChildNodeMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "bfb05fc14326063980b9441bc0a8ed861c643224ecc175700a2a6d16b1463c5c"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomCloneSteps.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "d918f2948a3679ede2a51ce544f04b7c4bb76b63db374b683706c761f431f6bd"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomConstructors.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Xml.Parser;"
-      ],
-      "sha256": "beeaf51830f7a5a1d607a8995151ff1be385c2ffef1effafcb0c0e7fea8bbca5"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomContentType.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "ce29e7423dea4ff877b2420cd4be84cb82b8423874aa6c21be11b2a23d2e2072"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomConvert.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "internal static JsValue Window(DomRealm realm, AngleSharp.Dom.IWindow? window)",
-        "internal static JsValue NodeSequence(DomRealm realm, System.Collections.Generic.IEnumerable<AngleSharp.Dom.INode>? nodes)",
-        "internal static AngleSharp.Dom.INode[] NodeOrTextRest(DomRealm realm, AngleSharp.Dom.INode owner, JsValue[] arguments, int from, string member)",
-        "var document = owner as AngleSharp.Dom.IDocument ?? owner.Owner;",
-        "var values = new AngleSharp.Dom.INode[arguments.Length - from];",
-        "if (value is IDomWrapper wrapper && wrapper.DomTarget is AngleSharp.Dom.INode node)",
-        "values[i] = DomBindings.Argument<AngleSharp.Dom.INode>(arguments, from + i, member);"
-      ],
-      "sha256": "fc49ba404193739c07d124ff05fe74ba4ac799e7e4d9ad0d34a57610fdfc4be1"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomDocumentElements.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "31ff8e0d7a19801b42d0c5a01700a7a690d503a843db55e85f2e2c9b13258f4a"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomDocumentTypeFactory.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Construction;",
-        "using AngleSharp.Text;"
-      ],
-      "sha256": "e1f78b9c30ade26f08e13c164b57c468708bec30921f1153541d35a520d5a3a4"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomElementFactory.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Construction;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Mathml.Dom;",
-        "using AngleSharp.Svg.Dom;",
-        "using AngleSharp.Text;"
-      ],
-      "sha256": "a9b77b9abd0b11a0f23387fbbbab8088181f8678c72eeb38d57e0811af35656d"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomElementMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "832b7cfb2ad9f7b34939a342eda3eaeecd5b4e0c76e64689684b73d8e2e6e8fb"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomFailures.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "var targetDocument = wrapper.DomTarget is AngleSharp.Dom.INode target",
-        "? target as AngleSharp.Dom.IDocument ?? target.Owner"
-      ],
-      "sha256": "af5f35505387f10b6f32e6fdb31071ee247dd3c930f9601a00df45eab82df49c"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomForgivingSelectors.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Css.Parser;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "0f60db1d87f748f447fae3b34a1afa06d8edec7df2f96a3a9c5b3c92051c1dd7"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomFrameMembers.cs",
-      "category": "runtime",
-      "owner": "R3:frames",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e1063f8b1e65790b8e5b4cd82b88287a9072d37f4a7e788782930a02d2fce085"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomHostHooks.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "1cadb3fac26465edc359e02f46183a293b56ba34ca2d4339b3f3299347c7ed03"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomHtmlMarkupFormatter.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "1f9610e26a0933c17b2329a02d171f1ec882667213409a0ee4377ddb8f4767b7"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomManualInterfaces.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Svg.Dom;",
-        "using AngleSharp.Xml.Dom;"
-      ],
-      "sha256": "b9bc38b0175e9c7c8e7fedb182e83c85d1436e57e0b81a7db635d6b09440bbe0"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomNames.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "b0e3029cef7b1d109744aab8b44c96bbc2fe874a886aa23162642d77f3ab47c0"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomNamespaces.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "82fba78a79e071db00552f80aab53df317070e7489a33ae4c6e7186c3d847359"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomNodeEquality.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "fd1268fde402038014e0d79a7f030440cb7fd912888378f1f838d14b1e9006fc"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomNodeMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "520d0e6a51425a37f04046fb005c70fa0e288873a00c2c97b3d10e5e7c8d7fdc"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomNodeObject.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "9b38592729bb0a7ef608e151a0d90cdd5f96cff2f1c2bb04685f02d32343e160"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomObsoleteMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "3ae7e706f8fb968c4b6cf05a6a2bab55e910ffd82a08f2c50379b7e131cc3614"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomParentNodeMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "private static void Refuse() => throw new AngleSharp.Dom.DomException(DomError.HierarchyRequest);"
-      ],
-      "sha256": "e343cba20f03c5b0c055316df984b1dfc3eb794d033bb49652c1b7537143d8ba"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomProcessingInstructionAttributes.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "df0b4d86e541131bc3f57dfe2f6da8631c6372f7da4c0cdef0f8ee67a216e001"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomProcessingInstructions.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Parser;",
-        "using AngleSharp.Html;",
-        "using AngleSharp.Html.Construction;",
-        "using AngleSharp.Text;"
-      ],
-      "sha256": "0c213ef5e0bcfaf967be4c0a75574685897e27dfa720af3e5df792ddb4af958e"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomRangeMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "c1ca08e881c288714eb5f771925fa750bdb9d1d90ed24dc9e0098d767970cbfc"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomRealm.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "c87e817599ceaf0484e1c611c13d77af902138b183a93d4f28b7d240ffa75476"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomSelectorText.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "1340e73883dfe182f4b560c411fd01dcd7cdafdfd36b6097cd930c3dfdea56c9"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomSelectors.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Css.Parser;",
-        "using AngleSharp.Dom;",
-        "?? throw new InvalidOperationException(\"AngleSharp did not provide a selector parser.\");"
-      ],
-      "sha256": "86e1e9d0d2a3bcd7b9f554f5c2e3948944d50183b6aea4a394db25d7b6a6f6dd"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomStaticRange.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "17c88f42e405a9bec4331dabe6bb5d35ada570fdcf403586cd0dd90ea25214a6"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomTemplateCloning.cs",
-      "category": "runtime",
-      "owner": "R3:frames",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "3c8956205139f6c003c95f82e4b0c1624c16e4e0369d2bc53af9e1caad405723"
-    },
-    {
-      "path": "Jint.Browser/Dom/DomUnionMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "15b6d22c09cd917c18c4f7c422b983e13e6afdbf4166c459eef124976518746c"
-    },
-    {
-      "path": "Jint.Browser/Dom/DynamicMarkupInsertion.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Construction;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Html.Parser;"
-      ],
-      "sha256": "7008cd514a053b1d68f7d3dc47c1a0dd21087043fc81c3eeb9c8181187035f2b"
-    },
-    {
-      "path": "Jint.Browser/Dom/Files/AngleSharpFileAdapter.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Io.Dom;"
-      ],
-      "sha256": "9f59c1d604de345764883048d629268441203c66b11cc86764a1f7f7db5f6968"
-    },
-    {
-      "path": "Jint.Browser/Dom/Files/FileSelection.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "var mime = AngleSharp.Io.MimeTypeNames.FromExtension(extension);"
-      ],
-      "sha256": "8b08d2641168725eff6f6e799f58eac8b08785e33e3734502afe922e87c3443f"
-    },
-    {
-      "path": "Jint.Browser/Dom/Files/FileTransferRealm.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "a8e6196d8d36e333390256c639a2fadc84cd41d27ecfef509eed65a27cf9104d"
-    },
-    {
-      "path": "Jint.Browser/Dom/Files/JsFileTransfer.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "7daedb52cdf5accef3a9f71f75ef8400d8d1f3bb6531b9b707dfaad8801523a0"
-    },
-    {
-      "path": "Jint.Browser/Dom/HtmlDirectionality.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e6916ed6f5086ebca48b8b835fbf623b42e86a09e1926169ccc49ea0d5d75748"
-    },
-    {
-      "path": "Jint.Browser/Dom/HtmlFormOwner.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "688228bff53b0814e908be84c4906c0716e747a416ffd015c550aad40a0b047b"
-    },
-    {
-      "path": "Jint.Browser/Dom/HtmlLabelAssociation.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "0713ed6364531febf2771873080e791f7e8e9e3968525c91f4bad3528b656a5d"
-    },
-    {
-      "path": "Jint.Browser/Dom/HtmlSelectState.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "ef1329c6eac3f0185042a64bebdbb2eb85343e6bd13622c5415e13f8ec66ec99"
-    },
-    {
-      "path": "Jint.Browser/Dom/ReflectedAttribute.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "d3faa085aa31b80efde3f76d44490b472156cef8ed718b1578eb6c99f11ed26c"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/CssCascade.cs",
-      "category": "runtime",
-      "owner": "B5:css-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Css.RenderTree;",
-        "using AngleSharp.Css.Values;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Svg.Dom;"
-      ],
-      "sha256": "b9b5057f81d79a13a2be11b147ac57dcc994f57ccafbab535935d7250eaae1b7"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/CssRuleUsage.cs",
-      "category": "runtime",
-      "owner": "B5:css-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "436b36bf8fddfbabedf545ed9a73fc4346ef9c8cef53400a8dbbd503b8e909e9"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/CustomProperties.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Css.Parser;",
-        "using AngleSharp.Css.Values;",
-        "using AngleSharp.Text;"
-      ],
-      "sha256": "9a8c6ae43503757d9b07c99f4fe463baf65b9a7b07538f24c43c78d73d62c24e"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/DomNodeIterator.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "e983bb4259f722ec755adba22fac59a054a829133f96508c66f98e4de039e440"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/DomTreeWalker.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "e992966cef38a219d0d9fdc2b42d3bd58dae288cb6595c2d10b190e7a723b7cc"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/DomViewMembers.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Xml.Dom;"
-      ],
-      "sha256": "6f4e0bc49cde55e1424d9ec6ed791e510547d5ce65fa085c9771768eaf55bbc2"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/JsCssNamespace.cs",
-      "category": "runtime",
-      "owner": "B5:css-binding",
-      "references": [
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Css.Parser;"
-      ],
-      "sha256": "ad94c87a75d3e366a30d051701a6782daa79443febd2b6f41623eb1e79339d85"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/JsDomParser.cs",
-      "category": "runtime",
-      "owner": "B4:detached-document",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Parser;",
-        "using AngleSharp.Xhtml;",
-        "using AngleSharp.Xml.Parser;"
-      ],
-      "sha256": "f1a564c0e8bf3795304430deced2538028b759172669d243e4f79b25cdb46ab2"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/JsSelection.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "cc025c1225e4bc420a4541d3083873fba5b208300c949c679aa86800b76d744c"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/JsXPath.cs",
-      "category": "runtime",
-      "owner": "B4:detached-document",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.XPath;"
-      ],
-      "sha256": "7def146d14e192f0afe7d3dff95aa5707baf1ed605db839e77032f4d78763349"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/NodeFilters.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "15a1495dbd3f18b71cd5e0242d60746cab44eb5182d860d7795a25b333af9f1b"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/ReadOnlyStyleDeclaration.cs",
-      "category": "runtime",
-      "owner": "B5:css-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "afb23bef0fb5ff33ef2bcfc34fc98bec0edd4abf0193baf5b94ce049e598fe99"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/ResolvedStyle.cs",
-      "category": "runtime",
-      "owner": "B5:css-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "cac6fae4f0fd3f0d2c15c1371fcec1a1ec698f802f59fdb654def9f362428cf2"
-    },
-    {
-      "path": "Jint.Browser/Dom/Views/ViewInstaller.cs",
-      "category": "runtime",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;"
-      ],
-      "sha256": "4201b64599f3d1012dffb46e73086ad234efd8c44178042c50e3c2d8cc3b6af1"
-    },
-    {
-      "path": "Jint.Browser/Events/ActivationBehaviors.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "90b6b51163caf9c1c5ac7e3d875b6bf9e215b424123cf9a787b6664cc804f75d"
-    },
-    {
-      "path": "Jint.Browser/Events/BrowserActivationHost.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "c22b5c554651984946c66f3c197653b93a4424db7f5f537344f86a97fac0d78c"
-    },
-    {
-      "path": "Jint.Browser/Events/BrowserEventRealm.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "f0427d4ce7a8c84598f454d083ede21577d71f3a0ced6905b5a5342204e4391a"
-    },
-    {
-      "path": "Jint.Browser/Events/ContentEditing.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "3925d3103e44d1607f3d40ebeb6f2216d3a63523958d4e7b1695be4e9035c698"
-    },
-    {
-      "path": "Jint.Browser/Events/DomShapeAdditions.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "937cd4ba882004dfde87517ebf8e7a97dd555b18f45323a00f3d4dabaf62a90d"
-    },
-    {
-      "path": "Jint.Browser/Events/EventHandlerContentAttributes.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "a93d99d33b8a38fcb6b19805c601169a6abd041043360619ce29cbcadcacfc6f"
-    },
-    {
-      "path": "Jint.Browser/Events/FocusController.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "1dacd51a68f3ec957fc0946ca60f8f8e7a5a3df45e95780ffdbd00be82e960ee"
-    },
-    {
-      "path": "Jint.Browser/Events/FormSubmission.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "f1d1d899c1aea18e7e39acc802a6e05c89f640b6d41eebd903e0dfc2b9e4b8f9"
-    },
-    {
-      "path": "Jint.Browser/Events/InputDispatcher.Touch.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "c67b6c00d22dd08c09ffad4018af3050e279610bf78b0d9795a6aa429df600f2"
-    },
-    {
-      "path": "Jint.Browser/Events/InputDispatcher.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "afcd48ad021a8834b44b6d8b644b43fd3edce930e948bdc670435cd8e22873b1"
-    },
-    {
-      "path": "Jint.Browser/Events/SelectionChange.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "dc75ca378a8406b69e3256c73d1e5eada8620bf43141cee02a671313f392b6ad"
-    },
-    {
-      "path": "Jint.Browser/Events/TextEditing.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e7c2a48c3725952a0bc872bb60fd3667ef5f61f3684ae8db0f7c948d2091a1ad"
-    },
-    {
-      "path": "Jint.Browser/Events/UiEventInstances.cs",
-      "category": "runtime",
-      "owner": "B3:events",
-      "references": [
-        "if (Target is Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper &&"
-      ],
-      "sha256": "ee855dea4fce10169427f4e53157695c0b031f8787ba8317601f048fb0dd6b7b"
-    },
-    {
-      "path": "Jint.Browser/Extraction/MarkdownExtractor.cs",
-      "category": "runtime",
-      "owner": "R4:extraction",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e01ae100a8ec589ee7527ffaaeb911dc3e62110e10b658b1edaca9b2d99fbdc6"
-    },
-    {
-      "path": "Jint.Browser/Extraction/PageContent.cs",
-      "category": "runtime",
-      "owner": "R4:extraction",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "9c17649cb53679d8460893e0dbecbd2751f01559cc9c983eb5663c8097bb7088"
-    },
-    {
-      "path": "Jint.Browser/Extraction/TextExtractor.cs",
-      "category": "runtime",
-      "owner": "R4:extraction",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "5a4b63c693daf8deaa05fda920b95649d24c465bfa6ac4a0456d770a0c3372f4"
-    },
-    {
-      "path": "Jint.Browser/Frame.cs",
-      "category": "runtime",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "4266a4002cfb7e252bb32617cadf3bef083be449f3efa3b7efa27c95069340e0"
-    },
-    {
-      "path": "Jint.Browser/Jint.Browser.csproj",
-      "category": "runtime",
-      "owner": "G2:dependency-removal",
-      "references": [
-        "<Description>A headless browser on Jint and AngleSharp</Description>",
-        "<PackageReference Include=\"AngleSharp\" />",
-        "<PackageReference Include=\"AngleSharp.Css\" />",
-        "<PackageReference Include=\"AngleSharp.Xml\" />",
-        "<PackageReference Include=\"AngleSharp.XPath\" />"
-      ],
-      "sha256": "074bb1dc3912332e2beed84b5101524c08ea3bc5f72a8982c94340c3fca86a1e"
-    },
-    {
-      "path": "Jint.Browser/Layout/FlatLayout.cs",
-      "category": "runtime",
-      "owner": "R4:layout",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "70fb0d9bad33304b1a00e0dde2d9c91fc2146a53eee40f46667dd4a49d8f5663"
-    },
-    {
-      "path": "Jint.Browser/Layout/FlexRow.cs",
-      "category": "runtime",
-      "owner": "R4:layout",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "514fb04620565ce9c87ba39a6354e3ea9509b174a6563a0cb6a5acf9b37f923d"
-    },
-    {
-      "path": "Jint.Browser/Layout/LayoutMembers.cs",
-      "category": "runtime",
-      "owner": "R4:layout",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "63d1df7ff03cc3f16d2377ecaecf5f993365107f1cdef7c3375ce1dc7065505f"
-    },
-    {
-      "path": "Jint.Browser/Layout/PageLayout.Invalidation.cs",
-      "category": "runtime",
-      "owner": "R4:layout",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "369313f8aaff6fd7e21e4b65a1c69f37107753d11a04565a532dbe9466258a03"
-    },
-    {
-      "path": "Jint.Browser/Layout/PageLayout.cs",
-      "category": "runtime",
-      "owner": "R4:layout",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "aeeb85f851f29123923caefb2db549d937efbe7ccc07cd7a92820056fd6d8b9b"
-    },
-    {
-      "path": "Jint.Browser/Media/ImageDecode.cs",
-      "category": "runtime",
-      "owner": "R3:images",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "506ee83c7ac4ace45fe0d30af0404b166b47d664bfb76531f0cac0cd378dea87"
-    },
-    {
-      "path": "Jint.Browser/Media/ImageSourceSet.cs",
-      "category": "runtime",
-      "owner": "R3:images",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "1678d47020e752b82196b590ca11b7f3d1e3a61343190918f5d41dc4942312da"
-    },
-    {
-      "path": "Jint.Browser/Media/PageImages.cs",
-      "category": "runtime",
-      "owner": "R3:images",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "6e693c3a2b07859ab2b84099184614f84abf6126e0927fac2e27603903d78cb2"
-    },
-    {
-      "path": "Jint.Browser/Observers/JsIntersectionObserver.cs",
-      "category": "runtime",
-      "owner": "B3:observers",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "65e546776e7862ed1d8a0e6aebe86ea9c5cc4b5df47b13f761a60c8767b7c162"
-    },
-    {
-      "path": "Jint.Browser/Observers/JsMutationObserver.cs",
-      "category": "runtime",
-      "owner": "B3:observers",
-      "references": [
-        "using AngleSharp.Dom;",
-        "private AngleSharp.Dom.MutationObserver _source;",
-        "private AngleSharp.Dom.MutationObserver NewSource() => new(OnRecords);",
-        "private void OnRecords(IEnumerable<IMutationRecord> records, AngleSharp.Dom.MutationObserver source)"
-      ],
-      "sha256": "75671200eddc7f9f810ad45c6701140619648f98ca39127ce3052b9615f58e13"
-    },
-    {
-      "path": "Jint.Browser/Observers/JsResizeObserver.cs",
-      "category": "runtime",
-      "owner": "B3:observers",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "6367c0f47913cb6b06733647fc7d2a28a00a6d2fd11567b85a9f1ccd2c605643"
-    },
-    {
-      "path": "Jint.Browser/Observers/MutationObserverLane.cs",
-      "category": "runtime",
-      "owner": "B3:observers",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "bb8cd769f90de51540e7b5a8882b3a419b1ca0352328906c7358db1d3c561ec0"
-    },
-    {
-      "path": "Jint.Browser/Observers/MutationRecords.cs",
-      "category": "runtime",
-      "owner": "B3:observers",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "7e788828c05bcf494b5f95946a592479f6dd6942099cf35dfa6bcdfbfcd402a8"
-    },
-    {
-      "path": "Jint.Browser/Page.Input.cs",
-      "category": "runtime",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "b5b8e6514d74681722c93efaed9377825f3ea2999b4faec89ba9d13e1b33afb6"
-    },
-    {
-      "path": "Jint.Browser/Page.Navigation.cs",
-      "category": "runtime",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e2428deac3c1f995adbe381a2220f4c2e2c5970db1be657f9548211ef3b30e95"
-    },
-    {
-      "path": "Jint.Browser/Page.cs",
-      "category": "runtime",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp;"
-      ],
-      "sha256": "a3677b82c02e0f8fc9a56ba291f0c0a25b21d9168e035bd7b340e48e922f2351"
-    },
-    {
-      "path": "Jint.Browser/Runtime/DocumentCookies.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "762da90892b7448dcbec191c3a6d5fd437c671ef3991a3cc66e19c778be35b8d"
-    },
-    {
-      "path": "Jint.Browser/Runtime/DocumentFetch.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "|| AngleSharp.Io.MimeTypeNames.IsJavaScript(essence))"
-      ],
-      "sha256": "a61e2c633dcb5174d86c5eedcf79527e4c0429521bb2267a689556dcc9042d6b"
-    },
-    {
-      "path": "Jint.Browser/Runtime/ElementLocator.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "f00ab2226e3e9c32700b44038dd5f8ad59b86f31331c606c5a39572abe0d5ffe"
-    },
-    {
-      "path": "Jint.Browser/Runtime/FormDataConstruction.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "9ef73680577214db3e7a1ec39c485fa46da51524909471eeeab8ba6d5e0f503c"
-    },
-    {
-      "path": "Jint.Browser/Runtime/FormSubmitter.cs",
-      "category": "runtime",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "80451583c35cddbc4cf85fb2438ee75c2c5c6a70dfd7db42f4680873ad757d8f"
-    },
-    {
-      "path": "Jint.Browser/Runtime/FrameWindows.cs",
-      "category": "runtime",
-      "owner": "R3:frames",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "50248647b53360b33d2a31686350a516f717947418e8c6109c8670024be37762"
-    },
-    {
-      "path": "Jint.Browser/Runtime/PageActivationHost.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "3428a1eed220e2cff5468b5f662aa5a4d82ac0db081ec41f1a54056d830f4c97"
-    },
-    {
-      "path": "Jint.Browser/Runtime/PageDocument.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "f4ccdcd42d92170cb8b9b845661e5b24d3b422858d676b02a21bc83fa1d0d148"
-    },
-    {
-      "path": "Jint.Browser/Runtime/PageRenderDevice.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Css;"
-      ],
-      "sha256": "5cc315575ac4f3873d0e9b63a5a53bab2375a034a3a6946de16d383e0b635b1d"
-    },
-    {
-      "path": "Jint.Browser/Runtime/PageRuntime.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Dom;",
-        "for (AngleSharp.IBrowsingContext? context = document.Context; context is not null; context = context.Parent)"
-      ],
-      "sha256": "5528a5e5ae9be164e5c5302685a5a24aeed59fc42038ee969e6bddf3f8b2001a"
-    },
-    {
-      "path": "Jint.Browser/Runtime/PageScriptingService.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Io;",
-        "using AngleSharp.Scripting;"
-      ],
-      "sha256": "46a5630d911f0524f2c83de799a9116599618367ea802565bdf19b697cc23f43"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/PageConfiguration.cs",
-      "category": "runtime",
-      "owner": "R1:parser-coordinator",
-      "references": [
-        "using AngleSharp;"
-      ],
-      "sha256": "308de92cb34c1300ba456d5b90a3cf986a985d89d1cc799093fcbfd8dd0ce01d"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/PageDocumentFactory.cs",
-      "category": "runtime",
-      "owner": "R1:parser-coordinator",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Io;"
-      ],
-      "sha256": "786002c42d4d82e2f8fef65097889771985b0c9e9695060040fc760ea9d707e0"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/PageModuleScriptLoader.cs",
-      "category": "runtime",
-      "owner": "R2:scripts",
-      "references": [
-        "return essence is not null && AngleSharp.Io.MimeTypeNames.IsJavaScript(essence);"
-      ],
-      "sha256": "56642cd89785490d6a18a34bf4557ce125cd9ea953abc3cd12b77c99831fed8e"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/PagePseudoClassSelectorFactory.cs",
-      "category": "runtime",
-      "owner": "C3:selectors",
-      "references": [
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "?? throw new InvalidOperationException($\"AngleSharp no longer supplies the :{name} selector.\");"
-      ],
-      "sha256": "49de542cc132a7d528d9bd6ed4eeaf391fd7798520a28b29bef4ce438a7f72b7"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/PageResourceLoader.cs",
-      "category": "runtime",
-      "owner": "R3:resources",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Io;"
-      ],
-      "sha256": "bc8292a845788b2e2ef8caf4e352e3b017ab9d5513d36c1544d1e5e3d468803d"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/PageStylingService.cs",
-      "category": "runtime",
-      "owner": "R3:styles",
-      "references": [
-        "using AngleSharp.Css;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Io;"
-      ],
-      "sha256": "3160fb5b25d2c306a76863cf075b9b4a54c3734b47d4bf579891c1833ac868bf"
-    },
-    {
-      "path": "Jint.Browser/Runtime/Parsing/ParserDriver.cs",
-      "category": "runtime",
-      "owner": "R1:parser-coordinator",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;",
-        "using AngleSharp.Io;",
-        "using AngleSharp.Scripting;",
-        ".WithOnly<AngleSharp.Dom.IDocumentFactory>(documents).MaterializeServices()",
-        ".WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime)).MaterializeServices()",
-        ".WithOnly<AngleSharp.Css.IStylingService>(new PageStylingService(this))",
-        ".With<AngleSharp.Dom.IAttributeObserver>(_ => new FrameAttributeObserver(this))",
-        ".With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))",
-        ".With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))",
-        ".With<AngleSharp.Dom.IAttributeObserver>(_ => new Dom.Files.FileInputAttributeObserver(_runtime));",
-        "\"AngleSharp resumed the parse on another thread. The baton kept the DOM to one holder, but a \"",
-        "_ when IsLegacyFrame(source) => \"a <frame>'s document is not fetched: AngleSharp has no HTMLFrameElement \""
-      ],
-      "sha256": "11693d67ad6eec00516efda1ccba235d75a20fd8b68a0fd1b8eae6c61b565cc4"
-    },
-    {
-      "path": "Jint.Browser/Runtime/TouchEmulation.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "DomBindings.Bind<AngleSharp.Dom.INode>(thisObject, \"on\" + type);"
-      ],
-      "sha256": "f45da1e08545df578533642dc33f32f111bf672af71c6377d1c4c1bf3ed689f5"
-    },
-    {
-      "path": "Jint.Browser/Runtime/WindowInstaller.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;"
-      ],
-      "sha256": "d7400a62d27482b7a90213e1b558d8428636aa6986ce1cdc33ec7c6a3ed2a8e4"
-    },
-    {
-      "path": "Jint.Browser/Runtime/WindowNamedProperties.cs",
-      "category": "runtime",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Dom;"
-      ],
-      "sha256": "e6b256191d0b9b004dadfddfcedbef50cad3d25936fb319ae0e8818ced06ae7c"
-    },
-    {
-      "path": "Jint.Browser.Tool/ToolProgram.cs",
-      "category": "runtime",
-      "owner": "G1:tool-parity",
-      "references": [
-        "output.WriteLine($\"jint-browser {Version} - a headless browser on Jint and AngleSharp\");"
-      ],
-      "sha256": "73681d98eb7d7131ea674e1b9e6b9e4df296aa0ab9abc801c6efe72b0a33dc77"
-    },
-    {
-      "path": "Jint.Tests.Browser/Accessibility/AccessibilityTreeTests.cs",
-      "category": "test",
-      "owner": "R4:accessibility",
-      "references": [
-        "string? Url(AngleSharp.Dom.IDocument doc, string id)",
-        "string? Value(AngleSharp.Dom.IDocument doc, string id) =>"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Accessibility/AccessibleNameTests.cs",
-      "category": "test",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Accessibility/ImplicitRoleTests.cs",
-      "category": "test",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Accessibility/PageFixture.cs",
-      "category": "test",
-      "owner": "R4:accessibility",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Dom/CreationRealmTests.cs",
-      "category": "test",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Html.Parser;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Dom/DocumentTypeFactoryTests.cs",
-      "category": "test",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Dom/HtmlSerializationTests.cs",
-      "category": "test",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Xml.Parser;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Dom/ProcessingInstructionAttributeTests.cs",
-      "category": "test",
-      "owner": "B1:dom-binding",
-      "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
       "path": "Jint.Tests.Browser/Dom/StaticNodeListTests.cs",
       "category": "test",
       "owner": "B1:dom-binding",
       "references": [
         "node.IsAlive.Should().BeFalse(\"the AngleSharp element was only reachable through the document and the snapshot\");"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/DomBindingsPinTests.cs",
-      "category": "test",
-      "owner": "B1:binding-emitter",
-      "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;",
-        "\"tools/dom-bindings/pin.json records the AngleSharp versions Jint.Browser/Dom/Generated was produced from, and Directory.Packages.props records the ones Jint.Browser compiles against; they are the same two numbers\");",
-        "Release(typeof(IElement).Assembly.GetName().Version!.ToString()).Should().Be(Release(pinned[\"AngleSharp\"]));",
-        "Release(typeof(ICssStyleDeclaration).Assembly.GetName().Version!.ToString()).Should().Be(Release(pinned[\"AngleSharp.Css\"]));",
-        "foreach (var name in new[] { \"AngleSharp\", \"AngleSharp.Css\" })"
       ]
     },
     {
@@ -1752,108 +100,18 @@
       ]
     },
     {
-      "path": "Jint.Tests.Browser/DomCollectionTests.cs",
+      "path": "Jint.Tests.Browser/ParserDependencyTests.cs",
       "category": "test",
       "owner": "R4:page-api",
       "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/DomExceptionTests.cs",
-      "category": "test",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/DomReflectionTests.cs",
-      "category": "test",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/DomTestFixture.cs",
-      "category": "test",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Extraction/MarkdownExtractorTests.cs",
-      "category": "test",
-      "owner": "R4:extraction",
-      "references": [
-        "static string Markdown(AngleSharp.Dom.IDocument document) =>"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/ForgivingSelectorTests.cs",
-      "category": "test",
-      "owner": "R4:page-api",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css.Parser;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Forms/FormOwnerTests.cs",
-      "category": "test",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Forms/ImageSubmitTests.cs",
-      "category": "test",
-      "owner": "B2:form-controls",
-      "references": [
-        "using AngleSharp.Html.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Layout/CascadeTraversalTests.cs",
-      "category": "test",
-      "owner": "R4:layout",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Css;",
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Css.RenderTree;",
-        "using AngleSharp.Css.Values;",
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Parsing/PageConfigurationTests.cs",
-      "category": "test",
-      "owner": "R1:parser-coordinator",
-      "references": [
-        "using AngleSharp;",
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Runtime/PageObserverTests.cs",
-      "category": "test",
-      "owner": "R4:page-runtime",
-      "references": [
-        "using AngleSharp.Dom;"
-      ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Views/ComputedStyleTests.cs",
-      "category": "test",
-      "owner": "B5:css-binding",
-      "references": [
-        ".Should().Be(\"visible\", \"a cascade AngleSharp cannot compute takes its own visibility: hidden with it\");"
+        "if (package is null || !package.StartsWith(\"AngleSharp\", StringComparison.Ordinal))",
+        "\"Directory.Packages.props:PackageVersion:AngleSharp\",",
+        "\"Directory.Packages.props:PackageVersion:AngleSharp.Css\",",
+        "\"Directory.Packages.props:PackageVersion:AngleSharp.Xml\",",
+        "\"Jint.Benchmark/Jint.Benchmark.csproj:PackageReference:AngleSharp\",",
+        "\"Jint.Benchmark/Jint.Benchmark.csproj:PackageReference:AngleSharp.Css\",",
+        "\"Jint.Benchmark/Jint.Benchmark.csproj:PackageReference:AngleSharp.Xml\");",
+        "reference => reference.Name != null && reference.Name.StartsWith(\"AngleSharp\", StringComparison.Ordinal));"
       ]
     },
     {
@@ -1864,25 +122,6 @@
         "(\"dom/collections/domstringmap-supported-property-names.html\", \"an AngleSharp SyntaxError escapes its third test at file scope and no `error` event carries it to the harness, so the file reports three of its five and then times out\"),",
         "new(\"8. AngleSharp.Css refuses an unparseable media query\", _8AngleSharpCssRefusesAnUnparseableMediaQuery),"
       ]
-    },
-    {
-      "path": "Jint.Tests.Browser/Wpt/WptBrowserVariants.cs",
-      "category": "test",
-      "owner": "G1:browser-wpt-gate",
-      "references": [
-        "using AngleSharp.Dom;",
-        "using AngleSharp.Html.Parser;"
-      ]
-    },
-    {
-      "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/BindingContract.cs",
-      "category": "generator",
-      "owner": "B1:binding-emitter",
-      "references": [
-        "public string HtmlCollectionOpenType { get; set; } = \"global::AngleSharp.Dom.IHtmlCollection\";",
-        "public string HtmlCollectionDefaultElement { get; set; } = \"global::AngleSharp.Dom.IElement\";"
-      ],
-      "sha256": "8d6ce0b061265e05032db85218b16adfc4618508d76e1b6bfb6d451b87148720"
     },
     {
       "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Conversions.cs",
@@ -1906,16 +145,6 @@
       "sha256": "a6ba22ce7fb3f7dad21675330b7d1fa802550ff04b1411e121a641c180744d12"
     },
     {
-      "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Model.cs",
-      "category": "generator",
-      "owner": "B1:binding-emitter",
-      "references": [
-        "internal string HtmlCollectionOpenType { get; set; } = \"global::AngleSharp.Dom.IHtmlCollection\";",
-        "internal string HtmlCollectionDefaultElement { get; set; } = \"global::AngleSharp.Dom.IElement\";"
-      ],
-      "sha256": "40fb03e0296daa270614e35023d563ec6efa4de1ddf7153d659da8313c4a9f8a"
-    },
-    {
       "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/ModelBuilder.cs",
       "category": "generator",
       "owner": "B1:binding-emitter",
@@ -1935,7 +164,7 @@
         "_model.Skipped.Add(new SkipRecord(model.DomName, domName, \"is write-only in AngleSharp, which WebIDL has no shape for\"));",
         "&& Closure(indexedGetter.PropertyType).Any(t => t.FullName == \"AngleSharp.Dom.IElement\");"
       ],
-      "sha256": "510013efc959bb34cd8d0cd07eaa2447e9681835a5b7078f5ee996f76c9b8ef2"
+      "sha256": "2b4dfc51275c34f31ef1f77803e59d01d45af8ac5bd5a61e363ce4abe5b68112"
     }
   ],
   "generated": {
@@ -1951,6 +180,7 @@
       "CSSContainerRule",
       "CSSCounterStyleRule",
       "CSSDocumentRule",
+      "CSSFontFaceDescriptors",
       "CSSFontFaceRule",
       "CSSFontFeatureValuesRule",
       "CSSFontPaletteValuesRule",
@@ -2478,6 +708,186 @@
         "owner": "B5:css-binding"
       },
       {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "ascent-override",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "ascentOverride",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "descent-override",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "descentOverride",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-display",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-family",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-feature-settings",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-language-override",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-named-instance",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-stretch",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-style",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-variation-settings",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-weight",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "font-width",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontDisplay",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontFamily",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontFeatureSettings",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontLanguageOverride",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontNamedInstance",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontStretch",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontStyle",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontVariationSettings",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontWeight",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "fontWidth",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "line-gap-override",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "lineGapOverride",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "src",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "unicode-range",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "Accessor",
+        "name": "unicodeRange",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSFontFaceDescriptors",
+        "kind": "PerRealmSlot",
+        "name": "constructor",
+        "owner": "B5:css-binding"
+      },
+      {
         "interface": "CSSFontFaceRule",
         "kind": "Accessor",
         "name": "family",
@@ -2696,6 +1106,12 @@
       {
         "interface": "CSSKeyframesRule",
         "kind": "Accessor",
+        "name": "length",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSKeyframesRule",
+        "kind": "Accessor",
         "name": "name",
         "owner": "B5:css-binding"
       },
@@ -2721,6 +1137,12 @@
         "interface": "CSSKeyframesRule",
         "kind": "Method",
         "name": "findRule",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSKeyframesRule",
+        "kind": "PerRealmSlot",
+        "name": "@@iterator",
         "owner": "B5:css-binding"
       },
       {
@@ -4226,6 +2648,12 @@
       {
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
+        "name": "rotate",
+        "owner": "C5:legacy-svg-and-page"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
         "name": "rubyAlign",
         "owner": "C5:font-text"
       },
@@ -4240,6 +2668,12 @@
         "kind": "Accessor",
         "name": "rubyPosition",
         "owner": "C5:font-text"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "scale",
+        "owner": "C5:legacy-svg-and-page"
       },
       {
         "interface": "CSSStyleDeclaration",
@@ -4388,6 +2822,12 @@
       {
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
+        "name": "textDecorationThickness",
+        "owner": "C5:font-text"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
         "name": "textIndent",
         "owner": "C5:font-text"
       },
@@ -4474,6 +2914,12 @@
         "kind": "Accessor",
         "name": "transitionTimingFunction",
         "owner": "C5:motion-interaction"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "translate",
+        "owner": "C5:legacy-svg-and-page"
       },
       {
         "interface": "CSSStyleDeclaration",
@@ -4659,6 +3105,12 @@
         "interface": "CSSStyleSheet",
         "kind": "PerRealmSlot",
         "name": "constructor",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSSupportsRule",
+        "kind": "Accessor",
+        "name": "matches",
         "owner": "B5:css-binding"
       },
       {
@@ -12257,18 +10709,18 @@
       "HTMLCollection"
     ],
     "files": {
-      "DomCollectionAccessors.g.cs": "30796f55433a0fb7a3c3cb3396b2303955d8b2221b16804f15fa33b603f137e3",
-      "DomEnums.g.cs": "d671fc4b3f706008a83aef05ac949aabfb5ddc7384080e689993e6a1dd4231e7",
-      "DomInterfaces.g.cs": "a01263fbe07f3325a8f1b02c49ca631fc3b3d1eccfdcacf32caa2fdc0d207741",
-      "DomReflected.g.cs": "7264d335f53cc4c55c849a7973106e92935fec0cac050c445a90db6f1d91c308",
-      "DomShapes.Browser.g.cs": "ee41b9e37bed2b0e400150f1d2c59d87e7b959720fb73ded2aced31063341850",
-      "DomShapes.Css.g.cs": "83d6fb18fc28626595c38bf52d9184865fb80356c85906e214d396790864bd70",
-      "DomShapes.Dom.g.cs": "07002996441004503d67952603212595f031ef5a60ab06be9c238a5580987290",
-      "DomShapes.Html.g.cs": "6caa9c8f3847dc9a1a175b2c558c299893e74d1cc9958d7f79b313a11951cf59",
-      "DomShapes.Io.g.cs": "a21edb76af2b43178657fbd28de34fbcabe14bd8ebb1c1f9df924c97246b3aca",
-      "DomShapes.Media.g.cs": "de4e4e9fe71d1b4348daf16e98734cdfc1c42019ca233402e83bd267b28973f1",
-      "DomShapes.Svg.g.cs": "a31e5d2af559a7ab7f08344fd685ce84ac7b3ac08cfb76a8ddabb83239c94143",
-      "DomTypeMap.g.cs": "803fc4131c33f6c085e544ebfa61fbfdd57a4e19fd17e9067058230a40fca7df"
+      "DomCollectionAccessors.g.cs": "9aa14d672706266ad0b8cfff95fc69d42835dedc21983d3b8509599949ba8c1e",
+      "DomEnums.g.cs": "a1cf04894d9d443d5c8958021ca324c0d81a4e9cb85612e4f9be172f979805f3",
+      "DomInterfaces.g.cs": "b9bb34d304b70736eff6cbed59cb180a7242b864845e84b640ddedb318e08339",
+      "DomReflected.g.cs": "c1b4e96be2dd60e3c661b47a07eedae5e902b21d50fe059eb7f1eafd9d009c0e",
+      "DomShapes.Browser.g.cs": "bf94aa3a5a39dc9731fe7935cdc52c2c55b7a8d20db3fa1726f2e4196eb41e23",
+      "DomShapes.Css.g.cs": "c42d58a7fe3d7fe3cb360c90131daa7bb7242ddb01882b849c64bab0d128e32f",
+      "DomShapes.Dom.g.cs": "59b7dca75ab38691066f592f3293d6d4487648aa44889ecb79045c1464ecc8f0",
+      "DomShapes.Html.g.cs": "175f60fbd7af539a8a1e054f94f518acdb32a0e73aeebf9a3c03266248df2c14",
+      "DomShapes.Io.g.cs": "c82647251234f0990210bae2bfdc38fbc4f3b7c305bb4fa9aa71368a77015c63",
+      "DomShapes.Media.g.cs": "25d0cbaa8fec04148fc66852a42d61f9be7154531f777b1aabdbf9eb770000c1",
+      "DomShapes.Svg.g.cs": "39aba4a29eaa4e2b878d133a4e7debdd6e21693e88a739a197ba5787b605c716",
+      "DomTypeMap.g.cs": "c5431b0062b80381d3b2228610d9e806f765b14dd369d558b434f8ef6c572782"
     },
     "overrideSource": "tools/dom-bindings/overrides.json",
     "overrideSha256": "72406582600d4ca99842df12aa160a03ac0c3db0f434ed0420e754378dbd4dbf",
@@ -12294,8 +10746,7 @@
     "versions": {
       "AngleSharp": "1.8.2",
       "AngleSharp.Css": "1.1.2",
-      "AngleSharp.Xml": "1.2.0",
-      "AngleSharp.XPath": "2.0.6"
+      "AngleSharp.Xml": "1.2.0"
     },
     "centralVersions": [
       {
@@ -12312,62 +10763,29 @@
         "path": "Directory.Packages.props",
         "package": "AngleSharp.Xml",
         "version": "1.2.0"
-      },
-      {
-        "path": "Directory.Packages.props",
-        "package": "AngleSharp.XPath",
-        "version": "2.0.6"
       }
     ],
     "references": [
       {
-        "path": "Jint.Benchmark/BindingComparison/Baseline/Baseline.csproj",
-        "package": "AngleSharp",
-        "version": "[1.8.0]",
-        "category": "benchmark",
-        "owner": "A3:comparison"
-      },
-      {
-        "path": "Jint.Benchmark/BindingComparison/Baseline/Baseline.csproj",
-        "package": "AngleSharp.Js",
-        "version": "[1.1.0]",
-        "category": "benchmark",
-        "owner": "A3:comparison"
-      },
-      {
-        "path": "Jint.Benchmark/BindingComparison/Candidate/Candidate.csproj",
-        "package": "AngleSharp",
-        "version": "[1.8.0]",
-        "category": "benchmark",
-        "owner": "A3:comparison"
-      },
-      {
-        "path": "Jint.Browser/Jint.Browser.csproj",
+        "path": "Jint.Benchmark/Jint.Benchmark.csproj",
         "package": "AngleSharp",
         "version": null,
-        "category": "runtime",
-        "owner": "G2:dependency-removal"
+        "category": "benchmark",
+        "owner": "A3:comparison"
       },
       {
-        "path": "Jint.Browser/Jint.Browser.csproj",
+        "path": "Jint.Benchmark/Jint.Benchmark.csproj",
         "package": "AngleSharp.Css",
         "version": null,
-        "category": "runtime",
-        "owner": "G2:dependency-removal"
+        "category": "benchmark",
+        "owner": "A3:comparison"
       },
       {
-        "path": "Jint.Browser/Jint.Browser.csproj",
-        "package": "AngleSharp.XPath",
-        "version": null,
-        "category": "runtime",
-        "owner": "G2:dependency-removal"
-      },
-      {
-        "path": "Jint.Browser/Jint.Browser.csproj",
+        "path": "Jint.Benchmark/Jint.Benchmark.csproj",
         "package": "AngleSharp.Xml",
         "version": null,
-        "category": "runtime",
-        "owner": "G2:dependency-removal"
+        "category": "benchmark",
+        "owner": "A3:comparison"
       }
     ],
     "generatorPin": {

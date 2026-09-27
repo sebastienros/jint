@@ -264,7 +264,7 @@ internal sealed partial class HtmlTreeBuilder
             inspected = true;
             if (attribute.Name != "type") continue;
             _inputTypeFound = true;
-            _inputTypeHidden = string.Equals(attribute.Value, "hidden", StringComparison.OrdinalIgnoreCase);
+            _inputTypeHidden = attribute.ValueSlice.Span.Equals("hidden", StringComparison.OrdinalIgnoreCase);
         }
         return !inspected || _remaining > 0;
     }

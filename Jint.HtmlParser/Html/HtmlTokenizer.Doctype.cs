@@ -168,7 +168,7 @@ internal sealed partial class HtmlTokenizer
                 FinishReferenceAtEof(); return RecoverAtEof(out token);
         }
         _state = State.Data;
-        if (_text.Length > 0) { FlushText(out token); return true; }
+        if (TextLength > 0) { FlushText(out token); return true; }
         return false;
     }
 }

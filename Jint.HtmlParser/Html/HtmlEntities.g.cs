@@ -2238,12 +2238,5 @@ internal static class HtmlEntities
         ["zwj;"] = "\u200d",
         ["zwnj;"] = "\u200c",
     };
-    internal static readonly HashSet<string> Prefixes = BuildPrefixes();
-    private static HashSet<string> BuildPrefixes()
-    {
-        var prefixes = new HashSet<string>(System.StringComparer.Ordinal);
-        foreach (var key in Values.Keys)
-            for (var i = 1; i <= key.Length; i++) prefixes.Add(key[..i]);
-        return prefixes;
-    }
+    internal static readonly HtmlEntityLookup Lookup = new(Values);
 }

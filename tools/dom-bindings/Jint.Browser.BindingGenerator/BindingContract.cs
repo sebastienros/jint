@@ -16,8 +16,8 @@ internal sealed class BindingContract
     public List<ContractInterface> Interfaces { get; set; } = [];
     public List<ContractEnum> StringEnums { get; set; } = [];
     public List<string> HtmlCollectionElements { get; set; } = [];
-    public string HtmlCollectionOpenType { get; set; } = "global::AngleSharp.Dom.IHtmlCollection";
-    public string HtmlCollectionDefaultElement { get; set; } = "global::AngleSharp.Dom.IElement";
+    public string HtmlCollectionOpenType { get; set; } = "global::Jint.Browser.Dom.Collections.DomHtmlCollection";
+    public string HtmlCollectionDefaultElement { get; set; } = "global::Jint.HtmlParser.Element";
     public List<string> ExtensionNamespaces { get; set; } = [];
     public List<SkipRecord> Skipped { get; set; } = [];
     public List<ReflectedModel> Reflected { get; set; } = [];

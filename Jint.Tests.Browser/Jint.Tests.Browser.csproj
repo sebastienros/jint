@@ -44,7 +44,7 @@
     <ProjectReference Include="..\Jint.Tests\Jint.Tests.csproj" />
     <!--
       The emitter, referenced as a library so DomBindingsStalenessTests can run it in memory against the
-      pinned assemblies and diff its output with what is checked in. That is the whole reason the generator
+      explicit contract and diff its output with what is checked in. That is the whole reason the generator
       targets net8.0 rather than net10.0: this suite runs on both legs, and a net10.0-only emitter would be
       unreferenceable from the lower one.
     -->
@@ -53,9 +53,6 @@
 
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" />
-    <!-- Historical upstream contract provenance only; these dependencies never flow to consumers. -->
-    <PackageReference Include="AngleSharp" PrivateAssets="all" />
-    <PackageReference Include="AngleSharp.Css" PrivateAssets="all" />
     <!--
       The only client library in this suite, and the only test in it that can claim client compatibility: it
       connects to an in-process server over a real socket, opens a page and drives it. It launches nothing and

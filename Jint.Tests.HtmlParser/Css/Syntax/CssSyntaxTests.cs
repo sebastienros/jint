@@ -8,6 +8,64 @@ namespace Jint.Tests.HtmlParser.Css.Syntax;
 [TestFixture]
 public sealed class CssSyntaxTests
 {
+    [TestCase(0)]
+    [TestCase(127)]
+    [TestCase(128)]
+    [TestCase(4096)]
+    public void TokenBuffersPreserveValuesAcrossStackAndPoolBoundaries(int length)
+    {
+        var prefix = new string('x', length);
+        var raw = prefix + "\\1F600 \\0 \\D800 \\10FFFF ";
+        var expected = prefix + "\U0001F600\ufffd\ufffd\U0010FFFF";
+        var spaces = new string(' ', length + 1);
+        var source = raw + " \"" + raw + "\" url(" + raw + ")" + spaces + "\r\n\t";
+        var scanner = new CssTokenizer(source, 0, null, default);
+        var tokens = new List<CssToken>();
+        CssToken token;
+        while ((token = scanner.Next()).Kind != CssTokenKind.None) tokens.Add(token);
+
+        tokens.Select(t => t.Kind).Should().Equal(CssTokenKind.Ident, CssTokenKind.Whitespace,
+            CssTokenKind.String, CssTokenKind.Whitespace, CssTokenKind.Url, CssTokenKind.Whitespace);
+        tokens[0].Text.Should().Be(expected);
+        tokens[0].Span.Length.Should().Be(raw.Length);
+        tokens[2].Text.Should().Be(expected);
+        tokens[4].Text.Should().Be(expected);
+        tokens[5].Text.Should().Be(spaces + "\n\t");
+    }
+
+    [TestCase("", 'x', "")]
+    [TestCase("\"", 'x', "\"")]
+    [TestCase("url(", 'x', ")")]
+    [TestCase("", ' ', "")]
+    public void GrownTokenBuffersStillHonorCancellationAndLimits(string prefix, char character, string suffix)
+    {
+        var source = prefix + new string(character, 12000) + suffix;
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        var scanner = new CssTokenizer(source, 0, null, cancellation.Token,
+            checkpoint: () => { if (++polls == 3) cancellation.Cancel(); });
+        Assert.Throws<OperationCanceledException>(() => scanner.Next());
+        polls.Should().Be(3);
+
+        scanner = new CssTokenizer(source, 256, null, default);
+        var error = Assert.Throws<ParseLimitException>(() => scanner.Next());
+        error!.Kind.Should().Be(ParseLimitKind.TokenCharacters);
+        error.Observed.Should().Be(257);
+    }
+
+    [Test]
+    public void GrownBuffersRecoverFromBadStringsAndUrls()
+    {
+        var prefix = new string('x', 4096);
+        var scanner = new CssTokenizer("'" + prefix + "\nurl(" + prefix + " y) after", 0, null, default);
+        scanner.Next().Kind.Should().Be(CssTokenKind.BadString);
+        scanner.Next().Kind.Should().Be(CssTokenKind.Whitespace);
+        scanner.Next().Kind.Should().Be(CssTokenKind.BadUrl);
+        scanner.Next().Kind.Should().Be(CssTokenKind.Whitespace);
+        scanner.Next().Text.Should().Be("after");
+        scanner.Next().Kind.Should().Be(CssTokenKind.None);
+    }
+
     [Test]
     public void TokenStreamCoversEveryCssSyntaxCategory()
     {

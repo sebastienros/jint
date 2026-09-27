@@ -6,8 +6,8 @@ using System.Threading;
 namespace Jint.HtmlParser.Html;
 
 // HTML Standard §13.2.5, Data state through the DOCTYPE and CDATA states.
-// One loop iteration consumes at most one input unit, apart from a seven-unit
-// declaration marker. Declaration matching probes at most sixteen units.
+// Scalar states consume one input unit; ordinary runs are bounded by quota,
+// source slice and text-buffer size. Declaration probes use at most sixteen units.
 internal sealed partial class HtmlTokenizer
 {
     private readonly HtmlInput _input;
@@ -66,6 +66,7 @@ internal sealed partial class HtmlTokenizer
     private bool _numericDigits;
     private int _bestEntityLength;
     private string? _bestEntityValue;
+    private int _entityState;
     private readonly StringBuilder _reference = new();
 
     internal HtmlTokenizer(HtmlTokenizerContext context)
@@ -142,7 +143,7 @@ internal sealed partial class HtmlTokenizer
                 if (_input.SkipMarker()) continue;
                 if (_skipLf)
                 {
-                    if (!_input.Peek(0, out var following))
+                    if (!_input.PeekCurrent(out var following))
                     {
                         if (!_input.IsFinal) return ReturnNeedInput(out token);
                         _skipLf = false;
@@ -159,13 +160,18 @@ internal sealed partial class HtmlTokenizer
                         }
                     }
                 }
-                if (!_input.Peek(0, out var current))
+                if (!_input.PeekCurrent(out var current))
                 {
                     if (!_input.IsFinal) return ReturnNeedInput(out token);
                     if (RecoverAtEof(out token)) return HtmlReadStatus.Token;
                     _ended = true;
                     token = new HtmlToken(HtmlTokenKind.EndOfFile, offset: _input.Offset);
                     return HtmlReadStatus.Token;
+                }
+                if (TryConsumeRun(current))
+                {
+                    if (TextLength >= 4096) return FlushText(out token);
+                    continue;
                 }
                 // HTML input preprocessing happens before state dispatch. Take() also
                 // normalizes the consumed unit and skips a following LF, including
@@ -174,7 +180,7 @@ internal sealed partial class HtmlTokenizer
                 _needsInput = false;
                 if (Step(current, out token)) return HtmlReadStatus.Token;
                 if (_needsInput) return ReturnNeedInput(out token);
-                if (_text.Length >= 4096) return FlushText(out token);
+                if (TextLength >= 4096) return FlushText(out token);
                 if (_hasPending)
                 {
                     _hasPending = false;
@@ -182,7 +188,7 @@ internal sealed partial class HtmlTokenizer
                     return HtmlReadStatus.Token;
                 }
             }
-            if (_text.Length > 0 && _state == State.Data) return FlushText(out token);
+            if (TextLength > 0 && _state == State.Data) return FlushText(out token);
             return HtmlReadStatus.Yielded;
         }
         catch (OperationCanceledException)
@@ -199,7 +205,7 @@ internal sealed partial class HtmlTokenizer
 
     private HtmlReadStatus ReturnNeedInput(out HtmlToken token)
     {
-        if (_text.Length > 0) return FlushText(out token);
+        if (TextLength > 0) return FlushText(out token);
         token = default;
         if (_input.WorkExhausted) return HtmlReadStatus.Yielded;
         return _input.BoundaryReached ? HtmlReadStatus.InsertionBoundary : HtmlReadStatus.NeedInput;
@@ -207,15 +213,14 @@ internal sealed partial class HtmlTokenizer
 
     private HtmlReadStatus FlushText(out HtmlToken token)
     {
-        token = new HtmlToken(HtmlTokenKind.Text, data: Materialize(_text), offset: _textStart);
-        _text.Clear();
+        token = new HtmlToken(HtmlTokenKind.Text, dataSlice: TakeValue(_text), offset: _textStart);
         _canSetCDataContext = _canSetTextMode = CanSetModeAfterToken();
         return HtmlReadStatus.Token;
     }
 
     private bool Emit(HtmlToken produced, out HtmlToken token)
     {
-        if (_text.Length != 0)
+        if (TextLength != 0)
         {
             _pending = produced;
             _hasPending = true;
@@ -229,13 +234,13 @@ internal sealed partial class HtmlTokenizer
 
     private void Text(char c, long offset)
     {
-        if (_text.Length == 0) _textStart = offset;
+        if (TextLength == 0) _textStart = offset;
         Append(_text, c);
     }
 
     private void Text(string s, long offset)
     {
-        if (_text.Length == 0) _textStart = offset;
+        if (TextLength == 0) _textStart = offset;
         Append(_text, s);
     }
 
@@ -286,17 +291,18 @@ internal sealed partial class HtmlTokenizer
     private void FinishAttribute()
     {
         if (_name.Length == 0) return;
-        var name = Materialize(_name);
+        var name = MaterializeName(_name);
         EnsureAttributeNameCapacity();
         Poll();
         var unique = _attributeNames.Add(name);
         ChargeCopy(name.Length); // Hashing the candidate name scans its UTF-16 units.
         Poll();
         if (!unique) Error("duplicate-attribute");
-        else AddAttribute(new HtmlAttribute(name, Materialize(_value)));
+        else AddAttribute(new HtmlAttribute(name, TakeValue(_value)));
         if (_endTag) _endTagHadAttributes = true;
         _name.Clear();
         _value.Clear();
+        _valueSource = default;
     }
 
     private bool EmitTag(out HtmlToken token)
@@ -305,7 +311,7 @@ internal sealed partial class HtmlTokenizer
         if (_endTag && _endTagHadAttributes) Error("end-tag-with-attributes");
         if (_endTag && _endTagHadSelfClosing) Error("end-tag-with-trailing-solidus");
         var attributes = CopyAttributes();
-        var name = Materialize(_tagName);
+        var name = MaterializeName(_tagName);
         HtmlSourceLocation? source = null;
         if (!_endTag && name == "script")
         {
@@ -426,12 +432,14 @@ internal sealed partial class HtmlTokenizer
 
     private void Append(StringBuilder buffer, char value)
     {
+        CopySourceToBuffer(buffer);
         EnsureAppendCapacity(buffer, 1);
         buffer.Append(value);
     }
 
     private void Append(StringBuilder buffer, string value)
     {
+        CopySourceToBuffer(buffer);
         EnsureAppendCapacity(buffer, value.Length);
         Poll();
         buffer.Append(value);

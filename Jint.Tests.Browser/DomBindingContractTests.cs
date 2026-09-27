@@ -36,6 +36,25 @@ public sealed class DomBindingContractTests
         }, "Duplicate DOM member Node.");
     }
 
+    [Test]
+    public void OmittedCollectionReceiversDefaultToNativeTypes()
+    {
+        var contract = JsonNode.Parse(File.ReadAllText(RepositoryPaths.ContractPath))!.AsObject();
+        contract.Remove("HtmlCollectionOpenType");
+        contract.Remove("HtmlCollectionDefaultElement");
+        var path = Path.Combine(Path.GetTempPath(), "jint-dom-contract-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(path, contract.ToJsonString());
+            var result = BindingGenerator.Run(new BindingGeneratorOptions { ContractPath = path });
+            result.Files.Should().BeEquivalentTo(DomBindingsStalenessTests.Generate().Files);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static JsonObject Interface(JsonNode root, string name)
         => root["Interfaces"]!.AsArray()
             .Select(entry => entry!.AsObject())

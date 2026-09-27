@@ -168,9 +168,9 @@ internal sealed partial class HtmlTreeBuilder
                     Namespaces.MathMl when attribute.LocalName == "definitionurl" => "definitionURL",
                     _ => attribute.LocalName
                 };
-                attributes[index] = AdjustForeignAttribute(localName, attribute.Value);
-                if (localName == "xmlns" && attribute.Value != namespaceUri ||
-                    localName == "xmlns:xlink" && attribute.Value != "http://www.w3.org/1999/xlink")
+                attributes[index] = AdjustForeignAttribute(localName, attribute.ValueSlice);
+                if (localName == "xmlns" && !attribute.ValueSlice.Span.SequenceEqual(namespaceUri) ||
+                    localName == "xmlns:xlink" && !attribute.ValueSlice.Span.SequenceEqual("http://www.w3.org/1999/xlink"))
                     Error("unexpected-namespace-declaration");
                 Charge(1);
             }
@@ -191,7 +191,7 @@ internal sealed partial class HtmlTreeBuilder
         return true;
     }
 
-    private static bool AsciiEquals(string left, string right)
+    private static bool AsciiEquals(ReadOnlySpan<char> left, ReadOnlySpan<char> right)
     {
         if (left.Length != right.Length) return false;
         for (var i = 0; i < left.Length; i++)
@@ -234,7 +234,7 @@ internal sealed partial class HtmlTreeBuilder
         return true;
     }
 
-    private static ParserAttribute AdjustForeignAttribute(string name, string value) => name switch
+    private static ParserAttribute AdjustForeignAttribute(string name, StringSlice value) => name switch
     {
         "xlink:actuate" => new ParserAttribute("http://www.w3.org/1999/xlink", "actuate", "xlink", value),
         "xlink:arcrole" => new ParserAttribute("http://www.w3.org/1999/xlink", "arcrole", "xlink", value),

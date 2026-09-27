@@ -12,6 +12,7 @@ internal sealed partial class HtmlTokenizer
                 _reference.Clear();
                 _bestEntityLength = 0;
                 _bestEntityValue = null;
+                _entityState = 0;
                 if (c == '#')
                 {
                     Take(); Append(_reference, '#');
@@ -23,11 +24,11 @@ internal sealed partial class HtmlTokenizer
                 return false;
 
             case State.NamedReference:
-                var candidate = Materialize(_reference) + c;
-                if (HtmlEntities.Prefixes.Contains(candidate))
+                if (HtmlEntities.Lookup.TryAdvance(_entityState, c, out var nextState, out var value))
                 {
+                    _entityState = nextState;
                     Take(); Append(_reference, c);
-                    if (HtmlEntities.Values.TryGetValue(candidate, out var value))
+                    if (value is not null)
                     {
                         _bestEntityLength = _reference.Length;
                         _bestEntityValue = value;
@@ -109,17 +110,15 @@ internal sealed partial class HtmlTokenizer
 
     private void FinishNamedReference(char following)
     {
-        var spelling = Materialize(_reference);
         if (_bestEntityValue is null)
         {
-            AppendReferenceResult("&" + spelling);
+            AppendReferenceResult("&" + Materialize(_reference));
             _reference.Clear();
             _state = State.AmbiguousAmpersand;
             return;
         }
-        var matched = spelling.AsSpan(0, _bestEntityLength);
-        var hasSemicolon = matched[^1] == ';';
-        var next = _bestEntityLength < spelling.Length ? spelling[_bestEntityLength] : following;
+        var hasSemicolon = _reference[_bestEntityLength - 1] == ';';
+        var next = _bestEntityLength < _reference.Length ? _reference[_bestEntityLength] : following;
         if (!hasSemicolon && _returnState is not (State.Data or State.RcData) && (AsciiAlpha(next) || AsciiDigit(next) || next == '='))
         {
             FinishLiteralReference();
@@ -127,7 +126,15 @@ internal sealed partial class HtmlTokenizer
         }
         if (!hasSemicolon) Error("missing-semicolon-after-character-reference", _referenceStart);
         AppendReferenceResult(_bestEntityValue);
-        if (_bestEntityLength < spelling.Length) AppendReferenceResult(spelling[_bestEntityLength..]);
+        if (_bestEntityLength < _reference.Length)
+        {
+            Poll();
+            var length = _reference.Length - _bestEntityLength;
+            var suffix = _reference.ToString(_bestEntityLength, length);
+            ChargeCopy(length);
+            Poll();
+            AppendReferenceResult(suffix);
+        }
         _reference.Clear();
         _referenceStart = -1;
         _state = _returnState;

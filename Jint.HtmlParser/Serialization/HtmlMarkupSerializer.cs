@@ -260,7 +260,7 @@ internal static class HtmlMarkupSerializer
                 _writer.Append(' ');
                 WriteAttributeName(attribute);
                 _writer.Append("=\"");
-                HtmlScalarSerializer.WriteEscaped(attribute.Value, attribute: true, _writer);
+                HtmlScalarSerializer.WriteEscaped(attribute.ValueSpan, attribute: true, _writer);
                 _writer.Append('"');
             }
         }

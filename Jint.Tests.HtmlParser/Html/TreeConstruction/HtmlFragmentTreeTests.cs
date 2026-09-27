@@ -421,27 +421,35 @@ public class HtmlFragmentTreeTests
         HtmlFormState.GetOwner(input).Should().BeNull();
     }
 
-    // Intersection cases exclude current normative select/PI/patch rules that
-    // AngleSharp 1.8.2 does not implement. Compare structure, not HTML strings.
-    [TestCase("body", "<b><i>x</b>y</i><!--z-->")]
-    [TestCase("table", "a<tr><td>x<td>y</table>z")]
-    [TestCase("tbody", "<tr><td>x<tr><th>y")]
-    [TestCase("tr", "<td><b>x<td>y")]
-    [TestCase("template", "<table><tr><td>x</table><template><p>y")]
-    [TestCase("body", "<svg><foreignObject><p>x</p></foreignObject><circle/></svg>")]
-    [TestCase("body", "<math><mi><b>x</b></mi><annotation-xml encoding='text/html'><p>y")]
-    public void ConformingAngleSharpIntersection(string name, string source)
+    private const string HtmlElement = "[http://www.w3.org/1999/xhtml|";
+    private const string SvgElement = "[http://www.w3.org/2000/svg|";
+    private const string MathElement = "[http://www.w3.org/1998/Math/MathML|";
+
+    // HTML Standard §13.2.6 and §13.4: pin tree structure, namespaces and template contents,
+    // independently of another implementation's recovery or serialization.
+    [TestCase("body", "<b><i>x</b>y</i><!--z-->",
+        HtmlElement + "b]" + HtmlElement + "i]{text:x}[/][/]" + HtmlElement + "i]{text:y}[/]{comment:z}")]
+    [TestCase("table", "a<tr><td>x<td>y</table>z",
+        "{text:a}" + HtmlElement + "tbody]" + HtmlElement + "tr]" + HtmlElement + "td]{text:x}[/]" + HtmlElement + "td]{text:yz}[/][/][/]")]
+    [TestCase("tbody", "<tr><td>x<tr><th>y",
+        HtmlElement + "tr]" + HtmlElement + "td]{text:x}[/][/]" + HtmlElement + "tr]" + HtmlElement + "th]{text:y}[/][/]")]
+    [TestCase("tr", "<td><b>x<td>y",
+        HtmlElement + "td]" + HtmlElement + "b]{text:x}[/][/]" + HtmlElement + "td]{text:y}[/]")]
+    [TestCase("template", "<table><tr><td>x</table><template><p>y",
+        HtmlElement + "table]" + HtmlElement + "tbody]" + HtmlElement + "tr]" + HtmlElement + "td]{text:x}[/][/][/][/]" +
+        HtmlElement + "template]" + HtmlElement + "p]{text:y}[/][/]")]
+    [TestCase("body", "<svg><foreignObject><p>x</p></foreignObject><circle/></svg>",
+        SvgElement + "svg]" + SvgElement + "foreignObject]" + HtmlElement + "p]{text:x}[/][/]" + SvgElement + "circle][/][/]")]
+    [TestCase("body", "<math><mi><b>x</b></mi><annotation-xml encoding='text/html'><p>y",
+        MathElement + "math]" + MathElement + "mi]" + HtmlElement + "b]{text:x}[/][/]" +
+        MathElement + "annotation-xml |encoding=text/html]" + HtmlElement + "p]{text:y}[/][/][/]")]
+    public void FragmentRecoveryPreservesTheExpectedTree(string name, string source, string expected)
     {
-        var angleParser = new AngleSharp.Html.Parser.HtmlParser();
-        var angleDocument = angleParser.ParseDocument("<!doctype html><html><head></head><body></body></html>");
-        var angleContext = angleDocument.CreateElement(name);
-        var expected = new StringBuilder();
-        foreach (var node in angleParser.ParseFragment(source, angleContext)) AngleTree(node, expected);
         var nativeDocument = Document.CreateHtml();
         var actual = new StringBuilder();
         var fragment = HtmlParserSession.ParseFragment(source, nativeDocument.CreateElement(name));
         foreach (var node in fragment.ChildNodes) NativeTree(node, actual);
-        actual.ToString().Should().Be(expected.ToString());
+        actual.ToString().Should().Be(expected);
     }
 
     private static void NativeTree(Node node, StringBuilder output)
@@ -457,22 +465,6 @@ public class HtmlFragmentTreeTests
         }
         else if (node is Text text) output.Append("{text:").Append(text.Data).Append('}');
         else if (node is Comment comment) output.Append("{comment:").Append(comment.Data).Append('}');
-    }
-
-    private static void AngleTree(AngleSharp.Dom.INode node, StringBuilder output)
-    {
-        if (node is AngleSharp.Dom.IElement element)
-        {
-            output.Append('[').Append(element.NamespaceUri).Append('|').Append(element.LocalName);
-            foreach (var attribute in element.Attributes)
-                output.Append(' ').Append(attribute.NamespaceUri).Append('|').Append(attribute.Name).Append('=').Append(attribute.Value);
-            output.Append(']');
-            var parent = element is AngleSharp.Html.Dom.IHtmlTemplateElement template ? (AngleSharp.Dom.INode) template.Content : element;
-            foreach (var child in parent.ChildNodes) AngleTree(child, output);
-            output.Append("[/]");
-        }
-        else if (node is AngleSharp.Dom.IText text) output.Append("{text:").Append(text.Data).Append('}');
-        else if (node is AngleSharp.Dom.IComment comment) output.Append("{comment:").Append(comment.Data).Append('}');
     }
 
     private static HtmlParseStepKind DriveToBoundary(HtmlParserSession session, int quota)

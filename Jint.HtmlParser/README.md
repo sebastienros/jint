@@ -40,4 +40,76 @@ Parsing does not validate selectors or properties, resolve URLs, load imports, a
 `CssParseOptions` supplies the existing limits and optional diagnostic collector; cancellation is supported.
 The result retains no parser, options or collector. Public mutable CSSOM promotion and equivalent CSSOM benchmarks are separate work.
 
-Selector matching, full CSSOM, serialization and Browser integration remain in development. This package does not yet establish conformance or performance claims for replacing the current Browser parser.
+`Jint.Browser` now uses this native tree, parser and CSS model. Neither production packages nor tests
+depend on AngleSharp. AngleSharp, AngleSharp.Css and AngleSharp.Xml remain only in `Jint.Benchmark`
+as comparison controls; dependency removal is not a claim of complete behavioral parity.
+
+## HTML scanning
+
+The UTF-16 tokenizer uses cached `SearchValues<char>` sets to append ordinary
+text, names, attribute values and comment runs in bulk. Each run stays within
+the current input slice and work quota; CR/LF preprocessing, diagnostics,
+token limits and insertion markers retain their scalar handling. Names still
+use HTML's ASCII-only case folding. Common names use span substring search over a
+static, delimiter-separated string; the match offset indexes a sparse table of
+the original string literals, not newly allocated substrings. Length-specific
+search ranges and delimiters enforce whole-name matches. A bounded, parse-local cache reuses
+other short names before allocating strings.
+The cache uses xxHash3 over the UTF-16 bytes without an encoding allocation.
+Long names and cache collisions remain correct without process-global interning.
+
+Ordinary text and attribute values carry internal immutable source slices from
+the tokenizer into the DOM. Each slice owns a reference to its source string and
+exposes a `ReadOnlySpan<char>` internally. Entities, line normalization and
+noncontiguous input fall back to owned decoded storage; only adjacent ranges of
+the same source can coalesce without copying. Caller arrays and reusable
+tokenizer buffers are never retained as immutable values.
+
+Public `Text.Data` and `Attr.Value` remain strings. Their first read materializes
+and caches the current value when needed; source-backed values then release their
+reference to the larger input. Internal span consumers, including HTML
+serialization, can read without materialization. Mutation, cloning and old-value
+notifications preserve the existing string and ownership contracts.
+
+This trades fewer copies for source retention: an unread value can keep its whole
+input string alive, including on a detached node. Shared text/attribute storage
+also has a layout cost for already materialized values such as XML input.
+Source slices are not a new public API or raw-markup provenance contract.
+`HtmlParserValueAccessBenchmark` measures complete parsing plus string or span
+consumption separately, so parse-only measurements cannot hide deferred work.
+
+Named character references advance through a shared immutable trie built from
+the pinned WHATWG table. Prefix recognition does not allocate candidate strings;
+longest-match recovery and the attribute-specific semicolon rules remain part
+of the tokenizer. `Html/generate_entities.py` verifies the pinned input hash
+when regenerating the table.
+
+## Temporary parsing buffers
+
+CSS token values and XML attribute/line normalization use a stack-backed
+`ValueStringBuilder` with 128-character initial buffers and pooled growth.
+Only synchronous, method-local buffers use it; builders retained between HTML
+tokenizer yields or XML entity frames remain heap-backed. Completed values own
+their strings, and pooled buffers are returned on success, errors and cancellation.
+The implementation is copied from [.NET's pinned source](https://github.com/dotnet/dotnet/blob/9cc5eb8d49d3381ff9890b959faca397b8d537e7/src/runtime/src/libraries/Common/src/System/Text/ValueStringBuilder.cs),
+with only namespace and formatting changes. Its [MIT license](Parsing/ValueStringBuilder.LICENSE.txt)
+is included in the package. The parser does not acquire a dependency on the Jint engine
+to reuse its separate, engine-specific builder.
+
+## Remaining replacement work
+
+The main gaps are above HTML tokenization and tree construction:
+
+| Area | Current boundary |
+| --- | --- |
+| CSS property grammars | `CssPropertyRegistry` implements a subset of `CssPropertyCatalog`. Common families still pending include borders/background shorthands, grid/gap, font-family/line-height, animation/transition and SVG paint. A catalog entry is an obligation, not implemented support. |
+| CSS rules and nesting | Native media, supports, container, imports, font-face and keyframes exist. Layers, namespaces, scope, page/counter-style and property registration remain incomplete, as do import `layer()`/`supports()` conditions, nested conditional rules and interleaved declarations. |
+| Computed and resolved values | Advanced colors, typed `attr()` and other substitution functions, some container metrics and used-value dependencies remain named completion failures. Browser also still documents incomplete stylesheet BOM/charset and MIME handling. |
+| Standalone APIs | Selectors, mutable CSSOM, HTML/XML serialization, XPath and incremental HTML sessions have internal implementations consumed by Browser; they are not yet supported public package entry points. Public parsing accepts decoded strings, not streams or byte inputs. |
+| Acceptance | XML external-resource/no-fetch review and canonical-output evidence remain outstanding. Browser fixture behavior, current WPT results and public API snapshots must be reconciled independently of package removal. |
+
+Unknown syntax and known-but-unimplemented semantics are deliberately different: raw CSS syntax can
+be retained lazily, but demanding an incomplete grammar raises a named failure rather than inventing a
+computed value. Passing tests for that failure boundary does not establish support for the feature.
+HTML/XML comparisons have untimed structural checks; equivalent CSSOM comparison and paired
+performance acceptance remain separate work.

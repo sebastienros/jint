@@ -40,6 +40,11 @@ internal static class HtmlScalarSerializer
     internal static void WriteEscaped(string value, bool attribute, SerializationWriter writer)
     {
         ArgumentNullException.ThrowIfNull(value);
+        WriteEscaped(value.AsSpan(), attribute, writer);
+    }
+
+    internal static void WriteEscaped(ReadOnlySpan<char> value, bool attribute, SerializationWriter writer)
+    {
         ArgumentNullException.ThrowIfNull(writer);
         var work = writer.Work;
         var runStart = 0;
@@ -56,12 +61,12 @@ internal static class HtmlScalarSerializer
                 _ => null
             };
             if (replacement is null) continue;
-            if (index != runStart) writer.Append(value.AsSpan(runStart, index - runStart));
+            if (index != runStart) writer.Append(value.Slice(runStart, index - runStart));
             writer.Append(replacement);
             runStart = index + 1;
         }
 
-        if (runStart != value.Length) writer.Append(value.AsSpan(runStart));
+        if (runStart != value.Length) writer.Append(value[runStart..]);
     }
 
     internal static void WriteLiteral(string value, SerializationWriter writer, SerializationStage stage)

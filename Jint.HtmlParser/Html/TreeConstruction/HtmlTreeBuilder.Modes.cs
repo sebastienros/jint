@@ -246,21 +246,22 @@ internal sealed partial class HtmlTreeBuilder
 
     private void ProcessCharacters()
     {
-        var data = _token.Data;
+        var data = _token.DataSlice;
+        var span = data.Span;
         while (_textIndex < data.Length && _remaining > 0)
         {
             _cancellationToken.ThrowIfCancellationRequested();
             if (ShouldUseForeignRules(_token))
             {
-                var foreignCharacter = data[_textIndex++];
+                var foreignCharacter = span[_textIndex++];
                 if (foreignCharacter == '\0')
                 {
                     Error("unexpected-null-character");
-                    InsertText("\uFFFD".AsSpan());
+                    InsertText(new StringSlice("\uFFFD"));
                 }
                 else
                 {
-                    InsertText(data.AsSpan(_textIndex - 1, 1));
+                    InsertText(data.Slice(_textIndex - 1, 1));
                     if (!White(foreignCharacter)) _framesetOk = false;
                 }
                 continue;
@@ -268,9 +269,9 @@ internal sealed partial class HtmlTreeBuilder
             if (_ignoreNextLf)
             {
                 _ignoreNextLf = false;
-                if (data[_textIndex] == '\n') { _textIndex++; Charge(1); continue; }
+                if (span[_textIndex] == '\n') { _textIndex++; Charge(1); continue; }
             }
-            var c = data[_textIndex];
+            var c = span[_textIndex];
             switch (_mode)
             {
                 case Mode.Initial:
@@ -377,16 +378,17 @@ internal sealed partial class HtmlTreeBuilder
         }
     }
 
-    private void AppendCharacterRun(string data, bool whiteOnly, bool textMode = false)
+    private void AppendCharacterRun(StringSlice data, bool whiteOnly, bool textMode = false)
     {
+        var span = data.Span;
         var start = _textIndex;
         var max = (int) Math.Min(data.Length, start + Math.Max(1, Math.Min(_remaining, 2048)));
         while (_textIndex < max)
         {
-            var c = data[_textIndex];
+            var c = span[_textIndex];
             if (c == '\0' && !textMode || !textMode && White(c) != whiteOnly) break;
             _textIndex++;
         }
-        InsertText(data.AsSpan(start, _textIndex - start));
+        InsertText(data.Slice(start, _textIndex - start));
     }
 }

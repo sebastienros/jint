@@ -36,7 +36,7 @@ internal sealed partial class HtmlTokenizer
     }
 
     private bool CanSetModeAfterToken() =>
-        !_ended && !_hasPending && !_markupOpenerAfterText && _tokenStart < 0 && _referenceStart < 0 && _text.Length == 0 &&
+        !_ended && !_hasPending && !_markupOpenerAfterText && _tokenStart < 0 && _referenceStart < 0 && TextLength == 0 &&
         _state is State.Data or State.RcData or State.RawText or State.ScriptData or State.PlainText;
 
     private State ModeBaseState() => _textMode switch
@@ -297,7 +297,7 @@ internal sealed partial class HtmlTokenizer
             Error("eof-in-script-html-comment-like-text");
         _tokenStart = -1;
         _state = ModeBaseState();
-        if (_text.Length > 0) { FlushText(out token); return true; }
+        if (TextLength > 0) { FlushText(out token); return true; }
         return false;
     }
 }
