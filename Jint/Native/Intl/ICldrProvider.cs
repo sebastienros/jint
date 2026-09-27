@@ -108,12 +108,12 @@ public interface ICldrProvider
     /// <param name="calendar">Calendar identifier (e.g., "gregory", "buddhist"), or null for default.</param>
     /// <returns>Array of 12 month names (January-December) or null if not available.</returns>
     /// <remarks>
-    /// <c>Intl.DateTimeFormat</c> writes a component bag's Gregorian month names from the CLDR 48.2 data embedded in
-    /// the engine, in the format context (<c>MMMM</c>) or the stand-alone one (<c>LLLL</c>) as its matched pattern
-    /// asks. This member's answer replaces them only where it differs from <see cref="DefaultCldrProvider.Instance"/>'s
-    /// answer for the same arguments, and then in both contexts; so a provider that delegates this member, or derives
-    /// from <see cref="DefaultCldrProvider"/> without overriding it, leaves the CLDR names in place. A calendar that
-    /// counts months of its own, <c>dateStyle</c> and the Chinese and Dangi calendars still write this member's answer.
+    /// <c>Intl.DateTimeFormat</c> writes Gregorian month names — a component bag's and a <c>dateStyle</c>'s — from the
+    /// CLDR 48.2 data embedded in the engine, in the format context (<c>MMMM</c>) or the stand-alone one (<c>LLLL</c>)
+    /// as its pattern asks. This member's answer replaces them only where it differs from
+    /// <see cref="DefaultCldrProvider.Instance"/>'s answer for the same arguments, and then in both contexts; so a
+    /// provider that delegates this member, or derives from <see cref="DefaultCldrProvider"/> without overriding it,
+    /// leaves the CLDR names in place. A calendar that counts months of its own still writes this member's answer.
     /// </remarks>
     string[]? GetMonthNames(string locale, string style, string? calendar);
 
@@ -124,12 +124,12 @@ public interface ICldrProvider
     /// <param name="style">Style: "long", "short", or "narrow".</param>
     /// <returns>Array of 7 weekday names (Sunday-Saturday) or null if not available.</returns>
     /// <remarks>
-    /// <c>Intl.DateTimeFormat</c> writes a component bag's weekday names from the CLDR 48.2 data embedded in the
-    /// engine, in the format context (<c>EEEE</c>) or the stand-alone one (<c>cccc</c>) as its matched pattern asks.
-    /// This member's answer replaces them only where it differs from <see cref="DefaultCldrProvider.Instance"/>'s answer
-    /// for the same arguments, and then in both contexts; so a provider that delegates this member, or derives from
-    /// <see cref="DefaultCldrProvider"/> without overriding it, leaves the CLDR names in place. <c>dateStyle</c> and
-    /// the Chinese and Dangi calendars still write this member's answer.
+    /// <c>Intl.DateTimeFormat</c> writes weekday names — a component bag's and a <c>dateStyle</c>'s — from the CLDR
+    /// 48.2 data embedded in the engine, in the format context (<c>EEEE</c>) or the stand-alone one (<c>cccc</c>) as
+    /// its pattern asks. This member's answer replaces them only where it differs from
+    /// <see cref="DefaultCldrProvider.Instance"/>'s answer for the same arguments, and then in both contexts; so a
+    /// provider that delegates this member, or derives from <see cref="DefaultCldrProvider"/> without overriding it,
+    /// leaves the CLDR names in place. The Chinese and Dangi calendars still write this member's answer.
     /// </remarks>
     string[]? GetWeekdayNames(string locale, string style);
 
@@ -141,11 +141,12 @@ public interface ICldrProvider
     /// <param name="calendar">Calendar identifier (e.g., "gregory", "buddhist"), or null for default.</param>
     /// <returns>Array of day period names or null if not available.</returns>
     /// <remarks>
-    /// <c>Intl.DateTimeFormat</c> writes a component bag's am/pm from the CLDR 48.2 data embedded in the engine. This
-    /// member's answer replaces them only where it differs from <see cref="DefaultCldrProvider.Instance"/>'s answer for
-    /// the same arguments, so a provider that delegates this member, or derives from <see cref="DefaultCldrProvider"/>
-    /// without overriding it, leaves the CLDR names in place. <c>timeStyle</c> and the Chinese and Dangi calendars still
-    /// write this member's answer.
+    /// <c>Intl.DateTimeFormat</c> writes am/pm — a component bag's and a <c>timeStyle</c>'s — from the CLDR 48.2 data
+    /// embedded in the engine. This member's answer replaces them only where it differs from
+    /// <see cref="DefaultCldrProvider.Instance"/>'s answer for the same arguments, so a provider that delegates this
+    /// member, or derives from <see cref="DefaultCldrProvider"/> without overriding it, leaves the CLDR names in place.
+    /// The Chinese and Dangi calendars, and the <c>dayPeriod</c> option outside English, still write this member's
+    /// answer.
     /// </remarks>
     string[]? GetDayPeriods(string locale, string style, string? calendar);
 

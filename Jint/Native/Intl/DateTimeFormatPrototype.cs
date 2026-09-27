@@ -280,9 +280,9 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             }
 
             // https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat - a year-month and a month-day
-            // are written with the pattern the dateStyle resolved to, narrowed to the fields they have. The
-            // narrowing is the formatter's, so that both lanes into it - this one and toLocaleString - write
-            // the locale's own field widths and separators rather than an approximation of them.
+            // are written with the format the matcher chooses for the fields of the dateStyle's format they have.
+            // The adjustment is the formatter's (JsDateTimeFormat.GetStylePattern), so that both lanes into it -
+            // this one and toLocaleString - write the same pattern.
             var dateStyleFields = required switch
             {
                 DateTimeRequired.YearMonth => DateStyleFields.YearMonth,
