@@ -27,8 +27,11 @@ namespace Jint.Native.Intl;
 /// matcher too, which is what V8 does.
 /// </para>
 /// <para>
-/// One generator serves every engine that formats in its CLDR locale; it is immutable apart from its caches, which
-/// are concurrent and bounded.
+/// A <c>dateStyle</c> and <c>timeStyle</c> resolve here too (<see cref="GetStylePattern"/>): the locale's own
+/// <c>dateFormats</c> and <c>timeFormats</c>, matched again by the same matcher only where the resolved hour cycle is
+/// not the one they are written in, as V8 does; and so does the format Temporal adjusts a style to for a value without
+/// some of its fields (<see cref="AdjustStyleFormat"/>). One generator serves every engine that formats in its CLDR
+/// locale; it is immutable apart from its caches, which are concurrent and bounded.
 /// </para>
 /// </remarks>
 internal sealed class DateTimePatternGenerator
@@ -138,13 +141,154 @@ internal sealed class DateTimePatternGenerator
             return cached;
         }
 
-        var result = new DateTimeFormatPattern(GetBestPattern(skeleton, hourCycle, decimalSeparator, matchHourFieldLength: true), this);
-        if (System.Threading.Volatile.Read(ref _patternCount) < MaxCachedPatterns && _patterns.TryAdd(key, result))
+        return Cache(key, new DateTimeFormatPattern(GetBestPattern(skeleton, hourCycle, decimalSeparator, matchHourFieldLength: true), this));
+    }
+
+    /// <summary>
+    /// The pattern a <c>dateStyle</c> and/or <c>timeStyle</c> writes: https://tc39.es/ecma402/#sec-date-time-style-format
+    /// over the locale's CLDR <c>dateFormats</c> and <c>timeFormats</c>, in the hour cycle the formatter resolved.
+    /// </summary>
+    /// <param name="dateStyle">The date style, or null for a time on its own.</param>
+    /// <param name="timeStyle">The time style, or null for a date on its own.</param>
+    /// <param name="hourCycle">The resolved hour cycle; read only when there is a time style.</param>
+    /// <param name="decimalSeparator">What separates seconds from their fraction; no style pattern has one.</param>
+    /// <remarks>
+    /// <para>
+    /// A date and a time are joined by the <c>atTime</c> <c>dateTimeFormats</c> of the date's width, which is the
+    /// connector ICU 72 and later write for a date and a time style ("at", "um", "à"); the specification's connector is
+    /// <c>[[Connector]].[[&lt;dateStyle&gt;]]</c>.
+    /// </para>
+    /// <para>
+    /// The locale's time patterns are written in its own cycle. Where the resolved one is another, the specification
+    /// writes <c>[[pattern12]]</c> or <c>[[pattern]]</c>, and this does what V8 does to derive them: the style pattern's
+    /// skeleton, its day period dropped and its hour letter the resolved cycle's, is matched again the way a component bag
+    /// is (<see cref="GetPattern"/>), so an <c>en</c> <c>timeStyle: "short"</c> with <c>hourCycle: "h23"</c> writes
+    /// <c>HH:mm</c> and a <c>de</c> one with <c>hour12: true</c> writes <c>h:mm a</c>. A date written beside such a time is
+    /// matched too, and can take the shape of the locale's <c>availableFormats</c> rather than its <c>dateFormats</c>, as
+    /// in ICU: <c>ja</c> <c>{ dateStyle: "long", timeStyle: "long", hour12: true }</c> writes <c>y/M/d aK:mm:ss z</c>.
+    /// </para>
+    /// </remarks>
+    internal DateTimeFormatPattern GetStylePattern(DateTimeStyleWidth? dateStyle, DateTimeStyleWidth? timeStyle, string hourCycle, char decimalSeparator)
+    {
+        // A skeleton is ASCII letters, so a key starting with '#' never meets one.
+        var key = string.Concat(decimalSeparator.ToString(), "#", StyleKey(dateStyle), StyleKey(timeStyle), timeStyle is null ? "" : hourCycle);
+        if (_patterns.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        string pattern;
+        if (timeStyle is null)
+        {
+            pattern = _data.GetDateFormat(dateStyle!.Value);
+        }
+        else
+        {
+            var time = _data.GetTimeFormat(timeStyle.Value);
+            pattern = dateStyle is null ? time : Substitute(_data.GetAtTimeFormat(dateStyle.Value), time, _data.GetDateFormat(dateStyle.Value), null);
+            if (!string.Equals(PatternHourCycle(pattern), hourCycle, StringComparison.Ordinal))
+            {
+                pattern = ReplaceHourCycle(BestPattern(Skeleton.Parse(StyleSkeleton(pattern, hourCycle)), decimalSeparator, matchHourFieldLength: true), hourCycle);
+            }
+        }
+
+        return Cache(key, new DateTimeFormatPattern(pattern, this));
+
+        static string StyleKey(DateTimeStyleWidth? width) => width is null ? "-" : ((int) width.Value).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat: the format a style resolved to when it has no
+    /// field outside <paramref name="allowed"/>, and otherwise the format the matcher chooses for the fields it has that
+    /// are allowed — a <c>Temporal.PlainYearMonth</c> keeps the era, year and month of a <c>dateStyle</c>, a
+    /// <c>Temporal.PlainTime</c> the time of a <c>timeStyle</c> without its zone.
+    /// </summary>
+    /// <param name="baseFormat">The style's format (<see cref="GetStylePattern"/>).</param>
+    /// <param name="allowed">The fields the value being formatted has.</param>
+    /// <param name="hourCycle">The resolved hour cycle; read only when an allowed field is the hour.</param>
+    /// <param name="decimalSeparator">What separates seconds from their fraction.</param>
+    internal DateTimeFormatPattern AdjustStyleFormat(DateTimeFormatPattern baseFormat, DateTimeFormatFields allowed, string hourCycle, char decimalSeparator)
+    {
+        var kept = baseFormat.Fields & allowed;
+        if (kept == baseFormat.Fields)
+        {
+            return baseFormat;
+        }
+
+        var skeleton = Skeleton.FromOptions(
+            Keep(DateTimeFormatFields.Weekday, baseFormat.Weekday),
+            Keep(DateTimeFormatFields.Era, baseFormat.Era),
+            Keep(DateTimeFormatFields.Year, baseFormat.Year),
+            Keep(DateTimeFormatFields.Month, baseFormat.Month),
+            Keep(DateTimeFormatFields.Day, baseFormat.Day),
+            Keep(DateTimeFormatFields.DayPeriod, baseFormat.DayPeriod),
+            Keep(DateTimeFormatFields.Hour, baseFormat.Hour),
+            Keep(DateTimeFormatFields.Minute, baseFormat.Minute),
+            Keep(DateTimeFormatFields.Second, baseFormat.Second),
+            (kept & DateTimeFormatFields.FractionalSecondDigits) != DateTimeFormatFields.None ? baseFormat.FractionalSecondDigits : null,
+            Keep(DateTimeFormatFields.TimeZoneName, baseFormat.TimeZoneName),
+            hourCycle);
+        return GetPattern(skeleton, hourCycle, decimalSeparator);
+
+        string? Keep(DateTimeFormatFields field, string? value) => (kept & field) != DateTimeFormatFields.None ? value : null;
+    }
+
+    private DateTimeFormatPattern Cache(string key, DateTimeFormatPattern pattern)
+    {
+        if (System.Threading.Volatile.Read(ref _patternCount) < MaxCachedPatterns && _patterns.TryAdd(key, pattern))
         {
             System.Threading.Interlocked.Increment(ref _patternCount);
         }
 
-        return result;
+        return pattern;
+    }
+
+    /// <summary>
+    /// V8's <c>HourCycleFromPattern</c>: the cycle the first hour field of <paramref name="pattern"/> writes, or null for
+    /// a pattern without one.
+    /// </summary>
+    private static string? PatternHourCycle(string pattern)
+    {
+        foreach (var token in PatternToken.Tokenize(pattern))
+        {
+            if (token.IsField)
+            {
+                switch (token.Letter)
+                {
+                    case 'K':
+                        return "h11";
+                    case 'h':
+                        return "h12";
+                    case 'H':
+                        return "h23";
+                    case 'k':
+                        return "h24";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// ICU's <c>staticGetSkeleton</c> and V8's <c>ReplaceSkeleton</c>: each field of a style pattern once, in field order,
+    /// without its day period, and with the hour letter of <paramref name="hourCycle"/>.
+    /// </summary>
+    private static string StyleSkeleton(string pattern, string hourCycle)
+    {
+        var skeleton = Skeleton.Parse(pattern);
+        var builder = new StringBuilder(pattern.Length);
+        for (var field = 0; field < FieldCount; field++)
+        {
+            if (field == DayPeriod || !skeleton.Has(field))
+            {
+                continue;
+            }
+
+            builder.Append(field == Hour ? HourLetter(hourCycle) : skeleton.Letters[field], skeleton.Lengths[field]);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
@@ -1236,8 +1380,15 @@ internal sealed class DateTimeFormatPattern
     /// <summary>The LDML pattern, as the matcher chose it.</summary>
     internal string Pattern { get; }
 
-    /// <summary>The pattern split into field runs and unquoted literal runs.</summary>
+    /// <summary>
+    /// The pattern split into field runs and unquoted literal runs: the split
+    /// https://tc39.es/ecma402/#sec-partitionpattern makes of an ECMA-402 pattern, whose literals are copied through
+    /// untouched.
+    /// </summary>
     internal DateTimePatternRun[] Runs { get; }
+
+    /// <summary>Which of the format record's fields the pattern has.</summary>
+    internal DateTimeFormatFields Fields { get; private set; }
 
     internal string? Weekday { get; private set; }
     internal string? Era { get; private set; }
@@ -1273,12 +1424,15 @@ internal sealed class DateTimeFormatPattern
         {
             case 'E' or 'c' or 'e':
                 Weekday = TextualStyle(length);
+                Fields |= DateTimeFormatFields.Weekday;
                 break;
             case 'G':
                 Era = TextualStyle(length);
+                Fields |= DateTimeFormatFields.Era;
                 break;
             case 'y' or 'Y':
                 Year = NumericStyle(length);
+                Fields |= DateTimeFormatFields.Year;
                 break;
             case 'M' or 'L':
                 Month = length switch
@@ -1289,27 +1443,35 @@ internal sealed class DateTimeFormatPattern
                     4 => "long",
                     _ => "narrow",
                 };
+                Fields |= DateTimeFormatFields.Month;
                 break;
             case 'd':
                 Day = NumericStyle(length);
+                Fields |= DateTimeFormatFields.Day;
                 break;
             case 'B':
                 DayPeriod = TextualStyle(length);
+                Fields |= DateTimeFormatFields.DayPeriod;
                 break;
             case 'h' or 'H' or 'k' or 'K':
                 Hour = NumericStyle(length);
+                Fields |= DateTimeFormatFields.Hour;
                 break;
             case 'm':
                 Minute = NumericStyle(length);
+                Fields |= DateTimeFormatFields.Minute;
                 break;
             case 's':
                 Second = NumericStyle(length);
+                Fields |= DateTimeFormatFields.Second;
                 break;
             case 'S':
                 FractionalSecondDigits = length;
+                Fields |= DateTimeFormatFields.FractionalSecondDigits;
                 break;
             case 'z' or 'O' or 'v' or 'Z' or 'V' or 'X' or 'x':
                 TimeZoneName = TimeZoneNameStyle(letter, length);
+                Fields |= DateTimeFormatFields.TimeZoneName;
                 break;
         }
     }
@@ -1355,6 +1517,28 @@ internal sealed class DateTimeFormatPattern
         >= 6 => DateTimeNameWidth.Narrow,
         _ => DateTimeNameWidth.Abbreviated,
     };
+}
+
+/// <summary>
+/// The fields of a format record (https://tc39.es/ecma402/#sec-datetimeformat-format-record), one per row of
+/// https://tc39.es/ecma402/#table-datetimeformat-components.
+/// </summary>
+[Flags]
+internal enum DateTimeFormatFields
+{
+    None = 0,
+    Weekday = 1 << 0,
+    Era = 1 << 1,
+    Year = 1 << 2,
+    Month = 1 << 3,
+    Day = 1 << 4,
+    DayPeriod = 1 << 5,
+    Hour = 1 << 6,
+    Minute = 1 << 7,
+    Second = 1 << 8,
+    FractionalSecondDigits = 1 << 9,
+    TimeZoneName = 1 << 10,
+    All = (1 << 11) - 1,
 }
 
 /// <summary>

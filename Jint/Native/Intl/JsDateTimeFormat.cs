@@ -13,8 +13,8 @@ namespace Jint.Native.Intl;
 /// A <c>dateStyle</c> resolves to the locale's own date pattern, which carries every field a full date
 /// has. A <c>Temporal.PlainYearMonth</c> and a <c>Temporal.PlainMonthDay</c> do not have all of them, and
 /// the fields they lack are held as reference values that are no part of the value: writing them puts a
-/// year of 1972 beside a month and a day. The format such a value is written with is that pattern narrowed
-/// to the fields the type carries.
+/// year of 1972 beside a month and a day. The format such a value is written with is the one the format
+/// matcher chooses for the fields of that pattern the type carries (<see cref="JsDateTimeFormat.GetStylePattern"/>).
 /// </remarks>
 internal enum DateStyleFields
 {
@@ -87,18 +87,22 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
     private readonly Data.ResolvedNumberingSystem _numberingSystem;
 
-    /// <summary>The dateStyle pattern, split once: a formatter's style and locale never change.</summary>
-    private List<PatternRun>? _dateStyleRuns;
-
     /// <summary>The pattern the format matcher chose for a component bag, once it is first needed.</summary>
     private DateTimeFormatPattern? _componentPattern;
+
+    /// <summary>
+    /// The pattern the <c>dateStyle</c> and <c>timeStyle</c> resolve to, and the one Temporal's AdjustDateTimeStyleFormat
+    /// makes of it for a value without some of its fields, each once it is first needed.
+    /// </summary>
+    private DateTimeFormatPattern? _stylePattern;
+    private DateTimeFormatPattern? _adjustedStylePattern;
 
     /// <summary>The range patterns of the component bag's format record, once a range is first written.</summary>
     private DateTimeIntervalFormat? _intervalFormat;
 
     /// <summary>
     /// The runs <see cref="_hostNames"/> were read for, and a host provider's names per run of them; and the same for
-    /// the range patterns, a few at most.
+    /// the other patterns it writes (its range patterns, the style a Temporal value adjusts it to), a few at most.
     /// </summary>
     private DateTimePatternRun[]? _hostNamesRuns;
     private string[]?[]? _hostNames;
@@ -175,7 +179,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// https://tc39.es/ecma402/#table-datetimeformat-components makes <c>"long"</c>, <c>"short"</c> and
     /// <c>"narrow"</c> textual, and a formatter is not free to answer one of them with a number. For a
     /// calendar counting the Gregorian months the name is the locale's own and no lookup happens here — the
-    /// Gregorian lane writes it, host-seeded names and all. For a calendar counting months of its own the name
+    /// pattern's CLDR name, or a host's (<see cref="GetHostNames"/>). For a calendar counting months of its own the name
     /// has to come from data that knows that calendar, which is what
     /// <see cref="ICldrProvider.GetMonthNames"/> takes its <c>calendar</c> argument for.
     /// </para>
@@ -811,552 +815,6 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// One run of a .NET custom date/time format pattern: either a repeated field letter, or a stretch of
-    /// literal text, which is the split <see href="https://tc39.es/ecma402/#sec-partitionpattern">
-    /// PartitionPattern</see> performs and whose literals it copies through untouched.
-    /// </summary>
-    private readonly record struct PatternRun(char Field, int Length, string? Literal)
-    {
-        /// <summary>Whether this run is literal text rather than a field to render.</summary>
-        public bool IsLiteral => Field == '\0';
-    }
-
-    /// <summary>The letters .NET's custom date and time format strings reserve for fields.</summary>
-    private static bool IsPatternField(char c)
-        => c is 'd' or 'f' or 'F' or 'g' or 'h' or 'H' or 'K' or 'm' or 'M' or 's' or 't' or 'y' or 'z';
-
-    /// <summary>
-    /// Splits a .NET custom date/time format pattern into field runs and literal runs, unquoting
-    /// <c>'...'</c> and <c>"..."</c> spans and resolving backslash escapes, so that one pattern can be both
-    /// rendered as a string and partitioned into typed parts.
-    /// </summary>
-    private static List<PatternRun> SplitPattern(string pattern)
-    {
-        var runs = new List<PatternRun>();
-        var literal = new StringBuilder();
-
-        for (var i = 0; i < pattern.Length;)
-        {
-            var c = pattern[i];
-
-            if (c is '\'' or '"')
-            {
-                i++;
-                while (i < pattern.Length && pattern[i] != c)
-                {
-                    if (pattern[i] == '\\' && i + 1 < pattern.Length)
-                    {
-                        i++;
-                    }
-
-                    literal.Append(pattern[i]);
-                    i++;
-                }
-
-                if (i < pattern.Length)
-                {
-                    i++;
-                }
-
-                continue;
-            }
-
-            if (c == '\\')
-            {
-                if (i + 1 < pattern.Length)
-                {
-                    literal.Append(pattern[i + 1]);
-                }
-
-                i += 2;
-                continue;
-            }
-
-            // "%M" only tells .NET that the single letter is a custom format; it writes nothing itself.
-            if (c == '%')
-            {
-                i++;
-                continue;
-            }
-
-            if (!IsPatternField(c))
-            {
-                literal.Append(c);
-                i++;
-                continue;
-            }
-
-            var length = 1;
-            while (i + length < pattern.Length && pattern[i + length] == c)
-            {
-                length++;
-            }
-
-            if (literal.Length > 0)
-            {
-                runs.Add(new PatternRun('\0', 0, literal.ToString()));
-                literal.Clear();
-            }
-
-            runs.Add(new PatternRun(c, length, null));
-            i += length;
-        }
-
-        if (literal.Length > 0)
-        {
-            runs.Add(new PatternRun('\0', 0, literal.ToString()));
-        }
-
-        return runs;
-    }
-
-    /// <summary>
-    /// The ECMA-402 part type a pattern field writes, per the field table in
-    /// https://tc39.es/ecma402/#sec-formatdatetimepattern.
-    /// </summary>
-    private static string PartTypeOf(char field, int length) => field switch
-    {
-        'd' => length >= 3 ? "weekday" : "day",
-        'M' => "month",
-        'y' => "year",
-        'g' => "era",
-        'h' or 'H' => "hour",
-        'm' => "minute",
-        's' => "second",
-        'f' or 'F' => "fractionalSecond",
-        't' => "dayPeriod",
-        'z' or 'K' => "timeZoneName",
-        _ => "literal"
-    };
-
-    /// <summary>
-    /// The pattern this formatter's <c>dateStyle</c> writes: the locale's own styled pattern, narrowed to
-    /// the fields the value being formatted has.
-    /// </summary>
-    private List<PatternRun> GetDateStyleRuns()
-    {
-        var runs = GetLocaleDateStyleRuns();
-        NarrowToDateStyleFields(runs);
-        return runs;
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-date-time-style-format - the pattern a <c>dateStyle</c> formats with comes
-    /// from the locale's own data, which on .NET is that culture's long or short date pattern.
-    /// </summary>
-    private List<PatternRun> GetLocaleDateStyleRuns()
-    {
-        var formatInfo = CultureInfo.DateTimeFormat;
-
-        if (string.Equals(DateStyle, "short", StringComparison.Ordinal))
-        {
-            var shortRuns = SplitPattern(formatInfo.ShortDatePattern);
-            if (shortRuns.Count == 0)
-            {
-                return SplitPattern("M'/'d'/'yy");
-            }
-
-            // .NET widens the two-digit year CLDR's short form asks for to four digits. English keeps
-            // CLDR's, which is the "8/27/26" this lane has always written.
-            if (string.Equals(IntlUtilities.GetLanguageSubtag(Locale), "en", StringComparison.OrdinalIgnoreCase))
-            {
-                for (var i = 0; i < shortRuns.Count; i++)
-                {
-                    if (shortRuns[i].Field == 'y')
-                    {
-                        shortRuns[i] = shortRuns[i] with { Length = 2 };
-                    }
-                }
-            }
-
-            return shortRuns;
-        }
-
-        var runs = SplitPattern(formatInfo.LongDatePattern);
-        if (runs.Count == 0)
-        {
-            runs = SplitPattern("MMMM d, yyyy");
-        }
-
-        if (string.Equals(DateStyle, "full", StringComparison.Ordinal))
-        {
-            return runs;
-        }
-
-        // "long" and "medium" are the same pattern without the weekday .NET's long date pattern carries.
-        RemoveWeekdayRun(runs);
-
-        if (string.Equals(DateStyle, "medium", StringComparison.Ordinal))
-        {
-            // Medium is the abbreviated form: CLDR writes "MMM" where long writes "MMMM".
-            for (var i = 0; i < runs.Count; i++)
-            {
-                if (runs[i].Field == 'M' && runs[i].Length >= 4)
-                {
-                    runs[i] = runs[i] with { Length = 3 };
-                }
-            }
-        }
-
-        return runs;
-    }
-
-    /// <summary>
-    /// Removes the weekday run and the punctuation that was there only to separate it, leaving a neighbouring
-    /// literal that is real text - Japanese day marks, Portuguese "de" - every character it had.
-    /// </summary>
-    private static void RemoveWeekdayRun(List<PatternRun> runs)
-    {
-        var index = -1;
-        for (var i = 0; i < runs.Count; i++)
-        {
-            if (runs[i].Field == 'd' && runs[i].Length >= 3)
-            {
-                index = i;
-                break;
-            }
-        }
-
-        if (index < 0)
-        {
-            return;
-        }
-
-        runs.RemoveAt(index);
-
-        if (index < runs.Count && runs[index].IsLiteral)
-        {
-            ReplaceLiteralRun(runs, index, TrimWeekdaySeparator(runs[index].Literal!, fromStart: true));
-        }
-        else if (index > 0 && runs[index - 1].IsLiteral)
-        {
-            ReplaceLiteralRun(runs, index - 1, TrimWeekdaySeparator(runs[index - 1].Literal!, fromStart: false));
-        }
-    }
-
-    private static void ReplaceLiteralRun(List<PatternRun> runs, int index, string literal)
-    {
-        if (literal.Length == 0)
-        {
-            runs.RemoveAt(index);
-        }
-        else
-        {
-            runs[index] = new PatternRun('\0', 0, literal);
-        }
-    }
-
-    /// <summary>
-    /// Strips from a literal only the punctuation that set the weekday off - a comma and its spaces - so a
-    /// full stop that terminates the day instead ("d., dddd" in Hungarian) stays where it was.
-    /// </summary>
-    private static string TrimWeekdaySeparator(string literal, bool fromStart)
-    {
-        var start = 0;
-        var end = literal.Length;
-
-        if (fromStart)
-        {
-            while (start < end && char.IsWhiteSpace(literal[start]))
-            {
-                start++;
-            }
-
-            if (start < end && IsListSeparator(literal[start]))
-            {
-                start++;
-            }
-
-            while (start < end && char.IsWhiteSpace(literal[start]))
-            {
-                start++;
-            }
-        }
-        else
-        {
-            while (end > start && char.IsWhiteSpace(literal[end - 1]))
-            {
-                end--;
-            }
-
-            if (end > start && IsListSeparator(literal[end - 1]))
-            {
-                end--;
-            }
-
-            while (end > start && char.IsWhiteSpace(literal[end - 1]))
-            {
-                end--;
-            }
-        }
-
-        return literal.Substring(start, end - start);
-    }
-
-    /// <summary>The marks a date pattern uses to set the weekday off from the rest of the date.</summary>
-    private static bool IsListSeparator(char c)
-        => c is ',' or ';' or '\u060C' or '\u3001' or '\u00B7';
-
-    /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat - drops from a styled pattern every
-    /// field the value being formatted does not have, along with the punctuation that was only there to set
-    /// that field off from what remains.
-    /// </summary>
-    /// <remarks>
-    /// ICU reaches the same answer by re-deriving a pattern for the narrowed skeleton, which is data this
-    /// engine has no equivalent of. Taking the fields out of the pattern the style already resolved to keeps
-    /// the locale's own field widths and order, which is what the operation inherits from its base format
-    /// either way: English "dddd, MMMM d, yyyy" becomes "MMMM yyyy" for a year-month and "MMMM d" for a
-    /// month-day, its "M/d/yy" becomes "M/yy" and "M/d", and Japanese "yyyy年M月d日" becomes "yyyy年M月".
-    /// </remarks>
-    private void NarrowToDateStyleFields(List<PatternRun> runs)
-    {
-        if (_dateStyleFields == DateStyleFields.All)
-        {
-            return;
-        }
-
-        // Neither type has a weekday, and the weekday is the one field whose punctuation is already known.
-        var startedWithField = runs.Count > 0 && !runs[0].IsLiteral;
-        RemoveWeekdayRun(runs);
-
-        var i = 0;
-        while (i < runs.Count)
-        {
-            if (runs[i].IsLiteral || IsAllowedDateStyleField(runs[i]))
-            {
-                i++;
-                continue;
-            }
-
-            RemoveFieldRun(runs, i);
-        }
-
-        TrimEdgeLiterals(runs, startedWithField);
-    }
-
-    /// <summary>Whether a pattern field is one the value being formatted has.</summary>
-    private bool IsAllowedDateStyleField(in PatternRun run) => run.Field switch
-    {
-        // A run of three or more 'd' is the weekday, which neither type has.
-        'd' => run.Length <= 2 && _dateStyleFields == DateStyleFields.MonthDay,
-        'M' => true,
-        'y' or 'g' => _dateStyleFields == DateStyleFields.YearMonth,
-        _ => false,
-    };
-
-    /// <summary>
-    /// Removes one field run together with the literal that was only there because of it, which is the one
-    /// on the side the field was joined to the rest of the pattern from.
-    /// </summary>
-    private static void RemoveFieldRun(List<PatternRun> runs, int index)
-    {
-        runs.RemoveAt(index);
-
-        // Text on the right went with the field it was written against, whether it separated that field from
-        // what follows or marked the field itself - Japanese keeps the month's 月 and loses the day's 日.
-        if (index < runs.Count && runs[index].IsLiteral)
-        {
-            runs.RemoveAt(index);
-            return;
-        }
-
-        if (index > 0 && runs[index - 1].IsLiteral)
-        {
-            // Nothing follows, so the text before the field either separated it from what remains, and goes,
-            // or is a mark the field before it is written with, and stays.
-            var literal = runs[index - 1].Literal!;
-            if (IsFieldSeparator(literal))
-            {
-                runs.RemoveAt(index - 1);
-            }
-            else
-            {
-                ReplaceLiteralRun(runs, index - 1, literal.TrimEnd());
-            }
-        }
-    }
-
-    /// <summary>
-    /// Whether a literal only stood between two fields, rather than being text one of them is written with.
-    /// </summary>
-    private static bool IsFieldSeparator(string literal)
-    {
-        foreach (var c in literal)
-        {
-            if (char.IsLetter(c))
-            {
-                // A word set off by a space - Portuguese "d 'de' MMMM" - separates; a mark written straight
-                // against a field is part of how that field reads.
-                return char.IsWhiteSpace(literal[0]);
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>Drops the separators a narrowed pattern is left starting or ending with.</summary>
-    /// <remarks>
-    /// A pattern that began with a field and now begins with text is beginning with what set that field off,
-    /// whatever it is made of - Thai writes its weekday and the day as one phrase - so the whole of it goes.
-    /// Nothing similar holds at the other end, where the text after the last field is that field's own mark.
-    /// </remarks>
-    private static void TrimEdgeLiterals(List<PatternRun> runs, bool startedWithField)
-    {
-        if (runs.Count > 0 && runs[0].IsLiteral && (startedWithField || IsFieldSeparator(runs[0].Literal!)))
-        {
-            runs.RemoveAt(0);
-        }
-
-        var last = runs.Count - 1;
-        if (last < 0 || !runs[last].IsLiteral)
-        {
-            return;
-        }
-
-        var literal = runs[last].Literal!;
-        if (IsFieldSeparator(literal))
-        {
-            runs.RemoveAt(last);
-        }
-        else
-        {
-            ReplaceLiteralRun(runs, last, literal.TrimEnd());
-        }
-    }
-
-    /// <summary>
-    /// Renders one pattern into parts. A calendar .NET is not counting this date in contributes numeric
-    /// year/month/day overrides, and <paramref name="originalYear"/> a year outside DateTime's range.
-    /// </summary>
-    private void AppendPatternParts(List<PatternRun> runs, DateTime dateTime, List<DateTimePart> result, int? originalYear)
-    {
-        ResolveCalendarFieldsForFormatting(dateTime, originalYear, out var calendarYear, out var calendarMonth, out var calendarDay);
-
-        // A culture already counting in the requested calendar renders every field itself, month names
-        // included; the numeric override is only for the calendars .NET is not reckoning this date in.
-        if (calendarYear.HasValue && CultureCalendarAgrees(dateTime, calendarYear.Value, calendarMonth, calendarDay))
-        {
-            calendarMonth = null;
-            calendarDay = null;
-        }
-
-        var yearOverride = calendarYear ?? originalYear;
-
-        var hasNumericDay = false;
-        foreach (var run in runs)
-        {
-            if (run.Field == 'd' && run.Length <= 2)
-            {
-                hasNumericDay = true;
-                break;
-            }
-        }
-
-        foreach (var run in runs)
-        {
-            if (run.IsLiteral)
-            {
-                result.Add(new DateTimePart("literal", run.Literal!));
-                continue;
-            }
-
-            string? value = null;
-            if (run.Field == 'y' && yearOverride.HasValue)
-            {
-                value = FormatOverride(run.Length == 2 ? yearOverride.Value % 100 : yearOverride.Value, run.Length);
-            }
-            else if (run.Field == 'M' && calendarMonth.HasValue)
-            {
-                // A three- or four-letter run is the pattern's textual month, and the calendar's own name is
-                // what belongs in it — the same name the month option's "short" and "long" write, so the two
-                // lanes agree. https://tc39.es/ecma402/#sec-formatdatetime is the concatenation of the parts
-                // https://tc39.es/ecma402/#sec-formatdatetimetoparts walks, and both go through here.
-                value = run.Length >= 3
-                    ? CalendarMonthName(calendarMonth.Value, run.Length >= 4 ? "long" : "short")
-                    : null;
-                value ??= FormatOverride(calendarMonth.Value, run.Length);
-            }
-            else if (run.Field == 'd' && run.Length <= 2 && calendarDay.HasValue)
-            {
-                value = FormatOverride(calendarDay.Value, run.Length);
-            }
-            else if (run.Field == 'M' && run.Length >= 4 && hasNumericDay)
-            {
-                value = GenitiveMonthName(dateTime);
-            }
-
-            if (value is null)
-            {
-                var specifier = run.Length == 1 ? "%" + run.Field : new string(run.Field, run.Length);
-                value = dateTime.ToString(specifier, CultureInfo);
-            }
-
-            result.Add(new DateTimePart(PartTypeOf(run.Field, run.Length), value));
-        }
-    }
-
-    /// <summary>
-    /// The genitive month name a culture that has one writes beside a numeric day - Russian "27 августа" against
-    /// a bare "август" - which .NET chooses from the whole pattern and a run rendered alone would lose.
-    /// </summary>
-    private string? GenitiveMonthName(DateTime dateTime)
-    {
-        var formatInfo = CultureInfo.DateTimeFormat;
-
-        int month;
-        try
-        {
-            month = formatInfo.Calendar.GetMonth(dateTime);
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-
-        var genitive = formatInfo.MonthGenitiveNames;
-        var nominative = formatInfo.MonthNames;
-        if (month < 1 || month > genitive.Length || month > nominative.Length)
-        {
-            return null;
-        }
-
-        var name = genitive[month - 1];
-
-        // A culture that writes one month name in every position gets nothing here, so the pattern letter
-        // renders it and every calendar .NET writes as digits keeps doing so.
-        return name.Length > 0 && !string.Equals(name, nominative[month - 1], StringComparison.Ordinal)
-            ? name
-            : null;
-    }
-
-    /// <summary>
-    /// Writes an overridden field value as a number. Only a two-letter run pads, because a calendar year is
-    /// written as it is counted - Reiwa 8 is "8", not "0008".
-    /// </summary>
-    private string FormatOverride(int value, int length)
-        => length == 2 ? value.ToString("D2", CultureInfo) : value.ToString(CultureInfo);
-
-    /// <summary>
-    /// Whether the culture this formatter renders through already counts the given date in the calendar the
-    /// override was computed for, in which case its own month and weekday names are the right ones.
-    /// </summary>
-    private bool CultureCalendarAgrees(DateTime dateTime, int year, int? month, int? day)
-    {
-        try
-        {
-            var calendar = CultureInfo.DateTimeFormat.Calendar;
-            return calendar.GetYear(dateTime) == year
-                && (!month.HasValue || calendar.GetMonth(dateTime) == month.Value)
-                && (!day.HasValue || calendar.GetDayOfMonth(dateTime) == day.Value);
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
     /// https://tc39.es/ecma402/#sec-formatdatetimepattern step 15.g — the <c>ampm</c> field of a pattern is
     /// "an ILD String representing post meridiem / ante meridiem", not those words, and Annex A lists
     /// "am/pm indicators" among the implementation- and locale-dependent behaviours. This is the same data the
@@ -1462,22 +920,24 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private List<DateTimePart> FormatLocalToParts(DateTime dateTime, int? originalYear, bool isPlain)
     {
         List<DateTimePart> result;
-        if (DateStyle != null || TimeStyle != null)
-        {
-            // For style-based formatting, use a simpler approach
-            result = new List<DateTimePart>();
-            FormatStyleToParts(dateTime, result, originalYear, isPlain);
-        }
-        else if (IsLunisolarCalendar)
+        if (IsLunisolarCalendar)
         {
             result = new List<DateTimePart>();
-            FormatLunisolarComponentsToParts(dateTime, result);
+            if (DateStyle != null || TimeStyle != null)
+            {
+                FormatLunisolarStyleToParts(dateTime, result, isPlain);
+            }
+            else
+            {
+                FormatLunisolarComponentsToParts(dateTime, result);
+            }
         }
         else
         {
-            // One part per run of the pattern, exactly.
-            result = new List<DateTimePart>(GetComponentPattern().Runs.Length);
-            FormatComponentPatternToParts(dateTime, result, originalYear);
+            // A component bag and a dateStyle/timeStyle alike write the pattern of their format record, one part per run.
+            var pattern = DateStyle is null && TimeStyle is null ? GetComponentPattern() : GetStylePattern(isPlain);
+            result = new List<DateTimePart>(pattern.Runs.Length);
+            FormatPatternToParts(pattern, dateTime, result, originalYear);
         }
 
         FinishParts(result);
@@ -1510,46 +970,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
     }
 
-    private void FormatStyleToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear, bool isPlain = false)
+    /// <summary>
+    /// A Chinese or Dangi date's <c>dateStyle</c> and <c>timeStyle</c>, which write a related year and a year name where a
+    /// pattern has a year and so are not written through a CLDR pattern. Unchanged by the move of every other calendar's
+    /// styles onto CLDR.
+    /// </summary>
+    private void FormatLunisolarStyleToParts(DateTime dateTime, List<DateTimePart> result, bool isPlain)
     {
-        // For style-based formatting, decompose into proper parts
-        // Map styles to component options and use component-based parts generation
         var hasDate = DateStyle != null;
         var hasTime = TimeStyle != null;
 
         if (hasDate)
         {
-            FormatDateStyleToParts(dateTime, result, originalYear);
-        }
-
-        if (hasDate && hasTime)
-        {
-            // Add separator between date and time
-            result.Add(new DateTimePart("literal", ", "));
-        }
-
-        if (hasTime)
-        {
-            FormatTimeStyleToParts(dateTime, result, isPlain);
-        }
-    }
-
-    /// <summary>
-    /// The date half of a dateStyle format. <c>originalYear</c> is the real year when
-    /// <c>dateTime</c> stands on a representative one: FormatStyleToParts took it and dropped it, so a
-    /// styled format of a date outside DateTime's range printed the substitute's year - 9999 - with
-    /// nothing to say it had.
-    /// </summary>
-    private void FormatDateStyleToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear = null)
-    {
-        var isChineseCalendar = string.Equals(Calendar, "chinese", StringComparison.OrdinalIgnoreCase);
-        var isDangiCalendar = string.Equals(Calendar, "dangi", StringComparison.OrdinalIgnoreCase);
-
-        if (isChineseCalendar || isDangiCalendar)
-        {
             // A lunisolar date is not a run of pattern fields: it writes relatedYear and yearName where a
             // pattern has a year, so it keeps the shape it had.
-            var lunisolarDate = isChineseCalendar
+            var lunisolarDate = string.Equals(Calendar, "chinese", StringComparison.OrdinalIgnoreCase)
                 ? ChineseCalendarHelper.GetChineseDate(dateTime)
                 : ChineseCalendarHelper.GetDangiDate(dateTime);
 
@@ -1565,10 +1000,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 lunisolarDate,
                 textualMonth: isFull || string.Equals(DateStyle, "long", StringComparison.Ordinal),
                 shortFormat: string.Equals(DateStyle, "short", StringComparison.Ordinal));
-            return;
         }
 
-        AppendPatternParts(_dateStyleRuns ??= GetDateStyleRuns(), dateTime, result, originalYear);
+        if (hasDate && hasTime)
+        {
+            result.Add(new DateTimePart("literal", ", "));
+        }
+
+        if (hasTime)
+        {
+            FormatTimeStyleToParts(dateTime, result, isPlain);
+        }
     }
 
     /// <summary>
@@ -1615,7 +1057,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
     }
 
-    private void FormatTimeStyleToParts(DateTime dateTime, List<DateTimePart> result, bool isPlain = false)
+    /// <summary>
+    /// The time half of a Chinese or Dangi formatter's styles, as it was before the other calendars' styles moved onto
+    /// CLDR's <c>timeFormats</c>: hour, minute, the second but for <c>short</c>, the culture's am/pm and a zone.
+    /// </summary>
+    private void FormatTimeStyleToParts(DateTime dateTime, List<DateTimePart> result, bool isPlain)
     {
         var style = TimeStyle;
         ComputeHourValue(dateTime.Hour, out var hourStr, out var use12Hour, padByDefault: true);
@@ -1818,7 +1264,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
     /// <summary>
     /// Whether this formatter writes a Chinese or Dangi date, which has a related year and a year name where every
-    /// other calendar has a year, and keeps the lane it had before the format matcher.
+    /// other calendar has a year, and keeps the lanes it had before the format matcher, component bag and styles alike.
     /// </summary>
     private bool IsLunisolarCalendar => string.Equals(Calendar, "chinese", StringComparison.OrdinalIgnoreCase)
                                         || string.Equals(Calendar, "dangi", StringComparison.OrdinalIgnoreCase);
@@ -1859,8 +1305,78 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-formatdatetimepattern for a component bag: each run of the chosen pattern, a
-    /// literal as the pattern writes it and a field as the locale writes that field's value.
+    /// The format record of a <c>dateStyle</c> and/or <c>timeStyle</c> (https://tc39.es/ecma402/#sec-date-time-style-format)
+    /// over the locale's CLDR <c>dateFormats</c>, <c>timeFormats</c> and <c>atTime</c> <c>dateTimeFormats</c>, in
+    /// <see cref="ResolvedHourCycle"/> (<see cref="DateTimePatternGenerator.GetStylePattern"/>); and for a value that lacks
+    /// some of its fields, the format https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat makes of it.
+    /// </summary>
+    /// <param name="plain">
+    /// Whether the value is a Temporal wall-clock one (<c>PlainDate</c>, <c>PlainTime</c>, <c>PlainDateTime</c>, ...),
+    /// which has no time zone to write.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// The fields a value lacks are what <see cref="DateStyleFields"/> says a <c>Temporal.PlainYearMonth</c> or
+    /// <c>Temporal.PlainMonthDay</c> has, and for any plain value the time zone name a <c>long</c> or <c>full</c>
+    /// <c>timeStyle</c> writes. The style a Temporal type cannot have is dropped before this is reached (a
+    /// <c>PlainDate</c> keeps the <c>dateStyle</c>, a <c>PlainTime</c> the <c>timeStyle</c>), so a <c>timeStyle</c>
+    /// beside a <c>dateStyle</c> changes nothing about how a date is written, in any locale.
+    /// </para>
+    /// <para>
+    /// A style that has no field the value lacks is written as it is, which is what
+    /// <c>datestyle-not-adjusted-when-no-conflicting-options.js</c> pins; otherwise the fields it keeps are matched the
+    /// way a component bag is, so an <c>en</c> <c>dateStyle: "long"</c> writes a year and month as <c>MMMM y</c>.
+    /// </para>
+    /// </remarks>
+    internal DateTimeFormatPattern GetStylePattern(bool plain)
+    {
+        var allowed = _dateStyleFields switch
+        {
+            DateStyleFields.YearMonth => DateTimeFormatFields.Era | DateTimeFormatFields.Year | DateTimeFormatFields.Month,
+            DateStyleFields.MonthDay => DateTimeFormatFields.Month | DateTimeFormatFields.Day,
+            _ => DateTimeFormatFields.All,
+        };
+
+        if (plain)
+        {
+            allowed &= ~DateTimeFormatFields.TimeZoneName;
+        }
+
+        if (allowed == DateTimeFormatFields.All && _stylePattern is not null)
+        {
+            return _stylePattern;
+        }
+
+        if (allowed != DateTimeFormatFields.All && _adjustedStylePattern is not null)
+        {
+            return _adjustedStylePattern;
+        }
+
+        // The hour cycle is looked up only by a formatter that writes an hour, which is one with a timeStyle.
+        var hourCycle = TimeStyle is null ? "h23" : ResolvedHourCycle;
+        var generator = DateTimePatternGenerator.ForLocale(Locale);
+        var decimalSeparator = _numberingSystem.DecimalSeparator;
+        var style = _stylePattern ??= generator.GetStylePattern(StyleWidth(DateStyle), StyleWidth(TimeStyle), hourCycle, decimalSeparator);
+        if (allowed == DateTimeFormatFields.All)
+        {
+            return style;
+        }
+
+        return _adjustedStylePattern = generator.AdjustStyleFormat(style, allowed, hourCycle, decimalSeparator);
+
+        static Data.DateTimeStyleWidth? StyleWidth(string? style) => style switch
+        {
+            null => null,
+            "full" => Data.DateTimeStyleWidth.Full,
+            "long" => Data.DateTimeStyleWidth.Long,
+            "medium" => Data.DateTimeStyleWidth.Medium,
+            _ => Data.DateTimeStyleWidth.Short,
+        };
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatdatetimepattern: each run of the format record's pattern — a component bag's
+    /// or a style's — a literal as the pattern writes it and a field as the locale writes that field's value.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1876,9 +1392,9 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// <see cref="GetEraName"/>, as before.
     /// </para>
     /// </remarks>
-    private void FormatComponentPatternToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear)
+    private void FormatPatternToParts(DateTimeFormatPattern pattern, DateTime dateTime, List<DateTimePart> result, int? originalYear)
     {
-        var runs = GetComponentPattern().Runs;
+        var runs = pattern.Runs;
         ResolveCalendarFieldsForFormatting(dateTime, originalYear, out var calendarYear, out var calendarMonth, out var calendarDay);
         var hostNames = GetHostNames(runs);
         for (var i = 0; i < runs.Length; i++)
@@ -2049,7 +1565,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </para>
     /// <para>
     /// Asked once per formatter, for the widths its pattern writes (the pattern of a formatter never changes), and
-    /// once for each range pattern it writes a range with.
+    /// once for each other pattern it writes: a range pattern, or the style a Temporal value adjusts it to.
     /// </para>
     /// </remarks>
     private string[]?[]? GetHostNames(DateTimePatternRun[] runs)
