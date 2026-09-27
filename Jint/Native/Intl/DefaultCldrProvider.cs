@@ -28,6 +28,13 @@ namespace Jint.Native.Intl;
 /// Cyrillic and Greek — and neither does for the locales where it is not, such as the numeric narrow months of
 /// <c>ja</c>, <c>ko</c>, <c>cs</c> and <c>he</c>. A host that needs them exactly overrides the one member.
 /// </para>
+/// <para>
+/// <c>Intl.DateTimeFormat</c> writes a component bag's patterns, and its Gregorian month, weekday, era and am/pm
+/// names in the format and stand-alone contexts, from the CLDR 48.2 data embedded in the engine rather than from
+/// this class. A derived class's name answer takes the place of CLDR's where it differs from <see cref="Instance"/>'s
+/// answer for the same arguments, in both contexts (see <see cref="ICldrProvider.GetMonthNames"/>); the patterns are
+/// not replaceable.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
