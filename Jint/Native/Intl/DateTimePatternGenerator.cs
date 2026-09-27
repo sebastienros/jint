@@ -85,6 +85,9 @@ internal sealed class DateTimePatternGenerator
     private readonly Candidate[] _candidates;
     private readonly ConcurrentDictionary<string, DateTimeFormatPattern> _patterns = new(StringComparer.Ordinal);
     private int _patternCount;
+    private readonly ConcurrentDictionary<string, DateTimeIntervalFormat> _intervalFormats = new(StringComparer.Ordinal);
+    private int _intervalFormatCount;
+    private DateTimeIntervalFormat.IntervalTable? _intervalTable;
     private readonly string[]?[] _names = new string[]?[NameTableCount];
 
     private DateTimePatternGenerator(DateTimePatternLocale data)
@@ -135,20 +138,77 @@ internal sealed class DateTimePatternGenerator
             return cached;
         }
 
-        var request = Skeleton.Parse(skeleton);
-        var pattern = BestPattern(request, decimalSeparator);
-        if (request.Has(Hour))
-        {
-            pattern = ReplaceHourCycle(pattern, hourCycle);
-        }
-
-        var result = new DateTimeFormatPattern(pattern, this);
+        var result = new DateTimeFormatPattern(GetBestPattern(skeleton, hourCycle, decimalSeparator, matchHourFieldLength: true), this);
         if (System.Threading.Volatile.Read(ref _patternCount) < MaxCachedPatterns && _patterns.TryAdd(key, result))
         {
             System.Threading.Interlocked.Increment(ref _patternCount);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The locale's pattern for <paramref name="skeleton"/>, uncached, with the resolved hour cycle's letter over every
+    /// hour field when the skeleton has one.
+    /// </summary>
+    /// <param name="skeleton">The fields wanted, at their widths.</param>
+    /// <param name="hourCycle">The resolved hour cycle; applied only when the skeleton has an hour.</param>
+    /// <param name="decimalSeparator">What separates the seconds from their fraction when a fraction is asked for.</param>
+    /// <param name="matchHourFieldLength">
+    /// <see langword="true"/> for V8's <c>UDATPG_MATCH_HOUR_FIELD_LENGTH</c>, what a component bag is matched with;
+    /// <see langword="false"/> for no option at all, what ICU's own <c>DateFormat::getBestPattern</c> passes, so that
+    /// the hour keeps the pattern's width as the minute and second do.
+    /// </param>
+    internal string GetBestPattern(string skeleton, string hourCycle, char decimalSeparator, bool matchHourFieldLength)
+    {
+        var request = Skeleton.Parse(skeleton);
+        var pattern = BestPattern(request, decimalSeparator, matchHourFieldLength);
+        if (request.Has(Hour))
+        {
+            pattern = ReplaceHourCycle(pattern, hourCycle);
+        }
+
+        return pattern;
+    }
+
+    /// <summary>
+    /// The range patterns of the format record <paramref name="pattern"/> heads, built the first time a range is written
+    /// with it: see <see cref="DateTimeIntervalFormat"/>.
+    /// </summary>
+    internal DateTimeIntervalFormat GetIntervalFormat(DateTimeFormatPattern pattern, string hourCycle, char decimalSeparator)
+    {
+        var key = decimalSeparator + hourCycle + pattern.Pattern;
+        if (_intervalFormats.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var result = new DateTimeIntervalFormat(this, pattern, hourCycle, decimalSeparator);
+        if (System.Threading.Volatile.Read(ref _intervalFormatCount) < MaxCachedPatterns && _intervalFormats.TryAdd(key, result))
+        {
+            System.Threading.Interlocked.Increment(ref _intervalFormatCount);
+        }
+
+        return result;
+    }
+
+    /// <summary>The CLDR locale this generator writes for.</summary>
+    internal DateTimePatternLocale Data => _data;
+
+    /// <summary>The locale's interval patterns by skeleton, read the first time a range is written in the locale.</summary>
+    internal DateTimeIntervalFormat.IntervalTable IntervalTable
+    {
+        get
+        {
+            var table = System.Threading.Volatile.Read(ref _intervalTable);
+            if (table is not null)
+            {
+                return table;
+            }
+
+            table = new DateTimeIntervalFormat.IntervalTable(_data);
+            return System.Threading.Interlocked.CompareExchange(ref _intervalTable, table, null) ?? table;
+        }
     }
 
     // === Candidates ===
@@ -242,6 +302,53 @@ internal sealed class DateTimePatternGenerator
     }
 
     /// <summary>
+    /// ICU's <c>staticGetSkeleton</c>: the fields <paramref name="pattern"/> writes, each at its own width, in
+    /// canonical order. A 24-hour pattern loses any day period, and minutes with a fraction of a second gain seconds.
+    /// </summary>
+    /// <remarks>
+    /// V8 creates the interval format of a <c>formatRange</c> for this skeleton of the pattern the format matcher chose,
+    /// not for the skeleton the options bag asked for.
+    /// </remarks>
+    internal static string StaticSkeletonOf(string pattern)
+    {
+        var letters = new char[FieldCount];
+        var lengths = new int[FieldCount];
+        foreach (var token in PatternToken.Tokenize(pattern))
+        {
+            if (!token.IsField)
+            {
+                continue;
+            }
+
+            var row = FindRow(token.Letter, token.Length);
+            if (row >= 0)
+            {
+                letters[FieldTypes[row].Field] = token.Letter;
+                lengths[FieldTypes[row].Field] = token.Length;
+            }
+        }
+
+        if (lengths[Minute] > 0 && lengths[FractionalSecond] > 0 && lengths[Second] == 0)
+        {
+            letters[Second] = 's';
+            lengths[Second] = 1;
+        }
+
+        if (lengths[Hour] > 0 && letters[Hour] is not ('h' or 'K'))
+        {
+            lengths[DayPeriod] = 0;
+        }
+
+        var builder = new StringBuilder(16);
+        for (var field = 0; field < FieldCount; field++)
+        {
+            builder.Append(letters[field], lengths[field]);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
     /// A pattern's own skeleton: its field letters, in the order it writes them.
     /// </summary>
     private static string SkeletonOf(string pattern)
@@ -264,17 +371,17 @@ internal sealed class DateTimePatternGenerator
     /// ICU's <c>getBestPattern</c>: the best single candidate when one has every field, and otherwise the date and
     /// the time assembled separately and joined.
     /// </summary>
-    private string BestPattern(Skeleton request, char decimalSeparator)
+    private string BestPattern(Skeleton request, char decimalSeparator, bool matchHourFieldLength)
     {
         var best = GetBestRaw(request, AllFields);
         if (best.Missing == 0 && best.Extra == 0)
         {
-            return AdjustFieldTypes(best.Candidate.Pattern, request, best.Candidate.Skeleton, fixFractionalSeconds: false, decimalSeparator);
+            return AdjustFieldTypes(best.Candidate.Pattern, request, best.Candidate.Skeleton, fixFractionalSeconds: false, decimalSeparator, matchHourFieldLength);
         }
 
         var needed = request.Mask;
-        var date = GetBestAppending(request, needed & DateFields, decimalSeparator);
-        var time = GetBestAppending(request, needed & TimeFields, decimalSeparator);
+        var date = GetBestAppending(request, needed & DateFields, decimalSeparator, matchHourFieldLength);
+        var time = GetBestAppending(request, needed & TimeFields, decimalSeparator, matchHourFieldLength);
         if (date.Length == 0)
         {
             return time;
@@ -304,7 +411,7 @@ internal sealed class DateTimePatternGenerator
     /// ICU's <c>getBestAppending</c>: the best candidate for <paramref name="missingFields"/>, and every field it
     /// still lacks appended through the locale's <c>appendItems</c>.
     /// </summary>
-    private string GetBestAppending(Skeleton request, int missingFields, char decimalSeparator)
+    private string GetBestAppending(Skeleton request, int missingFields, char decimalSeparator, bool matchHourFieldLength)
     {
         if (missingFields == 0)
         {
@@ -312,7 +419,7 @@ internal sealed class DateTimePatternGenerator
         }
 
         var best = GetBestRaw(request, missingFields);
-        var result = AdjustFieldTypes(best.Candidate.Pattern, request, best.Candidate.Skeleton, fixFractionalSeconds: false, decimalSeparator);
+        var result = AdjustFieldTypes(best.Candidate.Pattern, request, best.Candidate.Skeleton, fixFractionalSeconds: false, decimalSeparator, matchHourFieldLength);
         var missing = best.Missing;
         if (missing == 0 && best.Extra == 0)
         {
@@ -323,7 +430,7 @@ internal sealed class DateTimePatternGenerator
         const int SecondAndFraction = (1 << Second) | (1 << FractionalSecond);
         if ((missing & SecondAndFraction) == 1 << FractionalSecond && (missingFields & SecondAndFraction) == SecondAndFraction)
         {
-            result = AdjustFieldTypes(best.Candidate.Pattern, request, best.Candidate.Skeleton, fixFractionalSeconds: true, decimalSeparator);
+            result = AdjustFieldTypes(best.Candidate.Pattern, request, best.Candidate.Skeleton, fixFractionalSeconds: true, decimalSeparator, matchHourFieldLength);
             missing &= ~(1 << FractionalSecond);
         }
 
@@ -331,7 +438,7 @@ internal sealed class DateTimePatternGenerator
         {
             var start = missing;
             var next = GetBestRaw(request, missing);
-            var appended = AdjustFieldTypes(next.Candidate.Pattern, request, next.Candidate.Skeleton, fixFractionalSeconds: false, decimalSeparator);
+            var appended = AdjustFieldTypes(next.Candidate.Pattern, request, next.Candidate.Skeleton, fixFractionalSeconds: false, decimalSeparator, matchHourFieldLength);
             var found = start & ~next.Missing;
             if (found == 0)
             {
@@ -412,8 +519,9 @@ internal sealed class DateTimePatternGenerator
     }
 
     /// <summary>
-    /// ICU's <c>adjustFieldTypes</c>, with <c>UDATPG_MATCH_HOUR_FIELD_LENGTH</c> as V8 passes it: each field of the
-    /// chosen pattern takes the width the request asked for, except where the pattern's own width is the point.
+    /// ICU's <c>adjustFieldTypes</c>, with <c>UDATPG_MATCH_HOUR_FIELD_LENGTH</c> as V8 passes it (or with no option, as
+    /// ICU's own callers pass it, when <paramref name="matchHourFieldLength"/> is false): each field of the chosen
+    /// pattern takes the width the request asked for, except where the pattern's own width is the point.
     /// </summary>
     /// <remarks>
     /// Minutes and seconds keep the pattern's width. A field keeps it too when the candidate's skeleton already had
@@ -421,7 +529,7 @@ internal sealed class DateTimePatternGenerator
     /// (Japanese <c>M月</c> for a long month). The month, weekday and hour letters stay as the pattern has them, so
     /// <c>L</c> and <c>c</c> keep the stand-alone form; a weekday is never narrower than three letters.
     /// </remarks>
-    private static string AdjustFieldTypes(string pattern, Skeleton request, Skeleton specified, bool fixFractionalSeconds, char decimalSeparator)
+    private static string AdjustFieldTypes(string pattern, Skeleton request, Skeleton specified, bool fixFractionalSeconds, char decimalSeparator, bool matchHourFieldLength)
     {
         var builder = new StringBuilder(pattern.Length + 4);
         foreach (var token in PatternToken.Tokenize(pattern))
@@ -464,7 +572,7 @@ internal sealed class DateTimePatternGenerator
             }
 
             var adjustedLength = requestedLength;
-            if (field is Minute or Second)
+            if (field is Minute or Second || (field == Hour && !matchHourFieldLength))
             {
                 adjustedLength = length;
             }
@@ -1200,20 +1308,20 @@ internal sealed class DateTimeFormatPattern
             case 'S':
                 FractionalSecondDigits = length;
                 break;
-            case 'z':
-                TimeZoneName = length >= 4 ? "long" : "short";
-                break;
-            case 'O':
-                TimeZoneName = length >= 4 ? "longOffset" : "shortOffset";
-                break;
-            case 'v':
-                TimeZoneName = length >= 4 ? "longGeneric" : "shortGeneric";
-                break;
-            case 'Z' or 'V' or 'X' or 'x':
-                TimeZoneName = "short";
+            case 'z' or 'O' or 'v' or 'Z' or 'V' or 'X' or 'x':
+                TimeZoneName = TimeZoneNameStyle(letter, length);
                 break;
         }
     }
+
+    /// <summary>The <c>timeZoneName</c> a zone field of a pattern writes.</summary>
+    internal static string TimeZoneNameStyle(char letter, int length) => letter switch
+    {
+        'z' => length >= 4 ? "long" : "short",
+        'O' => length >= 4 ? "longOffset" : "shortOffset",
+        'v' => length >= 4 ? "longGeneric" : "shortGeneric",
+        _ => "short",
+    };
 
     /// <summary>The locale's CLDR names a text field writes, or null for a numeric field.</summary>
     private static string[]? NamesFor(DateTimePatternGenerator generator, char letter, int length)

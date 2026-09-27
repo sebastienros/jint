@@ -3,6 +3,7 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using Jint.Native.Intl;
 using Jint.Native.Intl.Data;
 
 namespace Jint.Tests.Runtime;
@@ -532,6 +533,58 @@ public class IntlDateTimePatternDataTests
         var ko = Data.GetLocale("ko");
         ko.GetDateFormat(DateTimeStyleWidth.Short).Should().Be("yy. M. d.");
         ko.GetTimeFormat(DateTimeStyleWidth.Short).Should().Be("a h:mm");
+    }
+
+    /// <summary>
+    /// Every interval pattern parses, uses only the letters ECMA-402's fields map to, and splits into its two dates where
+    /// a field recurs (ICU's <c>splitPatternInto2Part</c>), save the one CLDR writes with the stand-alone month before the
+    /// dash and the format month after it; every locale's fallback places both dates.
+    /// </summary>
+    [Test]
+    public void EveryIntervalPatternParsesAndSplitsIntoItsTwoDates()
+    {
+        var problems = new List<string>();
+        var unsplittable = new HashSet<(string, string, char)>();
+        foreach (var id in Data.Locales)
+        {
+            var locale = Data.GetLocale(id);
+            var fallback = locale.IntervalFormatFallback;
+            if (!fallback.Contains("{0}") || !fallback.Contains("{1}") || fallback.Contains('\''))
+            {
+                // Literal text around the two dates ("{0} a el {1}"), which ICU writes as it stands.
+                problems.Add($"{id}: intervalFormatFallback \"{fallback}\"");
+            }
+
+            var entries = locale.IntervalFormats.ToArray();
+            if (entries.Select(e => e.Skeleton).Distinct().Count() < 32)
+            {
+                problems.Add($"{id}: only {entries.Select(e => e.Skeleton).Distinct().Count()} interval skeletons");
+            }
+
+            for (var i = 0; i < entries.Length; i++)
+            {
+                var entry = entries[i];
+                if (i > 0 && DateTimeIntervalPattern.Compare(entries[i - 1], entry) >= 0)
+                {
+                    problems.Add($"{id}: {entry.Skeleton}/{entry.Field} is out of order");
+                }
+
+                if (!"GyMdahm".Contains(entry.Field) || entry.Skeleton.Any(c => !AllowedLetters.Contains(c)))
+                {
+                    problems.Add($"{id}: interval {entry.Skeleton}/{entry.Field}");
+                }
+
+                CheckPattern(id, $"interval {entry.Skeleton}/{entry.Field}", entry.Pattern, "", problems);
+                var split = DateTimeIntervalFormat.SplitPoint(entry.Pattern);
+                if (split <= 0 || split >= entry.Pattern.Length)
+                {
+                    unsplittable.Add((id, entry.Skeleton, entry.Field));
+                }
+            }
+        }
+
+        problems.Should().BeEmpty();
+        unsplittable.Should().BeEquivalentTo(new[] { ("fa", "GyMMM", 'M'), ("fa-AF", "GyMMM", 'M') });
     }
 
     /// <summary>

@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-05
-anchors: 1276
+anchors: 1282
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -882,8 +882,13 @@ ecma402 sec-createdatetimeformat
 ecma402 sec-createstringlistfromiterable
 ecma402 sec-date-time-style-format
 ecma402 sec-datetimeformat-format-record
+ecma402 sec-datetimeformat-range-pattern-format-record
+ecma402 sec-datetimeformat-range-pattern-part-record
+ecma402 sec-datetimeformat-range-pattern-record
 ecma402 sec-formatdatetime
 ecma402 sec-formatdatetimepattern
+ecma402 sec-formatdatetimerange
+ecma402 sec-formatdatetimerangetoparts
 ecma402 sec-formatdatetimetoparts
 ecma402 sec-formatnumber
 ecma402 sec-formatnumberstring
@@ -942,6 +947,7 @@ ecma402 sec-intl.supportedvaluesof
 ecma402 sec-isstructurallyvalidlanguagetag
 ecma402 sec-lookupmatcher
 ecma402 sec-makelocalerecord
+ecma402 sec-partitiondatetimerangepattern
 ecma402 sec-partitiondurationformatpattern
 ecma402 sec-partitionnotationsubpattern
 ecma402 sec-partitionnumberpattern
