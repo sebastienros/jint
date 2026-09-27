@@ -61,7 +61,7 @@ public class IntlDateTimePatternDataTests
         }
 
         Encoding.ASCII.GetString(file, 0, 4).Should().Be("JDTP");
-        file[4].Should().Be(1);
+        file[4].Should().Be(2);
         var position = 5;
         var indexRawLength = ReadVarint(file, ref position);
         var indexCompressedLength = ReadVarint(file, ref position);
@@ -135,6 +135,7 @@ public class IntlDateTimePatternDataTests
         expected[DateTimePatternLocale.WeekdaysStart].Should().Be("days/format/abbreviated/sun");
         expected[DateTimePatternLocale.ErasStart].Should().Be("eras/eraAbbr/0");
         expected[DateTimePatternLocale.DayPeriodsStart].Should().Be("dayPeriods/format/abbreviated/am");
+        expected[DateTimePatternLocale.IntervalFallbackSlot].Should().Be("dateTimeFormats/intervalFormats/intervalFormatFallback");
     }
 
     /// <summary>
@@ -178,6 +179,7 @@ public class IntlDateTimePatternDataTests
             expected.Add($"dayPeriods/format/{width}/pm");
         }
 
+        expected.Add("dateTimeFormats/intervalFormats/intervalFormatFallback");
         return expected;
     }
 
@@ -532,6 +534,28 @@ public class IntlDateTimePatternDataTests
         ko.GetTimeFormat(DateTimeStyleWidth.Short).Should().Be("a h:mm");
     }
 
+    /// <summary>
+    /// A locale's interval patterns are the ones ICU's <c>DateIntervalInfo</c> reads: each (skeleton, field) from the
+    /// nearest locale of the chain that has it, CLDR's <c>B</c> before its <c>a</c> in one locale, with CLDR's thin spaces
+    /// and its fallback, which <c>bal</c> writes with the later date first.
+    /// </summary>
+    [Test]
+    public void TheIntervalPatternsAreResolvedAsIcuReadsThem()
+    {
+        Interval(Data.GetLocale("und"), "MMMd", 'd').Should().Be("MMM d\u2013d");
+        Data.GetLocale("und").IntervalFormatFallback.Should().Be("{0}\u2009\u2013\u2009{1}");
+        Interval(Data.GetLocale("en"), "MMMd", 'd').Should().Be("MMM d\u2009\u2013\u2009d");
+        Interval(Data.GetLocale("en"), "Hm", 'h').Should().Be("HH:mm\u2009\u2013\u2009HH:mm");
+        Interval(Data.GetLocale("en-GB"), "yMMMd", 'M').Should().Be("d MMM\u2009\u2013\u2009d MMM y");
+        Interval(Data.GetLocale("de"), "MMMd", 'd').Should().Be("d.\u2013d. MMM");
+        Interval(Data.GetLocale("ja"), "MMMd", 'd').Should().Be("M月d日～d日");
+        Data.GetLocale("ja").IntervalFormatFallback.Should().Be("{0}～{1}");
+        Interval(Data.GetLocale("zh-Hant"), "h", 'a').Should().Be("Bh時至Bh時");
+        Interval(Data.GetLocale("zh-Hant"), "h", 'h').Should().Be("Bh時至h時");
+        Data.GetLocale("bal").IntervalFormatFallback.Should().Be("{1} - {0}");
+        Interval(Data.GetLocale("fa"), "GyMMM", 'M').Should().Be("LLL تا MMM y G");
+    }
+
     [Test]
     public void TheAvailableFormatsAreInOrdinalOrderAndFoundBySkeleton()
     {
@@ -616,6 +640,13 @@ public class IntlDateTimePatternDataTests
         results[0][1].TryGetAvailableFormat("GyMEd", out var pattern).Should().BeTrue();
         pattern.Should().Be("E, MM.dd.Y G");
         data.IsLanguageInflated("en").Should().BeFalse();
+    }
+
+    private static string Interval(DateTimePatternLocale locale, string skeleton, char field)
+    {
+        var entry = locale.IntervalFormats.ToArray().SingleOrDefault(e => e.Skeleton == skeleton && e.Field == field);
+        entry.Pattern.Should().NotBeNull("{0} has an interval pattern for {1}/{2}", locale.Locale, skeleton, field);
+        return entry.Pattern;
     }
 
     private static string Pattern(DateTimePatternLocale locale, string skeleton)
