@@ -1148,7 +1148,7 @@ internal sealed class DateTimeFormatPattern
     /// its place everywhere, as V8 does in <c>format()</c>, so that <c>format()</c> is always the concatenation of
     /// <c>formatToParts()</c>.
     /// </summary>
-    internal static string NormalizeSpaces(string value) => value.IndexOf(' ') < 0 ? value : value.Replace(' ', ' ');
+    internal static string NormalizeSpaces(string value) => value.IndexOf('\u202F') < 0 ? value : value.Replace('\u202F', ' ');
 
     private static string TextualStyle(int length) => length switch
     {
