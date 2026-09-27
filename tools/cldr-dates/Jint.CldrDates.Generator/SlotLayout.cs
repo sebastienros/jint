@@ -31,6 +31,12 @@ internal static class SlotLayout
     internal static readonly string[] EraWidths = ["eraAbbr", "eraNames", "eraNarrow"];
     internal static readonly string[] DayPeriodWidths = ["abbreviated", "wide", "narrow"];
 
+    /// <summary>
+    /// <c>intervalFormats/intervalFormatFallback</c>, which <c>formatRange</c> joins two dates with when no interval
+    /// pattern fits: <c>{0}</c> the first, <c>{1}</c> the second, the rest literal text.
+    /// </summary>
+    internal const string IntervalFallback = "dateTimeFormats/intervalFormats/intervalFormatFallback";
+
     internal static readonly string[] Names = BuildNames();
 
     /// <summary>
@@ -39,6 +45,11 @@ internal static class SlotLayout
     internal static SlotKind KindOf(int slot)
     {
         var name = Names[slot];
+        if (string.Equals(name, IntervalFallback, StringComparison.Ordinal))
+        {
+            return SlotKind.IntervalFallback;
+        }
+
         if (name.StartsWith("dateTimeFormats/appendItems/", StringComparison.Ordinal))
         {
             return SlotKind.AppendPattern;
@@ -124,6 +135,7 @@ internal static class SlotLayout
             names.Add($"dayPeriods/format/{width}/pm");
         }
 
+        names.Add(IntervalFallback);
         return [.. names];
     }
 }
@@ -134,4 +146,5 @@ internal enum SlotKind
     Pattern,
     GluePattern,
     AppendPattern,
+    IntervalFallback,
 }
