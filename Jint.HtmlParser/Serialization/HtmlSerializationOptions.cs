@@ -1,12 +1,14 @@
-namespace Jint.HtmlParser.Serialization;
+namespace Jint.HtmlParser;
 
-// A call receives a stable identity snapshot, never the caller's mutable sequence.
-internal sealed class HtmlSerializationOptions
+/// <summary>Immutable HTML escaping context and shadow-root selection for serialization.</summary>
+public sealed class HtmlSerializationOptions
 {
     internal static readonly HtmlSerializationOptions Default = new();
     private readonly IReadOnlyList<ShadowRoot> _shadowRoots;
 
-    internal HtmlSerializationOptions(bool scriptingEnabled = false, bool serializableShadowRoots = false,
+    /// <summary>Copies and deduplicates explicit root identities. Null entries are rejected.</summary>
+    /// <remarks>The caller's sequence is enumerated here, before any serialization operation.</remarks>
+    public HtmlSerializationOptions(bool scriptingEnabled = false, bool serializableShadowRoots = false,
         IEnumerable<ShadowRoot>? shadowRoots = null)
     {
         ScriptingEnabled = scriptingEnabled;
@@ -28,7 +30,10 @@ internal sealed class HtmlSerializationOptions
         _shadowRoots = copy.AsReadOnly();
     }
 
-    internal bool ScriptingEnabled { get; }
-    internal bool SerializableShadowRoots { get; }
-    internal IReadOnlyList<ShadowRoot> ShadowRoots => _shadowRoots;
+    /// <summary>Controls noscript escaping; never executes script.</summary>
+    public bool ScriptingEnabled { get; }
+    /// <summary>Includes reachable attached roots marked serializable.</summary>
+    public bool SerializableShadowRoots { get; }
+    /// <summary>Explicitly selected roots, including closed roots; unreachable roots are not appended.</summary>
+    public IReadOnlyList<ShadowRoot> ShadowRoots => _shadowRoots;
 }

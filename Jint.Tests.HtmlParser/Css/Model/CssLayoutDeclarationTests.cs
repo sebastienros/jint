@@ -10,6 +10,10 @@ public sealed class CssLayoutDeclarationTests
     [TestCase("flex-flow", "wrap", "flex-direction", "row", "flex-wrap", "wrap", null, null, "row wrap")]
     [TestCase("place-items", "safe center", "align-items", "safe center", "justify-items", "safe center", null, null, "safe center")]
     [TestCase("place-self", "last baseline start", "align-self", "last baseline", "justify-self", "start", null, null, "last baseline start")]
+    [TestCase("place-content", "last baseline", "align-content", "last baseline", "justify-content", "start", null, null, "last baseline")]
+    [TestCase("place-content", "space-between safe right", "align-content", "space-between", "justify-content", "safe right", null, null, "space-between safe right")]
+    [TestCase("gap", "10px", "row-gap", "10px", "column-gap", "10px", null, null, "10px")]
+    [TestCase("gap", "normal 5%", "row-gap", "normal", "column-gap", "5%", null, null, "normal 5%")]
     public void ExpandsAndSerializes(string name, string source, string first, string firstValue,
         string second, string secondValue, string? third, string? thirdValue, string expected)
     {
@@ -29,6 +33,8 @@ public sealed class CssLayoutDeclarationTests
     [TestCase("flex-flow", "flex-direction")]
     [TestCase("place-items", "align-items")]
     [TestCase("place-self", "align-self")]
+    [TestCase("place-content", "align-content")]
+    [TestCase("gap", "row-gap")]
     public void WideKeywordExpandsToEveryLonghand(string shorthand, string longhand)
     {
         var block = CssDeclarationBlock.Parse(shorthand + ": inherit");
@@ -63,6 +69,8 @@ public sealed class CssLayoutDeclarationTests
     [TestCase("flex-flow", "flex-direction", "row")]
     [TestCase("place-items", "align-items", "center")]
     [TestCase("place-self", "align-self", "auto")]
+    [TestCase("place-content", "align-content", "center")]
+    [TestCase("gap", "row-gap", "10px")]
     public void PendingShorthandSharesOneIdentityAndPartialOverrideBreaksReconstruction(
         string name, string longhand, string replacement)
     {
@@ -88,6 +96,35 @@ public sealed class CssLayoutDeclarationTests
         block.GetPropertyValue("flex-basis").Should().Be("fit-content(1000000000000001px)");
         block.CssText.Should().Be(source + ";");
         CssDeclarationBlock.Parse(block.CssText).CssText.Should().Be(block.CssText);
+    }
+
+    [Test]
+    public void GapAliasesShareCascadeRemovalAndSerialization()
+    {
+        var block = CssDeclarationBlock.Parse("grid-gap:1px 2px;row-gap:3px;grid-column-gap:4px !important");
+        block.GetPropertyValue("grid-row-gap").Should().Be("3px");
+        block.GetPropertyValue("column-gap").Should().Be("4px");
+        block.GetPropertyValue("gap").Should().BeEmpty();
+        block.SetProperty("grid-gap", "5px");
+        block.GetPropertyValue("gap").Should().Be("5px");
+        block.CssText.Should().Be("gap: 5px;");
+        block.RemoveProperty("grid-gap").Should().Be("5px");
+        block.Count.Should().Be(0);
+    }
+
+    [Test]
+    public void ContentShorthandHandlesBaselineDefaultAndInvalidAtomicEdits()
+    {
+        var block = CssDeclarationBlock.Parse("place-content:baseline;gap:10px");
+        var stamp = block.Stamp;
+        block.SetProperty("place-content", "center baseline");
+        block.SetProperty("gap", "-1px");
+        block.Stamp.Should().Be(stamp);
+        block.GetPropertyValue("place-content").Should().Be("baseline");
+        block.SetProperty("justify-content", "space-around");
+        block.GetPropertyValue("place-content").Should().Be("baseline space-around");
+        block.SetProperty("align-content", "inherit");
+        block.GetPropertyValue("place-content").Should().BeEmpty();
     }
 
     [TestCase("width", "contain", "sizing:contain")]

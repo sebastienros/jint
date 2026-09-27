@@ -11,7 +11,7 @@ namespace Jint.Tests.Browser;
 /// <remarks>
 /// Set <c>JINT_DOM_BINDINGS=update</c> to write the difference back instead of failing — the discipline
 /// <c>JINT_SPEC_ANCHORS</c> and <c>JINT_WPT_CENSUS</c> already carry. That is also the shortest regeneration
-/// path after an <c>overrides.json</c> edit or an AngleSharp bump; <c>tools/dom-bindings/README.md</c> has
+/// path after a <c>contract.json</c> edit; <c>tools/dom-bindings/README.md</c> has
 /// the command-line one.
 /// </remarks>
 public sealed class DomBindingsStalenessTests

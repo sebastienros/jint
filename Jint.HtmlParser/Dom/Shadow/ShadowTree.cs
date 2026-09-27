@@ -1,9 +1,12 @@
 namespace Jint.HtmlParser;
 
-internal enum ShadowRootMode { Open, Closed }
-internal enum SlotAssignmentMode { Named, Manual }
+/// <summary>Whether the host exposes its attached root through <see cref="Element.OpenShadowRoot"/>.</summary>
+public enum ShadowRootMode { Open, Closed }
+/// <summary>The native shadow tree's slot assignment mode.</summary>
+public enum SlotAssignmentMode { Named, Manual }
 
-internal readonly record struct ShadowRootInit(
+/// <summary>Immutable initialization data for attaching a native shadow root.</summary>
+public readonly record struct ShadowRootInit(
     ShadowRootMode Mode,
     bool DelegatesFocus = false,
     bool Serializable = false,
@@ -21,7 +24,8 @@ internal readonly record struct ShadowAttachmentContext(
     bool DisableShadow,
     bool HostIsCustomOrPrecustomized);
 
-internal sealed class ShadowRoot : DocumentFragment
+/// <summary>A native hosted fragment. It is not an ordinary child of its host.</summary>
+public sealed class ShadowRoot : DocumentFragment
 {
     internal SlotTreeState? SlotState;
     internal ShadowRoot(Element host, ShadowRootInit init, ShadowAttachmentContext context)
@@ -37,12 +41,18 @@ internal sealed class ShadowRoot : DocumentFragment
         CustomElementRegistry = context.Registry;
     }
 
-    internal new Element Host { get; }
-    internal ShadowRootMode Mode { get; }
-    internal bool DelegatesFocus { get; }
-    internal bool Serializable { get; }
-    internal SlotAssignmentMode SlotAssignment { get; }
-    internal bool Clonable { get; }
+    /// <summary>The element to which this root is attached.</summary>
+    public new Element Host { get; }
+    /// <summary>The root's open or closed access mode.</summary>
+    public ShadowRootMode Mode { get; }
+    /// <summary>Whether Browser focus handling delegates focus into this root.</summary>
+    public bool DelegatesFocus { get; }
+    /// <summary>Whether HTML serialization may select this root by its serializable flag.</summary>
+    public bool Serializable { get; }
+    /// <summary>The root's slot assignment mode.</summary>
+    public SlotAssignmentMode SlotAssignment { get; }
+    /// <summary>Whether cloning or importing its host also clones this root.</summary>
+    public bool Clonable { get; }
     internal bool Declarative { get; private set; }
     internal bool AvailableToElementInternals { get; private set; }
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }

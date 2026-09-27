@@ -2,15 +2,16 @@ using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.HtmlParser.Css.Values.Properties;
 
-// https://drafts.csswg.org/css-box-4/#margins and #paddings: physical sides, in TRBL order.
+// https://drafts.csswg.org/css-box-4/#margins and #paddings; https://drafts.csswg.org/css-gaps-1/#gaps
 internal static class CssBoxPropertyParser
 {
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts,
         int maximumDepth, CssValueWork work)
     {
-        var shorthand = grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.Padding;
+        var shorthand = grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.Padding or CssPropertyGrammar.Gap;
+        var gap = grammar is CssPropertyGrammar.Gap or CssPropertyGrammar.GapSide;
         var margin = grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.MarginSide;
-        if (parts.Count < 1 || parts.Count > (shorthand ? 4 : 1))
+        if (parts.Count < 1 || parts.Count > (shorthand ? gap ? 2 : 4 : 1))
             return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
         var values = new CssPropertyValue[parts.Count];
         for (var i = 0; i < parts.Count; i++)
@@ -19,6 +20,8 @@ internal static class CssBoxPropertyParser
             var part = parts[i];
             if (margin && CssPropertyParser.Keyword(part, "auto", work) is { } keyword)
                 values[i] = CssPropertyValue.Keyword(keyword, part.Span);
+            else if (gap && CssPropertyParser.Keyword(part, "normal thin medium thick", work) is { } gapKeyword)
+                values[i] = CssPropertyValue.Keyword(gapKeyword, part.Span);
             else
             {
                 // Anchor Positioning extends margin's grammar; never accept unimplemented functions
@@ -34,6 +37,13 @@ internal static class CssBoxPropertyParser
         if (!shorthand) return CssPropertyResult.Accepted(values[0]);
         var top = values[0];
         var right = values.Length > 1 ? values[1] : top;
+        if (gap)
+        {
+            var pair = CssSubstitutionArguments.Equals(top.Text, right.Text, work) ? top.Text : top.Text + " " + right.Text;
+            work.Charge(pair.Length);
+            work.CheckCancellation();
+            return CssPropertyResult.Accepted(CssPropertyValue.Shorthand(pair, parts[0].Span, top, right));
+        }
         var bottom = values.Length > 2 ? values[2] : top;
         var left = values.Length > 3 ? values[3] : right;
         var text = Serialize(top.Serialize(), right.Serialize(), bottom.Serialize(), left.Serialize(), work);

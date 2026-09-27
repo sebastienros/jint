@@ -996,7 +996,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.alignContent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.alignContent");
-                    self.Target.SetProperty("align-content", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.alignContent")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("align-content", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.alignContent")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("alignItems",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.alignItems", static (thisObj, args) =>
@@ -1865,7 +1865,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnGap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.columnGap");
-                    self.Target.SetProperty("column-gap", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnGap")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("column-gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.columnGap")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("columnRule",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnRule", static (thisObj, args) =>
@@ -2321,6 +2321,50 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.glyphOrientationVertical");
                     self.Target.SetProperty("glyph-orientation-vertical", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.glyphOrientationVertical")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("gap",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gap");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("gap"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.gap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gap");
+                    self.Target.SetProperty("gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.gap")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("gridColumnGap",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gridColumnGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gridColumnGap");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("grid-column-gap"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.gridColumnGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gridColumnGap");
+                    self.Target.SetProperty("grid-column-gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.gridColumnGap")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("gridGap",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gridGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gridGap");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("grid-gap"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.gridGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gridGap");
+                    self.Target.SetProperty("grid-gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.gridGap")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("gridRowGap",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gridRowGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gridRowGap");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("grid-row-gap"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.gridRowGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gridRowGap");
+                    self.Target.SetProperty("grid-row-gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.gridRowGap")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.height", static (thisObj, args) =>
                 {
@@ -2359,7 +2403,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.justifyContent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.justifyContent");
-                    self.Target.SetProperty("justify-content", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.justifyContent")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("justify-content", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.justifyContent")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("layoutGrid",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.layoutGrid", static (thisObj, args) =>
@@ -2879,6 +2923,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.perspectiveOrigin");
                     self.Target.SetProperty("perspective-origin", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.perspectiveOrigin")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("placeContent",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.placeContent", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.placeContent");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("place-content"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.placeContent", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.placeContent");
+                    self.Target.SetProperty("place-content", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.placeContent")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("pointerEvents",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.pointerEvents", static (thisObj, args) =>
                 {
@@ -2940,6 +2995,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.rotate");
                     self.Target.SetProperty("rotate", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.rotate")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("rowGap",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rowGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.rowGap");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("row-gap"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.rowGap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.rowGap");
+                    self.Target.SetProperty("row-gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.rowGap")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("rubyAlign",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rubyAlign", static (thisObj, args) =>

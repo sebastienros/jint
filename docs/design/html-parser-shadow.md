@@ -9,6 +9,14 @@ D6 range/iterator fixups remain a separate required task. H6f also owes content 
 does not discharge that obligation. No parser feature switch, alternative DOM, or Browser dependency
 is introduced into Jint.HtmlParser.
 
+**Current public slice:** `Element.AttachShadow`, `OpenShadowRoot`, `ShadowRootInit`, the two mode
+enums and readonly `ShadowRoot` identity/metadata are public, enabling standalone native construction
+and serializer selection. Registry identities, Browser attachment context and parser/assignment
+machinery stay internal. This does not promote custom-element definitions/reactions, nor make closed
+roots discoverable through `OpenShadowRoot`. Public roots retain DocumentFragment insertion behavior:
+inserting one drains its children without changing its host. See the
+[completion tracker](html-parser-completeness.md) for package promotion evidence and remaining work.
+
 ## 1. Evidence and boundaries
 
 Normative references are the current [DOM shadow trees](https://dom.spec.whatwg.org/#shadow-trees),

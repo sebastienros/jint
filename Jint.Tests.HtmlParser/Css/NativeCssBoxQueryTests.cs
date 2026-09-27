@@ -28,6 +28,15 @@ public sealed class NativeCssBoxQueryTests
     [TestCase("--edges:1px 2px 3px 4px;padding:var(--edges)", "padding", "1px 2px 3px 4px")]
     [TestCase("--edges:-1px auto;margin:var(--edges)", "margin", "-1px auto")]
     [TestCase("--edges:-1px;padding:var(--edges)", "padding", "0px")]
+    [TestCase("gap:calc(-2px)", "row-gap", "0px")]
+    [TestCase("gap:calc(-2%)", "column-gap", "0%")]
+    [TestCase("gap:calc(50% - 2px)", "row-gap", "calc(50% - 2px)")]
+    [TestCase("gap:normal", "gap", "normal")]
+    [TestCase("gap:thin thick", "gap", "thin thick")]
+    [TestCase("--edges:1px 2%;grid-gap:var(--edges)", "gap", "1px 2%")]
+    [TestCase("--edges:-1px;gap:var(--edges)", "gap", "normal")]
+    [TestCase("--alignment:last baseline;place-content:var(--alignment)", "place-content", "last baseline")]
+    [TestCase("place-content:safe center unsafe right", "justify-content", "unsafe right")]
     public void ComputesPhysicalSidesWithoutLosingPercentageBases(string source, string name, string expected)
     {
         var document = Document.CreateHtml();
@@ -53,6 +62,8 @@ public sealed class NativeCssBoxQueryTests
     [TestCase("padding-left", "2em", "40px")]
     [TestCase("min-width", "2em", "40px")]
     [TestCase("max-height", "2em", "40px")]
+    [TestCase("row-gap", "2em", "40px")]
+    [TestCase("column-gap", "2em", "40px")]
     public void RelativeLengthsUseTheDeclaredFontSize(string name, string source, string expected)
     {
         var document = Document.CreateHtml();
@@ -65,6 +76,7 @@ public sealed class NativeCssBoxQueryTests
 
     [TestCase("margin-left", "-2ch", "-14px")]
     [TestCase("padding-left", "2ch", "14px")]
+    [TestCase("row-gap", "2ch", "14px")]
     public void GlyphRelativeLengthsStillRequireRealMetrics(string name, string source, string expected)
     {
         var document = Document.CreateHtml();
@@ -98,6 +110,8 @@ public sealed class NativeCssBoxQueryTests
     [TestCase("padding-top", "0px")]
     [TestCase("min-width", "auto")]
     [TestCase("max-height", "none")]
+    [TestCase("row-gap", "normal")]
+    [TestCase("column-gap", "normal")]
     public void PhysicalBoxValuesAreNotInheritedWithoutAnExplicitKeyword(string name, string initial)
     {
         var document = Document.CreateHtml();
@@ -110,6 +124,19 @@ public sealed class NativeCssBoxQueryTests
         Query(document, [(parent, parentBlock)]).GetProperty(child, name, ref matching).Text.Should().Be(initial);
         Query(document, [(parent, parentBlock), (child, CssDeclarationBlock.Parse(name + ":inherit"))])
             .GetProperty(child, name, ref matching).Text.Should().Be("20px");
+    }
+
+    [Test]
+    public void ContentAlignmentIsNotInheritedUnlessExplicitlyRequested()
+    {
+        var document = MarkupParser.ParseHtml("<div><span></span></div>");
+        var parent = (Element) document.DocumentElement!.LastChild!.FirstChild!;
+        var child = (Element) parent.FirstChild!;
+        var source = CssDeclarationBlock.Parse("place-content:space-between safe right");
+        var matching = new SelectorMatchWork(document, default);
+        Query(document, [(parent, source)]).GetProperty(child, "place-content", ref matching).Text.Should().Be("normal");
+        Query(document, [(parent, source), (child, CssDeclarationBlock.Parse("place-content:inherit"))])
+            .GetProperty(child, "place-content", ref matching).Text.Should().Be("space-between safe right");
     }
 
     private static NativeCssQuery Query(Document document, IReadOnlyList<(Element, CssDeclarationBlock)> inline,

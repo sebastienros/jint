@@ -137,7 +137,8 @@ internal sealed partial class NativeCssQuery
         if (name == "opacity") number = System.Math.Clamp(number, 0, 1);
         else if (name == "font-weight") number = System.Math.Clamp(number, 1, 1000);
         else if (name is "width" or "height" or "min-width" or "min-height" or "max-width" or "max-height" or
-            "padding-top" or "padding-right" or "padding-bottom" or "padding-left" or "flex-basis" or "flex-grow" or "flex-shrink" or "font-size")
+            "padding-top" or "padding-right" or "padding-bottom" or "padding-left" or "row-gap" or "column-gap" or
+            "flex-basis" or "flex-grow" or "flex-shrink" or "font-size")
             number = System.Math.Max(0, number);
         else if (name == "z-index") number = System.Math.Floor(number + 0.5);
         var text = CssMathSerializer.SerializeFiniteNumber(number, _work);

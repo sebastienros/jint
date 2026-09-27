@@ -7,6 +7,14 @@ stages remain internal until the complete surface below is implemented. H7 suppl
 fixtures; native factories already support independent algorithm tests. This document changes no
 existing Browser behavior and authorizes no shared native-file edits.
 
+**Current implementation:** the five-method `MarkupSerializer` surface, immutable
+`HtmlSerializationOptions`, `SerializationLimits` and `SerializationLimitException` are now public.
+Native shadow acquisition and readonly metadata are public as well; Browser-specific attachment
+context and custom-element registry identities remain internal. The public API snapshots and
+unsigned packed consumer cover the promoted surface. The implementation stages below record the
+original rollout contract; remaining package work is tracked in
+[the completion tracker](html-parser-completeness.md).
+
 ## Evidence and consumer decisions
 
 The [A1 inventory](../../tools/html-parser-inventory/README.md) assigns serialization to B4 and leaf

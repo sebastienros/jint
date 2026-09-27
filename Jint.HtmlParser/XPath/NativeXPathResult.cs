@@ -3,8 +3,9 @@ using System.Xml.XPath;
 
 namespace Jint.HtmlParser;
 
-// A published result retains native identities and copied scalar values, never a live cursor.
-internal sealed class NativeXPathResult
+/// <summary>A materialized XPath result retaining native identities and captured scalar values.</summary>
+/// <remarks>Accessing a getter for another result kind throws <see cref="InvalidOperationException"/>; no conversion is performed.</remarks>
+public sealed class NativeXPathResult
 {
     private readonly double _number;
     private readonly string? _string;
@@ -23,12 +24,18 @@ internal sealed class NativeXPathResult
         _firstNodeStringValue = firstNodeStringValue;
     }
 
-    internal XPathResultType ResultType { get; }
-    internal double NumberValue => ResultType == XPathResultType.Number ? _number : throw WrongKind();
-    internal string StringValue => ResultType == XPathResultType.String ? _string! : throw WrongKind();
-    internal bool BooleanValue => ResultType == XPathResultType.Boolean ? _boolean : throw WrongKind();
-    internal IReadOnlyList<object> Nodes => ResultType == XPathResultType.NodeSet ? _nodes! : throw WrongKind();
-    internal string FirstNodeStringValue => ResultType == XPathResultType.NodeSet ? _firstNodeStringValue! : throw WrongKind();
+    /// <summary>The actual result kind: Number, String, Boolean or NodeSet.</summary>
+    public XPathResultType ResultType { get; }
+    /// <summary>The captured numeric result.</summary>
+    public double NumberValue => ResultType == XPathResultType.Number ? _number : throw WrongKind();
+    /// <summary>The captured string result.</summary>
+    public string StringValue => ResultType == XPathResultType.String ? _string! : throw WrongKind();
+    /// <summary>The captured Boolean result.</summary>
+    public bool BooleanValue => ResultType == XPathResultType.Boolean ? _boolean : throw WrongKind();
+    /// <summary>An immutable ordered snapshot containing only <see cref="Node"/>, <see cref="Attr"/> and <see cref="XPathNamespaceBinding"/> identities.</summary>
+    public IReadOnlyList<object> Nodes => ResultType == XPathResultType.NodeSet ? _nodes! : throw WrongKind();
+    /// <summary>The captured XPath string-value of the first selected position, or empty for an empty node-set.</summary>
+    public string FirstNodeStringValue => ResultType == XPathResultType.NodeSet ? _firstNodeStringValue! : throw WrongKind();
 
     internal static NativeXPathResult Number(double value) => new(XPathResultType.Number, number: value);
     internal static NativeXPathResult String(string value) => new(XPathResultType.String, text: value);

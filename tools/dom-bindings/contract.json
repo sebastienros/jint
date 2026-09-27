@@ -2034,7 +2034,7 @@
           "DomName": "alignContent",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.alignContent\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"align-content\"));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.alignContent\");\nself.Target.SetProperty(\"align-content\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.alignContent\")); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.alignContent\");\nself.Target.SetProperty(\"align-content\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.alignContent\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetAlignContent"
         },
@@ -2666,7 +2666,7 @@
           "DomName": "columnGap",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.columnGap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"column-gap\"));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.columnGap\");\nself.Target.SetProperty(\"column-gap\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.columnGap\")); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.columnGap\");\nself.Target.SetProperty(\"column-gap\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.columnGap\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetColumnGap"
         },
@@ -3007,6 +3007,38 @@
           "Origin": "StyleDeclarationExtensions.GetGlyphOrientationVertical"
         },
         {
+          "DomName": "gap",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"gap\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gap\");\nself.Target.SetProperty(\"gap\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.gap\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
+        },
+        {
+          "DomName": "gridColumnGap",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gridColumnGap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"grid-column-gap\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gridColumnGap\");\nself.Target.SetProperty(\"grid-column-gap\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.gridColumnGap\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "Legacy gap alias: https://drafts.csswg.org/css-gaps-1/#gap-legacy"
+        },
+        {
+          "DomName": "gridGap",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gridGap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"grid-gap\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gridGap\");\nself.Target.SetProperty(\"grid-gap\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.gridGap\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "Legacy gap alias: https://drafts.csswg.org/css-gaps-1/#gap-legacy"
+        },
+        {
+          "DomName": "gridRowGap",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gridRowGap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"grid-row-gap\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.gridRowGap\");\nself.Target.SetProperty(\"grid-row-gap\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.gridRowGap\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "Legacy gap alias: https://drafts.csswg.org/css-gaps-1/#gap-legacy"
+        },
+        {
           "DomName": "height",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.height\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"height\"));",
@@ -3034,7 +3066,7 @@
           "DomName": "justifyContent",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.justifyContent\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"justify-content\"));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.justifyContent\");\nself.Target.SetProperty(\"justify-content\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.justifyContent\")); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.justifyContent\");\nself.Target.SetProperty(\"justify-content\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.justifyContent\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetJustifyContent"
         },
@@ -3423,6 +3455,14 @@
           "Origin": "StyleDeclarationExtensions.GetPerspectiveOrigin"
         },
         {
+          "DomName": "placeContent",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.placeContent\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"place-content\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.placeContent\");\nself.Target.SetProperty(\"place-content\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.placeContent\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
+        },
+        {
           "DomName": "pointerEvents",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.pointerEvents\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"pointer-events\"));",
@@ -3467,6 +3507,14 @@
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.rotate\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"rotate\"));",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.rotate\");\nself.Target.SetProperty(\"rotate\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.rotate\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
+        },
+        {
+          "DomName": "rowGap",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.rowGap\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"row-gap\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.rowGap\");\nself.Target.SetProperty(\"row-gap\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.rowGap\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
         },

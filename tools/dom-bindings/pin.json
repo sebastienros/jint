@@ -1,9 +1,9 @@
 {
   "$comment": [
-    "The AngleSharp versions the checked-in Jint.Browser/Dom/Generated/ was produced from. This file and the",
-    "AngleSharp / AngleSharp.Css entries in Directory.Packages.props have to say the same thing, which",
-    "DomBindingsPinTests checks by reading both. Bumping a version is a code change, not a configuration edit:",
-    "see tools/dom-bindings/README.md."
+    "Historical AngleSharp versions used to extract the original binding contract.",
+    "Generation now consumes contract.json and native receiver types without these assemblies.",
+    "Benchmark package versions in Directory.Packages.props are independent of this provenance record.",
+    "See tools/dom-bindings/README.md."
   ],
   "packages": {
     "AngleSharp": "1.8.2",

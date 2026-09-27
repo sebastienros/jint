@@ -11,7 +11,8 @@ internal enum CssPropertyGrammar
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
     Sizing, MinSizing, MaxSizing, Margin, MarginSide, Padding, PaddingSide,
     FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
-    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
+    AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf,
+    AlignContent, JustifyContent, PlaceContent, GapSide, Gap, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
     TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor, InsetSide,
@@ -135,6 +136,14 @@ internal static class CssPropertyRegistry
         Shorthand("flex-flow", CssPropertyGrammar.FlexFlow, "row nowrap", ["flex-direction", "flex-wrap"]);
         Shorthand("place-items", CssPropertyGrammar.PlaceItems, "normal legacy", ["align-items", "justify-items"]);
         Shorthand("place-self", CssPropertyGrammar.PlaceSelf, "auto", ["align-self", "justify-self"]);
+        // https://drafts.csswg.org/css-align-3/#content-distribution
+        Add("align-content", CssPropertyGrammar.AlignContent, "normal");
+        Add("justify-content", CssPropertyGrammar.JustifyContent, "normal");
+        Shorthand("place-content", CssPropertyGrammar.PlaceContent, "normal", ["align-content", "justify-content"]);
+        // https://drafts.csswg.org/css-gaps-1/#gaps; legacy grid-* names canonicalize above.
+        Add("row-gap", CssPropertyGrammar.GapSide, "normal");
+        Add("column-gap", CssPropertyGrammar.GapSide, "normal");
+        Shorthand("gap", CssPropertyGrammar.Gap, "normal", ["row-gap", "column-gap"]);
         // CSS Text 4 §§3–5.1. Grammar/computed values only, independent of layout.
         Add("white-space-collapse", CssPropertyGrammar.WhiteSpaceCollapse, "collapse", true);
         Add("text-wrap-mode", CssPropertyGrammar.TextWrapMode, "wrap", true);

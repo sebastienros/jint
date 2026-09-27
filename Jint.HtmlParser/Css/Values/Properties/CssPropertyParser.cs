@@ -94,7 +94,7 @@ internal static class CssPropertyParser
             CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
             return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.MarginSide or
-            CssPropertyGrammar.Padding or CssPropertyGrammar.PaddingSide)
+            CssPropertyGrammar.Padding or CssPropertyGrammar.PaddingSide or CssPropertyGrammar.Gap or CssPropertyGrammar.GapSide)
             return CssBoxPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.MinSizing or CssPropertyGrammar.MaxSizing or CssPropertyGrammar.FlexBasis)
             return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
@@ -102,7 +102,8 @@ internal static class CssPropertyParser
             CssPropertyGrammar.FlexWrap or CssPropertyGrammar.Direction or CssPropertyGrammar.Flex or CssPropertyGrammar.FlexFlow)
             return CssFlexPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.AlignItems or CssPropertyGrammar.AlignSelf or
-            CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf)
+            CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf or
+            CssPropertyGrammar.AlignContent or CssPropertyGrammar.JustifyContent or CssPropertyGrammar.PlaceContent)
             return CssAlignmentPropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar is CssPropertyGrammar.ContainerName or CssPropertyGrammar.ContainerType or
             CssPropertyGrammar.Container or CssPropertyGrammar.WritingMode)

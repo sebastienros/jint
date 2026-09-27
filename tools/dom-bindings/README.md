@@ -9,4 +9,8 @@ JINT_DOM_BINDINGS=update dotnet test -c Release --project Jint.Tests.Browser/Jin
 dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --filter FullyQualifiedName~DomBindingsStalenessTests
 ```
 
-The command-line emitter also accepts `--contract tools/dom-bindings/contract.json --output Jint.Browser/Dom/Generated`. `DomBindingsStalenessTests` compares its output byte for byte with the checked-in files and checks that the contract reports no diagnostics. `overrides.json` and `pin.json` retain the decisions and original assembly provenance used to extract the initial contract. The one-time `--extract-core`, `--extract-css` and `--overrides` CLI switches recapture that old surface for comparison; routine generation uses `contract.json` alone. The browser migration replaces the old CLR receiver types and calls in this contract with native `Jint.HtmlParser` adapters, keeping each JavaScript-visible interface and member reviewable.
+The command-line emitter also accepts `--contract tools/dom-bindings/contract.json --output Jint.Browser/Dom/Generated`. `DomBindingsStalenessTests` compares its output byte for byte with the checked-in files and checks that the contract reports no diagnostics. `overrides.json` and `pin.json` retain historical decisions and assembly provenance; they neither load assemblies nor constrain benchmark package versions. The one-time upstream assembly extraction switches have been retired. Generation uses `contract.json` alone, with native `Jint.HtmlParser` adapters keeping each JavaScript-visible interface and member reviewable.
+
+AngleSharp packages are retained only in `Jint.Benchmark` for comparisons with `Jint.HtmlParser`.
+`ParserDependencyTests` enforces this boundary. Binding and parser regression tests use the explicit
+contract and expected native tree structures rather than loading an upstream implementation.

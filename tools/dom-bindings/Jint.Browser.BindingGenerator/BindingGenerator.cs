@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 
 namespace Jint.Browser.BindingGenerator;
@@ -45,35 +44,6 @@ public static class BindingGenerator
             Report(model),
             [.. model.Diagnostics.Order(StringComparer.Ordinal)],
             [.. model.Skipped.Select(s => s.Interface + "." + s.Member + " — " + s.Reason).Order(StringComparer.Ordinal)]);
-    }
-
-    /// <summary>One-time migration tool: captures the formerly reflected metadata as a reviewable contract.</summary>
-    public static void ExtractContract(string coreAssembly, string cssAssembly, string overridesPath, string contractPath)
-    {
-        var references = new List<string> { coreAssembly, cssAssembly };
-        references.AddRange(RuntimeAssemblies());
-
-        var resolver = new PathAssemblyResolver(references.Distinct(StringComparer.OrdinalIgnoreCase));
-        using var context = new MetadataLoadContext(resolver, "System.Private.CoreLib");
-
-        var core = context.LoadFromAssemblyPath(coreAssembly);
-        var css = context.LoadFromAssemblyPath(cssAssembly);
-
-        var overrides = Overrides.Load(overridesPath);
-        var model = new ModelBuilder([core, css], overrides).Build();
-        BindingContract.FromModel(model).Save(contractPath);
-    }
-
-    private static IEnumerable<string> RuntimeAssemblies()
-    {
-        var trusted = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? "";
-        foreach (var path in trusted.Split(Path.PathSeparator))
-        {
-            if (path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return path;
-            }
-        }
     }
 
     private static string Report(BindingModel model)

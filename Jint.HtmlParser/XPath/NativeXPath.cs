@@ -3,21 +3,36 @@ using System.Xml.XPath;
 
 namespace Jint.HtmlParser;
 
-// XPath 1.0 data model: https://www.w3.org/TR/1999/REC-xpath-19991116/#data-model
-internal static class NativeXPath
+/// <summary>Compiles and evaluates XPath 1.0 expressions over native nodes, attributes and namespace positions.</summary>
+/// <remarks>
+/// Namespaces are preserved: unprefixed element tests select elements in no namespace. Results are
+/// materialized snapshots containing native identities, not copies of the tree. Concurrent mutation
+/// during evaluation is unsupported; detected mutation throws <see cref="InvalidOperationException"/>.
+/// Parsing and evaluation never fetch external resources.
+/// </remarks>
+public static class NativeXPath
 {
-    internal static NativeXPathExpression Compile(string source, IXmlNamespaceResolver? resolver, CancellationToken cancellationToken)
+    /// <summary>Compiles an expression for reuse across trees, binding the supplied namespace resolver.</summary>
+    public static NativeXPathExpression Compile(string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
         => Compile(source, resolver, null, cancellationToken);
 
     internal static NativeXPathExpression Compile(string source, IXmlNamespaceResolver? resolver,
         Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
         => NativeXPathExpression.Compile(source, resolver, checkpoint, cancellationToken);
 
-    internal static NativeXPathResult Evaluate(Node context, NativeXPathExpression expression, CancellationToken cancellationToken)
+    /// <summary>Evaluates a prepared expression at a node and captures its typed result.</summary>
+    public static NativeXPathResult Evaluate(Node context, NativeXPathExpression expression, CancellationToken cancellationToken = default)
         => Evaluate(context, expression, null, cancellationToken);
 
-    internal static NativeXPathResult Evaluate(Attr context, NativeXPathExpression expression, CancellationToken cancellationToken)
+    /// <summary>Evaluates a prepared expression at an attached or detached non-XMLNS attribute.</summary>
+    public static NativeXPathResult Evaluate(Attr context, NativeXPathExpression expression, CancellationToken cancellationToken = default)
         => Evaluate(context, expression, null, cancellationToken);
+
+    /// <summary>Evaluates at a captured namespace position, rejecting a binding whose URI is no longer in scope.</summary>
+    public static NativeXPathResult Evaluate(XPathNamespaceBinding context, NativeXPathExpression expression,
+        CancellationToken cancellationToken = default)
+        => Execute(context, expression, null, selectOnly: false, cancellationToken);
 
     internal static NativeXPathResult Evaluate(Node context, NativeXPathExpression expression,
         Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
@@ -27,11 +42,18 @@ internal static class NativeXPath
         Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
         => Execute(context, expression, checkpoint, selectOnly: false, cancellationToken);
 
-    internal static IReadOnlyList<object> Select(Node context, NativeXPathExpression expression, CancellationToken cancellationToken)
+    /// <summary>Selects an immutable ordered snapshot of native identities; a scalar expression throws <see cref="XPathException"/>.</summary>
+    public static IReadOnlyList<object> Select(Node context, NativeXPathExpression expression, CancellationToken cancellationToken = default)
         => Select(context, expression, null, cancellationToken);
 
-    internal static IReadOnlyList<object> Select(Attr context, NativeXPathExpression expression, CancellationToken cancellationToken)
+    /// <summary>Selects native identities relative to an attached or detached non-XMLNS attribute.</summary>
+    public static IReadOnlyList<object> Select(Attr context, NativeXPathExpression expression, CancellationToken cancellationToken = default)
         => Select(context, expression, null, cancellationToken);
+
+    /// <summary>Selects native identities relative to a still-current captured namespace position.</summary>
+    public static IReadOnlyList<object> Select(XPathNamespaceBinding context, NativeXPathExpression expression,
+        CancellationToken cancellationToken = default)
+        => Execute(context, expression, null, selectOnly: true, cancellationToken).Nodes;
 
     internal static IReadOnlyList<object> Select(Node context, NativeXPathExpression expression,
         Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
@@ -41,29 +63,49 @@ internal static class NativeXPath
         Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
         => Execute(context, expression, checkpoint, selectOnly: true, cancellationToken).Nodes;
 
-    internal static NativeXPathResult Evaluate(Node context, string source, IXmlNamespaceResolver? resolver,
-        CancellationToken cancellationToken)
+    /// <summary>Compiles and evaluates an expression at a node.</summary>
+    public static NativeXPathResult Evaluate(Node context, string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         return Evaluate(context, Compile(source, resolver, cancellationToken), cancellationToken);
     }
 
-    internal static NativeXPathResult Evaluate(Attr context, string source, IXmlNamespaceResolver? resolver,
-        CancellationToken cancellationToken)
+    /// <summary>Compiles and evaluates an expression at a non-XMLNS attribute.</summary>
+    public static NativeXPathResult Evaluate(Attr context, string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         return Evaluate(context, Compile(source, resolver, cancellationToken), cancellationToken);
     }
 
-    internal static IReadOnlyList<object> Select(Node context, string source, IXmlNamespaceResolver? resolver,
-        CancellationToken cancellationToken)
+    /// <summary>Compiles and evaluates an expression at a still-current captured namespace position.</summary>
+    public static NativeXPathResult Evaluate(XPathNamespaceBinding context, string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return Evaluate(context, Compile(source, resolver, cancellationToken), cancellationToken);
+    }
+
+    /// <summary>Compiles a node-set expression and selects its native identities at a node.</summary>
+    public static IReadOnlyList<object> Select(Node context, string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         return Select(context, Compile(source, resolver, cancellationToken), cancellationToken);
     }
 
-    internal static IReadOnlyList<object> Select(Attr context, string source, IXmlNamespaceResolver? resolver,
-        CancellationToken cancellationToken)
+    /// <summary>Compiles a node-set expression and selects its native identities at a non-XMLNS attribute.</summary>
+    public static IReadOnlyList<object> Select(Attr context, string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return Select(context, Compile(source, resolver, cancellationToken), cancellationToken);
+    }
+
+    /// <summary>Compiles a node-set expression and selects at a still-current captured namespace position.</summary>
+    public static IReadOnlyList<object> Select(XPathNamespaceBinding context, string source, IXmlNamespaceResolver? resolver = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         return Select(context, Compile(source, resolver, cancellationToken), cancellationToken);
@@ -79,6 +121,7 @@ internal static class NativeXPath
         {
             Node node => (NativeXPathNavigator) CreateNavigator(node, checkpoint, token),
             Attr attribute => (NativeXPathNavigator) CreateNavigator(attribute, checkpoint, token),
+            XPathNamespaceBinding binding => CreateNavigator(binding, checkpoint, token),
             _ => throw new ArgumentException("The native context has no XPath position.", nameof(context))
         };
         navigator.CheckRead();
@@ -172,5 +215,17 @@ internal static class NativeXPath
             ? new XPathReadSession(owner, checkpoint, cancellationToken)
             : new XPathReadSession(context, checkpoint, cancellationToken);
         return new NativeXPathNavigator(session, context);
+    }
+
+    internal static NativeXPathNavigator CreateNavigator(XPathNamespaceBinding context,
+        Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        cancellationToken.ThrowIfCancellationRequested();
+        var session = new XPathReadSession(context.OwnerElement, checkpoint, cancellationToken);
+        var binding = session.BindingFor(context.OwnerElement, context.Prefix, context.NamespaceUri)
+            ?? throw new InvalidOperationException("The captured XPath namespace binding is no longer in scope.");
+        session.Check();
+        return new NativeXPathNavigator(session, binding);
     }
 }

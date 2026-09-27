@@ -51,8 +51,17 @@ public sealed class Element : Node
     internal HtmlTextAreaState? ExistingTextAreaState => _htmlState?.ExistingTextArea;
     internal HtmlInputValueState? ExistingInputValueState => _htmlState?.ExistingInputValue;
     internal ShadowRoot? AttachedShadowRoot { get; private set; }
-    internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
+    /// <summary>The attached open shadow root, or null for absent and closed roots.</summary>
+    public ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
+
+    /// <summary>Attaches a native shadow root and returns its identity, including for closed mode.</summary>
+    /// <remarks>
+    /// Uses native host-name and existing-root validation. This standalone entry does not execute
+    /// Browser custom-element reactions or resolve Browser definitions.
+    /// </remarks>
+    public ShadowRoot AttachShadow(ShadowRootInit init, CancellationToken cancellationToken = default) =>
+        ShadowTree.Attach(this, init, new ShadowAttachmentContext(CustomElementRegistry, false, false), null, cancellationToken);
 
     internal void SetCustomElementRegistry(CustomElementRegistryIdentity? registry)
     {

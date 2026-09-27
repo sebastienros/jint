@@ -254,3 +254,15 @@ ordered children, exact classic percentage selectors and last-match edits. It re
 ownership and declaration adapter rather than the legacy unavailable CSS brands. The scope and remaining
 completion boundaries are [recorded in the checkpoint](../../../docs/design/native-css-keyframes-rules.md):
 timeline-range selectors remain named pending; no animation execution or animation events are claimed.
+
+### Native content alignment and gaps
+
+The native declaration model implements `align-content`, `justify-content`, `place-content`, `gap`,
+`row-gap` and `column-gap`, including legacy `grid-*` gap aliases. Grammar and shorthand defaults
+follow [Box Alignment](https://drafts.csswg.org/css-align-3/#content-distribution) and
+[CSS Gaps](https://drafts.csswg.org/css-gaps-1/#gaps), rather than arbitrary-value acceptance.
+The previously absent named accessors and the existing align/justify/column-gap setters use CSSOM's
+null-to-empty conversion and the same native declarations as generic operations. The binding
+contract is regenerated, not hand patched. `NativeCssContentAlignmentAndGapTests` covers rule/inline
+and live computed values, `CSS.supports`, receiver guards, readonly computed declarations and
+invalidation. This supplies specified/computed semantics, not a grid or gap layout implementation.

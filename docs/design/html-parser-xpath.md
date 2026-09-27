@@ -8,6 +8,14 @@ already exist. Keep the BCL XPath 1.0 engine, replace its tree adapter, and appl
 compilation amendment below. Do not serialize/reparse into XmlDocument, copy the tree, or introduce
 an XPath interpreter.
 
+**Current implementation:** owned `NativeXPath` compile/evaluate/select entry points, expression
+and typed result handles, and immutable namespace bindings are public. Node, attribute and namespace
+contexts have both prepared-expression and string overloads. A namespace context is rebound in a
+fresh session and rejected if its URI is no longer in scope. Navigators, BCL expressions, checkpoints
+and namespace-erasure policies remain internal. Public snapshots and the unsigned packed consumer
+cover this promotion; the milestone descriptions below retain the original design evidence.
+See [the completion tracker](html-parser-completeness.md) for remaining standalone API work.
+
 ## Evidence and exact boundary
 
 `Jint.Browser/Dom/Views/JsXPath.cs` compiles BCL XPathExpression, supplies an IXmlNamespaceResolver,

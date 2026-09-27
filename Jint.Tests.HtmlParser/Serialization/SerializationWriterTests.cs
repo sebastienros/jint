@@ -1,3 +1,4 @@
+using Jint.HtmlParser;
 using Jint.HtmlParser.Serialization;
 
 namespace Jint.Tests.HtmlParser.Serialization;

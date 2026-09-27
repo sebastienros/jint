@@ -4,8 +4,12 @@ using System.Xml.XPath;
 
 namespace Jint.HtmlParser;
 
-// The prepared BCL query is private: callers cannot bypass the guarded source.
-internal sealed class NativeXPathExpression
+/// <summary>A prepared XPath expression with privately owned evaluation state.</summary>
+/// <remarks>
+/// Evaluation clones the private query state. Resolvers and extension contexts retain their own
+/// lifetime and thread-safety requirements. This handle is not bound to a document.
+/// </remarks>
+public sealed class NativeXPathExpression
 {
     private readonly XPathExpression _prepared;
 
@@ -15,8 +19,10 @@ internal sealed class NativeXPathExpression
         _prepared = prepared;
     }
 
-    internal string Source { get; }
-    internal XPathResultType ReturnType => _prepared.ReturnType;
+    /// <summary>The exact source passed to compilation.</summary>
+    public string Source { get; }
+    /// <summary>The expression's static result type.</summary>
+    public XPathResultType ReturnType => _prepared.ReturnType;
     internal XPathExpression ClonePrepared() => _prepared.Clone();
 
     internal static NativeXPathExpression Compile(string source, IXmlNamespaceResolver? resolver,

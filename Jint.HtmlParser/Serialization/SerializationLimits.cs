@@ -1,20 +1,22 @@
-namespace Jint.HtmlParser.Serialization;
+namespace Jint.HtmlParser;
 
-// Published with the complete MarkupSerializer surface in X3d.
-internal sealed class SerializationLimits
+/// <summary>Output limits for a single serialization operation.</summary>
+public sealed class SerializationLimits
 {
     private long _maxOutputCharacters;
 
     internal static SerializationLimits Unbounded { get; } = new();
 
-    internal long MaxOutputCharacters
+    /// <summary>Maximum emitted UTF-16 code units, including escaping and generated markup. Zero is unbounded.</summary>
+    public long MaxOutputCharacters
     {
         get => _maxOutputCharacters;
         init => _maxOutputCharacters = value >= 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
     }
 }
 
-internal sealed class SerializationLimitException : Exception
+/// <summary>The output would exceed the configured serialization limit; no partial string is returned.</summary>
+public sealed class SerializationLimitException : Exception
 {
     internal SerializationLimitException(long limit, long observed)
         : base($"Serialization output limit of {limit} was exceeded at {observed}.")
@@ -23,6 +25,8 @@ internal sealed class SerializationLimitException : Exception
         Observed = observed;
     }
 
-    internal long Limit { get; }
-    internal long Observed { get; }
+    /// <summary>The configured output limit.</summary>
+    public long Limit { get; }
+    /// <summary>The output size attempted by the append that exceeded the limit.</summary>
+    public long Observed { get; }
 }

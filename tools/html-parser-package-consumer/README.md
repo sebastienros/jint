@@ -19,8 +19,11 @@ dotnet run --project tools/html-parser-package-consumer/HtmlParserPackageConsume
 dotnet run --project tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj -c Release -f net10.0
 ```
 
-Each run prints `ALL PARSER PACKAGE PROBES PASSED` only after checking XML, strict SVG, fragment
-ownership, mutation records and drains. Clearing the disposable feed and package cache before packing prevents a prior package with the
+Each run prints `ALL PARSER PACKAGE PROBES PASSED` only after checking HTML, XML, strict SVG, fragment
+ownership, mutation records/drains, whole-sheet CSS syntax, all owned XPath overloads and result kinds,
+typed IDs and imports, namespace contexts and stale bindings, detached attribute axes, and all five
+serialization routes including shadow acquisition/selection, templates, output limits and cancellation.
+Clearing the disposable feed and package cache before packing prevents a prior package with the
 same version from answering the test. Inspect the actual package dependency list and shipped assets:
 
 ```sh

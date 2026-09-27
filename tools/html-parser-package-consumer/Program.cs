@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Xml;
+using System.Xml.XPath;
 using Jint.HtmlParser;
 
 namespace HtmlParserPackageConsumer;
@@ -20,6 +24,9 @@ internal static class Program
             CheckNotationSurface();
             CheckFragmentOwnership();
             CheckMutationSubscriptions();
+            CheckCssSyntax();
+            CheckXPath();
+            CheckSerialization();
             Console.WriteLine("ALL PARSER PACKAGE PROBES PASSED");
             return 0;
         }
@@ -28,6 +35,151 @@ internal static class Program
             Console.Error.WriteLine(error);
             return 1;
         }
+    }
+
+    private static void CheckCssSyntax()
+    {
+        const string source = "@future value; p {color:var(--color)}";
+        var sheet = MarkupParser.ParseCss(source);
+        Require(sheet.Source == source && sheet.Rules.Count == 2, "Whole-sheet CSS syntax was not preserved.");
+    }
+
+    private static void CheckSerialization()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var shadow = host.AttachShadow(new(ShadowRootMode.Closed, DelegatesFocus: true,
+            Serializable: true, SlotAssignment: SlotAssignmentMode.Manual, Clonable: true));
+        Require(ReferenceEquals(shadow.Host, host) && shadow.ParentNode is null &&
+            ReferenceEquals(shadow.OwnerDocument, document) && shadow.Mode == ShadowRootMode.Closed &&
+            shadow.DelegatesFocus && shadow.Serializable && shadow.Clonable &&
+            shadow.SlotAssignment == SlotAssignmentMode.Manual && host.OpenShadowRoot is null,
+            "Public shadow attachment lost native identity or metadata.");
+        var openHost = document.CreateElement("span");
+        Require(ReferenceEquals(openHost.AttachShadow(new(ShadowRootMode.Open)), openHost.OpenShadowRoot),
+            "An open shadow root cannot be acquired.");
+        shadow.AppendChild(document.CreateTextNode("shadow"));
+        host.AppendChild(document.CreateTextNode("&"));
+        var roots = new List<ShadowRoot> { shadow, shadow };
+        var options = new HtmlSerializationOptions(shadowRoots: roots);
+        roots.Clear();
+        Require(options.ShadowRoots.Count == 1 && ReferenceEquals(options.ShadowRoots[0], shadow) &&
+            options.ShadowRoots is IList<ShadowRoot> readOnly && readOnly.IsReadOnly &&
+            !options.ScriptingEnabled && !options.SerializableShadowRoots, "Serialization options are not immutable.");
+        const string selected = "<template shadowrootmode=\"closed\" shadowrootdelegatesfocus=\"\"" +
+            " shadowrootserializable=\"\" shadowrootslotassignment=\"manual\" shadowrootclonable=\"\">shadow</template>";
+        var expected = "<div>" + selected + "&amp;</div>";
+        Require(MarkupSerializer.ToHtml(host) == "<div>&amp;</div>" &&
+            MarkupSerializer.ToHtml(host, options) == expected &&
+            MarkupSerializer.ToHtmlChildren(host, new(serializableShadowRoots: true)) == selected + "&amp;" &&
+            MarkupSerializer.ToHtml(shadow) == "shadow", "HTML serialization or shadow selection failed.");
+        Require(MarkupSerializer.ToXml(host, true) == "<div xmlns=\"http://www.w3.org/1999/xhtml\">&amp;</div>" &&
+            MarkupSerializer.ToXmlChildren(host, true) == "&amp;" && MarkupSerializer.ToXml(shadow) == "shadow" &&
+            MarkupSerializer.ToXml(document.CreateAttribute("a"), true) == "", "XML serialization dispatch failed.");
+        Require(MarkupSerializer.ToHtml(host, options, new() { MaxOutputCharacters = expected.Length }) == expected,
+            "Exact HTML output bound rejected its output.");
+        try
+        {
+            MarkupSerializer.ToHtml(host, options, new() { MaxOutputCharacters = expected.Length - 1 });
+            throw new InvalidOperationException("HTML output escaped its bound.");
+        }
+        catch (SerializationLimitException error)
+        {
+            Require(error.Limit == expected.Length - 1 && error.Observed == expected.Length,
+                "Serialization bound metadata changed.");
+        }
+        var xml = MarkupParser.ParseXml("<r xmlns='urn:r'><x/></r>");
+        Require(MarkupSerializer.ToXmlChildren(xml.DocumentElement!, true) == "<x xmlns=\"urn:r\"/>",
+            "XML child output relies on out-of-range namespace declarations.");
+        var template = document.CreateElement("template");
+        template.TemplateContent!.AppendChild(document.CreateTextNode("<&"));
+        Require(MarkupSerializer.ToHtmlChildren(template) == "&lt;&amp;" &&
+            MarkupSerializer.ToXmlChildren(template) == "&lt;&amp;", "Template serialization ignored its content.");
+        var noscript = document.CreateElement("noscript");
+        noscript.AppendChild(document.CreateTextNode("<&"));
+        Require(MarkupSerializer.ToHtml(noscript) == "<noscript>&lt;&amp;</noscript>" &&
+            MarkupSerializer.ToHtml(noscript, new(scriptingEnabled: true)) == "<noscript><&</noscript>",
+            "Scripting context did not select noscript escaping.");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Expect<OperationCanceledException>(() => MarkupSerializer.ToHtml(host, cancellationToken: cancellation.Token));
+        Expect<OperationCanceledException>(() => MarkupSerializer.ToHtmlChildren(host, cancellationToken: cancellation.Token));
+        Expect<OperationCanceledException>(() => MarkupSerializer.ToXml(host, cancellationToken: cancellation.Token));
+        Expect<OperationCanceledException>(() => MarkupSerializer.ToXmlChildren(host, cancellationToken: cancellation.Token));
+        Expect<OperationCanceledException>(() => MarkupSerializer.ToXml(document.CreateAttribute("a"), cancellationToken: cancellation.Token));
+        Expect<ArgumentOutOfRangeException>(() => _ = new SerializationLimits { MaxOutputCharacters = -1 });
+        Expect<DomException>(() => MarkupSerializer.ToXml(Document.CreateXml(), true));
+        Expect<ArgumentException>(() => MarkupSerializer.ToHtmlChildren(document.CreateTextNode("x")));
+        Expect<ArgumentException>(() => _ = new HtmlSerializationOptions(shadowRoots: new ShadowRoot[] { null! }));
+    }
+
+    private static void CheckXPath()
+    {
+        var document = MarkupParser.ParseXml("<!DOCTYPE r [<!ATTLIST item key ID #IMPLIED>]>" +
+            "<r xmlns:p='urn:p'><item key='one'>a<![CDATA[b]]></item><p:next/></r>");
+        var root = document.DocumentElement!;
+        var item = (Element) root.FirstChild!;
+        var id = item.GetAttributeNode("key")!;
+        Require(ReferenceEquals(NativeXPath.Select(document, "id('one')").Single(), item), "XPath ID typing was lost.");
+        var expression = NativeXPath.Compile("//item/text()");
+        Require(expression.Source == "//item/text()" && expression.ReturnType == XPathResultType.NodeSet,
+            "Prepared XPath metadata changed.");
+        var snapshot = NativeXPath.Evaluate(document, expression);
+        Require(snapshot.ResultType == XPathResultType.NodeSet && snapshot.Nodes.Count == 1 &&
+            ReferenceEquals(snapshot.Nodes[0], item.FirstChild) && snapshot.FirstNodeStringValue == "ab",
+            "XPath text-run identity or value changed.");
+        Require(NativeXPath.Evaluate(document, "count(//item)").NumberValue == 1 &&
+            NativeXPath.Evaluate(document, "boolean(//item)").BooleanValue &&
+            NativeXPath.Evaluate(document, "string(//item)").StringValue == "ab", "XPath scalar kinds failed.");
+        Expect<InvalidOperationException>(() => _ = snapshot.NumberValue);
+        Expect<XPathException>(() => NativeXPath.Select(document, "count(//item)"));
+        Require(snapshot.Nodes is IList<object> readOnly && readOnly.IsReadOnly, "XPath nodes are not read-only.");
+        ((Text) item.FirstChild!).Data = "new";
+        Require(snapshot.FirstNodeStringValue == "ab", "An XPath snapshot retained a live string-value.");
+
+        var resolver = new XmlNamespaceManager(new NameTable());
+        resolver.AddNamespace("p", "urn:p");
+        var namespaced = NativeXPath.Compile("//p:next", resolver);
+        Require(ReferenceEquals(NativeXPath.Select(document, namespaced).Single(), item.NextSibling),
+            "XPath namespace resolution failed.");
+        var other = MarkupParser.ParseXml("<r xmlns:p='urn:p'><p:next/></r>");
+        Require(ReferenceEquals(NativeXPath.Evaluate(other, namespaced).Nodes.Single(), other.DocumentElement!.FirstChild),
+            "A prepared expression retained its first document.");
+        Require(ReferenceEquals(NativeXPath.Select(item, "@key").Single(), id), "XPath replaced attribute identity.");
+        id.Value = "two";
+        Require(NativeXPath.Select(document, "id('one')").Count == 0 &&
+            ReferenceEquals(NativeXPath.Select(document, "id('two')").Single(), item), "XPath ID mutation was stale.");
+        other.DocumentElement!.AppendChild(other.ImportNode(item, true));
+        Require(NativeXPath.Select(other, "id('two')").Count == 1, "Import lost XPath ID typing.");
+        var detached = document.CreateAttribute("detached");
+        detached.Value = "value";
+        var self = NativeXPath.Compile("self::node()");
+        Require(ReferenceEquals(NativeXPath.Select(detached, self).Single(), detached) &&
+            ReferenceEquals(NativeXPath.Evaluate(detached, self).Nodes.Single(), detached) &&
+            NativeXPath.Evaluate(detached, "count(following::node()) + 1").NumberValue == 1 &&
+            NativeXPath.Select(detached, "following::node()").Count == 0, "Detached XPath attribute axes failed.");
+
+        var binding = (XPathNamespaceBinding) NativeXPath.Select(item, "namespace::p").Single();
+        Require(ReferenceEquals(binding.OwnerElement, item) && binding.Prefix == "p" && binding.NamespaceUri == "urn:p",
+            "XPath namespace identity was not exposed.");
+        Require(NativeXPath.Evaluate(binding, "string(.)").StringValue == "urn:p" &&
+            NativeXPath.Evaluate(binding, self).Nodes.Single() is XPathNamespaceBinding &&
+            ReferenceEquals(NativeXPath.Select(binding, "..").Single(), item) &&
+            NativeXPath.Select(binding, self).Single() is XPathNamespaceBinding, "Namespace-context overloads failed.");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:changed");
+        Expect<InvalidOperationException>(() => NativeXPath.Select(binding, self));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        Expect<OperationCanceledException>(() => NativeXPath.Compile(".", cancellationToken: cancelled.Token));
+        Expect<OperationCanceledException>(() => NativeXPath.Evaluate(document, self, cancelled.Token));
+        Expect<OperationCanceledException>(() => NativeXPath.Select(detached, self, cancelled.Token));
+    }
+
+    private static void Expect<T>(Action action) where T : Exception
+    {
+        try { action(); }
+        catch (T) { return; }
+        throw new InvalidOperationException("Expected " + typeof(T).Name + ".");
     }
 
     private static void CheckHtml()

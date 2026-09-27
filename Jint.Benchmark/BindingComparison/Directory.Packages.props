@@ -1,4 +1,0 @@
-<Project>
-  <!-- This experiment deliberately has two incompatible dependency graphs. -->
-  <PropertyGroup><ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally></PropertyGroup>
-</Project>
