@@ -26,7 +26,7 @@ internal sealed partial class CssDeclarationBlock
     }
     private readonly record struct RawEntry(string Name, Materialization Input);
 
-    private static RawEntry[] Retain(string source, IReadOnlyList<CssDeclarationSyntax> declarations, int depth, CssValueWork work)
+    private static RawEntry[] Retain(string source, IReadOnlyList<CssDeclarationSyntax> declarations, CssDeclarationContext context, int depth, CssValueWork work)
     {
         var result = new RawEntry[declarations.Count];
         for (var i = 0; i < result.Length; i++)
@@ -34,7 +34,7 @@ internal sealed partial class CssDeclarationBlock
             work.Charge(1);
             var syntax = declarations[i];
             work.Charge(syntax.Name.Length);
-            var name = CssPropertyEffects.Canonical(CssPropertyRegistry.NormalizeName(syntax.Name, work));
+            var name = NormalizeName(syntax.Name, context, work);
             result[i] = new(name, new(source, syntax, depth, null));
         }
         work.CheckCancellation();
@@ -61,7 +61,7 @@ internal sealed partial class CssDeclarationBlock
             work.Charge(1);
             var raw = _raw[i];
             var names = new HashSet<string>(StringComparer.Ordinal) { raw.Name };
-            foreach (var name in CssPropertyEffects.Longhands(raw.Name)) { work.Charge(name.Length); names.Add(name); }
+            foreach (var name in _context == CssDeclarationContext.FontFace ? [] : CssPropertyEffects.Longhands(raw.Name)) { work.Charge(name.Length); names.Add(name); }
             if (CssPropertyRegistry.Find(raw.Name, _context) is { } metadata)
                 foreach (var name in metadata.ResetOnlyLonghands) { work.Charge(name.Length); names.Add(name); }
             foreach (var name in names)
@@ -89,6 +89,7 @@ internal sealed partial class CssDeclarationBlock
     internal IReadOnlyList<string> CustomPropertyNames(CssValueWork work)
     {
         work = ResolutionWork(work);
+        if (_context == CssDeclarationContext.FontFace) return Array.Empty<string>();
         var names = new List<string>();
         foreach (var name in Index(work).Keys)
         {
@@ -114,13 +115,13 @@ internal sealed partial class CssDeclarationBlock
     internal CssDeclaration? ResolveProperty(string name, CssValueWork work)
     {
         work = ResolutionWork(work);
-        name = CssPropertyEffects.Canonical(CssPropertyRegistry.NormalizeName(name, work));
+        name = NormalizeName(name, _context, work);
         work.Charge(name.Length);
         if (_resolved.TryGetValue(name, out var cached)) return cached;
         var index = Index(work);
         index.TryGetValue(name, out var direct);
         List<int>? all = null;
-        if (name != "all" && CssPropertyEffects.ResetByAll(name)) index.TryGetValue("all", out all);
+        if (_context != CssDeclarationContext.FontFace && name != "all" && CssPropertyEffects.ResetByAll(name)) index.TryGetValue("all", out all);
         var a = 0;
         var b = 0;
         CssDeclaration? winner = null;
@@ -160,6 +161,7 @@ internal sealed partial class CssDeclarationBlock
     {
         work = ResolutionWork(work);
         work.Charge(name.Length);
+        if (_context == CssDeclarationContext.FontFace) return null;
         if (!name.StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException("A custom property is required.", nameof(name));
         if (_customResolved.TryGetValue(name, out var cached)) return cached;
         CssCustomDeclaration? winner = null;
@@ -243,7 +245,7 @@ internal sealed partial class CssDeclarationBlock
     {
         work = ResolutionWork(work);
         var targets = new HashSet<string>(StringComparer.Ordinal) { name };
-        foreach (var longhand in CssPropertyEffects.Longhands(name)) { work.Charge(longhand.Length); targets.Add(longhand); }
+        foreach (var longhand in _context == CssDeclarationContext.FontFace ? [] : CssPropertyEffects.Longhands(name)) { work.Charge(longhand.Length); targets.Add(longhand); }
         var prior = new Dictionary<string, CssDeclaration?>(StringComparer.Ordinal);
         foreach (var target in targets)
         {
@@ -259,12 +261,12 @@ internal sealed partial class CssDeclarationBlock
         {
             work.Charge(1);
             var correlated = targets.Contains(raw.Name);
-            foreach (var longhand in CssPropertyEffects.Longhands(raw.Name))
+            foreach (var longhand in _context == CssDeclarationContext.FontFace ? [] : CssPropertyEffects.Longhands(raw.Name))
             {
                 work.Charge(longhand.Length);
                 correlated |= targets.Contains(longhand);
             }
-            if (CssPropertyEffects.AffectsAll(raw.Name))
+            if (_context != CssDeclarationContext.FontFace && CssPropertyEffects.AffectsAll(raw.Name))
                 foreach (var target in targets)
                 {
                     work.Charge(target.Length);

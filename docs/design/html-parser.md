@@ -163,11 +163,12 @@ internal with a signed friend grant until an external consumer demonstrates that
 
 ```csharp
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css;
 
 Document html = MarkupParser.ParseHtml("<p>Hello <b>world</b>");
 Document xml = MarkupParser.ParseXml("<items><item id='a'/></items>");
 Document svg = MarkupParser.ParseSvg("<svg xmlns='http://www.w3.org/2000/svg'/>");
-CssStyleSheet css = MarkupParser.ParseCss("p { color: red }");
+CssStyleSheetSyntax css = MarkupParser.ParseCss("p { color: red }");
 DocumentFragment fragment = MarkupParser.ParseHtmlFragment("<td>x", tableRow);
 CssDeclarationBlock style = MarkupParser.ParseCssDeclarations("color:red; width:2em");
 
@@ -191,7 +192,7 @@ public static class MarkupParser
         XmlParseOptions? options = null, CancellationToken cancellationToken = default);
     public static Document ParseSvg(string source, XmlParseOptions? options = null,
         CancellationToken cancellationToken = default);
-    public static CssStyleSheet ParseCss(string source, CssParseOptions? options = null,
+    public static CssStyleSheetSyntax ParseCss(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default);
     public static CssDeclarationBlock ParseCssDeclarations(string source,
         CssParseOptions? options = null, CancellationToken cancellationToken = default);
@@ -229,13 +230,13 @@ or `ParseHtmlFragment` for HTML semantics. X1 owns XML document and fragment par
 
 All entry points consume the whole input according to the named grammar; no successful single-item
 parse silently leaves a second item unread. Syntax results own their retained data and are usable after
-the source/session is released. `CssRuleSyntax` and `CssDeclarationSyntax` are syntax objects, distinct
+the source/session is released. `CssStyleSheetSyntax`, `CssRuleSyntax` and `CssDeclarationSyntax` are syntax objects, distinct
 from mutable CSSOM rules and validated declarations. This makes an unknown at-rule or property available
 to a standalone consumer without claiming the browser implements its semantics.
 
 | Entry point | Return and failure contract | Owner |
 | --- | --- | --- |
-| `ParseCss` | Mutable `CssStyleSheet`; standard stylesheet recovery, invalid declarations/rules omitted as required; empty source succeeds | C4 over C1 |
+| `ParseCss` | Immutable `CssStyleSheetSyntax` with exact `Source` and read-only `Rules`; standard whole-sheet CSS Syntax recovery, unknown rules and unvalidated property contents retained; empty source succeeds | C1 |
 | `ParseCssDeclarations` | Mutable validated `CssDeclarationBlock`; declaration-list recovery and importance/cascade ordering; empty source succeeds | C4/C5 |
 | `ParseCssRule` | One `CssRuleSyntax`, including opaque unknown at-rule syntax; `CssParseException` if the single-rule grammar returns failure or trailing non-whitespace input remains | C1 |
 | `ParseCssDeclaration` | One `CssDeclarationSyntax` containing property name, component values and importance; `CssParseException` on structural failure; does not assert property support | C1 |
@@ -243,6 +244,16 @@ to a standalone consumer without claiming the browser implements its semantics.
 | `ParseCssComponentValues` | Immutable sequence, empty allowed; CSS Syntax token/block recovery, optionally diagnosed; no property grammar claim | C1 |
 | `ParseCssValue` | `CssValueParseResult` with `Valid`, `Invalid` or `UnsupportedProperty`; `Value` exists only for `Valid`, with deferred substitution represented explicitly; parses property grammar, does not compute a style | C5 |
 | `ParseSelector` | Immutable `SelectorProgram` for a selector list; `SelectorParseException` for invalid syntax, unresolved namespace prefix or unsupported selector construct; no forgiving fallback outside grammar-defined forgiving lists | C2 |
+
+`ParseCss` is a cold syntax facade, amending the original proposal of a mutable validated stylesheet
+return. Its sealed result has no public constructor and owns the completed rules behind a genuinely
+read-only collection; nested components and spans remain the existing public syntax objects. It retains
+the immutable original source without retaining the parser, options, diagnostic collector or host.
+The existing limits, diagnostics, checkpoints and cancellation apply, including a final cancellation
+check before publication. It adds no strictness mode, selector compilation, property validation,
+cascade, geometry, attachment, URL resolution or loading. Public mutable CSSOM promotion remains C4
+work, and the equivalent CSSOM benchmark row below remains separate; this syntax facade does not
+establish that parity or a replacement performance claim.
 
 The standalone single-declaration wrapper permits one terminating semicolon and surrounding whitespace,
 but rejects a second declaration or other trailing content. It wraps CSS Syntax's declaration consumer

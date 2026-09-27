@@ -1,12 +1,12 @@
 # jint-browser
 
 A headless browser on the command line, from [Jint](https://github.com/sebastienros/jint) and
-[AngleSharp](https://anglesharp.github.io/). It parses HTML, runs a page's scripts against a real DOM,
+[Jint.HtmlParser](../Jint.HtmlParser/README.md). It parses HTML, runs a page's scripts against a real DOM,
 follows its network, and answers what the page turned out to be — as markdown, as text, as its accessibility
 tree, or over the Chrome DevTools Protocol so that Puppeteer and Playwright can drive it.
 
-**It renders nothing.** There is no layout, no pixels, no screenshots and no PDFs, and there is no browser to
-download: it runs in one process. What it costs is a
+**It renders nothing.** Geometry comes from a synthetic flat box model; there are no painted pixels,
+screenshots or PDFs, and there is no browser to download: it runs in one process. What it costs is a
 fraction of Chromium's memory and CPU per page; what it costs you back is wall-clock time, because the
 JavaScript is interpreted.
 

@@ -14,7 +14,8 @@ internal enum CssPropertyGrammar
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
-    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor
+    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor, InsetSide,
+    ContainerName, ContainerType, Container, WritingMode
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -67,6 +68,9 @@ internal static class CssPropertyRegistry
         Add("background-clip", CssPropertyGrammar.BackgroundClip, "border-box");
         Add("opacity", CssPropertyGrammar.Opacity, "1");
         Add("position", CssPropertyGrammar.Position, "static");
+        // Positioned Layout 3 §3.1. Physical longhands only; signed length-percentage values.
+        foreach (var side in new[] { "top", "right", "bottom", "left" })
+            Add(side, CssPropertyGrammar.InsetSide, "auto");
         Add("pointer-events", CssPropertyGrammar.PointerEvents, "auto", true);
         // CSS UI 4 §5.1.1. Image cursors retain an explicit pending boundary.
         Add("cursor", CssPropertyGrammar.Cursor, "auto", true);
@@ -97,6 +101,11 @@ internal static class CssPropertyRegistry
         Add("flex-direction", CssPropertyGrammar.FlexDirection, "row");
         Add("flex-wrap", CssPropertyGrammar.FlexWrap, "nowrap");
         Add("direction", CssPropertyGrammar.Direction, "ltr", true);
+        // Conditional 5 §§5.1–5.3; Writing Modes 4 §3.
+        Add("writing-mode", CssPropertyGrammar.WritingMode, "horizontal-tb", true);
+        Add("container-name", CssPropertyGrammar.ContainerName, "none");
+        Add("container-type", CssPropertyGrammar.ContainerType, "normal");
+        Shorthand("container", CssPropertyGrammar.Container, "none", ["container-name", "container-type"]);
         // CSS Fonts 4 §2.2. Descriptors remain a separate context obligation.
         Add("font-weight", CssPropertyGrammar.FontWeight, "normal", true);
         // CSS Fonts 4 §2.5; the host initial font size supplies medium at computation.

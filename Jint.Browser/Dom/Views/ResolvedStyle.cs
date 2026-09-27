@@ -14,6 +14,27 @@ namespace Jint.Browser.Dom.Views;
 // CSSOM §9 resolved values: used geometry belongs to Browser, not property syntax or cascade.
 internal static class ResolvedStyle
 {
+    // CSSOM §9: static/no-box insets retain their computed values. Used positioned
+    // insets need a positioning model; the flat row model cannot supply that dependency.
+    internal static string Inset(NativeCssComputedStyle style, NativeCssProperty property,
+        Element element, PageRuntime? runtime)
+    {
+        style.VerifyRead();
+        if (style.GetPropertyValue("position") == "static" || style.GetPropertyValue("display") is "none" or "contents" ||
+            !Connected(element, style.Work))
+        {
+            style.VerifyRead();
+            return property.Text;
+        }
+        if (runtime is null || !ReferenceEquals(runtime.Document, element.OwnerDocument))
+            throw new CssIncompleteGrammarException(property.Name, "C6:positioned-inset", property.Value?.Span ?? default);
+        var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
+        var hasBox = sizes.HasBox(element);
+        style.VerifyRead();
+        if (!hasBox) return property.Text;
+        throw new CssIncompleteGrammarException(property.Name, "C6:positioned-inset", property.Value?.Span ?? default);
+    }
+
     // Only the transform list contributes: no origin, ancestors or individual transforms.
     // Transforms 2 §2.1 and Transforms 1 §6: HTML view-box/stroke-box use border-box.
     internal static string Transform(NativeCssComputedStyle style, NativeCssProperty property,
@@ -34,7 +55,7 @@ internal static class ResolvedStyle
             if (box is "content-box" or "fill-box") throw Missing("transform-content-box");
             if (box is not ("view-box" or "border-box" or "stroke-box")) throw Missing("transform-reference-box");
             style.VerifyRead();
-            var sizes = runtime.Layout.MeasureSizes();
+            var sizes = style.ReadContext is { } context ? runtime.Layout.MeasureSizes(context) : runtime.Layout.MeasureSizes();
             if (!sizes.HasBox(element)) throw Missing("transform-reference-box");
             // These are untransformed synthetic flat dimensions (inherited/flex width and row height),
             // not a claim of full CSS padding/border geometry. Never Place or use FlatBox.Empty.
@@ -92,6 +113,8 @@ internal static class ResolvedStyle
                 return Finish(shorthand);
             }
             if (name == "transform") return Transform(style, style.GetNormalizedProperty(name), element, runtime);
+            if (name is "top" or "right" or "bottom" or "left")
+                return Inset(style, style.GetNormalizedProperty(name), element, runtime);
             var dimensions = name is "width" or "height";
             var minimum = name is "min-width" or "min-height";
             var edge = name is "margin-top" or "margin-right" or "margin-bottom" or "margin-left" or
@@ -152,13 +175,13 @@ internal static class ResolvedStyle
             if (!needsBasis) return Finish(property.Text);
             if (element.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
             if (Positioned()) throw Missing(name, "positioned-containing-block");
-            // writing-mode is still pending: absence has its horizontal initial semantics, while
-            // an authored candidate is an explicit dependency, never a guessed vertical basis.
+            // The finite writing-mode metadata supplies actual horizontal semantics. Other modes
+            // retain a named dependency rather than borrowing the physical width.
             for (Element? ancestor = element; ancestor is not null; ancestor = ancestor.ParentNode as Element)
             {
                 style.Work.Charge(1);
                 var ancestorStyle = style.For(ancestor);
-                if (ancestorStyle.HasPropertyInput("writing-mode")) throw Missing(name, "writing-mode");
+                if (ancestorStyle.GetPropertyValue("writing-mode") != "horizontal-tb") throw Missing(name, "writing-mode");
                 if (ancestor.NamespaceUri != Namespaces.Html) throw Missing(name, "svg-containing-block");
                 if (ancestorStyle.GetPropertyValue("position") != "static") throw Missing(name, "positioned-containing-block");
             }
@@ -193,7 +216,7 @@ internal static class ResolvedStyle
                 Verify();
                 if (sharedSizes is null)
                 {
-                    sharedSizes = runtime!.Layout.MeasureSizes();
+                    sharedSizes = style.ReadContext is { } context ? runtime!.Layout.MeasureSizes(context) : runtime!.Layout.MeasureSizes();
                     revision = runtime.Layout.Version;
                 }
                 Verify();

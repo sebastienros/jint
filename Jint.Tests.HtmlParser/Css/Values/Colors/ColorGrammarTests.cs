@@ -243,7 +243,7 @@ public sealed class ColorGrammarTests
         CssPropertyRegistry.Completed["background-color"].InitialValue.Should().Be("transparent");
         CssPropertyRegistry.Completed["background-color"].Inherited.Should().BeFalse();
         CssPropertyParser.Parse("color", "inherit").Value.Kind.Should().Be(CssPropertyValueKind.Keyword);
-        CssPropertyParser.Parse("color", "red", CssDeclarationContext.FontFace).Status.Should().Be(CssPropertyStatus.UnimplementedGrammar);
+        CssPropertyParser.Parse("color", "red", CssDeclarationContext.FontFace).Status.Should().Be(CssPropertyStatus.UnsupportedProperty);
         CssPropertyParser.Parse("color", "red", CssDeclarationContext.Keyframe).Status.Should().Be(CssPropertyStatus.Valid);
         CssPropertyParser.Parse("border-color", "red").Status.Should().Be(CssPropertyStatus.UnimplementedGrammar);
     }

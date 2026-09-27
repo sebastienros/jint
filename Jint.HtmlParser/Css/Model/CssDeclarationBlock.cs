@@ -4,6 +4,7 @@ using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
+using Jint.HtmlParser.Css.Values.Descriptors;
 using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.HtmlParser.Css.Model;
@@ -56,7 +57,7 @@ internal sealed partial class CssDeclarationBlock
         if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
         ArgumentOutOfRangeException.ThrowIfNegative(maximumNestingDepth);
         var result = new CssDeclarationBlock(context);
-        if (context == CssDeclarationContext.Keyframe)
+        if (context is CssDeclarationContext.Keyframe or CssDeclarationContext.FontFace)
         {
             var normal = new List<CssDeclarationSyntax>();
             foreach (var declaration in declarations)
@@ -66,7 +67,7 @@ internal sealed partial class CssDeclarationBlock
             }
             declarations = normal;
         }
-        result._raw = Retain(source, declarations, maximumNestingDepth, work);
+        result._raw = Retain(source, declarations, context, maximumNestingDepth, work);
         work.CheckCancellation();
         return result;
     }
@@ -82,8 +83,8 @@ internal sealed partial class CssDeclarationBlock
     internal string GetPropertyValue(string name, CssValueWork work)
     {
         work.CheckCancellation();
-        name = CssPropertyRegistry.NormalizeName(name, work);
-        if (Shorthand(name) is { } shorthand) return ShorthandValue(ResolveShorthand(shorthand, work), shorthand, work);
+        name = NormalizeName(name, _context, work);
+        if (Shorthand(name, _context) is { } shorthand) return ShorthandValue(ResolveShorthand(shorthand, work), shorthand, work);
         var entry = ResolveProperty(name, work);
         work.CheckCancellation();
         return entry is null || entry.PendingShorthand is not null ? "" : EntryValue(entry, work);
@@ -94,8 +95,8 @@ internal sealed partial class CssDeclarationBlock
     internal string GetPropertyPriority(string name, CssValueWork work)
     {
         work.CheckCancellation();
-        name = CssPropertyRegistry.NormalizeName(name, work);
-        if (Shorthand(name) is { } shorthand)
+        name = NormalizeName(name, _context, work);
+        if (Shorthand(name, _context) is { } shorthand)
         {
             foreach (var longhand in shorthand.Longhands)
             {
@@ -120,9 +121,10 @@ internal sealed partial class CssDeclarationBlock
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(work);
+        work = ResolutionWork(work);
         work.CheckCancellation();
         work.Charge(name.Length);
-        name = CssPropertyRegistry.NormalizeName(name, work);
+        name = NormalizeName(name, _context, work);
         if (value.Length == 0)
         {
             RemoveProperty(name, work);
@@ -144,7 +146,7 @@ internal sealed partial class CssDeclarationBlock
         Install(replacement, name, result.Value, !string.IsNullOrEmpty(priority),
             new CssSourceSpan(0, value.Length), work,
             LexicalText(result.Value, value, parser.TrimLexicalBoundaryWhitespace(0, value.Length, components), work),
-            parser.ValueTermination(components, new CssSourceSpan(0, value.Length), work));
+            parser.ValueTermination(components, new CssSourceSpan(0, value.Length), work), context: _context);
         CommitTarget(name, replacement, work);
     }
 
@@ -152,9 +154,10 @@ internal sealed partial class CssDeclarationBlock
 
     internal string RemoveProperty(string name, CssValueWork work)
     {
+        work = ResolutionWork(work);
         work.CheckCancellation();
         work.Charge(name.Length);
-        name = CssPropertyRegistry.NormalizeName(name, work);
+        name = NormalizeName(name, _context, work);
         if (CssPropertyParser.NameFailure(name, _context) is { } failure)
             RequireCompleted(name, failure, default);
         var oldValue = GetPropertyValue(name, work);
@@ -169,6 +172,7 @@ internal sealed partial class CssDeclarationBlock
     internal void ReplaceText(string source, CssParseOptions? options, CssValueWork work,
         CancellationToken cancellationToken)
     {
+        work = ResolutionWork(work);
         var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
         ReplaceDeclarations(source, syntax, options?.Limits.MaxNestingDepth ?? 0, work);
     }
@@ -176,6 +180,7 @@ internal sealed partial class CssDeclarationBlock
     internal void ReplaceDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
         int maximumNestingDepth, CssValueWork work)
     {
+        work = ResolutionWork(work);
         var replacement = FromDeclarations(source, declarations, _context, maximumNestingDepth, work);
         var entries = replacement.ResolveAll(work);
         work.CheckCancellation();
@@ -203,9 +208,9 @@ internal sealed partial class CssDeclarationBlock
         {
             work.Charge(1);
             var declaration = declarations[i];
-            if (context == CssDeclarationContext.Keyframe && declaration.IsImportant) continue;
+            if (context is CssDeclarationContext.Keyframe or CssDeclarationContext.FontFace && declaration.IsImportant) continue;
             work.Charge(declaration.Name.Length);
-            var name = CssPropertyRegistry.NormalizeName(declaration.Name, work);
+            var name = NormalizeName(declaration.Name, context, work);
             var input = CssReferenceInput.FromComponents(source, declaration.Value, depth,
                 declaration.ValueSourceSpan, work, declaration.ValueSerializationSpan, declaration.ValueTermination);
             var result = CssPropertyParser.Parse(name, input, context, work);
@@ -213,7 +218,7 @@ internal sealed partial class CssDeclarationBlock
             if (result.Status is CssPropertyStatus.Valid or CssPropertyStatus.Deferred)
                 Install(entries, name, result.Value, declaration.IsImportant, declaration.Span, work,
                     LexicalText(result.Value, source, declaration.ValueSerializationSpan, work),
-                    declaration.ValueTermination, winners);
+                    declaration.ValueTermination, winners, context);
         }
         var ordered = new List<CssDeclaration>(winners.Count);
         foreach (var entry in entries)
@@ -236,9 +241,9 @@ internal sealed partial class CssDeclarationBlock
 
     private static void Install(List<CssDeclaration> entries, string name, CssPropertyValue value,
         bool important, CssSourceSpan span, CssValueWork work, string? lexicalText = null,
-        string termination = "", Dictionary<string, CssDeclaration>? winners = null)
+        string termination = "", Dictionary<string, CssDeclaration>? winners = null, CssDeclarationContext context = CssDeclarationContext.Style)
     {
-        var shorthand = Shorthand(name);
+        var shorthand = Shorthand(name, context);
         if (shorthand is null)
         {
             InstallEntry(entries, new CssDeclaration(name, value, important, span, null, lexicalText, termination), work, winners);
@@ -290,8 +295,11 @@ internal sealed partial class CssDeclarationBlock
         return null;
     }
 
-    private static CssPropertyMetadata? Shorthand(string name) =>
-        CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } entry ? entry : null;
+    private static string NormalizeName(string name, CssDeclarationContext context, CssValueWork work) =>
+        context == CssDeclarationContext.FontFace ? CssFontFaceDescriptorCatalog.NormalizeName(name, work) : CssPropertyRegistry.NormalizeName(name, work);
+
+    private static CssPropertyMetadata? Shorthand(string name, CssDeclarationContext context = CssDeclarationContext.Style) =>
+        context != CssDeclarationContext.FontFace && CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } entry ? entry : null;
 
     internal static CssDeclaration[] ExpandValue(string name, CssPropertyValue value, CssValueWork work)
     {
@@ -330,6 +338,8 @@ internal sealed partial class CssDeclarationBlock
             anyWide |= IsWide(values[i]);
         }
         if (anyWide) return allEqual ? values[0] : "";
+        if (shorthand.Grammar == CssPropertyGrammar.Container)
+            return values[1] == "normal" ? values[0] : values[0] + " / " + values[1];
         if (shorthand.Grammar == CssPropertyGrammar.WhiteSpace)
             return CssWhiteSpacePropertyParser.Serialize(values[0], values[1], values[2], work);
         if (shorthand.Grammar == CssPropertyGrammar.TextAlign)
@@ -390,7 +400,7 @@ internal sealed partial class CssDeclarationBlock
         foreach (var metadata in CssPropertyRegistry.Completed.Values)
         {
             work.Charge(1);
-            if (metadata.Longhands.Count != 0)
+            if (_context != CssDeclarationContext.FontFace && metadata.Longhands.Count != 0)
                 shorthandValues.Add(metadata.Name, ShorthandValue(_entries, metadata, work));
         }
         foreach (var entry in _entries)

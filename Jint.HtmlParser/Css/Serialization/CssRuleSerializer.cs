@@ -75,7 +75,8 @@ internal static class CssRuleSerializer
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;
                 work.Charge(condition.Length);
-                builder.Append(conditionRule is CssMediaRule ? "@media " : "@supports ").Append(condition).Append(" {");
+                builder.Append(conditionRule switch { CssMediaRule => "@media ", CssContainerRule => "@container ", _ => "@supports " })
+                    .Append(condition).Append(" {");
                 if (conditionRule.Rules.Count != 0) builder.Append('\n');
                 frames.Push(new Frame(conditionRule.Rules, conditionRule, start));
             }
@@ -92,6 +93,16 @@ internal static class CssRuleSerializer
                 var declarations = keyframe.Style.Serialize(work);
                 work.Charge(keyframe.KeyText.Length + declarations.Length);
                 builder.Append(keyframe.KeyText).Append(" { ").Append(declarations);
+                if (declarations.Length != 0) builder.Append(' ');
+                builder.Append('}');
+                ranges?.Add(rule, new CssTextRange(start, builder.Length));
+            }
+            else if (rule is CssFontFaceRule fontFace)
+            {
+                // Fonts 4 §12.1; serialize the declaration block, including font-display.
+                var declarations = fontFace.Style.Serialize(work);
+                builder.Append("@font-face { ").Append(declarations);
+                work.Charge(declarations.Length);
                 if (declarations.Length != 0) builder.Append(' ');
                 builder.Append('}');
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));

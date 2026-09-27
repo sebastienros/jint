@@ -266,7 +266,8 @@ public sealed class WindowTests
         var weight = await page.EvaluateAsync<string>(
             "getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')");
 
-        weight.Should().Be("bold");
+        weight.Should().Be("700");
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[0].style.fontWeight")).Should().Be("bold");
     }
 
     [Test]

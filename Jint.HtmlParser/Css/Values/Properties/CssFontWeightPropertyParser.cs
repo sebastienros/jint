@@ -13,9 +13,14 @@ internal static class CssFontWeightPropertyParser
     internal static CssPropertyResult Parse(CssReferenceInput input, List<CssComponentValue> parts, CssValueWork work)
     {
         if (parts.Count != 1) return Invalid();
-        if (CssPropertyParser.Keyword(parts[0], "normal bold bolder lighter", work) is { } keyword)
-            return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, parts[0].Span));
-        var atom = CssPrimitiveParser.ParseNumericAtom(input.Components, work);
+        return ParseComponent(parts[0], input.MaxNestingDepth, work);
+    }
+
+    internal static CssPropertyResult ParseComponent(CssComponentValue part, int maximumDepth, CssValueWork work)
+    {
+        if (CssPropertyParser.Keyword(part, "normal bold bolder lighter", work) is { } keyword)
+            return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
+        var atom = CssPrimitiveParser.ParseNumericAtom(new CssComponentValueList([part]), work);
         if (atom.IsMatch)
         {
             if (atom.Value.Kind != CssNumericKind.Number || !Range.Contains(atom.Value.Number, work)) return Invalid();
@@ -24,8 +29,8 @@ internal static class CssFontWeightPropertyParser
                 CssMathSerializer.SerializeFiniteNumber(number, work)));
         }
         var context = new CssMathContext(CssMathProduction.Number, CssMathPercentageMode.Forbidden,
-            new CssMathRange(1, 1000), input.MaxNestingDepth);
-        var math = CssMathParser.ParseMath(parts[0], context, work);
+            new CssMathRange(1, 1000), maximumDepth);
+        var math = CssMathParser.ParseMath(part, context, work);
         return math.Status switch
         {
             CssMathParseStatus.Match => CssPropertyResult.Accepted(CssPropertyValue.Calculation(math.Value,

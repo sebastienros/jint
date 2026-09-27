@@ -98,7 +98,7 @@ public sealed class TransformPropertyGrammarTests
         }
         CssPropertyParser.Parse(name, "var(--value)").Status.Should().Be(CssPropertyStatus.Deferred);
         CssPropertyParser.Parse(name, "none", CssDeclarationContext.FontFace).Status
-            .Should().Be(CssPropertyStatus.UnimplementedGrammar);
+            .Should().Be(CssPropertyStatus.UnsupportedProperty);
         CssPropertyRegistry.Completed[name].Inherited.Should().BeFalse();
         CssPropertyRegistry.Completed[name].InitialValue.Should().Be("none");
         CssPropertyParser.Parse("transform", "translate(1px)").Status.Should().Be(CssPropertyStatus.Valid);

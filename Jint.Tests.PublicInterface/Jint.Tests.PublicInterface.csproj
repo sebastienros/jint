@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" Condition="'$(TargetFramework)' != 'net472'" />
     <!--
       The [JsAccessible] generator is consumed here the way a third party consumes it, which is the whole
       reason the fixture is in this project and not in Jint.Tests: this is the only suite without

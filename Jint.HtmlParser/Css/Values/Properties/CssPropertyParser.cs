@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jint.HtmlParser.Css.Values.Descriptors;
 using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
@@ -27,6 +28,7 @@ internal static class CssPropertyParser
         CssDeclarationContext context, CssValueWork work)
     {
         if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
+        if (context == CssDeclarationContext.FontFace) return CssFontFaceDescriptorParser.Parse(name, input, work);
         work.Charge(name.Length);
         name = CssPropertyRegistry.NormalizeName(name, work);
         var ordinary = context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe;
@@ -69,6 +71,8 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
+        if (entry.Grammar == CssPropertyGrammar.InsetSide)
+            return CssInsetPropertyParser.Parse(parts, input.MaxNestingDepth, work);
         if (entry.Grammar == CssPropertyGrammar.Cursor)
             return CssCursorPropertyParser.Parse(parts, work);
         if (entry.Grammar == CssPropertyGrammar.BackgroundClip)
@@ -100,6 +104,9 @@ internal static class CssPropertyParser
         if (entry.Grammar is CssPropertyGrammar.AlignItems or CssPropertyGrammar.AlignSelf or
             CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf)
             return CssAlignmentPropertyParser.Parse(entry.Grammar, parts, work);
+        if (entry.Grammar is CssPropertyGrammar.ContainerName or CssPropertyGrammar.ContainerType or
+            CssPropertyGrammar.Container or CssPropertyGrammar.WritingMode)
+            return CssContainerPropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar == CssPropertyGrammar.Display) return Display(parts);
         if (entry.Grammar is CssPropertyGrammar.Opacity or CssPropertyGrammar.ZIndex)
             return Numeric(entry.Grammar, input, parts, work);
@@ -127,6 +134,7 @@ internal static class CssPropertyParser
     // particular, removal must not invent the longhand/reset membership of a pending shorthand.
     internal static CssPropertyResult? NameFailure(string normalizedName, CssDeclarationContext context)
     {
+        if (context == CssDeclarationContext.FontFace) return CssFontFaceDescriptorCatalog.NameFailure(normalizedName);
         var ordinary = context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe;
         if (normalizedName.Length > 2 && normalizedName.StartsWith("--", StringComparison.Ordinal))
             return ordinary ? null : CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);

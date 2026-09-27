@@ -76,7 +76,7 @@ public sealed class PropertyGrammarTests
         CssPropertyCatalog.Obligations.Count.Should().Be(433);
         CssPropertyParser.Parse("border-color", "red").Status.Should().Be(CssPropertyStatus.UnimplementedGrammar);
         CssPropertyParser.Parse("made-up", "red").Status.Should().Be(CssPropertyStatus.UnsupportedProperty);
-        CssPropertyParser.Parse("display", "inline", CssDeclarationContext.FontFace).Blocker.Should().Be("context-audit:FontFace:display");
+        CssPropertyParser.Parse("display", "inline", CssDeclarationContext.FontFace).Status.Should().Be(CssPropertyStatus.UnsupportedProperty);
         Action read = () => _ = default(CssPropertyResult).Value;
         read.Should().Throw<InvalidOperationException>();
     }
