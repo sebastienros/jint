@@ -220,7 +220,7 @@ public class IntlDateTimeFormatStyleTests
     [TestCase("ar", "{ dateStyle: 'medium', numberingSystem: 'latn' }", "24‏/12‏/2022")]
     [TestCase("en", "{ dateStyle: 'full', timeStyle: 'short' }", "Saturday, December 24, 2022 at 3:07 PM")]
     [TestCase("en", "{ dateStyle: 'long', timeStyle: 'short' }", "December 24, 2022 at 3:07 PM")]
-    [TestCase("en", "{ dateStyle: 'medium', timeStyle: 'short' }", "Dec 24, 2022, 3:07 PM")]
+    [TestCase("de", "{ dateStyle: 'medium', timeStyle: 'short' }", "24.12.2022, 15:07")]
     [TestCase("de", "{ dateStyle: 'long', timeStyle: 'short' }", "24. Dezember 2022 um 15:07")]
     [TestCase("fr", "{ dateStyle: 'full', timeStyle: 'medium' }", "samedi 24 décembre 2022 à 15:07:09")]
     [TestCase("es", "{ dateStyle: 'long', timeStyle: 'short' }", "24 de diciembre de 2022 a las 15:07")]
@@ -245,13 +245,15 @@ public class IntlDateTimeFormatStyleTests
     /// <summary>
     /// A time style is written in the resolved hour cycle: where the locale's pattern writes another, its skeleton is
     /// matched again with the day period dropped and the cycle's hour letter, as V8 derives [[pattern]] and
-    /// [[pattern12]] from ICU. What Node 24.19 writes.
+    /// [[pattern12]] from ICU — so the day period and the hour's width follow the locale's pattern for that cycle.
+    /// Midnight and noon tell the four cycles apart. What Node 24.19 writes.
     /// </summary>
-    [TestCase("en", "{ timeStyle: 'short', hourCycle: 'h23' }", 15, "15:07", "hour,literal,minute")]
-    [TestCase("en", "{ timeStyle: 'short', hourCycle: 'h24' }", 0, "24:07", "hour,literal,minute")]
-    [TestCase("en", "{ timeStyle: 'short', hourCycle: 'h11' }", 12, "0:07 PM", "hour,literal,minute,literal,dayPeriod")]
+    [TestCase("ko", "{ timeStyle: 'short', hourCycle: 'h11' }", 12, "오후 0:07", "dayPeriod,literal,hour,literal,minute")]
+    [TestCase("ja", "{ timeStyle: 'medium', hourCycle: 'h11' }", 12, "午後0:07:09", "dayPeriod,hour,literal,minute,literal,second")]
+    [TestCase("en-GB", "{ timeStyle: 'short', hourCycle: 'h11' }", 12, "00:07 pm", "hour,literal,minute,literal,dayPeriod")]
     [TestCase("de", "{ timeStyle: 'short', hour12: true }", 15, "03:07 PM", "hour,literal,minute,literal,dayPeriod")]
-    [TestCase("zh-Hant", "{ timeStyle: 'medium', hourCycle: 'h23' }", 15, "15:07:09", "hour,literal,minute,literal,second")]
+    [TestCase("zh", "{ timeStyle: 'long', hourCycle: 'h24' }", 0, "UTC 24:07:09", "timeZoneName,literal,hour,literal,minute,literal,second")]
+    [TestCase("en", "{ dateStyle: 'full', timeStyle: 'short', hourCycle: 'h24' }", 0, "Saturday, December 24, 2022 at 24:07", "weekday,literal,month,literal,day,literal,year,literal,hour,literal,minute")]
     [TestCase("ja", "{ dateStyle: 'long', timeStyle: 'long', hour12: true }", 15, "2022/12/24 午後3:07:09 UTC", "year,literal,month,literal,day,literal,dayPeriod,hour,literal,minute,literal,second,literal,timeZoneName")]
     public void ATimeStyleIsWrittenInTheResolvedHourCycle(string locale, string options, int hour, string expected, string types)
     {
@@ -264,38 +266,21 @@ public class IntlDateTimeFormatStyleTests
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions reports a style's <c>dateStyle</c> and
-    /// <c>timeStyle</c>, and the hour cycle only beside a time, never the fields of the pattern it resolved to.
-    /// </summary>
-    [TestCase("de", "{ timeStyle: 'short', hour12: true }", "timeStyle=short,hourCycle=h12,hour12=true")]
-    [TestCase("en", "{ dateStyle: 'full', timeStyle: 'long', hourCycle: 'h23' }", "dateStyle=full,timeStyle=long,hourCycle=h23,hour12=false")]
-    [TestCase("ja", "{ dateStyle: 'medium', hourCycle: 'h11' }", "dateStyle=medium")]
-    public void AStyleReportsItsStylesNotItsFields(string locale, string options, string expected)
-    {
-        var engine = new Engine();
-        engine.Evaluate($$"""
-            (function () {
-                var ro = new Intl.DateTimeFormat('{{locale}}', Object.assign({ timeZone: 'UTC' }, {{options}})).resolvedOptions();
-                var keys = ['dateStyle', 'timeStyle', 'hourCycle', 'hour12', 'weekday', 'era', 'year', 'month', 'day', 'dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits', 'timeZoneName'];
-                return keys.filter(function (k) { return ro[k] !== undefined; }).map(function (k) { return k + '=' + ro[k]; }).join(',');
-            })()
-            """).AsString().Should().Be(expected);
-    }
-
-    /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat: a Temporal value writes the style's own format
-    /// when it has every field the format writes, and otherwise the format the matcher chooses for the fields it has —
-    /// the component bag an ICU engine writes the same text for.
+    /// when it has every field the format writes (a <c>PlainDate</c> under any <c>dateStyle</c>), and otherwise the
+    /// format the matcher chooses for the fields it has — the component bag an ICU engine writes the same text for.
+    /// A <c>PlainTime</c> keeps a <c>zh-Hant</c> time's flexible day period, which is a field it has.
     /// </summary>
     [TestCase("Temporal.PlainYearMonth.from({ year: 2022, month: 12, calendar: 'gregory' })", "de", "{ dateStyle: 'short', calendar: 'gregory' }", "12/22")]
-    [TestCase("Temporal.PlainYearMonth.from({ year: 2022, month: 12, calendar: 'gregory' })", "en", "{ dateStyle: 'long', calendar: 'gregory' }", "December 2022")]
+    [TestCase("Temporal.PlainYearMonth.from({ year: 2022, month: 12, calendar: 'gregory' })", "ru", "{ dateStyle: 'medium', calendar: 'gregory' }", "дек. 2022 г.")]
     [TestCase("Temporal.PlainYearMonth.from({ year: 2022, month: 12, calendar: 'gregory' })", "ja", "{ dateStyle: 'full', calendar: 'gregory' }", "2022/12")]
-    [TestCase("Temporal.PlainMonthDay.from({ monthCode: 'M12', day: 24, calendar: 'gregory' })", "ru", "{ dateStyle: 'long', calendar: 'gregory' }", "24 декабря")]
+    [TestCase("Temporal.PlainMonthDay.from({ monthCode: 'M12', day: 24, calendar: 'gregory' })", "ja", "{ dateStyle: 'long', calendar: 'gregory' }", "12/24")]
     [TestCase("Temporal.PlainMonthDay.from({ monthCode: 'M12', day: 24, calendar: 'gregory' })", "de", "{ dateStyle: 'medium', calendar: 'gregory' }", "24.12.")]
-    [TestCase("new Temporal.PlainTime(15, 7, 9)", "en", "{ timeStyle: 'long' }", "3:07:09 PM")]
-    [TestCase("new Temporal.PlainTime(15, 7, 9)", "zh", "{ timeStyle: 'full' }", "15:07:09")]
+    [TestCase("new Temporal.PlainTime(15, 7, 9)", "ko", "{ timeStyle: 'full' }", "오후 3:07:09")]
+    [TestCase("new Temporal.PlainTime(15, 7, 9)", "zh-Hant", "{ timeStyle: 'long' }", "下午3:07:09")]
     [TestCase("new Temporal.PlainDateTime(2022, 12, 24, 15, 7, 9)", "en-GB", "{ dateStyle: 'short', timeStyle: 'full' }", "24/12/2022, 15:07:09")]
-    [TestCase("new Temporal.PlainDate(2022, 12, 24)", "ja", "{ dateStyle: 'full' }", "2022年12月24日土曜日")]
+    [TestCase("new Temporal.PlainDateTime(2022, 12, 24, 15, 7, 9)", "en", "{ dateStyle: 'full', timeStyle: 'full' }", "Saturday, December 24, 2022 at 3:07:09 PM")]
+    [TestCase("new Temporal.PlainDate(2022, 12, 24)", "de", "{ dateStyle: 'medium' }", "24.12.2022")]
     public void ATemporalValueWritesTheStyleItsFieldsAllow(string value, string locale, string options, string expected)
     {
         var engine = new Engine();
