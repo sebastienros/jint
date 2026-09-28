@@ -38,7 +38,8 @@ internal sealed record XmlCaseOutcome(XmlOutcomeKind Kind, string Signature, str
 internal static class XmlConformanceRunner
 {
     internal static XmlCaseOutcome Run(XmlCorpusCase row, XmlCaseExpectation? testExpectation = null,
-        byte[]? testOutput = null, bool usePreparedOverride = false, byte[]? testPrepared = null)
+        byte[]? testOutput = null, bool usePreparedOverride = false, byte[]? testPrepared = null,
+        bool ignoreReviewedExpectation = false)
     {
         var bytes = XmlCorpus.Bytes(row.InputPath);
         string? source;
@@ -70,6 +71,11 @@ internal static class XmlConformanceRunner
             return new(XmlOutcomeKind.HarnessFailure, "unknown-disposition", row.Disposition);
 
         var hasReviewedExpectation = XmlExpectations.Reviewed.TryGetValue(row.Key, out var reviewed);
+        if (ignoreReviewedExpectation)
+        {
+            reviewed = null;
+            hasReviewedExpectation = false;
+        }
         if (testExpectation is not null)
         {
             reviewed = testExpectation;

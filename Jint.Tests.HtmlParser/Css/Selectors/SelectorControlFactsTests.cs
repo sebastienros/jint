@@ -68,6 +68,7 @@ public sealed class SelectorControlFactsTests
     [TestCase(":invalid")]
     [TestCase(":in-range")]
     [TestCase(":out-of-range")]
+    [TestCase(":dir(ltr)")]
     public void HostlessPreflightRefusesEveryControlFamilyIncludingUnreachedBranches(string selector)
     {
         var element = Document.CreateHtml().CreateElement("div");
@@ -86,18 +87,18 @@ public sealed class SelectorControlFactsTests
         var second = document.CreateElement("input");
         var factory = new Factory
         {
-            Facts = new(ReadWrite: true, Validity: SelectorControlValidity.Valid, Range: SelectorControlRange.InRange)
+            Facts = new(ReadWrite: true, Validity: SelectorControlValidity.Valid, Range: SelectorControlRange.InRange, RightToLeft: true)
         };
         var work = new SelectorMatchWork(first, default);
         var seed = factory.Seed(document);
-        SelectorMatcher.Matches(Parse(":valid:read-write:in-range"), first, null, seed, ref work).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":valid:read-write:in-range:dir(rtl)"), first, null, seed, ref work).Should().BeTrue();
         factory.Facts = default; // Unrequested fields must not overwrite earlier family answers.
-        SelectorMatcher.Matches(Parse(":valid:read-write:in-range:not(:invalid):not(:out-of-range):not(:placeholder-shown)"),
+        SelectorMatcher.Matches(Parse(":valid:read-write:in-range:dir(rtl):not(:invalid):not(:out-of-range):not(:placeholder-shown)"),
             first, null, seed, ref work).Should().BeTrue();
         SelectorMatcher.Matches(Parse(":invalid"), second, null, seed, ref work).Should().BeFalse();
         factory.Creates.Should().Be(1);
         factory.Reads.Select(x => x.Mask).Should().Equal(SelectorControlFactMask.Validity,
-            SelectorControlFactMask.ReadWrite, SelectorControlFactMask.Range, SelectorControlFactMask.PlaceholderShown,
+            SelectorControlFactMask.ReadWrite, SelectorControlFactMask.Range, SelectorControlFactMask.Directionality, SelectorControlFactMask.PlaceholderShown,
             SelectorControlFactMask.Validity);
         factory.Reads[^1].Element.Should().BeSameAs(second);
     }

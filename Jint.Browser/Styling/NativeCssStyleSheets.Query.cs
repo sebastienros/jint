@@ -11,7 +11,7 @@ internal static partial class NativeCssStyleSheets
     // The host supplies snapshots and bounded work; query construction retains no engine or realm.
     internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateQuery(Document document,
         CssMediaEnvironment media, in SelectorEnvironment selectors, CssValueWork work,
-        Action? selectorCheckpoint = null, NativeCssQueryDiagnostics? diagnostics = null)
+        Action? selectorCheckpoint = null, NativeCssQueryDiagnostics? diagnostics = null, NativeCssUrlResolver? resolveUrl = null)
     {
         var author = Get(document, work, includeShadow: true);
         var sheets = new List<NativeCssSheet>(author.Count + 1) { NativeCssBrowserDefaults.Sheet(document, work) };
@@ -20,7 +20,7 @@ internal static partial class NativeCssStyleSheets
             CssEnvironmentSnapshot.Create([], work), work,
             new NativeCssMetrics { FontSize = media.InitialFontSize, RootFontSize = media.InitialFontSize },
             readInlineAttributes: true, systemColors: NativeCssBrowserDefaults.Palette(media.ColorScheme == "dark", work),
-            diagnostics: diagnostics);
+            diagnostics: diagnostics, resolveUrl: resolveUrl);
         var matching = new SelectorMatchWork(document, work.Token, selectorCheckpoint ?? work.CheckCancellation);
         work.CheckCancellation();
         query.Verify();

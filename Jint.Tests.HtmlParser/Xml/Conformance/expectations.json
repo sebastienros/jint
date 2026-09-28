@@ -1,5 +1,161 @@
 [
   {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-185",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The document declares standalone='yes' and references undeclared &e; in content. The unread external subset cannot supply a standalone entity declaration; retaining the permitted rejection enforces Entity Declared in the material read. XML 4.1 https://www.w3.org/TR/xml/#wf-entdecl."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#not-wf-sa03",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The standalone document references &number; inside id without an internal declaration. Its declaration in unread ../valid/sa.dtd cannot satisfy Entity Declared for this standalone document. XML 4.1 https://www.w3.org/TR/xml/#wf-entdecl."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#dtd04",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The internal entity declaration contains an unquoted PUBLIC identifier. ExternalID requires a quoted PubidLiteral independently of whether the external entity is read. XML 4.2.2 https://www.w3.org/TR/xml/#NT-ExternalID."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#dtd05",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The internal entity declaration contains the unquoted SYSTEM identifier elvis.ent. ExternalID requires a quoted SystemLiteral before any external-resource decision. XML 4.2.2 https://www.w3.org/TR/xml/#NT-ExternalID."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#pubid01",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The PUBLIC literal contains &apos;. Entity references are not expanded in PubidLiteral and ampersand is not PubidChar. XML 2.3 https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#pubid02",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The PUBLIC literal contains < and >, neither of which is PubidChar. This lexical failure is in the internal subset, not unread external material. XML 2.3 https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#pubid03",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The PUBLIC literal contains square brackets, which are outside PubidChar. XML 2.3 https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#pubid04",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The PUBLIC literal contains braces, which are outside PubidChar. XML 2.3 https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/sun/sun-not-wf.xml#pubid05",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "An entity PUBLIC declaration requires both PubidLiteral and SystemLiteral; the latter is missing. The notation-only PublicID alternative does not apply to entities. XML 4.2.2 https://www.w3.org/TR/xml/#NT-ExternalID."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P28-ibm28n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The doctype omits its root Name before SYSTEM. The complete doctypedecl production must match in the document entity, regardless of external-subset policy. XML 2.8 https://www.w3.org/TR/xml/#NT-doctypedecl."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P28-ibm28n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The doctype places SYSTEM and its literal before animal instead of Name followed by ExternalID. XML 2.8 https://www.w3.org/TR/xml/#NT-doctypedecl."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P29-ibm29n07.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The internal subset uses %parameterE; inside a NOTATION declaration. Parameter references in an internal subset are permitted between declarations, not within them. XML 2.8 https://www.w3.org/TR/xml/#wfc-PEinInternalSubset."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P32-ibm32n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The XML declaration spells standalone='No'; SDDecl permits only case-sensitive yes or no. The unread external subset is irrelevant. XML 2.9 https://www.w3.org/TR/xml/#NT-SDDecl."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P32-ibm32n07.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The XML declaration spells standalone='NO'; SDDecl permits only case-sensitive yes or no. XML 2.9 https://www.w3.org/TR/xml/#NT-SDDecl."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P32-ibm32n09.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The standalone document references &animal_content; without an internal declaration. An externally supplied declaration cannot satisfy Entity Declared under standalone=yes. XML 4.1 https://www.w3.org/TR/xml/#wf-entdecl."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P41-ibm41n10.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The attr1 value directly references the internally declared external entity aExternal. Attribute values must not contain external entity references, even when fetching is disabled. XML 3.1 https://www.w3.org/TR/xml/#NoExternalRefs."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P41-ibm41n11.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The attr1 value references internal aIndirect whose replacement references external aExternal. The attribute constraint applies to indirect references too. XML 3.1 https://www.w3.org/TR/xml/#NoExternalRefs."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P41-ibm41n12.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The attr1 value references aImage, declared with NDATA as an unparsed entity. An EntityRef must identify a parsed entity; attributes also forbid external references. XML 4.1 https://www.w3.org/TR/xml/#textent and XML 3.1 https://www.w3.org/TR/xml/#NoExternalRefs."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P43-ibm43n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "A NOTATION declaration occurs inside root element content. The content production permits no DTD declarations, regardless of the declaration's SYSTEM literal. XML 3.1 https://www.w3.org/TR/xml/#NT-content."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P68-ibm68n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The standalone document references &aaa; in an attribute without an internal declaration. The external subset cannot satisfy Entity Declared in a standalone document. XML 4.1 https://www.w3.org/TR/xml/#wf-entdecl."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P68-ibm68n08.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Element content references aImage, an unparsed NDATA entity. A general EntityRef must name a parsed entity even in the nonvalidating no-fetch profile. XML 4.1 https://www.w3.org/TR/xml/#textent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P73-ibm73n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The internal general entity declaration places NDATA before SYSTEM. EntityDef requires ExternalID before its optional NDataDecl. XML 4.2 https://www.w3.org/TR/xml/#NT-EntityDef."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P73-ibm73n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The internal general entity declaration supplies NDATA without any ExternalID. EntityDef has no such alternative. XML 4.2 https://www.w3.org/TR/xml/#NT-EntityDef."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P74-ibm74n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The parameter entity pImage includes an NDATA clause. PEDef permits only EntityValue or ExternalID, never NDataDecl. XML 4.2 https://www.w3.org/TR/xml/#NT-PEDef."
+  },
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-044",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The source declares notation a:b, despite the catalog description saying entity. Notation names must be NCNames with no colon in the Namespaces 1.0 third-edition profile. https://www.w3.org/TR/xml-names/#Conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-3e/errata3e.xml#rmt-e3e-12",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "The internal ATTLIST default contains &ent;, declared as an external entity. A default AttValue must satisfy No External Entity References even when the actual element overrides it. XML 3.3.2 https://www.w3.org/TR/xml/#NT-DefaultDecl and XML 3.1 https://www.w3.org/TR/xml/#NoExternalRefs."
+  },
+  {
     "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-001",
     "outcome": "accept",
     "skipped": [

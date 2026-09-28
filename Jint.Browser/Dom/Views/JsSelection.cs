@@ -213,7 +213,9 @@ internal sealed class JsSelection : ObjectInstance
         }
 
         // Removing the content collapses the range, which is a boundary point of the selection moving.
+        DomFailures.PrepareMutation(_runtime.Dom, _range.Start.Container.Node);
         _range.DeleteContents();
+        DomFailures.CompleteMutation(_runtime.Dom, _range.Start.Container.Node);
         Moved();
         return JsValue.Undefined;
     }

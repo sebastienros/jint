@@ -208,6 +208,19 @@ internal static class DomManualInterfaces
         hasInterfaceObject: true,
         DomWrapperKind.Node);
 
+    /// <summary>https://dom.spec.whatwg.org/#interface-cdatasection</summary>
+    internal static readonly DomInterfaceDefinition CDATASection = new(
+        "CDATASection",
+        typeof(CDataSection),
+        static () => new JsObjectShape.Builder()
+            .PerRealmSlot("constructor", enumerable: false)
+            .ToStringTag("CDATASection")
+            .Build(),
+        DomInterfaces.Text,
+        rootsAtEventTarget: true,
+        hasInterfaceObject: true,
+        DomWrapperKind.Node);
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#staticrange. AngleSharp has no <c>StaticRange</c> and no
     /// <c>AbstractRange</c> — the interface is four values a page hands over, so there is nothing for it to
@@ -247,6 +260,7 @@ internal static class DomManualInterfaces
         XMLDocument,
         StaticRange,
         RadioNodeList,
+        CDATASection,
     ];
 
     /// <summary>

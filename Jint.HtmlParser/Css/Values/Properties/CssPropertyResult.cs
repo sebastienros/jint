@@ -3,11 +3,12 @@ using Jint.HtmlParser.Css.Values.Descriptors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.References;
 using Jint.HtmlParser.Css.Values.Transforms;
+using Jint.HtmlParser.Css.Serialization;
 
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer }
 
 internal sealed class CssPropertyValue
 {
@@ -20,15 +21,20 @@ internal sealed class CssPropertyValue
     private readonly CssMathValue? _math;
     private readonly CssReferenceProgram? _references;
     private readonly IReadOnlyList<CssPropertyValue>? _components;
+    private readonly string? _paintUrl;
+    private readonly CssPropertyValue? _paintFallback;
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
         CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null,
         CssTransformValue? transform = null, CssTransformList? transformList = null, CssFontFaceDescriptorValue? descriptor = null,
-        IReadOnlyList<string>? identifiers = null)
+        IReadOnlyList<string>? identifiers = null, string? paintUrl = null, CssPropertyValue? paintFallback = null,
+        bool paintUsesSrc = false)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
         _color = color; _references = references; SecondKeyword = second; _components = components;
         _transform = transform; _transformList = transformList; _descriptor = descriptor; _identifiers = identifiers;
+        _paintUrl = paintUrl; _paintFallback = paintFallback;
+        PaintUsesSrc = paintUsesSrc;
     }
     internal CssFontFaceDescriptorValue DescriptorValue => Kind == CssPropertyValueKind.Descriptor ? _descriptor! : throw new InvalidOperationException();
     internal static CssPropertyValue Descriptor(CssFontFaceDescriptorValue value) => new(CssPropertyValueKind.Descriptor, value.Text, default, descriptor: value);
@@ -37,6 +43,20 @@ internal sealed class CssPropertyValue
     internal static CssPropertyValue IdentifierList(string text, CssSourceSpan span, string[] identifiers) =>
         new(CssPropertyValueKind.IdentifierList, text, span, identifiers: Array.AsReadOnly(identifiers));
     internal CssPropertyValueKind Kind { get; }
+    internal string PaintUrl => Kind == CssPropertyValueKind.PaintServer ? _paintUrl! : throw new InvalidOperationException();
+    internal CssPropertyValue? PaintFallback => Kind == CssPropertyValueKind.PaintServer ? _paintFallback : throw new InvalidOperationException();
+    internal bool PaintUsesSrc { get; }
+    internal static CssPropertyValue PaintServer(string url, CssPropertyValue? fallback, CssSourceSpan span, CssValueWork work,
+        bool usesSrc = false)
+    {
+        if (fallback is not null && fallback.Kind != CssPropertyValueKind.Color &&
+            fallback is not { Kind: CssPropertyValueKind.Keyword, Text: "none" })
+            throw new ArgumentException("A paint fallback must be a color or none.", nameof(fallback));
+        var text = (usesSrc ? "src(" : "url(") + CssSyntaxSerializer.SerializeString(url, work) + ")";
+        if (fallback is not null) text += " " + fallback.Serialize();
+        work.Charge(text.Length);
+        return new(CssPropertyValueKind.PaintServer, text, span, paintUrl: url, paintFallback: fallback, paintUsesSrc: usesSrc);
+    }
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
     internal string? SecondKeyword { get; }

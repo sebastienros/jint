@@ -151,10 +151,11 @@ The main gaps are above HTML tokenization and tree construction:
 
 | Area | Current boundary |
 | --- | --- |
-| CSS property grammars | `CssPropertyRegistry` implements a subset of `CssPropertyCatalog`. Content alignment, gap and legacy grid-gap aliases now have grammar, declarations and computed-value support. Borders/background shorthands, grid tracks, font-family/line-height, animation/transition and SVG paint remain pending. A catalog entry is an obligation, not implemented support. |
+| CSS property grammars | `CssPropertyRegistry` implements a subset of `CssPropertyCatalog`. Content alignment, gap, legacy grid-gap aliases and SVG fill/stroke paint have grammar, declarations and computed-value support. Paint includes typed URL/color fallbacks and context keywords, not rendering; advanced colors and URL modifiers retain named pending boundaries. Borders/background shorthands, grid tracks, font-family/line-height, animation/transition and other SVG properties remain pending. A catalog entry is an obligation, not implemented support. |
 | CSS rules and nesting | Native media, supports, container, imports, font-face and keyframes exist. Layers, namespaces, scope, page/counter-style and property registration remain incomplete, as do import `layer()`/`supports()` conditions, nested conditional rules and interleaved declarations. |
 | Computed and resolved values | Advanced colors, typed `attr()` and other substitution functions, some container metrics and used-value dependencies remain named completion failures. Browser also still documents incomplete stylesheet BOM/charset and MIME handling. |
 | Standalone APIs | HTML/XML serialization and owned XPath APIs are public. Selectors, mutable CSSOM/typed values and incremental HTML sessions remain internal. Public parsing accepts decoded strings, not streams or byte inputs. |
+| Selector language and direction | Internal `:lang()` matching supports inherited HTML `lang`/XML `xml:lang` and extended language ranges. HTTP/document language metadata fallback remains open. `:dir()` uses Browser's bounded directionality facts; a standalone caller must supply a directionality producer. |
 | Acceptance | XML external-resource/no-fetch review and canonical-output evidence remain outstanding. Browser fixture behavior, current WPT results and public API snapshots must be reconciled independently of package removal. |
 
 Unknown syntax and known-but-unimplemented semantics are deliberately different: raw CSS syntax can

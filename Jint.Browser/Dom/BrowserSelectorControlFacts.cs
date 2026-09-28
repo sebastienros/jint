@@ -68,6 +68,8 @@ internal sealed class BrowserSelectorControlFacts : ISelectorControlFacts
                 facts = facts with { Validity = Validity(element) };
             if ((missing & SelectorControlFactMask.Range) != 0)
                 facts = facts with { Range = Range(element) };
+            if ((missing & SelectorControlFactMask.Directionality) != 0)
+                facts = facts with { RightToLeft = HtmlDirectionality.Of(element, _browserWork) == "rtl" };
             _browserWork.Check();
             Verify(element);
             _work.VerifyRead();

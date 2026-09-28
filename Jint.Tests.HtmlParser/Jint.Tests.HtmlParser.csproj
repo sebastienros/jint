@@ -28,6 +28,7 @@
     <Compile Include="..\Jint.Browser\Styling\NativeCssTypography.cs" Link="Styling\NativeCssTypography.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssComputedStyle.cs" Link="Styling\NativeCssComputedStyle.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssColors.cs" Link="Styling\NativeCssColors.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssPaint.cs" Link="Styling\NativeCssPaint.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssInteractions.cs" Link="Styling\NativeCssInteractions.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssBrowserDefaults.cs" Link="Styling\NativeCssBrowserDefaults.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssSheetSets.cs" Link="Styling\NativeCssSheetSets.cs" />

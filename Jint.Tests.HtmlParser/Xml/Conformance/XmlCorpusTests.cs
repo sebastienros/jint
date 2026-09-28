@@ -261,7 +261,9 @@ public class XmlCorpusTests
         wrongProjection.Signature.Should().Be("projection-mismatch");
 
         var externalNegative = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#not-wf-sa-185");
-        XmlConformanceRunner.Run(externalNegative).Signature.Should().Be("resource-profile-review");
+        XmlConformanceRunner.Run(externalNegative).Kind.Should().Be(XmlOutcomeKind.Pass);
+        XmlConformanceRunner.Run(externalNegative, ignoreReviewedExpectation: true).Signature
+            .Should().Be("resource-profile-review");
 
         var originalAfterOmission = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-sa-097");
         XmlConformanceRunner.Run(originalAfterOmission).Kind.Should().Be(XmlOutcomeKind.Pass);

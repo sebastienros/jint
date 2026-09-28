@@ -77,6 +77,8 @@ internal static class CssPropertyParser
         var parts = Significant(input.Components, work);
         switch (entry.Grammar)
         {
+            case CssPropertyGrammar.Paint:
+                return CssPaintPropertyParser.Parse(parts, input.MaxNestingDepth, work);
             case CssPropertyGrammar.InsetSide:
                 return CssInsetPropertyParser.Parse(parts, input.MaxNestingDepth, work);
             case CssPropertyGrammar.Cursor:

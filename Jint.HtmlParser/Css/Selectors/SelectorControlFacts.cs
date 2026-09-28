@@ -9,7 +9,8 @@ internal enum SelectorControlFactMask
     PlaceholderShown = 2,
     ReadWrite = 4,
     Validity = 8,
-    Range = 16
+    Range = 16,
+    Directionality = 32
 }
 
 internal enum SelectorControlValidity { NotApplicable, Valid, Invalid }
@@ -22,7 +23,8 @@ internal readonly record struct SelectorControlFacts(
     bool PlaceholderShown = false,
     bool ReadWrite = false,
     SelectorControlValidity Validity = SelectorControlValidity.NotApplicable,
-    SelectorControlRange Range = SelectorControlRange.NotApplicable);
+    SelectorControlRange Range = SelectorControlRange.NotApplicable,
+    bool RightToLeft = false);
 
 // Invocation-local host facts. Implementations charge traversal/helper work to the supplied read,
 // observe additional documents before reading them, and never publish work/adapters onto nodes or programs.

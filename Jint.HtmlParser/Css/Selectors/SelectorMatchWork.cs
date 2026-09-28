@@ -233,7 +233,8 @@ internal struct SelectorMatchWork
         {
             Verify();
             const SelectorControlFactMask all = SelectorControlFactMask.DefaultSubmit | SelectorControlFactMask.PlaceholderShown |
-                SelectorControlFactMask.ReadWrite | SelectorControlFactMask.Validity | SelectorControlFactMask.Range;
+                SelectorControlFactMask.ReadWrite | SelectorControlFactMask.Validity | SelectorControlFactMask.Range |
+                SelectorControlFactMask.Directionality;
             if ((requested & ~all) != 0) throw new ArgumentOutOfRangeException(nameof(requested));
             Step();
             var cached = default((SelectorControlFactMask Mask, SelectorControlFacts Facts));
@@ -257,7 +258,8 @@ internal struct SelectorMatchWork
                 (missing & SelectorControlFactMask.PlaceholderShown) != 0 ? fresh.PlaceholderShown : cached.Facts.PlaceholderShown,
                 (missing & SelectorControlFactMask.ReadWrite) != 0 ? fresh.ReadWrite : cached.Facts.ReadWrite,
                 (missing & SelectorControlFactMask.Validity) != 0 ? fresh.Validity : cached.Facts.Validity,
-                (missing & SelectorControlFactMask.Range) != 0 ? fresh.Range : cached.Facts.Range);
+                (missing & SelectorControlFactMask.Range) != 0 ? fresh.Range : cached.Facts.Range,
+                (missing & SelectorControlFactMask.Directionality) != 0 ? fresh.RightToLeft : cached.Facts.RightToLeft);
             _controlCache ??= new(ReferenceEqualityComparer.Instance);
             _controlCache[element] = (cached.Mask | requested, facts);
             Verify();

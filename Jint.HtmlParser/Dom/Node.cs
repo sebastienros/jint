@@ -133,8 +133,8 @@ public abstract partial class Node
     {
         EnsureContainer();
         if (child is ShadowRoot) throw DomException.Hierarchy();
-        if (referenceChild is not null && !ReferenceEquals(referenceChild.ParentNode, this)) throw DomException.NotFound();
         RejectAncestor(child);
+        if (referenceChild is not null && !ReferenceEquals(referenceChild.ParentNode, this)) throw DomException.NotFound();
         ValidateInsertion(CollectIncoming(child), referenceChild, null);
     }
 
@@ -143,6 +143,7 @@ public abstract partial class Node
         using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child?.OwnerDocument);
         ArgumentNullException.ThrowIfNull(child);
         EnsureContainer();
+        RejectAncestor(child);
         if (referenceChild is not null && referenceChild.ParentNode != this)
         {
             throw DomException.NotFound();
@@ -152,8 +153,6 @@ public abstract partial class Node
         {
             referenceChild = child.NextSibling;
         }
-
-        RejectAncestor(child);
 
         var incoming = CollectIncoming(child);
         ValidateInsertion(incoming, referenceChild, null);
@@ -215,8 +214,8 @@ public abstract partial class Node
         ArgumentNullException.ThrowIfNull(child);
         ArgumentNullException.ThrowIfNull(oldChild);
         EnsureContainer();
-        if (oldChild.ParentNode != this) throw DomException.NotFound();
         RejectAncestor(child);
+        if (oldChild.ParentNode != this) throw DomException.NotFound();
         var incoming = CollectIncoming(child);
         ValidateInsertion(incoming, oldChild, oldChild);
         var destinationDocument = this as Document ?? _ownerDocument!;

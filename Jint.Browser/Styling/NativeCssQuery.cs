@@ -44,6 +44,7 @@ internal sealed partial class NativeCssQuery
     private readonly CssEnvironmentSnapshot _environment;
     private readonly CssValueWork _work;
     private readonly bool _readInlineAttributes;
+    private readonly NativeCssUrlResolver? _resolveUrl;
     private List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri)>? _rules;
 
     internal NativeCssQuery(Document document, IReadOnlyList<NativeCssSheet> sheets,
@@ -51,7 +52,7 @@ internal sealed partial class NativeCssQuery
         CssMediaEnvironment media, in SelectorEnvironment selectors,
         CssEnvironmentSnapshot environment, CssValueWork work, NativeCssMetrics? metrics = null,
         bool readInlineAttributes = false, NativeCssSystemColors? systemColors = null,
-        NativeCssQueryDiagnostics? diagnostics = null)
+        NativeCssQueryDiagnostics? diagnostics = null, NativeCssUrlResolver? resolveUrl = null)
     {
         _document = document;
         _documentStamp = document.MutationStamp;
@@ -63,6 +64,7 @@ internal sealed partial class NativeCssQuery
         _environment = environment;
         _work = work;
         _readInlineAttributes = readInlineAttributes;
+        _resolveUrl = resolveUrl;
         _sheets = new NativeCssSheet[sheets.Count];
         var roots = new CssStyleSheet[sheets.Count];
         for (var i = 0; i < sheets.Count; i++)
@@ -219,8 +221,12 @@ internal sealed partial class NativeCssQuery
             }
             if (relativeWeight is not null) value = RelativeFontWeight(relativeWeight.Text, 400, relativeWeight.Span);
             if (relativeAlignment is not null) value = CssPropertyValue.Keyword("start", relativeAlignment.Span);
-            value = value.Kind == CssPropertyValueKind.Color
-                ? ComputeColor(current, name, value, ref matching) : ComputeForElement(current, name, value, ref matching);
+            value = value.Kind switch
+            {
+                CssPropertyValueKind.Color => ComputeColor(current, name, value, ref matching),
+                CssPropertyValueKind.PaintServer => ComputePaint(current, name, value, candidate?.Source, ref matching),
+                _ => ComputeForElement(current, name, value, ref matching)
+            };
             if (adjust && name == "display") value = Display(current, value, ref matching);
             result = new(name, ColorText(current, name, value, ref matching), value, candidate?.Source, disposition);
             (adjust ? state.Computed : state.Unadjusted).Add(name, result);
@@ -259,9 +265,16 @@ internal sealed partial class NativeCssQuery
 
     // CSS Color 4: contextual currentColor survives inheritance outside the color property.
     // CSSOM resolves that retained dependency for each element's returned color text.
-    private string ColorText(Element element, string name, CssPropertyValue value, ref SelectorMatchWork matching) =>
-        name != "color" && value.Kind == CssPropertyValueKind.Color && value.Color.Kind == CssColorKind.CurrentColor
-            ? GetProperty(element, "color", ref matching).Text : value.Serialize();
+    private string ColorText(Element element, string name, CssPropertyValue value, ref SelectorMatchWork matching)
+    {
+        if (name != "color" && value.Kind == CssPropertyValueKind.Color && value.Color.Kind == CssColorKind.CurrentColor)
+            return GetProperty(element, "color", ref matching).Text;
+        if (value.Kind == CssPropertyValueKind.PaintServer &&
+            value.PaintFallback is { Kind: CssPropertyValueKind.Color } fallback && fallback.Color.Kind == CssColorKind.CurrentColor)
+            return CssPropertyValue.PaintServer(value.PaintUrl, GetProperty(element, "color", ref matching).Value,
+                value.Span, _work, value.PaintUsesSrc).Text;
+        return value.Serialize();
+    }
 
     internal IReadOnlyList<CssStyleRule> MatchedRules(Element element, ref SelectorMatchWork matching)
     {

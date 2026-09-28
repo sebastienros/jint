@@ -19,7 +19,7 @@ internal static class HtmlDirectionality
     internal static string Of(Element element, Action<int>? checkpoint = null, CancellationToken token = default)
         => Of(element, new DomReadWork(checkpoint, token));
 
-    private static string Of(Element element, DomReadWork work)
+    internal static string Of(Element element, DomReadWork work)
     {
         work.Check();
         while (true)

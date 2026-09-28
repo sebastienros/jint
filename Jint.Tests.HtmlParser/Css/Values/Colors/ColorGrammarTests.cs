@@ -87,7 +87,7 @@ public sealed class ColorGrammarTests
     [TestCase("color(srgb calc(infinity) calc(-infinity) calc(NaN))", "color(srgb calc(infinity) calc(-infinity) calc(NaN))")]
     public void DeclaredSerializationRoundTrips(string source, string expected)
     {
-        foreach (var name in new[] { "color", "background-color" })
+        foreach (var name in new[] { "color", "background-color", "fill", "stroke" })
         {
             var parsed = CssPropertyParser.Parse(name, source);
             parsed.Status.Should().Be(CssPropertyStatus.Valid, source);

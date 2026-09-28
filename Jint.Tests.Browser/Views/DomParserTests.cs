@@ -78,6 +78,27 @@ public sealed class DomParserTests
     }
 
     [Test]
+    public async Task CDataSectionsKeepTheirOwnBrandAndInheritTextOperations()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const doc = new DOMParser().parseFromString('<root><![CDATA[hello]]></root>', 'application/xml');
+              const parsed = doc.documentElement.firstChild;
+              const created = doc.createCDATASection('world');
+              const clone = created.cloneNode();
+              created.appendData('!');
+              return [parsed instanceof CDATASection, parsed instanceof Text,
+                created instanceof CDATASection, clone instanceof CDATASection,
+                Object.getPrototypeOf(CDATASection.prototype) === Text.prototype,
+                Object.prototype.toString.call(parsed), parsed.data, created.data, clone.data].join('|');
+            })()
+            """)).Should().Be("true|true|true|true|true|[object CDATASection]|hello|world!|world");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task MalformedXmlAnswersAParsererrorDocument()
     {
         await using var browser = new Browser();

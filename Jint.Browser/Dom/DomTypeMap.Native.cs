@@ -20,7 +20,8 @@ internal static partial class DomTypeMap
         DocumentType => DomInterfaces.DocumentType,
         ProcessingInstruction => DomInterfaces.ProcessingInstruction,
         Comment => DomInterfaces.Comment,
-        Text or CDataSection => DomInterfaces.Text,
+        CDataSection => DomManualInterfaces.CDATASection,
+        Text => DomInterfaces.Text,
         _ => DomInterfaces.Node,
     };
 

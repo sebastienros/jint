@@ -114,6 +114,8 @@ public sealed class SelectorMatcherTests
         svg.AppendChild(path);
 
         SelectorMatcher.Matches(Parse("h|DiV[DaTa-KeY=x][a|key=y]", context), root).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("h|div[a|KeY=y]", context), root).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("div[*|KeY=y]"), root).Should().BeTrue();
         SelectorMatcher.Matches(Parse("s|linearGradient", context), path).Should().BeTrue();
         SelectorMatcher.Matches(Parse("s|lineargradient", context), path).Should().BeFalse();
         SelectorMatcher.Matches(Parse("|div", context), root).Should().BeFalse();
@@ -435,7 +437,7 @@ public sealed class SelectorMatcherTests
         checkpoints.Should().Be(2);
     }
 
-    [TestCase(":lang(en)")]
+    [TestCase(":host")]
     [TestCase(":valid")]
     [TestCase("div, :valid")]
     public void UnimplementedFamiliesFailPreflightEvenWhenAnotherBranchMatches(string source)

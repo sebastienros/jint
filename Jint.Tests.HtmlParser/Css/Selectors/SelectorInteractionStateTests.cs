@@ -206,9 +206,9 @@ public sealed class SelectorInteractionStateTests
         Match(":active", control, environment).Should().BeFalse();
     }
 
-    [TestCase("#hit, :lang(en)")]
+    [TestCase("#hit, :host")]
     [TestCase(":is(#hit, :valid)")]
-    [TestCase(":not(:lang(en))")]
+    [TestCase(":not(:host)")]
     [TestCase(":has(:dir(rtl))")]
     public void UnsupportedPredicatesRejectTheWholeProgramAndEmptyQueries(string selector)
     {

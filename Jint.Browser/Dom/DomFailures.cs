@@ -49,62 +49,45 @@ internal static class DomFailures
 
         return (receiver, arguments) =>
         {
-            if (receiver is IDomWrapper wrapper)
-                Runtime.PageRuntime.Find(wrapper.DomRealm.Engine)?.Parser?.RecoverNativeMutationNotifications();
-            PrepareCustomElements(receiver);
-            using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
+            var wrapper = receiver as IDomWrapper;
+            if (wrapper is not null) PrepareMutation(wrapper.DomRealm, MutationNode(wrapper));
+            using var mutation = wrapper?.DomRealm.MutateLayout() ?? default;
             var result = guarded(receiver, arguments);
-            CompleteNativeMutation(receiver);
-            DrainCustomElements(receiver);
+            if (wrapper is not null) CompleteMutation(wrapper.DomRealm, MutationNode(wrapper));
             return result;
         };
     }
 
-    private static void CompleteNativeMutation(JsValue receiver)
+    private static Node? MutationNode(IDomWrapper wrapper) => wrapper.DomTarget switch
     {
-        if (receiver is not IDomWrapper wrapper) return;
-        var node = wrapper.DomTarget switch
-        {
-            Node target => target,
-            Attr attribute => attribute.OwnerElement,
-            Collections.DomNamedNodeMap attributes => attributes.Owner,
-            DomRange range => range.Start.Container.Node,
-            _ => null,
-        };
+        Node target => target,
+        Attr attribute => attribute.OwnerElement,
+        Collections.DomNamedNodeMap attributes => attributes.Owner,
+        DomRange range => range.Start.Container.Node,
+        _ => null,
+    };
+
+    internal static void CompleteMutation(DomRealm realm, Node? node)
+    {
         var document = node as Document ?? node?.OwnerDocument;
         if (node is not null && document is not null)
         {
-            var parser = Runtime.PageRuntime.FindBrowsingContext(wrapper.DomRealm.Engine, document)?.Parser
-                ?? Runtime.PageRuntime.Find(wrapper.DomRealm.Engine)?.Parser;
+            var parser = Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document)?.Parser
+                ?? Runtime.PageRuntime.Find(realm.Engine)?.Parser;
             parser?.CompleteNativeMutation(node);
         }
+        CustomElements.CustomElementRegistry.Of(realm.Engine)?.Drain();
+        Files.FileTransferRealm.IfCreated(realm.Engine)?.FlushChanges();
     }
 
-    private static void PrepareCustomElements(JsValue receiver)
+    internal static void PrepareMutation(DomRealm realm, Node? node)
     {
-        if (receiver is not IDomWrapper wrapper) return;
-        var node = wrapper.DomTarget switch
-        {
-            Node target => target,
-            Attr attribute => attribute.OwnerElement,
-            Collections.DomNamedNodeMap attributes => attributes.Owner,
-            DomRange range => range.Start.Container.Node,
-            _ => null,
-        };
+        Runtime.PageRuntime.Find(realm.Engine)?.Parser?.RecoverNativeMutationNotifications();
         if (node is not null)
         {
-            CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
+            CustomElements.CustomElementRegistry.Of(realm.Engine)?.EnsureWatchingNode(node);
             if ((node as Document ?? node.OwnerDocument) is { } document)
-                Runtime.PageRuntime.FindBrowsingContext(wrapper.DomRealm.Engine, document)?.Parser?.EnsureWatchingNode(node);
-        }
-    }
-
-    private static void DrainCustomElements(JsValue receiver)
-    {
-        if (receiver is IDomWrapper wrapper)
-        {
-            CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.Drain();
-            Files.FileTransferRealm.IfCreated(wrapper.DomRealm.Engine)?.FlushChanges();
+                Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document)?.Parser?.EnsureWatchingNode(node);
         }
     }
 

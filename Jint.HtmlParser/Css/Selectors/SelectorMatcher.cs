@@ -137,7 +137,7 @@ internal static partial class SelectorMatcher
         PredicateKind.Id or PredicateKind.Class or PredicateKind.Attribute or
         PredicateKind.PseudoElement or PredicateKind.WebkitUnknownPseudoElement or
         PredicateKind.Picker or
-        PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or
+        PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or PredicateKind.Lang or
         PredicateKind.Checked or PredicateKind.Indeterminate or PredicateKind.Open or PredicateKind.Closed or
         PredicateKind.Link or PredicateKind.AnyLink or PredicateKind.Visited or
         PredicateKind.Enabled or PredicateKind.Disabled or PredicateKind.Required or PredicateKind.Optional or
@@ -151,7 +151,7 @@ internal static partial class SelectorMatcher
         PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has =>
             predicate.Arguments is not null,
         PredicateKind.Default or PredicateKind.PlaceholderShown or PredicateKind.ReadOnly or PredicateKind.ReadWrite or
-        PredicateKind.Valid or PredicateKind.Invalid or PredicateKind.InRange or PredicateKind.OutOfRange =>
+        PredicateKind.Valid or PredicateKind.Invalid or PredicateKind.InRange or PredicateKind.OutOfRange or PredicateKind.Dir =>
             hasControlFacts && predicate.Arguments is null,
         PredicateKind.Slotted => true,
         _ => false
@@ -259,6 +259,12 @@ internal static partial class SelectorMatcher
                 return ReferenceEquals(element, scope);
             case PredicateKind.Root:
                 return element.ParentNode is Document;
+            case PredicateKind.Lang:
+                return MatchLanguage(predicate, element, ref work);
+            case PredicateKind.Dir:
+                var direction = work.Shared.ReadControlFacts(element, SelectorControlFactMask.Directionality).RightToLeft
+                    ? "rtl" : "ltr";
+                return NameEquals(predicate.TextArguments![0], direction, true, ref work);
             case PredicateKind.Default:
             case PredicateKind.PlaceholderShown:
             case PredicateKind.ReadOnly:
@@ -344,7 +350,7 @@ internal static partial class SelectorMatcher
             work.Step();
             if (!NamespaceMatches(predicate.NamespaceMode, predicate.NamespaceUri, attribute.NamespaceUri) ||
                 !SelectorNameMatches(predicate.Name!, attribute.LocalName,
-                    IsHtmlElement(element) && attribute.NamespaceUri is null, ref work)) continue;
+                    IsHtmlElement(element), ref work)) continue;
             var value = attribute.Value;
             if (predicate.Operator == AttributeOperator.Presence) return true;
             var expected = predicate.Value!;

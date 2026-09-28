@@ -61,7 +61,7 @@ internal static class AriaElementReflection
             builder.Accessor(
                 member,
                 DomFailures.Guard(accessor.Member, accessor.Get),
-                DomFailures.Guard(accessor.Member, accessor.Set));
+                DomFailures.GuardMutation(accessor.Member, accessor.Set));
         }
     }
 

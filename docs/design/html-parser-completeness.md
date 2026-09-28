@@ -31,6 +31,20 @@ and focused serialization/XPath designs remain the acceptance definitions.
   `NativeCssBoxQueryTests`, `NativeCssContentAlignmentAndGapTests`.
 - [x] **Existing whole-sheet syntax API reconciliation**: `ParseCss` and `CssStyleSheetSyntax`
   are included in the API snapshots and exercised by the packed consumer.
+- [x] **SVG fill/stroke paint slice**: typed colors, `none`, `context-fill`/`context-stroke`,
+  `url()`/`src()` references and optional color/none fallbacks, priority and pending substitutions.
+  Browser resolves nonlocal URLs with its WHATWG parser against the declaring sheet or document;
+  local fragments, empty URLs and unresolvable URLs keep the CSS Values 4 serialization.
+  Inherited current-color dependencies remain live. No paint server is fetched or rendered.
+  Advanced colors and URL modifiers retain explicit incomplete-grammar failures.
+  Evidence: `CssPaintDeclarationTests`, `ColorGrammarTests`, `NativeCssQueryFactoryTests`,
+  `NativeCssPaintTests`. Realm-free queries need an explicit URL resolver for nonlocal references.
+- [x] **Native acceptance corrections**: synchronous mutation completion for ARIA reflection,
+  dataset and Selection; CDATASection branding; DOM ancestor/reference-child exception precedence;
+  namespace-wildcard attribute-name casing; native inherited `:lang()` and Browser-backed `:dir()`.
+  Language matching does not yet include document/HTTP language metadata fallback.
+- [x] **Stylesheet cache acceptance**: tests now require reuse when unchanged and invalidation on
+  child sheet edits, import insertion, resource arrival and import removal. No timing limit was raised.
 
 Gaps and distribution above are grammar/CSSOM/computed-value work, not grid/flex layout completion.
 Normal gap and line-width keywords remain keywords at computed-value time, per
@@ -58,7 +72,7 @@ Browser named/generic route evidence before it can close.
 | Open | V4 typography | Font family/line-height/font shorthand and remaining writing/text/ruby/whitespace properties; descriptor contexts separate. |
 | Open | V5 motion | Animation/transition lists, timing/ranges/timelines, perspective and remaining transform obligations. |
 | Open | V6 interaction | Scroll/overscroll/snap/padding/margin, scrollbar, touch and selection families; image cursors and other named pending syntax. |
-| Open | V7 SVG/replaced content | Fill/stroke/markers, masks/filters/clipping/images/object/shape grammar and SVG baseline properties. |
+| Open | V7 SVG/replaced content | Paint URL modifiers, markers, masks/filters/clipping/images/object/shape grammar and SVG baseline properties. The fill/stroke slice above does not complete this family. |
 | Open | V8 generated/table/page | Content/counters/lists/quotes, table and paged-media values; contextual descriptors belong to R5. |
 | Open | V9/context audit | Disposition every descriptor-only registration against real descriptor parsers; never admit arbitrary ordinary values. |
 | Open | R1 prologue/imports | Namespaces and selector environments, import layer/supports modifiers and placement; explicit decoded-string charset policy. |
@@ -91,12 +105,18 @@ friend access or a project reference. A separate native pack/run is required for
 
 ## Acceptance still required
 
-- [ ] Resolve the 127 previously pending XML external-resource/no-fetch review cases and the
-  42 pending eligible canonical-output comparisons; rerun the census rather than exclude them.
-- [ ] Reconcile the three native-sheet layout-cache expectations and the Scalar/Swagger fixture
-  timeouts recorded during the dependency-removal baseline. Do not invert assertions without
-  preserving actual invalidation evidence or widen timeout assertions to hide failures.
+- [ ] Resolve the **101 remaining** XML external-resource/no-fetch review cases and the
+  **42 pending** eligible canonical-output comparisons; rerun the census rather than exclude them.
+  Twenty-six rejection cases were independently reviewed against the pinned sources and XML productions.
+  The zero-pending gate and the negative missing-review probe remain enforced.
+- [ ] Finish the Scalar/Swagger fixtures. Scalar currently reports the missing `R2:layer` rule grammar
+  while reading `clientWidth`. Swagger now gets past `fill` and reports `V7:clip-path` in its logo.
+  Their frameworks catch these failures, so bounded console/request/DOM diagnostics are necessary;
+  an empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
 - [ ] Remeasure the current native Browser WPT census and finish its named debt.
+  Ordinary macOS runs now leave the `document.write` custom-element connection timing case failing
+  outside the exclusion table. Obsolete exclusions were removed or narrowed; passing rows cannot
+  remain excluded. The canonical numeric cause table still needs its prescribed Windows measurement.
 - [ ] Complete equivalent CSSOM comparison workloads and the separately specified paired
   benchmark acceptance. No performance claim follows from correctness tests.
 - [ ] Close all open grammar/API rows above. Targeted passing slices do not close this overall gate.
@@ -107,9 +127,18 @@ unfinished grammar as valid raw text merely to make an acceptance run pass.
 
 ### Evidence for the completed slices
 
-The current changes passed 5,290 parser CSS/serialization/shadow/XPath/public-API cases and 100
+The public-API completion checkpoint passed 5,290 parser CSS/serialization/shadow/XPath/public-API cases and 100
 targeted Browser integration/binding/dependency cases, across net8.0 and net10.0. Both unsigned
-packed consumers and the net10.0 osx-arm64 Native AOT publish/run passed. The inspected package
-contains both framework assets and no package dependencies. The refreshed inventory reports
+packed consumers and the net10.0 osx-arm64 Native AOT publish/run passed. After the optimization merge,
+the package contains both framework assets, its `System.IO.Hashing` dependency and the imported
+`ValueStringBuilder` MIT license. AngleSharp remains comparison-benchmark-only. The refreshed inventory reports
 1,734 generated members and passes its six tooling tests. These are targeted acceptance results;
 they do not replace the open full-suite, WPT and performance gates above.
+
+The native acceptance/paint checkpoint runs 13,892 parser cases across net8.0/net10.0: 13,688 pass;
+204 fail solely on the 101 unresolved XML cases and their zero-pending census, once per framework.
+The XML profile counts 1,846 passing runnable cases, no known required-profile parser defects and
+no harness failures; 344 of 386 eligible canonical outputs are compared.
+The net10.0 WPT/native-CSS/Swagger run has 623 passes, two failures (the connection timing case
+and Swagger's `clip-path` dependency), and two opt-in census skips. These figures are local evidence,
+not a refreshed Windows WPT census or a claim that the overall completion gate has closed.

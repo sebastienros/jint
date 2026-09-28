@@ -154,6 +154,7 @@ internal static class BrowserHtmlSemantics
         return result;
     }
 
+    // https://html.spec.whatwg.org/#dom-accesskeylabel: no label without an assigned shortcut.
     internal static string AccessKeyLabel(DomRealm realm, Element element)
     {
         Work(realm).Check();

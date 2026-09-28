@@ -155,39 +155,23 @@ custom-element registries and reaction delivery remain [#3771](https://github.co
 Thirty-seven documents stay in the not-vendored table pending those capabilities and re-examination.
 Re-vendoring moves the census's Documents and Tests columns and requires measuring each document.
 
-What the rest found is five causes, and every exclusion in the four new suites is one of them:
+The native acceptance run leaves these distinct causes:
 
-1. **The parser upgrades a custom element where HTML constructs one.** AngleSharp creates a parser element
-   with no notification to hook, so `<my-el>` in the markup is undefined until the driver's next script
-   boundary. A page cannot see the difference — a script only ever sees the document at those boundaries —
-   except in `parser/`, which is about exactly this: an element's attributes and children are already there
-   when its constructor runs, and a constructor that constructs its own name before `super()` takes the
-   element being upgraded rather than making a second one. That last file cannot report at all, so it is in
-   the not-vendored table with the same reason.
-2. **A namespaced attribute was not a namespace here, and is now**
-   ([#3712](https://github.com/sebastienros/jint/issues/3712)). `getAttributeNS(null, name)` answered `null`
-   where a browser answers the value, because the binding converted a `DOMString?` *parameter* with
-   `TypeConverter.ToString` and `null` became the string `"null"`; the same conversion was why
-   `createElementNS(null, …)` and `setAttributeNS` behaved as they did. It was the single biggest cause
-   here — `attribute-changed-callback.html` asserts the callback's `actualValue` through `getAttributeNS`,
-   so every one of its rows failed on it, and the reactions helper reads its recorded values the same way.
-   The generator reads the nullability from AngleSharp's own metadata now, and `reactions/` went from 200
-   rows not passing to 68 with it.
-3. **Two attribute writes reach neither notification channel**, and both are AngleSharp's: `setAttributeNS`
-   and a write through an `Attr` node. `reactions/Attr.html` and part of `reactions/Element.html` are that,
-   and [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) records each. `classList` was the
-   third and is not any more: DOM §7.1's update steps are a plain set-an-attribute-value now, the same door
-   `setAttribute` already came through, so `reactions/DOMTokenList.html`'s two "must not enqueue" rows pass.
-4. **Members the binding does not have.** `Element.animate` and the whole ARIA reflection mixin: a test that
-   reaches for one fails with `Property '…' of object is not a function` before it can say anything about a
-   reaction. `reactions/AriaMixin-*.html` is ninety-six rows of exactly that, and `reactions/HTMLElement.html`
-   is twenty-one. `toggleAttribute`, `setAttributeNode`, `getAttributeNode`, `insertAdjacentElement` and
-   `replaceWith` were here too and are not any more ([#3768](https://github.com/sebastienros/jint/issues/3768)):
-   seventeen rows of `reactions/ChildNode.html`, `Element.html` and `Node.html` pass with them, and the four
-   that are left are an `Attr` write reaching the attribute observer without its value.
-5. **AngleSharp's CSS serialization**, already recorded as a divergence: `reactions/CSSStyleDeclaration.html`
-   compares the style attribute the reaction reported against `"color: blue;"` and gets
-   `"color: rgba(0, 0, 255, 1)"`. The reaction fired; the value did not match.
+1. **The parser upgrades a custom element where HTML constructs one.** The native session hands
+   script execution to Browser, but still lacks the element-construction handoff. Attributes and children
+   can already exist when an upgrade runs. The `document.write` connection-timing case remains a failing
+   case outside the exclusion table; a smaller arbitrary tokenizer work quota is not a substitute for
+   the required construction, insertion and reaction boundaries.
+2. **Cross-document and namespace-sensitive reactions remain incomplete.** Retained exclusions name
+   the exact adoption, registry and attribute callback assertions. They are not blanket exclusions for
+   native attribute storage, cloning or ordinary mutation delivery.
+3. **Some members and CSS grammars are still missing.** The animation case remains excluded.
+   `CSSStyleDeclaration` exclusions now cover only the failing float, border-width and prefixed-filter
+   assertions, not the whole document.
+
+ARIA reflection, dataset writes and Selection deletion now share native mutation preparation/completion.
+Their four reaction documents pass without exclusions. Historical nullable-namespace and CSS serialization
+failures are no longer reasons to exclude passing native assertions.
 
 **`builtin-coverage.html` is green now**, all four hundred and forty-four rows of it. Its `'new'` and
 `createElement` halves were two hundred and twenty-two rows of one defect, and the defect was not the
@@ -368,19 +352,20 @@ must belong to exactly one cause, and every cause that reaches these six suites 
 Unlike the census's `Not passing` ceiling, both columns are equalities: a cause growing or shrinking means the
 table needs to be regenerated.
 
+The numeric columns below retain the last Windows census and need regeneration after the native-parser
+acceptance fixes. Local runs have removed stale exclusions for media reflection, live-range adoption,
+saved implementations, selector escapes, native mutation records and `:dir()`. They are not a substitute
+for the Windows-only canonical census; its guard and failure ceilings are unchanged.
+
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 37 | 1 | **ProcessingInstruction HTML parsing and XML fixture assertions.** The attribute map and element serialization are implemented; 20 rows need HTML PI parsing and 17 assert preservation of a PI from an ill-formed XML document ([#4098](https://github.com/sebastienros/jint/issues/4098)). <!-- cause: a member of a DOM interface the bindings do not have --> |
-| 33 | 7 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments.** Sourced frames have their own realms and run classic scripts, and a frame served `application/xhtml+xml` is an XHTML document now — so the 244 rows of `Document-createElement*` this cause used to carry are gone from it, and both files pass whole. What is left really is a frame or a second global: empty iframes still lack a native document, which is what `node-realm-*`, `node-creation-realm` and the connectivity cases wait for, and `TextEvent` is an interface the bindings do not have. <!-- cause: a frame that runs script --> |
-| 16 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s `::slotted` matching difference — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
-| 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
+| 37 | 1 | **Ill-formed XML fixture assertions.** Native HTML PI parsing passes. The remaining exclusions require preservation of a PI from an XML document with no document element, where DOMParser must instead return a parsererror document. Patterns exclude only the PI-dependent assertions, not name-validation checks that also pass on an element. <!-- cause: a member of a DOM interface the bindings do not have --> |
+| 33 | 7 | **Remaining frame interfaces and registry access.** Native frame identity, adoption and CDATA branding now pass. The remaining exclusions cover the missing `TextEvent` interface and a custom-element registry accessed across an adopted container's realms. <!-- cause: a frame that runs script --> |
+| 16 | 1 | **The pinned Selectors 3 `:empty` expectation excludes whitespace-only elements.** [Selectors 4](https://drafts.csswg.org/selectors/#the-empty-pseudo) explicitly includes them. The native matcher follows that rule; `::slotted`, language matching and namespace-wildcard attribute matching now pass. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 10 | 6 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
-| 7 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` two. <!-- cause: the selector engine: escapes, :scope and :has --> |
 | 4 | 2 | **Two refusals the bindings do not make.** `insertBefore` with a second argument that is not a node, `null` or `undefined` must be a `TypeError`, and replacing with a document or a doctype must be a `HierarchyRequestError`. Both are about *insertion*; they sat with the name-creation rows because one pull request named them together, and [#3950](https://github.com/sebastienros/jint/issues/3950) emptied everything else out from under them. <!-- cause: two refusals the bindings do not make --> |
-| 4 | 2 | **`MutationObserver` records differ**, and both halves are AngleSharp's. Its HTML parser inserts nodes without queueing a record, so a document observer hears nothing about the parse; and its `OuterHtml` setter inserts the replacement and then removes the element, which a page sees as two `childList` records where HTML's "replace this with fragment within parent" is one. <!-- cause: MutationObserver's records --> |
-| 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
+| 4 | 2 | **The pinned PI mutation fixture expects the old HTML bogus-comment data.** Current HTML parsing produces a processing instruction with data `data`, not the comment spelling `?processing data?`. Native parser and outerHTML mutation records pass without exclusions. <!-- cause: MutationObserver's records --> |
 | 1 | 1 | **A `relList` on a MathML `<a>` that no standard defines.** The file's own `testAttr()` asks for a `DOMTokenList` in the MathML namespace beside the SVG one, and MathML Core's only interface is [`MathMLElement`](https://w3c.github.io/mathml-core/#dom-and-javascript), which declares neither `rel` nor `relList`; nothing else defines one on a MathML element either, so this is `AssertsWhatNothingRequires` rather than debt. The SVG row passes now — [SVG 2 §16.2](https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement)'s `SVGAElement` is one of `DomManualInterfaces`' local-name interfaces, and `Dom/divergences.md` records what is still missing. <!-- cause: a relList on a MathML <a> that no standard defines --> |
-| 1 | 1 | **A saved implementation detached from its document answers null**, which needs a frame that runs script of its own. Every other half of this cause is gone: a document with no browsing context has no `location`, `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name, and `createHTMLDocument` builds DOM's skeleton. <!-- cause: a document with no browsing context --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
 "a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that

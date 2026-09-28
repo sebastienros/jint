@@ -62,6 +62,27 @@ public class NativeTreeTests
     }
 
     [Test]
+    public void AncestorRejectionPrecedesAReferenceChildFromAnotherParent()
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("main");
+        var child = document.CreateElement("div");
+        var unrelated = document.CreateElement("p");
+        document.AppendChild(parent);
+        parent.AppendChild(child);
+
+        Assert.Throws<DomException>(() => child.InsertBefore(parent, unrelated))!.Name
+            .Should().Be("HierarchyRequestError");
+        Assert.Throws<DomException>(() => child.ReplaceChild(parent, unrelated))!.Name
+            .Should().Be("HierarchyRequestError");
+        Assert.Throws<DomException>(() => child.EnsurePreInsert(parent, unrelated))!.Name
+            .Should().Be("HierarchyRequestError");
+        parent.ChildNodes.Should().Equal(child);
+        child.ChildNodes.Should().BeEmpty();
+        unrelated.ParentNode.Should().BeNull();
+    }
+
+    [Test]
     public void DocumentOrderAllowsMovingExistingNodesButNotDoctypeAfterRoot()
     {
         var document = Document.CreateXml();

@@ -56,14 +56,19 @@ internal sealed class DomStringMapAdapter : IEnumerable<KeyValuePair<string, str
                     "the property name '" + name + "' does not produce a valid attribute name.");
             }
 
+            DomFailures.PrepareMutation(_realm, _element);
             _element.SetAttribute(attributeName, value ?? "");
+            DomFailures.CompleteMutation(_realm, _element);
         }
     }
 
     public void Remove(string name)
     {
         // https://html.spec.whatwg.org/multipage/dom.html#dom-domstringmap-removeitem
-        _element.RemoveAttribute(ToAttributeName(name));
+        var attributeName = ToAttributeName(name);
+        DomFailures.PrepareMutation(_realm, _element);
+        _element.RemoveAttribute(attributeName);
+        DomFailures.CompleteMutation(_realm, _element);
     }
 
     public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
