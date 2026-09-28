@@ -1,4 +1,3 @@
-using System.Text;
 using System.Xml;
 using System.Xml.XPath;
 
@@ -256,7 +255,7 @@ internal sealed class XPathReadSession
     {
         Check();
         if (_textValues.TryGetValue(representative, out var value)) return value;
-        var builder = new StringBuilder();
+        var builder = new TextJoin();
         for (var member = representative; member is not null; member = member.NextSibling)
         {
             Work();
@@ -280,7 +279,7 @@ internal sealed class XPathReadSession
     internal string DescendantValue(Node root)
     {
         Check();
-        var builder = new StringBuilder();
+        var builder = new TextJoin();
         var current = root.FirstChild;
         while (current is not null)
         {
@@ -546,5 +545,36 @@ internal sealed class XPathReadSession
     {
         internal Dictionary<string, string> Map { get; } = map;
         internal string[] Local { get; } = local;
+    }
+
+    // Concatenates text node data; a single node's data is returned without copying.
+    private struct TextJoin
+    {
+        private string? _single;
+        private string[]? _parts;
+        private int _count;
+
+        internal void Append(string data)
+        {
+            if (_count == 0) _single = data;
+            else
+            {
+                if (_parts is null)
+                {
+                    _parts = new string[4];
+                    _parts[0] = _single!;
+                }
+                else if (_count == _parts.Length) Array.Resize(ref _parts, _count * 2);
+                _parts[_count] = data;
+            }
+            _count++;
+        }
+
+        public override readonly string ToString() => _count switch
+        {
+            0 => string.Empty,
+            1 => _single!,
+            _ => string.Join(null, _parts!, 0, _count)
+        };
     }
 }
