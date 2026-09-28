@@ -1,23 +1,5 @@
 [
   {
-    "name": "CssBorderStyleKeywordLookup",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "entries": {
-      "none": "\"none\"",
-      "hidden": "\"hidden\"",
-      "dotted": "\"dotted\"",
-      "dashed": "\"dashed\"",
-      "solid": "\"solid\"",
-      "double": "\"double\"",
-      "groove": "\"groove\"",
-      "ridge": "\"ridge\"",
-      "inset": "\"inset\"",
-      "outset": "\"outset\""
-    }
-  },
-  {
     "name": "XmlDeclarationOrderLookup",
     "type": "int",
     "default": "0",
@@ -33,28 +15,6 @@
     "entries": {
       "yes": "true",
       "no": "true"
-    }
-  },
-  {
-    "name": "CssContainerFunctionLookup",
-    "type": "CssContainerAxis",
-    "default": "CssContainerAxis.Unknown",
-    "ignoreCase": true,
-    "entries": {
-      "style": "CssContainerAxis.Style",
-      "scroll-state": "CssContainerAxis.ScrollState"
-    }
-  },
-  {
-    "name": "CssKeyframeReservedNameLookup",
-    "type": "bool",
-    "default": "false",
-    "ignoreCase": true,
-    "source": {
-      "kind": "union",
-      "lookups": ["CssWideKeywordLookup"],
-      "additional": ["none", "default"],
-      "result": "true"
     }
   },
   {
@@ -142,48 +102,6 @@
     }
   },
   {
-    "name": "CssMathFunctionLookup",
-    "type": "CssMathFunction",
-    "default": "CssMathFunction.None",
-    "ignoreCase": true,
-    "entries": {
-      "min": "CssMathFunction.Min",
-      "max": "CssMathFunction.Max",
-      "mod": "CssMathFunction.Mod",
-      "rem": "CssMathFunction.Rem",
-      "sin": "CssMathFunction.Sin",
-      "cos": "CssMathFunction.Cos",
-      "tan": "CssMathFunction.Tan",
-      "pow": "CssMathFunction.Pow",
-      "log": "CssMathFunction.Log",
-      "exp": "CssMathFunction.Exp",
-      "abs": "CssMathFunction.Abs",
-      "calc": "CssMathFunction.Calc",
-      "asin": "CssMathFunction.Asin",
-      "acos": "CssMathFunction.Acos",
-      "atan": "CssMathFunction.Atan",
-      "sqrt": "CssMathFunction.Sqrt",
-      "sign": "CssMathFunction.Sign",
-      "clamp": "CssMathFunction.Clamp",
-      "round": "CssMathFunction.Round",
-      "atan2": "CssMathFunction.Atan2",
-      "hypot": "CssMathFunction.Hypot"
-    }
-  },
-  {
-    "name": "CssRoundingStrategyLookup",
-    "type": "CssRoundingStrategy",
-    "default": "(CssRoundingStrategy) (-1)",
-    "ignoreCase": true,
-    "entries": {
-      "up": "CssRoundingStrategy.Up",
-      "down": "CssRoundingStrategy.Down",
-      "nearest": "CssRoundingStrategy.Nearest",
-      "to-zero": "CssRoundingStrategy.ToZero",
-      "line-width": "CssRoundingStrategy.LineWidth"
-    }
-  },
-  {
     "name": "HtmlInputTypeLookup",
     "type": "HtmlInputType",
     "default": "HtmlInputType.Text",
@@ -211,140 +129,6 @@
       "password": "HtmlInputType.Password",
       "checkbox": "HtmlInputType.Checkbox",
       "datetime-local": "HtmlInputType.DateTimeLocal"
-    }
-  },
-  {
-    "name": "CssNamedColorLookup",
-    "type": "uint?",
-    "default": "null",
-    "ignoreCase": false,
-    "source": {
-      "file": "Css/Values/Colors/CssColorKeywords.cs",
-      "kind": "colors"
-    }
-  },
-  {
-    "name": "CssContextualColorLookup",
-    "type": "CssColorKind?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "transparent": "CssColorKind.Transparent",
-      "currentcolor": "CssColorKind.CurrentColor",
-      "accentcolor": "CssColorKind.System",
-      "accentcolortext": "CssColorKind.System",
-      "activetext": "CssColorKind.System",
-      "buttonborder": "CssColorKind.System",
-      "buttonface": "CssColorKind.System",
-      "buttontext": "CssColorKind.System",
-      "canvas": "CssColorKind.System",
-      "canvastext": "CssColorKind.System",
-      "field": "CssColorKind.System",
-      "fieldtext": "CssColorKind.System",
-      "graytext": "CssColorKind.System",
-      "highlight": "CssColorKind.System",
-      "highlighttext": "CssColorKind.System",
-      "linktext": "CssColorKind.System",
-      "mark": "CssColorKind.System",
-      "marktext": "CssColorKind.System",
-      "selecteditem": "CssColorKind.System",
-      "selecteditemtext": "CssColorKind.System",
-      "visitedtext": "CssColorKind.System",
-      "activeborder": "CssColorKind.DeprecatedSystem",
-      "activecaption": "CssColorKind.DeprecatedSystem",
-      "appworkspace": "CssColorKind.DeprecatedSystem",
-      "background": "CssColorKind.DeprecatedSystem",
-      "buttonhighlight": "CssColorKind.DeprecatedSystem",
-      "buttonshadow": "CssColorKind.DeprecatedSystem",
-      "captiontext": "CssColorKind.DeprecatedSystem",
-      "inactiveborder": "CssColorKind.DeprecatedSystem",
-      "inactivecaption": "CssColorKind.DeprecatedSystem",
-      "inactivecaptiontext": "CssColorKind.DeprecatedSystem",
-      "infobackground": "CssColorKind.DeprecatedSystem",
-      "infotext": "CssColorKind.DeprecatedSystem",
-      "menu": "CssColorKind.DeprecatedSystem",
-      "menutext": "CssColorKind.DeprecatedSystem",
-      "scrollbar": "CssColorKind.DeprecatedSystem",
-      "threeddarkshadow": "CssColorKind.DeprecatedSystem",
-      "threedface": "CssColorKind.DeprecatedSystem",
-      "threedhighlight": "CssColorKind.DeprecatedSystem",
-      "threedlightshadow": "CssColorKind.DeprecatedSystem",
-      "threedshadow": "CssColorKind.DeprecatedSystem",
-      "window": "CssColorKind.DeprecatedSystem",
-      "windowframe": "CssColorKind.DeprecatedSystem",
-      "windowtext": "CssColorKind.DeprecatedSystem"
-    }
-  },
-  {
-    "name": "CssColorFunctionLookup",
-    "type": "CssColorSpace?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "rgb": "CssColorSpace.Rgb",
-      "rgba": "CssColorSpace.Rgb",
-      "hsl": "CssColorSpace.Hsl",
-      "hsla": "CssColorSpace.Hsl",
-      "hwb": "CssColorSpace.Hwb",
-      "color": "CssColorSpace.Srgb"
-    }
-  },
-  {
-    "name": "CssTransformFunctionLookup",
-    "type": "CssTransformFunctionDescriptor?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "matrix": "new(CssTransformFunctionKind.Matrix, \"matrix\", 6, 6)",
-      "matrix3d": "new(CssTransformFunctionKind.Matrix3d, \"matrix3d\", 16, 16)",
-      "translate": "new(CssTransformFunctionKind.Translate, \"translate\", 1, 2)",
-      "translatex": "new(CssTransformFunctionKind.TranslateX, \"translateX\", 1, 1)",
-      "translatey": "new(CssTransformFunctionKind.TranslateY, \"translateY\", 1, 1)",
-      "translatez": "new(CssTransformFunctionKind.TranslateZ, \"translateZ\", 1, 1)",
-      "translate3d": "new(CssTransformFunctionKind.Translate3d, \"translate3d\", 3, 3)",
-      "scale": "new(CssTransformFunctionKind.Scale, \"scale\", 1, 2)",
-      "scalex": "new(CssTransformFunctionKind.ScaleX, \"scaleX\", 1, 1)",
-      "scaley": "new(CssTransformFunctionKind.ScaleY, \"scaleY\", 1, 1)",
-      "scalez": "new(CssTransformFunctionKind.ScaleZ, \"scaleZ\", 1, 1)",
-      "scale3d": "new(CssTransformFunctionKind.Scale3d, \"scale3d\", 3, 3)",
-      "rotate": "new(CssTransformFunctionKind.Rotate, \"rotate\", 1, 1)",
-      "rotatex": "new(CssTransformFunctionKind.RotateX, \"rotateX\", 1, 1)",
-      "rotatey": "new(CssTransformFunctionKind.RotateY, \"rotateY\", 1, 1)",
-      "rotatez": "new(CssTransformFunctionKind.RotateZ, \"rotateZ\", 1, 1)",
-      "rotate3d": "new(CssTransformFunctionKind.Rotate3d, \"rotate3d\", 4, 4)",
-      "skew": "new(CssTransformFunctionKind.Skew, \"skew\", 1, 2)",
-      "skewx": "new(CssTransformFunctionKind.SkewX, \"skewX\", 1, 1)",
-      "skewy": "new(CssTransformFunctionKind.SkewY, \"skewY\", 1, 1)",
-      "perspective": "new(CssTransformFunctionKind.Perspective, \"perspective\", 1, 1)"
-    }
-  },
-  {
-    "name": "CssPropertyAliasLookup",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "word-wrap": "\"overflow-wrap\"",
-      "grid-gap": "\"gap\"",
-      "grid-row-gap": "\"row-gap\"",
-      "grid-column-gap": "\"column-gap\"",
-      "page-break-before": "\"break-before\"",
-      "page-break-after": "\"break-after\"",
-      "page-break-inside": "\"break-inside\""
-    }
-  },
-  {
-    "name": "CssPropertyNameLookup",
-    "type": "int",
-    "default": "-1",
-    "ignoreCase": false,
-    "source": {
-      "file": "Css/Values/Properties/CssPropertyCatalog.cs",
-      "kind": "property-indices",
-      "additionalFiles": [
-        "Css/Values/Properties/CssPropertyMetadata.cs",
-        "Css/Values/Properties/CssPropertyEffects.cs"
-      ]
     }
   },
   {
@@ -608,20 +392,6 @@
     }
   },
   {
-    "name": "CssContainerAxisLookup",
-    "type": "CssContainerAxis",
-    "default": "CssContainerAxis.Unknown",
-    "ignoreCase": false,
-    "entries": {
-      "width": "CssContainerAxis.Width",
-      "inline-size": "CssContainerAxis.InlineSize",
-      "height": "CssContainerAxis.Height",
-      "block-size": "CssContainerAxis.BlockSize",
-      "aspect-ratio": "CssContainerAxis.Both",
-      "orientation": "CssContainerAxis.Both"
-    }
-  },
-  {
     "name": "HtmlHeadingLookup",
     "type": "bool",
     "default": "false",
@@ -835,810 +605,6 @@
     }
   },
   {
-    "name": "CssAutoBlockSwapFallbackEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoBlockSwapFallbackEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "block": "\"block\"",
-      "swap": "\"swap\"",
-      "fallback": "\"fallback\"",
-      "optional": "\"optional\""
-    }
-  },
-  {
-    "name": "CssAutoKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "Auto",
-    "entries": {
-      "auto": "\"auto\""
-    }
-  },
-  {
-    "name": "CssNormalItalicLeftRightEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NormalItalicLeftRightEtc",
-    "entries": {
-      "normal": "\"normal\"",
-      "italic": "\"italic\"",
-      "left": "\"left\"",
-      "right": "\"right\"",
-      "oblique": "\"oblique\""
-    }
-  },
-  {
-    "name": "CssObliqueKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "Oblique",
-    "entries": {
-      "oblique": "\"oblique\""
-    }
-  },
-  {
-    "name": "CssBolderLighterKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "BolderLighter",
-    "entries": {
-      "bolder": "\"bolder\"",
-      "lighter": "\"lighter\""
-    }
-  },
-  {
-    "name": "CssInitialInheritUnsetRevertEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "InitialInheritUnsetRevertEtc",
-    "entries": {
-      "initial": "\"initial\"",
-      "inherit": "\"inherit\"",
-      "unset": "\"unset\"",
-      "revert": "\"revert\"",
-      "revert-layer": "\"revert-layer\"",
-      "revert-rule": "\"revert-rule\"",
-      "default": "\"default\"",
-      "serif": "\"serif\"",
-      "sans-serif": "\"sans-serif\"",
-      "cursive": "\"cursive\"",
-      "fantasy": "\"fantasy\"",
-      "monospace": "\"monospace\"",
-      "system-ui": "\"system-ui\"",
-      "ui-serif": "\"ui-serif\"",
-      "ui-sans-serif": "\"ui-sans-serif\"",
-      "ui-monospace": "\"ui-monospace\"",
-      "ui-rounded": "\"ui-rounded\"",
-      "emoji": "\"emoji\"",
-      "math": "\"math\"",
-      "fangsong": "\"fangsong\"",
-      "caption": "\"caption\"",
-      "icon": "\"icon\"",
-      "menu": "\"menu\"",
-      "message-box": "\"message-box\"",
-      "small-caption": "\"small-caption\"",
-      "status-bar": "\"status-bar\""
-    }
-  },
-  {
-    "name": "CssFeaturesOpentypeFeaturesAatFeaturesGraphiteColorColrv0EtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "FeaturesOpentypeFeaturesAatFeaturesGraphiteColorColrv0Etc",
-    "entries": {
-      "features-opentype": "\"features-opentype\"",
-      "features-aat": "\"features-aat\"",
-      "features-graphite": "\"features-graphite\"",
-      "color-colrv0": "\"color-colrv0\"",
-      "color-colrv1": "\"color-colrv1\"",
-      "color-svg": "\"color-svg\"",
-      "color-sbix": "\"color-sbix\"",
-      "color-cbdt": "\"color-cbdt\"",
-      "variations": "\"variations\"",
-      "palettes": "\"palettes\"",
-      "incremental": "\"incremental\""
-    }
-  },
-  {
-    "name": "CssCollectionEmbeddedOpentypeOpentypeSvgEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "CollectionEmbeddedOpentypeOpentypeSvgEtc",
-    "entries": {
-      "collection": "\"collection\"",
-      "embedded-opentype": "\"embedded-opentype\"",
-      "opentype": "\"opentype\"",
-      "svg": "\"svg\"",
-      "truetype": "\"truetype\"",
-      "woff": "\"woff\"",
-      "woff2": "\"woff2\""
-    }
-  },
-  {
-    "name": "CssAnchorCenterKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AnchorCenter",
-    "entries": {
-      "anchor-center": "\"anchor-center\""
-    }
-  },
-  {
-    "name": "CssAutoNormalStretchBaselineEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoNormalStretchBaselineEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "normal": "\"normal\"",
-      "stretch": "\"stretch\"",
-      "baseline": "\"baseline\"",
-      "first": "\"first\"",
-      "last": "\"last\"",
-      "safe": "\"safe\"",
-      "unsafe": "\"unsafe\"",
-      "center": "\"center\"",
-      "start": "\"start\"",
-      "end": "\"end\"",
-      "self-start": "\"self-start\"",
-      "self-end": "\"self-end\"",
-      "flex-start": "\"flex-start\"",
-      "flex-end": "\"flex-end\"",
-      "left": "\"left\"",
-      "right": "\"right\"",
-      "legacy": "\"legacy\"",
-      "space-between": "\"space-between\"",
-      "space-around": "\"space-around\"",
-      "space-evenly": "\"space-evenly\""
-    }
-  },
-  {
-    "name": "CssBaselineNormalCenterStartEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "BaselineNormalCenterStartEtc",
-    "entries": {
-      "baseline": "\"baseline\"",
-      "normal": "\"normal\"",
-      "center": "\"center\"",
-      "start": "\"start\"",
-      "end": "\"end\"",
-      "self-start": "\"self-start\"",
-      "self-end": "\"self-end\"",
-      "flex-start": "\"flex-start\"",
-      "flex-end": "\"flex-end\"",
-      "left": "\"left\"",
-      "right": "\"right\"",
-      "legacy": "\"legacy\""
-    }
-  },
-  {
-    "name": "CssNormalThinMediumThickKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NormalThinMediumThick",
-    "entries": {
-      "normal": "\"normal\"",
-      "thin": "\"thin\"",
-      "medium": "\"medium\"",
-      "thick": "\"thick\""
-    }
-  },
-  {
-    "name": "CssBorderBoxPaddingBoxContentBoxBorderAreaEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "BorderBoxPaddingBoxContentBoxBorderAreaEtc",
-    "entries": {
-      "border-box": "\"border-box\"",
-      "padding-box": "\"padding-box\"",
-      "content-box": "\"content-box\"",
-      "border-area": "\"border-area\"",
-      "text": "\"text\""
-    }
-  },
-  {
-    "name": "CssBorderAreaTextKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "BorderAreaText",
-    "entries": {
-      "border-area": "\"border-area\"",
-      "text": "\"text\""
-    }
-  },
-  {
-    "name": "CssHorizontalTbVerticalRlVerticalLrSidewaysRlEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "HorizontalTbVerticalRlVerticalLrSidewaysRlEtc",
-    "entries": {
-      "horizontal-tb": "\"horizontal-tb\"",
-      "vertical-rl": "\"vertical-rl\"",
-      "vertical-lr": "\"vertical-lr\"",
-      "sideways-rl": "\"sideways-rl\"",
-      "sideways-lr": "\"sideways-lr\""
-    }
-  },
-  {
-    "name": "CssNormalSizeInlineSizeScrollStateKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NormalSizeInlineSizeScrollState",
-    "entries": {
-      "normal": "\"normal\"",
-      "size": "\"size\"",
-      "inline-size": "\"inline-size\"",
-      "scroll-state": "\"scroll-state\""
-    }
-  },
-  {
-    "name": "CssNoneAndOrNotEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NoneAndOrNotEtc",
-    "entries": {
-      "none": "\"none\"",
-      "and": "\"and\"",
-      "or": "\"or\"",
-      "not": "\"not\"",
-      "default": "\"default\"",
-      "initial": "\"initial\"",
-      "inherit": "\"inherit\"",
-      "unset": "\"unset\"",
-      "revert": "\"revert\"",
-      "revert-layer": "\"revert-layer\"",
-      "revert-rule": "\"revert-rule\""
-    }
-  },
-  {
-    "name": "CssNoneKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "None",
-    "entries": {
-      "none": "\"none\""
-    }
-  },
-  {
-    "name": "CssAutoDefaultNoneContextMenuEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoDefaultNoneContextMenuEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "default": "\"default\"",
-      "none": "\"none\"",
-      "context-menu": "\"context-menu\"",
-      "help": "\"help\"",
-      "pointer": "\"pointer\"",
-      "progress": "\"progress\"",
-      "wait": "\"wait\"",
-      "cell": "\"cell\"",
-      "crosshair": "\"crosshair\"",
-      "text": "\"text\"",
-      "vertical-text": "\"vertical-text\"",
-      "alias": "\"alias\"",
-      "copy": "\"copy\"",
-      "move": "\"move\"",
-      "no-drop": "\"no-drop\"",
-      "not-allowed": "\"not-allowed\"",
-      "grab": "\"grab\"",
-      "grabbing": "\"grabbing\"",
-      "e-resize": "\"e-resize\"",
-      "n-resize": "\"n-resize\"",
-      "ne-resize": "\"ne-resize\"",
-      "nw-resize": "\"nw-resize\"",
-      "s-resize": "\"s-resize\"",
-      "se-resize": "\"se-resize\"",
-      "sw-resize": "\"sw-resize\"",
-      "w-resize": "\"w-resize\"",
-      "ew-resize": "\"ew-resize\"",
-      "ns-resize": "\"ns-resize\"",
-      "nesw-resize": "\"nesw-resize\"",
-      "nwse-resize": "\"nwse-resize\"",
-      "col-resize": "\"col-resize\"",
-      "row-resize": "\"row-resize\"",
-      "all-scroll": "\"all-scroll\"",
-      "zoom-in": "\"zoom-in\"",
-      "zoom-out": "\"zoom-out\""
-    }
-  },
-  {
-    "name": "CssRowRowReverseColumnColumnReverseKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "RowRowReverseColumnColumnReverse",
-    "entries": {
-      "row": "\"row\"",
-      "row-reverse": "\"row-reverse\"",
-      "column": "\"column\"",
-      "column-reverse": "\"column-reverse\""
-    }
-  },
-  {
-    "name": "CssNowrapWrapWrapReverseKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NowrapWrapWrapReverse",
-    "entries": {
-      "nowrap": "\"nowrap\"",
-      "wrap": "\"wrap\"",
-      "wrap-reverse": "\"wrap-reverse\""
-    }
-  },
-  {
-    "name": "CssLtrRtlKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "LtrRtl",
-    "entries": {
-      "ltr": "\"ltr\"",
-      "rtl": "\"rtl\""
-    }
-  },
-  {
-    "name": "CssNoneAutoKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NoneAuto",
-    "entries": {
-      "none": "\"none\"",
-      "auto": "\"auto\""
-    }
-  },
-  {
-    "name": "CssXxSmallXSmallSmallMediumEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "XxSmallXSmallSmallMediumEtc",
-    "entries": {
-      "xx-small": "\"xx-small\"",
-      "x-small": "\"x-small\"",
-      "small": "\"small\"",
-      "medium": "\"medium\"",
-      "large": "\"large\"",
-      "x-large": "\"x-large\"",
-      "xx-large": "\"xx-large\"",
-      "xxx-large": "\"xxx-large\"",
-      "larger": "\"larger\"",
-      "smaller": "\"smaller\""
-    }
-  },
-  {
-    "name": "CssMathKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "Math",
-    "entries": {
-      "math": "\"math\""
-    }
-  },
-  {
-    "name": "CssNormalBoldBolderLighterKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NormalBoldBolderLighter",
-    "entries": {
-      "normal": "\"normal\"",
-      "bold": "\"bold\"",
-      "bolder": "\"bolder\"",
-      "lighter": "\"lighter\""
-    }
-  },
-  {
-    "name": "CssVisibleHiddenCollapseKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "VisibleHiddenCollapse",
-    "entries": {
-      "visible": "\"visible\"",
-      "hidden": "\"hidden\"",
-      "collapse": "\"collapse\""
-    }
-  },
-  {
-    "name": "CssStaticRelativeAbsoluteStickyEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "StaticRelativeAbsoluteStickyEtc",
-    "entries": {
-      "static": "\"static\"",
-      "relative": "\"relative\"",
-      "absolute": "\"absolute\"",
-      "sticky": "\"sticky\"",
-      "fixed": "\"fixed\""
-    }
-  },
-  {
-    "name": "CssAutoNoneVisiblepaintedVisiblefillEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoNoneVisiblepaintedVisiblefillEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "none": "\"none\"",
-      "visiblepainted": "\"visiblepainted\"",
-      "visiblefill": "\"visiblefill\"",
-      "visiblestroke": "\"visiblestroke\"",
-      "visible": "\"visible\"",
-      "painted": "\"painted\"",
-      "fill": "\"fill\"",
-      "stroke": "\"stroke\"",
-      "all": "\"all\"",
-      "bounding-box": "\"bounding-box\""
-    }
-  },
-  {
-    "name": "CssContentBoxBorderBoxKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "ContentBoxBorderBox",
-    "entries": {
-      "content-box": "\"content-box\"",
-      "border-box": "\"border-box\""
-    }
-  },
-  {
-    "name": "CssContentBoxBorderBoxFillBoxStrokeBoxEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "ContentBoxBorderBoxFillBoxStrokeBoxEtc",
-    "entries": {
-      "content-box": "\"content-box\"",
-      "border-box": "\"border-box\"",
-      "fill-box": "\"fill-box\"",
-      "stroke-box": "\"stroke-box\"",
-      "view-box": "\"view-box\""
-    }
-  },
-  {
-    "name": "CssVisibleHiddenClipScrollEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "VisibleHiddenClipScrollEtc",
-    "entries": {
-      "visible": "\"visible\"",
-      "hidden": "\"hidden\"",
-      "clip": "\"clip\"",
-      "scroll": "\"scroll\"",
-      "auto": "\"auto\"",
-      "overlay": "\"overlay\""
-    }
-  },
-  {
-    "name": "CssNoneContentsTableRowGroupTableHeaderGroupEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NoneContentsTableRowGroupTableHeaderGroupEtc",
-    "entries": {
-      "none": "\"none\"",
-      "contents": "\"contents\"",
-      "table-row-group": "\"table-row-group\"",
-      "table-header-group": "\"table-header-group\"",
-      "table-footer-group": "\"table-footer-group\"",
-      "table-row": "\"table-row\"",
-      "table-cell": "\"table-cell\"",
-      "table-column-group": "\"table-column-group\"",
-      "table-column": "\"table-column\"",
-      "table-caption": "\"table-caption\"",
-      "ruby-base": "\"ruby-base\"",
-      "ruby-text": "\"ruby-text\"",
-      "ruby-base-container": "\"ruby-base-container\"",
-      "ruby-text-container": "\"ruby-text-container\"",
-      "inline-block": "\"inline-block\"",
-      "inline-table": "\"inline-table\"",
-      "inline-flex": "\"inline-flex\"",
-      "inline-grid": "\"inline-grid\""
-    }
-  },
-  {
-    "name": "CssBlockInlineRunInKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "BlockInlineRunIn",
-    "entries": {
-      "block": "\"block\"",
-      "inline": "\"inline\"",
-      "run-in": "\"run-in\""
-    }
-  },
-  {
-    "name": "CssFlowFlowRootTableFlexEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "FlowFlowRootTableFlexEtc",
-    "entries": {
-      "flow": "\"flow\"",
-      "flow-root": "\"flow-root\"",
-      "table": "\"table\"",
-      "flex": "\"flex\"",
-      "grid": "\"grid\"",
-      "ruby": "\"ruby\""
-    }
-  },
-  {
-    "name": "CssListItemKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "ListItem",
-    "entries": {
-      "list-item": "\"list-item\""
-    }
-  },
-  {
-    "name": "CssAutoContentMinContentMaxContentEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoContentMinContentMaxContentEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "content": "\"content\"",
-      "min-content": "\"min-content\"",
-      "max-content": "\"max-content\"",
-      "fit-content": "\"fit-content\"",
-      "stretch": "\"stretch\""
-    }
-  },
-  {
-    "name": "CssNoneMinContentMaxContentFitContentEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NoneMinContentMaxContentFitContentEtc",
-    "entries": {
-      "none": "\"none\"",
-      "min-content": "\"min-content\"",
-      "max-content": "\"max-content\"",
-      "fit-content": "\"fit-content\"",
-      "stretch": "\"stretch\""
-    }
-  },
-  {
-    "name": "CssAutoMinContentMaxContentFitContentEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoMinContentMaxContentFitContentEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "min-content": "\"min-content\"",
-      "max-content": "\"max-content\"",
-      "fit-content": "\"fit-content\"",
-      "stretch": "\"stretch\""
-    }
-  },
-  {
-    "name": "CssContainKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "Contain",
-    "entries": {
-      "contain": "\"contain\""
-    }
-  },
-  {
-    "name": "CssStartEndLeftRightEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "StartEndLeftRightEtc",
-    "entries": {
-      "start": "\"start\"",
-      "end": "\"end\"",
-      "left": "\"left\"",
-      "right": "\"right\"",
-      "center": "\"center\"",
-      "justify": "\"justify\"",
-      "match-parent": "\"match-parent\"",
-      "justify-all": "\"justify-all\""
-    }
-  },
-  {
-    "name": "CssStartEndLeftRightEtc2Keywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "StartEndLeftRightEtc2",
-    "entries": {
-      "start": "\"start\"",
-      "end": "\"end\"",
-      "left": "\"left\"",
-      "right": "\"right\"",
-      "center": "\"center\"",
-      "justify": "\"justify\"",
-      "match-parent": "\"match-parent\"",
-      "auto": "\"auto\""
-    }
-  },
-  {
-    "name": "CssStartEndLeftRightEtc3Keywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "StartEndLeftRightEtc3",
-    "entries": {
-      "start": "\"start\"",
-      "end": "\"end\"",
-      "left": "\"left\"",
-      "right": "\"right\"",
-      "center": "\"center\"",
-      "justify": "\"justify\"",
-      "match-parent": "\"match-parent\""
-    }
-  },
-  {
-    "name": "CssSolidDoubleDottedDashedEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "SolidDoubleDottedDashedEtc",
-    "entries": {
-      "solid": "\"solid\"",
-      "double": "\"double\"",
-      "dotted": "\"dotted\"",
-      "dashed": "\"dashed\"",
-      "wavy": "\"wavy\""
-    }
-  },
-  {
-    "name": "CssNoneUnderlineOverlineLineThroughEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NoneUnderlineOverlineLineThroughEtc",
-    "entries": {
-      "none": "\"none\"",
-      "underline": "\"underline\"",
-      "overline": "\"overline\"",
-      "line-through": "\"line-through\"",
-      "blink": "\"blink\"",
-      "spelling-error": "\"spelling-error\"",
-      "grammar-error": "\"grammar-error\""
-    }
-  },
-  {
-    "name": "CssAutoFromFontHairlineThinEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "AutoFromFontHairlineThinEtc",
-    "entries": {
-      "auto": "\"auto\"",
-      "from-font": "\"from-font\"",
-      "hairline": "\"hairline\"",
-      "thin": "\"thin\"",
-      "medium": "\"medium\"",
-      "thick": "\"thick\""
-    }
-  },
-  {
-    "name": "CssCollapseDiscardPreservePreserveBreaksEtcKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "CollapseDiscardPreservePreserveBreaksEtc",
-    "entries": {
-      "collapse": "\"collapse\"",
-      "discard": "\"discard\"",
-      "preserve": "\"preserve\"",
-      "preserve-breaks": "\"preserve-breaks\"",
-      "preserve-spaces": "\"preserve-spaces\"",
-      "break-spaces": "\"break-spaces\""
-    }
-  },
-  {
-    "name": "CssWrapNowrapKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "WrapNowrap",
-    "entries": {
-      "wrap": "\"wrap\"",
-      "nowrap": "\"nowrap\""
-    }
-  },
-  {
-    "name": "CssNormalPrePreWrapPreLineKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "NormalPrePreWrapPreLine",
-    "entries": {
-      "normal": "\"normal\"",
-      "pre": "\"pre\"",
-      "pre-wrap": "\"pre-wrap\"",
-      "pre-line": "\"pre-line\""
-    }
-  },
-  {
-    "name": "CssDiscardBeforeDiscardAfterDiscardInnerKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "DiscardBeforeDiscardAfterDiscardInner",
-    "entries": {
-      "discard-before": "\"discard-before\"",
-      "discard-after": "\"discard-after\"",
-      "discard-inner": "\"discard-inner\""
-    }
-  },
-  {
-    "name": "CssXYZKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "keywordSet": "XYZ",
-    "entries": {
-      "x": "\"x\"",
-      "y": "\"y\"",
-      "z": "\"z\""
-    }
-  },
-  {
-    "name": "CssKeywordAliasLookup",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": true,
-    "source": {
-      "kind": "lookup",
-      "name": "CssPropertyAliasLookup"
-    }
-  },
-  {
-    "name": "CssMathConstantLookup",
-    "type": "double?",
-    "default": "null",
-    "ignoreCase": true,
-    "entries": {
-      "e": "System.Math.E",
-      "pi": "System.Math.PI",
-      "infinity": "double.PositiveInfinity",
-      "-infinity": "double.NegativeInfinity",
-      "nan": "double.NaN"
-    }
-  },
-  {
     "name": "HtmlTableStartLookup",
     "type": "HtmlTableStartKind",
     "default": "HtmlTableStartKind.Unknown",
@@ -1837,49 +803,6 @@
     }
   },
   {
-    "name": "CssFontFaceDescriptorLookup",
-    "type": "CssFontFaceDescriptorKind",
-    "default": "CssFontFaceDescriptorKind.Unknown",
-    "enum": [
-      "FontFamily",
-      "Src",
-      "FontDisplay",
-      "FontWeight",
-      "FontStyle",
-      "FontWidth",
-      "FontStretch",
-      "UnicodeRange",
-      "FontFeatureSettings",
-      "FontVariationSettings",
-      "FontNamedInstance",
-      "FontLanguageOverride",
-      "AscentOverride",
-      "DescentOverride",
-      "LineGapOverride",
-      "SizeAdjust",
-      "FontVariant"
-    ],
-    "entries": {
-      "font-family": "CssFontFaceDescriptorKind.FontFamily",
-      "src": "CssFontFaceDescriptorKind.Src",
-      "font-display": "CssFontFaceDescriptorKind.FontDisplay",
-      "font-weight": "CssFontFaceDescriptorKind.FontWeight",
-      "font-style": "CssFontFaceDescriptorKind.FontStyle",
-      "font-width": "CssFontFaceDescriptorKind.FontWidth",
-      "font-stretch": "CssFontFaceDescriptorKind.FontStretch",
-      "unicode-range": "CssFontFaceDescriptorKind.UnicodeRange",
-      "font-feature-settings": "CssFontFaceDescriptorKind.FontFeatureSettings",
-      "font-variation-settings": "CssFontFaceDescriptorKind.FontVariationSettings",
-      "font-named-instance": "CssFontFaceDescriptorKind.FontNamedInstance",
-      "font-language-override": "CssFontFaceDescriptorKind.FontLanguageOverride",
-      "ascent-override": "CssFontFaceDescriptorKind.AscentOverride",
-      "descent-override": "CssFontFaceDescriptorKind.DescentOverride",
-      "line-gap-override": "CssFontFaceDescriptorKind.LineGapOverride",
-      "size-adjust": "CssFontFaceDescriptorKind.SizeAdjust",
-      "font-variant": "CssFontFaceDescriptorKind.FontVariant"
-    }
-  },
-  {
     "name": "CssNotOnlyNames",
     "type": "bool",
     "default": "false",
@@ -1955,147 +878,6 @@
       "video-color-gamut": "true",
       "video-dynamic-range": "true",
       "ua-color-scheme": "true"
-    }
-  },
-  {
-    "name": "CssLabLchOklabNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "lab": "true",
-      "lch": "true",
-      "oklab": "true",
-      "oklch": "true",
-      "color-mix": "true",
-      "light-dark": "true",
-      "contrast-color": "true",
-      "device-cmyk": "true"
-    }
-  },
-  {
-    "name": "CssSrgbLinearDisplayP3DisplayP3LinearNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "srgb-linear": "true",
-      "display-p3": "true",
-      "display-p3-linear": "true",
-      "a98-rgb": "true",
-      "prophoto-rgb": "true",
-      "rec2020": "true",
-      "xyz": "true",
-      "xyz-d50": "true",
-      "xyz-d65": "true"
-    }
-  },
-  {
-    "name": "CssWoff2WoffTruetypeNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "woff2": "true",
-      "woff": "true",
-      "truetype": "true",
-      "opentype": "true"
-    }
-  },
-  {
-    "name": "CssFirstLastSafeNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "first": "true",
-      "last": "true",
-      "safe": "true",
-      "unsafe": "true"
-    }
-  },
-  {
-    "name": "CssLeftRightNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "left": "true",
-      "right": "true"
-    }
-  },
-  {
-    "name": "CssFirstLastNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "first": "true",
-      "last": "true"
-    }
-  },
-  {
-    "name": "CssSafeUnsafeNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "safe": "true",
-      "unsafe": "true"
-    }
-  },
-  {
-    "name": "CssCenterStartEndNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "center": "true",
-      "start": "true",
-      "end": "true",
-      "self-start": "true",
-      "self-end": "true",
-      "flex-start": "true",
-      "flex-end": "true"
-    }
-  },
-  {
-    "name": "CssLeftRightCenterNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "left": "true",
-      "right": "true",
-      "center": "true"
-    }
-  },
-  {
-    "name": "CssBorderAreaTextNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "border-area": "true",
-      "text": "true"
-    }
-  },
-  {
-    "name": "CssUrlImageSetWebkitImageSetNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "url": "true",
-      "image-set": "true",
-      "-webkit-image-set": "true"
-    }
-  },
-  {
-    "name": "CssAnchorAnchorSizeNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "anchor": "true",
-      "anchor-size": "true"
-    }
-  },
-  {
-    "name": "CssAnchorSizeCalcSizeNames",
-    "type": "bool",
-    "default": "false",
-    "entries": {
-      "anchor-size": "true",
-      "calc-size": "true"
     }
   },
   {
@@ -2704,112 +1486,6 @@
     }
   },
   {
-    "name": "CssMediaOrientationKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "portrait": "\"portrait\"",
-      "landscape": "\"landscape\""
-    },
-    "keywordSet": "MediaOrientation"
-  },
-  {
-    "name": "CssMediaPointerKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "none": "\"none\"",
-      "coarse": "\"coarse\"",
-      "fine": "\"fine\""
-    },
-    "keywordSet": "MediaPointer"
-  },
-  {
-    "name": "CssMediaHoverKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "none": "\"none\"",
-      "hover": "\"hover\""
-    },
-    "keywordSet": "MediaHover"
-  },
-  {
-    "name": "CssMediaDisplayModeKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "fullscreen": "\"fullscreen\"",
-      "standalone": "\"standalone\"",
-      "minimal-ui": "\"minimal-ui\"",
-      "browser": "\"browser\"",
-      "picture-in-picture": "\"picture-in-picture\""
-    },
-    "keywordSet": "MediaDisplayMode"
-  },
-  {
-    "name": "CssMediaPrefersColorSchemeKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "light": "\"light\"",
-      "dark": "\"dark\""
-    },
-    "keywordSet": "MediaPrefersColorScheme"
-  },
-  {
-    "name": "CssMediaPrefersReducedMotionKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "no-preference": "\"no-preference\"",
-      "reduce": "\"reduce\""
-    },
-    "keywordSet": "MediaPrefersReducedMotion"
-  },
-  {
-    "name": "CssMediaPrefersContrastKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "no-preference": "\"no-preference\"",
-      "more": "\"more\"",
-      "less": "\"less\"",
-      "custom": "\"custom\""
-    },
-    "keywordSet": "MediaPrefersContrast"
-  },
-  {
-    "name": "CssMediaForcedColorsKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "none": "\"none\"",
-      "active": "\"active\""
-    },
-    "keywordSet": "MediaForcedColors"
-  },
-  {
-    "name": "CssMediaScriptingKeywords",
-    "type": "string?",
-    "default": "null",
-    "ignoreCase": false,
-    "entries": {
-      "none": "\"none\"",
-      "initial-only": "\"initial-only\"",
-      "enabled": "\"enabled\""
-    },
-    "keywordSet": "MediaScripting"
-  },
-  {
     "name": "CssMediaFeatureKeywordLookup",
     "type": "CssKeywordSet",
     "default": "CssKeywordSet.Empty",
@@ -2922,16 +1598,109 @@
     }
   },
   {
-    "name": "CssPendingReferenceLookup",
-    "type": "bool",
-    "default": "false",
-    "ignoreCase": true,
+    "name": "CssMediaOrientationKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
     "entries": {
-      "attr": "true",
-      "if": "true",
-      "inherit": "true",
-      "ident": "true",
-      "random-item": "true"
-    }
+      "portrait": "\"portrait\"",
+      "landscape": "\"landscape\""
+    },
+    "keywordSet": "MediaOrientation"
+  },
+  {
+    "name": "CssMediaPointerKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "coarse": "\"coarse\"",
+      "fine": "\"fine\""
+    },
+    "keywordSet": "MediaPointer"
+  },
+  {
+    "name": "CssMediaHoverKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "hover": "\"hover\""
+    },
+    "keywordSet": "MediaHover"
+  },
+  {
+    "name": "CssMediaDisplayModeKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "fullscreen": "\"fullscreen\"",
+      "standalone": "\"standalone\"",
+      "minimal-ui": "\"minimal-ui\"",
+      "browser": "\"browser\"",
+      "picture-in-picture": "\"picture-in-picture\""
+    },
+    "keywordSet": "MediaDisplayMode"
+  },
+  {
+    "name": "CssMediaPrefersColorSchemeKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "light": "\"light\"",
+      "dark": "\"dark\""
+    },
+    "keywordSet": "MediaPrefersColorScheme"
+  },
+  {
+    "name": "CssMediaPrefersReducedMotionKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "no-preference": "\"no-preference\"",
+      "reduce": "\"reduce\""
+    },
+    "keywordSet": "MediaPrefersReducedMotion"
+  },
+  {
+    "name": "CssMediaPrefersContrastKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "no-preference": "\"no-preference\"",
+      "more": "\"more\"",
+      "less": "\"less\"",
+      "custom": "\"custom\""
+    },
+    "keywordSet": "MediaPrefersContrast"
+  },
+  {
+    "name": "CssMediaForcedColorsKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "active": "\"active\""
+    },
+    "keywordSet": "MediaForcedColors"
+  },
+  {
+    "name": "CssMediaScriptingKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "initial-only": "\"initial-only\"",
+      "enabled": "\"enabled\""
+    },
+    "keywordSet": "MediaScripting"
   }
 ]

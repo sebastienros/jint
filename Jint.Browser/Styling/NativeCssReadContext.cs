@@ -8,7 +8,7 @@ namespace Jint.Browser.Styling;
 
 // One synchronous Browser read: a native query, its existing cascade traversal and optional
 // synthetic size query. The provider receives captured values; no page/engine/realm is stored here.
-internal sealed class NativeCssReadContext : INativeCssContainerMetrics
+internal sealed class NativeCssReadContext
 {
     private readonly Document _document;
     private readonly ElementVisibility _visibility;
@@ -29,7 +29,6 @@ internal sealed class NativeCssReadContext : INativeCssContainerMetrics
         _viewportWidth = viewportWidth;
         _verify = verify;
         _token = token;
-        query.AttachContainerMetrics(this);
     }
 
     internal NativeCssQuery Query { get; }
@@ -57,36 +56,4 @@ internal sealed class NativeCssReadContext : INativeCssContainerMetrics
     }
 
     private void Discard() { _failed = true; _sizes = null; }
-
-    public bool HasBox(Element element, ref SelectorMatchWork matching)
-    {
-        try
-        {
-            Verify();
-            // A visibility row is not sufficient: display:contents has no principal box.
-            // Query this invocation's actual computed display before allocating/measuring geometry.
-            var display = Traversal.Of(element).GetPropertyValue("display");
-            matching.VerifyRead();
-            Verify();
-            if (display is "none" or "contents") return false;
-            var result = MeasureSizes().HasBox(element);
-            matching.VerifyRead();
-            Verify();
-            return result;
-        }
-        catch { Discard(); throw; }
-    }
-
-    public double Width(Element element, ref SelectorMatchWork matching)
-    {
-        try
-        {
-            Verify();
-            var result = MeasureSizes().Width(element);
-            matching.VerifyRead();
-            Verify();
-            return result;
-        }
-        catch { Discard(); throw; }
-    }
 }

@@ -7,7 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Layer = 0, Property = Layer, Style = 1, Import = 3, Media = 4, FontFace = 5, Keyframes = 7, Keyframe = 8, Supports = 12, Container = 17 }
+internal enum CssRuleType { Unknown = 0, Layer = Unknown, Style = 1, Import = 3, Media = 4, FontFace = 5, Supports = 12 }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule
@@ -148,7 +148,11 @@ internal sealed class CssStyleRule : CssRule
             // Stage the entire subtree so a cancelled mutation cannot publish stale child programs.
             var updates = new List<(CssStyleRule Rule, CompiledSelector Selector)> { (this, selector) };
             var pending = new Stack<(CssStyleRule Rule, CompiledSelector Parent)>();
-            foreach (var child in _rules) { work.Charge(1); pending.Push(((CssStyleRule) child, selector)); }
+            foreach (var child in _rules)
+            {
+                work.Charge(1);
+                if (child is CssStyleRule style) pending.Push((style, selector));
+            }
             while (pending.TryPop(out var item))
             {
                 work.Charge(1);
@@ -162,7 +166,10 @@ internal sealed class CssStyleRule : CssRule
                     cancellationToken, work.CheckCancellation).Compile(childValues);
                 updates.Add((childRule, childSelector));
                 foreach (var child in childRule._rules)
-                { work.Charge(1); pending.Push(((CssStyleRule) child, childSelector)); }
+                {
+                    work.Charge(1);
+                    if (child is CssStyleRule style) pending.Push((style, childSelector));
+                }
             }
             work.CheckCancellation();
             foreach (var update in updates)
@@ -178,6 +185,12 @@ internal sealed class CssStyleRule : CssRule
             // CSSOM's selectorText setter preserves the old selector on selector syntax failure.
         }
     }
+}
+
+internal sealed class CssGenericRule(string text, CssSourceSpan span) : CssRule(span)
+{
+    internal override CssRuleType Type => CssRuleType.Unknown;
+    internal string Text { get; } = text;
 }
 
 internal sealed class CssRuleList(List<CssRule> items) : IReadOnlyList<CssRule>

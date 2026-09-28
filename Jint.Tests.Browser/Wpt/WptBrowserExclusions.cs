@@ -996,9 +996,6 @@ internal static class WptBrowserExclusions
     [
         new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
         // The native mutation bridge handles the other twelve rows; these need CSS grammars or aliases.
-        new("custom-elements/reactions/CSSStyleDeclaration.html", "cssFloat on CSSStyleDeclaration must enqueue an attributeChanged reaction when it adds the observed style attribute", WptDivergence.NeedsTriage),
-        new("custom-elements/reactions/CSSStyleDeclaration.html", "cssFloat on CSSStyleDeclaration must not enqueue an attributeChanged reaction when it adds the style attribute but the style attribute is not observed", WptDivergence.NeedsTriage),
-        new("custom-elements/reactions/CSSStyleDeclaration.html", "A camel case attribute (borderWidth)*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "A dashed property (border-width)*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "A webkit prefixed camel case attribute (webkitFilter)*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "A webkit prefixed dashed property (-webkit-filter)*", WptDivergence.NeedsTriage),
@@ -1114,24 +1111,19 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/invalid-after-clone.html", "Cloned invalid inputs / textareas with interactive changes get their validity state copied correctly", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the pseudo-classes suite: an opaque colour serialized as rgba()
+    // ---------------------------------------------------------------- the pseudo-classes suite: computed colors retain declaration text
     private static readonly WptExclusion[] _thePseudoClassesSuiteOpaqueColour =
     [
-        // Not a selector at all: these seven rows read getComputedStyle(...).color and every one of them already
-        // gets the colour the selector should produce. CSSOM serializes an opaque colour as rgb(r, g, b) and
-        // AngleSharp.Css writes rgba(r, g, b, 1); Dom/divergences.md records why the process-global
-        // CssColorValue.UseSpecSerialization switch is not flipped on every AngleSharp consumer's behalf. The
-        // style rows that compare two computed values rather than a literal are unaffected and pass.
-
-        // These three moved here from the selector groups whose predicates now answer correctly: the text
-        // input is no longer :in-range, the submit button is no longer :placeholder-shown and the hidden
-        // input is no longer :read-write, so each row gets the colour it asks for in the spelling it does
-        // not - "rgba(255, 0, 0, 1)" where it compares against the literal "rgb(255, 0, 0)".
-
-        // And a fourth, for the same reason and from the :required group: the hidden input is in neither
-        // class now, so its sibling gets the "rgb(255, 0, 0)" the file asks for, spelled "rgba(255, 0, 0, 1)".
-        // The document's other three assertions, which are what the predicate was wrong about, pass.
-        new("html/semantics/selectors/pseudo-classes/required-optional-hidden.html", "Evaluation of :required and :optional changes for input type change.", WptDivergence.NeedsTriage),
+        // CSSOM color conversion is intentionally outside the renderless text boundary.
+        // The selector engine is retained; these assertions require sRGB serialization of named colors.
+        new("html/semantics/selectors/pseudo-classes/checked-type-change.html", "Evaluation of :checked changes on input type change.", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/indeterminate-radio.html", ":indeterminate and input type=radio", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/indeterminate-type-change.html", "Evaluation of :indeterminate changes on input type change.", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :in-range changes for input type change.", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :out-of-range changes for input type change.", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/placeholder-shown-type-change.html", "Evaluation of :placeholder-shown changes for input type change.", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly-type-change.html", "Evaluation of :read-write and :read-only changes for input type change.", WptDivergence.NeedsComputedCssValues),
+        new("html/semantics/selectors/pseudo-classes/required-optional-hidden.html", "Evaluation of :required and :optional changes for input type change.", WptDivergence.NeedsComputedCssValues),
     ];
 
     /// <summary>The causes this corpus found, each one the exclusions that are it.</summary>
@@ -1156,7 +1148,7 @@ internal static class WptBrowserExclusions
         new("MutationObserver's records", _mutationObserverSRecords),
         new("one assertion each", _oneAssertionEach),
         new("the pseudo-classes suite: a cloned constraint state", _thePseudoClassesSuiteAClonedConstraintState),
-        new("the pseudo-classes suite: an opaque colour serialized as rgba()", _thePseudoClassesSuiteOpaqueColour),
+        new("the pseudo-classes suite: computed colors retain declaration text", _thePseudoClassesSuiteOpaqueColour),
     ];
 
     /// <summary>

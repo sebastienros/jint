@@ -3,7 +3,7 @@ using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.Math;
+using System.Globalization;
 using Jint.HtmlParser.Css.Values.Properties;
 
 namespace Jint.HtmlParser.Css.Media;
@@ -262,10 +262,9 @@ internal static class CssMediaParser
             if (value.Length is not (1 or 3) || !Number(value[0], work, out var a) || a.Sign < 0) return null;
             var b = CssNumber.FromValidatedToken("1", work);
             if (value.Length == 3 && (!Delim(value[1], '/') || !Number(value[2], work, out b) || b.Sign < 0)) return null;
-            var numerator = CssMathNumbers.ParseFinite(a, CssUnit.None, work);
-            var denominator = CssMathNumbers.ParseFinite(b, CssUnit.None, work);
-            var spelling = CssMathSerializer.SerializeFiniteNumber(numerator, work) + " / " +
-                CssMathSerializer.SerializeFiniteNumber(denominator, work);
+            var numerator = ParseNumber(a, work);
+            var denominator = ParseNumber(b, work);
+            var spelling = SerializeNumber(numerator, work) + " / " + SerializeNumber(denominator, work);
             return new(name, comparison, numerator / denominator, CssUnit.None, null, spelling);
         }
         if (value.Length != 1 || value[0].Kind != CssComponentKind.Token) return null;
@@ -296,10 +295,25 @@ internal static class CssMediaParser
     private static CssMediaFeature NumericFeature(string name, CssMediaComparison comparison,
         CssNumber number, CssUnit unit, CssValueWork work)
     {
-        var projected = CssMathNumbers.ParseFinite(number, CssUnit.None, work);
-        var spelling = CssMathSerializer.SerializeFiniteNumber(projected, work) +
+        var projected = ParseNumber(number, work);
+        var spelling = SerializeNumber(projected, work) +
             (unit == CssUnit.None ? "" : unit.ToString().ToLowerInvariant());
         return new(name, comparison, projected, unit, null, spelling);
+    }
+
+    private static double ParseNumber(CssNumber number, CssValueWork work)
+    {
+        work.Charge(number.Spelling.Length);
+        var value = double.Parse(number.Spelling, NumberStyles.Float, CultureInfo.InvariantCulture);
+        work.CheckCancellation();
+        return System.Math.Clamp(value, -double.MaxValue, double.MaxValue);
+    }
+
+    private static string SerializeNumber(double value, CssValueWork work)
+    {
+        var text = value.ToString("F6", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
+        work.Charge(text.Length);
+        return text == "-0" ? "0" : text;
     }
 
     private static bool KnownPending(string name) => name.StartsWith("--", StringComparison.Ordinal) || CssDeviceWidthDeviceHeightDeviceAspectRatioNames.Match(name);

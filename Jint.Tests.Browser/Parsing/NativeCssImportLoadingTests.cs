@@ -216,7 +216,7 @@ public sealed class NativeCssImportLoadingTests
             .Map("/child.css", _ => LoopbackResponse.Raw(Encoding.Latin1.GetBytes("#café{color:red}"), "text/css"))
             .Map("/late.css", _ => LoopbackResponse.Raw(Encoding.Latin1.GetBytes("#café{display:none}"), "text/css")));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('café')).color")).Should().Be("rgb(255, 0, 0)");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('café')).color")).Should().Be("red");
         await fixture.Page.EvaluateAsync("s.sheet.cssRules[0].styleSheet.insertRule(\"@import 'late.css';\",0)");
         (await fixture.Page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
         (await fixture.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('café')).display")).Should().Be("none");
@@ -263,7 +263,7 @@ public sealed class NativeCssImportLoadingTests
             })()
             """)).Should().BeTrue();
         (await fixture.Page.EvaluateAsync<string>("events.join(',')")).Should().Be("owner,window");
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("rgb(0, 0, 255)");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("blue");
         fixture.Server.Received.Count(request => request.Path == "/css/alias.css").Should().Be(2);
         fixture.Server.Received.Where(request => request.Path == "/deep/leaf.css").Should().HaveCount(2)
             .And.OnlyContain(request => request.Header("Referer") == fixture.Url("/deep/child.css"));
@@ -286,7 +286,7 @@ public sealed class NativeCssImportLoadingTests
         request.Header("Referer").Should().Be(fixture.Url("/page"));
         (await fixture.Page.EvaluateAsync<bool>("s.sheet.cssRules[0].styleSheet !== null")).Should().BeTrue();
         await fixture.Page.EvaluateAsync("s.sheet.cssRules[0].media.mediaText='all'");
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("rgb(255, 0, 0)");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("red");
         fixture.Server.Received.Count(item => item.Path == "/assets/child.css").Should().Be(1);
         fixture.Page.Errors.Should().BeEmpty();
     }
@@ -307,7 +307,7 @@ public sealed class NativeCssImportLoadingTests
             """)).Should().BeTrue();
         fixture.Server.Received.Count(item => item.Path == "/root.css").Should().Be(2);
         fixture.Server.Received.Count(item => item.Path == "/child.css").Should().Be(2);
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("rgb(255, 0, 0)");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("red");
         fixture.Page.Errors.Should().BeEmpty();
     }
 
@@ -325,7 +325,7 @@ public sealed class NativeCssImportLoadingTests
         await fixture.Page.NavigateAsync(fixture.Url("/"));
         (await fixture.Page.EvaluateAsync<string>("events.join(',')")).Should().Be("error,window");
         (await fixture.Page.EvaluateAsync<bool>("s.sheet.cssRules[0].styleSheet===null && s.sheet.cssRules[1].styleSheet!==null")).Should().BeTrue();
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("rgb(255, 0, 0)");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("red");
         fixture.Page.Errors.Should().ContainSingle(error => error.Message.Contains("missing.css", StringComparison.Ordinal));
     }
 
@@ -451,7 +451,7 @@ public sealed class NativeCssImportLoadingTests
         await fixture.Page.NavigateAsync(fixture.Url("/")).WaitAsync(Jint.Tests.TestBudgets.WedgeCeiling);
         (await fixture.Page.EvaluateAsync<int>("(()=>{let n=0,x=s.sheet.cssRules[0].styleSheet; while(x.cssRules[0] instanceof CSSImportRule){x=x.cssRules[0].styleSheet;n++} return n+1})()"))
             .Should().Be(depth);
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("rgb(0, 0, 255)");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(p).color")).Should().Be("blue");
         fixture.Server.Received.Should().HaveCount(depth + width + 2);
         fixture.Page.Errors.Should().BeEmpty();
     }

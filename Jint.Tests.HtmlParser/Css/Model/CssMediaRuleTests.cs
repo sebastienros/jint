@@ -58,9 +58,10 @@ public sealed class CssMediaRuleTests
     public void CharsetIsUnknownAndEofRecoveredSelectorsRoundTrip()
     {
         var sheet = CssStyleSheet.Parse("@charset \"utf-8\"; a {}");
-        sheet.Rules.Count.Should().Be(1);
-        Assert.Throws<DomException>(() => sheet.InsertRule("@charset \"utf-8\";", 0))!.Name.Should().Be("SyntaxError");
-        var rule = (CssStyleRule) sheet.Rules[0];
+        sheet.Rules.Count.Should().Be(2);
+        sheet.Rules[0].Should().BeOfType<CssGenericRule>();
+        sheet.InsertRule("@charset \"utf-8\";", 0).Should().Be(0);
+        var rule = (CssStyleRule) sheet.Rules[2];
         rule.SetSelectorText(":is(.a");
         rule.SelectorText.Should().Be(":is(.a)");
         CssStyleSheet.Parse(rule.CssText).Rules.Count.Should().Be(1);
@@ -129,7 +130,7 @@ public sealed class CssMediaRuleTests
         var view = sheet.Rules;
         var old = (CssMediaRule) view[0];
         var before = sheet.Stamp;
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.ReplaceText("@media screen { @scope (width > 1px) {} }"));
+        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.ReplaceText("@media screen { a { & b {} color:red } }"));
         sheet.Stamp.Should().Be(before);
         view[0].Should().BeSameAs(old);
         sheet.ReplaceText("b {}");

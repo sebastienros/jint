@@ -5,9 +5,7 @@ using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.HtmlParser.Css;
 
@@ -26,10 +24,8 @@ public sealed class NativeCssQueryTests
         var result = query.GetProperty(target, "display", ref matching);
         result.Text.Should().Be("block");
         sheet.Stamp.Should().Be(stamp);
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "background-color", ref matching))!
-            .PropertyName.Should().Be("background");
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "text-wrap-mode", ref matching))!
-            .PropertyName.Should().Be("text-wrap");
+        query.GetProperty(target, "background-color", ref matching).Text.Should().Be("transparent");
+        query.GetProperty(target, "text-wrap", ref matching).Text.Should().Be("balance");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(result);
         ((CssStyleRule) sheet.Rules[1]).Style.SetProperty("display", "none");
         Assert.Throws<InvalidOperationException>(() => query.GetProperty(target, "display", ref matching));
@@ -46,7 +42,7 @@ public sealed class NativeCssQueryTests
         var block = NativeCssStyleSheets.InlineOf(target, work);
         NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(block);
         var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+            work, readInlineAttributes: true);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
         query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
@@ -56,62 +52,11 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void InlinePublicationRetainsPendingExpansionUntilAnActualStyleAttributeWrite()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        target.SetAttribute("style", "--o:hidden scroll;overflow:var(--o)");
-        var work = new CssValueWork(default);
-        var edited = NativeCssStyleSheets.InlineOf(target, work).Copy(work);
-        edited.SetProperty("overflow-x", "visible", null, null, work);
-        var text = edited.SerializeSource(work);
-        text.Should().NotContain("overflow-y:");
-        edited.Serialize(work).Should().NotContain("overflow-y:");
-        var version = NativeCssStyleSheets.InlineVersion(target);
-        target.SetAttribute("style", text);
-        NativeCssStyleSheets.RetainInline(target, text, edited, version, work);
-        target.SetAttribute("id", "unrelated");
-        NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(edited);
-        var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "overflow-y", ref matching).Text.Should().Be("scroll");
-        target.SetAttribute("style", text);
-        var reparsed = NativeCssStyleSheets.InlineOf(target, work);
-        reparsed.Should().NotBeSameAs(edited);
-        reparsed.GetPropertyValue("overflow-y", work).Should().BeEmpty();
-    }
-
-    [Test]
-    public void PendingCustomBindingsRefuseOnlyWhenReachedByTheRequestedProperty()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var sheet = CssStyleSheet.Parse("div { --good:block; --bad:attr(data-x); display:var(--good); visibility:var(--bad,hidden); }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "--bad", ref matching));
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "visibility", ref matching));
-    }
-
-    [Test]
-    public void DeferredWhiteSpaceRejectsAnInterleavedTrimComponent()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var sheet = CssStyleSheet.Parse("div { --w:discard-before nowrap discard-after; white-space:var(--w); }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "white-space-collapse", ref matching).Disposition.Should().Be(NativeCssDisposition.InvalidAtComputedValue);
-    }
-
-    [Test]
     public void CancellationAfterInlineSourceCommitKeepsTheAuthoritativePendingExpansion()
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
-        target.SetAttribute("style", "--o:hidden scroll;overflow:var(--o)");
+        target.SetAttribute("style", "--o:scroll;overflow-x:hidden;overflow-y:var(--o)");
         var work = new CssValueWork(default);
         var edited = NativeCssStyleSheets.InlineOf(target, work).Copy(work);
         edited.SetProperty("overflow-x", "visible", null, null, work);
@@ -123,7 +68,7 @@ public sealed class NativeCssQueryTests
         Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.RetainInline(target, source, edited, version, postCommit));
         NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(edited);
         var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+            work, readInlineAttributes: true);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "overflow-y", ref matching).Text.Should().Be("scroll");
     }
@@ -148,7 +93,7 @@ public sealed class NativeCssQueryTests
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
-        const string source = "--o:hidden scroll;overflow:var(--o)";
+        const string source = "--o:scroll;overflow-x:hidden;overflow-y:var(--o)";
         target.SetAttribute("style", source);
         var work = new CssValueWork(default);
         var factory = typeof(NativeCssStyleSheets).GetMethod("InlineResourceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
@@ -163,7 +108,7 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void CustomLayerRollbackLeavesOtherBindingsAvailableAndAllowsFallback()
+    public void CustomRollbackKeywordsRemainDeclaredText()
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
@@ -171,44 +116,8 @@ public sealed class NativeCssQueryTests
         var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
-        query.GetProperty(target, "--unused", ref matching).Text.Should().BeEmpty();
-        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
-    }
-
-    [Test]
-    public void LazyShorthandSubstitutionRetainsIacvtAndCustomCycles()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var sheet = CssStyleSheet.Parse("div { border:solid; display:block; display:var(--missing); --a:var(--b); --b:var(--a); "
-            + "--mode:preserve nowrap; white-space:var(--mode); visibility:var(--a,hidden); }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "display", ref matching).Text.Should().Be("inline");
-        query.GetProperty(target, "display", ref matching).Disposition.Should().Be(NativeCssDisposition.InvalidAtComputedValue);
-        query.GetProperty(target, "white-space-collapse", ref matching).Text.Should().Be("preserve");
-        query.GetProperty(target, "white-space", ref matching).Text.Should().Be("pre");
-        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
-    }
-
-    [Test]
-    public void WhiteSpaceLonghandsInheritIndividuallyAndAChildNormalOverridesPre()
-    {
-        var document = Document.CreateHtml();
-        var parent = document.CreateElement("pre");
-        var inherited = document.CreateElement("span");
-        var normal = document.CreateElement("b");
-        parent.AppendChild(inherited);
-        parent.AppendChild(normal);
-        var work = new CssValueWork(default);
-        var author = CssStyleSheet.Parse("pre { white-space-trim:discard-inner; } b { white-space:normal; }");
-        var query = Query(document, [NativeCssBrowserDefaults.Sheet(document, work), new(author, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(inherited, "white-space-collapse", ref matching).Text.Should().Be("preserve");
-        query.GetProperty(inherited, "text-wrap-mode", ref matching).Text.Should().Be("nowrap");
-        query.GetProperty(inherited, "white-space-trim", ref matching).Text.Should().Be("none");
-        query.GetProperty(normal, "white-space-collapse", ref matching).Text.Should().Be("collapse");
-        query.GetProperty(normal, "white-space", ref matching).Text.Should().Be("normal");
+        query.GetProperty(target, "--unused", ref matching).Text.Should().Be("revert-layer");
+        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("revert-layer");
     }
 
     [Test]
@@ -256,50 +165,6 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void VariableFallbackWideKeywordRollsBackTheOrigin()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var ua = CssStyleSheet.Parse("div { display:block; }");
-        var author = CssStyleSheet.Parse("div { display:var(--missing,revert); }");
-        var query = Query(document, [new(ua, NativeCssOrigin.UserAgent), new(author, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
-    }
-
-    [Test]
-    public void CustomVariablesKeepDefiningScopeAndDoNotRetokenize()
-    {
-        var document = Document.CreateHtml();
-        var parent = document.CreateElement("div");
-        var child = document.CreateElement("span");
-        parent.AppendChild(child);
-        var sheet = CssStyleSheet.Parse("div { --base:hidden; --alias:var(--base); } span { --base:visible; visibility:var(--alias); --n:12; width:var(--n)px; }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(child, "visibility", ref matching).Text.Should().Be("hidden");
-        query.GetProperty(child, "--alias", ref matching).Text.Should().Be("hidden");
-        var width = query.GetProperty(child, "width", ref matching);
-        width.Text.Should().Be("auto");
-        width.Disposition.Should().Be(NativeCssDisposition.InvalidAtComputedValue);
-        query.GetProperty(child, "--n", ref matching).Text.Should().Be("12");
-    }
-
-    [Test]
-    public void PendingShorthandIsSubstitutedAndInvalidValueNeverResurrectsEarlierCandidate()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var sheet = CssStyleSheet.Parse("div { width:20px; --flow:column wrap; flex-flow:var(--flow); } div { width:var(--missing); }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "flex-direction", ref matching).Text.Should().Be("column");
-        query.GetProperty(target, "flex-wrap", ref matching).Text.Should().Be("wrap");
-        query.GetProperty(target, "flex-flow", ref matching).Text.Should().Be("column wrap");
-        query.GetProperty(target, "width", ref matching).Text.Should().Be("auto");
-    }
-
-    [Test]
     public void ReadingOnePropertyLeavesUnrequestedSubstitutionAndPendingMetadataAlone()
     {
         var document = Document.CreateHtml();
@@ -310,7 +175,7 @@ public sealed class NativeCssQueryTests
         var display = query.GetProperty(target, "display", ref matching);
         display.Text.Should().Be("block");
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(display);
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "background", ref matching));
+        query.GetProperty(target, "background", ref matching).Text.Should().BeEmpty();
         query.GetProperty(target, "display", ref matching).Should().BeSameAs(display);
     }
 
@@ -365,44 +230,7 @@ public sealed class NativeCssQueryTests
         NativeCssStyleSheets.DisassociateOwner(document, owner, work);
         NativeCssStyleSheets.Install(document, owner, "div { background:red; }", "", "", work);
         var pendingSheet = NativeCssStyleSheets.Get(document, work)[0].Sheet;
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = NativeCssParsing.ReadRules(pendingSheet.Rules, work)[0].CssText);
-    }
-
-    [TestCase("width:1in", "width", "96px")]
-    [TestCase("height:25vh", "height", "192px")]
-    [TestCase("width:calc(10vw + 4px)", "width", "106.4px")]
-    [TestCase("width:calc(50% + 4px)", "width", "calc(50% + 4px)")]
-    [TestCase("width:calc(-2px)", "width", "0px")]
-    [TestCase("width:20%", "width", "20%")]
-    [TestCase("opacity:150%", "opacity", "1")]
-    [TestCase("opacity:calc(25% * 2)", "opacity", "0.5")]
-    [TestCase("opacity:calc(-1)", "opacity", "0")]
-    [TestCase("z-index:calc(2.5)", "z-index", "3")]
-    public void ComputationUsesTypedNumbersAndKeepsPercentageBases(string declarations, string name, string expected)
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var block = CssDeclarationBlock.Parse(declarations);
-        var query = Query(document, [], [(target, block)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, name, ref matching).Text.Should().Be(expected);
-    }
-
-    [Test]
-    public void GlyphDependentUnitRequiresAnExplicitMetricAndDoesNotBlockOtherProperties()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var block = CssDeclarationBlock.Parse("width:2ch;display:block");
-        var query = Query(document, [], [(target, block)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "width", ref matching))!
-            .Blocker.Should().Be("C6:zero-advance");
-        var work = new CssValueWork(default);
-        query = new(document, [], [(target, block)], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, new NativeCssMetrics { ZeroAdvance = 20 });
-        query.GetProperty(target, "width", ref matching).Text.Should().Be("40px");
+        NativeCssParsing.ReadRules(pendingSheet.Rules, work)[0].CssText.Should().Contain("background: red;");
     }
 
     [Test]
@@ -415,7 +243,7 @@ public sealed class NativeCssQueryTests
             new SelectorMatchWork(document, default));
         view.GetPropertyValue("display").Should().Be("block");
         view.CssText.Should().BeEmpty();
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = view.Length);
+        view.Length.Should().BeGreaterThan(0);
         block.SetProperty("display", "none");
         Assert.Throws<InvalidOperationException>(() => view.GetPropertyValue("display"));
     }
@@ -435,39 +263,6 @@ public sealed class NativeCssQueryTests
         var query = Query(document, [], [(root, CssDeclarationBlock.Parse("visibility:hidden"))]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
-    }
-
-    [Test]
-    public void CurrentColorUsesInheritedColorAndTheElementsOwnComputedColor()
-    {
-        var document = Document.CreateHtml();
-        var parent = document.CreateElement("div");
-        var child = document.CreateElement("span");
-        parent.AppendChild(child);
-        var sheet = CssStyleSheet.Parse("div { color:red; } span { color:currentColor; background-color:currentColor; }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(child, "color", ref matching).Text.Should().Be("rgb(255, 0, 0)");
-        query.GetProperty(child, "background-color", ref matching).Text.Should().Be("rgb(255, 0, 0)");
-        query.GetProperty(parent, "background-color", ref matching).Text.Should().Be("rgba(0, 0, 0, 0)");
-    }
-
-    [Test]
-    public void SystemColorsUseOnlyAnExplicitImmutablePalette()
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        var matching = new SelectorMatchWork(document, default);
-        var query = Query(document, []);
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "color", ref matching))!
-            .Blocker.Should().Be("C6:system-color:canvastext");
-        query.GetProperty(target, "display", ref matching).Text.Should().Be("inline");
-        var work = new CssValueWork(default);
-        var blue = CssColorParser.Parse(CssReferenceInput.Parse("blue", null, default).Components, 0, work).Value;
-        var palette = NativeCssSystemColors.Create([("canvastext", blue)], work);
-        query = new(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, systemColors: palette);
-        query.GetProperty(target, "color", ref matching).Text.Should().Be("rgb(0, 0, 255)");
     }
 
     [Test]
@@ -531,33 +326,16 @@ public sealed class NativeCssQueryTests
         unrelated.SetAttribute("style", "border-image:pending");
         var work = new CssValueWork(default);
         var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+            work, readInlineAttributes: true);
         var view = new NativeCssComputedStyle(query, target, new SelectorMatchWork(document, default));
         view.GetPropertyValue("opacity").Should().Be("0.5");
         target.SetAttribute("style", "opacity:.75");
         Assert.Throws<InvalidOperationException>(() => view.GetPropertyValue("opacity"))!
             .Message.Should().Be(NativeCssQuery.Invalidated);
         query = new(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+            work, readInlineAttributes: true);
         view = new(query, target, new SelectorMatchWork(document, default));
         view.GetPropertyValue("opacity").Should().Be("0.75");
-    }
-
-    [Test]
-    public void InheritedCurrentColorResolvesAgainstTheChildsOwnColor()
-    {
-        var document = Document.CreateHtml();
-        var parent = document.CreateElement("div");
-        var child = document.CreateElement("span");
-        parent.AppendChild(child);
-        var sheet = CssStyleSheet.Parse("div { color:red; background-color:currentColor; } "
-            + "span { color:blue; background-color:inherit; }");
-        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(parent, "background-color", ref matching).Text.Should().Be("rgb(255, 0, 0)");
-        var inherited = query.GetProperty(child, "background-color", ref matching);
-        inherited.Text.Should().Be("rgb(0, 0, 255)");
-        inherited.Value!.Color.Kind.Should().Be(CssColorKind.CurrentColor);
     }
 
     [Test]
@@ -703,48 +481,19 @@ public sealed class NativeCssQueryTests
         var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
         NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
         var query = new NativeCssQuery(document, sheets, [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+            work, readInlineAttributes: true);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
-        query.GetProperty(target, "opacity", ref matching).Text.Should().Be("0.25");
+        query.GetProperty(target, "opacity", ref matching).Text.Should().Be(".25");
         query.GetProperty(assigned, "visibility", ref matching).Text.Should().Be("collapse");
-        query.GetProperty(assigned, "opacity", ref matching).Text.Should().Be("0.75");
-    }
-
-    [TestCase("visible", "scroll", "auto", "scroll")]
-    [TestCase("clip", "scroll", "clip", "scroll")]
-    [TestCase("visible", "clip", "visible", "clip")]
-    [TestCase("scroll", "clip", "scroll", "clip")]
-    public void OverflowAxesComputeJointly(string x, string y, string computedX, string computedY)
-    {
-        var document = Document.CreateHtml();
-        var element = document.CreateElement("div");
-        var inline = CssDeclarationBlock.Parse($"overflow-x:{x}; overflow-y:{y}");
-        var query = Query(document, [], [(element, inline)]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(element, "overflow-y", ref matching).Text.Should().Be(computedY);
-        query.GetProperty(element, "overflow-x", ref matching).Text.Should().Be(computedX);
-    }
-
-    [Test]
-    public void ExplicitOverflowInheritanceReadsTheParentsAdjustedValue()
-    {
-        var document = Document.CreateHtml();
-        var parent = document.CreateElement("div");
-        var child = document.CreateElement("span");
-        parent.AppendChild(child);
-        var query = Query(document, [], [(parent, CssDeclarationBlock.Parse("overflow-x:visible; overflow-y:scroll")),
-            (child, CssDeclarationBlock.Parse("overflow-x:inherit; overflow-y:visible"))]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(child, "overflow-x", ref matching).Text.Should().Be("auto");
-        query.GetProperty(child, "overflow-y", ref matching).Text.Should().Be("auto");
+        query.GetProperty(assigned, "opacity", ref matching).Text.Should().Be(".75");
     }
 
     [TestCase("inline", "absolute", "block")]
     [TestCase("inline-flex", "fixed", "flex")]
     [TestCase("inline-block", "absolute", "block")]
-    [TestCase("ruby", "absolute", "block ruby")]
-    [TestCase("run-in flex", "absolute", "flex")]
+    [TestCase("ruby", "absolute", "ruby")]
+    [TestCase("run-in flex", "absolute", "run-in flex")]
     [TestCase("none", "absolute", "none")]
     [TestCase("contents", "absolute", "contents")]
     public void PositionedDisplayTypesBlockify(string display, string position, string expected)
@@ -769,41 +518,6 @@ public sealed class NativeCssQueryTests
         query.GetProperty(child, "display", ref matching).Text.Should().Be("block");
     }
 
-    [TestCase("inline")]
-    [TestCase("run-in")]
-    public void RubyInlinifiesBlockChildrenAndDescendantsOfInlineChildren(string childDisplay)
-    {
-        var document = Document.CreateHtml();
-        var ruby = document.CreateElement("ruby");
-        var block = document.CreateElement("div");
-        var inline = document.CreateElement("span");
-        var nested = document.CreateElement("div");
-        ruby.AppendChild(block);
-        ruby.AppendChild(inline);
-        inline.AppendChild(nested);
-        var query = Query(document, [], [(ruby, CssDeclarationBlock.Parse("display:ruby")),
-            (block, CssDeclarationBlock.Parse("display:block")),
-            (inline, CssDeclarationBlock.Parse($"display:{childDisplay}")),
-            (nested, CssDeclarationBlock.Parse("display:block"))]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(block, "display", ref matching).Text.Should().Be("inline-block");
-        query.GetProperty(inline, "display", ref matching).Text.Should().Be("inline");
-        query.GetProperty(nested, "display", ref matching).Text.Should().Be("inline-block");
-    }
-
-    [Test]
-    public void RubyInlinifiesRunInFlowRootToInlineBlock()
-    {
-        var document = Document.CreateHtml();
-        var ruby = document.CreateElement("ruby");
-        var child = document.CreateElement("div");
-        ruby.AppendChild(child);
-        var query = Query(document, [], [(ruby, CssDeclarationBlock.Parse("display:ruby")),
-            (child, CssDeclarationBlock.Parse("display:run-in flow-root"))]);
-        var matching = new SelectorMatchWork(document, default);
-        query.GetProperty(child, "display", ref matching).Text.Should().Be("inline-block");
-    }
-
     [Test]
     public void ConsecutiveContentsParentsDoNotRescanTheirEntireAncestorChain()
     {
@@ -824,7 +538,7 @@ public sealed class NativeCssQueryTests
             var work = new CssValueWork(default, () => checks++);
             var sheet = CssStyleSheet.Parse("div { display:flex; } section { display:contents; }");
             var query = new NativeCssQuery(document, [new(sheet, NativeCssOrigin.Author)], [], new CssMediaEnvironment(),
-                new(document, null, null, null), CssEnvironmentSnapshot.Create([], work), work);
+                new(document, null, null, null), work);
             var matching = new SelectorMatchWork(document, default);
             query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
             return checks;
@@ -872,7 +586,7 @@ public sealed class NativeCssQueryTests
         query = Query(document, [ua, new(author, NativeCssOrigin.Author)]);
         query.GetProperty(div, "display", ref matching).Text.Should().Be("inline");
         query = new(document, [ua], [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, systemColors: NativeCssBrowserDefaults.Palette(false, work));
+            work);
         query.GetProperty(div, "color", ref matching).Text.Should().Be("rgb(0, 0, 0)");
     }
 
@@ -881,6 +595,6 @@ public sealed class NativeCssQueryTests
     {
         var work = new CssValueWork(default);
         return new(document, sheets, inline ?? [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work);
+            work);
     }
 }

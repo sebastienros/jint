@@ -22,13 +22,13 @@ public sealed class CssNamedDecorationThicknessAccessorTests
             rule.textDecorationThickness='2em';
             """);
         (await page.EvaluateAsync<string>("rule.getPropertyValue('text-decoration-thickness') + '|' + computed.textDecorationThickness"))
-            .Should().Be("2em|40px");
+            .Should().Be("2em|2em");
         await page.EvaluateAsync("rule.setProperty('text-decoration-thickness','3px')");
         (await page.EvaluateAsync<string>("rule.textDecorationThickness + '|' + computed.textDecorationThickness"))
             .Should().Be("3px|3px");
         await page.EvaluateAsync("inline.textDecorationThickness='2em'");
         (await page.EvaluateAsync<string>("inline.getPropertyValue('text-decoration-thickness') + '|' + computed.getPropertyValue('text-decoration-thickness')"))
-            .Should().Be("2em|40px");
+            .Should().Be("2em|2em");
         await page.EvaluateAsync("inline.setProperty('text-decoration-thickness','4px')");
         (await page.EvaluateAsync<string>("inline.textDecorationThickness + '|' + computed.textDecorationThickness"))
             .Should().Be("4px|4px");
@@ -44,7 +44,7 @@ public sealed class CssNamedDecorationThicknessAccessorTests
     }
 
     [Test]
-    public async Task NullRemovesAndInvalidNamedWritesPreserveTheSpecifiedThickness()
+    public async Task NullRemovesAndNamedWritesRetainUnvalidatedText()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -55,9 +55,9 @@ public sealed class CssNamedDecorationThicknessAccessorTests
                 return styles.every(style => {
                     style.textDecorationThickness='2px';
                     style.textDecorationThickness=undefined;
-                    if (style.textDecorationThickness!=='2px' || style.getPropertyValue('text-decoration-thickness')!=='2px') return false;
+                    if (style.textDecorationThickness!=='undefined' || style.getPropertyValue('text-decoration-thickness')!=='undefined') return false;
                     style.textDecorationThickness='bogus';
-                    if (style.textDecorationThickness!=='2px') return false;
+                    if (style.textDecorationThickness!=='bogus') return false;
                     style.textDecorationThickness=null;
                     return style.textDecorationThickness==='' && style.getPropertyValue('text-decoration-thickness')==='';
                 });

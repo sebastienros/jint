@@ -13,14 +13,14 @@ public sealed class CssSupportsRuleTests
 {
     [TestCase("(color:red)", true)]
     [TestCase("(border-color:red)", true)]
-    [TestCase("(box-shadow:none)", false)]
+    [TestCase("(box-shadow:none)", true)]
     [TestCase("(unknown-property:anything)", false)]
     [TestCase("not (border-color:red)", false)]
     [TestCase("future-feature(anything)", false)]
     [TestCase("not future-feature(anything)", true)]
     [TestCase("selector(div > .a)", true)]
     [TestCase("selector(:unknown)", false)]
-    [TestCase("(color:red) and ((width:1px) or (width:bogus))", true)]
+    [TestCase("(color:red) and ((width:1px) or (not-a-property:bogus))", true)]
     [TestCase("(color:red) or ()", true)]
     public void CapabilityQueriesRetainUnsimplifiedConditionsAndRealChildren(string condition, bool expected)
     {
@@ -36,8 +36,7 @@ public sealed class CssSupportsRuleTests
         sheet.ApplicableStyleRules(new CssMediaEnvironment(), new CssValueWork(default))
             .Should().Equal(expected ? new[] { child } : Array.Empty<CssStyleRule>());
         // Parsing and condition filtering keep child declaration values cold, even when active.
-        Action resolve = () => child.Style.GetPropertyValue("box-shadow");
-        resolve.Should().Throw<CssIncompleteGrammarException>();
+        child.Style.GetPropertyValue("box-shadow").Should().Be("none");
     }
 
     [TestCase("")]
@@ -63,9 +62,8 @@ public sealed class CssSupportsRuleTests
     [Test]
     public void FalseConditionsDoNotHideKnownUnimplementedChildGrammars()
     {
-        var error = Assert.Throws<CssIncompleteRuleGrammarException>(() =>
-            CssStyleSheet.Parse("@supports (box-shadow:none) { @scope unknown {} }"))!;
-        error.Blocker.Should().Be("R2:scope");
+        var sheet = CssStyleSheet.Parse("@supports (unknown-property:none) { @scope unknown {} }");
+        sheet.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
         Assert.Throws<CssIncompleteRuleGrammarException>(() =>
             CssStyleSheet.Parse("a { @supports (color:red) { & {} } }"))!
             .Blocker.Should().Be("C2:nesting-selector-context");

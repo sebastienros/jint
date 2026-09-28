@@ -72,6 +72,6 @@ public sealed class CssSupportsTests
              CSS.supports('selector(:is(div, :unknown))'),
              CSS.supports('(color:red) or (display:block) trailing'),
              CSS.supports('color', 'red) or (display:block')].join('|')
-            """)).Should().Be("true|true|false|false|true|true|true|false|false|false");
+            """)).Should().Be("true|true|false|true|true|false|true|false|false|true");
     }
 }

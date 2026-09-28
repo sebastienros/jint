@@ -18,9 +18,6 @@ internal static class NativeCssDeclarations
     internal static NativeCssDeclaration Of(DomRealm realm, CssStyleRule rule) =>
         Rules.GetValue(rule.Style, block => new(realm, rule, block));
 
-    internal static NativeCssDeclaration Of(DomRealm realm, CssKeyframeRule rule) =>
-        Rules.GetValue(rule.Style, block => new(realm, rule, block));
-
     internal static NativeCssFontFaceDescriptors Of(DomRealm realm, CssFontFaceRule rule) =>
         FontFaces.GetValue(rule.Style, block => new(realm, rule, block));
 

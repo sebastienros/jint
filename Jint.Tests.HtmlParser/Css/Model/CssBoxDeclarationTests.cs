@@ -20,7 +20,7 @@ public sealed class CssBoxDeclarationTests
         block.GetPropertyValue(name + "-right").Should().Be(right);
         block.GetPropertyValue(name + "-bottom").Should().Be(bottom);
         block.GetPropertyValue(name + "-left").Should().Be(left);
-        block.GetDeclaration(0).Value.Kind.Should().Be(CssPropertyValueKind.Numeric);
+        block.GetDeclaration(0).Value.Should().Be(top);
         block.GetPropertyValue(name).Should().Be(compressed);
         block.GetPropertyPriority(name).Should().Be("important");
         block.CssText.Should().Be(name + ": " + compressed + " !important;");
@@ -29,24 +29,6 @@ public sealed class CssBoxDeclarationTests
         block.Count.Should().Be(0);
     }
 
-    [TestCase("margin")]
-    [TestCase("padding")]
-    public void WideAndDeferredShorthandsKeepOneCorrelatedIdentity(string name)
-    {
-        var wide = CssDeclarationBlock.Parse(name + ":inherit");
-        wide.GetPropertyValue(name).Should().Be("inherit");
-        foreach (var side in new[] { "top", "right", "bottom", "left" })
-            wide.GetPropertyValue(name + "-" + side).Should().Be("inherit");
-        var block = CssDeclarationBlock.Parse(name + ":var(--edges)!important");
-        var pending = block.GetDeclaration(0).PendingShorthand;
-        pending.Should().NotBeNull();
-        for (var i = 1; i < 4; i++) block.GetDeclaration(i).PendingShorthand.Should().BeSameAs(pending);
-        block.GetPropertyValue(name).Should().Be("var(--edges)");
-        block.GetPropertyValue(name + "-left").Should().BeEmpty();
-        block.SetProperty(name + "-left", "3px", "important");
-        block.GetPropertyValue(name).Should().BeEmpty();
-        block.GetPropertyValue(name + "-left").Should().Be("3px");
-    }
 
     [Test]
     public void ImportanceAndSpecifiedOrderStayAtTheSharedDeclarationBoundary()
@@ -89,18 +71,5 @@ public sealed class CssBoxDeclarationTests
         }
     }
 
-    [TestCase("-1e-999999px")]
-    [TestCase("1px 2px 3px 4px 5px")]
-    [TestCase("1px junk")]
-    public void InvalidPaddingSettersPreserveTheOldDeclaration(string source)
-    {
-        var block = CssDeclarationBlock.Parse("padding:1px!important");
-        var text = block.CssText;
-        var stamp = block.Stamp;
-        var original = block.GetDeclaration(0);
-        block.SetProperty("padding", source);
-        block.CssText.Should().Be(text);
-        block.Stamp.Should().Be(stamp);
-        block.GetDeclaration(0).Should().BeSameAs(original);
-    }
+
 }

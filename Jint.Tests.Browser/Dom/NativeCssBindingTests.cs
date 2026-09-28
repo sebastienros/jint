@@ -5,6 +5,26 @@ namespace Jint.Tests.Browser.Dom;
 
 public sealed class NativeCssBindingTests
 {
+    [TestCase("@keyframes move {from {opacity:0}}", "CSSKeyframesRule")]
+    [TestCase("@property --x {syntax:'*';inherits:false}", "CSSPropertyRule")]
+    [TestCase("@container (width > 1px) {a{display:none}}", "CSSContainerRule")]
+    [TestCase("@page {margin:1px}", "CSSPageRule")]
+    [TestCase("@namespace 'example';", "CSSNamespaceRule")]
+    [TestCase("@counter-style stars {symbols:'*'}", "CSSCounterStyleRule")]
+    public void OpaqueAtRulesExposeOnlyTheBaseRule(string source, string removedInterface)
+    {
+        using var dom = Create(source);
+        dom.Engine.SetValue("source", source);
+        dom.Engine.SetValue("removedInterface", removedInterface);
+        dom.Bool("""
+            sheet.cssRules[0] instanceof CSSRule &&
+            Object.getPrototypeOf(sheet.cssRules[0]) === CSSRule.prototype &&
+            sheet.cssRules[0].type === 0 && sheet.cssRules[0].cssText === source &&
+            sheet.cssRules[0].parentStyleSheet === sheet &&
+            !(removedInterface in globalThis)
+            """).Should().BeTrue();
+    }
+
     [Test]
     public void StyleElementDisabledSharesItsSheetAndSvgStringsReflectActualAttributes()
     {
@@ -64,7 +84,7 @@ public sealed class NativeCssBindingTests
         using var dom = Create("a { color:red }");
         dom.Execute("var before=sheet.cssRules[0];");
         // Ordinary imports have a real native model; R1's named layer prelude remains explicitly unsupported.
-        foreach (var source in new[] { "@import 'other.css' layer(theme);", "@keyframes move { entry 50% { opacity:0 } }", "a { @media screen { color:red } }" })
+        foreach (var source in new[] { "@import 'other.css' layer(theme);", "a { @media screen { color:red } }" })
         {
             dom.Engine.SetValue("source", source);
             dom.Text("(()=>{try{sheet.insertRule(source,0)}catch(e){return e.name}})()").Should().Be("NotSupportedError");
@@ -78,9 +98,8 @@ public sealed class NativeCssBindingTests
         using var dom = Create("a { color:red } @media screen { b { color:blue } }");
         dom.Execute("var style=sheet.cssRules[0], media=sheet.cssRules[1];");
         dom.Bool("media instanceof CSSMediaRule && !(media instanceof CSSStyleRule) && !(media instanceof CSSImportRule)").Should().BeTrue();
-        dom.Execute("var href=Object.getOwnPropertyDescriptor(CSSImportRule.prototype,'href').get; var enc=Object.getOwnPropertyDescriptor(CSSCharsetRule.prototype,'encoding').set;");
+        dom.Execute("var href=Object.getOwnPropertyDescriptor(CSSImportRule.prototype,'href').get;");
         dom.Bool("[style,media,{}].every(r=>{try{href.call(r);return false}catch(e){return e instanceof TypeError && /Illegal invocation/.test(e.message)}})").Should().BeTrue();
-        dom.Bool("[style,media,{}].every(r=>{let converted=false;try{enc.call(r,{toString(){converted=true;return 'utf-8'}});return false}catch(e){return e instanceof TypeError && !converted}})").Should().BeTrue();
     }
 
     [Test]

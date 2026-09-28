@@ -1,409 +1,100 @@
-using Jint.Browser.Dom;
-using Jint.Browser.Dom.Views;
-using Jint.Browser.Runtime;
-using Jint.HtmlParser.Css.Model;
-
 namespace Jint.Tests.Browser.Views;
 
 using Browser = global::Jint.Browser.Browser;
 
-// CSS Color 4 §16.2.2: opaque computed sRGB serializes as rgb(), preserving component values.
 public sealed class CustomPropertyTests
 {
-    [TestCase("--a:var(--a)")]
-    [TestCase("--a:var(--a, red)")]
-    [TestCase("--a:var(--b);--b:var(--a)")]
-    [TestCase("--a:var(--b, red);--b:var(--a, blue)")]
-    [TestCase("--a:var(--b);--b:var(--c);--c:var(--a)")]
-    [TestCase("--a:var(--b, var(--c));--b:var(--a);--c:var(--b, red)")]
-    public async Task SubstitutionCyclesInvalidateTheirParticipants(string declarations)
+    [Test]
+    public async Task CustomPropertiesInheritDeclaredTextWithoutComputingIt()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            $$"""
-            <style>
-              #t { {{declarations}}; color:var(--a); width:var(--a); opacity:.25 }
-            </style>
-            <span id="t">text</span>
+        await page.SetContentAsync("""
+            <style>main { --tone: RED; --alias: var(--tone); --size: calc(1px + 2px); color: red; }
+            span { --tone: blue; }</style><main><span id="t"></span></main>
             """);
+        (await page.EvaluateAsync<string>("""
+            (() => { const s = getComputedStyle(document.getElementById('t'));
+            return [s.getPropertyValue('--tone'), s.getPropertyValue('--alias'),
+            s.getPropertyValue('--size'), s.getPropertyValue('--missing'), s.color].join('|'); })()
+            """)).Should().Be("blue|var(--tone)|calc(1px + 2px)||red");
+        page.Errors.Should().BeEmpty();
+    }
 
-        (await page.EvaluateAsync<string>(
-            """
+    [TestCase("var(--mode)", "none")]
+    [TestCase("var(--missing, block)", "block")]
+    [TestCase("var(--cycle, none)", "none")]
+    [TestCase("var(--missing, var(--mode))", "none")]
+    public async Task TextualVariablesSupportVisibilityAndFallbacks(string value, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<span id='t' style='--mode:none;--cycle:var(--cycle);display:{value}'></span>");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('t')).display")).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task InlineMutationInvalidatesInheritedText()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<main style='--x:one'><span></span></main>");
+        (await page.EvaluateAsync<string>("""
+            (() => { const s = getComputedStyle(document.querySelector('span'));
+            const old = s.getPropertyValue('--x');
+            document.querySelector('main').style.setProperty('--x', 'two');
+            return old + '|' + s.getPropertyValue('--x'); })()
+            """)).Should().Be("one|two");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("initial")]
+    [TestCase("inherit")]
+    [TestCase("unset")]
+    [TestCase("revert")]
+    [TestCase("revert-layer")]
+    public async Task CustomWideKeywordsAreTextRatherThanCascadeInstructions(string text)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<main style='--x:{text}'><span></span></main>");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('span')).getPropertyValue('--x')"))
+            .Should().Be(text);
+    }
+
+    [Test]
+    public async Task TextualExpansionBoundsDeepAndExponentialChains()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<span id=t></span>");
+        (await page.EvaluateAsync<string>("""
             (() => {
-              const s = getComputedStyle(document.getElementById('t'));
-              return [s.getPropertyValue('--a'), s.getPropertyValue('--b'),
-                      s.getPropertyValue('--c'), s.color, s.opacity, s.width].join('|');
+              const el = document.getElementById('t');
+              for (let i = 0; i < 33; i++)
+                el.style.setProperty('--v' + i, i === 32 ? 'block' : 'var(--v' + (i + 1) + ')');
+              el.style.display = 'var(--v0, none)';
+              const deep = getComputedStyle(el).display;
+              el.style.setProperty('--v0', 'x');
+              for (let i = 1; i <= 20; i++)
+                el.style.setProperty('--v' + i, 'var(--v' + (i - 1) + ')var(--v' + (i - 1) + ')');
+              el.style.display = 'var(--v20, none)';
+              return deep + '|' + getComputedStyle(el).display;
             })()
-            """)).Should().Be("|||rgb(0, 0, 0)|0.25|auto");
+            """)).Should().Be("none|none");
         page.Errors.Should().BeEmpty();
     }
 
-    // CSS Variables 1 replacement step 4: an unused fallback is not substituted.
-    // This deliberately replaces the historical unconditional dependency-graph expectations.
-    [TestCase("--a:var(--present, var(--a));--present:red", "red|||rgb(255, 0, 0)|0.25|auto")]
-    [TestCase("--a:var(--present, calc(var(--a)));--present:red", "red|||rgb(255, 0, 0)|0.25|auto")]
-    [TestCase("--a:var(--b);--b:var(--present, calc(var(--a)));--present:red", "red|red||rgb(255, 0, 0)|0.25|auto")]
-    public async Task UnusedFallbacksDoNotCreateSubstitutionCycles(string declarations, string expected)
+    [TestCase("var(--missing, /* ) , */ none)", "/* ) , */ none")]
+    [TestCase("'var(--x)'", "'var(--x)'")]
+    [TestCase("var(--missing, var(--x))", "none")]
+    public async Task TextualExpansionRespectsStringsAndCommentDelimiters(string text, string expected)
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            $$"""
-            <style>
-              #t { {{declarations}}; color:var(--a); width:var(--a); opacity:.25 }
-            </style>
-            <span id="t">text</span>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              const s = getComputedStyle(document.getElementById('t'));
-              return [s.getPropertyValue('--a'), s.getPropertyValue('--b'),
-                      s.getPropertyValue('--c'), s.color, s.opacity, s.width].join('|');
-            })()
-            """)).Should().Be(expected);
-        page.Errors.Should().BeEmpty();
-    }
-
-    [TestCase("var(--a, red)", "rgb(255, 0, 0)")]
-    [TestCase("var(--a, var(--missing, blue))", "rgb(0, 0, 255)")]
-    [TestCase("var(--recovered)", "rgb(0, 128, 0)")]
-    [TestCase("var(--missing, var(--a))", "rgb(0, 0, 0)")]
-    [TestCase("var(--a,)", "rgb(0, 0, 0)")]
-    public async Task AConsumerCanRecoverFromAnInvalidVariable(string value, string expected)
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            $$"""
-            <style>
-              :root { --a:var(--b); --b:var(--a); --recovered:var(--a, green) }
-              span { color:{{value}} }
-            </style>
-            <span>text</span>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('span')).color")).Should().Be(expected);
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task InheritanceUsesResolvedCustomPropertiesAndChildCyclesDoNotPoisonSiblings()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            """
-            <style>
-              #parent { --a:red; --b:var(--a); --bad:var(--bad); color:green }
-              #child { --a:blue; color:var(--b) }
-              #cycle { --a:var(--a); color:var(--a) }
-              #sibling { color:var(--a) }
-              #invalid { --bad:inherit; color:var(--bad, blue) }
-            </style>
-            <div id="parent">
-              <span id="child"></span><span id="cycle"></span>
-              <span id="sibling"></span><span id="invalid"></span>
-            </div>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            """
-            ['child','cycle','sibling','invalid'].map(id =>
-              getComputedStyle(document.getElementById(id)).color).join('|')
-            """)).Should().Be(
-                "rgb(255, 0, 0)|rgb(0, 128, 0)|rgb(255, 0, 0)|rgb(0, 0, 255)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task AChildCannotRepairAnInheritedCycleByOverridingOneOfItsMembers()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            """
-            <style>
-              :root { --a:var(--b); --b:var(--a) }
-              span { --a:red; color:var(--b, green) }
-            </style>
-            <span>text</span>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('span')).color")).Should().Be("rgb(0, 128, 0)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task InitialAndUnsetCustomPropertiesHaveTheirCssWideMeaning()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            """
-            <style>
-              div { --a:red }
-              span { color:var(--a, blue) }
-              #initial { --a:initial }
-              #unset { --a:unset }
-            </style>
-            <div><span id="initial"></span><span id="unset"></span></div>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            "['initial','unset'].map(id => getComputedStyle(document.getElementById(id)).color).join('|')"))
-            .Should().Be("rgb(0, 0, 255)|rgb(255, 0, 0)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task SharedDependenciesAreNotCyclesAndCustomPropertyNamesAreCaseSensitive()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            """
-            <span style="--a:red;--A:blue;--b:var(--a);--c:var(--b, var(--a));color:var(--c);background-color:var(--A)">text</span>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              const s = getComputedStyle(document.querySelector('span'));
-              return s.color + '|' + s.backgroundColor;
-            })()
-            """)).Should().Be("rgb(255, 0, 0)|rgb(0, 0, 255)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [TestCase("--a:hidden", "hidden", "hidden")]
-    [TestCase("--a:var(--b)", "", "hidden")]
-    public async Task ARuleMatchingParentAndChildDeclaresVariablesLocally(string child, string variable, string visibility)
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            $$"""
-            <style>
-              div { --b:var(--a); visibility:var(--b, hidden) }
-              #parent { --a:visible }
-              #child { {{child}} }
-            </style>
-            <div id="parent"><div id="child">text</div></div>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              const e = document.getElementById('child');
-              const s = getComputedStyle(e);
-              return [s.getPropertyValue('--b'), s.visibility, e.getBoundingClientRect().height].join('|');
-            })()
-            """)).Should().Be($"{variable}|{visibility}|0");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task NestedRawFallbacksDoNotUseTheClrCallStack()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<span>text</span>");
-        // calc(red) is a valid custom-property token stream, so var(--a,blue) substitutes it rather
-        // than choosing blue. The resulting color is invalid and takes its inherited/initial value.
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              const e = document.querySelector('span');
-              e.style.setProperty('--a', 'var(--missing,calc(red))');
-              e.style.color = 'var(--a,blue)';
-              const shallow = getComputedStyle(e).color;
-              e.style.setProperty('--a', 'var(--missing,calc('.repeat(8192) + 'red' + '))'.repeat(8192));
-              return shallow + '|' + getComputedStyle(e).color;
-            })()
-            """)).Should().Be("rgb(0, 0, 0)|rgb(0, 0, 0)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task LongSubstitutionChainsDoNotUseTheClrCallStack(bool cyclic)
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        var declarations = string.Concat(Enumerable.Range(0, 4096).Select(i => $"--v{i}:var(--v{i + 1});"));
-        await page.SetContentAsync(
-            $"<span style='{declarations}--v4096:{(cyclic ? "var(--v0)" : "red")};color:var(--v0,blue)'>text</span>");
-
-        (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('span')).color")).Should()
-            .Be(cyclic ? "rgb(0, 0, 255)" : "rgb(255, 0, 0)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task ANewQuerySeesCyclesAddedAndRemovedWithoutMutatingTheCssom()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<span id='t' style='--a:red;color:var(--a,blue)'>text</span>");
-
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              const t = document.getElementById('t');
-              const read = () => getComputedStyle(t).color;
-              const values = [read()];
-              t.style.setProperty('--a', 'var(--a)');
-              values.push(read(), t.style.getPropertyValue('--a'));
-              t.style.setProperty('--a', 'green');
-              values.push(read());
-              return values.join('|');
-            })()
-            """)).Should().Be("rgb(255, 0, 0)|rgb(0, 0, 255)|var(--a)|rgb(0, 128, 0)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task StylesheetCyclesAreResolvedPerContextAndEachQuerySeesTheCurrentRule()
-    {
-        await using var browser = new Browser();
-        await using var firstContext = await browser.NewContextAsync();
-        await using var secondContext = await browser.NewContextAsync();
-        var first = await firstContext.NewPageAsync();
-        var second = await secondContext.NewPageAsync();
-        const string content =
-            """
-            <style>
-              :root { --a:red; --alias:var(--a) }
-              span { --a:green; color:var(--alias, blue) }
-            </style>
-            <span>text</span>
-            """;
-        await first.SetContentAsync(content);
-        await second.SetContentAsync(content);
-        const string read = "getComputedStyle(document.querySelector('span')).color";
-        (await first.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
-        (await second.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
-
-        (await first.EvaluateAsync<string>(
-            """
-            (() => {
-              const style = document.styleSheets[0].cssRules[0].style;
-              style.setProperty('--a', 'var(--alias)');
-              return getComputedStyle(document.querySelector('span')).color + '|' + style.getPropertyValue('--a');
-            })()
-            """)).Should().Be("rgb(0, 0, 255)|var(--alias)");
-        (await second.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
-
-        await first.EvaluateAsync("document.styleSheets[0].cssRules[0].style.setProperty('--a', 'purple')");
-        (await first.EvaluateAsync<string>(read)).Should().Be("rgb(128, 0, 128)");
-        (await second.EvaluateAsync<string>(read)).Should().Be("rgb(255, 0, 0)");
-        first.Errors.Should().BeEmpty();
-        second.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task CyclesDoNotDiscardVisibilityLayoutOrActionability()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            """
-            <style>
-              :root { --a:var(--b); --b:var(--a) }
-              button { color:var(--a); display:var(--a, block) }
-              #hidden { display:none }
-            </style>
-            <button id="save" onclick="this.textContent='Saved'">Save</button>
-            <button id="hidden">Hidden</button>
-            """);
-
-        (await page.EvaluateAsync<string>(
-            """
-            ['save','hidden'].map(id => {
-              const e = document.getElementById(id);
-              return getComputedStyle(e).display + ',' + e.getBoundingClientRect().height;
-            }).join('|')
-            """)).Should().Be("block,16|none,0");
-        (await page.AccessibilitySnapshotAsync()).Should().Contain("Save").And.NotContain("Hidden");
-        (await page.ClickAsync("#save")).Should().BeTrue();
-        (await page.EvaluateAsync<string>("document.getElementById('save').textContent")).Should().Be("Saved");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task AnUnrequestedWidthMetricDoesNotPoisonVisibilityOrRecoveredColor()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            "<span style='--a:var(--a);color:var(--a,red);width:20ch;visibility:hidden'>text</span>");
-
-        (await page.EvaluateAsync<string>(
-            """
-            (() => {
-              const style = getComputedStyle(document.querySelector('span'));
-              return style.visibility + '|' + style.color;
-            })()
-            """)).Should().Be("hidden|rgb(255, 0, 0)");
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task ARequestedWidthReportsItsMissingFontMetric()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            "<span id='t' style='--a:var(--a);color:var(--a,red);width:20ch;visibility:hidden'>text</span>");
-
-        await page.RunOnLoopAsync(engine =>
-        {
-            var runtime = PageRuntime.Find(engine)!;
-            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
-            var computed = CssCascade.Of(element)!;
-            computed.GetPropertyValue("visibility").Should().Be("hidden");
-            computed.GetPropertyValue("color").Should().Be("rgb(255, 0, 0)");
-            var failure = Caught.Exception(() => computed.GetPropertyValue("width"));
-            failure.Should().BeOfType<CssIncompleteGrammarException>();
-            ((CssIncompleteGrammarException) failure!).Blocker.Should().Be("C6:zero-advance");
-            computed.GetPropertyValue("visibility").Should().Be("hidden");
-            computed.GetPropertyValue("color").Should().Be("rgb(255, 0, 0)");
-            return true;
-        });
-        page.Errors.Should().BeEmpty();
-    }
-
-    [Test]
-    public async Task Issue3851DirectBrowserSampleDoesNotOverflow()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-
-        await page.SetContentAsync(
-            """
-            <!doctype html>
-            <style>
-              :root {
-                --a: var(--b);
-                --b: var(--a);
-              }
-
-              button {
-                color: var(--a);
-              }
-            </style>
-            <button>Save</button>
-            """);
-
-        // An invalid declared color takes its inherited/initial value while the cycle stays bounded.
-        (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('button')).color")).Should().Be("rgb(0, 0, 0)");
-        page.Errors.Should().BeEmpty();
+        await page.SetContentAsync("<span id=t style='--x:none'></span>");
+        await page.EvaluateAsync("document.getElementById('t').style.opacity = " + System.Text.Json.JsonSerializer.Serialize(text));
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('t')).opacity")).Should().Be(expected);
     }
 }

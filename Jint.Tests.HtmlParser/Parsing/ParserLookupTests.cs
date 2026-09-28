@@ -1,7 +1,6 @@
 #nullable enable
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Html;
 
@@ -66,14 +65,9 @@ public class ParserLookupTests
     [Test]
     public void GeneratedCatalogsStayEquivalentToTheirMetadata()
     {
-        foreach (var pair in CssColorKeywords.Named)
-            CssNamedColorLookup.Match(pair.Key).Should().Be(pair.Value);
-        foreach (var pair in CssPropertyCatalog.Obligations)
-            CssPropertyCatalog.FindFamily(pair.Key).Should().Be(pair.Value);
         foreach (var pair in CssPropertyRegistry.Completed)
         {
             CssPropertyRegistry.Find(pair.Key, CssDeclarationContext.Style).Should().BeSameAs(pair.Value);
-            CssPropertyRegistry.Find(pair.Key, CssDeclarationContext.Keyframe).Should().BeSameAs(pair.Value);
             CssPropertyRegistry.Find(pair.Key, CssDeclarationContext.FontFace).Should().BeNull();
         }
     }
@@ -91,51 +85,7 @@ public class ParserLookupTests
     }
 
     private static ulong ReadTypedValues() =>
-        (ulong) CssUnitLookup.Match("PX") +
-        (CssNamedColorLookup.Match("rebeccapurple") ?? 0) +
-        (ulong) CssPropertyNameLookup.Match("background-color");
-
-    [Test]
-    public void CssKeywordMatchingDoesNotMaterializeAnotherString()
-    {
-        var value = MarkupParser.ParseCssComponentValues("AuTo")[0];
-        CssPropertyParser.Keyword(value, CssKeywordSet.Auto).Should().BeSameAs("auto");
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1000; i++) CssPropertyParser.Keyword(value, CssKeywordSet.Auto);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        allocated.Should().Be(0);
-    }
-
-    [Test]
-    public void CssKeywordMatchingPreservesNormalizationCheckpointsAndCancellation()
-    {
-        foreach (var text in new[] { "AuTo", "--AuTo", "GRID-GAP", new string('a', 8200) })
-        {
-            var value = MarkupParser.ParseCssComponentValues(text)[0];
-            var expectedChecks = 0;
-            var expectedWork = new CssValueWork(default, () => expectedChecks++);
-            expectedWork.Charge(4094);
-            CssPropertyRegistry.NormalizeName(text, expectedWork);
-            var actualChecks = 0;
-            var actualWork = new CssValueWork(default, () => actualChecks++);
-            actualWork.Charge(4094);
-            CssPropertyParser.Keyword(value, CssKeywordSet.Auto, actualWork);
-            actualChecks.Should().Be(expectedChecks);
-            for (var target = 1; target <= expectedChecks; target++)
-            {
-                using var cancellation = new CancellationTokenSource();
-                var checks = 0;
-                var work = new CssValueWork(cancellation.Token, () =>
-                {
-                    if (++checks == target) cancellation.Cancel();
-                });
-                work.Charge(4094);
-                Action parse = () => CssPropertyParser.Keyword(value, CssKeywordSet.Auto, work);
-                parse.Should().Throw<OperationCanceledException>();
-                checks.Should().Be(target);
-            }
-        }
-    }
+        (ulong) CssUnitLookup.Match("PX");
 
     [Test]
     public void XmlCatalogNamesRequireTheTerminalSemicolonWithoutConcatenatingIt()

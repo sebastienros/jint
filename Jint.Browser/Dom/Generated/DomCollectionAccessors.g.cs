@@ -22,20 +22,6 @@ internal sealed class DomAccessorAudioTrackList : DomCollectionAccessor
     }
 }
 
-/// <summary>CSS Animations 1 §6.3 indexed keyframe getter.</summary>
-internal sealed class DomAccessorCSSKeyframesRule : DomCollectionAccessor
-{
-    internal static readonly DomAccessorCSSKeyframesRule Instance = new();
-    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Count;
-    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var rules = global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target);
-        var present = index < (uint) rules.Count;
-        value = present ? realm.Wrap(rules[(int) index]) : global::Jint.Native.JsValue.Undefined;
-        return present;
-    }
-}
-
 /// <summary>Dormant CSSPseudoElementList contract, without a native producer.</summary>
 internal sealed class DomAccessorCSSPseudoElementList : DomCollectionAccessor
 {

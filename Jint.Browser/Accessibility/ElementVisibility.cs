@@ -140,7 +140,14 @@ internal sealed class ElementVisibility
         {
             _work?.Check();
             _cascadeAnswered = true;
-            return whiteSpace;
+            if (whiteSpace.Length != 0) return whiteSpace;
+            // The renderless declaration store retains white-space as text, not a typed shorthand.
+            return Dom.Views.CssCascade.ValueOf(computed, "white-space") switch
+            {
+                "pre" or "pre-wrap" or "break-spaces" => "preserve",
+                "pre-line" => "preserve-breaks",
+                _ => "collapse"
+            };
         }
 
         Latch();

@@ -6,7 +6,6 @@ using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.HtmlParser.Css;
 
@@ -80,12 +79,13 @@ public sealed class NativeCssQueryDiagnosticsTests
         record.CacheHits["visibility"].Should().Be(1);
         query.GetProperty(child, "--X", ref matching).Text.Should().Be("foo");
         query.GetProperty(child, "--X", ref matching).Text.Should().Be("foo");
-        record.ComputedPublications["--X"].Should().Be(1);
+        record.ComputedPublications["--X"].Should().Be(2);
         record.CacheHits["--X"].Should().Be(1);
         query.GetProperty(child, "overflow-x", ref matching).Text.Should().Be("hidden");
-        var publications = record.ComputedPublications["overflow-y"];
+        record.ComputedPublications.Should().NotContainKey("overflow-y");
         query.GetProperty(child, "OVERFLOW-Y", ref matching).Text.Should().Be("scroll");
-        record.ComputedPublications["overflow-y"].Should().Be(publications);
+        record.ComputedPublications["overflow-y"].Should().Be(1);
+        query.GetProperty(child, "overflow-y", ref matching).Text.Should().Be("scroll");
         record.CacheHits["overflow-y"].Should().Be(1);
     }
 
@@ -97,7 +97,7 @@ public sealed class NativeCssQueryDiagnosticsTests
         using var cancellation = new CancellationTokenSource();
         var work = new CssValueWork(cancellation.Token, cancellation.Cancel);
         Action construct = () => new NativeCssQuery(document, [], [], new CssMediaEnvironment(),
-            new SelectorEnvironment(document, null, null, null), CssEnvironmentSnapshot.Create([], new CssValueWork(default)), work,
+            new SelectorEnvironment(document, null, null, null), work,
             diagnostics: diagnostics);
         construct.Should().Throw<OperationCanceledException>();
         diagnostics.Queries.Should().BeEmpty();
@@ -112,7 +112,7 @@ public sealed class NativeCssQueryDiagnosticsTests
         using var cancellation = new CancellationTokenSource();
         var work = new CssValueWork(cancellation.Token);
         var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(),
-            new SelectorEnvironment(document, null, null, null), CssEnvironmentSnapshot.Create([], work), work,
+            new SelectorEnvironment(document, null, null, null), work,
             diagnostics: diagnostics);
         var matching = new SelectorMatchWork(document, cancellation.Token);
         cancellation.Cancel();
@@ -130,6 +130,6 @@ public sealed class NativeCssQueryDiagnosticsTests
         var work = new CssValueWork(default);
         return new NativeCssQuery(document, [new NativeCssSheet(sheet, NativeCssOrigin.Author)], [],
             new CssMediaEnvironment(), new SelectorEnvironment(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work, diagnostics: diagnostics);
+            work, diagnostics: diagnostics);
     }
 }

@@ -36,7 +36,7 @@ public sealed class InertCssQueryTests
         NativeCssStyleSheets.Get(document, work).Count.Should().Be(2);
         var target = ContentDom.ElementById(document, "t")!;
         traversal.Of(target).GetPropertyValue("display").Should().Be("none");
-        traversal.Of(target).GetPropertyValue("white-space-collapse").Should().Be("preserve");
+        traversal.Of(target).GetPropertyValue("white-space").Should().Be("pre");
         record.ComputedPublications.Should().NotContainKey("background");
         record.ComputedPublications.Should().NotContainKey("background-color");
         var template = ContentDom.First(document, "template")!;
@@ -61,7 +61,7 @@ public sealed class InertCssQueryTests
         var style = traversal.Of(target);
         style.GetPropertyValue("display").Should().Be("block");
         style.GetPropertyValue("opacity").Should().Be("0.25");
-        style.GetPropertyValue("color").Should().Be("rgb(255, 0, 0)");
+        style.GetPropertyValue("color").Should().Be("red");
     }
 
     [Test]

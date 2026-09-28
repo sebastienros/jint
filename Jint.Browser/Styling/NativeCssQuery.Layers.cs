@@ -42,7 +42,6 @@ internal sealed partial class NativeCssQuery
     {
         var rules = new List<(CssStyleRule, NativeCssOrigin, long, string?, NativeCssLayer)>();
         var roots = new Dictionary<(NativeCssOrigin, Node?), NativeCssLayer>();
-        var registrations = new Dictionary<string, CssPropertyRule>(StringComparer.Ordinal);
         long order = 0;
         foreach (var input in _sheets)
         {
@@ -69,17 +68,6 @@ internal sealed partial class NativeCssQuery
                     case CssStyleRule style:
                         rules.Add((style, input.Origin, order++, input.NamespaceUri, layer));
                         break;
-                    case CssPropertyRule property:
-                        // Registrations are document-global and independent of cascade layers.
-                        // Container-query rules cannot define global names.
-                        var inContainer = false;
-                        for (var owner = property.ParentRule; owner is not null; owner = owner.ParentRule)
-                        {
-                            _work.Charge(1);
-                            inContainer |= owner is CssContainerRule;
-                        }
-                        if (!inContainer) registrations[property.Name] = property;
-                        break;
                 }
                 contexts.Add(rule, layer);
             }
@@ -105,7 +93,6 @@ internal sealed partial class NativeCssQuery
             }
         }
         Verify();
-        _registrations = registrations;
         return rules;
     }
 

@@ -23,8 +23,7 @@ public sealed class CssParserLayerTests
         media.MediaText.Should().Contain("future(foo([bar]))");
         var children = CssParser.ParseRuleList(new CssRuleBody(raw.Body.Value, CssRuleBodyKind.Group, raw.IsClosed), Work());
         children.Single().Name.Should().Be("scope");
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => CssParser.ParseRule(children[0], Work()))!
-            .Blocker.Should().Be("R2:scope");
+        CssParser.ParseRule(children[0], Work())!.Value.Rule.Should().BeOfType<CssGenericRule>();
     }
 
     [Test]

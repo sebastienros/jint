@@ -1,134 +1,96 @@
+using System.Text;
 using Jint.HtmlParser;
-using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
-using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.Math;
-using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Browser.Styling;
 
 internal sealed partial class NativeCssQuery
 {
-    // Query-affine layer. Immutable input/programs/models never retain this callback or its cache.
-    private sealed class QueryVariables(NativeCssQuery query, State state, SelectorMatchWork matching) :
-        ICssQueryBindingResolver, ICssQueryBindingComputer
+    // A bounded textual convenience for automation, not the CSS Variables token-substitution engine.
+    // Custom properties themselves remain declared text, including unresolved var() calls.
+    private string? Substitute(Element element, string text, ref SelectorMatchWork matching, int depth = 0,
+        HashSet<string>? active = null)
     {
-        private SelectorMatchWork _matching = matching;
-        private readonly Dictionary<string, CssSubstitutionBinding?> _bindings = new(new Names(query._work));
-
-        public bool TryResolve(string name, CssValueWork work, out CssSubstitutionBinding binding)
-        {
-            try
-            {
-                if (!ReferenceEquals(work, query._work))
-                    throw new InvalidOperationException("A query-bound variable layer requires its invocation work.");
-                _matching.VerifyRead();
-                query.Verify();
-                using var guard = query.EnterDependency(state.Element, "variable-binding", name);
-                if (!_bindings.TryGetValue(name, out var selected))
-                {
-                    var candidate = query.CustomWinner(state, name, ref _matching);
-                    selected = candidate is null || candidate.Value.Declaration.WideKeyword is "inherit" or "unset"
-                        ? null : candidate.Value.Declaration.Binding;
-                    if (query.Registration(name) is { } registration)
-                    {
-                        var keyword = candidate?.Declaration.WideKeyword;
-                        var inherit = keyword == "inherit" || (candidate is null || keyword == "unset") && registration.Inherits;
-                        if (inherit)
-                            selected = query.InheritanceParent(state.Element) is null ? InitialBinding(registration) : null;
-                        else if (candidate is null || keyword is "initial" or "unset")
-                            selected = InitialBinding(registration);
-                    }
-                    // initial is a local guaranteed-invalid binding; it shadows the parent.
-                    _matching.VerifyRead();
-                    query.Verify();
-                    _bindings.Add(name, selected);
-                }
-                _matching.VerifyRead();
-                query.Verify();
-                binding = selected ?? default;
-                return selected is not null;
-            }
-            catch (Exception exception) { _bindings.Clear(); query.AbortRead(exception); throw; }
-        }
-
-        public bool RequiresComputation(string name, CssValueWork work) => query.Registration(name) is not null;
-
-        public CssSubstitutionResult Compute(string name, CssSubstitutionResult value, CssValueWork work)
-        {
-            _matching.VerifyRead();
-            query.Verify();
-            var registration = query.Registration(name)!;
-            using var guard = query.EnterDependency(state.Element, "registered-value", name);
-            var computed = value.Kind == CssSubstitutionResultKind.Tokens
-                ? query.ComputeRegistered(state.Element, registration, value, ref _matching) : value;
-            if (computed.Kind == CssSubstitutionResultKind.GuaranteedInvalid)
-            {
-                if (registration.Inherits && state.Parent is { } parent &&
-                    parent.Variables!.TryGet(name, work, out var inherited))
-                    computed = query.ResolveCustomBinding(inherited);
-                else if (registration.Initial is { } initial)
-                    computed = query.ComputeRegistered(state.Element, registration,
-                        Literal(initial, work), ref _matching);
-            }
-            _matching.VerifyRead();
-            query.Verify();
-            return computed;
-        }
-
-        private static CssSubstitutionBinding InitialBinding(CssPropertyRule rule) => rule.Initial is { } input
-            ? CssSubstitutionBinding.Specified(rule.Name, input, false)
-            : CssSubstitutionBinding.Invalid(rule.Name, false);
-    }
-
-    private Dictionary<string, CssPropertyRule>? _registrations;
-
-    private CssPropertyRule? Registration(string name)
-    {
-        _rules ??= BuildRules();
-        _work.Charge(name.Length);
-        return _registrations!.GetValueOrDefault(name);
-    }
-
-    private static CssSubstitutionResult Literal(CssReferenceInput input, CssValueWork work) =>
-        CssSubstitutionResult.Tokens(CssSubstitutedValue.Create(CssSegment.FromInput(input, work), input.MaxNestingDepth, work));
-
-    private CssSubstitutionResult ResolveCustomBinding(CssSubstitutionBinding binding) => binding.Kind switch
-    {
-        CssSubstitutionBindingKind.Specified => CssSubstitutionExecutor.Resolve(binding.Input, binding.Scope!, _environment,
-            new(binding.Name, CssReferenceUse.CustomPropertyValue, true), _work),
-        CssSubstitutionBindingKind.Computed => CssSubstitutionResult.Tokens(binding.Value),
-        CssSubstitutionBindingKind.Pending => CssSubstitutionResult.Pending(binding.PendingFeature),
-        _ => CssSubstitutionResult.Invalid()
-    };
-
-    private CssSubstitutionResult ComputeRegistered(Element element, CssPropertyRule registration,
-        CssSubstitutionResult result, ref SelectorMatchWork matching)
-    {
-        if (registration.Syntax.IsUniversal) return result;
-        var value = registration.Syntax.Match(result.Value.AsReferenceInput(_work), _work);
-        if (value is null) return CssSubstitutionResult.Invalid();
-        var builder = new System.Text.StringBuilder();
-        foreach (var component in value.Values)
+        if (depth == 32) return null;
+        active ??= new(StringComparer.Ordinal);
+        var output = new StringBuilder();
+        char quote = '\0';
+        for (var i = 0; i < text.Length; i++)
         {
             _work.Charge(1);
-            var computed = component.Kind == CssPropertyValueKind.Color
-                ? ComputeColor(element, registration.Name, component, ref matching)
-                : ComputeForElement(element, registration.Name, component, ref matching);
-            if (value.Type == CssRegisteredType.Integer && computed.Kind == CssPropertyValueKind.Numeric)
-                computed = Number("z-index", new CssMathNumeric(
-                    CssMathNumbers.ParseFinite(computed.Numeric.Number, computed.Numeric.Unit, _work),
-                    CssNumericKind.Number, CssUnit.None, computed.Span));
-            if (value.Type == CssRegisteredType.Resolution && computed.Kind == CssPropertyValueKind.Numeric)
-                computed = Number(registration.Name, new CssMathNumeric(
-                    System.Math.Max(0, CssMathNumbers.ParseFinite(computed.Numeric.Number, computed.Numeric.Unit, _work)),
-                    CssNumericKind.Dimension, CssUnit.Dppx, computed.Span));
-            if (builder.Length != 0) builder.Append(value.Separator);
-            var text = ColorText(element, registration.Name, computed, ref matching);
-            _work.Charge(text.Length);
-            builder.Append(text);
+            if (output.Length > 1_000_000) return null;
+            var c = text[i];
+            if (c == '\\' && i + 1 < text.Length)
+            {
+                output.Append(c).Append(text[++i]);
+                continue;
+            }
+            if (quote != '\0')
+            {
+                output.Append(c);
+                if (c == quote) quote = '\0';
+                continue;
+            }
+            if (c is '\'' or '"') { quote = c; output.Append(c); continue; }
+            if (c == '/' && i + 1 < text.Length && text[i + 1] == '*')
+            {
+                output.Append(c).Append(text[++i]);
+                while (++i < text.Length)
+                {
+                    _work.Charge(1);
+                    output.Append(text[i]);
+                    if (text[i] == '*' && i + 1 < text.Length && text[i + 1] == '/')
+                    { output.Append(text[++i]); break; }
+                }
+                continue;
+            }
+            if (!text.AsSpan(i).StartsWith("var(", StringComparison.Ordinal) ||
+                i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] is '-' or '_'))
+            { output.Append(c); continue; }
+            var start = i + 4;
+            var end = start;
+            var nesting = 1;
+            var comma = -1;
+            char innerQuote = '\0';
+            for (; end < text.Length; end++)
+            {
+                _work.Charge(1);
+                c = text[end];
+                if (c == '\\') { end++; continue; }
+                if (innerQuote != '\0') { if (c == innerQuote) innerQuote = '\0'; continue; }
+                if (c is '\'' or '"') { innerQuote = c; continue; }
+                if (c == '/' && end + 1 < text.Length && text[end + 1] == '*')
+                {
+                    end += 2;
+                    while (end + 1 < text.Length && !(text[end] == '*' && text[end + 1] == '/'))
+                    { _work.Charge(1); end++; }
+                    end++;
+                    continue;
+                }
+                if (c == '(') nesting++;
+                else if (c == ')' && --nesting == 0) break;
+                else if (c == ',' && nesting == 1 && comma < 0) comma = end;
+            }
+            if (end >= text.Length) return null;
+            var name = text[start..(comma < 0 ? end : comma)].Trim();
+            if (!name.StartsWith("--", StringComparison.Ordinal) || name.Length == 2) return null;
+            string? replacement = null;
+            if (active.Add(name))
+            {
+                var value = GetProperty(element, name, ref matching);
+                if (value.Text.Length != 0) replacement = Substitute(element, value.Text, ref matching, depth + 1, active);
+                active.Remove(name);
+            }
+            if (replacement is null && comma >= 0)
+                replacement = Substitute(element, text[(comma + 1)..end].Trim(), ref matching, depth + 1, active);
+            if (replacement is null) return null;
+            _work.Charge(replacement.Length);
+            // Avoid exponential expansion even with short, depth-bounded chains.
+            if (replacement.Length > 1_000_000 - output.Length) return null;
+            output.Append(replacement);
+            i = end;
         }
-        return Literal(CssRegisteredSyntax.ParseInput(builder.ToString(), _work), _work);
+        _work.CheckCancellation();
+        return output.Length > 1_000_000 ? null : output.ToString();
     }
 }

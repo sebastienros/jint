@@ -42,7 +42,7 @@ public sealed class ComputedStyleTests
 
         var computed = "getComputedStyle(document.getElementById('by-id'))";
 
-        (await page.EvaluateAsync<string>(computed + ".getPropertyValue('font-weight')")).Should().Be("700");
+        (await page.EvaluateAsync<string>(computed + ".getPropertyValue('font-weight')")).Should().Be("bold");
         (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[1].style.fontWeight")).Should().Be("bold");
         (await page.EvaluateAsync<string>(computed + ".getPropertyValue('text-align')")).Should().Be("center");
         (await page.EvaluateAsync<string>(computed + ".color")).Should().Contain("0, 128, 0");
@@ -214,7 +214,7 @@ public sealed class ComputedStyleTests
         foreach (var (property, expected) in new[]
         {
             ("color", "rgb(0, 0, 0)"), ("font-size", "16px"), ("margin-top", "0px"),
-            ("z-index", "auto"), ("background-color", "rgba(0, 0, 0, 0)"), ("cursor", "auto")
+            ("z-index", "auto"), ("background-color", "transparent"), ("cursor", "auto")
         })
         {
             (await page.EvaluateAsync<string>(plain + ".getPropertyValue('" + property + "')")).Should().Be(expected);
@@ -224,30 +224,13 @@ public sealed class ComputedStyleTests
 
     }
 
-    // Fonts 4 §2.5 uses the actual parent's computed size; Sizing 3 retains min-size percentages.
-    [TestCase("100%", "16px")]
-    [TestCase("50%", "8px")]
-    [TestCase("calc(100% - 10px)", "6px")]
-    [TestCase("2em", "32px")]
-    [TestCase("2rem", "32px")]
-    [TestCase("10vw", "128px")]
-    [TestCase("10vh", "72px")]
-    public async Task FontSizeRelativeLengthsUseTheirSpecifiedBasis(string value, string expected)
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync($"<div id='t' style='font-size:{value}'>g</div>");
-        (await Read(page, "font-size")).Should().Be(expected);
-        page.Errors.Should().BeEmpty();
-    }
-
     [TestCase("100%", "100%")]
     [TestCase("50%", "50%")]
     [TestCase("calc(100% - 10px)", "calc(100% - 10px)")]
-    [TestCase("2em", "32px")]
-    [TestCase("2rem", "32px")]
-    [TestCase("10vw", "128px")]
-    [TestCase("10vh", "72px")]
+    [TestCase("2em", "2em")]
+    [TestCase("2rem", "2rem")]
+    [TestCase("10vw", "10vw")]
+    [TestCase("10vh", "10vh")]
     public async Task MinimumWidthKeepsComputedPercentages(string value, string expected)
     {
         await using var browser = new Browser();
@@ -263,8 +246,8 @@ public sealed class ComputedStyleTests
         var page = await browser.NewPageAsync();
         foreach (var (property, expected) in new[]
         {
-            ("width", "1280px"), ("height", "16px"), ("margin-left", "0px"),
-            ("min-width", "0px"), ("padding-left", "0px"), ("font-size", "16px")
+            ("width", "1280px"), ("height", "16px"), ("margin-left", "auto"),
+            ("min-width", "auto"), ("padding-left", "auto"), ("font-size", "auto")
         })
         {
             await page.SetContentAsync($"<div id='t' style='{property}:auto'>g</div>");
@@ -273,14 +256,13 @@ public sealed class ComputedStyleTests
         await page.SetContentAsync("<div id='t' style='width:20ch;visibility:hidden'>g</div>");
         (await Read(page, "visibility")).Should().Be("hidden");
         (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
-        // A missing box retains the computed dimension, so this demand still requires the font metric.
+        // A missing box retains declaration text without requiring a font metric.
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
             var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "t")!;
             var style = CssCascade.Traversal.For(runtime.Document)!.Of(element);
-            Action read = () => ResolvedStyle.ValueOf("width", style, element, runtime);
-            read.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be("C6:zero-advance");
+            ResolvedStyle.ValueOf("width", style, element, runtime).Should().Be("20ch");
             return true;
         });
     }
@@ -314,18 +296,16 @@ public sealed class ComputedStyleTests
                 style.color === color
               ].join('|');
             })()
-            """)).Should().Be("visible|auto|none|false|true|false|true");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('.outer')).width")).Should().Be("10px");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('.inner')).width")).Should().Be("auto");
+            """)).Should().Be("visible|1280px||false|true|false|true");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('.outer')).width")).Should().Be("1280px");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('.inner')).width")).Should().Be("1280px");
         (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('t')).cssText")).Should().BeEmpty();
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('root-child')).textDecorationLine"))
-            .Should().Be("underline");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('root-child')).textDecorationColor"))
-            .Should().Be("rgb(255, 0, 0)");
-        await page.EvaluateAsync("document.getElementById('direct').style.width = 'var(--extent)'");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('direct')).width")).Should().Be("20px");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('root-child')).getPropertyValue('text-decoration')"))
+            .Should().Be("underline solid red");
+        await page.EvaluateAsync("document.getElementById('direct').style.minWidth = 'var(--extent)'");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('direct')).minWidth")).Should().Be("20px");
         await page.EvaluateAsync("document.querySelector('.inner').style.setProperty('--extent', '30px')");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('direct')).width")).Should().Be("30px");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('direct')).minWidth")).Should().Be("30px");
         page.Errors.Should().BeEmpty();
     }
 
@@ -501,7 +481,7 @@ public sealed class ComputedStyleTests
 
         (await page.EvaluateAsync<string>("document.getElementById('p').getAttribute('style')")).Should().Contain("font-weight");
         (await page.EvaluateAsync<string>("document.getElementById('p').style.fontWeight")).Should().Be("bold");
-        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')")).Should().Be("700");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')")).Should().Be("bold");
     }
 
     [Test]

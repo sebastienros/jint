@@ -53,8 +53,7 @@ public sealed class CssImportRuleTests
             .Blocker.Should().Be(blocker);
         // Invalid late imports are discarded before interpreting their unsupported prelude.
         CssStyleSheet.Parse("a {} @import 'a' " + condition + ";").Rules.Count.Should().Be(1);
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => CssStyleSheet.Parse("@namespace 'x';"))!
-            .Blocker.Should().Be("R1:namespace");
+        CssStyleSheet.Parse("@namespace 'x';").Rules.Single().Should().BeOfType<CssGenericRule>();
     }
 
     [Test]

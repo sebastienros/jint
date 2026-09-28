@@ -36,44 +36,17 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSRule;
 
-    /// <summary>The <c>CSSCharsetRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSCharsetRule;
-
-    /// <summary>The <c>CSSColorProfileRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSColorProfileRule;
-
     /// <summary>The <c>CSSGroupingRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssGroupingRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSGroupingRule;
 
     /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssConditionRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSConditionRule;
 
-    /// <summary>The <c>CSSContainerRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssContainerRule</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSContainerRule;
-
-    /// <summary>The <c>CSSCounterStyleRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSCounterStyleRule;
-
-    /// <summary>The <c>CSSDocumentRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSDocumentRule;
-
     /// <summary>The <c>CSSFontFaceRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssFontFaceRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSFontFaceRule;
 
-    /// <summary>The <c>CSSFontFeatureValuesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSFontFeatureValuesRule;
-
-    /// <summary>The <c>CSSFontPaletteValuesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSFontPaletteValuesRule;
-
     /// <summary>The <c>CSSImportRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssImportRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSImportRule;
-
-    /// <summary>The <c>CSSKeyframeRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssKeyframeRule</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSKeyframeRule;
-
-    /// <summary>The <c>CSSKeyframesRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssKeyframesRule</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSKeyframesRule;
 
     /// <summary>The <c>CSSLayerBlockRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssLayerBlockRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSLayerBlockRule;
@@ -81,29 +54,8 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSLayerStatementRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssLayerStatementRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSLayerStatementRule;
 
-    /// <summary>The <c>CSSLayerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSLayerRule;
-
-    /// <summary>The <c>CSSMarginRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSMarginRule;
-
     /// <summary>The <c>CSSMediaRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSMediaRule;
-
-    /// <summary>The <c>CSSNamespaceRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSNamespaceRule;
-
-    /// <summary>The <c>CSSPageRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSPageRule;
-
-    /// <summary>The <c>CSSPositionTryRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSPositionTryRule;
-
-    /// <summary>The <c>CSSProperty</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSProperty;
-
-    /// <summary>The <c>CSSPropertyRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssPropertyRule</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSPropertyRule;
 
     /// <summary>The <c>CSSPseudoElement</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPseudoElement;
@@ -113,12 +65,6 @@ internal static partial class DomInterfaces
 
     /// <summary>The <c>CSSRuleList</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRuleList</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSRuleList;
-
-    /// <summary>The <c>CSSScopeRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSScopeRule;
-
-    /// <summary>The <c>CSSStartingStyleRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSStartingStyleRule;
 
     /// <summary>The <c>CSSStyleDeclaration</c> interface, projected from <c>Jint.Browser.Styling.NativeCssDeclaration</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleDeclaration;
@@ -137,9 +83,6 @@ internal static partial class DomInterfaces
 
     /// <summary>The <c>CSSSupportsRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssSupportsRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSSupportsRule;
-
-    /// <summary>The <c>CSSViewTransitionRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CSSViewTransitionRule;
 
     /// <summary>The <c>RenderingContext</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition RenderingContext;
@@ -518,7 +461,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(166);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(147);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -642,24 +585,6 @@ internal static partial class DomInterfaces
                 new DomConstant("VIEW_TRANSITION_RULE", 22),
             ]));
 
-        CSSCharsetRule = Add(new DomInterfaceDefinition(
-            "CSSCharsetRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSCharsetRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSColorProfileRule = Add(new DomInterfaceDefinition(
-            "CSSColorProfileRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSColorProfileRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
         CSSGroupingRule = Add(new DomInterfaceDefinition(
             "CSSGroupingRule",
             typeof(global::Jint.HtmlParser.Css.Model.CssGroupingRule),
@@ -678,55 +603,10 @@ internal static partial class DomInterfaces
             hasInterfaceObject: false,
             DomWrapperKind.Object));
 
-        CSSContainerRule = Add(new DomInterfaceDefinition(
-            "CSSContainerRule",
-            typeof(global::Jint.HtmlParser.Css.Model.CssContainerRule),
-            BuildCSSContainerRule,
-            CSSConditionRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSCounterStyleRule = Add(new DomInterfaceDefinition(
-            "CSSCounterStyleRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSCounterStyleRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSDocumentRule = Add(new DomInterfaceDefinition(
-            "CSSDocumentRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSDocumentRule,
-            CSSConditionRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
         CSSFontFaceRule = Add(new DomInterfaceDefinition(
             "CSSFontFaceRule",
             typeof(global::Jint.HtmlParser.Css.Model.CssFontFaceRule),
             BuildCSSFontFaceRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSFontFeatureValuesRule = Add(new DomInterfaceDefinition(
-            "CSSFontFeatureValuesRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSFontFeatureValuesRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSFontPaletteValuesRule = Add(new DomInterfaceDefinition(
-            "CSSFontPaletteValuesRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSFontPaletteValuesRule,
             CSSRule,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
@@ -740,25 +620,6 @@ internal static partial class DomInterfaces
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Object));
-
-        CSSKeyframeRule = Add(new DomInterfaceDefinition(
-            "CSSKeyframeRule",
-            typeof(global::Jint.HtmlParser.Css.Model.CssKeyframeRule),
-            BuildCSSKeyframeRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSKeyframesRule = Add(new DomInterfaceDefinition(
-            "CSSKeyframesRule",
-            typeof(global::Jint.HtmlParser.Css.Model.CssKeyframesRule),
-            BuildCSSKeyframesRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Collection,
-            collectionAccessor: DomAccessorCSSKeyframesRule.Instance));
 
         CSSLayerBlockRule = Add(new DomInterfaceDefinition(
             "CSSLayerBlockRule",
@@ -778,74 +639,11 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Object));
 
-        CSSLayerRule = Add(new DomInterfaceDefinition(
-            "CSSLayerRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSLayerRule,
-            CSSGroupingRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSMarginRule = Add(new DomInterfaceDefinition(
-            "CSSMarginRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSMarginRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
         CSSMediaRule = Add(new DomInterfaceDefinition(
             "CSSMediaRule",
             typeof(global::Jint.HtmlParser.Css.Model.CssMediaRule),
             BuildCSSMediaRule,
             CSSConditionRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSNamespaceRule = Add(new DomInterfaceDefinition(
-            "CSSNamespaceRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSNamespaceRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSPageRule = Add(new DomInterfaceDefinition(
-            "CSSPageRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSPageRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSPositionTryRule = Add(new DomInterfaceDefinition(
-            "CSSPositionTryRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSPositionTryRule,
-            CSSRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSProperty = Add(new DomInterfaceDefinition(
-            "CSSProperty",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSProperty,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: false,
-            DomWrapperKind.Object));
-
-        CSSPropertyRule = Add(new DomInterfaceDefinition(
-            "CSSPropertyRule",
-            typeof(global::Jint.HtmlParser.Css.Model.CssPropertyRule),
-            BuildCSSPropertyRule,
-            CSSRule,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Object));
@@ -878,24 +676,6 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Collection,
             collectionAccessor: DomAccessorCSSRuleList.Instance));
-
-        CSSScopeRule = Add(new DomInterfaceDefinition(
-            "CSSScopeRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSScopeRule,
-            CSSGroupingRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSStartingStyleRule = Add(new DomInterfaceDefinition(
-            "CSSStartingStyleRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSStartingStyleRule,
-            CSSGroupingRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
 
         CSSStyleDeclaration = Add(new DomInterfaceDefinition(
             "CSSStyleDeclaration",
@@ -949,15 +729,6 @@ internal static partial class DomInterfaces
             typeof(global::Jint.HtmlParser.Css.Model.CssSupportsRule),
             BuildCSSSupportsRule,
             CSSConditionRule,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CSSViewTransitionRule = Add(new DomInterfaceDefinition(
-            "CSSViewTransitionRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
-            BuildCSSViewTransitionRule,
-            CSSRule,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Object));

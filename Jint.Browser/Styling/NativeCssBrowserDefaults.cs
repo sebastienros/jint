@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.Colors;
 
 namespace Jint.Browser.Styling;
 
@@ -46,12 +45,4 @@ internal static class NativeCssBrowserDefaults
         new(Sheets.GetValue(document, _ => NativeCssParsing.CreateSheet(Source, work)),
             NativeCssOrigin.UserAgent, Namespaces.Html);
 
-    // Explicit headless-device policy: a neutral light/dark canvas, independent of a desktop theme.
-    // Other device colors require a supplied palette and retain their named missing-input failure.
-    internal static NativeCssSystemColors Palette(bool dark, CssValueWork work)
-    {
-        var black = CssColorValue.Identity(CssColorKind.Named, "black", default, 0);
-        var white = CssColorValue.Identity(CssColorKind.Named, "white", default, 0xffffff);
-        return NativeCssSystemColors.Create([("canvas", dark ? black : white), ("canvastext", dark ? white : black)], work);
-    }
 }

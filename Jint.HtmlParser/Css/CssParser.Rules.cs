@@ -59,21 +59,10 @@ internal static partial class CssParser
             new CssSourceSpan(input.Span.Start - 1, input.Span.Length + (body.IsClosed ? 2 : 1)),
             null, '{', values, body.IsClosed);
         var rules = new List<CssRawRule>();
-        if (body.Kind == CssRuleBodyKind.Keyframes)
+        foreach (var item in parser.ParseBlockContents(block))
         {
-            foreach (var rule in parser.ParseQualifiedRuleList(block))
-            {
-                work.Charge(1);
-                rules.Add(Raw(input.Source, rule));
-            }
-        }
-        else
-        {
-            foreach (var item in parser.ParseBlockContents(block))
-            {
-                work.Charge(1);
-                if (item.Kind == CssBlockItemKind.Rule) rules.Add(Raw(input.Source, item.Rule));
-            }
+            work.Charge(1);
+            if (item.Kind == CssBlockItemKind.Rule) rules.Add(Raw(input.Source, item.Rule));
         }
         work.Charge(rules.Count);
         var result = rules.ToArray();

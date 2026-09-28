@@ -22,7 +22,7 @@ internal static partial class CssParser
 
     internal static CssDeclarationBlock ParseDeclarationList(string source, CssValueWork work,
         CssDeclarationContext context = CssDeclarationContext.Style, CssParseOptions? options = null) =>
-        CssDeclarationBlock.ParseUnresolved(source, context, options, work, work.Token);
+        CssDeclarationBlock.Parse(source, context, options, work, work.Token);
 
     internal static bool HasValidSelector(CssRawRule raw, CssValueWork work, CssParseOptions? options = null)
     {
@@ -35,6 +35,12 @@ internal static partial class CssParser
     {
         var kind = raw.Kind == CssRuleKind.AtRule
             ? CssAtRuleLookup.Match(CssPropertyRegistry.NormalizeName(raw.Name, work)) : default;
+        if (raw.Kind == CssRuleKind.AtRule && kind is not (CssAtRuleKind.Media or CssAtRuleKind.Import or
+            CssAtRuleKind.FontFace or CssAtRuleKind.Supports or CssAtRuleKind.Layer))
+        {
+            work.Charge(raw.Text.Span.Length);
+            return new(new CssGenericRule(raw.Text.Text, raw.Text.Span), null, null);
+        }
         if (raw.Kind == CssRuleKind.AtRule && kind == CssAtRuleKind.Media)
         {
             if (raw.Body is not { } mediaBody) return null;
@@ -44,7 +50,7 @@ internal static partial class CssParser
         }
         // A style rule's declaration-vs-nesting grammar, and descriptor rules, demand their own
         // body. A grouping rule needs only its prelude; its body stays a raw source slice.
-        var full = raw.Kind == CssRuleKind.QualifiedRule || kind is CssAtRuleKind.FontFace or CssAtRuleKind.Property;
+        var full = raw.Kind == CssRuleKind.QualifiedRule || kind is CssAtRuleKind.FontFace;
         var parser = new CssSyntaxParser(full ? raw.Text : raw.Prelude, options, work.Token, work.CheckCancellation);
         var syntax = full ? parser.ParseRule() : Header(raw, parser);
         CssRule? rule;
@@ -62,24 +68,14 @@ internal static partial class CssParser
             rule = CssStyleSheet.BuildShallow(raw.Text.Source, syntax, parser, options, work, work.Token, nestingParent);
         if (rule is null) return null;
         CssRuleBody? children = null;
-        if (raw.Body is { } body && rule is CssGroupingRule or CssStyleRule or CssKeyframesRule)
+        if (raw.Body is { } body && rule is CssGroupingRule or CssStyleRule)
             children = new CssRuleBody(body, rule switch
             {
                 CssStyleRule => CssRuleBodyKind.Style,
-                CssKeyframesRule => CssRuleBodyKind.Keyframes,
                 _ => CssRuleBodyKind.Group
             }, raw.IsClosed);
         work.CheckCancellation();
         return new(rule, children, media);
-    }
-
-    internal static CssParsedRule? ParseKeyframeRule(CssRawRule raw, CssValueWork work, CssParseOptions? options = null)
-    {
-        if (raw.Kind != CssRuleKind.QualifiedRule) return null;
-        var parser = new CssSyntaxParser(raw.Text, options, work.Token, work.CheckCancellation);
-        var rule = CssKeyframeParser.Build(raw.Text.Source, parser.ParseRule(), parser, options, work);
-        work.CheckCancellation();
-        return rule is null ? null : new CssParsedRule(rule, null, null);
     }
 
     private static CssRuleSyntax Header(CssRawRule raw, CssSyntaxParser parser)

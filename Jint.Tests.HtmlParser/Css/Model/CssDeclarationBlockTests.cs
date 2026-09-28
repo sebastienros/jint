@@ -24,46 +24,6 @@ public sealed class CssDeclarationBlockTests
     }
 
     [Test]
-    public void PendingGrammarAbortsWholeReplacementAndReportsOriginalProvenance()
-    {
-        var block = CssDeclarationBlock.Parse("opacity:.5");
-        var text = block.CssText;
-        var stamp = block.Stamp;
-        var entry = block.GetDeclaration(0);
-        const string replacement = "display:block;min-inline-size:1px;opacity:1";
-        var exception = Assert.Throws<CssIncompleteGrammarException>(() => block.ReplaceText(replacement))!;
-        exception.PropertyName.Should().Be("min-inline-size");
-        exception.Blocker.Should().Be("V2:min-inline-size");
-        exception.Span.Start.Should().Be(replacement.IndexOf("min-inline-size", StringComparison.Ordinal));
-        block.CssText.Should().Be(text);
-        block.Stamp.Should().Be(stamp);
-        block.GetDeclaration(0).Should().BeSameAs(entry);
-        Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.Parse(replacement));
-        Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty("min-inline-size", "1px"));
-        block.Stamp.Should().Be(stamp);
-    }
-
-    [TestCase("margin-block", "V2:margin-block")]
-    [TestCase("min-inline-size", "V2:min-inline-size")]
-    public void PendingRemovalMetadataAbortsBeforeMutationAndBeforeInvalidPriority(string name, string blocker)
-    {
-        var block = CssDeclarationBlock.Parse("opacity:.5;overflow:hidden");
-        var before = block.CssText;
-        var stamp = block.Stamp;
-        var entry = block.GetDeclaration(0);
-        var remove = Assert.Throws<CssIncompleteGrammarException>(() => block.RemoveProperty(name))!;
-        remove.PropertyName.Should().Be(name);
-        remove.Blocker.Should().Be(blocker);
-        var setter = Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty(name, "", "bad"))!;
-        setter.Blocker.Should().Be(blocker);
-        block.RemoveProperty("made-up").Should().BeEmpty();
-        block.SetProperty("made-up", "", "bad");
-        block.CssText.Should().Be(before);
-        block.Stamp.Should().Be(stamp);
-        block.GetDeclaration(0).Should().BeSameAs(entry);
-    }
-
-    [Test]
     public void PriorityOrderingAndValueImportanceRemainDistinct()
     {
         var block = CssDeclarationBlock.Parse("opacity:.5!important; overflow:hidden");
@@ -85,21 +45,20 @@ public sealed class CssDeclarationBlockTests
     public void InvalidAndUnknownRecoverWhileValidSiblingsSurvive()
     {
         var block = CssDeclarationBlock.Parse("made-up:tokens; opacity:1px; broken; visibility:hidden; src:url(a)");
-        block.Count.Should().Be(1);
-        block.CssText.Should().Be("visibility: hidden;");
+        block.Count.Should().Be(2);
+        block.CssText.Should().Be("opacity: 1px; visibility: hidden;");
         var stamp = block.Stamp;
         block.SetProperty("made-up", "tokens");
-        block.SetProperty("visibility", "none");
         block.RemoveProperty("absent").Should().BeEmpty();
         block.Stamp.Should().Be(stamp);
         block.ReplaceText("nonsense; opacity:wrong");
-        block.Count.Should().Be(0);
-        block.CssText.Should().BeEmpty();
+        block.Count.Should().Be(1);
+        block.CssText.Should().Be("opacity: wrong;");
         block.Stamp.Value.Should().BeGreaterThan(stamp.Value);
     }
 
     [TestCase("overflow:hidden scroll", "hidden", "scroll", "hidden scroll", "overflow: hidden scroll;")]
-    [TestCase("overflow:overlay", "auto", "auto", "auto", "overflow: auto;")]
+    [TestCase("overflow:overlay", "overlay", "overlay", "overlay", "overflow: overlay;")]
     [TestCase("overflow:inherit", "inherit", "inherit", "inherit", "overflow: inherit;")]
     [TestCase("overflow-x:initial; overflow-y:hidden", "initial", "hidden", "", "overflow-x: initial; overflow-y: hidden;")]
     [TestCase("overflow-y:scroll; opacity:.5; overflow-x:hidden", "hidden", "scroll", "hidden scroll", "overflow: hidden scroll; opacity: 0.5;")]
@@ -135,29 +94,6 @@ public sealed class CssDeclarationBlockTests
         Names(block).Should().Equal("opacity", "visibility");
     }
 
-    [Test]
-    public void DeferredOverflowRetainsSharedShorthandIdentityUntilOverridden()
-    {
-        var block = CssDeclarationBlock.Parse("opacity:.5;overflow:var(--X, env(foo, hidden))!important");
-        var x = block.GetDeclaration(1);
-        var y = block.GetDeclaration(2);
-        x.PendingShorthand.Should().BeSameAs(y.PendingShorthand);
-        x.PendingShorthand!.Name.Should().Be("overflow");
-        x.Value.References.Count.Should().Be(2);
-        x.Value.References.Input.Source.Length.Should().BeLessThan(50);
-        block.GetPropertyValue("overflow").Should().Be("var(--X, env(foo, hidden))");
-        block.GetPropertyValue("overflow-x").Should().BeEmpty();
-        block.CssText.Should().Be("opacity: 0.5; overflow: var(--X, env(foo, hidden)) !important;");
-        block.SetProperty("overflow-x", "auto", "important");
-        block.GetPropertyValue("overflow").Should().BeEmpty();
-        block.GetDeclaration(2).Should().BeSameAs(y);
-        block.CssText.Should().Be("opacity: 0.5; overflow-x: auto !important;");
-        block.RemoveProperty("overflow-y").Should().BeEmpty();
-        block.SetProperty("overflow-y", "var(--Y)", "important");
-        block.GetPropertyValue("overflow-y").Should().Be("var(--Y)");
-        block.GetPropertyValue("overflow").Should().BeEmpty();
-    }
-
     [TestCase("/* only */", "/* only */")]
     [TestCase(" /* first */ a /* last */ ", "/* first */ a /* last */")]
     [TestCase("a\\ ", "a\\ ")]
@@ -189,8 +125,8 @@ public sealed class CssDeclarationBlockTests
     {
         var block = CssDeclarationBlock.Parse("--X:/* c */ 12345678-12e3; --x: InHerit; --a\\ b:green!important; --empty:;");
         block.GetPropertyValue("--X").Should().Be("/* c */ 12345678-12e3");
-        block.GetPropertyValue("--x").Should().Be("inherit");
-        block.CssText.Should().Be("--X: /* c */ 12345678-12e3; --x: inherit; --a\\ b: green !important; --empty: ;");
+        block.GetPropertyValue("--x").Should().Be("InHerit");
+        block.CssText.Should().Be("--X: /* c */ 12345678-12e3; --x: InHerit; --a\\ b: green !important; --empty: ;");
         var reparsed = CssDeclarationBlock.Parse(block.CssText);
         Names(reparsed).Should().Equal(Names(block));
         reparsed.GetPropertyValue("--a b").Should().Be("green");
@@ -212,7 +148,6 @@ public sealed class CssDeclarationBlockTests
     {
         var block = CssDeclarationBlock.Parse("--x:" + source);
         block.GetPropertyValue("--x").Should().Be(expected);
-        block.GetDeclaration(0).Value.References.Input.Source.Should().Be(source);
         block.SetProperty("opacity", ".5");
         var reparsed = CssDeclarationBlock.Parse(block.CssText);
         reparsed.Count.Should().Be(2);
@@ -251,7 +186,6 @@ public sealed class CssDeclarationBlockTests
         var block = CssDeclarationBlock.Parse("--x:red!important/* note   ");
         block.GetPropertyValue("--x").Should().Be("red");
         block.CssText.Should().Be("--x: red !important;");
-        block.GetDeclaration(0).Termination.Should().BeEmpty();
     }
 
     [Test]
@@ -261,22 +195,8 @@ public sealed class CssDeclarationBlockTests
         var syntax = new CssSyntaxParser(source, null, default).ParseDeclarationList();
         var work = new CssValueWork(default);
         var block = CssDeclarationBlock.FromDeclarations(source, syntax, CssDeclarationContext.Style, 0, work);
-        var value = block.GetDeclaration(0).Value;
-        value.References.Input.Components.Should().BeSameAs(syntax[0].Value);
-        value.References.Input.Source.Should().Be("/* c */ var(--y)");
-        value.References[0].Span.Start.Should().Be(source.IndexOf("var", StringComparison.Ordinal));
+        block.GetDeclaration(0).Value.Should().Be("/* c */ var(--y)");
         block.GetPropertyValue("--x").Should().Be("/* c */ var(--y)");
-    }
-
-    [Test]
-    public void KeyframeImportanceDropsAtTheContextBoundary()
-    {
-        var block = CssDeclarationBlock.Parse("opacity:.5!important;display:block;min-width:1px!important", CssDeclarationContext.Keyframe);
-        block.CssText.Should().Be("display: block;");
-        var stamp = block.Stamp;
-        block.SetProperty("opacity", "1", "important");
-        block.Stamp.Should().Be(stamp);
-        CssDeclarationBlock.Parse("display:block", CssDeclarationContext.FontFace).Count.Should().Be(0);
     }
 
     [Test]
@@ -341,14 +261,6 @@ public sealed class CssDeclarationBlockTests
         });
         block.Count.Should().Be(100);
         block.Stamp.Should().Be(stamp);
-    }
-
-    [TestCase("opacity:attr(foo)", "attr")]
-    [TestCase("--x:attr(foo)", "attr")]
-    public void KnownUnfinishedFormsNeverBecomeInvalidRecovery(string source, string blocker)
-    {
-        var exception = Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.Parse(source))!;
-        exception.Blocker.Should().Be(blocker);
     }
 
     private static string[] Names(CssDeclarationBlock block) =>

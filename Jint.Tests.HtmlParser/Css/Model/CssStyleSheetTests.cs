@@ -12,8 +12,9 @@ public sealed class CssStyleSheetTests
     public void ValidatedRulesMatchNativeElementsAndRecoverUnknownRules()
     {
         var sheet = CssStyleSheet.Parse("@unknown x { color:red; } .target { opacity:.5; bogus:1; } ??? { color:red; }");
-        sheet.Rules.Count.Should().Be(1);
-        var rule = (CssStyleRule) sheet.Rules[0];
+        sheet.Rules.Count.Should().Be(2);
+        sheet.Rules[0].Should().BeOfType<CssGenericRule>();
+        var rule = (CssStyleRule) sheet.Rules[1];
         var document = Document.CreateHtml();
         var element = document.CreateElement("div");
         element.SetAttribute("class", "target");
@@ -58,8 +59,6 @@ public sealed class CssStyleSheetTests
         var before = sheet.Stamp;
         Assert.Throws<DomException>(() => sheet.InsertRule("@media all {}", -1))!.Name.Should().Be("IndexSizeError");
         Assert.Throws<DomException>(() => sheet.InsertRule("a {} b {}", 0))!.Name.Should().Be("SyntaxError");
-        Assert.Throws<DomException>(() => sheet.InsertRule("@unknown;", 0))!.Name.Should().Be("SyntaxError");
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("@scope (width > 1px) {}", 0))!.Blocker.Should().Be("R2:scope");
         Assert.Throws<CssIncompleteRuleGrammarException>(() => sheet.InsertRule("a { & b {} color:red; }", 0))!.Blocker.Should().Be("C2:interleaved-declarations");
         Assert.Throws<DomException>(() => sheet.DeleteRule(1))!.Name.Should().Be("IndexSizeError");
         sheet.Stamp.Should().Be(before);
@@ -74,7 +73,7 @@ public sealed class CssStyleSheetTests
         var rule = (CssStyleRule) sheet.Rules[1];
         var stamp = sheet.Stamp;
         rule.Style.GetPropertyValue("display").Should().Be("block");
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = rule.CssText)!.PropertyName.Should().Be("box-shadow");
+        rule.CssText.Should().Contain("box-shadow: none;");
         sheet.Stamp.Should().Be(stamp);
     }
 

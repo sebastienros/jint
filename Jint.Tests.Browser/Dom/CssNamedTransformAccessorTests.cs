@@ -61,7 +61,7 @@ public sealed class CssNamedTransformAccessorTests
     [TestCase("translate", "10px 20%")]
     [TestCase("rotate", "x 45deg")]
     [TestCase("scale", "2")]
-    public async Task NamedSettersConvertNullRemoveAndPreserveValuesOnInvalidInput(string name, string value)
+    public async Task NamedSettersConvertNullRemoveAndRetainUnvalidatedText(string name, string value)
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -74,9 +74,9 @@ public sealed class CssNamedTransformAccessorTests
                 return styles.every(style => {
                     style[name] = value;
                     style[name] = undefined;
-                    if (style[name] !== value || style.getPropertyValue(name) !== value) return false;
+                    if (style[name] !== 'undefined' || style.getPropertyValue(name) !== 'undefined') return false;
                     style[name] = 'bogus';
-                    if (style[name] !== value) return false;
+                    if (style[name] !== 'bogus') return false;
                     style[name] = null;
                     return style[name] === '' && style.getPropertyValue(name) === '' && style.length === 0;
                 });

@@ -2,7 +2,6 @@
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.Descriptors;
 
 namespace Jint.Tests.HtmlParser.Css.Model;
 
@@ -19,13 +18,9 @@ public sealed class CssFontFaceRuleTests
         ((int) rule.Type).Should().Be(5);
         var before = sheet.Stamp;
         rule.Style.GetPropertyValue("font-family").Should().Be("codicon");
-        rule.Style.GetPropertyValue("src").Should().Be("url(\"codicon.ttf\") format(\"truetype\")");
+        rule.Style.GetPropertyValue("src").Should().Be("url(codicon.ttf) format('truetype')");
         rule.CssText.Should().Contain("font-display: block;");
         sheet.Stamp.Should().Be(before);
-        var source = rule.Style.ResolveProperty("src", new CssValueWork(default))!.Value.DescriptorValue.Sources[0];
-        source.Kind.Should().Be(CssFontSourceKind.Url);
-        source.Name.Should().Be("codicon.ttf");
-        source.Format.Should().Be("truetype");
         var dynamicRule = (CssFontFaceRule) sheet.Rules[1];
         dynamicRule.Style.GetPropertyValue("font-weight").Should().Be("normal");
         dynamicRule.Style.GetPropertyValue("font-style").Should().Be("normal");
@@ -60,27 +55,6 @@ public sealed class CssFontFaceRuleTests
         sheet.Rules[0].Should().NotBeSameAs(empty);
     }
 
-    [Test]
-    public void DescriptorContextRejectsOrdinaryEffectsAndSourceImportanceButRetainsApiPriority()
-    {
-        var block = CssDeclarationBlock.Parse("font-family:First; font-family:Second; font-family:A,B;"
-            + "font-family:Third!important;font:italic;all:initial;color:red;width:1px;--x:10;word-wrap:normal;unknown:yes",
-            CssDeclarationContext.FontFace);
-        block.Count.Should().Be(1);
-        block.GetPropertyValue("FONT-FAMILY").Should().Be("Second");
-        foreach (var name in new[] { "font", "all", "color", "width", "--x", "word-wrap", "overflow-wrap" })
-            block.GetPropertyValue(name).Should().BeEmpty();
-        block.SetProperty("font-family", "Final", "important");
-        block.GetPropertyPriority("font-family").Should().Be("important");
-        block.CssText.Should().Be("font-family: Final !important;");
-        block.SetProperty("font-family", "Other", "invalid");
-        block.GetPropertyValue("font-family").Should().Be("Final");
-        block.SetProperty("font", "normal");
-        block.SetProperty("all", "initial");
-        block.SetProperty("--x", "1");
-        block.Count.Should().Be(1);
-    }
-
 
     [Test]
     public void DescriptorLeafIgnoresNestedRuleSyntaxWithoutWalkingIt()
@@ -104,58 +78,18 @@ public sealed class CssFontFaceRuleTests
         sheet.Stamp.Should().Be(stamp);
         block.SetProperty("font-family", "Changed");
         block.GetPropertyValue("font-family").Should().Be("Changed");
-        var pending = Assert.Throws<CssIncompleteGrammarException>(() => block.GetPropertyValue("font-width"))!;
-        pending.Blocker.Should().Be("R4:font-face:font-width");
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = block.CssText);
+        block.GetPropertyValue("font-width").Should().Be("condensed");
+        block.CssText.Should().Contain("font-width: condensed;");
     }
 
-    [TestCase("url(bad) format(unknown),local(Valid Name),url(good) format(woff2) tech(variations)",
-        "local(\"Valid Name\"), url(\"good\") format(\"woff2\") tech(variations)")]
-    [TestCase("url(bad) tech(unknown), url(good)", "url(\"good\")")]
-    [TestCase("url(good) format('woff2-variations')", "url(\"good\") format(\"woff2\") tech(variations)")]
-    [TestCase("local('MiXeD'), rubbish, url(next)", "local(\"MiXeD\"), url(\"next\")")]
-    public void SourceListRecoversEntriesAndPreservesOrder(string value, string expected)
-    {
-        var block = CssDeclarationBlock.Parse("src:" + value, CssDeclarationContext.FontFace);
-        block.GetPropertyValue("src").Should().Be(expected);
-        block.SetProperty("src", "url(bad) format(unknown)");
-        block.GetPropertyValue("src").Should().Be(expected);
-    }
 
-    [TestCase("font-weight", "900 100", "900 100")]
-    [TestCase("font-weight", "calc(200 + 300) 700", "calc(500) 700")]
-    [TestCase("font-weight", "auto", "auto")]
-    [TestCase("font-style", "oblique -45deg 30deg", "oblique -45deg 30deg")]
-    [TestCase("font-style", "oblique .25turn", "oblique 0.25turn")]
-    [TestCase("font-style", "left", "left")]
-    public void DescriptorRangesUseNumericMathAndAngleGrammars(string name, string value, string expected)
-    {
-        var block = CssDeclarationBlock.Parse(name + ":" + value, CssDeclarationContext.FontFace);
-        block.GetPropertyValue(name).Should().Be(expected);
-    }
-
-    [TestCase("font-weight", "bolder")]
-    [TestCase("font-weight", "1001")]
-    [TestCase("font-weight", "0.99999999999999999999")]
-    [TestCase("font-weight", "100 200 300")]
-    [TestCase("font-style", "oblique 91deg")]
-    [TestCase("font-style", "oblique 90.00000000000000000001deg")]
-    [TestCase("font-style", "oblique 1turn")]
-    [TestCase("font-style", "inherit")]
-    [TestCase("font-family", "serif")]
-    [TestCase("font-family", "One,Two")]
-    public void InvalidDescriptorsDoNotReplaceAValidDeclaration(string name, string value)
-    {
-        var block = CssDeclarationBlock.Parse(name + ":" + value, CssDeclarationContext.FontFace);
-        block.Count.Should().Be(0);
-    }
 
 
     [Test]
     public void LongDescriptorNamesPollCancellationDuringTheAllocatedCopy()
     {
         // Warm the string.Create callback before using its output allocation as the copy boundary.
-        CssFontFaceDescriptorCatalog.NormalizeName("FONT-FAMILY", new CssValueWork(default)).Should().Be("font-family");
+        CssPropertyRegistry.NormalizeName("FONT-FAMILY", new CssValueWork(default)).Should().Be("font-family");
         var name = new string('A', 16384);
         using var cancellation = new CancellationTokenSource();
         var polls = 0;
@@ -172,7 +106,7 @@ public sealed class CssFontFaceRuleTests
         OperationCanceledException? failure = null;
         allocationBeforeCall = GC.GetAllocatedBytesForCurrentThread();
         // Keep assertion-framework allocations outside the boundary being observed.
-        try { CssFontFaceDescriptorCatalog.NormalizeName(name, work); }
+        try { CssPropertyRegistry.NormalizeName(name, work); }
         catch (OperationCanceledException exception) { failure = exception; }
         failure.Should().NotBeNull();
         // Entry plus two charged copy chunks. An exit-only check sees the allocation just once.

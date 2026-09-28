@@ -4,7 +4,6 @@ using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.HtmlParser.Css;
 
@@ -82,5 +81,5 @@ public sealed class NativeCssImportQueryTests
 
     private static NativeCssQuery Query(Document document, NativeCssSheet[] sheets, CssValueWork work)
         => new(document, sheets, [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work);
+            work);
 }

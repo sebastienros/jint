@@ -15,7 +15,7 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
-    public async Task DeclaredNamedColorsRetainKeywordsWhileComputedColorsSerializeAsRgb()
+    public async Task DeclaredAndComputedColorsRetainText()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -26,14 +26,14 @@ public sealed class NativeCssConsumerTests
                 const box = document.getElementById('box');
                 return box.style.color + '|' + getComputedStyle(box).color;
             })()
-            """)).Should().Be("red|rgb(255, 0, 0)");
+            """)).Should().Be("ReD|ReD");
         (await page.EvaluateAsync<string>("""
             (() => {
                 const box = document.getElementById('box');
                 box.style.color = 'blue';
                 return box.style.color + '|' + getComputedStyle(box).color;
             })()
-            """)).Should().Be("blue|rgb(0, 0, 255)");
+            """)).Should().Be("blue|blue");
         page.Errors.Should().BeEmpty();
     }
 
@@ -85,29 +85,6 @@ public sealed class NativeCssConsumerTests
             Assert.Throws<InvalidOperationException>(() => NativeCssDeclarations.Of(runtime.Dom, target).SetProperty("overflow-x", "visible"));
             target.GetAttribute("style").Should().Be(source);
             NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(retained);
-            return true;
-        });
-    }
-
-    [Test]
-    public async Task InlineCssomPreservesPendingShorthandAndSameValueSourceWritesReparse()
-    {
-        await using var browser = new Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<div id='box' style='--o:hidden scroll;overflow:var(--o)'></div>");
-        await page.RunOnLoopAsync(engine =>
-        {
-            var runtime = PageRuntime.Find(engine)!;
-            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "box")!;
-            var declaration = NativeCssDeclarations.Of(runtime.Dom, target);
-            declaration.SetProperty("overflow-x", "visible");
-            CssCascade.ValueOf(CssCascade.Of(target)!, "overflow-y").Should().Be("scroll");
-            target.SetAttribute("id", "box2");
-            CssCascade.ValueOf(CssCascade.Of(target)!, "overflow-y").Should().Be("scroll");
-            var source = target.GetAttribute("style")!;
-            source.Should().NotContain("overflow-y:");
-            target.SetAttribute("style", source);
-            declaration.GetPropertyValue("overflow-y").Should().BeEmpty();
             return true;
         });
     }

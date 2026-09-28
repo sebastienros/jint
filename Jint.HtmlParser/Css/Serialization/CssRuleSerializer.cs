@@ -51,7 +51,7 @@ internal static class CssRuleSerializer
             {
                 if (frame.Owner is { } owner)
                 {
-                    if (frame.Rules.Count != 0 || owner is CssKeyframesRule) builder.Append('\n');
+                    if (frame.Rules.Count != 0) builder.Append('\n');
                     builder.Append('}');
                     ranges?.Add(owner, new CssTextRange(frame.Start, builder.Length));
                 }
@@ -96,36 +96,15 @@ internal static class CssRuleSerializer
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;
                 work.Charge(condition.Length);
-                builder.Append(conditionRule switch { CssMediaRule => "@media ", CssContainerRule => "@container ", _ => "@supports " })
+                builder.Append((conditionRule is CssMediaRule ? "@media " : "@supports "))
                     .Append(condition).Append(" {");
                 if (conditionRule.Rules.Count != 0) builder.Append('\n');
                 frames.Push(new Frame(conditionRule.Rules, conditionRule, start));
             }
-            else if (rule is CssKeyframesRule keyframes)
+            else if (rule is CssGenericRule generic)
             {
-                builder.Append("@keyframes ").Append(keyframes.SerializeName(work)).Append(" { ");
-                frames.Push(new Frame(keyframes.Rules, keyframes, start));
-            }
-            else if (rule is CssKeyframeRule keyframe)
-            {
-                if (frame.Owner is CssKeyframesRule) builder.Append("  ");
-                // Ranges identify each rule's own text, without its containing rule's indent.
-                start = builder.Length;
-                var declarations = keyframe.Style.Serialize(work);
-                work.Charge(keyframe.KeyText.Length + declarations.Length);
-                builder.Append(keyframe.KeyText).Append(" { ").Append(declarations);
-                if (declarations.Length != 0) builder.Append(' ');
-                builder.Append('}');
-                ranges?.Add(rule, new CssTextRange(start, builder.Length));
-            }
-            else if (rule is CssPropertyRule property)
-            {
-                builder.Append("@property ").Append(CssSyntaxSerializer.SerializeIdentifier(property.Name, work))
-                    .Append(" { syntax: ").Append(CssSyntaxSerializer.SerializeString(property.Syntax.Text, work))
-                    .Append("; inherits: ").Append(property.Inherits ? "true; " : "false; ");
-                if (property.InitialValue(work) is { } initial)
-                    builder.Append("initial-value: ").Append(initial).Append("; ");
-                builder.Append('}');
+                work.Charge(generic.Text.Length);
+                builder.Append(generic.Text);
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
             else if (rule is CssFontFaceRule fontFace)

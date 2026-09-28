@@ -79,7 +79,7 @@ internal static partial class NativeCssBindings
     {
         var work = Work(realm);
         foreach (var entry in list.Read(work))
-            if (Jint.HtmlParser.Css.Values.References.CssSubstitutionArguments.Equals(entry, name, work)) return true;
+            if (Jint.HtmlParser.Css.Values.CssText.Equals(entry, name, work)) return true;
         return false;
     }
     internal static string CssText(DomRealm realm, CssRule rule)
@@ -177,22 +177,6 @@ internal static partial class NativeCssBindings
         if (index >= 0) NativeCssParsing.ReadRules(rule.Rules, work);
         rule.DeleteRule(index, work);
     }
-    internal static string KeyText(DomRealm realm, CssKeyframeRule rule)
-    {
-        var text = rule.KeyText;
-        var work = Work(realm);
-        work.Charge(text.Length);
-        work.CheckCancellation();
-        return text;
-    }
-    internal static string Name(DomRealm realm, CssKeyframesRule rule)
-    {
-        var name = rule.Name;
-        var work = Work(realm);
-        work.Charge(name.Length);
-        work.CheckCancellation();
-        return name;
-    }
     internal static string LayerName(DomRealm realm, CssLayerBlockRule rule)
     {
         var work = Work(realm);
@@ -216,28 +200,6 @@ internal static partial class NativeCssBindings
         work.CheckCancellation();
         realm.CssLayerNames.Add(rule, array);
         return array;
-    }
-    internal static void SetName(DomRealm realm, CssKeyframesRule rule, string name)
-        => rule.SetName(name, MutationWork(realm, () => rule.Stamp));
-    internal static void SetKeyText(DomRealm realm, CssKeyframeRule rule, string text)
-        => rule.SetKeyText(text, null, MutationWork(realm, () => rule.Stamp));
-    internal static void AppendKeyframe(DomRealm realm, CssKeyframesRule rule, string text)
-    {
-        var work = MutationWork(realm, () => rule.Stamp);
-        NativeCssParsing.ReadRules(rule.Rules, work);
-        rule.AppendRule(text, null, work);
-    }
-    internal static void DeleteKeyframe(DomRealm realm, CssKeyframesRule rule, string text)
-    {
-        var work = MutationWork(realm, () => rule.Stamp);
-        NativeCssParsing.ReadRules(rule.Rules, work);
-        rule.DeleteRule(text, null, work);
-    }
-    internal static CssKeyframeRule? FindRule(DomRealm realm, CssKeyframesRule rule, string text)
-    {
-        var work = MutationWork(realm, () => rule.Stamp);
-        NativeCssParsing.ReadRules(rule.Rules, work);
-        return rule.FindRule(text, null, work);
     }
     // CSSOM §6.4: setting a rule's cssText intentionally does nothing.
     internal static void SetCssText(DomRealm realm, CssRule rule, string text) => realm.Engine.Constraints.Check();

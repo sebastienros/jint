@@ -70,9 +70,7 @@ public sealed class CssProducerInputTests
         classSpecificity.Should().Be(new SelectorSpecificity(0, 1, 0));
         idSpecificity.Should().Be(new SelectorSpecificity(1, 0, 0));
         SelectorMatcher.Matches(selector, elements[2]).Should().BeFalse();
-        var value = declarations.GetDeclaration(1).PendingShorthand!.Value;
-        value.References.Input.Components.Should().BeSameAs(body[0].Declarations[1].Value);
-        value.References[0].Span.Start.Should().Be(source.IndexOf("var", StringComparison.Ordinal));
+        declarations.GetDeclaration(1).Span.Start.Should().Be(source.IndexOf("overflow", StringComparison.Ordinal));
         declarations.GetPropertyValue("overflow").Should().Be("var(--X)");
     }
 
@@ -87,10 +85,9 @@ public sealed class CssProducerInputTests
         var body = parser.ParseBlockContents(syntax.Block!.Value);
         var work = new CssValueWork(default);
         var block = CssDeclarationBlock.FromDeclarations(source, body[0].Declarations, CssDeclarationContext.Style, 0, work);
-        block.ResolveProperty("display", work)!.Value.Text.Should().Be("block");
-        var failure = Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveAll(work))!;
-        failure.PropertyName.Should().Be("box-shadow");
-        failure.Blocker.Should().Be("V1:box-shadow");
-        failure.Span.Start.Should().Be(source.IndexOf("box-shadow", StringComparison.Ordinal));
+        block.ResolveProperty("display", work)!.Value.Should().Be("block");
+        var declaration = block.ResolveProperty("box-shadow", work)!;
+        declaration.Value.Should().Be("none");
+        declaration.Span.Start.Should().Be(source.IndexOf("box-shadow", StringComparison.Ordinal));
     }
 }

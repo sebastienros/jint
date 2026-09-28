@@ -116,7 +116,7 @@ internal static partial class NativeCssStyleSheets
             press?.OwnerDocument == document ? press : null,
             target?.OwnerDocument == document ? target : null, BrowserSelectorControlFacts.Factory,
             realm, BrowserSelectorSemanticRevision.Read(document));
-        return CreateQuery(document, media, selectors, work, Check, diagnostics, ResolveCssUrl);
+        return CreateQuery(document, media, selectors, work, Check, diagnostics);
     }
 
     internal static (NativeCssQuery Query, SelectorMatchWork Matching) CreateInertQuery(Document document,
@@ -128,15 +128,9 @@ internal static partial class NativeCssStyleSheets
         var target = DomDocumentState.Of(document).TargetElement;
         var selectors = new SelectorEnvironment(document, null, null,
             target?.OwnerDocument == document ? target : null);
-        return CreateQuery(document, media, selectors, work, selectorCheckpoint, diagnostics, ResolveCssUrl);
+        return CreateQuery(document, media, selectors, work, selectorCheckpoint, diagnostics);
     }
 
-    private static string? ResolveCssUrl(Document document, string url, string? stylesheetBaseUrl, CssValueWork work)
-    {
-        var baseUrl = stylesheetBaseUrl ?? DomDocumentState.BaseUri(document, work.CheckCancellation, work.Token);
-        work.Charge(baseUrl.Length);
-        return PageUrl.Resolve(url, baseUrl);
-    }
 }
 
 // CSSOM §6.2: stable list identity, with its members reconciled only when read.

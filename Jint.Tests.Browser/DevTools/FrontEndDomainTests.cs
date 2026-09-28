@@ -68,7 +68,7 @@ public class FrontEndDomainTests
         var display = computed.Single(p => p.GetProperty("name").GetString() == "display").GetProperty("value").GetString();
         display.Should().Be("inline");
         var color = computed.Single(p => p.GetProperty("name").GetString() == "color").GetProperty("value").GetString();
-        color.Should().Be("rgb(1, 2, 3)");
+        color.Should().Be("rgb(1,2,3)");
 
         // The same declaration window.getComputedStyle hands the page, so a front end and a script agree.
         var fromScript = (await session.EvaluateAsync(

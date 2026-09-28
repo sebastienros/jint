@@ -29,5 +29,5 @@ internal readonly struct CssSourceText
 internal sealed record CssRawRule(CssRuleKind Kind, string Name, CssSourceText Text,
     CssSourceText Prelude, CssSourceText? Body, bool IsClosed);
 
-internal enum CssRuleBodyKind { Group, Style, Keyframes }
+internal enum CssRuleBodyKind { Group, Style }
 internal readonly record struct CssRuleBody(CssSourceText Text, CssRuleBodyKind Kind, bool IsClosed);

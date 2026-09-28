@@ -10,65 +10,6 @@ namespace Jint.Tests.HtmlParser.Css;
 
 public sealed class NativeCssQueryFactoryTests
 {
-    [TestCase("fill", " currentcolor", " rgb(255, 0, 0)")]
-    [TestCase("clip-path", "", "")]
-    [TestCase("background-image", "", "")]
-    public void UrlsNeedAnExplicitResolverAndOnlyResolveWhenRead(string name, string fallback, string computedFallback)
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        document.AppendChild(target);
-        target.SetAttribute("style", name + ":src(var(--url))" + fallback + ";--url:'paint.svg#p';color:red");
-        var work = new CssValueWork(default);
-        var selectors = new SelectorEnvironment(document, null, null, null);
-        var without = NativeCssStyleSheets.CreateQuery(document, new(), selectors, work);
-        without.Query.GetProperty(target, "color", ref without.Matching).Text.Should().Be("rgb(255, 0, 0)");
-        Action read = () => without.Query.GetProperty(target, name, ref without.Matching);
-        read.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be("C6:url-resolver");
-
-        var calls = 0;
-        var input = NativeCssStyleSheets.CreateQuery(document, new(), selectors, work,
-            resolveUrl: (owner, url, baseUrl, _) =>
-            {
-                owner.Should().BeSameAs(document);
-                baseUrl.Should().BeNull();
-                url.Should().Be("paint.svg#p");
-                calls++;
-                return "https://example.test/paint.svg#p";
-            });
-        calls.Should().Be(0);
-        input.Query.GetProperty(target, name, ref input.Matching).Text
-            .Should().Be("src(\"https://example.test/paint.svg#p\")" + computedFallback);
-        input.Query.GetProperty(target, name, ref input.Matching);
-        calls.Should().Be(1);
-    }
-
-    [TestCase("fill", false)]
-    [TestCase("fill", true)]
-    [TestCase("clip-path", false)]
-    [TestCase("clip-path", true)]
-    [TestCase("background-image", false)]
-    [TestCase("background-image", true)]
-    public void UrlResolutionCannotPublishAfterMutationOrCancellation(string name, bool cancel)
-    {
-        var document = Document.CreateHtml();
-        var target = document.CreateElement("div");
-        document.AppendChild(target);
-        target.SetAttribute("style", name + ":url(paint.svg#p)");
-        using var cancellation = new CancellationTokenSource();
-        var input = NativeCssStyleSheets.CreateQuery(document, new(),
-            new SelectorEnvironment(document, null, null, null), new CssValueWork(cancellation.Token),
-            resolveUrl: (_, _, _, _) =>
-            {
-                if (cancel) cancellation.Cancel();
-                else target.SetAttribute("class", "changed");
-                return "https://example.test/paint.svg#p";
-            });
-        Action read = () => input.Query.GetProperty(target, name, ref input.Matching);
-        if (cancel) read.Should().Throw<OperationCanceledException>();
-        else read.Should().Throw<InvalidOperationException>().WithMessage(NativeCssQuery.Invalidated);
-    }
-
     [Test]
     public void RealmFreeFactorySharesActualSourcesAndUaWithoutComputingUnrequestedValues()
     {
@@ -90,8 +31,8 @@ public sealed class NativeCssQueryFactoryTests
         record.StatePublications.Should().Be(0);
         record.ComputedPublications.Should().BeEmpty();
         input.Query.GetProperty(root, "display", ref input.Matching).Text.Should().Be("none");
-        input.Query.GetProperty(root, "white-space-collapse", ref input.Matching).Text.Should().Be("preserve");
-        input.Query.GetProperty(root, "color", ref input.Matching).Text.Should().Be("rgb(255, 0, 0)");
+        input.Query.GetProperty(root, "white-space", ref input.Matching).Text.Should().Be("pre");
+        input.Query.GetProperty(root, "color", ref input.Matching).Text.Should().Be("red");
         record.ComputedPublications.Should().NotContainKey("background");
         record.ComputedPublications.Should().NotContainKey("background-color");
     }

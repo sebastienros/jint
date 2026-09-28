@@ -20,15 +20,15 @@ public sealed class NativeCssParsingTests
     {
         var sheet = Parse("@import 'child.css' (width > 100px); @scope (.unused) {}");
         sheet.Rules.Should().BeEmpty("model getters do not invoke parsers");
-        var import = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).Single();
+        var import = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single();
         import.Href.Should().Be("child.css");
         import.Media.Count.Should().Be(0);
         import.ParentStyleSheet.Should().BeSameAs(sheet);
-        NativeCssParsing.ImportRules(sheet, Work()).Single().Should().BeSameAs(import);
+        NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single().Should().BeSameAs(import);
         var stamp = sheet.Stamp;
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => Read(sheet))!.Blocker.Should().Be("R2:scope");
+        Read(sheet)[1].Should().BeOfType<CssGenericRule>();
         sheet.Stamp.Should().Be(stamp);
-        NativeCssParsing.ImportRules(sheet, Work()).Single().Should().BeSameAs(import);
+        NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single().Should().BeSameAs(import);
     }
 
     [TestCase("p { @scope (.unused) {} }")]
@@ -51,8 +51,8 @@ public sealed class NativeCssParsingTests
         var group = (CssGroupingRule) sheet.Rules[0];
         group.Rules.Should().BeEmpty();
         var stamp = sheet.Stamp;
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => Read(group))!.Blocker.Should().Be("R2:scope");
-        group.Rules.Should().BeEmpty();
+        Read(group).Single().Should().BeOfType<CssGenericRule>();
+        group.Rules.Count.Should().Be(1);
         sheet.Stamp.Should().Be(stamp);
     }
 
@@ -61,7 +61,8 @@ public sealed class NativeCssParsingTests
     {
         var sheet = Parse("@media print { @scope (.unused) {} }");
         Applicable(sheet).Should().BeEmpty();
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => Applicable(sheet, "print"))!.Blocker.Should().Be("R2:scope");
+        Applicable(sheet, "print").Should().BeEmpty();
+        sheet.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
     }
 
     [Test]
@@ -126,11 +127,11 @@ public sealed class NativeCssParsingTests
     {
         var sheet = Parse("@import 'old.css'; @scope (.unused) {}");
         var list = sheet.Rules;
-        var old = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).Single();
+        var old = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single();
         NativeCssParsing.ReplaceSource(sheet, "@import 'new.css'; p {}", Work());
         sheet.Rules.Should().BeSameAs(list);
         old.ParentStyleSheet.Should().BeNull();
-        var current = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).Single();
+        var current = (CssImportRule) NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single();
         current.Href.Should().Be("new.css");
         Read(sheet)[0].Should().BeSameAs(current);
         list.Count.Should().Be(2);

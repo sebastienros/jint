@@ -88,7 +88,7 @@ public sealed class NativeCssFontFaceTests
               const descriptors = style.sheet.cssRules[0].style;
               return [descriptors.src,descriptors.fontFamily,descriptors.fontWeight,descriptors.fontStyle,descriptors.fontDisplay].join('|');
             })()
-            """)).Should().Be("url(\"/icons.woff2\") format(\"woff2\")|icons|normal|normal|block");
+            """)).Should().Be("url('/icons.woff2') format('woff2')|icons|normal|normal|block");
         await loopback.Page.WaitForIdleAsync(TestBudgets.WedgeCeiling);
         loopback.Server.Received.Should().OnlyContain(request => request.Path == "/");
         loopback.Page.Errors.Should().BeEmpty();
@@ -106,10 +106,9 @@ public sealed class NativeCssFontFaceTests
               const sheet = document.styleSheets[0], rule = sheet.cssRules[0], style = rule.style;
               if (style.fontFamily !== 'Known' || style !== rule.style) return 'bad-target';
               style.fontFamily = 'Changed';
-              try { style.fontWidth; return 'missing-refusal'; }
-              catch (error) { return style.fontFamily + ':' + error.name + ':' + error.message.includes('R4:font-face:font-width'); }
+              return style.fontFamily + ':' + style.fontWidth;
             })()
-            """)).Should().Be("Changed:NotSupportedError:true");
+            """)).Should().Be("Changed:condensed");
         page.Errors.Should().BeEmpty();
     }
 

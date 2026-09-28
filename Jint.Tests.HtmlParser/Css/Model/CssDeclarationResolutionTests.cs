@@ -7,7 +7,7 @@ namespace Jint.Tests.HtmlParser.Css.Model;
 [TestFixture]
 public sealed class CssDeclarationResolutionTests
 {
-    private static CssDeclarationBlock Syntax(string text) => CssDeclarationBlock.ParseUnresolved(text,
+    private static CssDeclarationBlock Syntax(string text) => CssDeclarationBlock.Parse(text,
         CssDeclarationContext.Style, null, new CssValueWork(default), default);
 
     [Test]
@@ -16,34 +16,13 @@ public sealed class CssDeclarationResolutionTests
         var block = Syntax("background:red; display:inline");
         var work = new CssValueWork(default);
         var stamp = block.Stamp;
-        block.ResolveProperty("display", work)!.Value.Text.Should().Be("inline");
+        block.ResolveProperty("display", work)!.Value.Should().Be("inline");
         block.Stamp.Should().Be(stamp);
         block.SetProperty("display", "block");
-        block.ResolveProperty("display", work)!.Value.Text.Should().Be("block");
+        block.ResolveProperty("display", work)!.Value.Should().Be("block");
         block.SerializeSource(work).Should().Contain("background: red;");
-        Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveAll(work))!.PropertyName.Should().Be("background");
-        Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveProperty("background-color", work))!.PropertyName.Should().Be("background");
-    }
-
-    [TestCase("text-wrap:balance", "text-wrap-mode", "text-wrap")]
-    [TestCase("mask:none", "mask-border-source", "mask")]
-    [TestCase("font:12px serif", "font-kerning", "font")]
-    [TestCase("word-wrap:break-word", "overflow-wrap", "overflow-wrap")]
-    public void CorrelationIncludesShorthandsResetEffectsAndAliases(string text, string property, string expectedFailure)
-    {
-        var block = Syntax(text);
-        Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveProperty(property, new CssValueWork(default)))!
-            .PropertyName.Should().Be(expectedFailure);
-    }
-
-    [Test]
-    public void AllDoesNotCorrelateDirectionUnicodeBidiOrCustomProperties()
-    {
-        var block = Syntax("all:initial;direction:rtl;--x:red");
-        var work = new CssValueWork(default);
-        block.ResolveProperty("direction", work)!.Value.Text.Should().Be("rtl");
-        block.ResolveProperty("unicode-bidi", work).Should().BeNull();
-        block.ResolveProperty("--x", work)!.Value.Text.Should().Be("red");
+        block.ResolveAll(work).Should().HaveCount(2);
+        block.ResolveProperty("background", work)!.Value.Should().Be("red");
     }
 
     [Test]
@@ -51,9 +30,9 @@ public sealed class CssDeclarationResolutionTests
     {
         var block = Syntax("display:block;display:invalid;opacity:.1 !important;opacity:.2;visibility:hidden;visibility:visible");
         var work = new CssValueWork(default);
-        block.ResolveProperty("display", work)!.Value.Text.Should().Be("block");
-        block.ResolveProperty("opacity", work)!.Value.Text.Should().Be("0.1");
-        block.ResolveProperty("visibility", work)!.Value.Text.Should().Be("visible");
+        block.ResolveProperty("display", work)!.Value.Should().Be("invalid");
+        block.ResolveProperty("opacity", work)!.Value.Should().Be("0.1");
+        block.ResolveProperty("visibility", work)!.Value.Should().Be("visible");
         var entries = block.ResolveAll(work);
         entries.Select(entry => entry.Name).Should().Equal("display", "opacity", "visibility");
         var stamp = block.Stamp;
@@ -102,36 +81,16 @@ public sealed class CssDeclarationResolutionTests
     }
 
     [Test]
-    public void PendingGroupPublicationWorkGrowsProportionallyWithDuplicateGroupsAndUntouchedSyntax()
-    {
-        var small = Checks(2000);
-        var large = Checks(4000);
-        large.Should().BeLessThan((int) (small * 2.3 + 20));
-
-        static int Checks(int count)
-        {
-            var block = Syntax(string.Concat(Enumerable.Repeat("overflow:var(--o);background:red;", count)));
-            block.SetProperty("overflow-x", "visible");
-            var checks = 0;
-            var work = new CssValueWork(default, () => checks++);
-            var source = block.SerializeSource(work);
-            source.Should().NotContain("overflow-y:");
-            source.Should().Contain("background: red;");
-            return checks;
-        }
-    }
-
-    [Test]
     public void CancellationAndHostMutationCannotPublishAnObsoleteResolutionCache()
     {
         var block = Syntax("display:block;" + string.Join(';', Enumerable.Range(0, 20).Select(i => "--" + new string('x', 2000) + i + ":red")));
         var stamp = block.Stamp;
         using var cancellation = new CancellationTokenSource();
         var calls = 0;
-        var work = new CssValueWork(cancellation.Token, () => { if (++calls == 5) cancellation.Cancel(); });
+        var work = new CssValueWork(cancellation.Token, () => { if (++calls == 1) cancellation.Cancel(); });
         Assert.Throws<OperationCanceledException>(() => block.ResolveProperty("display", work));
         block.Stamp.Should().Be(stamp);
-        block.ResolveProperty("display", new CssValueWork(default))!.Value.Text.Should().Be("block");
+        block.ResolveProperty("display", new CssValueWork(default))!.Value.Should().Be("block");
         var mutated = false;
         var reentrant = new CssValueWork(default, () =>
         {
@@ -140,6 +99,6 @@ public sealed class CssDeclarationResolutionTests
             block.SetProperty("display", "none");
         });
         Assert.Throws<InvalidOperationException>(() => block.ResolveProperty("display", reentrant));
-        block.ResolveProperty("display", new CssValueWork(default))!.Value.Text.Should().Be("none");
+        block.ResolveProperty("display", new CssValueWork(default))!.Value.Should().Be("none");
     }
 }

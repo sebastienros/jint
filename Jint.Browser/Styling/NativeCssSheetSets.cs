@@ -1,7 +1,6 @@
 using Jint.Browser.Dom;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Browser.Styling;
 
@@ -168,8 +167,8 @@ internal sealed class NativeCssSheetSets(Document document)
         var initiallyDisabled = disabledSource;
         var preferred = _preferred;
         if (!initiallyDisabled && preferred.Length == 0 && title.Length != 0 && !alternate) preferred = title;
-        var preferredChanged = !CssSubstitutionArguments.Equals(_preferred, preferred, work);
-        var incomingDisabled = initiallyDisabled || title.Length != 0 && !CssSubstitutionArguments.Equals(title, _last ?? preferred, work);
+        var preferredChanged = !CssText.Equals(_preferred, preferred, work);
+        var incomingDisabled = initiallyDisabled || title.Length != 0 && !CssText.Equals(title, _last ?? preferred, work);
         var sheets = preferredChanged && _last is null ? Read(work) : new List<SheetState>();
         var changes = preferredChanged && _last is null ? Plan(sheets, preferred, work) : [];
         work.Charge(1); // The incoming flag update, charged before the coherent commit.
@@ -253,7 +252,7 @@ internal sealed class NativeCssSheetSets(Document document)
     {
         work = Guard(work);
         work.Charge(name.Length);
-        var changed = !CssSubstitutionArguments.Equals(_preferred, name, work);
+        var changed = !CssText.Equals(_preferred, name, work);
         var sheets = Read(work);
         var changes = changed && _last is null ? Plan(sheets, name, work) : [];
         Verify(sheets, work);
@@ -269,7 +268,7 @@ internal sealed class NativeCssSheetSets(Document document)
         foreach (var item in sheets)
         {
             work.Charge(1); // Every potential flag update, before any flag is published.
-            if (item.Title.Length != 0) changes.Add((item.Resource, !CssSubstitutionArguments.Equals(item.Title, name, work)));
+            if (item.Title.Length != 0) changes.Add((item.Resource, !CssText.Equals(item.Title, name, work)));
         }
         return changes;
     }
@@ -361,8 +360,8 @@ internal sealed class NativeCssSheetSets(Document document)
 
     private sealed class NamesComparer(CssValueWork work) : IEqualityComparer<string>
     {
-        public bool Equals(string? left, string? right) => left is not null && right is not null && CssSubstitutionArguments.Equals(left, right, work);
-        public int GetHashCode(string value) => unchecked((int) CssSubstitutionArguments.Hash(value, work));
+        public bool Equals(string? left, string? right) => left is not null && right is not null && CssText.Equals(left, right, work);
+        public int GetHashCode(string value) => unchecked((int) CssText.Hash(value, work));
     }
 }
 

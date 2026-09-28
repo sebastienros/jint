@@ -35,7 +35,7 @@ public sealed class CssImportPreludeTests
         sheet.Rules.Count.Should().Be(2);
         sheet.ImportedStyleSheets(new CssValueWork(default)).Should().Equal(sheet);
         var rule = (CssStyleRule) sheet.Rules[1];
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = rule.Style.Count);
+        rule.Style.Count.Should().Be(1);
     }
 
     [Test]

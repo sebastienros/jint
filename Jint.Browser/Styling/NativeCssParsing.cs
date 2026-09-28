@@ -117,9 +117,7 @@ internal static class NativeCssParsing
                     end = i;
                     break;
                 }
-                var parsed = input.Parent is CssKeyframesRule
-                    ? CssParser.ParseKeyframeRule(item, guarded)
-                    : CssParser.ParseRule(item, guarded, input.Parent as CssStyleRule);
+                var parsed = CssParser.ParseRule(item, guarded, input.Parent as CssStyleRule);
                 if (parsed is not { } value) continue;
                 var rule = value.Rule;
                 if (rule is CssImportRule) hasImport = true;
@@ -195,7 +193,7 @@ internal static class NativeCssParsing
             {
                 work.Charge(1);
                 ReadRuleMedia(rule, work);
-                if (rule is CssGroupingRule or CssStyleRule or CssKeyframesRule) pending.Push(rule.Rules);
+                if (rule is CssGroupingRule or CssStyleRule) pending.Push(rule.Rules);
             }
         work.CheckCancellation();
     }
@@ -258,7 +256,7 @@ internal static class NativeCssParsing
             result.Add(rule);
             switch (rule)
             {
-                case CssStyleRule or CssLayerBlockRule or CssContainerRule:
+                case CssStyleRule or CssLayerBlockRule:
                     frames.Push((ReadRules(rule.Rules, work), 0, null));
                     break;
                 case CssMediaRule media when ReadMedia(media.Media, work).Matches(environment, work):

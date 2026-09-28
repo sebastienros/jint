@@ -7,7 +7,6 @@ using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Browser.Styling;
 
@@ -32,7 +31,7 @@ internal static partial class NativeCssStyleSheets
         guarded.CheckCancellation();
         var source = new DomReadWork(guarded.Charge, guarded.Token).Attribute(element, "style") ?? "";
         var resource = InlineResourceOf(element);
-        if (resource.Block is null || resource.PublishedVersion != resource.Version || !CssSubstitutionArguments.Equals(resource.Source!, source, guarded))
+        if (resource.Block is null || resource.PublishedVersion != resource.Version || !CssText.Equals(resource.Source!, source, guarded))
         {
             var block = CssParser.ParseDeclarationList(source, guarded);
             guarded.CheckCancellation();
@@ -236,7 +235,7 @@ internal static partial class NativeCssStyleSheets
             {
                 metadataWork.CheckCancellation();
                 media = new DomReadWork(metadataWork.Charge, metadataWork.Token).Attribute(source.Owner, "media") ?? "";
-                if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, metadataWork))
+                if (resource.MediaSource is null || !CssText.Equals(resource.MediaSource, media, metadataWork))
                 {
                     var mediaStamp = sheet.Media.Stamp;
                     var producerWork = CssValueWork.Guard(metadataWork, () =>

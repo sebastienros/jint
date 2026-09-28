@@ -1,17 +1,16 @@
+using CssTextOperations = Jint.HtmlParser.Css.Values.CssText;
 using System.Text;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.Descriptors;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.HtmlParser.Css.Model;
 
-// CSSOM §6.4.3 specified order, §6.6 declaration blocks and §6.6.1 mutations.
+// CSSOM declaration order and mutation, with renderless text values rather than typed grammars.
 // https://drafts.csswg.org/cssom/#css-declaration-blocks
-internal sealed partial class CssDeclarationBlock
+internal sealed class CssDeclarationBlock
 {
     private CssDeclaration[] _entries = [];
     private ulong _version;
@@ -19,7 +18,6 @@ internal sealed partial class CssDeclarationBlock
     private CssRule? _owner;
 
     private CssDeclarationBlock(CssDeclarationContext context) => _context = context;
-
     internal void AttachTo(CssRule owner)
     {
         if (_owner is not null) throw new InvalidOperationException("A declaration block already has an owner.");
@@ -33,82 +31,116 @@ internal sealed partial class CssDeclarationBlock
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var result = ParseUnresolved(source, context, options, work, cancellationToken);
-        result.ResolveAll(work);
-        return result;
+        var declarations = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
+        return FromDeclarations(source, declarations, context, options?.Limits.MaxNestingDepth ?? 0, work);
     }
 
-    internal static CssDeclarationBlock ParseUnresolved(string source, CssDeclarationContext context,
-        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
-    {
-        var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
-        return FromDeclarations(source, syntax, context, options?.Limits.MaxNestingDepth ?? 0,
-            work);
-    }
-
-    // A sheet/rule builder retains its immutable C1 declarations/source and shares invocation work.
-    // No syntax editor or second stylesheet model is retained.
     internal static CssDeclarationBlock FromDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
         CssDeclarationContext context, int maximumNestingDepth, CssValueWork work)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(declarations);
-        ArgumentNullException.ThrowIfNull(work);
-        if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
-        ArgumentOutOfRangeException.ThrowIfNegative(maximumNestingDepth);
-        var result = new CssDeclarationBlock(context);
-        if (context is CssDeclarationContext.Keyframe or CssDeclarationContext.FontFace)
+        var entries = new List<CssDeclaration>();
+        var winners = new Dictionary<string, CssDeclaration>(StringComparer.Ordinal);
+        foreach (var declaration in declarations)
         {
-            var normal = new List<CssDeclarationSyntax>();
-            foreach (var declaration in declarations)
+            work.Charge(1);
+            var name = CssPropertyRegistry.NormalizeName(declaration.Name, work);
+            if (!Accepts(name, context) || context == CssDeclarationContext.FontFace && declaration.IsImportant) continue;
+            var span = declaration.ValueSerializationSpan;
+            work.Charge(span.Length);
+            var value = string.Concat(source.AsSpan(span.Start, span.Length), declaration.ValueTermination);
+            if (value.Length == 0 && name.StartsWith("--", StringComparison.Ordinal)) value = " ";
+            if (value.Length == 0) continue;
+            foreach (var entry in Expand(name, value, declaration.IsImportant, declaration.Span, context, work))
             {
-                work.Charge(1);
-                if (!declaration.IsImportant) normal.Add(declaration);
+                work.Charge(entry.Name.Length);
+                if (winners.TryGetValue(entry.Name, out var previous) && previous.IsImportant && !entry.IsImportant) continue;
+                winners[entry.Name] = entry;
+                entries.Add(entry);
             }
-            declarations = normal;
         }
-        result._raw = Retain(source, declarations, context, maximumNestingDepth, work);
+        var result = new List<CssDeclaration>();
+        foreach (var entry in entries)
+        {
+            work.Charge(entry.Name.Length);
+            if (ReferenceEquals(winners[entry.Name], entry)) result.Add(entry);
+        }
         work.CheckCancellation();
-        return result;
+        return new(context) { _entries = result.ToArray() };
     }
 
-    internal int Count => ResolveAll(new CssValueWork(default)).Length;
-    internal string GetPropertyName(int index) => ResolveAll(new CssValueWork(default))[index].Name;
-    internal CssDeclaration GetDeclaration(int index) => ResolveAll(new CssValueWork(default))[index];
+    private static bool Accepts(string name, CssDeclarationContext context) =>
+        context == CssDeclarationContext.FontFace
+            ? name is "font-family" or "src" or "font-style" or "font-weight" or "font-stretch" or "font-width" or
+                "font-display" or "unicode-range" or "font-feature-settings" or "font-variation-settings" or
+                "font-named-instance" or "font-language-override" or "ascent-override" or "descent-override" or
+                "line-gap-override" or "size-adjust"
+            : name.StartsWith("--", StringComparison.Ordinal) || CssPropertyRegistry.Find(name) is not null;
+
+    internal int Count => _entries.Length;
+    internal string GetPropertyName(int index) => _entries[index].Name;
+    internal CssDeclaration GetDeclaration(int index) => _entries[index];
     internal CssMutationStamp Stamp => new(_version);
     internal string CssText => Serialize(new CssValueWork(default));
 
-    internal string GetPropertyValue(string name) => GetPropertyValue(name, new CssValueWork(default));
+    internal CssDeclaration[] ResolveAll(CssValueWork work)
+    {
+        work = ReadWork(work);
+        work.Charge(_entries.Length);
+        work.CheckCancellation();
+        return _entries;
+    }
 
+    internal CssDeclaration? ResolveProperty(string name, CssValueWork work)
+    {
+        work = ReadWork(work);
+        work.CheckCancellation();
+        foreach (var entry in _entries)
+        {
+            work.Charge(1);
+            if (CssTextOperations.Equals(entry.Name, name, work)) return entry;
+        }
+        work.CheckCancellation();
+        return null;
+    }
+
+    internal bool HasPropertyInput(string name, CssValueWork work) => ResolveProperty(name, work) is not null;
+
+    internal IEnumerable<string> CustomPropertyNames(CssValueWork work)
+    {
+        work = ReadWork(work);
+        foreach (var entry in _entries)
+        {
+            work.Charge(1);
+            if (entry.Name.StartsWith("--", StringComparison.Ordinal)) yield return entry.Name;
+        }
+    }
+
+    internal string GetPropertyValue(string name) => GetPropertyValue(name, new CssValueWork(default));
     internal string GetPropertyValue(string name, CssValueWork work)
     {
+        work = ReadWork(work);
+        name = CssPropertyRegistry.NormalizeName(name, work);
+        var value = Shorthand(name) is { } shorthand ? ShorthandValue(_entries, shorthand, work) :
+            ResolveProperty(name, work)?.Value ?? "";
         work.CheckCancellation();
-        name = NormalizeName(name, _context, work);
-        if (Shorthand(name, _context) is { } shorthand) return ShorthandValue(ResolveShorthand(shorthand, work), shorthand, work);
-        var entry = ResolveProperty(name, work);
-        work.CheckCancellation();
-        return entry is null || entry.PendingShorthand is not null ? "" : EntryValue(entry, work);
+        return value;
     }
 
     internal string GetPropertyPriority(string name) => GetPropertyPriority(name, new CssValueWork(default));
-
     internal string GetPropertyPriority(string name, CssValueWork work)
     {
-        work.CheckCancellation();
-        name = NormalizeName(name, _context, work);
-        if (Shorthand(name, _context) is { } shorthand)
+        work = ReadWork(work);
+        name = CssPropertyRegistry.NormalizeName(name, work);
+        if (Shorthand(name) is { } shorthand)
         {
             foreach (var longhand in shorthand.Longhands)
             {
                 work.Charge(1);
                 if (ResolveProperty(longhand, work) is not { IsImportant: true }) return "";
             }
-            work.CheckCancellation();
             return "important";
         }
-        var entry = ResolveProperty(name, work);
-        work.CheckCancellation();
-        return entry is { IsImportant: true } ? "important" : "";
+        return ResolveProperty(name, work) is { IsImportant: true } ? "important" : "";
     }
 
     internal void SetProperty(string name, string value, string? priority = null,
@@ -118,388 +150,211 @@ internal sealed partial class CssDeclarationBlock
     internal void SetProperty(string name, string value, string? priority, CssParseOptions? options,
         CssValueWork work, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(work);
-        work = ResolutionWork(work);
-        work.CheckCancellation();
-        work.Charge(name.Length);
-        name = NormalizeName(name, _context, work);
-        if (value.Length == 0)
-        {
-            RemoveProperty(name, work);
-            return;
-        }
-        // CSSOM precedence: reject priority before parsing a nonempty value (including pending grammars).
-        if (!string.IsNullOrEmpty(priority) && !CssAscii.EqualsIgnoreCase(priority, "important")) return;
-        if (_context == CssDeclarationContext.Keyframe && !string.IsNullOrEmpty(priority)) return;
+        work = ReadWork(work);
+        name = CssPropertyRegistry.NormalizeName(name, work);
+        if (value.Length == 0) { RemoveProperty(name, work); return; }
+        if (!Accepts(name, _context) || !string.IsNullOrEmpty(priority) &&
+            !CssAscii.EqualsIgnoreCase(priority, "important")) return;
         var parser = new CssSyntaxParser(value, options, cancellationToken, work.CheckCancellation);
-        var components = parser.ParseComponentValues();
-        var input = CssReferenceInput.FromComponents(value, components, options?.Limits.MaxNestingDepth ?? 0,
-            new CssSourceSpan(0, value.Length), work,
-            parser.TrimLexicalBoundaryWhitespace(0, value.Length, components),
-            parser.ValueTermination(components, new CssSourceSpan(0, value.Length), work));
-        var result = CssPropertyParser.Parse(name, input, _context, work);
-        RequireCompleted(name, result, new CssSourceSpan(0, value.Length));
-        if (result.Status is not (CssPropertyStatus.Valid or CssPropertyStatus.Deferred)) return;
-        var replacement = new List<CssDeclaration>();
-        Install(replacement, name, result.Value, !string.IsNullOrEmpty(priority),
-            new CssSourceSpan(0, value.Length), work,
-            LexicalText(result.Value, value, parser.TrimLexicalBoundaryWhitespace(0, value.Length, components), work),
-            parser.ValueTermination(components, new CssSourceSpan(0, value.Length), work), context: _context);
-        CommitTarget(name, replacement, work);
+        var values = parser.ParseComponentValues();
+        foreach (var component in values)
+        {
+            work.Charge(1);
+            if (component.Kind == CssComponentKind.Token &&
+                (component.Token.Kind is CssTokenKind.Semicolon or CssTokenKind.BadString or CssTokenKind.BadUrl ||
+                component.Token.Kind == CssTokenKind.Delim && component.Token.Delimiter == '!')) return;
+        }
+        var span = parser.TrimLexicalBoundaryWhitespace(0, value.Length, values);
+        var text = string.Concat(value.AsSpan(span.Start, span.Length),
+            parser.ValueTermination(values, new CssSourceSpan(0, value.Length), work));
+        if (text.Length == 0) text = name.StartsWith("--", StringComparison.Ordinal) ? " " : "";
+        if (text.Length == 0) return;
+        var replacement = Expand(name, text, !string.IsNullOrEmpty(priority), default, _context, work);
+        var entries = new List<CssDeclaration>(_entries);
+        foreach (var entry in replacement)
+        {
+            var index = -1;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                work.Charge(1);
+                if (CssTextOperations.Equals(entries[i].Name, entry.Name, work)) { index = i; break; }
+            }
+            if (index < 0) entries.Add(entry);
+            else entries[index] = entry;
+        }
+        Commit(entries.ToArray(), work);
     }
 
     internal string RemoveProperty(string name) => RemoveProperty(name, new CssValueWork(default));
-
     internal string RemoveProperty(string name, CssValueWork work)
     {
-        work = ResolutionWork(work);
-        work.CheckCancellation();
-        work.Charge(name.Length);
-        name = NormalizeName(name, _context, work);
-        if (CssPropertyParser.NameFailure(name, _context) is { } failure)
+        work = ReadWork(work);
+        name = CssPropertyRegistry.NormalizeName(name, work);
+        var old = GetPropertyValue(name, work);
+        var targets = Shorthand(name)?.Longhands ?? [name];
+        var entries = new List<CssDeclaration>();
+        foreach (var entry in _entries)
         {
-            var reset = _context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe &&
-                CssPropertyRegistry.Completed["all"].Longhands.Contains(name)
-                ? ResolveProperty(name, work) : null;
-            if (reset is null || reset.PendingShorthand?.Name != "all" && !IsWide(reset.Value.Text))
-                RequireCompleted(name, failure, default);
+            work.Charge(1);
+            if (!targets.Contains(entry.Name)) entries.Add(entry);
         }
-        var oldValue = GetPropertyValue(name, work);
-        CommitTarget(name, [], work, remove: true);
-        return oldValue;
+        if (entries.Count != _entries.Length) Commit(entries.ToArray(), work);
+        return old;
     }
 
-    internal void ReplaceText(string source, CssParseOptions? options = null,
-        CancellationToken cancellationToken = default)
-        => ReplaceText(source, options, new CssValueWork(cancellationToken), cancellationToken);
-
-    internal void ReplaceText(string source, CssParseOptions? options, CssValueWork work,
-        CancellationToken cancellationToken)
+    internal void ReplaceText(string source, CssParseOptions? options = null, CancellationToken cancellationToken = default) =>
+        ReplaceText(source, options, new CssValueWork(cancellationToken), cancellationToken);
+    internal void ReplaceText(string source, CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        work = ResolutionWork(work);
-        var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
-        ReplaceDeclarations(source, syntax, options?.Limits.MaxNestingDepth ?? 0, work);
+        work = ReadWork(work);
+        Commit(Parse(source, _context, options, work, cancellationToken)._entries, work);
     }
 
     internal void ReplaceDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
         int maximumNestingDepth, CssValueWork work)
     {
-        work = ResolutionWork(work);
-        var replacement = FromDeclarations(source, declarations, _context, maximumNestingDepth, work);
-        var entries = replacement.ResolveAll(work);
+        work = ReadWork(work);
+        Commit(FromDeclarations(source, declarations, _context, maximumNestingDepth, work)._entries, work);
+    }
+
+    private CssValueWork ReadWork(CssValueWork work)
+    {
+        var stamp = Stamp;
+        return CssValueWork.Guard(work, () =>
+        {
+            work.CheckCancellation();
+            if (Stamp != stamp) throw new InvalidOperationException("The CSS declaration changed during the operation.");
+        });
+    }
+
+    private void Commit(CssDeclaration[] entries, CssValueWork work)
+    {
         work.CheckCancellation();
         _entries = entries;
-        _raw = replacement._raw;
-        _index = null;
-        _resolved.Clear();
-        _customResolved.Clear();
-        _allResolved = true;
         CssMutationStamp.Advance(ref _version);
         _owner?.Changed();
     }
 
-    private static CssDeclaration[] Build(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
-        CssDeclarationContext context, int depth, CssValueWork work)
+    internal CssDeclarationBlock Copy(CssValueWork work)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(declarations);
-        ArgumentNullException.ThrowIfNull(work);
-        ArgumentOutOfRangeException.ThrowIfNegative(depth);
         work.CheckCancellation();
-        var entries = new List<CssDeclaration>();
-        var winners = new Dictionary<string, CssDeclaration>(new DeclarationNameComparer(work));
-        for (var i = 0; i < declarations.Count; i++)
+        return new(_context) { _entries = _entries };
+    }
+
+    private CssPropertyMetadata? Shorthand(string name) =>
+        _context == CssDeclarationContext.Style && CssPropertyRegistry.Find(name) is { Longhands.Count: > 0 } entry ? entry : null;
+
+    private static CssDeclaration[] Expand(string name, string text, bool important, CssSourceSpan span,
+        CssDeclarationContext context, CssValueWork work)
+    {
+        if (context == CssDeclarationContext.FontFace) return [new(name, text, important, span)];
+        if (CssPropertyRegistry.Find(name) is not { Longhands.Count: > 0 } metadata)
+            return [new(name, NormalizeValue(name, text, work), important, span)];
+        var parts = CssTextOperations.Split(text, work);
+        if (parts.Length == 0) return [];
+        string[] values;
+        if (parts.Length == 1 && CssTextOperations.IsWide(parts[0])) values = Enumerable.Repeat(parts[0], metadata.Longhands.Count).ToArray();
+        else if (name == "flex")
+        {
+            values = text switch
+            {
+                "none" => ["0", "0", "auto"],
+                "auto" => ["1", "1", "auto"],
+                _ => parts.Length == 1 && !char.IsDigit(parts[0][0]) ? ["1", "1", parts[0]] :
+                    [parts[0], parts.Length > 1 ? parts[1] : "1", parts.Length > 2 ? parts[2] : "0%"]
+            };
+        }
+        else if (name == "flex-flow") values = parts[0] is "wrap" or "nowrap" or "wrap-reverse"
+            ? [parts.Length > 1 ? parts[1] : "row", parts[0]]
+            : [parts[0], parts.Length > 1 ? parts[1] : "nowrap"];
+        else if (metadata.Longhands.Count == 4)
+            values = [parts[0], parts.Length > 1 ? parts[1] : parts[0], parts.Length > 2 ? parts[2] : parts[0],
+                parts.Length > 3 ? parts[3] : parts.Length > 1 ? parts[1] : parts[0]];
+        else values = [parts[0], parts.Length > 1 ? parts[1] : parts[0]];
+        var result = new CssDeclaration[metadata.Longhands.Count];
+        for (var i = 0; i < result.Length; i++)
         {
             work.Charge(1);
-            var declaration = declarations[i];
-            if (context is CssDeclarationContext.Keyframe or CssDeclarationContext.FontFace && declaration.IsImportant) continue;
-            work.Charge(declaration.Name.Length);
-            var name = NormalizeName(declaration.Name, context, work);
-            var input = CssReferenceInput.FromComponents(source, declaration.Value, depth,
-                declaration.ValueSourceSpan, work, declaration.ValueSerializationSpan, declaration.ValueTermination);
-            var result = CssPropertyParser.Parse(name, input, context, work);
-            RequireCompleted(name, result, declaration.Span);
-            if (result.Status is CssPropertyStatus.Valid or CssPropertyStatus.Deferred)
-                Install(entries, name, result.Value, declaration.IsImportant, declaration.Span, work,
-                    LexicalText(result.Value, source, declaration.ValueSerializationSpan, work),
-                    declaration.ValueTermination, winners, context);
+            result[i] = new(metadata.Longhands[i], NormalizeValue(metadata.Longhands[i], values[i], work), important, span);
         }
-        var ordered = new List<CssDeclaration>(winners.Count);
-        foreach (var entry in entries)
-        {
-            work.Charge(entry.Name.Length);
-            if (ReferenceEquals(winners[entry.Name], entry)) ordered.Add(entry);
-        }
-        work.CheckCancellation();
-        var resultEntries = ordered.ToArray();
-        work.Charge(resultEntries.Length);
-        work.CheckCancellation();
-        return resultEntries;
+        return result;
     }
 
-    private static void RequireCompleted(string name, CssPropertyResult result, CssSourceSpan span)
+    private static string NormalizeValue(string name, string text, CssValueWork work)
     {
-        if (result.Status == CssPropertyStatus.UnimplementedGrammar)
-            throw new CssIncompleteGrammarException(name, result.Blocker!, span);
-    }
-
-    private static void Install(List<CssDeclaration> entries, string name, CssPropertyValue value,
-        bool important, CssSourceSpan span, CssValueWork work, string? lexicalText = null,
-        string termination = "", Dictionary<string, CssDeclaration>? winners = null, CssDeclarationContext context = CssDeclarationContext.Style)
-    {
-        var shorthand = Shorthand(name, context);
-        if (shorthand is null)
-        {
-            InstallEntry(entries, new CssDeclaration(name, value, important, span, null, lexicalText, termination), work, winners);
-            return;
-        }
-        // Variables 1 §3.2: one pending identity shared by all longhands until substitution.
-        var pending = value.Kind == CssPropertyValueKind.Deferred
-            ? new CssPendingShorthand(name, value, lexicalText!, termination) : null;
-        for (var i = 0; i < shorthand.Longhands.Count; i++)
-        {
-            work.Charge(1);
-            var expanded = pending is not null ? value : value.Kind == CssPropertyValueKind.Shorthand
-                ? value.Components[i] : CssPropertyValue.Keyword(
-                    i == 1 ? value.SecondKeyword ?? value.Text : value.Text, value.Span);
-            InstallEntry(entries, new CssDeclaration(shorthand.Longhands[i], expanded, important, span, pending), work, winners);
-        }
-    }
-
-    private static void InstallEntry(List<CssDeclaration> entries, CssDeclaration entry, CssValueWork work,
-        Dictionary<string, CssDeclaration>? winners)
-    {
-        if (winners is not null)
-        {
-            work.Charge(entry.Name.Length);
-            work.CheckCancellation();
-            if (winners.TryGetValue(entry.Name, out var prior) && prior.IsImportant && !entry.IsImportant) return;
-            winners[entry.Name] = entry;
-            entries.Add(entry);
-            work.CheckCancellation();
-            return;
-        }
-        for (var i = 0; i < entries.Count; i++)
-        {
-            work.Charge(1);
-            if (!CssSubstitutionArguments.Equals(entries[i].Name, entry.Name, work)) continue;
-            entries[i] = entry;
-            return;
-        }
-        entries.Add(entry);
-    }
-
-    private static CssDeclaration? Find(CssDeclaration[] entries, string name, CssValueWork work)
-    {
-        foreach (var entry in entries)
-        {
-            work.Charge(1);
-            if (CssSubstitutionArguments.Equals(entry.Name, name, work)) return entry;
-        }
-        return null;
-    }
-
-    private static string NormalizeName(string name, CssDeclarationContext context, CssValueWork work) =>
-        context == CssDeclarationContext.FontFace ? CssFontFaceDescriptorCatalog.NormalizeName(name, work) : CssPropertyRegistry.NormalizeName(name, work);
-
-    private static CssPropertyMetadata? Shorthand(string name, CssDeclarationContext context = CssDeclarationContext.Style) =>
-        context != CssDeclarationContext.FontFace && CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } entry ? entry : null;
-
-    internal static CssDeclaration[] ExpandValue(string name, CssPropertyValue value, CssValueWork work)
-    {
-        work.CheckCancellation();
-        var entries = new List<CssDeclaration>();
-        Install(entries, name, value, false, value.Span, work, value.Text, "");
-        work.CheckCancellation();
-        return entries.ToArray();
+        work.Charge(text.Length);
+        if (name.StartsWith("--", StringComparison.Ordinal)) return text;
+        if (text.StartsWith('.') && text.Length > 1 && char.IsAsciiDigit(text[1])) return "0" + text;
+        if (text.StartsWith("-.", StringComparison.Ordinal) && text.Length > 2 && char.IsAsciiDigit(text[2])) return "-0" + text[1..];
+        if (text == "0" && (name is "width" or "height" or "top" or "right" or "bottom" or "left" or "flex-basis" ||
+            name.StartsWith("margin-", StringComparison.Ordinal) || name.StartsWith("padding-", StringComparison.Ordinal) ||
+            name.EndsWith("-width", StringComparison.Ordinal) || name.EndsWith("-height", StringComparison.Ordinal) ||
+            name.EndsWith("-gap", StringComparison.Ordinal))) return "0px";
+        return text;
     }
 
     internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
     {
-        var first = Find(entries, shorthand.Longhands[0], work);
-        if (first is null) return "";
         var values = new string[shorthand.Longhands.Count];
-        var pending = first.PendingShorthand;
+        bool? important = null;
         for (var i = 0; i < values.Length; i++)
         {
-            work.Charge(1);
-            var entry = Find(entries, shorthand.Longhands[i], work);
-            if (entry is null || entry.IsImportant != first.IsImportant) return "";
-            if (pending is not null)
+            CssDeclaration? found = null;
+            foreach (var entry in entries)
             {
-                if (!ReferenceEquals(pending, entry.PendingShorthand) || pending.Name != shorthand.Name) return "";
+                work.Charge(1);
+                if (entry.Name == shorthand.Longhands[i]) { found = entry; break; }
             }
-            else if (entry.PendingShorthand is not null || entry.Value.Kind == CssPropertyValueKind.Deferred) return "";
-            else values[i] = entry.Value.Serialize();
+            if (found is null || important is not null && found.IsImportant != important) return "";
+            important = found.IsImportant;
+            values[i] = found.Value;
         }
-        if (!CanSerializeAcrossMappings(entries, shorthand, work)) return "";
-        if (pending is not null) return CompleteLexicalValue(pending.LexicalSpecifiedText, pending.Termination, work);
-        var allEqual = true;
-        var anyWide = false;
-        for (var i = 0; i < values.Length; i++)
-        {
-            work.Charge(values[i].Length);
-            allEqual &= CssSubstitutionArguments.Equals(values[i], values[0], work);
-            anyWide |= !shorthand.ResetOnlyLonghands.Contains(shorthand.Longhands[i]) && IsWide(values[i]);
-        }
-        if (anyWide) return allEqual ? values[0] : "";
-        if (shorthand.Grammar == CssPropertyGrammar.All) return "";
-        if (shorthand.Grammar is CssPropertyGrammar.Border or CssPropertyGrammar.Outline or
-            CssPropertyGrammar.BorderWidths or CssPropertyGrammar.BorderStyles or CssPropertyGrammar.BorderColors)
-            return CssBorderPropertyParser.Serialize(shorthand, values, work);
-        if (shorthand.Grammar == CssPropertyGrammar.BorderRadius)
-            return CssBorderPropertyParser.SerializeRadii(
-                shorthand.Longhands.Select(name => Find(entries, name, work)!.Value).ToArray(), work);
-        if (shorthand.Grammar == CssPropertyGrammar.Container)
-            return values[1] == "normal" ? values[0] : values[0] + " / " + values[1];
-        if (shorthand.Grammar == CssPropertyGrammar.WhiteSpace)
-            return CssWhiteSpacePropertyParser.Serialize(values[0], values[1], values[2], work);
-        if (shorthand.Grammar == CssPropertyGrammar.TextAlign)
-            return CssTextAlignPropertyParser.Serialize(values[0], values[1], work);
-        if (shorthand.Grammar == CssPropertyGrammar.PlaceContent)
-            return CssAlignmentPropertyParser.SerializeContent(values[0], values[1], work);
-        if (shorthand.Grammar == CssPropertyGrammar.TextDecoration)
-            return CssTextDecorationPropertyParser.Serialize(values[0], values[1], values[2], values[3], work);
-        if (shorthand.Grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.Padding)
-            return CssBoxPropertyParser.Serialize(values[0], values[1], values[2], values[3], work);
-        work.CheckCancellation();
-        // Pair shorthands copy their first value when omitted. Flex-flow and flex do not.
-        var text = allEqual && shorthand.Grammar is CssPropertyGrammar.Overflow or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf or CssPropertyGrammar.Gap
-            ? values[0] : string.Join(" ", values);
-        work.Charge(text.Length);
-        work.CheckCancellation();
-        return text;
+        work.Charge(values.Sum(static value => value.Length));
+        if (values.Any(CssTextOperations.IsWide) && values.Any(value => value != values[0])) return "";
+        if (values.All(value => value == values[0]) && CssTextOperations.IsWide(values[0])) return values[0];
+        var count = values.Length;
+        if (count == 4 && values[3] == values[1]) count--;
+        if (count == 3 && shorthand.Name != "flex" && values[2] == values[0]) count--;
+        if (count == 2 && shorthand.Name != "flex-flow" && values[1] == values[0]) count--;
+        return string.Join(" ", values, 0, count);
     }
 
-    private static bool IsWide(string value) => value is "initial" or "inherit" or "unset" or "revert" or "revert-layer" or "revert-rule";
-
-    private static string EntryValue(CssDeclaration entry, CssValueWork work) =>
-        CompleteLexicalValue(entry.LexicalSpecifiedText ?? entry.Value.Serialize(),
-            entry.Value.Kind is CssPropertyValueKind.Custom or CssPropertyValueKind.Deferred ? entry.Termination : "", work);
-
-    private static string CompleteLexicalValue(string value, string termination, CssValueWork work)
-    {
-        if (termination.Length == 0) return value;
-        work.CheckCancellation();
-        var result = string.Concat(value, termination);
-        work.Charge(value.Length);
-        work.Charge(termination.Length);
-        work.CheckCancellation();
-        return result;
-    }
-
-    // Variables 1 §4.1: preserve custom lexical representation (including comments). The C1
-    // source range strips importance and only boundary whitespace tokens.
-    private static string? LexicalText(CssPropertyValue value, string source,
-        CssSourceSpan span, CssValueWork work)
-    {
-        if (value.Kind is not (CssPropertyValueKind.Custom or CssPropertyValueKind.Deferred)) return null;
-        var start = span.Start;
-        var end = checked(start + span.Length);
-        if (start < 0 || end > source.Length) throw new ArgumentOutOfRangeException(nameof(span));
-        work.CheckCancellation();
-        var text = end == start ? " " : source.Substring(start, end - start);
-        work.Charge(text.Length);
-        work.CheckCancellation();
-        return text;
-    }
-
+    internal string SerializeSource(CssValueWork work) => Serialize(work);
     internal string Serialize(CssValueWork work)
     {
+        work = ReadWork(work);
         work.CheckCancellation();
-        ResolveAll(work);
         var builder = new StringBuilder();
-        var shorthandValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var written = new HashSet<string>(StringComparer.Ordinal);
-        if (_context != CssDeclarationContext.FontFace)
-        {
-            var all = CssPropertyRegistry.Completed["all"];
-            shorthandValues.Add(all.Name, ShorthandValue(_entries, all, work));
-        }
-        foreach (var metadata in CssPropertyRegistry.Completed.Values.OrderByDescending(entry => entry.Longhands.Count))
-        {
-            work.Charge(1);
-            if (_context != CssDeclarationContext.FontFace && metadata.Longhands.Count != 0 && metadata.Name != "all")
-                shorthandValues.Add(metadata.Name, ShorthandValue(_entries, metadata, work));
-        }
         foreach (var entry in _entries)
         {
             work.Charge(1);
+            if (written.Contains(entry.Name)) continue;
             var name = entry.Name;
-            if (written.Contains(name)) continue;
-            var value = entry.PendingShorthand is null ? EntryValue(entry, work) : "";
-            foreach (var pair in shorthandValues)
-            {
-                work.Charge(1);
-                var longhands = CssPropertyRegistry.Completed[pair.Key].Longhands;
-                if (pair.Value.Length == 0 || !longhands.Contains(name) || longhands.Any(written.Contains)) continue;
-                foreach (var longhand in longhands) { work.Charge(1); written.Add(longhand); }
-                name = pair.Key;
-                value = pair.Value;
-                break;
-            }
+            var value = entry.Value;
+            if (_context == CssDeclarationContext.Style)
+                foreach (var metadata in CssPropertyRegistry.Shorthands)
+                {
+                    work.Charge(1);
+                    if (!metadata.Longhands.Contains(name) || metadata.Longhands.Any(written.Contains)) continue;
+                    var shorthand = ShorthandValue(_entries, metadata, work);
+                    if (shorthand.Length == 0) continue;
+                    name = metadata.Name;
+                    value = shorthand;
+                    foreach (var longhand in metadata.Longhands) { work.Charge(1); written.Add(longhand); }
+                    break;
+                }
             written.Add(name);
-            if (value.Length == 0) continue;
             if (builder.Length != 0) builder.Append(' ');
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work)).Append(": ");
-            work.CheckCancellation();
-            if (value != " ") builder.Append(value);
             work.Charge(value.Length);
+            if (value != " ") builder.Append(value);
             if (entry.IsImportant) builder.Append(" !important");
             builder.Append(';');
         }
         work.CheckCancellation();
-        var text = builder.ToString();
-        work.Charge(text.Length);
-        work.CheckCancellation();
-        return text;
-    }
-
-    // CSSOM cannot move a logical declaration across an overlapping physical shorthand.
-    private static bool CanSerializeAcrossMappings(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
-    {
-        var first = -1;
-        var last = -1;
-        for (var i = 0; i < entries.Length; i++)
-        {
-            work.Charge(1);
-            if (!shorthand.Longhands.Contains(entries[i].Name)) continue;
-            if (first < 0) first = i;
-            last = i;
-        }
-        for (var i = first + 1; i < last; i++)
-        {
-            work.Charge(1);
-            if (shorthand.Longhands.Contains(entries[i].Name)) continue;
-            foreach (var name in shorthand.Longhands)
-                if (CssBorderPropertyParser.OppositeMappings(name, entries[i].Name)) return false;
-        }
-        return true;
-    }
-
-    private sealed class DeclarationNameComparer(CssValueWork work) : IEqualityComparer<string>
-    {
-        public bool Equals(string? left, string? right) =>
-            left is not null && right is not null && CssSubstitutionArguments.Equals(left, right, work);
-
-        public int GetHashCode(string value) => unchecked((int) CssSubstitutionArguments.Hash(value, work));
+        return builder.ToString();
     }
 }
 
-internal sealed record CssDeclaration(string Name, CssPropertyValue Value, bool IsImportant,
-    CssSourceSpan Span, CssPendingShorthand? PendingShorthand, string? LexicalSpecifiedText = null, string Termination = "");
-
-internal sealed record CssPendingShorthand(string Name, CssPropertyValue Value, string LexicalSpecifiedText, string Termination);
-
-internal sealed class CssIncompleteGrammarException : NotSupportedException
-{
-    internal CssIncompleteGrammarException(string propertyName, string blocker, CssSourceSpan span)
-        : base("Unimplemented CSS grammar: " + blocker)
-    { PropertyName = propertyName; Blocker = blocker; Span = span; }
-
-    internal string PropertyName { get; }
-    internal string Blocker { get; }
-    internal CssSourceSpan Span { get; }
-}
+internal sealed record CssDeclaration(string Name, string Value, bool IsImportant, CssSourceSpan Span);

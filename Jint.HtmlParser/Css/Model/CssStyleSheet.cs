@@ -231,9 +231,6 @@ internal sealed class CssStyleSheet
                 frames.Push((layer.Rules, 0, null));
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
                 frames.Push((media.Rules, 0, null));
-            // Container conditions depend on the matched element/property, so retain their children cold.
-            else if (rule is CssContainerRule container)
-                frames.Push((container.Rules, 0, null));
             else if (rule is CssSupportsRule { Matches: true } supports)
                 frames.Push((supports.Rules, 0, null));
             else if (rule is CssImportRule { StyleSheet: { } child } && !child.Disabled &&
@@ -291,20 +288,10 @@ internal sealed class CssStyleSheet
         var root = BuildShallow(source, syntax, parser, options, work, cancellationToken);
         if (root is null) return null;
         var pending = new Stack<(CssRule Owner, CssComponentValue Block)>();
-        if (root is not (CssFontFaceRule or CssPropertyRule) && syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
+        if (root is CssGroupingRule or CssStyleRule && syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
         while (pending.TryPop(out var item))
         {
             work.Charge(1);
-            if (item.Owner is CssKeyframesRule keyframes)
-            {
-                foreach (var childSyntax in parser.ParseQualifiedRuleList(item.Block))
-                {
-                    work.Charge(1);
-                    var child = CssKeyframeParser.Build(source, childSyntax, parser, options, work);
-                    if (child is not null) keyframes.AddProjected(child, work);
-                }
-                continue;
-            }
             foreach (var entry in parser.ParseBlockContents(item.Block))
             {
                 work.Charge(1);
@@ -315,7 +302,7 @@ internal sealed class CssStyleSheet
                 if (child is null) continue;
                 if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
-                if (child is not (CssFontFaceRule or CssPropertyRule) && entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
+                if (child is CssGroupingRule or CssStyleRule && entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
             }
         }
         return root;
@@ -333,8 +320,6 @@ internal sealed class CssStyleSheet
             {
                 case CssAtRuleKind.Import:
                     return CssImportRule.Parse(source, syntax, parser, work);
-                case CssAtRuleKind.Property:
-                    return nestingParent is null ? CssPropertyRule.Parse(source, syntax, parser, options, work) : null;
                 case CssAtRuleKind.Layer:
                     {
                         if (nestingParent is not null)
@@ -370,14 +355,6 @@ internal sealed class CssStyleSheet
                     }
                 case CssAtRuleKind.Media:
                     return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
-                case CssAtRuleKind.Keyframes:
-                    {
-                        if (syntax.Block is null || nestingParent is not null) return null;
-                        var animationName = CssKeyframeParser.Name(syntax.Prelude, work);
-                        return animationName is null ? null : new CssKeyframesRule(animationName, syntax.Span);
-                    }
-                case CssAtRuleKind.Container:
-                    return syntax.Block is null ? null : CssContainerParser.Parse(source, syntax.Prelude, syntax.Span, parser, work);
                 case CssAtRuleKind.Supports:
                     {
                         if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
@@ -386,18 +363,8 @@ internal sealed class CssStyleSheet
                         return new CssSupportsRule(condition, matches, syntax.Span);
                     }
             }
-            var group = kind switch
-            {
-                CssAtRuleKind.Namespace => "R1",
-                CssAtRuleKind.Scope or CssAtRuleKind.StartingStyle => "R2",
-                CssAtRuleKind.FontFeatureValues or CssAtRuleKind.FontPaletteValues => "R4",
-                CssAtRuleKind.Page or CssAtRuleKind.CounterStyle => "R5",
-                CssAtRuleKind.ViewTransition or CssAtRuleKind.PositionTry or CssAtRuleKind.ColorProfile => "R6",
-                CssAtRuleKind.Document or CssAtRuleKind.Viewport => "R7",
-                _ => null
-            };
-            if (group is not null) throw new CssIncompleteRuleGrammarException(name, group + ":" + name, syntax.Span);
-            return null;
+            work.Charge(syntax.Span.Length);
+            return new CssGenericRule(source.Substring(syntax.Span.Start, syntax.Span.Length), syntax.Span);
         }
         if (syntax.Block is not { } block) return null;
         var selector = CompileSelector(source, syntax, options, work, cancellationToken, nestingParent);

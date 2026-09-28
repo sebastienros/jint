@@ -4,7 +4,6 @@ using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.Tests.HtmlParser.Css;
 
@@ -22,13 +21,12 @@ public sealed class NativeCssLayerTests
     [TestCase("@layer {div{display:none}} @layer {div{display:block}}", "block")]
     [TestCase("@layer A {div{display:none}} @layer a {div{display:block}} @layer A {div{display:flex}}", "block")]
     [TestCase("@media not all {@layer b{}} @layer a,b; @layer a{div{display:none}} @layer b{div{display:block}}", "block")]
-    [TestCase("@supports (display:bogus) {@layer b{}} @layer a,b; @layer a{div{display:none}} @layer b{div{display:block}}", "block")]
-    [TestCase("@container (width > 999999px) {@layer b{}} @layer a,b; @layer a{div{display:block}} @layer b{div{display:none}}", "block")]
+    [TestCase("@supports (unknown-property:bogus) {@layer b{}} @layer a,b; @layer a{div{display:none}} @layer b{div{display:block}}", "block")]
+    [TestCase("@container (width > 999999px) {@layer b{}} @layer a,b; @layer a{div{display:block}} @layer b{div{display:none}}", "none")]
     [TestCase("@layer a{div{display:block}} @layer b{div{display:none} #t{display:revert-layer}}", "block")]
     [TestCase("@layer a{div{display:block}} div{display:none} #t{display:revert-layer}", "block")]
     [TestCase("@layer a{div{display:block}} @layer b{div{display:revert-layer!important}} @layer c{div{display:none!important}}", "block")]
-    [TestCase("@layer a{div{--d:block}} @layer b{div{--d:revert-layer}} div{display:var(--d)}", "block")]
-    [TestCase("@layer a{div{display:block}} @layer b{div{--reset:revert-layer;display:var(--missing,revert-layer)}}", "block")]
+    [TestCase("@layer a{div{--d:block}} @layer b{div{--d:revert-layer}} div{display:var(--d)}", "revert-layer")]
     [TestCase("@layer a{div{display:block}} @layer b{div{all:revert-layer}}", "block")]
     public void LayerPrecedenceAndRollbackFollowTheCascadeRatherThanSpecificity(string css, string expected)
     {
@@ -50,7 +48,7 @@ public sealed class NativeCssLayerTests
         var work = new CssValueWork(default);
         var query = new NativeCssQuery(document,
             [new(CssStyleSheet.Parse("@layer a{div{display:block}} div{display:flex}"), NativeCssOrigin.Author)],
-            [(target, block)], new(), new(document, null, null, null), CssEnvironmentSnapshot.Create([], work), work);
+            [(target, block)], new(), new(document, null, null, null), work);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "display", ref matching).Text.Should().Be("flex");
     }
@@ -91,6 +89,6 @@ public sealed class NativeCssLayerTests
     {
         var work = new CssValueWork(default);
         return new NativeCssQuery(document, sheets, [], new CssMediaEnvironment(), new(document, null, null, null),
-            CssEnvironmentSnapshot.Create([], work), work);
+            work);
     }
 }

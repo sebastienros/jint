@@ -107,7 +107,7 @@ public sealed class NativeStyleSheetFetchIdentityTests
                 <p id=target>text</p>
                 """, "https://requests.test/root").WaitAsync(Jint.Tests.TestBudgets.WedgeCeiling);
             (await page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
-            (await page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("rgb(0, 0, 255)");
+            (await page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("blue");
             (await page.EvaluateAsync<int>("loads")).Should().Be(1);
             (await page.EvaluateAsync<int>("errors")).Should().Be(0);
             handler.ARequests.Should().Be(2);
@@ -145,7 +145,7 @@ public sealed class NativeStyleSheetFetchIdentityTests
                 <p id=target>text</p>
                 """, "https://requests.test/root").WaitAsync(Jint.Tests.TestBudgets.WedgeCeiling);
             (await page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
-            (await page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("rgb(0, 0, 255)");
+            (await page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("blue");
             (await page.EvaluateAsync<int>("loads")).Should().Be(1);
             (await page.EvaluateAsync<int>("errors")).Should().Be(0);
             handler.ARequests.Should().Be(2);

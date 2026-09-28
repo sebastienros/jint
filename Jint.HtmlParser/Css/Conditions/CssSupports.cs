@@ -2,7 +2,6 @@ using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Properties;
-using Jint.HtmlParser.Css.Values.References;
 
 namespace Jint.HtmlParser.Css.Conditions;
 
@@ -15,8 +14,10 @@ internal static class CssSupports
         ArgumentNullException.ThrowIfNull(property);
         ArgumentNullException.ThrowIfNull(value);
         work.CheckCancellation();
-        var components = Parse(value, options, work);
-        var result = Declaration(property, value, components, options, work);
+        work.Charge(value.Length);
+        var name = CssPropertyRegistry.NormalizeName(property, work);
+        var result = (name.StartsWith("--", StringComparison.Ordinal) || CssPropertyRegistry.Find(name) is not null)
+            && !string.IsNullOrWhiteSpace(value);
         work.CheckCancellation();
         return result;
     }
@@ -61,16 +62,14 @@ internal static class CssSupports
     private static bool Declaration(string name, string source, CssComponentValueList values,
         CssParseOptions? options, CssValueWork work)
     {
-        var input = CssReferenceInput.FromComponents(source, values, options?.Limits.MaxNestingDepth ?? 0, work);
-        // Typed OM §3: the API's custom-property-name string is any string starting
-        // with "--". This is intentionally separate from a decoded declaration identifier.
-        if (name.StartsWith("--", StringComparison.Ordinal))
+        var normalized = CssPropertyRegistry.NormalizeName(name, work);
+        foreach (var value in values)
         {
-            var analysis = CssReferenceParser.Analyze(input, CssReferenceUse.CustomPropertyValue, work);
-            return analysis.Kind is CssReferenceAnalysisKind.Literal or CssReferenceAnalysisKind.Deferred;
+            work.Charge(1);
+            if (Token(value, CssTokenKind.Semicolon)) return false;
         }
-        var result = CssPropertyParser.Parse(name, input, CssDeclarationContext.Style, work);
-        return result.Status is CssPropertyStatus.Valid or CssPropertyStatus.Deferred;
+        return (normalized.StartsWith("--", StringComparison.Ordinal) || CssPropertyRegistry.Find(normalized) is not null)
+            && Significant(values, work).Count != 0;
     }
 
     private static Result Condition(string source, CssComponentValueList values, CssParseOptions? options, CssValueWork work)
@@ -167,8 +166,16 @@ internal static class CssSupports
         }
     }
 
-    private static CssComponentValueList Significant(CssComponentValueList values, CssValueWork work) =>
-        new(CssPropertyParser.Significant(values, work).ToArray());
+    private static CssComponentValueList Significant(CssComponentValueList values, CssValueWork work)
+    {
+        var result = new List<CssComponentValue>();
+        foreach (var value in values)
+        {
+            work.Charge(1);
+            if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace) result.Add(value);
+        }
+        return new(result.ToArray());
+    }
 
     private static bool ValidAnyValue(CssComponentValueList values, CssValueWork work)
     {
