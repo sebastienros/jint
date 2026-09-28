@@ -30,7 +30,8 @@ a reflection trampoline.
   `Document.AdoptionObserver`. Its weak `INodeAdoptionObserver` captures a node's or attribute's creation
   realm just before the native owner changes. A previously unseen parser node otherwise takes its
   document's realm. Do not replace this with an eager pass over every parsed node or a scan on a known
-  wrapper read. These hooks are internal; `Jint.HtmlParser/Parsing/AssemblyInfo.cs` grants Browser access.
+  wrapper read. These hooks are internal; `Jint.HtmlParser/Parsing/AssemblyInfo.cs` grants Browser access, and
+  `HtmlParserInternalSurfaceTest` pins what Browser reaches ([the contract](../Jint.HtmlParser/README.md#browser-integration-contract)).
 - **The feature-parity target is [LightPanda](https://github.com/lightpanda-io/browser), not a rendering
   engine.** Work beyond that headless-automation scope may remain unsupported: real layout, full CSS
   computation beyond automation's needs, exotic at-rules, DTD entities and exact `document.write`

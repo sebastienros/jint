@@ -263,3 +263,30 @@ Text extraction interprets white-space keywords without reviving a typed typogra
 HTML parsing still performs no eager CSS work. Browser owns on-demand sheet and declaration
 parsing. Public `MarkupParser.ParseCss*` stays syntax-only; mutable CSSOM and selectors remain
 internal. See the [remaining public/integration work](../docs/design/html-parser-completeness.md).
+
+## Browser integration contract
+
+Jint.Browser is the one production consumer of the parser's internals (the
+`InternalsVisibleTo` grant in `Parsing/AssemblyInfo.cs`); other callers see only
+the public document API. The grant is a reviewed contract, not a convenience:
+
+- It covers native DOM hooks (`INodeAdoptionObserver`, mutation subscriptions,
+  character data, shadow trees and slot assignment, live ranges), the form-control
+  state the selector matcher also reads (`Html*State`, `HtmlFormState`), the
+  parser session and host requests Browser pumps on its page loop
+  (`HtmlParserSession`, `HtmlHostRequest`), and the CSSOM, selector and cascade
+  inputs (`Css.Model`, `SelectorMatcher`, `SelectorEnvironment`, `CssValueWork`,
+  `SelectorSubjectKeys`).
+- The parser never references Browser. Where it needs host behaviour it declares
+  the interface or delegate (`INodeAdoptionObserver`, `ISelectorControlFactsFactory`,
+  `IHtmlShadowHostContextProvider`), and a hook must cost no more than an inlined guard when unused:
+  no per-node work during parsing on Browser's behalf.
+- `Jint.Tests.Browser/HtmlParserInternalSurfaceTest` snapshots every non-public
+  type and member Browser's IL references into
+  `Jint.Tests.Browser/Verify/HtmlParserInternalSurfaceTest.verified.txt`. A new
+  line there is a decision to review: reuse or add a deliberate hook rather than
+  reaching an incidental helper.
+- `Jint.Tests.HtmlParser` compiles the Browser cascade (`Jint.Browser/Styling/NativeCss*`
+  and a few DOM read helpers) as linked sources to test it without an engine. Those
+  files must build against the parser alone, and a new partial of them must be
+  linked there too.
