@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Jint.HtmlParser;
 
 internal enum ParsedAttributeMergeCheckpoint
@@ -111,6 +113,9 @@ public sealed class Element : Node
     public int AttributeCount => _attributes?.Count ?? 0;
     internal Attr? GetAttributeAt(uint index)
         => _attributes is { } attributes && index < (uint) attributes.Count ? attributes[(int) index] : null;
+    // Internal readers iterate in place; a mutation during the read is detected by the caller's stamps.
+    internal ReadOnlySpan<Attr> AttributeSpan => CollectionsMarshal.AsSpan(_attributes);
+
     public IEnumerable<Attr> Attributes
     {
         get

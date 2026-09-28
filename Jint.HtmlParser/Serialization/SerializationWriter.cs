@@ -1,3 +1,6 @@
+using System.Buffers;
+using System.Runtime.CompilerServices;
+
 namespace Jint.HtmlParser.Serialization;
 
 // Bounded UTF-16 output builder. The buffer is private to one serialization call.
@@ -36,6 +39,13 @@ internal sealed class SerializationWriter
         // The caller may pass a span over this writer's own buffer only if no growth occurs.
         // Serializer callers pass native strings or static literals, never that buffer.
         Reserve(value.Length);
+        if (value.Length <= CopySlice)
+        {
+            value.CopyTo(_buffer.AsSpan(_length));
+            _length += value.Length;
+            _work.Charge(value.Length, SerializationStage.Append);
+            return;
+        }
         for (var offset = 0; offset < value.Length;)
         {
             var count = Math.Min(CopySlice, value.Length - offset);
@@ -46,7 +56,14 @@ internal sealed class SerializationWriter
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Reserve(int count)
+    {
+        if (_limit == 0 && (uint) count <= (uint) (_buffer.Length - _length)) return;
+        ReserveSlow(count);
+    }
+
+    private void ReserveSlow(int count)
     {
         var observed = (long) _length + count;
         if (_limit != 0 && observed > _limit)
@@ -66,7 +83,7 @@ internal sealed class SerializationWriter
 
         _work.Poll(SerializationStage.Append);
         var doubled = _buffer.Length > Array.MaxLength / 2 ? Array.MaxLength : _buffer.Length * 2;
-        var expanded = new char[Math.Max((int) observed, Math.Max(16, doubled))];
+        var expanded = ArrayPool<char>.Shared.Rent(Math.Max((int) observed, Math.Max(256, doubled)));
         _work.Poll(SerializationStage.Append);
         for (var offset = 0; offset < _length;)
         {
@@ -76,6 +93,7 @@ internal sealed class SerializationWriter
             offset += copied;
         }
 
+        ReturnBuffer();
         _buffer = expanded;
         _work.Poll(SerializationStage.Append);
     }
@@ -93,8 +111,17 @@ internal sealed class SerializationWriter
                 offset += count;
             }
         });
+        ReturnBuffer();
+        _length = 0;
         _work.Poll(SerializationStage.Materialize);
         _work.Complete();
         return result;
+    }
+
+    // The buffer is pooled; an operation that throws simply leaves its buffer to the collector.
+    private void ReturnBuffer()
+    {
+        if (_buffer.Length != 0) ArrayPool<char>.Shared.Return(_buffer);
+        _buffer = [];
     }
 }

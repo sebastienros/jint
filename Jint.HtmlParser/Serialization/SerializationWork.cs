@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Jint.HtmlParser.Serialization;
 
 internal enum SerializationStage
@@ -36,7 +38,19 @@ internal sealed class SerializationWork
         _cancellationToken.ThrowIfCancellationRequested();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Charge(int units, SerializationStage stage)
+    {
+        // Negative units fail the unsigned comparison and are rejected by the slow path.
+        if ((uint) units < (uint) (Cadence - _sincePoll))
+        {
+            _sincePoll += units;
+            return;
+        }
+        ChargeSlow(units, stage);
+    }
+
+    private void ChargeSlow(int units, SerializationStage stage)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(units);
         while (units != 0)

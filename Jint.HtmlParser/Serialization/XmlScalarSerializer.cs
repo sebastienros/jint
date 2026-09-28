@@ -1,9 +1,15 @@
+using System.Buffers;
+
 namespace Jint.HtmlParser.Serialization;
 
 // DOM Parsing §5.2.1.1.3 and §§5.2.1.3–5.2.1.8.
 // https://w3c.github.io/DOM-Parsing/#xml-serialization
 internal static class XmlScalarSerializer
 {
+    private const int ScanSlice = 256;
+    private static readonly SearchValues<char> TextEscapes = SearchValues.Create("&<>");
+    private static readonly SearchValues<char> AttributeEscapes = SearchValues.Create("&<>\"\t\n\r");
+
     internal static void WriteText(Text node, SerializationWriter writer, bool requireWellFormed)
     {
         ArgumentNullException.ThrowIfNull(node);
@@ -154,6 +160,12 @@ internal static class XmlScalarSerializer
 
     private static void WriteEscaped(string value, SerializationWriter writer, bool requireWellFormed, bool attribute)
     {
+        if (!requireWellFormed)
+        {
+            WriteEscaped(value.AsSpan(), writer, attribute);
+            return;
+        }
+
         var runStart = 0;
         for (var index = 0; index < value.Length; index++)
         {
@@ -182,6 +194,41 @@ internal static class XmlScalarSerializer
         }
 
         writer.Append(value.AsSpan(runStart));
+    }
+
+    // Without well-formedness checks only the escaped characters interrupt a run.
+    private static void WriteEscaped(ReadOnlySpan<char> value, SerializationWriter writer, bool attribute)
+    {
+        var work = writer.Work;
+        var escapes = attribute ? AttributeEscapes : TextEscapes;
+        while (!value.IsEmpty)
+        {
+            var slice = value.Length > ScanSlice ? value[..ScanSlice] : value;
+            var index = slice.IndexOfAny(escapes);
+            var run = index < 0 ? slice.Length : index;
+            if (run != 0)
+            {
+                work.Charge(run, SerializationStage.Scan);
+                writer.Append(slice[..run]);
+            }
+            if (index < 0)
+            {
+                value = value[run..];
+                continue;
+            }
+            work.Charge(1, SerializationStage.Scan);
+            writer.Append(value[index] switch
+            {
+                '&' => "&amp;",
+                '<' => "&lt;",
+                '>' => "&gt;",
+                '"' => "&quot;",
+                '\t' => "&#9;",
+                '\n' => "&#xA;",
+                _ => "&#xD;"
+            });
+            value = value[(index + 1)..];
+        }
     }
 
     private static void ValidateXmlCharacters(string value, SerializationWork work)

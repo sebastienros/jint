@@ -27,10 +27,11 @@ internal static class HtmlMarkupSerializer
 
     private sealed class Operation
     {
-        private sealed class Frame(Node node, Document owner, bool scripting, bool suppressTag, bool shadowWrapper)
+        private struct Frame(Node node, Document owner, ulong ownerStamp, bool scripting, bool suppressTag, bool shadowWrapper)
         {
             internal readonly Node Node = node;
             internal readonly Document Owner = owner;
+            internal readonly ulong OwnerStamp = ownerStamp;
             internal readonly bool Scripting = scripting;
             internal readonly bool SuppressTag = suppressTag;
             internal readonly bool ShadowWrapper = shadowWrapper;
@@ -43,14 +44,19 @@ internal static class HtmlMarkupSerializer
 
         private readonly Node _root;
         private readonly Document _rootOwner;
+        private readonly ulong _rootStamp;
         private readonly CancellationToken _cancellationToken;
         private readonly HtmlSerializationOptions _options;
         private readonly SerializationWork _work;
         private readonly SerializationWriter _writer;
+        // Every owner reached is verified again at the end; the root and active owners are also
+        // cached in fields so the per-node checks never hash.
         private readonly Dictionary<Document, ulong> _stamps = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<ShadowRoot> _selectedRoots = new(ReferenceEqualityComparer.Instance);
-        private readonly Stack<Frame> _stack = new();
+        private Frame[] _frames = new Frame[16];
+        private int _depth;
         private Document? _activeOwner;
+        private ulong _activeStamp;
         private Node? _activeNode;
 
         internal Operation(Node root, HtmlSerializationOptions options, SerializationLimits? limits,
@@ -62,6 +68,7 @@ internal static class HtmlMarkupSerializer
             _options = options;
             var stamp = _rootOwner.MutationStamp;
             if (stamp == ulong.MaxValue) throw Invalidated();
+            _rootStamp = stamp;
             _stamps.Add(_rootOwner, stamp);
             _work = new SerializationWork(cancellationToken, stage =>
             {
@@ -76,24 +83,27 @@ internal static class HtmlMarkupSerializer
         internal string Run(bool children)
         {
             Push(_root, _options.ScriptingEnabled, children);
-            while (_stack.Count != 0)
+            while (_depth != 0)
             {
                 _work.Charge(1, SerializationStage.HtmlTraversal);
-                var frame = _stack.Peek();
+                ref var frame = ref _frames[_depth - 1];
                 _activeNode = frame.Node;
                 _activeOwner = frame.Owner;
-                CheckFrame(frame);
+                _activeStamp = frame.OwnerStamp;
+                CheckFrame(in frame);
                 if (!frame.Entered)
                 {
                     frame.Entered = true;
-                    Enter(frame);
+                    Enter(ref frame);
                 }
 
+                // Push may grow the frame array, so the current frame is updated before it.
                 if (frame.PendingShadow is { } shadow)
                 {
                     frame.PendingShadow = null;
+                    var scripting = frame.Scripting;
                     WriteShadowStart(shadow);
-                    Push(shadow, frame.Scripting, suppressTag: true, shadowWrapper: true);
+                    Push(shadow, scripting, suppressTag: true, shadowWrapper: true);
                     continue;
                 }
 
@@ -119,7 +129,8 @@ internal static class HtmlMarkupSerializer
                     _writer.Append('>');
                 }
                 if (frame.ShadowWrapper) _writer.Append("</template>");
-                _stack.Pop();
+                frame = default;
+                _depth--;
                 _work.Charge(1, SerializationStage.HtmlTraversal);
             }
 
@@ -129,10 +140,10 @@ internal static class HtmlMarkupSerializer
             // during a per-owner check could mutate an owner already verified.
             _work.Charge(_stamps.Count, SerializationStage.Final);
             var checkedCount = 0;
-            foreach (var pair in _stamps)
+            foreach (var (owner, stamp) in _stamps)
             {
                 if ((checkedCount++ & 255) == 0) _cancellationToken.ThrowIfCancellationRequested();
-                if (pair.Value == ulong.MaxValue || pair.Key.MutationStamp != pair.Value) throw Invalidated();
+                if (stamp == ulong.MaxValue || owner.MutationStamp != stamp) throw Invalidated();
             }
             CheckActive();
             return result;
@@ -154,19 +165,20 @@ internal static class HtmlMarkupSerializer
         {
             _work.Poll(SerializationStage.HtmlTraversal);
             var owner = OwnerOf(node) ?? throw Invalidated();
-            Capture(owner);
+            var stamp = Capture(owner);
             if (!ReferenceEquals(OwnerOf(node), owner)) throw Invalidated();
-            _stack.Push(new Frame(node, owner, scripting, suppressTag, shadowWrapper));
+            if (_depth == _frames.Length) Array.Resize(ref _frames, _frames.Length * 2);
+            _frames[_depth++] = new Frame(node, owner, stamp, scripting, suppressTag, shadowWrapper);
             _work.Charge(1, SerializationStage.HtmlTraversal);
         }
 
-        private void Enter(Frame frame)
+        // Run has just checked the frame; nothing runs between that check and entry.
+        private void Enter(ref Frame frame)
         {
-            CheckFrame(frame);
             switch (frame.Node)
             {
                 case Element element:
-                    WriteElement(frame, element);
+                    WriteElement(ref frame, element);
                     break;
                 case Document or DocumentFragment:
                     frame.NextChild = frame.Node.FirstChild;
@@ -200,7 +212,7 @@ internal static class HtmlMarkupSerializer
             }
         }
 
-        private void WriteElement(Frame frame, Element element)
+        private void WriteElement(ref Frame frame, Element element)
         {
             var name = ElementName(element);
             if (!frame.SuppressTag)
@@ -238,10 +250,11 @@ internal static class HtmlMarkupSerializer
 
         private void WriteAttributes(Element element)
         {
-            var hasIs = false;
+            var attributes = element.AttributeSpan;
             if (element.IsValue is not null)
             {
-                foreach (var attribute in element.Attributes)
+                var hasIs = false;
+                foreach (var attribute in attributes)
                 {
                     _work.Charge(1 + attribute.LocalName.Length, SerializationStage.HtmlName);
                     if (attribute.NamespaceUri is null && attribute.LocalName == "is") hasIs = true;
@@ -254,7 +267,7 @@ internal static class HtmlMarkupSerializer
                 }
             }
 
-            foreach (var attribute in element.Attributes)
+            foreach (var attribute in attributes)
             {
                 _work.Charge(1, SerializationStage.HtmlTraversal);
                 _writer.Append(' ');
@@ -331,28 +344,33 @@ internal static class HtmlMarkupSerializer
             (element.LocalName is "style" or "script" or "xmp" or "iframe" or "noembed" or
                 "noframes" or "plaintext" || scripting && element.LocalName == "noscript");
 
-        private void Capture(Document document)
+        private ulong Capture(Document document)
         {
             var observed = document.MutationStamp;
             if (observed == ulong.MaxValue) throw Invalidated();
-            if (_stamps.TryGetValue(document, out var prior))
+            if (ReferenceEquals(document, _activeOwner))
+            {
+                if (_activeStamp != observed) throw Invalidated();
+            }
+            else if (_stamps.TryGetValue(document, out var prior))
             {
                 if (prior != observed) throw Invalidated();
             }
             else _stamps.Add(document, observed);
             _work.Poll(SerializationStage.HtmlTraversal);
             if (document.MutationStamp != observed) throw Invalidated();
+            return observed;
         }
 
         private void CheckActive()
         {
-            if (_rootOwner.MutationStamp != _stamps[_rootOwner] ||
+            if (_rootOwner.MutationStamp != _rootStamp ||
                 !ReferenceEquals(OwnerOf(_root), _rootOwner)) throw Invalidated();
-            if (_activeOwner is { } owner && owner.MutationStamp != _stamps[owner]) throw Invalidated();
+            if (_activeOwner is { } owner && owner.MutationStamp != _activeStamp) throw Invalidated();
             if (_activeNode is { } node && !ReferenceEquals(OwnerOf(node), _activeOwner)) throw Invalidated();
         }
 
-        private void CheckFrame(Frame frame)
+        private void CheckFrame(in Frame frame)
         {
             CheckActive();
             if (!ReferenceEquals(OwnerOf(frame.Node), frame.Owner)) throw Invalidated();

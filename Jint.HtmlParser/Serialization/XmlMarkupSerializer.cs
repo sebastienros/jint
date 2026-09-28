@@ -38,13 +38,14 @@ internal static class XmlMarkupSerializer
 
     private sealed class Operation
     {
-        private sealed class Frame(Node node, Document document, string? inheritedNamespace, int boundary)
+        private struct Frame(Node node, Document document, ulong documentStamp, string? inheritedNamespace, int boundary)
         {
-            internal Node Node = node;
-            internal Document Document = document;
-            internal string? InheritedNamespace = inheritedNamespace;
+            internal readonly Node Node = node;
+            internal readonly Document Document = document;
+            internal readonly ulong DocumentStamp = documentStamp;
+            internal readonly string? InheritedNamespace = inheritedNamespace;
             internal string? ChildNamespace = inheritedNamespace;
-            internal int Boundary = boundary;
+            internal readonly int Boundary = boundary;
             internal Node? NextChild;
             internal string? ClosingName;
             internal bool Entered;
@@ -56,9 +57,18 @@ internal static class XmlMarkupSerializer
         private readonly SerializationWork _work;
         private readonly SerializationWriter _writer;
         private readonly XmlNamespaceScope _scope;
+        private readonly ulong _rootStamp;
+        // Every owner reached is verified again at the end; the root and active owners are also
+        // cached in fields so the per-node checks never hash.
         private readonly Dictionary<Document, ulong> _stamps = new();
-        private readonly Stack<Frame> _stack = new();
+        // Per-element scratch sets, cleared at each element instead of allocated.
+        private readonly HashSet<string> _localReserved = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _localDeclared = new(StringComparer.Ordinal);
+        private HashSet<(string?, string)>? _expandedNames;
+        private Frame[] _frames = new Frame[16];
+        private int _depth;
         private Document? _activeDocument;
+        private ulong _activeStamp;
         private Node? _activeNode;
 
         internal Operation(Node root, bool wellFormed, SerializationLimits? limits,
@@ -70,6 +80,7 @@ internal static class XmlMarkupSerializer
             _wellFormed = wellFormed;
             var initialStamp = _rootDocument.MutationStamp;
             if (initialStamp == ulong.MaxValue) throw Invalidated();
+            _rootStamp = initialStamp;
             _stamps.Add(_rootDocument, initialStamp);
             _work = new SerializationWork(cancellationToken, stage =>
             {
@@ -96,17 +107,18 @@ internal static class XmlMarkupSerializer
                 Push(_root, null);
             }
 
-            while (_stack.Count != 0)
+            while (_depth != 0)
             {
                 _work.Charge(1, SerializationStage.Scan);
-                var frame = _stack.Peek();
+                ref var frame = ref _frames[_depth - 1];
                 _activeDocument = frame.Document;
+                _activeStamp = frame.DocumentStamp;
                 _activeNode = frame.Node;
                 CheckActive();
                 if (!frame.Entered)
                 {
                     frame.Entered = true;
-                    Enter(frame, children && _stack.Count == 1);
+                    Enter(ref frame, children && _depth == 1);
                 }
 
                 if (frame.NextChild is { } child)
@@ -124,16 +136,17 @@ internal static class XmlMarkupSerializer
                 }
 
                 _scope.Restore(frame.Boundary);
-                _stack.Pop();
+                frame = default;
+                _depth--;
                 _work.Charge(1, SerializationStage.Scan);
             }
 
             // Materialization is still private until every captured owner is checked.
             var result = _writer.Materialize();
-            foreach (var pair in _stamps)
+            foreach (var (document, stamp) in _stamps)
             {
                 _work.Charge(1, SerializationStage.Final);
-                if (pair.Key.MutationStamp != pair.Value || pair.Value == ulong.MaxValue)
+                if (document.MutationStamp != stamp || stamp == ulong.MaxValue)
                 {
                     throw Invalidated();
                 }
@@ -147,15 +160,16 @@ internal static class XmlMarkupSerializer
         {
             _work.Poll(SerializationStage.Scan);
             var owner = node as Document ?? node.OwnerDocument ?? throw Invalidated();
-            Capture(owner);
+            var stamp = Capture(owner);
             if (!ReferenceEquals(node as Document ?? node.OwnerDocument, owner)) throw Invalidated();
-            _stack.Push(new Frame(node, owner, inheritedNamespace, _scope.Boundary));
+            if (_depth == _frames.Length) Array.Resize(ref _frames, _frames.Length * 2);
+            _frames[_depth++] = new Frame(node, owner, stamp, inheritedNamespace, _scope.Boundary);
             _work.Charge(1, SerializationStage.Scan);
         }
 
-        private void Enter(Frame frame, bool childrenRoot)
+        private void Enter(ref Frame frame, bool childrenRoot)
         {
-            CheckFrame(frame);
+            CheckFrame(in frame);
             if (childrenRoot)
             {
                 frame.NextChild = frame.Node.FirstChild;
@@ -165,7 +179,7 @@ internal static class XmlMarkupSerializer
             switch (frame.Node)
             {
                 case Element element:
-                    WriteElement(frame, element);
+                    WriteElement(ref frame, element);
                     break;
                 case Document document:
                     if (_wellFormed)
@@ -207,20 +221,21 @@ internal static class XmlMarkupSerializer
             }
         }
 
-        private void WriteElement(Frame frame, Element element)
+        private void WriteElement(ref Frame frame, Element element)
         {
             if (element.TemplateContent is { } templateContents) Capture(templateContents.OwnerDocument!);
             ValidateName(element.LocalName);
             _work.Poll(SerializationStage.Scan);
-            var attributes = new List<Attr>(element.AttributeCount);
-            var localReserved = new HashSet<string>(element.AttributeCount, StringComparer.Ordinal);
-            var localDeclared = new HashSet<string>(element.AttributeCount, StringComparer.Ordinal);
+            var attributes = element.AttributeSpan;
+            var localReserved = _localReserved;
+            var localDeclared = _localDeclared;
+            localReserved.Clear();
+            localDeclared.Clear();
             _work.Poll(SerializationStage.Scan);
             string? localDefault = null;
-            foreach (var attribute in element.Attributes)
+            foreach (var attribute in attributes)
             {
                 _work.Charge(1 + attribute.LocalName.Length + attribute.Value.Length, SerializationStage.Scan);
-                attributes.Add(attribute);
                 if (attribute.NamespaceUri != Namespaces.Xmlns) continue;
                 if (attribute.Prefix is null)
                 {
@@ -313,11 +328,16 @@ internal static class XmlMarkupSerializer
             frame.NextChild = container.FirstChild;
         }
 
-        private void WriteAttributes(List<Attr> attributes, HashSet<string> localReserved,
+        private void WriteAttributes(ReadOnlySpan<Attr> attributes, HashSet<string> localReserved,
             HashSet<string> localDeclared, bool ignoreDefault)
         {
             _work.Poll(SerializationStage.Scan);
-            HashSet<(string?, string)>? expandedNames = _wellFormed ? new(attributes.Count) : null;
+            HashSet<(string?, string)>? expandedNames = null;
+            if (_wellFormed)
+            {
+                expandedNames = _expandedNames ??= [];
+                expandedNames.Clear();
+            }
             _work.Poll(SerializationStage.Scan);
             foreach (var attribute in attributes)
             {
@@ -429,11 +449,15 @@ internal static class XmlMarkupSerializer
             "br" or "col" or "embed" or "frame" or "hr" or "img" or "input" or "keygen" or "link" or
             "menuitem" or "meta" or "param" or "source" or "track" or "wbr";
 
-        private void Capture(Document document)
+        private ulong Capture(Document document)
         {
             var observed = document.MutationStamp;
             if (observed == ulong.MaxValue) throw Invalidated();
-            if (_stamps.TryGetValue(document, out var prior))
+            if (ReferenceEquals(document, _activeDocument))
+            {
+                if (_activeStamp != observed) throw Invalidated();
+            }
+            else if (_stamps.TryGetValue(document, out var prior))
             {
                 if (prior != observed) throw Invalidated();
             }
@@ -443,20 +467,20 @@ internal static class XmlMarkupSerializer
             }
             _work.Poll(SerializationStage.Scan);
             if (document.MutationStamp != observed) throw Invalidated();
+            return observed;
         }
 
         private void CheckActive()
         {
-            if (_stamps.TryGetValue(_rootDocument, out var rootStamp) &&
-                (_rootDocument.MutationStamp != rootStamp ||
-                 !ReferenceEquals(_root as Document ?? _root.OwnerDocument, _rootDocument))) throw Invalidated();
-            if (_activeDocument is { } active && _stamps.TryGetValue(active, out var stamp) && active.MutationStamp != stamp)
+            if (_rootDocument.MutationStamp != _rootStamp ||
+                !ReferenceEquals(_root as Document ?? _root.OwnerDocument, _rootDocument)) throw Invalidated();
+            if (_activeDocument is { } active && active.MutationStamp != _activeStamp)
                 throw Invalidated();
             if (_activeNode is { } node &&
                 !ReferenceEquals(node as Document ?? node.OwnerDocument, _activeDocument)) throw Invalidated();
         }
 
-        private void CheckFrame(Frame frame)
+        private void CheckFrame(in Frame frame)
         {
             CheckActive();
             if (!ReferenceEquals(frame.Node as Document ?? frame.Node.OwnerDocument, frame.Document)) throw Invalidated();
