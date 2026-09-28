@@ -5,7 +5,7 @@ replacement. AngleSharp is permitted only in `Jint.Benchmark` for comparisons wi
 The [CSSOM contract](html-parser-cssom.md), [standalone contract](html-parser.md#4-native-api-contract)
 and focused serialization/XPath designs remain the acceptance definitions.
 
-The latest implemented baseline is `0d9bf3790` (typed borders, radii and outlines).
+The latest implemented baseline is `d14d11234` (container size range comparisons).
 The checkboxes below track remaining work, not a claim that writing this plan completed it.
 Historical measurements remain at the end; the older `html-parser-progress.md` is a chronological
 record, not the current backlog.
@@ -32,8 +32,8 @@ boundary to its entry or to a linked completed slice. Update the family roll-up 
 assigned names and tasks have dispositions; a standards-based rejection requires a reviewed
 specification/fixture explanation, not an unsupported-feature success fallback.
 
-**Recommended order:** address `C6-02`'s newly exposed Scalar width-feature syntax boundary and rerun
-`ACC-01` first; then finish the registration gaps
+**Recommended order:** address `ACC-01`'s newly exposed scroll-time geometry/selector-work timeout
+and rerun the real Scalar interaction first; then finish the registration gaps
 `R6-01` through `R6-03`. Shared-value, rule and intrinsic-selector tasks can proceed independently
 where their named dependencies permit. Public CSS promotion waits for its grammar gates.
 Byte/stream API review is a separate phase, not a reason to delay decoded-string fixes.
@@ -118,6 +118,16 @@ Byte/stream API review is a separate phase, not a reason to delay decoded-string
   Evidence: `0d9bf3790`, `CssBorderDeclarationTests` and both `NativeCssBorderTests` fixtures;
   [commands and the newly exposed Scalar boundary](#v1-01-border-radius-and-outline-completion).
   General border-image/shadow grammar, advanced shared colors and actual painting remain separate.
+- [x] **C6-02a container size range comparisons**: `<`, `<=`, `=`, `>=`, `>`, reversed
+  operands and consistently directed two-sided ranges, using the shared media range parser.
+  Width and horizontal inline-size use the existing measured box provider; absolute units,
+  signed thresholds and zero retain numeric meaning. Invalid ranges stay unknown, including
+  under negation, while unresolved units/expressions and unsupported geometry remain explicit
+  dependencies. Browser rule metadata, live CSSOM and measured-width invalidation agree.
+  Evidence: `d14d11234`, `CssContainerRuleTests`, `CssMediaListTests`,
+  `NativeCssContainerQueryTests` and `NativeCssContainerLayoutTests`;
+  [commands and the newly exposed Scalar boundary](#c6-02a-container-range-completion).
+  This closes the recommended width-syntax slice, not the broader C6-02 dimension/unit work.
 - [x] **R2 cascade layer blocks/statements**: named, dotted, anonymous and nested layer identities;
   first-occurrence ordering across sheets, origin/shadow separation, conditional ordering,
   reversed important precedence and ordinary/custom-property `revert-layer` rollback.
@@ -194,7 +204,7 @@ Browser named/generic route evidence before it can close.
 | Open | R5 pages/counters | R5-01, R5-02 | Page/margin rules and complete counter-style descriptors. |
 | Open | R6 registrations | R6-01 through R6-07 | Remaining types/cycles/JS registration, edition review and special descriptor rules. |
 | Open | R7 legacy rules | R7-01 | Reviewed standards dispositions for document/viewport. |
-| Open | C6 computation | C6-01 through C6-05; R6-02 | Missing environment/container/used-value dependencies and invalidation. |
+| Open | C6 computation | C6-01 through C6-05; R6-02 | C6-02a range syntax is complete; environment/container/used-value dependencies and invalidation remain. |
 | Open | Browser CSS loading | LOAD-01, LOAD-02 | Charset/BOM selection and MIME eligibility with real load-order evidence. |
 
 ## CSS implementation tasks
@@ -518,8 +528,16 @@ Rule work extends `Css/Model/CssStyleSheet.cs`, the existing rule hierarchy and
   beyond its supported metric cases to height, logical/non-px dimensions and the remaining
   flat-tree/container-unit dependencies. Done when nested/named container selection, fallback,
   shadow/slot ancestry and percent/font-dependent sizes have exact results and bounded cycle checks.
-  After V1-01, Scalar reaches `C6:container-feature-syntax:width`; implement that width-feature
-  form and its metric dependencies, then rerun ACC-01 without changing budgets.
+  The Scalar absolute-width range boundary is completed separately as C6-02a. Remaining work
+  still includes typed relative/expression thresholds, height/logical metrics and flat-tree/unit
+  dependencies; completing range syntax does not close these obligations.
+- [x] **C6-02a - Absolute-length size range conditions.** Complete the width range syntax exposed
+  by Scalar after V1-01, including reversed operands, inclusive/exclusive bounds and two-sided
+  ranges. Reuse the supported width/horizontal-inline-size metric provider rather than authored
+  widths or guessed pixels. Invalid syntax must remain unknown, and unsupported value/metric
+  dependencies must remain distinguishable. Done in `d14d11234`, including Browser mutation,
+  cancellation, CSSOM/range serialization and the required unchanged-budget ACC-01 rerun.
+  [Evidence and remaining boundary](#c6-02a-container-range-completion).
 - [ ] **C6-03 - Remaining container conditions.** Implement the adopted style/scroll-state
   conditions and their required snapshots separately from parsing a condition.
   Done when unsupported state is not assumed false/true, per-turn state changes invalidate
@@ -615,14 +633,19 @@ friend access or a project reference. A separate native pack/run is required for
 - [ ] **ACC-01 - Finish the real Scalar interaction.** Its 66 property registrations and
   document-level `:host` selectors
   no longer stop scrollbar measurement. V7-01 removes the legacy clip failure and V1-01 removes
-  the border-width failure. The latest rerun fails on both frameworks with
-  `The native CSS read context was aborted.` during an `offsetHeight` read.
-  Triage of the original abort identifies `C6:container-feature-syntax:width` in
-  `NativeCssQuery.EvaluateFeature`; implement that C6-02 form rather than discarding the condition.
+  the border-width failure. C6-02a removes the width-feature syntax failure: the real GetEndpoint
+  group and GET operation now open, and the Test Request button appears. The current full rerun
+  fails on both frameworks with `System.TimeoutException: The operation's time budget elapsed.`
+  after the GET operation click, in Scalar's `measure` / `onScrollChanged` callback through
+  `getBoundingClientRect`, `PageLayout.ClientBoxOf`, `SizeQuery.HeightUpTo` and selector matching.
+  Next: isolate and bound the repeated geometry/cascade work with a deterministic regression,
+  then rerun the interaction; do not remove the scroll handler or increase the task/wait budgets.
   Framework-caught failures require bounded console/request/DOM diagnostics; the console snapshot
   retains both its first and last messages so later timing logs cannot hide the initial exception.
+  The fixture now also retains the first 20 warning/error console records separately from timing
+  logs, and corrects two stale accessible button names without weakening their exact-match checks.
   An empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
-  After V1-01, rerun `ScalarFixtureTests` after each newly exposed fix. Done when the fixture opens
+  Rerun `ScalarFixtureTests` after each newly exposed fix. Done when the fixture opens
   the GetEndpoint group/GET operation, opens Test Request's API Client dialog, observes the expected
   OpenAPI request and reports no unexpected request/page/console failures on both frameworks.
 - [ ] **ACC-02 - Close named native Browser WPT debt.**
@@ -668,6 +691,62 @@ the public API snapshots, the packed consumer and the dependency inventory. Neve
 unfinished grammar as valid raw text merely to make an acceptance run pass.
 
 ### Evidence for the completed slices
+
+#### C6-02a container range completion
+
+Implementation: `d14d11234`, macOS arm64, net8.0/net10.0, Release.
+The bounded C6-02a slice follows
+[CSS Conditional 5 size features](https://drafts.csswg.org/css-conditional-5/#size-container) and
+[Media Queries 5 range context and syntax](https://drafts.csswg.org/mediaqueries-5/#mq-range-context).
+It extracts the existing media comparison grammar into `CssFeatureRange` and consumes the same
+typed comparisons from container conditions. Reversed operands invert the comparison; a two-sided
+range emits two feature instructions joined by `and`. Whitespace between `<`/`>` and `=` remains
+invalid, while intervening comments are allowed. Absolute-length conversion, negative thresholds
+and zero preserve the existing numeric rules; nonzero unitless values and non-length units are
+unknown, not successful metric reads.
+
+`CssContainerRuleTests` covers exact rule serialization, reparsing, serialized-text ranges,
+parentage/detachment, atomic insertion, all comparison directions, chained ranges, invalid syntax,
+and cancellation before publication. `CssMediaListTests` guards the extracted parser's existing
+media behavior. `NativeCssContainerQueryTests` covers exact and fractional boundaries, unknown
+conditions and missing boxes, single metric reuse, mutation, cancellation and cycle rejection.
+`NativeCssContainerLayoutTests` covers nested named containers, real flex-box width changes,
+stylesheet declaration edits, container-name changes, live named/generic computed reads,
+readonly/brand checks and detached-rule edits. No metric provider, public API or binding was added.
+
+Commands and outcomes:
+
+```sh
+dotnet test -c Release --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~Jint.Tests.HtmlParser.Css|FullyQualifiedName~Parsing.PublicApiTest|FullyQualifiedName~ParserLookup'
+dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~NativeCss|FullyQualifiedName~CssSupportsTests|FullyQualifiedName~CssCoverageTests|FullyQualifiedName~DomBindingsStalenessTests|FullyQualifiedName~ParserDependencyTests|FullyQualifiedName~SwaggerFixtureTests|FullyQualifiedName~ScalarFixtureTests'
+python3 -B Jint.HtmlParser/Parsing/generate_parser_lookups.py --check
+python3 -B -m unittest discover -s Jint.HtmlParser/Parsing -p test_generate_parser_lookups.py
+python3 -B tools/html-parser-inventory/inventory.py
+python3 -B -m unittest discover -s tools/html-parser-inventory -p 'test_*.py'
+```
+
+All 5,938 native CSS/public-API/lookup cases passed. The Browser selection passed 466 cases,
+including all container regressions, Swagger, binding staleness, dependency checks and CSS coverage;
+its two Scalar cases failed at the new timeout boundary described below. All three lookup-generator
+tests and six inventory tests passed, and the inventory still matches 1,766 generated members across
+166 interfaces. The fresh local-feed package and unsigned net8.0/net10.0 consumers passed using the
+[documented package-consumer workflow](../../tools/html-parser-package-consumer/README.md).
+Both framework assets and the imported MIT license are present; `System.IO.Hashing` remains the
+package's only dependency. No public API snapshot or historical Windows census changed.
+
+Scalar's original `(width < 380px)` / `(width < 400px)` conditions no longer abort the CSS read.
+Intermediate interaction runs exposed two stale accessible-name expectations: a space separates
+the path from `HTTP Method: GET`, and `Test Request` from its parenthesized operation.
+Both exact expectations were corrected. The final run opens the group and selects GET but times
+out in the scroll-time measurement path before the API Client dialog is verified. The recorded
+JavaScript stack names `measure`, `onScrollChanged` and `bound onScroll`; the native stack reaches
+`SizeQuery.HeightUpTo` and `NativeCssQuery.StateOf` through `getBoundingClientRect`.
+The 30-second task and 60-second wait budgets are unchanged. ACC-01 remains open; a rendered
+operation or an empty error list is not being counted as completed interaction acceptance.
+
+C6-02 remains open for relative/expression thresholds, height and nonhorizontal logical metrics,
+flat-tree geometry and container-relative units. Those failures remain explicit and covered rather
+than being coerced to pixels or discarded as false conditions.
 
 #### V1-01 border, radius and outline completion
 
