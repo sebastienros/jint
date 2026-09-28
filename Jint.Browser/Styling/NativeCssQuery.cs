@@ -277,29 +277,30 @@ internal sealed partial class NativeCssQuery
 
     private Candidate? Winner(State state, string name)
     {
-        var candidates = new List<Candidate>();
+        List<Candidate>? candidates = null;
         foreach (var source in state.Sources)
         {
             _work.Charge(1);
-            if (source.Block.ResolveProperty(name, _work) is { } declaration) candidates.Add(new(declaration, source));
+            if (source.Block.ResolveProperty(name, _work) is { } declaration) (candidates ??= []).Add(new(declaration, source));
         }
-        candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
-        var excludedOrigins = new bool[3];
-        var excludedRules = new HashSet<CssDeclarationBlock>();
+        if (candidates is null) return null;
+        if (candidates.Count > 1) candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
+        var excludedOrigin = int.MaxValue;
+        HashSet<CssDeclarationBlock>? excludedRules = null;
         List<NativeCssSource>? excludedLayers = null;
         foreach (var candidate in candidates)
         {
             _work.Charge(1);
             var origin = (int) candidate.Source.Origin;
-            if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block) || LayerExcluded(candidate.Source, excludedLayers)) continue;
+            if (origin >= excludedOrigin || excludedRules?.Contains(candidate.Source.Block) == true || LayerExcluded(candidate.Source, excludedLayers)) continue;
             if (name.StartsWith("--", StringComparison.Ordinal)) return candidate;
             switch (candidate.Declaration.Value)
             {
                 case "revert":
-                    for (var i = origin; i < excludedOrigins.Length; i++) { _work.Charge(1); excludedOrigins[i] = true; }
+                    excludedOrigin = System.Math.Min(excludedOrigin, origin);
                     continue;
                 case "revert-rule":
-                    excludedRules.Add(candidate.Source.Block);
+                    (excludedRules ??= []).Add(candidate.Source.Block);
                     continue;
                 case "revert-layer":
                     (excludedLayers ??= []).Add(candidate.Source);
