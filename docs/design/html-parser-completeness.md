@@ -84,11 +84,35 @@ and focused serialization/XPath designs remain the acceptance definitions.
   nodes retain identity witnesses. Deterministic witness-count and invalidation tests cover the
   change. This removes Swagger's click-time stall without changing its task budget.
   Evidence: `SelectorInteractionWorkTests`, `SelectorControlFactsTests`, `SwaggerFixtureTests`.
+- [x] **R6 primitive property-registration slice**: required descriptors, syntax alternatives and
+  list multipliers, initial-value independence, typed numeric/color/string/identifier values,
+  inheritance, substitution and custom-variable cycles. Registration does not change specified-value
+  acceptance or `CSS.supports(property, value)`. Computed enumeration includes registered defaults
+  and valid empty values, but excludes guaranteed-invalid custom values.
+  Active registrations are document-global, including
+  shadow sheets; media, imports, disabled sheets and rule removal participate in invalidation.
+  `CSSPropertyRule` exposes readonly `name`, `syntax`, `inherits` and nullable `initialValue`,
+  rather than the dormant nonstandard descriptor-mutation surface.
+  Evidence: `CssPropertyRuleTests` and both `NativeCssPropertyRegistrationTests` fixtures.
+  URL/image/transform registration values, advanced colors, ordinary-property dependency cycles
+  and JavaScript registration remain open; this is not all of R6.
+- [x] **Shadow stylesheet host selectors**: `:host` and `:host(...)`, featureless-host restrictions,
+  logical predicates and combinators, argument specificity, and normal/important encapsulation
+  precedence. DOM queries do not acquire stylesheet host context. Ordinary host features are
+  visible only inside the functional argument; selector matching cannot escape into outer ancestors.
+  Live class/sheet changes and layer rollback preserve the context boundary.
+  Evidence: `SelectorHostTests`, `CssSupportsTests`, `NativeCssHostTests`.
+  `:host-context()` remains an explicit unsupported predicate.
 
 Gaps and distribution above are grammar/CSSOM/computed-value work, not grid/flex layout completion.
 Normal gap and line-width keywords remain keywords at computed-value time, per
 [CSS Gaps 1](https://drafts.csswg.org/css-gaps-1/#column-row-gap). Percentage bases and normal's
 multicolumn used value must not be replaced with guessed pixels.
+
+The registration slice follows the required-descriptor and independent-initial-value contract in
+[published CSS Properties and Values API Level 1](https://www.w3.org/TR/css-properties-values-api-1/#at-property-rule),
+which is the R6 contract below. The newer editor's draft changes descriptor defaults and permits
+multiple names; those changes are not included or silently treated as this checkpoint's acceptance.
 
 ## CSS completion still required
 
@@ -119,9 +143,9 @@ Browser named/generic route evidence before it can close.
 | Open | R3 animation rules | Timeline-range keyframe selectors and reviewed aliases; classic keyframes already exist. |
 | Open | R4 fonts | Feature-value maps, palette descriptors and remaining font-face descriptor obligations. |
 | Open | R5 pages/counters | Page selectors/margin rules, counter descriptors, dependencies and whole-rule invalidity. |
-| Open | R6 registrations | Property syntax/inherits/initial-value and independence checks; view-transition/position-try/color-profile descriptors. |
+| Open | R6 registrations | Complete URL/image/transform and advanced-color registration grammars, ordinary-property dependency cycles and JavaScript registration; view-transition/position-try/color-profile descriptors. Primitive descriptor/computation support is the completed slice above. |
 | Open | R7 legacy rules | Reviewed standards dispositions for document/viewport; named corrections, not silent removal. |
-| Open | C6 computation | Advanced color/environment/font/container dependencies, height/non-px/scroll-state queries, positioned/SVG/reference-box/automatic-minimum used values. |
+| Open | C6 computation | Advanced color/environment/font/container dependencies, registered-property cycles through ordinary properties (currently `C6:registered-property-cycle`), height/non-px/scroll-state queries, positioned/SVG/reference-box/automatic-minimum used values. |
 | Open | Browser CSS loading | Charset/BOM selection and MIME eligibility, with fixture-level evidence. |
 
 ## Public API dependencies still required
@@ -152,10 +176,10 @@ friend access or a project reference. A separate native pack/run is required for
   probes remain enforced.
 - [x] Finish the Swagger fixture. Its logo renders and the real summary click expands the operation
   through the Try-it-out control on both frameworks, with its original task and wait budgets.
-- [ ] Finish the Scalar fixture. Layer parsing is no longer its blocker: a direct probe of the
-  abandoned scrollbar-measurement element now reports `R6:property` from `clientWidth`.
-  The captured stylesheet contains 66 registrations, including universal, color and
-  length-percentage syntax. Implement registration semantics rather than discarding these rules.
+- [ ] Finish the Scalar fixture. Its 66 property registrations and document-level `:host` selectors
+  no longer stop scrollbar measurement. It now fetches and processes the captured OpenAPI document,
+  then reports `CSSStyleDeclaration.clip: Unimplemented CSS grammar: V7:clip`; navigation buttons
+  still do not appear. Implement the missing clip grammar rather than discarding the declaration.
   Framework-caught failures require bounded console/request/DOM diagnostics; the console snapshot
   retains both its first and last messages so later timing logs cannot hide the initial exception.
   An empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
@@ -211,5 +235,15 @@ Swagger and dependency checks pass 352 cases, and the layer/interface/default-ar
 passes 38 cases. Both freshly packed unsigned consumers and the net10.0 osx-arm64 Native AOT
 consumer pass. The inventory and its six tooling checks pass with 1,739 generated members and
 166 interfaces; its historical Windows WPT table is unchanged. Scalar remains a failing acceptance
-fixture at the registration boundary described above. None of these results closes the remaining
+fixture at the then-unsupported registration boundary. None of these results closes the remaining
 grammar/API rows or substitutes for paired benchmarks and the prescribed Windows census.
+
+The registration/host-selector checkpoint passes all 14,390 native parser cases across
+net8.0/net10.0. The broader Browser native-CSS, Swagger, binding, dependency and pinned WPT selection
+passes 1,310 cases, with four skips for the two opt-in census checks on each framework.
+Both freshly packed unsigned consumers and the net10.0 osx-arm64 Native AOT consumer pass;
+the package retains both framework assets, only the `System.IO.Hashing` dependency and the imported
+MIT license. The inventory and its six tooling checks pass with 1,737 generated members and
+166 interfaces; the historical Windows WPT table is unchanged. Scalar fails on `V7:clip` on both
+frameworks under its original budgets. The overall grammar/API, Scalar, Windows census and paired
+benchmark completion gates remain open.

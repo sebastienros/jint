@@ -10,17 +10,17 @@ internal static partial class SelectorMatcher
         => TryMatch(program, element, out _, scopingRoot, environment, ref work);
 
     internal static bool TryMatch(CompiledSelector program, Element element, out SelectorSpecificity specificity,
-        Node? scopingRoot, in SelectorEnvironment environment, ref SelectorMatchWork work)
+        Node? scopingRoot, in SelectorEnvironment environment, ref SelectorMatchWork work, ShadowRoot? shadowScope = null)
     {
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(element);
-        work.Enter(element, scopingRoot, environment);
+        work.Enter(element, shadowScope ?? scopingRoot, environment);
         try
         {
             work.VerifyRead();
-            var local = new Work(ref work, environment);
+            var local = new Work(ref work, environment, shadowScope);
             ValidateImplemented(program, ref local, work.Token);
-            var matched = TryMatchCore(program, element, ScopeFor(scopingRoot ?? element, ref local),
+            var matched = TryMatchCore(program, element, ScopeFor(shadowScope ?? scopingRoot ?? element, ref local),
                 ref local, out specificity);
             work.VerifyRead();
             return matched;

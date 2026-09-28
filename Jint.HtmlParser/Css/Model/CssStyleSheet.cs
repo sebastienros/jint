@@ -283,7 +283,7 @@ internal sealed class CssStyleSheet
         var root = BuildShallow(source, syntax, parser, options, work, cancellationToken);
         if (root is null) return null;
         var pending = new Stack<(CssRule Owner, CssComponentValue Block)>();
-        if (root is not CssFontFaceRule && syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
+        if (root is not (CssFontFaceRule or CssPropertyRule) && syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
         while (pending.TryPop(out var item))
         {
             work.Charge(1);
@@ -307,7 +307,7 @@ internal sealed class CssStyleSheet
                 if (child is null) continue;
                 if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
-                if (child is not CssFontFaceRule && entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
+                if (child is not (CssFontFaceRule or CssPropertyRule) && entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
             }
         }
         return root;
@@ -325,6 +325,8 @@ internal sealed class CssStyleSheet
             {
                 case CssAtRuleKind.Import:
                     return CssImportRule.Parse(source, syntax, parser, work);
+                case CssAtRuleKind.Property:
+                    return nestingParent is null ? CssPropertyRule.Parse(source, syntax, parser, options, work) : null;
                 case CssAtRuleKind.Layer:
                     {
                         if (nestingParent is not null)
@@ -382,7 +384,7 @@ internal sealed class CssStyleSheet
                 CssAtRuleKind.Scope or CssAtRuleKind.StartingStyle => "R2",
                 CssAtRuleKind.FontFeatureValues or CssAtRuleKind.FontPaletteValues => "R4",
                 CssAtRuleKind.Page or CssAtRuleKind.CounterStyle => "R5",
-                CssAtRuleKind.Property or CssAtRuleKind.ViewTransition or CssAtRuleKind.PositionTry or CssAtRuleKind.ColorProfile => "R6",
+                CssAtRuleKind.ViewTransition or CssAtRuleKind.PositionTry or CssAtRuleKind.ColorProfile => "R6",
                 CssAtRuleKind.Document or CssAtRuleKind.Viewport => "R7",
                 _ => null
             };
@@ -416,7 +418,7 @@ internal sealed class CssStyleSheet
                 if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media") || CssAscii.EqualsIgnoreCase(item.Rule.Name, "supports") ||
                     CssAscii.EqualsIgnoreCase(item.Rule.Name, "layer"))
                     throw new CssIncompleteRuleGrammarException("nested-" + item.Rule.Name, "C2:nesting-selector-context", item.Rule.Span);
-                if (!CssAscii.EqualsIgnoreCase(item.Rule.Name, "import"))
+                if (!CssAscii.EqualsIgnoreCase(item.Rule.Name, "import") && !CssAscii.EqualsIgnoreCase(item.Rule.Name, "property"))
                     BuildShallow(source, item.Rule, parser, options, work, cancellationToken);
                 continue;
             }

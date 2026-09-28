@@ -102,7 +102,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSProperty</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSProperty;
 
-    /// <summary>The <c>CSSPropertyRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSPropertyRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssPropertyRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPropertyRule;
 
     /// <summary>The <c>CSSPseudoElement</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -843,7 +843,7 @@ internal static partial class DomInterfaces
 
         CSSPropertyRule = Add(new DomInterfaceDefinition(
             "CSSPropertyRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssPropertyRule),
             BuildCSSPropertyRule,
             CSSRule,
             rootsAtEventTarget: false,

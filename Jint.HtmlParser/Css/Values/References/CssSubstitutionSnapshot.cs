@@ -64,6 +64,7 @@ internal sealed class CssSubstitutionSnapshot
     private readonly Dictionary<uint, List<int>> _buckets;
     private readonly ICssQueryBindingResolver? _queryResolver;
     internal bool IsQueryBound => _queryResolver is not null;
+    internal ICssQueryBindingComputer? Computer => _queryResolver as ICssQueryBindingComputer;
 
     private CssSubstitutionSnapshot(CssSubstitutionBinding[] bindings, Dictionary<uint, List<int>> buckets,
         CssSubstitutionSnapshot? parent, ICssQueryBindingResolver? queryResolver = null)
@@ -162,4 +163,11 @@ internal sealed class CssSubstitutionSnapshot
 internal interface ICssQueryBindingResolver
 {
     bool TryResolve(string name, CssValueWork work, out CssSubstitutionBinding binding);
+}
+
+// Computation stays invocation-affine; frozen snapshots never retain an evaluator.
+internal interface ICssQueryBindingComputer
+{
+    bool RequiresComputation(string name, CssValueWork work);
+    CssSubstitutionResult Compute(string name, CssSubstitutionResult value, CssValueWork work);
 }

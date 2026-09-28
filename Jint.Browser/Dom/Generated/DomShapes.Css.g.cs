@@ -855,46 +855,31 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CSSPropertyRule")
             .PerRealmSlot("constructor", enumerable: false)
-            .Method("getPropertyPriority",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.getPropertyPriority", static (thisObj, args) =>
+            .Accessor("inherits",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.inherits", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSPropertyRule.getPropertyPriority");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSPropertyRule.getPropertyPriority");
-                }),
-                length: 1)
-            .Method("getPropertyValue",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.getPropertyValue", static (thisObj, args) =>
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, "CSSPropertyRule.inherits");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Inherits);
+                }))
+            .Accessor("initialValue",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.initialValue", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSPropertyRule.getPropertyValue");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSPropertyRule.getPropertyValue");
-                }),
-                length: 1)
-            .Accessor("length",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.length", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSPropertyRule.length");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSPropertyRule.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, "CSSPropertyRule.initialValue");
+                    var value = self.Target.InitialValue(global::Jint.Browser.Styling.NativeCssBindings.Work(self.Realm));
+                    return value is null ? global::Jint.Native.JsValue.Null : global::Jint.Browser.Dom.DomConvert.Text(value);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.name", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSPropertyRule.name");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSPropertyRule.name");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, "CSSPropertyRule.name");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }))
-            .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSPropertyRule.removeProperty", static (thisObj, args) =>
+            .Accessor("syntax",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.syntax", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSPropertyRule.removeProperty");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSPropertyRule.removeProperty");
-                }),
-                length: 1)
-            .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSPropertyRule.setProperty", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSPropertyRule.setProperty");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSPropertyRule.setProperty");
-                }),
-                length: 2)
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, "CSSPropertyRule.syntax");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Syntax.Text);
+                }))
             .Build();
 
     /// <summary>The members of <c>CSSPseudoElement</c>.</summary>

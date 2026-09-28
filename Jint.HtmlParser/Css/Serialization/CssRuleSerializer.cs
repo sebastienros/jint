@@ -118,6 +118,16 @@ internal static class CssRuleSerializer
                 builder.Append('}');
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
+            else if (rule is CssPropertyRule property)
+            {
+                builder.Append("@property ").Append(CssSyntaxSerializer.SerializeIdentifier(property.Name, work))
+                    .Append(" { syntax: ").Append(CssSyntaxSerializer.SerializeString(property.Syntax.Text, work))
+                    .Append("; inherits: ").Append(property.Inherits ? "true; " : "false; ");
+                if (property.InitialValue(work) is { } initial)
+                    builder.Append("initial-value: ").Append(initial).Append("; ");
+                builder.Append('}');
+                ranges?.Add(rule, new CssTextRange(start, builder.Length));
+            }
             else if (rule is CssFontFaceRule fontFace)
             {
                 // Fonts 4 §12.1; serialize the declaration block, including font-display.

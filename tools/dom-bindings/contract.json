@@ -1838,8 +1838,8 @@
     },
     {
       "DomName": "CSSPropertyRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssPropertyRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssPropertyRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -1852,52 +1852,36 @@
       "AccessorReference": null,
       "Members": [
         {
-          "DomName": "getPropertyPriority",
-          "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSPropertyRule.getPropertyPriority\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSPropertyRule.getPropertyPriority\");",
-          "SetterBody": null,
-          "Length": 1,
-          "Origin": "ICssProperties.GetPropertyPriority"
-        },
-        {
-          "DomName": "getPropertyValue",
-          "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSPropertyRule.getPropertyValue\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSPropertyRule.getPropertyValue\");",
-          "SetterBody": null,
-          "Length": 1,
-          "Origin": "ICssProperties.GetPropertyValue"
-        },
-        {
-          "DomName": "length",
+          "DomName": "inherits",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSPropertyRule.length\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSPropertyRule.length\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, \"CSSPropertyRule.inherits\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Inherits);",
           "SetterBody": null,
           "Length": 0,
-          "Origin": "ICssProperties.Length"
+          "Origin": "CSS Properties and Values API 1 CSSPropertyRule.inherits"
+        },
+        {
+          "DomName": "initialValue",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, \"CSSPropertyRule.initialValue\");\nvar value = self.Target.InitialValue(global::Jint.Browser.Styling.NativeCssBindings.Work(self.Realm));\nreturn value is null ? global::Jint.Native.JsValue.Null : global::Jint.Browser.Dom.DomConvert.Text(value);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Properties and Values API 1 CSSPropertyRule.initialValue"
         },
         {
           "DomName": "name",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSPropertyRule.name\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSPropertyRule.name\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, \"CSSPropertyRule.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);",
           "SetterBody": null,
           "Length": 0,
-          "Origin": "ICssPropertyRule.Name"
+          "Origin": "CSS Properties and Values API 1 CSSPropertyRule.name"
         },
         {
-          "DomName": "removeProperty",
-          "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSPropertyRule.removeProperty\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSPropertyRule.removeProperty\");",
+          "DomName": "syntax",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssPropertyRule>(thisObj, \"CSSPropertyRule.syntax\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Syntax.Text);",
           "SetterBody": null,
-          "Length": 1,
-          "Origin": "ICssProperties.RemoveProperty"
-        },
-        {
-          "DomName": "setProperty",
-          "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSPropertyRule.setProperty\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSPropertyRule.setProperty\");",
-          "SetterBody": null,
-          "Length": 2,
-          "Origin": "ICssProperties.SetProperty"
+          "Length": 0,
+          "Origin": "CSS Properties and Values API 1 CSSPropertyRule.syntax"
         }
       ],
       "Constants": [],

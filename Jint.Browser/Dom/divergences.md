@@ -266,3 +266,21 @@ null-to-empty conversion and the same native declarations as generic operations.
 contract is regenerated, not hand patched. `NativeCssContentAlignmentAndGapTests` covers rule/inline
 and live computed values, `CSS.supports`, receiver guards, readonly computed declarations and
 invalidation. This supplies specified/computed semantics, not a grid or gap layout implementation.
+
+### Native property registrations and shadow hosts
+
+`CSSPropertyRule` now exposes the [Properties and Values API Level 1
+attributes](https://www.w3.org/TR/css-properties-values-api-1/#the-csspropertyrule-interface):
+readonly `name`, `syntax`, `inherits` and nullable `initialValue`. The legacy generated
+descriptor-map operations and `length` did not represent this interface and were never backed by
+native property rules. The corrected contract is regenerated, with receiver, brand, parentage,
+serialization and live-registration coverage in `NativeCssPropertyRegistrationTests`.
+The [completion tracker](../../../docs/design/html-parser-completeness.md) lists supported types,
+the published-Level-1 scope and the remaining registration/computation gaps.
+
+The native selector VM implements [shadow stylesheet `:host` and
+`:host(...)`](https://drafts.csswg.org/css-shadow-1/#host-selector), including featureless hosts and
+the normal-context functional argument. Browser cascade ordering now compares encapsulation
+contexts before specificity, reversing that order for important declarations. It does not make
+DOM `querySelector` cross shadow boundaries or match hosts. `SelectorHostTests` and
+`NativeCssHostTests` cover these corrections; `:host-context()` remains unsupported.

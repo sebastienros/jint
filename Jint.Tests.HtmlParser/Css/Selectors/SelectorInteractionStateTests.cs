@@ -206,9 +206,9 @@ public sealed class SelectorInteractionStateTests
         Match(":active", control, environment).Should().BeFalse();
     }
 
-    [TestCase("#hit, :host")]
+    [TestCase("#hit, :host-context(.x)")]
     [TestCase(":is(#hit, :valid)")]
-    [TestCase(":not(:host)")]
+    [TestCase(":not(:host-context(.x))")]
     [TestCase(":has(:dir(rtl))")]
     public void UnsupportedPredicatesRejectTheWholeProgramAndEmptyQueries(string selector)
     {

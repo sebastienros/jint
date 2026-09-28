@@ -17,7 +17,8 @@ internal enum NativeCssOrigin { UserAgent, User, Author }
 internal enum NativeCssDisposition { Cascaded, Initial, Inherited, InvalidAtComputedValue }
 internal sealed record NativeCssSheet(CssStyleSheet Sheet, NativeCssOrigin Origin, string? NamespaceUri = null);
 internal sealed record NativeCssSource(CssStyleRule? Rule, CssDeclarationBlock Block,
-    NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline, NativeCssLayer? Layer = null);
+    NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline, NativeCssLayer? Layer = null,
+    int EncapsulationDepth = 0);
 internal sealed record NativeCssProperty(string Name, string Text, CssPropertyValue? Value,
     NativeCssSource? Source, NativeCssDisposition Disposition);
 
@@ -316,6 +317,7 @@ internal sealed partial class NativeCssQuery
         foreach (var name in ordinary) result.Add(GetProperty(element, name, ref matching));
         Variables(own, ref matching);
         var names = new HashSet<string>(new Names(_work));
+        foreach (var name in _registrations!.Keys) { _work.Charge(1); names.Add(name); }
         for (var state = own; state is not null; state = state.Parent)
             foreach (var name in CustomNames(state))
             {
@@ -325,7 +327,11 @@ internal sealed partial class NativeCssQuery
         var custom = names.ToList();
         _work.Charge(custom.Count);
         custom.Sort(CompareNames);
-        foreach (var name in custom) result.Add(Custom(element, name, ref matching));
+        foreach (var name in custom)
+        {
+            var property = Custom(element, name, ref matching);
+            if (property.Disposition != NativeCssDisposition.InvalidAtComputedValue) result.Add(property);
+        }
         Verify();
         return own.Enumeration = result.AsReadOnly();
     }
@@ -350,20 +356,27 @@ internal sealed partial class NativeCssQuery
         matching.Observe(element);
         var state = new State(element, _work);
         _rules ??= BuildRules();
+        var depth = 0;
+        for (var root = element.TreeShadowRoot; root is not null; root = root.Host.TreeShadowRoot)
+        {
+            _work.Charge(1);
+            depth++;
+        }
         foreach (var (rule, origin, order, namespaceUri, layer) in _rules)
         {
             _work.Charge(1);
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
-            if (origin == NativeCssOrigin.Author &&
-                !ReferenceEquals((rule.ParentStyleSheet?.Attachment.OwnerNode ??
-                    rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot, element.TreeShadowRoot))
+            var scope = (rule.ParentStyleSheet?.Attachment.OwnerNode ??
+                rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot;
+            var hostRule = ReferenceEquals(scope?.Host, element);
+            if (origin == NativeCssOrigin.Author && !hostRule && !ReferenceEquals(scope, element.TreeShadowRoot))
                 continue;
             _diagnostics?.RuleAttempted(element, rule);
-            if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
+            if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching, scope))
             {
                 _diagnostics?.RuleMatched(element, rule);
                 state.Matches.Add(rule);
-                Add(state, new(rule, rule.Style, origin, specificity, order, false, layer));
+                Add(state, new(rule, rule.Style, origin, specificity, order, false, layer, depth + (hostRule ? 1 : 0)));
             }
         }
         if (_readInlineAttributes && !_inline.ContainsKey(element))
@@ -378,7 +391,8 @@ internal sealed partial class NativeCssQuery
                 break;
             }
         if (_inline.TryGetValue(element, out var inline))
-            Add(state, new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true));
+            Add(state, new(null, inline.Block, NativeCssOrigin.Author, default, _rules.Count, true,
+                EncapsulationDepth: depth));
         matching.VerifyRead();
         Verify();
         _states.Add(element, state);
@@ -428,6 +442,10 @@ internal sealed partial class NativeCssQuery
         var b = rightImportant ? 5 - (int) right.Origin : (int) right.Origin;
         var comparison = a.CompareTo(b);
         if (comparison != 0) return comparison;
+        // CSS Cascade 5: outer contexts win normally; inner contexts win !important.
+        // https://drafts.csswg.org/css-cascade-5/#cascade-context
+        comparison = left.EncapsulationDepth.CompareTo(right.EncapsulationDepth);
+        if (comparison != 0) return leftImportant ? comparison : -comparison;
         comparison = left.Inline.CompareTo(right.Inline);
         if (comparison != 0) return comparison;
         comparison = (left.Layer?.Rank ?? int.MaxValue).CompareTo(right.Layer?.Rank ?? int.MaxValue);
@@ -543,21 +561,19 @@ internal sealed partial class NativeCssQuery
         }
         var snapshot = Variables(state, ref matching);
         var text = "";
+        var disposition = NativeCssDisposition.InvalidAtComputedValue;
         if (snapshot.TryGet(name, _work, out var binding))
         {
-            if (binding.Kind == CssSubstitutionBindingKind.Pending)
-                throw new CssIncompleteGrammarException(name, "C6:" + binding.PendingFeature, default);
-            if (binding.Kind == CssSubstitutionBindingKind.Specified)
+            var result = ResolveCustomBinding(binding);
+            if (result.Kind == CssSubstitutionResultKind.PendingFeature)
+                throw new CssIncompleteGrammarException(name, "C6:" + result.PendingFeature, default);
+            if (result.Kind == CssSubstitutionResultKind.Tokens)
             {
-                var result = CssSubstitutionExecutor.Resolve(binding.Input, binding.Scope!, _environment,
-                    new(name, CssReferenceUse.CustomPropertyValue, true), _work);
-                if (result.Kind == CssSubstitutionResultKind.PendingFeature)
-                    throw new CssIncompleteGrammarException(name, "C6:" + result.PendingFeature, default);
-                if (result.Kind == CssSubstitutionResultKind.Tokens)
-                    text = result.Value.SerializeCustomProperty(_work);
+                text = result.Value.SerializeCustomProperty(_work);
+                disposition = NativeCssDisposition.Cascaded;
             }
         }
-        var property = new NativeCssProperty(name, text, null, CustomWinner(state, name, ref matching)?.Source, NativeCssDisposition.Cascaded);
+        var property = new NativeCssProperty(name, text, null, CustomWinner(state, name, ref matching)?.Source, disposition);
         Verify();
         state.Computed.Add(name, property);
         _diagnostics?.ComputedPublished(element, name);

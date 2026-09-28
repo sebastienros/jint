@@ -323,6 +323,13 @@ Sharing C1's block parser is expected; treating every body as ordinary declarati
 | R6 registration/special descriptors | `@property`, `@view-transition`, `@position-try`, `@color-profile` | Property registration `syntax`/`inherits`/`initial-value`, required fields and computational independence; view-transition `navigation`/`types`; position-try's permitted declaration subset; profile `src`/`rendering-intent` and current supported descriptors. Context grammars cannot inherit the arbitrary-value pinned descriptor fallback. |
 | R7 legacy recognized rules | `@document`, `@viewport` | Characterize existing parse/serialization/JS behavior and the normative status before cutover. Keep tested supported behavior or submit a named standards correction for root review. They cannot silently disappear because layout does not read them. |
 
+The [completion tracker](html-parser-completeness.md) records the implemented primitive `@property`
+slice and its published Level 1 acceptance contract. Its CSSOM surface follows the standard
+readonly `name`, `syntax`, `inherits` and nullable `initialValue` attributes, not the pinned
+descriptor-map methods. Registration affects computed values, not ordinary custom-property
+declaration acceptance. Unsupported typed grammars and cycles through ordinary properties remain
+named failures; completing descriptor parsing alone does not close R6.
+
 Unknown at-rules remain opaque in C1/C4a and are discarded by validated stylesheet parsing at the
 appropriate boundary. A known but not-yet-implemented rule is a **completion blocker**, not an
 unknown rule that can be silently dropped to make C4 pass. No tolerant/unknown-rule flags in the

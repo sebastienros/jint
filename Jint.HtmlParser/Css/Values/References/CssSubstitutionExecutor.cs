@@ -140,6 +140,7 @@ internal static class CssSubstitutionExecutor
         if (context.Use == CssReferenceUse.CustomPropertyValue)
         {
             if (rootFrame.Cycle) last = Eval.Invalid();
+            last = ComputeBinding(customProperties, context.PropertyName, last, input.MaxNestingDepth, work);
             operation.PopActive(customProperties, context.PropertyName);
         }
         work.CheckCancellation();
@@ -336,11 +337,32 @@ internal static class CssSubstitutionExecutor
     {
         if (frame.Cycle) last = Eval.Invalid();
         if (last.Kind == EvalKind.Tokens && last.Segment!.IsOversize) last = Eval.Invalid();
+        if (frame.BindingValue.Kind != CssSubstitutionBindingKind.Computed)
+            last = ComputeBinding(operation.Custom, frame.BindingValue.Name, last,
+                frame.BindingValue.Input.MaxNestingDepth, operation.Work);
         operation.PopActive(operation.Custom, frame.BindingValue.Name);
         operation.AddMemo(operation.Custom, frame.BindingValue.Name, last);
         operation.Custom = frame.PreviousScope!;
         operation.Work.CheckCancellation();
         frames.RemoveAt(frames.Count - 1);
+    }
+
+    private static Eval ComputeBinding(CssSubstitutionSnapshot scope, string name, Eval value,
+        int maximumDepth, CssValueWork work)
+    {
+        if (value.Kind == EvalKind.Pending || scope.Computer is not { } computer ||
+            !computer.RequiresComputation(name, work)) return value;
+        var input = value.Kind == EvalKind.Invalid || value.Segment!.IsOversize
+            ? CssSubstitutionResult.Invalid()
+            : CssSubstitutionResult.Tokens(CssSubstitutedValue.Create(value.Segment!, maximumDepth, work));
+        var result = computer.Compute(name, input, work);
+        return result.Kind switch
+        {
+            CssSubstitutionResultKind.Tokens => Eval.Tokens(result.Value.Root),
+            CssSubstitutionResultKind.GuaranteedInvalid => Eval.Invalid(),
+            CssSubstitutionResultKind.PendingFeature => Eval.Pending(result.PendingFeature),
+            _ => throw new InvalidOperationException("A computed binding must have a result.")
+        };
     }
 
     private static CssSegment[] Slice(CssSegmentList source, int start, int count, CssValueWork work)

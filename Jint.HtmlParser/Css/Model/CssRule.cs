@@ -7,7 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Layer = 0, Style = 1, Import = 3, Media = 4, FontFace = 5, Keyframes = 7, Keyframe = 8, Supports = 12, Container = 17 }
+internal enum CssRuleType { Layer = 0, Property = Layer, Style = 1, Import = 3, Media = 4, FontFace = 5, Keyframes = 7, Keyframe = 8, Supports = 12, Container = 17 }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule
@@ -126,8 +126,8 @@ internal sealed class CssStyleRule : CssRule
         SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, cancellationToken);
 
     internal bool TryMatch(Element element, out SelectorSpecificity specificity, Node? scopingRoot,
-        in SelectorEnvironment environment, ref SelectorMatchWork work) =>
-        SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, environment, ref work);
+        in SelectorEnvironment environment, ref SelectorMatchWork work, ShadowRoot? shadowScope = null) =>
+        SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, environment, ref work, shadowScope);
 
     internal void SetSelectorText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)

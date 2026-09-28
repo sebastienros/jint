@@ -69,7 +69,11 @@ internal static partial class SelectorMatcher
     private static bool Evaluate(CompiledSelector program, Element element, Node? scope,
         ref Work work, out SelectorSpecificity specificity)
     {
-        var root = new EvaluationFrame(EvaluationKind.Program, element, scope)
+        // CSS Shadow 1: the featureless host replaces its shadow root only for
+        // stylesheet matching, never for DOM querySelector/closest operations.
+        // https://drafts.csswg.org/css-shadow-1/#host-element-in-tree
+        var subject = ReferenceEquals(work.ShadowScope?.Host, element) ? (Node) work.ShadowScope! : element;
+        var root = new EvaluationFrame(EvaluationKind.Program, subject, scope)
         {
             Program = program,
             NeedSpecificity = true
@@ -242,12 +246,15 @@ internal static partial class SelectorMatcher
                     }
                     if (predicate.Kind is not (PredicateKind.Is or PredicateKind.Where or
                             PredicateKind.Not or PredicateKind.Has) &&
+                        !(predicate.Kind == PredicateKind.Host && predicate.Arguments is not null) &&
                         !(predicate.Kind is PredicateKind.NthChild or PredicateKind.NthLastChild &&
                           predicate.Arguments is not null))
                     {
                         result = frame.Node is Element ordinary
                             ? MatchPredicate(predicate, ordinary, frame.Scope, ref work)
-                            : predicate.Kind == PredicateKind.Scope && ReferenceEquals(frame.Node, frame.Scope);
+                            : ReferenceEquals(frame.Node, work.ShadowScope)
+                                ? predicate.Kind == PredicateKind.Host
+                                : predicate.Kind == PredicateKind.Scope && ReferenceEquals(frame.Node, frame.Scope);
                         if (!result) stack.RemoveAt(stack.Count - 1);
                         break;
                     }
@@ -267,6 +274,23 @@ internal static partial class SelectorMatcher
                         result = currentPredicate.Kind == PredicateKind.Not ? !result : result;
                         stack.RemoveAt(stack.Count - 1);
                         continue;
+                    }
+                    if (currentPredicate.Kind == PredicateKind.Host)
+                    {
+                        if (!ReferenceEquals(frame.Node, work.ShadowScope))
+                        {
+                            result = false;
+                            stack.RemoveAt(stack.Count - 1);
+                            continue;
+                        }
+                        frame.Waiting = true;
+                        // The argument sees the host's ordinary features, not the
+                        // featureless shadow-tree proxy used by the outer selector.
+                        stack.Add(new EvaluationFrame(EvaluationKind.Program, work.ShadowScope!.Host, null)
+                        {
+                            Program = currentPredicate.Arguments
+                        });
+                        break;
                     }
                     if (currentPredicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not)
                     {
@@ -518,7 +542,8 @@ internal static partial class SelectorMatcher
             }
             var predicate = predicates[frame.PredicateIndex++];
             work.Step();
-            if (predicate.Kind == PredicateKind.Scope)
+            if (predicate.Kind == PredicateKind.Scope && work.ShadowScope is null ||
+                predicate.Kind == PredicateKind.Host && work.ShadowScope is not null)
             {
                 frame.HasCompanion = true;
             }

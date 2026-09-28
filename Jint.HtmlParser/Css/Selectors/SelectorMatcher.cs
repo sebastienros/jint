@@ -154,6 +154,7 @@ internal static partial class SelectorMatcher
         PredicateKind.Valid or PredicateKind.Invalid or PredicateKind.InRange or PredicateKind.OutOfRange or PredicateKind.Dir =>
             hasControlFacts && predicate.Arguments is null,
         PredicateKind.Slotted => true,
+        PredicateKind.Host => true,
         _ => false
     };
 
@@ -174,6 +175,8 @@ internal static partial class SelectorMatcher
     private static bool TryMatchCore(CompiledSelector program, Element element, Node? scope,
         ref Work work, out SelectorSpecificity specificity)
     {
+        if (ReferenceEquals(work.ShadowScope?.Host, element))
+            return Evaluate(program, element, scope, ref work, out specificity);
         // A lone compound with ordinary predicates is the common query path.
         // Keep it allocation-free; relational programs use the explicit VM.
         if (program.Branches.Count == 1)
@@ -254,6 +257,7 @@ internal static partial class SelectorMatcher
             case PredicateKind.WebkitUnknownPseudoElement:
             case PredicateKind.Picker:
             case PredicateKind.Slotted:
+            case PredicateKind.Host:
                 return false;
             case PredicateKind.Scope:
                 return ReferenceEquals(element, scope);
@@ -584,10 +588,12 @@ internal static partial class SelectorMatcher
     {
         internal ref SelectorMatchWork Shared;
         internal readonly SelectorEnvironment Environment;
-        internal Work(ref SelectorMatchWork shared, in SelectorEnvironment environment)
+        internal readonly ShadowRoot? ShadowScope;
+        internal Work(ref SelectorMatchWork shared, in SelectorEnvironment environment, ShadowRoot? shadowScope = null)
         {
             Shared = ref shared;
             Environment = environment;
+            ShadowScope = shadowScope;
         }
         private Dictionary<CompiledSelector, bool>? _featurelessEligibility;
         private Dictionary<Element, HtmlTableGrid>? _tableGrids;

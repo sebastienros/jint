@@ -50,7 +50,17 @@ internal sealed partial class NativeCssQuery
             if (!ReferenceEquals(active.Element, element) || active.Kind != kind) continue;
             if (ReferenceEquals(active.Key, key) || active.Key is string left && key is string right &&
                 CssSubstitutionArguments.Equals(left, right, _work))
+            {
+                // Relative units and currentColor can add ordinary-property edges to a
+                // registered variable cycle. Keep this distinct from a container cycle.
+                foreach (var registration in _activeDependencies)
+                {
+                    _work.Charge(1);
+                    if (registration.Kind == "registered-value")
+                        throw new CssIncompleteGrammarException((string) registration.Key, "C6:registered-property-cycle", default);
+                }
                 throw new CssIncompleteGrammarException("container", "C6:container-layout-cycle", default);
+            }
         }
         _activeDependencies.Add(dependency);
         return new(this, dependency);

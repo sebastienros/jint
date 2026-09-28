@@ -22,7 +22,7 @@ When an intentional source, binding or baseline change makes the check fail, run
 | `api` | The five approved Jint public API snapshots by hash, and top-level Browser public type and source member declarations. The latter are source references for migration review; Browser has no compiled public API snapshot yet, so A2 must add one for the new package. |
 | `wpt` | The shared vendored WPT commit, the browser lane's measured census table and the exclusions source hash. The census is the existing Windows baseline and must be remeasured by its own gate; this script does not run WPT or infer new pass/fail outcomes. |
 
-The lock records **1,739** generated shape members across **166** registered interfaces. Its browser
+The lock records **1,737** generated shape members across **166** registered interfaces. Its browser
 WPT census remains the historical table of **392** vendored documents, **9** synthesized wrappers,
 **66,916** registrations and **239** not passing, not a fresh native-parser conformance result.
 Run the relevant suites before claiming parity.
