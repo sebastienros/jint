@@ -9,8 +9,10 @@ namespace Jint.Native.Intl.Data;
 /// calendar: https://tc39.es/ecma402/#sec-resolvelocale step 13.c starts the <c>ca</c> key at
 /// <c>keyLocaleData[0]</c>, and https://tc39.es/ecma402/#sec-internal-slots says that first element
 /// "provid[es] the default value for that key in the locale". <c>Intl.Locale.prototype.getCalendars</c>
-/// reports the whole ordering through https://tc39.es/ecma402/#sec-calendarsoflocale. Reading one table is
-/// what keeps <c>getCalendars()[0]</c> and a formatter's default calendar the same answer.
+/// reports the whole ordering through https://tc39.es/ecma402/#sec-calendarsoflocale. Each reaches the table
+/// through its own <see cref="ICldrProvider"/> member — <see cref="ICldrProvider.GetDefaultCalendar"/> and
+/// <see cref="ICldrProvider.GetCalendars"/> — and <see cref="DefaultCldrProvider"/> answering both from here
+/// is what keeps <c>getCalendars()[0]</c> and a formatter's default calendar the same answer.
 /// </para>
 /// <para>
 /// CLDR keys the ordering by territory and lists only the territories that differ from its world default,
