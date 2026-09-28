@@ -2624,7 +2624,7 @@
           "DomName": "clip",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.clip\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"clip\"));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.clip\");\nself.Target.SetProperty(\"clip\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.clip\")); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.clip\");\nself.Target.SetProperty(\"clip\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.clip\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetClip"
         },

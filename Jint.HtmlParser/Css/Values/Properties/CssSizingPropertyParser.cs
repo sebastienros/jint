@@ -42,13 +42,14 @@ internal static class CssSizingPropertyParser
     }
 
     internal static CssPropertyResult Numeric(CssComponentValue part, bool numberOnly,
-        int maximumDepth, CssValueWork work, int ancestorDepth = 0, bool nonnegative = true)
+        int maximumDepth, CssValueWork work, int ancestorDepth = 0, bool nonnegative = true, bool allowPercentage = true)
     {
         work.CheckCancellation();
         if (part.Kind == CssComponentKind.Token &&
             part.Token.Kind is CssTokenKind.Number or CssTokenKind.Dimension or CssTokenKind.Percentage)
         {
             var token = part.Token;
+            if (!allowPercentage && token.Kind == CssTokenKind.Percentage) return Invalid();
             var unit = token.Kind == CssTokenKind.Dimension ? CssUnits.Recognize(token.Unit, work) : CssUnit.None;
             var number = CssNumber.FromValidatedToken(token.NumberText, work);
             // Validate exact lexical sign before finite conversion (including tiny negatives).
@@ -79,8 +80,9 @@ internal static class CssSizingPropertyParser
             work.CheckCancellation();
             return CssPropertyResult.Accepted(CssPropertyValue.Number(atom, text));
         }
-        var context = new CssMathContext(numberOnly ? CssMathProduction.Number : CssMathProduction.LengthPercentage,
-            numberOnly ? CssMathPercentageMode.Forbidden : CssMathPercentageMode.Length,
+        var context = new CssMathContext(numberOnly ? CssMathProduction.Number :
+                allowPercentage ? CssMathProduction.LengthPercentage : CssMathProduction.Length,
+            numberOnly || !allowPercentage ? CssMathPercentageMode.Forbidden : CssMathPercentageMode.Length,
             nonnegative ? new CssMathRange(lower: 0) : default, maximumDepth, ancestorDepth);
         var math = CssMathParser.ParseMath(part, context, work);
         return math.Status switch

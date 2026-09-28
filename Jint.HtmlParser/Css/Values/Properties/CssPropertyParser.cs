@@ -106,6 +106,8 @@ internal static class CssPropertyParser
         {
             case CssPropertyGrammar.Paint:
                 return CssPaintPropertyParser.Parse(parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.Clip:
+                return CssClipPropertyParser.Parse(parts, input.MaxNestingDepth, work);
             case CssPropertyGrammar.ClipPath:
                 return CssClipPathPropertyParser.Parse(parts, work);
             case CssPropertyGrammar.Image:

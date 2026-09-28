@@ -8,7 +8,7 @@ using Jint.HtmlParser.Css.Serialization;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer, Url, ImageList }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer, Url, ImageList, ClipRectangle }
 
 internal sealed class CssPropertyValue
 {
@@ -65,8 +65,20 @@ internal sealed class CssPropertyValue
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
     internal string? SecondKeyword { get; }
-    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList or CssPropertyValueKind.ImageList
+    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList or CssPropertyValueKind.ImageList or CssPropertyValueKind.ClipRectangle
         ? _components! : throw new InvalidOperationException();
+    internal static CssPropertyValue ClipRectangle(CssPropertyValue top, CssPropertyValue right,
+        CssPropertyValue bottom, CssPropertyValue left, CssSourceSpan span, CssValueWork work)
+    {
+        work.Charge(top.Text.Length);
+        work.Charge(right.Text.Length);
+        work.Charge(bottom.Text.Length);
+        work.Charge(left.Text.Length);
+        work.CheckCancellation();
+        return new(CssPropertyValueKind.ClipRectangle,
+            "rect(" + top.Text + ", " + right.Text + ", " + bottom.Text + ", " + left.Text + ")", span,
+            components: Array.AsReadOnly(new[] { top, right, bottom, left }));
+    }
     internal static CssPropertyValue ImageList(IReadOnlyList<CssPropertyValue> values, CssSourceSpan span, CssValueWork work)
     {
         var owned = new CssPropertyValue[values.Count];

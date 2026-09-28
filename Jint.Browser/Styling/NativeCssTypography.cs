@@ -139,6 +139,10 @@ internal sealed partial class NativeCssQuery
                 foreach (var argument in list[i].Arguments) Inspect(argument);
             }
         }
+        else if (value.Kind == CssPropertyValueKind.ClipRectangle)
+        {
+            foreach (var edge in value.Components) Inspect(edge);
+        }
         else Inspect(value);
         return result;
 

@@ -38,6 +38,13 @@ internal sealed partial class NativeCssQuery
             return FontWeightNumber(value.Text == "bold" ? 700 : 400, value.Span);
         if (value.Kind == CssPropertyValueKind.FitContent)
             return CssPropertyValue.FitContent(Compute(name, value.Components[0], metrics, percentageBasis), value.Span);
+        if (value.Kind == CssPropertyValueKind.ClipRectangle)
+        {
+            var edges = value.Components;
+            return CssPropertyValue.ClipRectangle(
+                Compute(name, edges[0], metrics), Compute(name, edges[1], metrics),
+                Compute(name, edges[2], metrics), Compute(name, edges[3], metrics), value.Span, _work);
+        }
         if (value.Kind == CssPropertyValueKind.Numeric)
         {
             // Integer-token digits remain exact until arithmetic is actually requested.

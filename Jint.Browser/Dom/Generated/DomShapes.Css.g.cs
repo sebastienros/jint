@@ -1766,7 +1766,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clip", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.clip");
-                    self.Target.SetProperty("clip", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clip")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("clip", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.clip")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("clipBottom",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipBottom", static (thisObj, args) =>

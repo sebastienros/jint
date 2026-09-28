@@ -12,7 +12,7 @@ internal enum CssPropertyGrammar
     Sizing, MinSizing, MaxSizing, Margin, MarginSide, Padding, PaddingSide,
     FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf,
-    AlignContent, JustifyContent, PlaceContent, GapSide, Gap, Color, Paint, ClipPath, Image,
+    AlignContent, JustifyContent, PlaceContent, GapSide, Gap, Color, Paint, Clip, ClipPath, Image,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
     TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor, InsetSide,
@@ -73,6 +73,8 @@ internal static class CssPropertyRegistry
         // https://svgwg.org/svg2-draft/painting.html#SpecifyingPaint
         Add("fill", CssPropertyGrammar.Paint, "black", true);
         Add("stroke", CssPropertyGrammar.Paint, "none", true);
+        // https://www.w3.org/TR/CSS22/visufx.html#clipping
+        Add("clip", CssPropertyGrammar.Clip, "auto");
         Add("clip-path", CssPropertyGrammar.ClipPath, "none");
         Add("background-image", CssPropertyGrammar.Image, "none");
         // Backgrounds 4 §2.8. Computed layer lists retain their authored count and order.
