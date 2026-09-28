@@ -1,5 +1,23 @@
 [
   {
+    "name": "CssBorderStyleKeywordLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "none": "\"none\"",
+      "hidden": "\"hidden\"",
+      "dotted": "\"dotted\"",
+      "dashed": "\"dashed\"",
+      "solid": "\"solid\"",
+      "double": "\"double\"",
+      "groove": "\"groove\"",
+      "ridge": "\"ridge\"",
+      "inset": "\"inset\"",
+      "outset": "\"outset\""
+    }
+  },
+  {
     "name": "XmlDeclarationOrderLookup",
     "type": "int",
     "default": "0",

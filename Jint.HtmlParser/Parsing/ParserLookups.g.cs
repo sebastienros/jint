@@ -20,6 +20,86 @@ using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
 
 namespace Jint.HtmlParser;
 
+internal static class CssBorderStyleKeywordLookup
+{
+    internal const int Count = 10;
+
+    internal static string? Match(ReadOnlySpan<char> input)
+    {
+        switch (input.Length)
+        {
+            case 4:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004E004F004EUL) return "none";
+                break;
+            }
+            case 5:
+            {
+                var chunk0 = Read4(input, 0);
+                if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x00450053004E0049UL)
+                {
+                    if (((uint) input[4] & 0xFFDFU) == 0x0054U) return "inset";
+                }
+                else if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x0047004400490052UL)
+                {
+                    if (((uint) input[4] & 0xFFDFU) == 0x0045U) return "ridge";
+                }
+                else if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004C004F0053UL)
+                {
+                    if (((uint) input[4] & 0xFFDFU) == 0x0044U) return "solid";
+                }
+                break;
+            }
+            case 6:
+            {
+                var chunk1 = Read4(input, 0);
+                if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x00420055004F0044UL)
+                {
+                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x0045004CU) return "double";
+                }
+                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x0044004400490048UL)
+                {
+                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x004E0045U) return "hidden";
+                }
+                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x0048005300410044UL)
+                {
+                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00440045U) return "dashed";
+                }
+                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x004F004F00520047UL)
+                {
+                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00450056U) return "groove";
+                }
+                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x005300540055004FUL)
+                {
+                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00540045U) return "outset";
+                }
+                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x00540054004F0044UL)
+                {
+                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00440045U) return "dotted";
+                }
+                break;
+            }
+        }
+        return null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<uint>(MemoryMarshal.AsBytes(input.Slice(offset, 2)));
+        return BitConverter.IsLittleEndian ? value : (value << 16) | (value >> 16);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong Read4(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<ulong>(MemoryMarshal.AsBytes(input.Slice(offset, 4)));
+        return BitConverter.IsLittleEndian ? value
+            : (value << 48) | ((value & 0xFFFF0000UL) << 16) |
+              ((value >> 16) & 0xFFFF0000UL) | (value >> 48);
+    }
+}
+
 internal static class XmlDeclarationOrderLookup
 {
     internal const int Count = 2;

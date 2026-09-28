@@ -8,7 +8,7 @@ using Jint.HtmlParser.Css.Serialization;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer, Url, ImageList, ClipRectangle }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer, Url, ImageList, ClipRectangle, Radius }
 
 internal sealed class CssPropertyValue
 {
@@ -65,8 +65,15 @@ internal sealed class CssPropertyValue
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
     internal string? SecondKeyword { get; }
-    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList or CssPropertyValueKind.ImageList or CssPropertyValueKind.ClipRectangle
+    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList or CssPropertyValueKind.ImageList or CssPropertyValueKind.ClipRectangle or CssPropertyValueKind.Radius
         ? _components! : throw new InvalidOperationException();
+    internal static CssPropertyValue Radius(CssPropertyValue horizontal, CssPropertyValue vertical,
+        CssSourceSpan span, CssValueWork work)
+    {
+        var text = CssBorderPropertyParser.SerializePair(horizontal.Text, vertical.Text, work);
+        return new(CssPropertyValueKind.Radius, text, span,
+            components: Array.AsReadOnly(new[] { horizontal, vertical }));
+    }
     internal static CssPropertyValue ClipRectangle(CssPropertyValue top, CssPropertyValue right,
         CssPropertyValue bottom, CssPropertyValue left, CssSourceSpan span, CssValueWork work)
     {

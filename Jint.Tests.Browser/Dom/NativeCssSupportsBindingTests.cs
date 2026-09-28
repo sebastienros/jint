@@ -9,14 +9,14 @@ public sealed class NativeCssSupportsBindingTests
     [Test]
     public void SupportsHasActualBrandInheritedListsAndReadonlyConditionAndMatches()
     {
-        using var dom = Create("@supports (color:red) { a {} } @supports (border-color:red) { b {} } @media screen {}");
+        using var dom = Create("@supports (color:red) { a {} } @supports (box-shadow:none) { b {} } @media screen {}");
         dom.Execute("var supported=sheet.cssRules[0], unsupported=sheet.cssRules[1], media=sheet.cssRules[2];");
         dom.Bool("supported instanceof CSSSupportsRule && supported instanceof CSSRule && !(supported instanceof CSSMediaRule) && !(supported instanceof CSSStyleRule)").Should().BeTrue();
         dom.Text("Object.prototype.toString.call(supported)").Should().Be("[object CSSSupportsRule]");
         dom.Bool("Object.getPrototypeOf(CSSSupportsRule.prototype)===Object.getPrototypeOf(CSSMediaRule.prototype)").Should().BeTrue();
         dom.Bool("supported.cssRules===supported.rules && supported.cssRules===supported.cssRules && supported.cssRules instanceof CSSRuleList").Should().BeTrue();
         dom.Bool("supported.type===CSSRule.SUPPORTS_RULE && supported.type===12 && supported.matches && !unsupported.matches").Should().BeTrue();
-        dom.Text("unsupported.conditionText").Should().Be("(border-color:red)");
+        dom.Text("unsupported.conditionText").Should().Be("(box-shadow:none)");
         dom.Bool("Object.getOwnPropertyDescriptor(Object.getPrototypeOf(CSSSupportsRule.prototype),'conditionText').set===undefined").Should().BeTrue();
         dom.Bool("Object.getOwnPropertyDescriptor(CSSSupportsRule.prototype,'matches').set===undefined").Should().BeTrue();
         dom.Execute("supported.conditionText='(color:blue)'; supported.matches=false; media.media.mediaText='print';");

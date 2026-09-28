@@ -334,6 +334,7 @@ internal sealed partial class CssDeclarationBlock
             else if (entry.PendingShorthand is not null || entry.Value.Kind == CssPropertyValueKind.Deferred) return "";
             else values[i] = entry.Value.Serialize();
         }
+        if (!CanSerializeAcrossMappings(entries, shorthand, work)) return "";
         if (pending is not null) return CompleteLexicalValue(pending.LexicalSpecifiedText, pending.Termination, work);
         var allEqual = true;
         var anyWide = false;
@@ -341,10 +342,16 @@ internal sealed partial class CssDeclarationBlock
         {
             work.Charge(values[i].Length);
             allEqual &= CssSubstitutionArguments.Equals(values[i], values[0], work);
-            anyWide |= IsWide(values[i]);
+            anyWide |= !shorthand.ResetOnlyLonghands.Contains(shorthand.Longhands[i]) && IsWide(values[i]);
         }
         if (anyWide) return allEqual ? values[0] : "";
         if (shorthand.Grammar == CssPropertyGrammar.All) return "";
+        if (shorthand.Grammar is CssPropertyGrammar.Border or CssPropertyGrammar.Outline or
+            CssPropertyGrammar.BorderWidths or CssPropertyGrammar.BorderStyles or CssPropertyGrammar.BorderColors)
+            return CssBorderPropertyParser.Serialize(shorthand, values, work);
+        if (shorthand.Grammar == CssPropertyGrammar.BorderRadius)
+            return CssBorderPropertyParser.SerializeRadii(
+                shorthand.Longhands.Select(name => Find(entries, name, work)!.Value).ToArray(), work);
         if (shorthand.Grammar == CssPropertyGrammar.Container)
             return values[1] == "normal" ? values[0] : values[0] + " / " + values[1];
         if (shorthand.Grammar == CssPropertyGrammar.WhiteSpace)
@@ -411,7 +418,7 @@ internal sealed partial class CssDeclarationBlock
             var all = CssPropertyRegistry.Completed["all"];
             shorthandValues.Add(all.Name, ShorthandValue(_entries, all, work));
         }
-        foreach (var metadata in CssPropertyRegistry.Completed.Values)
+        foreach (var metadata in CssPropertyRegistry.Completed.Values.OrderByDescending(entry => entry.Longhands.Count))
         {
             work.Charge(1);
             if (_context != CssDeclarationContext.FontFace && metadata.Longhands.Count != 0 && metadata.Name != "all")
@@ -421,18 +428,20 @@ internal sealed partial class CssDeclarationBlock
         {
             work.Charge(1);
             var name = entry.Name;
+            if (written.Contains(name)) continue;
             var value = entry.PendingShorthand is null ? EntryValue(entry, work) : "";
-            var skip = false;
             foreach (var pair in shorthandValues)
             {
                 work.Charge(1);
-                if (pair.Value.Length == 0 || !CssPropertyRegistry.Completed[pair.Key].Longhands.Contains(name)) continue;
-                if (!written.Add(pair.Key)) { skip = true; break; }
+                var longhands = CssPropertyRegistry.Completed[pair.Key].Longhands;
+                if (pair.Value.Length == 0 || !longhands.Contains(name) || longhands.Any(written.Contains)) continue;
+                foreach (var longhand in longhands) { work.Charge(1); written.Add(longhand); }
                 name = pair.Key;
                 value = pair.Value;
                 break;
             }
-            if (skip || value.Length == 0) continue;
+            written.Add(name);
+            if (value.Length == 0) continue;
             if (builder.Length != 0) builder.Append(' ');
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work)).Append(": ");
             work.CheckCancellation();
@@ -446,6 +455,28 @@ internal sealed partial class CssDeclarationBlock
         work.Charge(text.Length);
         work.CheckCancellation();
         return text;
+    }
+
+    // CSSOM cannot move a logical declaration across an overlapping physical shorthand.
+    private static bool CanSerializeAcrossMappings(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
+    {
+        var first = -1;
+        var last = -1;
+        for (var i = 0; i < entries.Length; i++)
+        {
+            work.Charge(1);
+            if (!shorthand.Longhands.Contains(entries[i].Name)) continue;
+            if (first < 0) first = i;
+            last = i;
+        }
+        for (var i = first + 1; i < last; i++)
+        {
+            work.Charge(1);
+            if (shorthand.Longhands.Contains(entries[i].Name)) continue;
+            foreach (var name in shorthand.Longhands)
+                if (CssBorderPropertyParser.OppositeMappings(name, entries[i].Name)) return false;
+        }
+        return true;
     }
 
     private sealed class DeclarationNameComparer(CssValueWork work) : IEqualityComparer<string>

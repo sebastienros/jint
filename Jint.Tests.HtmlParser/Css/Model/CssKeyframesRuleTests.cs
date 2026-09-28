@@ -123,13 +123,13 @@ public sealed class CssKeyframesRuleTests
     [Test]
     public void ImportantDeclarationsDisappearBeforeSerializationOrLazyResolution()
     {
-        var sheet = CssStyleSheet.Parse("@keyframes x { from { border-color:red !important; opacity:.5; border-color:blue; --x:red !important; --x:blue } }");
+        var sheet = CssStyleSheet.Parse("@keyframes x { from { box-shadow:1px 2px red !important; opacity:.5; box-shadow:none; --x:red !important; --x:blue } }");
         var frame = (CssKeyframeRule) sheet.Rules[0].Rules[0];
         frame.Style.SerializeSource(new CssValueWork(default)).Should().NotContain("important");
-        frame.Style.SerializeSource(new CssValueWork(default)).Should().Contain("border-color: blue;");
+        frame.Style.SerializeSource(new CssValueWork(default)).Should().Contain("box-shadow: none;");
         frame.Style.GetPropertyValue("opacity").Should().Be("0.5");
         frame.Style.GetPropertyValue("--x").Should().Be("blue");
-        Assert.Throws<CssIncompleteGrammarException>(() => frame.Style.GetPropertyValue("border-color"));
+        Assert.Throws<CssIncompleteGrammarException>(() => frame.Style.GetPropertyValue("box-shadow"));
         Assert.Throws<CssIncompleteGrammarException>(() => _ = frame.CssText);
         frame.Style.ReplaceText("opacity:.25 !important; --x:green");
         frame.Style.CssText.Should().Be("--x: green;");

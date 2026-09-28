@@ -25,6 +25,21 @@ internal static class ParserLookupCases
 {
     internal static readonly ParserLookupCase[] All =
     [
+        new("CssBorderStyleKeywordLookup", static input => CssBorderStyleKeywordLookup.Match(input),
+            (string?) (null), true,
+            new Dictionary<string, object?>
+            {
+                ["none"] = (string?) ("none"),
+                ["hidden"] = (string?) ("hidden"),
+                ["dotted"] = (string?) ("dotted"),
+                ["dashed"] = (string?) ("dashed"),
+                ["solid"] = (string?) ("solid"),
+                ["double"] = (string?) ("double"),
+                ["groove"] = (string?) ("groove"),
+                ["ridge"] = (string?) ("ridge"),
+                ["inset"] = (string?) ("inset"),
+                ["outset"] = (string?) ("outset"),
+            }),
         new("XmlDeclarationOrderLookup", static input => XmlDeclarationOrderLookup.Match(input),
             (int) (0), false,
             new Dictionary<string, object?>

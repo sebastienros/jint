@@ -31,7 +31,7 @@ public sealed class CssImportPreludeTests
     {
         Hint("a:unsupported-selector { border-color:red; @container x {} } b { unknown-property:x; }").Should().BeFalse();
         // A candidate sheet is semantically built once; raw declaration grammar stays deferred.
-        var sheet = CssStyleSheet.Parse("@import 'a'; b { border-color:red; }");
+        var sheet = CssStyleSheet.Parse("@import 'a'; b { box-shadow:none; }");
         sheet.Rules.Count.Should().Be(2);
         sheet.ImportedStyleSheets(new CssValueWork(default)).Should().Equal(sheet);
         var rule = (CssStyleRule) sheet.Rules[1];

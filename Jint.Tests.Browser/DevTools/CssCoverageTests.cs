@@ -29,7 +29,7 @@ public class CssCoverageTests
         @media (min-width: 10px) { .conditional { color: rgb(7, 8, 9) } .conditionalunused { color: rgb(10, 11, 12) } }
         @media (min-width: 99999px) { .impossible { color: rgb(13, 14, 15) } }
         @supports (color: red) { .supported { color: rgb(16, 17, 18) } }
-        @supports (border-color: red) { .unsupported { color: red } }
+        @supports (box-shadow: none) { .unsupported { color: red } }
         </style></head>
         <body><p id="box" class="used conditional supported unsupported">text</p></body></html>
         """;

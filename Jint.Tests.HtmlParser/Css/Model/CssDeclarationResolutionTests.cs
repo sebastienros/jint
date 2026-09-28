@@ -26,7 +26,7 @@ public sealed class CssDeclarationResolutionTests
     }
 
     [TestCase("text-wrap:balance", "text-wrap-mode", "text-wrap")]
-    [TestCase("border:solid", "border-image-source", "border")]
+    [TestCase("mask:none", "mask-border-source", "mask")]
     [TestCase("font:12px serif", "font-kerning", "font")]
     [TestCase("word-wrap:break-word", "overflow-wrap", "overflow-wrap")]
     public void CorrelationIncludesShorthandsResetEffectsAndAliases(string text, string property, string expectedFailure)

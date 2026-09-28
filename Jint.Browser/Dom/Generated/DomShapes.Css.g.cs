@@ -1315,7 +1315,139 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.border", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.border");
-                    self.Target.SetProperty("border", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.border")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.border")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlock",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlock", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlock");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlock", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlock");
+                    self.Target.SetProperty("border-block", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlock")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockColor");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-color"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockColor");
+                    self.Target.SetProperty("border-block-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockEnd",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockEnd", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEnd");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-end"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockEnd", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEnd");
+                    self.Target.SetProperty("border-block-end", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockEnd")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockEndColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockEndColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEndColor");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-end-color"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockEndColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEndColor");
+                    self.Target.SetProperty("border-block-end-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockEndColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockEndStyle",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockEndStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEndStyle");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-end-style"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockEndStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEndStyle");
+                    self.Target.SetProperty("border-block-end-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockEndStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockEndWidth",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockEndWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEndWidth");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-end-width"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockEndWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockEndWidth");
+                    self.Target.SetProperty("border-block-end-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockEndWidth")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockStart",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockStart", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStart");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-start"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockStart", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStart");
+                    self.Target.SetProperty("border-block-start", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockStart")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockStartColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockStartColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStartColor");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-start-color"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockStartColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStartColor");
+                    self.Target.SetProperty("border-block-start-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockStartColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockStartStyle",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockStartStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStartStyle");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-start-style"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockStartStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStartStyle");
+                    self.Target.SetProperty("border-block-start-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockStartStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockStartWidth",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockStartWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStartWidth");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-start-width"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockStartWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStartWidth");
+                    self.Target.SetProperty("border-block-start-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockStartWidth")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockStyle",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStyle");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-style"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockStyle");
+                    self.Target.SetProperty("border-block-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderBlockWidth",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBlockWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockWidth");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-block-width"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBlockWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBlockWidth");
+                    self.Target.SetProperty("border-block-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBlockWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderBottom",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottom", static (thisObj, args) =>
@@ -1326,7 +1458,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBottom");
-                    self.Target.SetProperty("border-bottom", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottom")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-bottom", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBottom")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderBottomColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomColor", static (thisObj, args) =>
@@ -1337,7 +1469,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomColor");
-                    self.Target.SetProperty("border-bottom-color", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomColor")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-bottom-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBottomColor")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderBottomLeftRadius",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomLeftRadius", static (thisObj, args) =>
@@ -1348,7 +1480,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomLeftRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomLeftRadius");
-                    self.Target.SetProperty("border-bottom-left-radius", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomLeftRadius")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-bottom-left-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBottomLeftRadius")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderBottomRightRadius",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomRightRadius", static (thisObj, args) =>
@@ -1359,7 +1491,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomRightRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomRightRadius");
-                    self.Target.SetProperty("border-bottom-right-radius", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomRightRadius")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-bottom-right-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBottomRightRadius")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderBottomStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomStyle", static (thisObj, args) =>
@@ -1370,7 +1502,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomStyle");
-                    self.Target.SetProperty("border-bottom-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomStyle")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-bottom-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBottomStyle")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderBottomWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomWidth", static (thisObj, args) =>
@@ -1381,7 +1513,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomWidth");
-                    self.Target.SetProperty("border-bottom-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomWidth")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-bottom-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderBottomWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderCollapse",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderCollapse", static (thisObj, args) =>
@@ -1403,7 +1535,29 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderColor");
-                    self.Target.SetProperty("border-color", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderColor")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderEndEndRadius",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderEndEndRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderEndEndRadius");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-end-end-radius"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderEndEndRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderEndEndRadius");
+                    self.Target.SetProperty("border-end-end-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderEndEndRadius")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderEndStartRadius",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderEndStartRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderEndStartRadius");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-end-start-radius"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderEndStartRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderEndStartRadius");
+                    self.Target.SetProperty("border-end-start-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderEndStartRadius")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderImage",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImage", static (thisObj, args) =>
@@ -1471,6 +1625,138 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderImageWidth");
                     self.Target.SetProperty("border-image-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImageWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("borderInline",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInline", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInline");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInline", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInline");
+                    self.Target.SetProperty("border-inline", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInline")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineColor");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-color"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineColor");
+                    self.Target.SetProperty("border-inline-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineEnd",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineEnd", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEnd");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-end"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineEnd", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEnd");
+                    self.Target.SetProperty("border-inline-end", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineEnd")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineEndColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineEndColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEndColor");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-end-color"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineEndColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEndColor");
+                    self.Target.SetProperty("border-inline-end-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineEndColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineEndStyle",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineEndStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEndStyle");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-end-style"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineEndStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEndStyle");
+                    self.Target.SetProperty("border-inline-end-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineEndStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineEndWidth",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineEndWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEndWidth");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-end-width"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineEndWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineEndWidth");
+                    self.Target.SetProperty("border-inline-end-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineEndWidth")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineStart",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineStart", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStart");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-start"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineStart", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStart");
+                    self.Target.SetProperty("border-inline-start", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineStart")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineStartColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineStartColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStartColor");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-start-color"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineStartColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStartColor");
+                    self.Target.SetProperty("border-inline-start-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineStartColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineStartStyle",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineStartStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStartStyle");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-start-style"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineStartStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStartStyle");
+                    self.Target.SetProperty("border-inline-start-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineStartStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineStartWidth",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineStartWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStartWidth");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-start-width"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineStartWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStartWidth");
+                    self.Target.SetProperty("border-inline-start-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineStartWidth")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineStyle",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStyle");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-style"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineStyle", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineStyle");
+                    self.Target.SetProperty("border-inline-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderInlineWidth",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderInlineWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineWidth");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-inline-width"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderInlineWidth", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderInlineWidth");
+                    self.Target.SetProperty("border-inline-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderInlineWidth")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("borderLeft",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeft", static (thisObj, args) =>
                 {
@@ -1480,7 +1766,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeft", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderLeft");
-                    self.Target.SetProperty("border-left", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeft")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-left", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderLeft")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderLeftColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeftColor", static (thisObj, args) =>
@@ -1491,7 +1777,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeftColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftColor");
-                    self.Target.SetProperty("border-left-color", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeftColor")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-left-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderLeftColor")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderLeftStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeftStyle", static (thisObj, args) =>
@@ -1502,7 +1788,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeftStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftStyle");
-                    self.Target.SetProperty("border-left-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeftStyle")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-left-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderLeftStyle")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderLeftWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeftWidth", static (thisObj, args) =>
@@ -1513,7 +1799,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeftWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftWidth");
-                    self.Target.SetProperty("border-left-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeftWidth")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-left-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderLeftWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderRadius",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRadius", static (thisObj, args) =>
@@ -1524,7 +1810,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderRadius");
-                    self.Target.SetProperty("border-radius", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRadius")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderRadius")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderRight",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRight", static (thisObj, args) =>
@@ -1535,7 +1821,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderRight");
-                    self.Target.SetProperty("border-right", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRight")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-right", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderRight")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderRightColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRightColor", static (thisObj, args) =>
@@ -1546,7 +1832,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRightColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderRightColor");
-                    self.Target.SetProperty("border-right-color", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRightColor")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-right-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderRightColor")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderRightStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRightStyle", static (thisObj, args) =>
@@ -1557,7 +1843,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRightStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderRightStyle");
-                    self.Target.SetProperty("border-right-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRightStyle")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-right-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderRightStyle")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderRightWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRightWidth", static (thisObj, args) =>
@@ -1568,7 +1854,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRightWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderRightWidth");
-                    self.Target.SetProperty("border-right-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRightWidth")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-right-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderRightWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderSpacing",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderSpacing", static (thisObj, args) =>
@@ -1581,6 +1867,28 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderSpacing");
                     self.Target.SetProperty("border-spacing", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderSpacing")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("borderStartEndRadius",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderStartEndRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderStartEndRadius");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-start-end-radius"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderStartEndRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderStartEndRadius");
+                    self.Target.SetProperty("border-start-end-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderStartEndRadius")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("borderStartStartRadius",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderStartStartRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderStartStartRadius");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("border-start-start-radius"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderStartStartRadius", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderStartStartRadius");
+                    self.Target.SetProperty("border-start-start-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderStartStartRadius")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("borderStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderStyle", static (thisObj, args) =>
                 {
@@ -1590,7 +1898,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderStyle");
-                    self.Target.SetProperty("border-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderStyle")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderStyle")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderTop",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTop", static (thisObj, args) =>
@@ -1601,7 +1909,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderTop");
-                    self.Target.SetProperty("border-top", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTop")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-top", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderTop")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderTopColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopColor", static (thisObj, args) =>
@@ -1612,7 +1920,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderTopColor");
-                    self.Target.SetProperty("border-top-color", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopColor")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-top-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderTopColor")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderTopLeftRadius",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopLeftRadius", static (thisObj, args) =>
@@ -1623,7 +1931,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopLeftRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderTopLeftRadius");
-                    self.Target.SetProperty("border-top-left-radius", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopLeftRadius")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-top-left-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderTopLeftRadius")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderTopRightRadius",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopRightRadius", static (thisObj, args) =>
@@ -1634,7 +1942,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopRightRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderTopRightRadius");
-                    self.Target.SetProperty("border-top-right-radius", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopRightRadius")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-top-right-radius", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderTopRightRadius")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderTopStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopStyle", static (thisObj, args) =>
@@ -1645,7 +1953,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderTopStyle");
-                    self.Target.SetProperty("border-top-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopStyle")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-top-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderTopStyle")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderTopWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopWidth", static (thisObj, args) =>
@@ -1656,7 +1964,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderTopWidth");
-                    self.Target.SetProperty("border-top-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopWidth")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-top-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderTopWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("borderWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderWidth", static (thisObj, args) =>
@@ -1667,7 +1975,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.borderWidth");
-                    self.Target.SetProperty("border-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderWidth")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("border-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.borderWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("bottom",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.bottom", static (thisObj, args) =>
@@ -2307,6 +2615,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.fontWeight");
                     self.Target.SetProperty("font-weight", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontWeight")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("gap",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gap");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("gap"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.gap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gap");
+                    self.Target.SetProperty("gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.gap")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Method("getPropertyPriority",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.getPropertyPriority", static (thisObj, args) =>
                 {
@@ -2342,17 +2661,6 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.glyphOrientationVertical");
                     self.Target.SetProperty("glyph-orientation-vertical", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.glyphOrientationVertical")); return global::Jint.Native.JsValue.Undefined;
-                }))
-            .Accessor("gap",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gap", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gap");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("gap"));
-                }),
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.gap", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.gap");
-                    self.Target.SetProperty("gap", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.gap")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("gridColumnGap",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.gridColumnGap", static (thisObj, args) =>
@@ -2750,7 +3058,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outline", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.outline");
-                    self.Target.SetProperty("outline", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outline")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("outline", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.outline")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("outlineColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineColor", static (thisObj, args) =>
@@ -2761,7 +3069,18 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.outlineColor");
-                    self.Target.SetProperty("outline-color", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outlineColor")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("outline-color", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.outlineColor")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("outlineOffset",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineOffset", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.outlineOffset");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("outline-offset"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineOffset", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.outlineOffset");
+                    self.Target.SetProperty("outline-offset", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.outlineOffset")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("outlineStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineStyle", static (thisObj, args) =>
@@ -2772,7 +3091,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.outlineStyle");
-                    self.Target.SetProperty("outline-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outlineStyle")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("outline-style", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.outlineStyle")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("outlineWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineWidth", static (thisObj, args) =>
@@ -2783,7 +3102,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.outlineWidth");
-                    self.Target.SetProperty("outline-width", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outlineWidth")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("outline-width", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.outlineWidth")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("overflow",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.overflow", static (thisObj, args) =>

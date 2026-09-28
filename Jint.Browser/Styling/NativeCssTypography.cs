@@ -2,6 +2,7 @@ using Jint.HtmlParser;
 using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Colors;
 using Jint.HtmlParser.Css.Values.Math;
 using Jint.HtmlParser.Css.Values.Properties;
 using Jint.HtmlParser.Css.Values.Transforms;
@@ -50,14 +51,27 @@ internal sealed partial class NativeCssQuery
     {
         if (name == "font-size")
             return ComputeFontSize(element, value, (FontDependencies(value, true) & 1) != 0 ? InitialFontSize() : 0, ref matching);
+        if (name == "outline-color" && value is { Kind: CssPropertyValueKind.Keyword, Text: "auto" } &&
+            GetProperty(element, "outline-style", ref matching).Text != "auto")
+            return CssPropertyValue.ColorValue(CssColorValue.Identity(CssColorKind.CurrentColor, "currentcolor", value.Span), "currentcolor");
+        if (IsLineWidth(name) && value.Kind == CssPropertyValueKind.Keyword)
+            value = Number(name, new CssMathNumeric(value.Text switch
+            {
+                "thin" => 1,
+                "medium" => 3,
+                "thick" => 5,
+                _ => throw new InvalidOperationException("Unvalidated line width.")
+            }, CssNumericKind.Dimension, CssUnit.Px, value.Span));
         var dependencies = FontDependencies(value, false);
-        if (dependencies == 0) return Compute(name, value);
+        if (dependencies == 0) return Complete(Compute(name, value));
         var metrics = _metrics with
         {
             FontSize = (dependencies & 1) != 0 ? ComputedFontSize(element, ref matching) : _metrics.FontSize,
             RootFontSize = (dependencies & 2) != 0 ? RootFontSize(element, false, ref matching) : _metrics.RootFontSize
         };
-        return Compute(name, value, metrics);
+        return Complete(Compute(name, value, metrics));
+
+        CssPropertyValue Complete(CssPropertyValue computed) => IsLineWidth(name) ? SnapLineWidth(name, computed) : computed;
     }
 
     // Fonts 4 §2.5 and Values 4 §6.1.1: font-size percentages/em use the parent;
@@ -139,7 +153,7 @@ internal sealed partial class NativeCssQuery
                 foreach (var argument in list[i].Arguments) Inspect(argument);
             }
         }
-        else if (value.Kind == CssPropertyValueKind.ClipRectangle)
+        else if (value.Kind is CssPropertyValueKind.ClipRectangle or CssPropertyValueKind.Radius)
         {
             foreach (var edge in value.Components) Inspect(edge);
         }

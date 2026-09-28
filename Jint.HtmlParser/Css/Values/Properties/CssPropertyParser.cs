@@ -104,6 +104,11 @@ internal static class CssPropertyParser
         var parts = Significant(input.Components, work);
         switch (entry.Grammar)
         {
+            case CssPropertyGrammar.BorderWidth or CssPropertyGrammar.BorderStyle or CssPropertyGrammar.BorderWidths or
+                CssPropertyGrammar.BorderStyles or CssPropertyGrammar.BorderColors or CssPropertyGrammar.Border or
+                CssPropertyGrammar.CornerRadius or CssPropertyGrammar.BorderRadius or CssPropertyGrammar.Outline or
+                CssPropertyGrammar.OutlineStyle or CssPropertyGrammar.OutlineColor or CssPropertyGrammar.OutlineOffset:
+                return CssBorderPropertyParser.Parse(entry, parts, input.MaxNestingDepth, work);
             case CssPropertyGrammar.Paint:
                 return CssPaintPropertyParser.Parse(parts, input.MaxNestingDepth, work);
             case CssPropertyGrammar.Clip:

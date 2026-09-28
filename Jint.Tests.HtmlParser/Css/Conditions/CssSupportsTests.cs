@@ -20,7 +20,8 @@ public sealed class CssSupportsTests
     [TestCase("color", "red} @supports (display:block){}", false)]
     [TestCase("color", "var(--missing)", true)]
     [TestCase("width", "calc(1px + 2px)", true)]
-    [TestCase("border-color", "red", false)]
+    [TestCase("border-color", "red", true)]
+    [TestCase("box-shadow", "none", false)]
     [TestCase("made-up", "inherit", false)]
     [TestCase("--", "", true)]
     [TestCase("--literal name", "anything", true)]
@@ -57,7 +58,8 @@ public sealed class CssSupportsTests
     [TestCase("not (color:red) and (display:block)", false)]
     [TestCase("unknown-function(foo)", false)]
     [TestCase("(future-feature whatever)", false)]
-    [TestCase("(border-color:red)", false)]
+    [TestCase("(border-color:red)", true)]
+    [TestCase("(box-shadow:none)", false)]
     [TestCase("(color:red", true)]
     public void ConditionsConsumeTheirEntireGrammar(string text, bool expected) =>
         CssSupports.EvaluateCondition(text, null, new CssValueWork(default)).Should().Be(expected);

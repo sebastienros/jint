@@ -12,9 +12,10 @@ namespace Jint.Tests.HtmlParser.Css.Model;
 public sealed class CssSupportsRuleTests
 {
     [TestCase("(color:red)", true)]
-    [TestCase("(border-color:red)", false)]
+    [TestCase("(border-color:red)", true)]
+    [TestCase("(box-shadow:none)", false)]
     [TestCase("(unknown-property:anything)", false)]
-    [TestCase("not (border-color:red)", true)]
+    [TestCase("not (border-color:red)", false)]
     [TestCase("future-feature(anything)", false)]
     [TestCase("not future-feature(anything)", true)]
     [TestCase("selector(div > .a)", true)]
@@ -23,7 +24,7 @@ public sealed class CssSupportsRuleTests
     [TestCase("(color:red) or ()", true)]
     public void CapabilityQueriesRetainUnsimplifiedConditionsAndRealChildren(string condition, bool expected)
     {
-        var sheet = CssStyleSheet.Parse("@supports " + condition + " { a { border-color:red } }");
+        var sheet = CssStyleSheet.Parse("@supports " + condition + " { a { box-shadow:none } }");
         var rule = (CssSupportsRule) sheet.Rules[0];
         rule.Type.Should().Be(CssRuleType.Supports);
         rule.ConditionText.Should().Be(condition);
@@ -35,7 +36,7 @@ public sealed class CssSupportsRuleTests
         sheet.ApplicableStyleRules(new CssMediaEnvironment(), new CssValueWork(default))
             .Should().Equal(expected ? new[] { child } : Array.Empty<CssStyleRule>());
         // Parsing and condition filtering keep child declaration values cold, even when active.
-        Action resolve = () => child.Style.GetPropertyValue("border-color");
+        Action resolve = () => child.Style.GetPropertyValue("box-shadow");
         resolve.Should().Throw<CssIncompleteGrammarException>();
     }
 
@@ -63,7 +64,7 @@ public sealed class CssSupportsRuleTests
     public void FalseConditionsDoNotHideKnownUnimplementedChildGrammars()
     {
         var error = Assert.Throws<CssIncompleteRuleGrammarException>(() =>
-            CssStyleSheet.Parse("@supports (border-color:red) { @scope unknown {} }"))!;
+            CssStyleSheet.Parse("@supports (box-shadow:none) { @scope unknown {} }"))!;
         error.Blocker.Should().Be("R2:scope");
         Assert.Throws<CssIncompleteRuleGrammarException>(() =>
             CssStyleSheet.Parse("a { @supports (color:red) { & {} } }"))!

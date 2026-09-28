@@ -152,8 +152,42 @@ internal sealed partial class CssDeclarationBlock
             work.Charge(1);
             if (ResolveProperty(name, work) is { } entry) result.Add(entry);
         }
+        if (shorthand.Name.StartsWith("border", StringComparison.Ordinal))
+        {
+            foreach (var name in Index(work).Keys)
+            {
+                work.Charge(1);
+                if (shorthand.Longhands.Any(own => CssBorderPropertyParser.OppositeMappings(own, name)) &&
+                    ResolveProperty(name, work) is { } entry) result.Add(entry);
+            }
+            var order = new Dictionary<CssDeclaration, int>(ReferenceEqualityComparer.Instance);
+            foreach (var entry in result) order.Add(entry, DeclarationOrder(entry, work));
+            result.Sort((left, right) => order[left].CompareTo(order[right]));
+        }
         work.CheckCancellation();
         return result.ToArray();
+    }
+
+    internal int DeclarationOrder(CssDeclaration declaration, CssValueWork work)
+    {
+        work = ResolutionWork(work);
+        var index = Index(work);
+        var last = -1;
+        Inspect(declaration.Name);
+        if (CssPropertyEffects.ResetByAll(declaration.Name)) Inspect("all");
+        work.CheckCancellation();
+        return last;
+
+        void Inspect(string name)
+        {
+            if (!index.TryGetValue(name, out var indices)) return;
+            foreach (var i in indices)
+                foreach (var entry in Materialize(_raw[i], work))
+                {
+                    work.Charge(1);
+                    if (ReferenceEquals(entry, declaration)) last = System.Math.Max(last, i);
+                }
+        }
     }
 
     // Snapshot construction retains a pending binding; only reaching that binding refuses its feature.
@@ -258,6 +292,24 @@ internal sealed partial class CssDeclarationBlock
         var replacement = new List<RawEntry>(_raw.Length + declarations.Count);
         var inserted = new HashSet<string>(StringComparer.Ordinal);
         var affected = false;
+        var moved = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var declaration in declarations)
+        {
+            work.Charge(1);
+            if (prior[declaration.Name] is not { } old || !declaration.Name.StartsWith("border-", StringComparison.Ordinal)) continue;
+            for (var i = DeclarationOrder(old, work) + 1; i < _raw.Length; i++)
+            {
+                work.Charge(1);
+                if (Crosses(_raw[i].Name)) moved.Add(declaration.Name);
+                foreach (var nameInGroup in CssPropertyEffects.Longhands(_raw[i].Name))
+                {
+                    work.Charge(1);
+                    if (Crosses(nameInGroup)) moved.Add(declaration.Name);
+                }
+            }
+
+            bool Crosses(string other) => CssBorderPropertyParser.OppositeMappings(declaration.Name, other);
+        }
         foreach (var raw in _raw)
         {
             work.Charge(1);
@@ -281,6 +333,7 @@ internal sealed partial class CssDeclarationBlock
                 affected = true;
                 if (ReferenceEquals(prior[entry.Name], entry) && incoming.TryGetValue(entry.Name, out var changed))
                 {
+                    if (moved.Contains(entry.Name)) continue;
                     Add(changed);
                     inserted.Add(entry.Name);
                 }

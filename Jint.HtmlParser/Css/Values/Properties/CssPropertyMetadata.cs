@@ -16,7 +16,9 @@ internal enum CssPropertyGrammar
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
     TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor, InsetSide,
-    ContainerName, ContainerType, Container, WritingMode, All
+    ContainerName, ContainerType, Container, WritingMode, All,
+    BorderWidth, BorderStyle, BorderWidths, BorderStyles, BorderColors, Border,
+    CornerRadius, BorderRadius, Outline, OutlineStyle, OutlineColor, OutlineOffset
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -24,7 +26,7 @@ internal sealed record CssPropertyMetadata(string Name, CssPropertyGrammar Gramm
     bool Inherited, IReadOnlyList<string> Longhands)
 {
     internal IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
-    internal IReadOnlyList<string> ResetOnlyLonghands { get; } = Array.Empty<string>();
+    internal IReadOnlyList<string> ResetOnlyLonghands { get; init; } = Array.Empty<string>();
 }
 
 internal static class CssPropertyRegistry
@@ -70,6 +72,9 @@ internal static class CssPropertyRegistry
         // CSS Color 4 §3.2; Backgrounds 3 §2.2. No computed-color metadata.
         Add("color", CssPropertyGrammar.Color, "canvastext", true);
         Add("background-color", CssPropertyGrammar.Color, "transparent");
+        // https://drafts.csswg.org/css-backgrounds-3/#borders
+        // https://drafts.csswg.org/css-logical-1/#border-properties
+        CssBorderPropertyParser.Register(entries);
         // https://svgwg.org/svg2-draft/painting.html#SpecifyingPaint
         Add("fill", CssPropertyGrammar.Paint, "black", true);
         Add("stroke", CssPropertyGrammar.Paint, "none", true);

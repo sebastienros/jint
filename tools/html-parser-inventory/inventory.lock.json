@@ -1795,6 +1795,78 @@
       {
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
+        "name": "borderBlock",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockColor",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockEnd",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockEndColor",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockEndStyle",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockEndWidth",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockStart",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockStartColor",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockStartStyle",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockStartWidth",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockStyle",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderBlockWidth",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
         "name": "borderBottom",
         "owner": "C5:box-layout"
       },
@@ -1843,6 +1915,18 @@
       {
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
+        "name": "borderEndEndRadius",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderEndStartRadius",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
         "name": "borderImage",
         "owner": "C5:box-layout"
       },
@@ -1874,6 +1958,78 @@
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
         "name": "borderImageWidth",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInline",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineColor",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineEnd",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineEndColor",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineEndStyle",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineEndWidth",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineStart",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineStartColor",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineStartStyle",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineStartWidth",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineStyle",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderInlineWidth",
         "owner": "C5:box-layout"
       },
       {
@@ -1934,6 +2090,18 @@
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
         "name": "borderSpacing",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderStartEndRadius",
+        "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "borderStartStartRadius",
         "owner": "C5:box-layout"
       },
       {
@@ -2570,6 +2738,12 @@
         "interface": "CSSStyleDeclaration",
         "kind": "Accessor",
         "name": "outlineColor",
+        "owner": "C5:color-display-visibility"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "outlineOffset",
         "owner": "C5:color-display-visibility"
       },
       {
@@ -10779,7 +10953,7 @@
       "DomInterfaces.g.cs": "b1acbf428e8028e0a0738e3f66653cf13a110f8da64895939d9442fa9b0dd259",
       "DomReflected.g.cs": "c1b4e96be2dd60e3c661b47a07eedae5e902b21d50fe059eb7f1eafd9d009c0e",
       "DomShapes.Browser.g.cs": "bf94aa3a5a39dc9731fe7935cdc52c2c55b7a8d20db3fa1726f2e4196eb41e23",
-      "DomShapes.Css.g.cs": "04a6e0e102fd6dd2cc642dfb8d74f58791b6bd0f1c9dc7f650dd511f5e62310b",
+      "DomShapes.Css.g.cs": "e681c462266dfb5c6dc9c24f30fa55d360dd20de53134da6873f2a30b5bf6d16",
       "DomShapes.Dom.g.cs": "59b7dca75ab38691066f592f3293d6d4487648aa44889ecb79045c1464ecc8f0",
       "DomShapes.Html.g.cs": "175f60fbd7af539a8a1e054f94f518acdb32a0e73aeebf9a3c03266248df2c14",
       "DomShapes.Io.g.cs": "c82647251234f0990210bae2bfdc38fbc4f3b7c305bb4fa9aa71368a77015c63",

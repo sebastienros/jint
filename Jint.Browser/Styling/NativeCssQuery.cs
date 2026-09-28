@@ -144,13 +144,22 @@ internal sealed partial class NativeCssQuery
             for (var i = 0; i < entries.Length; i++)
             {
                 _work.Charge(1);
+                if (metadata.ResetOnlyLonghands.Contains(metadata.Longhands[i]))
+                {
+                    if (!BorderImageResetIsInitial(element, metadata.Longhands[i], ref matching))
+                        return new(name, "", null, null, NativeCssDisposition.Cascaded);
+                    entries[i] = new(metadata.Longhands[i], CssPropertyValue.Keyword("initial", default), false, default, null);
+                    continue;
+                }
                 var property = GetProperty(element, metadata.Longhands[i], ref matching);
                 var value = property.Value!;
                 // Color 4 resolved values: this shorthand exposes the element's actual color,
                 // while its longhand keeps currentColor for explicit inheritance into another element.
-                if (name == "text-decoration" && property.Name == "text-decoration-color" &&
+                if (value.Kind == CssPropertyValueKind.Color &&
                     value.Color.Kind == CssColorKind.CurrentColor)
                     value = GetProperty(element, "color", ref matching).Value!;
+                if (IsLineWidth(property.Name) && property.Text == "0px")
+                    value = Number(property.Name, new CssMathNumeric(0, CssNumericKind.Dimension, CssUnit.Px, value.Span));
                 entries[i] = new(property.Name, value, false, default, null);
             }
             var text = CssDeclarationBlock.ShorthandValue(entries, metadata, _work);
@@ -158,6 +167,8 @@ internal sealed partial class NativeCssQuery
             return new(name, text, null, null, NativeCssDisposition.Cascaded);
         }
 
+        if (CssBorderPropertyParser.IsLogical(name))
+            return GetProperty(element, PhysicalBorderName(element, name, ref matching), ref matching) with { Name = name };
         if (adjust && name is "overflow-x" or "overflow-y")
             return Overflow(element, name, ref matching);
         if (adjust && name == "display") WarmParents(element, name, ref matching);
@@ -272,6 +283,8 @@ internal sealed partial class NativeCssQuery
     // CSSOM resolves that retained dependency for each element's returned color text.
     private string ColorText(Element element, string name, CssPropertyValue value, ref SelectorMatchWork matching)
     {
+        if (IsLineWidth(name) && GetProperty(element, name[..^5] + "style", ref matching).Text is "none" or "hidden")
+            return "0px";
         if (name != "color" && value.Kind == CssPropertyValueKind.Color && value.Color.Kind == CssColorKind.CurrentColor)
             return GetProperty(element, "color", ref matching).Text;
         if (value.Kind == CssPropertyValueKind.PaintServer &&
@@ -409,11 +422,22 @@ internal sealed partial class NativeCssQuery
     {
         if (state.Candidates.TryGetValue(name, out var cached)) return cached;
         var candidates = new List<Candidate>();
+        var logicalGroup = CssBorderPropertyParser.LogicalGroup(name);
         foreach (var source in state.Sources)
         {
             _work.Charge(1);
             if (SourceApplies(source, state.Element, name, ref matching) &&
-                source.Block.ResolveProperty(name, _work) is { } declaration) candidates.Add(new(declaration, source));
+                source.Block.ResolveProperty(name, _work) is { } declaration)
+                candidates.Add(new(declaration, source, DeclarationOrder: logicalGroup.Count == 0 ? 0 :
+                    source.Block.DeclarationOrder(declaration, _work)));
+            foreach (var logical in logicalGroup)
+            {
+                _work.Charge(1);
+                if (!SourceApplies(source, state.Element, logical, ref matching) ||
+                    source.Block.ResolveProperty(logical, _work) is not { } mapped ||
+                    PhysicalBorderName(state.Element, logical, ref matching) != name) continue;
+                candidates.Add(new(mapped, source, DeclarationOrder: source.Block.DeclarationOrder(mapped, _work)));
+            }
         }
         candidates.Sort((left, right) => { _work.Charge(1); return Compare(right, left); });
         Verify();
@@ -434,7 +458,10 @@ internal sealed partial class NativeCssQuery
     }
 
     private static int Compare(Candidate left, Candidate right)
-        => Compare(left.Declaration.IsImportant, left.Source, right.Declaration.IsImportant, right.Source);
+    {
+        var comparison = Compare(left.Declaration.IsImportant, left.Source, right.Declaration.IsImportant, right.Source);
+        return comparison != 0 ? comparison : left.DeclarationOrder.CompareTo(right.DeclarationOrder);
+    }
 
     private static int Compare(bool leftImportant, NativeCssSource left, bool rightImportant, NativeCssSource right)
     {
@@ -583,6 +610,7 @@ internal sealed partial class NativeCssQuery
     private CssPropertyValue? Substitute(State state, Candidate candidate, string name, ref SelectorMatchWork matching)
     {
         var declaration = candidate.Declaration;
+        name = declaration.Name;
         var pending = declaration.PendingShorthand;
         var requested = pending?.Name ?? name;
         if (pending is not null && state.Shorthands.TryGetValue(pending, out var cached))
@@ -665,7 +693,7 @@ internal sealed partial class NativeCssQuery
     }
 
     private sealed record Candidate(CssDeclaration Declaration, NativeCssSource Source,
-        CssPropertyValue? Resolved = null, bool WasSubstituted = false);
+        CssPropertyValue? Resolved = null, bool WasSubstituted = false, int DeclarationOrder = 0);
     private sealed class State(Element element, CssValueWork work)
     {
         internal Element Element { get; } = element;

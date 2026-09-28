@@ -70,11 +70,11 @@ public sealed class CssStyleSheetTests
     public void RuleInsertionRetainsPendingDeclarationSyntaxUntilAnActualValueDemand()
     {
         var sheet = CssStyleSheet.Parse("a {}");
-        sheet.InsertRule("b { display:block; border-color:red; }", 1).Should().Be(1);
+        sheet.InsertRule("b { display:block; box-shadow:none; }", 1).Should().Be(1);
         var rule = (CssStyleRule) sheet.Rules[1];
         var stamp = sheet.Stamp;
         rule.Style.GetPropertyValue("display").Should().Be("block");
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = rule.CssText)!.PropertyName.Should().Be("border-color");
+        Assert.Throws<CssIncompleteGrammarException>(() => _ = rule.CssText)!.PropertyName.Should().Be("box-shadow");
         sheet.Stamp.Should().Be(stamp);
     }
 

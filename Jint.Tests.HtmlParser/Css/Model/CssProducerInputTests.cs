@@ -79,7 +79,7 @@ public sealed class CssProducerInputTests
     [Test]
     public void KnownPendingDeclarationSurfacesFromAValidatedSelectorBody()
     {
-        const string source = ".target { display:block; border-color:red; }";
+        const string source = ".target { display:block; box-shadow:none; }";
         var parser = new CssSyntaxParser(source, null, default);
         var syntax = parser.ParseStyleSheet()[0];
         var selector = new SelectorCompiler.Worker(source, new SelectorParseContext(), default).Compile(syntax.Prelude);
@@ -89,8 +89,8 @@ public sealed class CssProducerInputTests
         var block = CssDeclarationBlock.FromDeclarations(source, body[0].Declarations, CssDeclarationContext.Style, 0, work);
         block.ResolveProperty("display", work)!.Value.Text.Should().Be("block");
         var failure = Assert.Throws<CssIncompleteGrammarException>(() => block.ResolveAll(work))!;
-        failure.PropertyName.Should().Be("border-color");
-        failure.Blocker.Should().Be("V1:border-color");
-        failure.Span.Start.Should().Be(source.IndexOf("border-color", StringComparison.Ordinal));
+        failure.PropertyName.Should().Be("box-shadow");
+        failure.Blocker.Should().Be("V1:box-shadow");
+        failure.Span.Start.Should().Be(source.IndexOf("box-shadow", StringComparison.Ordinal));
     }
 }

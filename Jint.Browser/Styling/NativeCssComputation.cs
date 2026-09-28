@@ -38,6 +38,9 @@ internal sealed partial class NativeCssQuery
             return FontWeightNumber(value.Text == "bold" ? 700 : 400, value.Span);
         if (value.Kind == CssPropertyValueKind.FitContent)
             return CssPropertyValue.FitContent(Compute(name, value.Components[0], metrics, percentageBasis), value.Span);
+        if (value.Kind == CssPropertyValueKind.Radius)
+            return CssPropertyValue.Radius(Compute(name, value.Components[0], metrics),
+                Compute(name, value.Components[1], metrics), value.Span, _work);
         if (value.Kind == CssPropertyValueKind.ClipRectangle)
         {
             var edges = value.Components;
@@ -143,7 +146,8 @@ internal sealed partial class NativeCssQuery
         var number = CssMathNumbers.NormalizeTopLevel(numeric.Value);
         if (name == "opacity") number = System.Math.Clamp(number, 0, 1);
         else if (name == "font-weight") number = System.Math.Clamp(number, 1, 1000);
-        else if (name is "width" or "height" or "min-width" or "min-height" or "max-width" or "max-height" or
+        else if (IsLineWidth(name) || name.StartsWith("border-", StringComparison.Ordinal) && name.EndsWith("-radius", StringComparison.Ordinal) ||
+            name is "width" or "height" or "min-width" or "min-height" or "max-width" or "max-height" or
             "padding-top" or "padding-right" or "padding-bottom" or "padding-left" or "row-gap" or "column-gap" or
             "flex-basis" or "flex-grow" or "flex-shrink" or "font-size")
             number = System.Math.Max(0, number);
@@ -154,7 +158,7 @@ internal sealed partial class NativeCssQuery
         // A math number serializes to a typed atom, not a second parse of the authored value.
         // Transform list components participate in later matrix arithmetic. Their display
         // text may round a small nonzero value to zero, so retain round-trip provenance.
-        var provenance = name == "transform" ? CssMathNumbers.FromFiniteNumber(number, _work) :
+        var provenance = name == "transform" || IsLineWidth(name) ? CssMathNumbers.FromFiniteNumber(number, _work) :
             CssNumber.FromValidatedToken(text, _work);
         if (kind == CssNumericKind.Percentage) text += "%";
         else if (kind == CssNumericKind.Dimension) text += unit.ToString().ToLowerInvariant();
