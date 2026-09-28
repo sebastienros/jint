@@ -183,14 +183,14 @@ internal sealed partial class XmlTreeParser
 
             if (!hadSpace) Error("xml/invalid-declaration", _position);
             var name = ReadName(start);
-            var order = name switch { "encoding" => 1, "standalone" => 2, _ => 0 };
+            var order = XmlDeclarationOrderLookup.Match(name);
             if (order == 0 || order <= lastOrder) Error("xml/invalid-declaration", _position);
             lastOrder = order;
             SkipWhitespace(start);
             Expect('=', "xml/invalid-declaration", start);
             SkipWhitespace(start);
             var value = ReadQuoted("xml/invalid-declaration", start);
-            if (order == 1 && !IsEncodingName(value) || order == 2 && value is not "yes" and not "no")
+            if (order == 1 && !IsEncodingName(value) || order == 2 && !XmlStandaloneValueLookup.Match(value))
                 Error("xml/invalid-declaration", start);
             if (order == 2) _standalone = value == "yes";
         }
@@ -439,30 +439,34 @@ internal sealed partial class XmlTreeParser
         var quote = Current;
         if (quote is not ('\'' or '"')) Error("xml/invalid-markup", _position);
         Consume();
-        var builder = new StringBuilder();
-        while (Current != quote)
+        var builder = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            if (End) Error("xml/unexpected-eof", _position);
-            if (Current == '<') Error("xml/invalid-markup", _position);
-            if (Current == '&')
+            while (Current != quote)
             {
-                var replacement = ReadReference(tokenStart, inAttribute: true);
-                AppendCopy(builder, replacement);
-            }
-            else
-            {
-                if (IsWhitespace(Current))
+                if (End) Error("xml/unexpected-eof", _position);
+                if (Current == '<') Error("xml/invalid-markup", _position);
+                if (Current == '&')
                 {
-                    if (Current == '\r' && _inputFrames.Count == 0 && Peek(1) == '\n') Consume();
-                    Consume();
-                    builder.Append(' ');
+                    var replacement = ReadReference(tokenStart, inAttribute: true);
+                    AppendCopy(ref builder, replacement);
                 }
-                else AppendNormalizedScalar(builder);
+                else
+                {
+                    if (IsWhitespace(Current))
+                    {
+                        if (Current == '\r' && _inputFrames.Count == 0 && Peek(1) == '\n') Consume();
+                        Consume();
+                        builder.Append(' ');
+                    }
+                    else AppendNormalizedScalar(ref builder);
+                }
+                CheckToken(tokenStart);
             }
-            CheckToken(tokenStart);
+            Consume();
+            return Materialize(ref builder);
         }
-        Consume();
-        return Materialize(builder);
+        finally { builder.Dispose(); }
     }
 
     private string? ReadReference(int parentTokenStart, bool inAttribute)
@@ -499,15 +503,7 @@ internal sealed partial class XmlTreeParser
         Expect(';', "xml/invalid-markup", start);
         CheckToken(start);
         if (parentTokenStart >= 0) CheckToken(parentTokenStart);
-        var predefined = name switch
-        {
-            "amp" => "&",
-            "lt" => "<",
-            "gt" => ">",
-            "apos" => "'",
-            "quot" => "\"",
-            _ => null
-        };
+        var predefined = XmlPredefinedEntityLookup.Match(name);
         if (predefined is not null) return predefined;
         return ResolveGeneralEntity(name, start, inAttribute);
     }
@@ -526,7 +522,7 @@ internal sealed partial class XmlTreeParser
             if (parentTokenStart >= 0) CheckToken(parentTokenStart);
         }
         _cancellationToken.ThrowIfCancellationRequested();
-        return _source[start.._position];
+        return XmlKnownNameLookup.Match(_source.AsSpan(start, _position - start)) ?? _source[start.._position];
     }
 
     private string ReadQuoted(string code, int tokenStart)
@@ -663,24 +659,37 @@ internal sealed partial class XmlTreeParser
 
     private void AppendNormalizedScalar(StringBuilder builder)
     {
+        var (first, second) = ReadNormalizedScalar();
+        builder.Append(first);
+        if (second != '\0') builder.Append(second);
+    }
+
+    private void AppendNormalizedScalar(ref ValueStringBuilder builder)
+    {
+        var (first, second) = ReadNormalizedScalar();
+        builder.Append(first);
+        if (second != '\0') builder.Append(second);
+    }
+
+    private (char First, char Second) ReadNormalizedScalar()
+    {
         var scalar = PeekScalar();
         if (!IsXmlChar((uint) scalar)) Error("xml/invalid-character", _position);
         if (scalar == '\r' && _inputFrames.Count == 0)
         {
             Consume();
             if (Current == '\n') Consume();
-            builder.Append('\n');
+            return ('\n', '\0');
         }
-        else
+        var first = Current;
+        Consume();
+        if (scalar > 0xFFFF)
         {
-            builder.Append(Current);
+            var second = Current;
             Consume();
-            if (scalar > 0xFFFF)
-            {
-                builder.Append(Current);
-                Consume();
-            }
+            return (first, second);
         }
+        return (first, '\0');
     }
 
     private string NormalizeLines(ReadOnlySpan<char> value)
@@ -697,20 +706,25 @@ internal sealed partial class XmlTreeParser
             WorkUnits(value.Length);
             return value.ToString();
         }
-        var builder = new StringBuilder(value.Length);
-        builder.Append(value[..first]);
-        WorkUnits(first);
-        for (var i = first; i < value.Length; i++)
+        var builder = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            WorkUnit();
-            if (value[i] == '\r')
+            builder.EnsureCapacity(value.Length);
+            builder.Append(value[..first]);
+            WorkUnits(first);
+            for (var i = first; i < value.Length; i++)
             {
-                builder.Append('\n');
-                if (i + 1 < value.Length && value[i + 1] == '\n') i++;
+                WorkUnit();
+                if (value[i] == '\r')
+                {
+                    builder.Append('\n');
+                    if (i + 1 < value.Length && value[i + 1] == '\n') i++;
+                }
+                else builder.Append(value[i]);
             }
-            else builder.Append(value[i]);
+            return Materialize(ref builder);
         }
-        return Materialize(builder);
+        finally { builder.Dispose(); }
     }
 
     private void WorkUnits(int count)
@@ -729,6 +743,24 @@ internal sealed partial class XmlTreeParser
     }
 
     private string Materialize(StringBuilder builder)
+    {
+        WorkUnits(builder.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
+        var value = builder.ToString();
+        _cancellationToken.ThrowIfCancellationRequested();
+        return value;
+    }
+
+    private void AppendCopy(ref ValueStringBuilder builder, string? value)
+    {
+        if (value is null) return;
+        WorkUnits(value.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
+        builder.Append(value);
+        _cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private string Materialize(ref ValueStringBuilder builder)
     {
         WorkUnits(builder.Length);
         _cancellationToken.ThrowIfCancellationRequested();

@@ -62,6 +62,8 @@ public class HtmlTokenizerInsertionTests
     [TestCase("<textarea>&amp;</textarea>")]
     [TestCase("<script><!--<script>x</script>--></script>")]
     [TestCase("a\r\nb")]
+    [TestCase("ordinary text before\r\nand after a newline with a longer tail")]
+    [TestCase("<longtag attribute='ordinary value with &notin; and more text'>longer text</longtag>")]
     public void EveryShortWriteSplitPreservesPartialStateAndOuterTail(string written)
     {
         const string tail = "<outer>tail</outer>";

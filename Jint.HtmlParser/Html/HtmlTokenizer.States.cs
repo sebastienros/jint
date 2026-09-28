@@ -42,7 +42,7 @@ internal sealed partial class HtmlTokenizer
                 {
                     // Deliver the preceding characters before starting markup: tree
                     // processing can change the adjusted current node for this opener.
-                    if (_text.Length != 0)
+                    if (TextLength != 0)
                     {
                         _markupOpenerAfterText = true;
                         FlushText(out token);
@@ -59,7 +59,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '\0') Error("unexpected-null-character");
                 var textOffset = _input.Offset;
                 Text(Take(), textOffset);
-                if (_text.Length >= 4096) { FlushText(out token); return true; }
+                if (TextLength >= 4096) { FlushText(out token); return true; }
                 return false;
 
             case State.TagOpen:

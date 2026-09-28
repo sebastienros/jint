@@ -13,14 +13,14 @@ internal static class CssSizingPropertyParser
         var part = parts[0];
         var keywords = grammar switch
         {
-            CssPropertyGrammar.FlexBasis => "auto content min-content max-content fit-content stretch",
-            CssPropertyGrammar.MaxSizing => "none min-content max-content fit-content stretch",
-            _ => "auto min-content max-content fit-content stretch"
+            CssPropertyGrammar.FlexBasis => CssKeywordSet.AutoContentMinContentMaxContentEtc,
+            CssPropertyGrammar.MaxSizing => CssKeywordSet.NoneMinContentMaxContentFitContentEtc,
+            _ => CssKeywordSet.AutoMinContentMaxContentFitContentEtc
         };
         if (CssPropertyParser.Keyword(part, keywords, work) is { } keyword)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
         // Sizing 4 §3.2 extends <box-size>; implementation remains a named obligation.
-        if (CssPropertyParser.Keyword(part, "contain", work) is not null)
+        if (CssPropertyParser.Keyword(part, CssKeywordSet.Contain, work) is not null)
             return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "sizing:contain");
         if (part.Kind == CssComponentKind.Function)
         {
@@ -35,7 +35,7 @@ internal static class CssSizingPropertyParser
             }
             // Anchor Positioning and Sizing 4 extend the sizing grammar. They are named debt,
             // not arbitrary functions accepted as raw text or reported as invalid CSS.
-            if (name is "anchor-size" or "calc-size")
+            if (CssAnchorSizeCalcSizeNames.Match(name))
                 return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "sizing:" + name);
         }
         return Numeric(part, false, maximumDepth, work);

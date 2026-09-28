@@ -5,6 +5,20 @@ namespace Jint.Tests.HtmlParser.Xml;
 
 public class XmlDtdTests
 {
+    [TestCase(0)]
+    [TestCase(127)]
+    [TestCase(128)]
+    [TestCase(10000)]
+    public void DefaultAttributeBuffersPreserveExpansionAndWhitespaceNormalization(int length)
+    {
+        var prefix = new string('x', length);
+        var source = "<!DOCTYPE r [<!ENTITY e 'entity'><!ATTLIST r a CDATA '" + prefix +
+            "\r\n&#x1F600;&e;' tokens NMTOKENS '  " + prefix + " \t tail  '>]><r/>";
+        var root = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default).DocumentElement!;
+        root.GetAttribute("a").Should().Be(prefix + " \U0001F600entity");
+        root.GetAttribute("tokens").Should().Be(length == 0 ? "tail" : prefix + " tail");
+    }
+
     [Test]
     public void DoctypeAndInternalEntityProduceNativeNodes()
     {

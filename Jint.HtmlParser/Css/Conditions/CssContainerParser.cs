@@ -130,15 +130,20 @@ internal static class CssContainerParser
     private static bool Operand(CssComponentValue operand, List<CssContainerInstruction> program, CssValueWork work)
     {
         work.Charge(1);
-        if (operand.Kind == CssComponentKind.Function)
+        switch (operand.Kind)
         {
-            var functionAxis = CssAscii.EqualsIgnoreCase(operand.FunctionName, "style") ? CssContainerAxis.Style
-                : CssAscii.EqualsIgnoreCase(operand.FunctionName, "scroll-state") ? CssContainerAxis.ScrollState : CssContainerAxis.Unknown;
-            program.Add(functionAxis == CssContainerAxis.Unknown ? new(CssMediaOperation.Unknown)
-                : new(CssMediaOperation.Feature, new(functionAxis, CssMediaComparison.Boolean, Dependency: "C6:container-" + operand.FunctionName)));
-            return true;
+            case CssComponentKind.Function:
+                {
+                    var functionAxis = CssContainerFunctionLookup.Match(operand.FunctionName);
+                    program.Add(functionAxis == CssContainerAxis.Unknown ? new(CssMediaOperation.Unknown)
+                        : new(CssMediaOperation.Feature, new(functionAxis, CssMediaComparison.Boolean, Dependency: "C6:container-" + operand.FunctionName)));
+                    return true;
+                }
+            case CssComponentKind.SimpleBlock when operand.OpeningDelimiter == '(':
+                break;
+            default:
+                return false;
         }
-        if (operand.Kind != CssComponentKind.SimpleBlock || operand.OpeningDelimiter != '(') return false;
         var parts = CssPropertyParser.Significant(operand.Values, work);
         if (parts.Count == 0) return false;
         if (parts[0].Kind != CssComponentKind.Token || parts[0].Token.Kind != CssTokenKind.Ident)
@@ -151,15 +156,7 @@ internal static class CssContainerParser
         var comparison = CssMediaComparison.Equal;
         if (name.StartsWith("min-", StringComparison.Ordinal)) { name = name[4..]; comparison = CssMediaComparison.GreaterEqual; }
         else if (name.StartsWith("max-", StringComparison.Ordinal)) { name = name[4..]; comparison = CssMediaComparison.LessEqual; }
-        var axis = name switch
-        {
-            "width" => CssContainerAxis.Width,
-            "inline-size" => CssContainerAxis.InlineSize,
-            "height" => CssContainerAxis.Height,
-            "block-size" => CssContainerAxis.BlockSize,
-            "aspect-ratio" or "orientation" => CssContainerAxis.Both,
-            _ => CssContainerAxis.Unknown
-        };
+        var axis = CssContainerAxisLookup.Match(name);
         if (axis == CssContainerAxis.Unknown) { program.Add(new(CssMediaOperation.Unknown)); return true; }
         var pixels = 0d;
         string? dependency = null;

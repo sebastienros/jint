@@ -21,7 +21,7 @@ internal static class CssCursorPropertyParser
         }
         if (parts.Count != 1) return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
         work.Charge(Keywords.Length);
-        var keyword = CssPropertyParser.Keyword(parts[0], Keywords, work);
+        var keyword = CssPropertyParser.Keyword(parts[0], CssKeywordSet.AutoDefaultNoneContextMenuEtc, work);
         work.CheckCancellation();
         return keyword is null ? CssPropertyResult.Rejected(CssPropertyStatus.Invalid)
             : CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, parts[0].Span));
@@ -31,6 +31,6 @@ internal static class CssCursorPropertyParser
     {
         work.Charge("url image-set -webkit-image-set".Length);
         name = CssPropertyRegistry.NormalizeName(name, work);
-        return name is "url" or "image-set" or "-webkit-image-set";
+        return CssUrlImageSetWebkitImageSetNames.Match(name);
     }
 }

@@ -18,9 +18,9 @@ internal static class CssBoxPropertyParser
         {
             work.Charge(1);
             var part = parts[i];
-            if (margin && CssPropertyParser.Keyword(part, "auto", work) is { } keyword)
+            if (margin && CssPropertyParser.Keyword(part, CssKeywordSet.Auto, work) is { } keyword)
                 values[i] = CssPropertyValue.Keyword(keyword, part.Span);
-            else if (gap && CssPropertyParser.Keyword(part, "normal thin medium thick", work) is { } gapKeyword)
+            else if (gap && CssPropertyParser.Keyword(part, CssKeywordSet.NormalThinMediumThick, work) is { } gapKeyword)
                 values[i] = CssPropertyValue.Keyword(gapKeyword, part.Span);
             else
             {

@@ -243,6 +243,90 @@ public class HtmlTokenizerTests
     }
 
     [Test]
+    public void EveryNamedReferenceMatchesInTextAndAttributesAcrossChunks()
+    {
+        foreach (var (name, value) in HtmlEntities.Values)
+        {
+            var source = "&" + name;
+            var expected = "T:" + value + "|EOF|";
+            Assert.That(Signature(Scan(source)), Is.EqualTo(expected), name);
+            Assert.That(ScanPartitioned(source, 1, 1), Is.EqualTo(expected), name);
+
+            source = "<a x='" + source + "'>";
+            expected = "S:a x=" + value + "|EOF|";
+            Assert.That(Signature(Scan(source)), Is.EqualTo(expected), name);
+            Assert.That(ScanPartitioned(source, 3, 7), Is.EqualTo(expected), name);
+        }
+    }
+
+    [Test]
+    public void OrdinaryRunsPreserveEveryNonSpecialUtf16CodeUnit()
+    {
+        var characters = new string(Enumerable.Range(0, 65536).Select(i => (char) i)
+            .Where(c => c is not ('<' or '&' or '"' or '\0' or '\r' or '\n')).ToArray());
+        var source = "<LONGTAG ordinaryattribute=\"" + characters + "\">";
+        foreach (var quota in new[] { 1, 65536 })
+        {
+            Assert.That(Signature(Scan(source, quota)), Is.EqualTo("S:longtag ordinaryattribute=" + characters + "|EOF|"));
+            Assert.That(Signature(Scan(characters, quota)), Is.EqualTo("T:" + characters + "|EOF|"));
+        }
+    }
+
+    [TestCase(2)]
+    [TestCase(7)]
+    [TestCase(4096)]
+    [TestCase(10000)]
+    public void RunScanningPreservesScalarDiagnosticsAndChunkBoundaries(int quota)
+    {
+        var run = new string('a', 80);
+        var source = run + "\r\n" + "<LONGtag longerName='" + run + "&notit;&amp;'>" +
+            run + "\0" + "<!--" + run + "\r\n-->" +
+            "<a unquoted=" + run + "`x double=\"" + run + "\0\" duplicate=x DUPLICATE=y>";
+        var expectedDiagnostics = new ParseDiagnosticCollector();
+        var expected = Signature(Scan(source, 1,
+            context: new HtmlTokenizerContext(diagnostics: expectedDiagnostics)));
+        foreach (var split in new[] { 0, 79, 80, 81, 82, 101, 151, source.Length - 1, source.Length })
+        {
+            var diagnostics = new ParseDiagnosticCollector();
+            Assert.That(Signature(Scan(source, quota, split,
+                new HtmlTokenizerContext(diagnostics: diagnostics))), Is.EqualTo(expected), $"split={split}");
+            Assert.That(diagnostics.Items, Is.EqualTo(expectedDiagnostics.Items), $"split={split}");
+        }
+    }
+
+    [TestCase("<longtag", ">")]
+    [TestCase("<a attribute", "=x>")]
+    [TestCase("<a x='", "'>")]
+    [TestCase("<a x=\"", "\">")]
+    [TestCase("<a x=", ">")]
+    [TestCase("<!--", "-->")]
+    public void OrdinaryRunsStopAtTokenLimits(string prefix, string suffix)
+    {
+        foreach (var quota in new[] { 1, 17, 10000 })
+        {
+            var tokenizer = new HtmlTokenizer(new HtmlTokenizerContext(new ParseLimits { MaxTokenCharacters = 32 }));
+            tokenizer.AppendInput(prefix + new string('x', 100) + suffix, true);
+            var failure = Assert.Throws<ParseLimitException>(() => Drain(tokenizer, quota, new List<HtmlToken>(), true));
+            Assert.That(failure!.Kind, Is.EqualTo(ParseLimitKind.TokenCharacters));
+            Assert.That(tokenizer.ConsumedInput, Is.EqualTo(33));
+            Assert.Throws<InvalidOperationException>(() => tokenizer.Read(1, default, out _));
+        }
+    }
+
+    [TestCase(1)]
+    [TestCase(17)]
+    [TestCase(4096)]
+    public void OrdinaryRunsCannotConsumePastTheReadQuota(int quota)
+    {
+        var tokenizer = new HtmlTokenizer(default);
+        tokenizer.AppendInput(new string('x', 20000), true);
+        var status = tokenizer.Read(quota, default, out var token);
+        Assert.That(status, Is.EqualTo(HtmlReadStatus.Token));
+        Assert.That(token.Data.Length, Is.InRange(1, quota));
+        Assert.That(tokenizer.ConsumedInput, Is.EqualTo(token.Data.Length));
+    }
+
+    [Test]
     public void WorkAndBufferGrowthRemainLinear()
     {
         static long ScanWork(int length)

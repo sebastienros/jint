@@ -5,17 +5,22 @@ internal readonly struct ParserAttribute
 {
     internal ParserAttribute(string? namespaceUri, string localName, string? prefix, string value,
         bool isDtdId = false)
+        : this(namespaceUri, localName, prefix, new StringSlice(value), isDtdId) { }
+
+    internal ParserAttribute(string? namespaceUri, string localName, string? prefix, StringSlice value,
+        bool isDtdId = false)
     {
         NamespaceUri = namespaceUri;
         LocalName = localName;
         Prefix = prefix;
-        Value = value;
+        ValueSlice = value;
         IsDtdId = isDtdId;
     }
 
     internal string? NamespaceUri { get; }
     internal string LocalName { get; }
     internal string? Prefix { get; }
-    internal string Value { get; }
+    internal StringSlice ValueSlice { get; }
+    internal string Value => ValueSlice.ToString();
     internal bool IsDtdId { get; }
 }

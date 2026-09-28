@@ -6,17 +6,23 @@ public sealed class Attr
     internal EndpointBucket? RangeEndpoints;
     internal List<WeakReference<DomNodeIterator>>? RootIterators;
     internal int IteratorRootSweepCursor;
-    private string _value;
+    private StringSlice _value;
     private string? _prefix;
 
     internal Attr(Document ownerDocument, string? namespaceUri, string localName, string? prefix, string value,
+        bool isDtdId = false)
+        : this(ownerDocument, namespaceUri, localName, prefix,
+            new StringSlice(value ?? throw new ArgumentNullException(nameof(value))), isDtdId)
+    { }
+
+    internal Attr(Document ownerDocument, string? namespaceUri, string localName, string? prefix, StringSlice value,
         bool isDtdId = false)
     {
         OwnerDocument = ownerDocument;
         NamespaceUri = namespaceUri;
         LocalName = localName;
         _prefix = prefix;
-        _value = value ?? throw new ArgumentNullException(nameof(value));
+        _value = value;
         IsDtdId = isDtdId;
     }
 
@@ -42,18 +48,19 @@ public sealed class Attr
     public string Name => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
     public string Value
     {
-        get => _value;
+        get => StringSlice.Materialize(ref _value);
         set => SetValue(value, null);
     }
+    internal ReadOnlySpan<char> ValueSpan => _value.Span;
     internal void SetValue(string value, HtmlSelectWorkContext? context)
     {
         ArgumentNullException.ThrowIfNull(value);
         var owner = OwnerElement;
         if (owner is not null) HtmlInputStateChanges.BeforeAttributeChanged(owner, NamespaceUri, LocalName, value);
-        var oldValue = _value;
+        var oldValue = Value;
         var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
             LocalName, NamespaceUri);
-        _value = value;
+        _value = new StringSlice(value);
         OwnerDocument.MarkMutation();
         if (owner is not null)
         {

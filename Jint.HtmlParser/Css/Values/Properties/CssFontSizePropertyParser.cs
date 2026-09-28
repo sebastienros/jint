@@ -7,9 +7,9 @@ internal static class CssFontSizePropertyParser
     {
         if (parts.Count != 1) return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
         var part = parts[0];
-        if (CssPropertyParser.Keyword(part, "xx-small x-small small medium large x-large xx-large xxx-large larger smaller", work) is { } keyword)
+        if (CssPropertyParser.Keyword(part, CssKeywordSet.XxSmallXSmallSmallMediumEtc, work) is { } keyword)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
-        if (CssPropertyParser.Keyword(part, "math", work) is not null)
+        if (CssPropertyParser.Keyword(part, CssKeywordSet.Math, work) is not null)
             return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "font-size:mathml-scaling");
         return CssSizingPropertyParser.Numeric(part, false, maximumDepth, work);
     }

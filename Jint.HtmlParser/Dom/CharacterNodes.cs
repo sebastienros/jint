@@ -10,18 +10,24 @@ internal enum TextAppendCheckpoint
 /// <summary>A text node.</summary>
 public sealed class Text : Node
 {
-    private string _data = string.Empty;
+    private StringSlice _data;
     private char[]? _parsedStorage;
     private int _parsedLength;
     private string? _cachedParsedData;
 
-    internal Text(Document owner, string data) : base(owner) => _data = data ?? throw new ArgumentNullException(nameof(data));
+    internal Text(Document owner, string data) : base(owner) =>
+        _data = new StringSlice(data ?? throw new ArgumentNullException(nameof(data)));
     public override NodeType NodeType => NodeType.Text;
     internal int DataLength => _parsedStorage is null ? _data.Length : _parsedLength;
-    internal char DataAt(int index) => _parsedStorage is null ? _data[index] : _parsedStorage[index];
+    internal ReadOnlySpan<char> DataSpan => _parsedStorage is null ? _data.Span : _parsedStorage.AsSpan(0, _parsedLength);
+    internal char DataAt(int index) => DataSpan[index];
     public string Data
     {
-        get => _parsedStorage is null ? _data : _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
+        get
+        {
+            if (_parsedStorage is not null) return _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
+            return StringSlice.Materialize(ref _data);
+        }
         set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
     }
 
@@ -46,7 +52,7 @@ public sealed class Text : Node
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? Data : null;
         LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
-        _data = value;
+        _data = new StringSlice(value);
         _parsedStorage = null;
         _parsedLength = 0;
         _cachedParsedData = null;
@@ -57,6 +63,19 @@ public sealed class Text : Node
 
     internal void AppendParsedData(ReadOnlySpan<char> data, CancellationToken cancellationToken)
         => AppendParsedData(data, null, cancellationToken);
+
+    internal void AppendParsedData(StringSlice data, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (data.IsEmpty) return;
+        if (_parsedStorage is null && _data.TryConcat(data, out var combined))
+        {
+            CommitParsedAppend(combined, null, _data.Length, combined.Length);
+            cancellationToken.ThrowIfCancellationRequested();
+            return;
+        }
+        AppendParsedData(data.Span, cancellationToken);
+    }
 
     // A parser slice is prepared beyond the published length. Cancellation before
     // the commit keeps Data unchanged; after it, the whole slice is observable.
@@ -84,7 +103,7 @@ public sealed class Text : Node
             }
             else
             {
-                _data.AsSpan().CopyTo(storage);
+                _data.Span.CopyTo(storage);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -102,23 +121,28 @@ public sealed class Text : Node
         workCheckpoint?.Invoke(TextAppendCheckpoint.AfterPreparation);
         cancellationToken.ThrowIfCancellationRequested();
 
+        CommitParsedAppend(default, storage, oldLength, newLength);
+        workCheckpoint?.Invoke(TextAppendCheckpoint.AfterCommit);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private void CommitParsedAppend(StringSlice source, char[]? storage, int oldLength, int newLength)
+    {
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? Data : null;
 
         {
             using var rangeMutation = new RangeMutationScope(OwnerDocument!);
-            LiveTraversalTracking.ReplaceData(this, (uint) oldLength, 0, (uint) data.Length);
+            LiveTraversalTracking.ReplaceData(this, (uint) oldLength, 0, (uint) (newLength - oldLength));
             _parsedStorage = storage;
             _parsedLength = newLength;
-            _data = string.Empty;
+            _data = source;
             _cachedParsedData = null;
             OwnerDocument!.MarkMutation();
             if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent, mayShorten: false);
             MutationTracking.QueueCharacterData(this, oldValue, matches);
 
         }
-        workCheckpoint?.Invoke(TextAppendCheckpoint.AfterCommit);
-        cancellationToken.ThrowIfCancellationRequested();
     }
 }
 

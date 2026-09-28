@@ -21,7 +21,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         var target = overrideTarget ?? CurrentParent;
         if (_fosterParenting && target is Element element && element.NamespaceUri == Namespaces.Html &&
-            element.LocalName is "table" or "tbody" or "tfoot" or "thead" or "tr")
+            HtmlTableTbodyTfootNames.Match(element.LocalName))
         {
             var tableIndex = Last("table");
             var templateIndex = Last("template");

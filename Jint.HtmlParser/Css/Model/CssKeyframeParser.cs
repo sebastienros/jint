@@ -8,9 +8,7 @@ namespace Jint.HtmlParser.Css.Model;
 // https://drafts.csswg.org/css-animations-1/#keyframes
 internal static class CssKeyframeParser
 {
-    internal static bool ReservedName(string name) =>
-        CssAscii.EqualsIgnoreCase(name, "none") || CssAscii.EqualsIgnoreCase(name, "default") ||
-        CssWideKeywords.Recognize(name.AsSpan()) != CssWideKeyword.None;
+    internal static bool ReservedName(string name) => CssKeyframeReservedNameLookup.Match(name);
 
     internal static string? Name(CssComponentValueList values, CssValueWork work)
     {

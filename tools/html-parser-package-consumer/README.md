@@ -2,8 +2,9 @@
 
 This unsigned application consumes the newly packed `Jint.HtmlParser` NuGet package. It has no project
 reference, friend access, signing key, or dependency on the Jint engine or AngleSharp. Its own build
-configuration stops repository-wide MSBuild inheritance. The consumer's restore has only the local
-feed as a package source, so it cannot resolve `Jint.HtmlParser` from nuget.org.
+configuration stops repository-wide MSBuild inheritance. Package source mapping restricts
+`Jint.HtmlParser` to the local feed and allows its `System.IO.Hashing` dependency from nuget.org,
+so it cannot resolve `Jint.HtmlParser` from nuget.org.
 
 From the repository root on macOS or Linux, run:
 
@@ -32,8 +33,9 @@ unzip -p artifacts/html-parser-package-consumer/feed/Jint.HtmlParser.*.nupkg '*.
 unzip -l artifacts/html-parser-package-consumer/feed/Jint.HtmlParser.*.nupkg
 ```
 
-The package must contain both `lib/net8.0` and `lib/net10.0` assets and have no `Jint` or `AngleSharp`
-dependency. The application also checks that its own assembly is unsigned and that it loaded the
+The package must contain both `lib/net8.0` and `lib/net10.0` assets, declare `System.IO.Hashing`,
+include `licenses/ValueStringBuilder.LICENSE.txt`, and have no `Jint` or `AngleSharp` dependency.
+The application also checks that its own assembly is unsigned and that it loaded the
 `Jint.HtmlParser` assembly. The package manifest and restored graph are the dependency checks, since
 reflection-based assembly-reference enumeration is unsafe in a trimmed Native AOT consumer.
 
@@ -46,5 +48,6 @@ dotnet publish tools/html-parser-package-consumer/HtmlParserPackageConsumer.cspr
 ./tools/html-parser-package-consumer/bin/Release/net10.0/osx-arm64/publish/HtmlParserPackageConsumer
 ```
 
-The AOT restore config adds nuget.org only for compiler and runtime packs. The parser package keeps
-its unique `5.0.0-consumer-smoke` version and is first restored from the local-only feed above.
+The AOT restore config also permits compiler and runtime packs from nuget.org. Its exact
+`Jint.HtmlParser` mapping takes precedence over the dependency wildcard, so the parser package keeps
+its unique `5.0.0-consumer-smoke` version and can only restore from the local feed.

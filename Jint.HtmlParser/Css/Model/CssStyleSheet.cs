@@ -298,50 +298,55 @@ internal sealed class CssStyleSheet
         if (syntax.Kind == CssRuleKind.AtRule)
         {
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
-            if (name == "import") return CssImportRule.Parse(source, syntax, parser, work);
-            if (name == "font-face")
+            var kind = CssAtRuleLookup.Match(name);
+            switch (kind)
             {
-                if (syntax.Block is not { } descriptorBlock || nestingParent is not null) return null;
-                foreach (var value in syntax.Prelude)
-                {
-                    work.Charge(1);
-                    if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace) return null;
-                }
-                var descriptors = new List<CssDeclarationSyntax>();
-                foreach (var item in parser.ParseBlockContents(descriptorBlock))
-                {
-                    work.Charge(1);
-                    if (item.Kind == CssBlockItemKind.Declarations)
-                        foreach (var declaration in item.Declarations) { work.Charge(1); descriptors.Add(declaration); }
-                }
-                return new CssFontFaceRule(CssDeclarationBlock.FromDeclarations(source, descriptors,
-                    CssDeclarationContext.FontFace, options?.Limits.MaxNestingDepth ?? 0, work), syntax.Span);
+                case CssAtRuleKind.Import:
+                    return CssImportRule.Parse(source, syntax, parser, work);
+                case CssAtRuleKind.FontFace:
+                    {
+                        if (syntax.Block is not { } descriptorBlock || nestingParent is not null) return null;
+                        foreach (var value in syntax.Prelude)
+                        {
+                            work.Charge(1);
+                            if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace) return null;
+                        }
+                        var descriptors = new List<CssDeclarationSyntax>();
+                        foreach (var item in parser.ParseBlockContents(descriptorBlock))
+                        {
+                            work.Charge(1);
+                            if (item.Kind == CssBlockItemKind.Declarations)
+                                foreach (var declaration in item.Declarations) { work.Charge(1); descriptors.Add(declaration); }
+                        }
+                        return new CssFontFaceRule(CssDeclarationBlock.FromDeclarations(source, descriptors,
+                            CssDeclarationContext.FontFace, options?.Limits.MaxNestingDepth ?? 0, work), syntax.Span);
+                    }
+                case CssAtRuleKind.Media:
+                    return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
+                case CssAtRuleKind.Keyframes:
+                    {
+                        if (syntax.Block is null || nestingParent is not null) return null;
+                        var animationName = CssKeyframeParser.Name(syntax.Prelude, work);
+                        return animationName is null ? null : new CssKeyframesRule(animationName, syntax.Span);
+                    }
+                case CssAtRuleKind.Container:
+                    return syntax.Block is null ? null : CssContainerParser.Parse(source, syntax.Prelude, syntax.Span, parser, work);
+                case CssAtRuleKind.Supports:
+                    {
+                        if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
+                            return null;
+                        var condition = SelectorText(source, syntax.Prelude, parser, work);
+                        return new CssSupportsRule(condition, matches, syntax.Span);
+                    }
             }
-            if (name == "media")
-                return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
-            if (name == "keyframes")
+            var group = kind switch
             {
-                if (syntax.Block is null || nestingParent is not null) return null;
-                var animationName = CssKeyframeParser.Name(syntax.Prelude, work);
-                return animationName is null ? null : new CssKeyframesRule(animationName, syntax.Span);
-            }
-            if (name == "container")
-                return syntax.Block is null ? null : CssContainerParser.Parse(source, syntax.Prelude, syntax.Span, parser, work);
-            if (name == "supports")
-            {
-                if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
-                    return null;
-                var condition = SelectorText(source, syntax.Prelude, parser, work);
-                return new CssSupportsRule(condition, matches, syntax.Span);
-            }
-            var group = name switch
-            {
-                "namespace" => "R1",
-                "scope" or "starting-style" or "layer" => "R2",
-                "font-feature-values" or "font-palette-values" => "R4",
-                "page" or "counter-style" => "R5",
-                "property" or "view-transition" or "position-try" or "color-profile" => "R6",
-                "document" or "viewport" => "R7",
+                CssAtRuleKind.Namespace => "R1",
+                CssAtRuleKind.Scope or CssAtRuleKind.StartingStyle or CssAtRuleKind.Layer => "R2",
+                CssAtRuleKind.FontFeatureValues or CssAtRuleKind.FontPaletteValues => "R4",
+                CssAtRuleKind.Page or CssAtRuleKind.CounterStyle => "R5",
+                CssAtRuleKind.Property or CssAtRuleKind.ViewTransition or CssAtRuleKind.PositionTry or CssAtRuleKind.ColorProfile => "R6",
+                CssAtRuleKind.Document or CssAtRuleKind.Viewport => "R7",
                 _ => null
             };
             if (group is not null) throw new CssIncompleteRuleGrammarException(name, group + ":" + name, syntax.Span);

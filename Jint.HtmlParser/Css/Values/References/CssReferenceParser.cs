@@ -88,69 +88,74 @@ internal static class CssReferenceParser
             var declarationRoot = false;
             var headerWrapperIndex = -1;
             var fallbackWrapperIndex = -1;
-            if (value.Kind == CssComponentKind.Function)
+            switch (value.Kind)
             {
-                var name = value.FunctionName;
-                work.Charge(name.Length);
-                if (IsName(name, "var") || IsName(name, "env"))
-                {
-                    var referenceKind = IsName(name, "var") ? CssReferenceKind.Var : CssReferenceKind.Env;
-                    if (referenceKind == CssReferenceKind.Var && use == CssReferenceUse.DescriptorValue)
-                        invalid ??= value.Span;
+                case CssComponentKind.Function:
+                    {
+                        var name = value.FunctionName;
+                        work.Charge(name.Length);
+                        if (IsName(name, "var") || IsName(name, "env"))
+                        {
+                            var referenceKind = IsName(name, "var") ? CssReferenceKind.Var : CssReferenceKind.Env;
+                            if (referenceKind == CssReferenceKind.Var && use == CssReferenceUse.DescriptorValue)
+                                invalid ??= value.Span;
 
-                    var children = value.Values;
-                    var comma = -1;
-                    for (var i = 0; i < children.Count; i++)
-                    {
-                        work.Charge(1);
-                        var child = children[i];
-                        if (comma < 0 && child.Kind == CssComponentKind.Token &&
-                            child.Token.Kind == CssTokenKind.Comma) comma = i;
+                            var children = value.Values;
+                            var comma = -1;
+                            for (var i = 0; i < children.Count; i++)
+                            {
+                                work.Charge(1);
+                                var child = children[i];
+                                if (comma < 0 && child.Kind == CssComponentKind.Token &&
+                                    child.Token.Kind == CssTokenKind.Comma) comma = i;
+                            }
+                            var headerCount = comma < 0 ? children.Count : comma;
+                            var contentStart = OpeningParenthesisEnd(input, value.Span, work);
+                            var contentEnd = value.Span.Start + value.Span.Length - (value.IsClosed ? 1 : 0);
+                            var headerEnd = comma < 0 ? contentEnd : children[comma].Span.Start;
+                            var header = Range(children, 0, headerCount, contentStart, headerEnd, work);
+                            var fallback = comma < 0 ? default : Range(children, comma + 1,
+                                children.Count - comma - 1,
+                                children[comma].Span.Start + children[comma].Span.Length, contentEnd, work);
+                            var staticName = StaticName(referenceKind, children, headerCount, work);
+                            headerWrapperIndex = WrapperIndex(header, work);
+                            fallbackWrapperIndex = comma < 0 ? -1 : WrapperIndex(fallback, work);
+                            owner = occurrences.Count;
+                            earlyOwner = owner;
+                            declarationRoot = true;
+                            work.CheckCancellation();
+                            occurrences.Add(new CssReferenceOccurrence(referenceKind, value.Span, frame.ParentIndex,
+                                header, comma >= 0, fallback, staticName, false, null, false));
+                            earlyLocations.Add(null);
+                            earlyHeaders.Add(false);
+                            earlyFallbacks.Add(false);
+                            work.CheckCancellation();
+                            if (frame.ParentIndex >= 0)
+                                occurrences[frame.ParentIndex] = inFallback
+                                    ? occurrences[frame.ParentIndex].WithNestedFallback()
+                                    : occurrences[frame.ParentIndex].WithDynamicHeader();
+                        }
+                        else if (IsPendingFamily(name))
+                        {
+                            earlyOwner = -1;
+                            if (pending is null)
+                            {
+                                pending = value.Span;
+                                pendingName = name;
+                            }
+                        }
                     }
-                    var headerCount = comma < 0 ? children.Count : comma;
-                    var contentStart = OpeningParenthesisEnd(input, value.Span, work);
-                    var contentEnd = value.Span.Start + value.Span.Length - (value.IsClosed ? 1 : 0);
-                    var headerEnd = comma < 0 ? contentEnd : children[comma].Span.Start;
-                    var header = Range(children, 0, headerCount, contentStart, headerEnd, work);
-                    var fallback = comma < 0 ? default : Range(children, comma + 1,
-                        children.Count - comma - 1,
-                        children[comma].Span.Start + children[comma].Span.Length, contentEnd, work);
-                    var staticName = StaticName(referenceKind, children, headerCount, work);
-                    headerWrapperIndex = WrapperIndex(header, work);
-                    fallbackWrapperIndex = comma < 0 ? -1 : WrapperIndex(fallback, work);
-                    owner = occurrences.Count;
-                    earlyOwner = owner;
-                    declarationRoot = true;
-                    work.CheckCancellation();
-                    occurrences.Add(new CssReferenceOccurrence(referenceKind, value.Span, frame.ParentIndex,
-                        header, comma >= 0, fallback, staticName, false, null, false));
-                    earlyLocations.Add(null);
-                    earlyHeaders.Add(false);
-                    earlyFallbacks.Add(false);
-                    work.CheckCancellation();
-                    if (frame.ParentIndex >= 0)
-                        occurrences[frame.ParentIndex] = inFallback
-                            ? occurrences[frame.ParentIndex].WithNestedFallback()
-                            : occurrences[frame.ParentIndex].WithDynamicHeader();
-                }
-                else if (IsPendingFamily(name))
-                {
-                    earlyOwner = -1;
-                    if (pending is null)
+                    break;
+                case CssComponentKind.SimpleBlock when value.OpeningDelimiter == '{' &&
+                    (componentIndex == frame.HeaderWrapperIndex || componentIndex == frame.FallbackWrapperIndex):
                     {
-                        pending = value.Span;
-                        pendingName = name;
+                        // A direct early invocation in the header can introduce the first comma.
+                        // In that case this raw fallback block may be ordinary nested content,
+                        // rather than the wrapper of a declaration-value argument.
+                        declarationRoot = componentIndex != frame.FallbackWrapperIndex ||
+                            !frame.ReferenceArguments || !earlyHeaders[frame.EarlyOwnerIndex];
                     }
-                }
-            }
-            else if (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{' &&
-                (componentIndex == frame.HeaderWrapperIndex || componentIndex == frame.FallbackWrapperIndex))
-            {
-                // A direct early invocation in the header can introduce the first comma.
-                // In that case this raw fallback block may be ordinary nested content,
-                // rather than the wrapper of a declaration-value argument.
-                declarationRoot = componentIndex != frame.FallbackWrapperIndex ||
-                    !frame.ReferenceArguments || !earlyHeaders[frame.EarlyOwnerIndex];
+                    break;
             }
 
             work.CheckCancellation();
@@ -211,25 +216,28 @@ internal static class CssReferenceParser
             throw new ArgumentException("A decoded custom-property identifier is required.", nameof(decodedName));
 
         var analysis = Analyze(input, CssReferenceUse.CustomPropertyValue, work);
-        if (analysis.Kind == CssReferenceAnalysisKind.InvalidSyntax)
+        switch (analysis.Kind)
         {
-            work.CheckCancellation();
-            return CssCustomPropertyResult.Invalid(analysis.Span);
-        }
-        if (analysis.Kind == CssReferenceAnalysisKind.PendingFeature)
-        {
-            work.CheckCancellation();
-            return CssCustomPropertyResult.Pending(analysis.Span, analysis.PendingFunction!);
-        }
-
-        if (analysis.Kind == CssReferenceAnalysisKind.Literal)
-        {
-            var keyword = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
-            if (keyword.IsMatch)
-            {
-                work.CheckCancellation();
-                return CssCustomPropertyResult.FromKeyword(keyword.Value, input);
-            }
+            case CssReferenceAnalysisKind.InvalidSyntax:
+                {
+                    work.CheckCancellation();
+                    return CssCustomPropertyResult.Invalid(analysis.Span);
+                }
+            case CssReferenceAnalysisKind.PendingFeature:
+                {
+                    work.CheckCancellation();
+                    return CssCustomPropertyResult.Pending(analysis.Span, analysis.PendingFunction!);
+                }
+            case CssReferenceAnalysisKind.Literal:
+                {
+                    var keyword = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
+                    if (keyword.IsMatch)
+                    {
+                        work.CheckCancellation();
+                        return CssCustomPropertyResult.FromKeyword(keyword.Value, input);
+                    }
+                }
+                break;
         }
         work.CheckCancellation();
         var result = CssCustomPropertyResult.FromValue(decodedName, analysis.Program);
@@ -368,9 +376,11 @@ internal static class CssReferenceParser
     private static bool IsName(string left, string right) =>
         left.Equals(right, StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsPendingFamily(string name) => IsName(name, "attr") || IsName(name, "if") ||
-        IsName(name, "inherit") || IsName(name, "ident") || IsName(name, "random-item") ||
-        name.StartsWith("--", StringComparison.Ordinal);
+    private static bool IsPendingFamily(string name) =>
+        name.StartsWith("--", StringComparison.Ordinal) || CssPendingReferenceLookup.Match(name) ||
+        // Preserve the existing ordinal-ignore-case behavior for non-ASCII spellings.
+        name.Length <= 11 && !System.Text.Ascii.IsValid(name) &&
+        (IsName(name, "attr") || IsName(name, "if") || IsName(name, "inherit") || IsName(name, "ident") || IsName(name, "random-item"));
 
     private static bool IsArbitrary(string name) => IsName(name, "var") || IsName(name, "env") ||
         IsPendingFamily(name);

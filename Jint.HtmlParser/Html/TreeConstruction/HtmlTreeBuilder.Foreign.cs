@@ -20,11 +20,11 @@ internal sealed partial class HtmlTreeBuilder
     private bool _foreignAnnotationEncoding;
 
     private static bool IsMathTextIntegrationPoint(Element element) => element.NamespaceUri == Namespaces.MathMl &&
-        element.LocalName is "mi" or "mo" or "mn" or "ms" or "mtext";
+        HtmlMiMoMnMsNames.Match(element.LocalName);
 
     private bool IsHtmlIntegrationPoint(Element element) => element.NamespaceUri switch
     {
-        Namespaces.Svg => element.LocalName is "foreignObject" or "desc" or "title",
+        Namespaces.Svg => HtmlForeignObjectDescTitleNames.Match(element.LocalName),
         Namespaces.MathMl => _annotationXmlHtmlIntegration.Contains(element),
         _ => false
     };
@@ -34,13 +34,18 @@ internal sealed partial class HtmlTreeBuilder
         if (_open.Count == 0 || token.Kind == HtmlTokenKind.EndOfFile) return false;
         var node = AdjustedCurrent;
         if (node.NamespaceUri == Namespaces.Html) return false;
-        if (token.Kind == HtmlTokenKind.StartTag)
+        switch (token.Kind)
         {
-            if (IsMathTextIntegrationPoint(node) && token.Name is not ("mglyph" or "malignmark")) return false;
-            if (node.NamespaceUri == Namespaces.MathMl && node.LocalName == "annotation-xml" && token.Name == "svg") return false;
-            if (IsHtmlIntegrationPoint(node)) return false;
+            case HtmlTokenKind.StartTag:
+                {
+                    if (IsMathTextIntegrationPoint(node) && !HtmlMglyphMalignmarkNames.Match(token.Name)) return false;
+                    if (node.NamespaceUri == Namespaces.MathMl && node.LocalName == "annotation-xml" && token.Name == "svg") return false;
+                    if (IsHtmlIntegrationPoint(node)) return false;
+                }
+                break;
+            case HtmlTokenKind.Text when IsMathTextIntegrationPoint(node) || IsHtmlIntegrationPoint(node):
+                return false;
         }
-        else if (token.Kind == HtmlTokenKind.Text && (IsMathTextIntegrationPoint(node) || IsHtmlIntegrationPoint(node))) return false;
         return true;
     }
 
@@ -78,7 +83,7 @@ internal sealed partial class HtmlTreeBuilder
                 }
                 return false;
             case HtmlTokenKind.EndTag:
-                if (_token.Name is "br" or "p")
+                if (HtmlBrPNames.Match(_token.Name))
                 {
                     Error("html-end-tag-in-foreign-content");
                     _foreignBreakout = true;
@@ -140,11 +145,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool IsForeignBreakout(string name)
     {
-        if (name is "b" or "big" or "blockquote" or "body" or "br" or "center" or "code" or "dd" or "div" or
-            "dl" or "dt" or "em" or "embed" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "head" or
-            "hr" or "i" or "img" or "li" or "listing" or "menu" or "meta" or "nobr" or "ol" or "p" or
-            "pre" or "ruby" or "s" or "small" or "span" or "strong" or "strike" or "sub" or "sup" or
-            "table" or "tt" or "u" or "ul" or "var") return true;
+        if (HtmlBBigBlockquoteNames.Match(name)) return true;
         return name == "font" && _foreignFontBreakout;
     }
 
@@ -168,9 +169,9 @@ internal sealed partial class HtmlTreeBuilder
                     Namespaces.MathMl when attribute.LocalName == "definitionurl" => "definitionURL",
                     _ => attribute.LocalName
                 };
-                attributes[index] = AdjustForeignAttribute(localName, attribute.Value);
-                if (localName == "xmlns" && attribute.Value != namespaceUri ||
-                    localName == "xmlns:xlink" && attribute.Value != "http://www.w3.org/1999/xlink")
+                attributes[index] = AdjustForeignAttribute(localName, attribute.ValueSlice);
+                if (localName == "xmlns" && !attribute.ValueSlice.Span.SequenceEqual(namespaceUri) ||
+                    localName == "xmlns:xlink" && !attribute.ValueSlice.Span.SequenceEqual("http://www.w3.org/1999/xlink"))
                     Error("unexpected-namespace-declaration");
                 Charge(1);
             }
@@ -191,7 +192,7 @@ internal sealed partial class HtmlTreeBuilder
         return true;
     }
 
-    private static bool AsciiEquals(string left, string right)
+    private static bool AsciiEquals(ReadOnlySpan<char> left, ReadOnlySpan<char> right)
     {
         if (left.Length != right.Length) return false;
         for (var i = 0; i < left.Length; i++)
@@ -234,124 +235,23 @@ internal sealed partial class HtmlTreeBuilder
         return true;
     }
 
-    private static ParserAttribute AdjustForeignAttribute(string name, string value) => name switch
+    private static ParserAttribute AdjustForeignAttribute(string name, StringSlice value) => HtmlForeignAttributeLookup.Match(name) switch
     {
-        "xlink:actuate" => new ParserAttribute("http://www.w3.org/1999/xlink", "actuate", "xlink", value),
-        "xlink:arcrole" => new ParserAttribute("http://www.w3.org/1999/xlink", "arcrole", "xlink", value),
-        "xlink:href" => new ParserAttribute("http://www.w3.org/1999/xlink", "href", "xlink", value),
-        "xlink:role" => new ParserAttribute("http://www.w3.org/1999/xlink", "role", "xlink", value),
-        "xlink:show" => new ParserAttribute("http://www.w3.org/1999/xlink", "show", "xlink", value),
-        "xlink:title" => new ParserAttribute("http://www.w3.org/1999/xlink", "title", "xlink", value),
-        "xlink:type" => new ParserAttribute("http://www.w3.org/1999/xlink", "type", "xlink", value),
-        "xml:lang" => new ParserAttribute(Namespaces.Xml, "lang", "xml", value),
-        "xml:space" => new ParserAttribute(Namespaces.Xml, "space", "xml", value),
-        "xmlns" => new ParserAttribute(Namespaces.Xmlns, "xmlns", null, value),
-        "xmlns:xlink" => new ParserAttribute(Namespaces.Xmlns, "xlink", "xmlns", value),
+        HtmlForeignAttributeKind.XlinkActuate => new ParserAttribute("http://www.w3.org/1999/xlink", "actuate", "xlink", value),
+        HtmlForeignAttributeKind.XlinkArcrole => new ParserAttribute("http://www.w3.org/1999/xlink", "arcrole", "xlink", value),
+        HtmlForeignAttributeKind.XlinkHref => new ParserAttribute("http://www.w3.org/1999/xlink", "href", "xlink", value),
+        HtmlForeignAttributeKind.XlinkRole => new ParserAttribute("http://www.w3.org/1999/xlink", "role", "xlink", value),
+        HtmlForeignAttributeKind.XlinkShow => new ParserAttribute("http://www.w3.org/1999/xlink", "show", "xlink", value),
+        HtmlForeignAttributeKind.XlinkTitle => new ParserAttribute("http://www.w3.org/1999/xlink", "title", "xlink", value),
+        HtmlForeignAttributeKind.XlinkType => new ParserAttribute("http://www.w3.org/1999/xlink", "type", "xlink", value),
+        HtmlForeignAttributeKind.XmlLang => new ParserAttribute(Namespaces.Xml, "lang", "xml", value),
+        HtmlForeignAttributeKind.XmlSpace => new ParserAttribute(Namespaces.Xml, "space", "xml", value),
+        HtmlForeignAttributeKind.Xmlns => new ParserAttribute(Namespaces.Xmlns, "xmlns", null, value),
+        HtmlForeignAttributeKind.XmlnsXlink => new ParserAttribute(Namespaces.Xmlns, "xlink", "xmlns", value),
         _ => new ParserAttribute(null, name, null, value)
     };
 
-    private static string AdjustSvgTagName(string name) => name switch
-    {
-        "altglyph" => "altGlyph",
-        "altglyphdef" => "altGlyphDef",
-        "altglyphitem" => "altGlyphItem",
-        "animatecolor" => "animateColor",
-        "animatemotion" => "animateMotion",
-        "animatetransform" => "animateTransform",
-        "clippath" => "clipPath",
-        "feblend" => "feBlend",
-        "fecolormatrix" => "feColorMatrix",
-        "fecomponenttransfer" => "feComponentTransfer",
-        "fecomposite" => "feComposite",
-        "feconvolvematrix" => "feConvolveMatrix",
-        "fediffuselighting" => "feDiffuseLighting",
-        "fedisplacementmap" => "feDisplacementMap",
-        "fedistantlight" => "feDistantLight",
-        "fedropshadow" => "feDropShadow",
-        "feflood" => "feFlood",
-        "fefunca" => "feFuncA",
-        "fefuncb" => "feFuncB",
-        "fefuncg" => "feFuncG",
-        "fefuncr" => "feFuncR",
-        "fegaussianblur" => "feGaussianBlur",
-        "feimage" => "feImage",
-        "femerge" => "feMerge",
-        "femergenode" => "feMergeNode",
-        "femorphology" => "feMorphology",
-        "feoffset" => "feOffset",
-        "fepointlight" => "fePointLight",
-        "fespecularlighting" => "feSpecularLighting",
-        "fespotlight" => "feSpotLight",
-        "fetile" => "feTile",
-        "feturbulence" => "feTurbulence",
-        "foreignobject" => "foreignObject",
-        "glyphref" => "glyphRef",
-        "lineargradient" => "linearGradient",
-        "radialgradient" => "radialGradient",
-        "textpath" => "textPath",
-        _ => name
-    };
+    private static string AdjustSvgTagName(string name) => SvgTagNameLookup.Match(name) ?? name;
 
-    private static string AdjustSvgAttributeName(string name) => name switch
-    {
-        "attributename" => "attributeName",
-        "attributetype" => "attributeType",
-        "basefrequency" => "baseFrequency",
-        "baseprofile" => "baseProfile",
-        "calcmode" => "calcMode",
-        "clippathunits" => "clipPathUnits",
-        "diffuseconstant" => "diffuseConstant",
-        "edgemode" => "edgeMode",
-        "filterunits" => "filterUnits",
-        "glyphref" => "glyphRef",
-        "gradienttransform" => "gradientTransform",
-        "gradientunits" => "gradientUnits",
-        "kernelmatrix" => "kernelMatrix",
-        "kernelunitlength" => "kernelUnitLength",
-        "keypoints" => "keyPoints",
-        "keysplines" => "keySplines",
-        "keytimes" => "keyTimes",
-        "lengthadjust" => "lengthAdjust",
-        "limitingconeangle" => "limitingConeAngle",
-        "markerheight" => "markerHeight",
-        "markerunits" => "markerUnits",
-        "markerwidth" => "markerWidth",
-        "maskcontentunits" => "maskContentUnits",
-        "maskunits" => "maskUnits",
-        "numoctaves" => "numOctaves",
-        "pathlength" => "pathLength",
-        "patterncontentunits" => "patternContentUnits",
-        "patterntransform" => "patternTransform",
-        "patternunits" => "patternUnits",
-        "pointsatx" => "pointsAtX",
-        "pointsaty" => "pointsAtY",
-        "pointsatz" => "pointsAtZ",
-        "preservealpha" => "preserveAlpha",
-        "preserveaspectratio" => "preserveAspectRatio",
-        "primitiveunits" => "primitiveUnits",
-        "refx" => "refX",
-        "refy" => "refY",
-        "repeatcount" => "repeatCount",
-        "repeatdur" => "repeatDur",
-        "requiredextensions" => "requiredExtensions",
-        "requiredfeatures" => "requiredFeatures",
-        "specularconstant" => "specularConstant",
-        "specularexponent" => "specularExponent",
-        "spreadmethod" => "spreadMethod",
-        "startoffset" => "startOffset",
-        "stddeviation" => "stdDeviation",
-        "stitchtiles" => "stitchTiles",
-        "surfacescale" => "surfaceScale",
-        "systemlanguage" => "systemLanguage",
-        "tablevalues" => "tableValues",
-        "targetx" => "targetX",
-        "targety" => "targetY",
-        "textlength" => "textLength",
-        "viewbox" => "viewBox",
-        "viewtarget" => "viewTarget",
-        "xchannelselector" => "xChannelSelector",
-        "ychannelselector" => "yChannelSelector",
-        "zoomandpan" => "zoomAndPan",
-        _ => name
-    };
+    private static string AdjustSvgAttributeName(string name) => SvgAttributeNameLookup.Match(name) ?? name;
 }

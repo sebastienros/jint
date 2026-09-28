@@ -10,7 +10,7 @@
         "<PackageVersion Include=\"AngleSharp.Css\" Version=\"1.1.2\" />",
         "<PackageVersion Include=\"AngleSharp.Xml\" Version=\"1.2.0\" />"
       ],
-      "sha256": "2140a1240410977c8ce2b3ea229f0f73826f7bea2f44b820e2414264793a5238"
+      "sha256": "b14cc40b6f260d4614bd1c932371e4cb60721b7317747917e34383f9712fe424"
     },
     {
       "path": "Jint.Benchmark/HtmlControlsParserComparisonBenchmark.cs",
@@ -50,6 +50,16 @@
         "using AngleHtmlParser = global::AngleSharp.Html.Parser.HtmlParser;",
         "using DomNode = AngleSharp.Dom.INode;",
         "using DomNodeType = AngleSharp.Dom.NodeType;"
+      ]
+    },
+    {
+      "path": "Jint.Benchmark/HtmlParserValueAccessBenchmark.cs",
+      "category": "benchmark",
+      "owner": "A3:comparison",
+      "references": [
+        "using AngleSharp.Dom;",
+        "var pending = new Stack<AngleSharp.Dom.INode>();",
+        "if (node is AngleSharp.Html.Dom.IHtmlTemplateElement template) pending.Push(template.Content);"
       ]
     },
     {

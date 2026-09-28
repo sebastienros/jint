@@ -7,6 +7,25 @@ namespace Jint.Tests.HtmlParser.Html;
 
 public class HtmlTextModeTests
 {
+    [TestCase((int) HtmlTextMode.RcData, "textarea")]
+    [TestCase((int) HtmlTextMode.RawText, "style")]
+    [TestCase((int) HtmlTextMode.ScriptData, "script")]
+    [TestCase((int) HtmlTextMode.PlainText, null)]
+    public void LongRunsPreserveTextModesAndPreprocessing(int modeValue, string? endTag)
+    {
+        var mode = (HtmlTextMode) modeValue;
+        var source = new string('x', 5000) + "\r\n&amp;<not-a-tag>\0" +
+            new string('y', 128) + (endTag is null ? "" : "</" + endTag + ">tail");
+        var diagnostics = new ParseDiagnosticCollector();
+        var expected = Scan(mode, endTag, source, quota: 1, diagnostics: diagnostics);
+        foreach (var split in new[] { -1, 4095, 4096, 4097, 5000, 5001, 5002, source.Length - 1 })
+        {
+            var actualDiagnostics = new ParseDiagnosticCollector();
+            Assert.That(Scan(mode, endTag, source, split, 10000, actualDiagnostics), Is.EqualTo(expected));
+            Assert.That(actualDiagnostics.Items, Is.EqualTo(diagnostics.Items));
+        }
+    }
+
     private static string Scan(HtmlTextMode mode, string? endTag, string source,
         int split = -1, int quota = 1000, ParseDiagnosticCollector? diagnostics = null)
     {

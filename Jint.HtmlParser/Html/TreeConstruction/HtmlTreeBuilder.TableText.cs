@@ -15,7 +15,7 @@ internal sealed partial class HtmlTreeBuilder
     private int _tableTextFlushSegment;
     private int _tableTextFlushCharacter;
 
-    private readonly record struct PendingTableSegment(string Data, int Start, int Length, long Offset);
+    private readonly record struct PendingTableSegment(StringSlice Data, int Start, int Length, long Offset);
 
     private void EnterTableText()
     {
@@ -30,11 +30,12 @@ internal sealed partial class HtmlTreeBuilder
 
     private void BufferTableText()
     {
-        var data = _token.Data;
+        var data = _token.DataSlice;
+        var span = data.Span;
         var start = _textIndex;
         while (_textIndex < data.Length && _remaining > 0)
         {
-            var c = data[_textIndex];
+            var c = span[_textIndex];
             if (c == '\0')
             {
                 AddTableSegment(data, start, _textIndex - start, _token.Offset);
@@ -55,16 +56,16 @@ internal sealed partial class HtmlTreeBuilder
         AddTableSegment(data, start, _textIndex - start, _token.Offset);
     }
 
-    private void AddTableSegment(string data, int start, int length, long offset)
+    private void AddTableSegment(StringSlice data, int start, int length, long offset)
     {
         if (length == 0) return;
         if (_pendingTableText.Count > 0)
         {
             var index = _pendingTableText.Count - 1;
             var last = _pendingTableText[index];
-            if (ReferenceEquals(last.Data, data) && last.Start + last.Length == start)
+            if (last.Data.Slice(last.Start, last.Length).TryConcat(data.Slice(start, length), out var combined))
             {
-                _pendingTableText[index] = last with { Length = last.Length + length };
+                _pendingTableText[index] = last with { Data = combined, Start = 0, Length = combined.Length };
                 return;
             }
         }
@@ -92,7 +93,7 @@ internal sealed partial class HtmlTreeBuilder
             try
             {
                 if (_tableTextHasNonwhite && !TryReconstructFormatting()) return false;
-                InsertText(segment.Data.AsSpan(segment.Start + _tableTextFlushCharacter, length));
+                InsertText(segment.Data.Slice(segment.Start + _tableTextFlushCharacter, length));
             }
             finally
             {

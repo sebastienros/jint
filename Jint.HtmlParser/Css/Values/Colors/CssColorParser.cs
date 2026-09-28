@@ -18,29 +18,31 @@ internal static class CssColorParser
 
     private static CssColorParseResult Parse(CssComponentValue value, int maximumNestingDepth, CssValueWork work)
     {
-        if (value.Kind == CssComponentKind.Token)
+        switch (value.Kind)
         {
-            if (value.Token.Kind == CssTokenKind.Hash) return Hex(value.Token, work);
-            if (value.Token.Kind != CssTokenKind.Ident) return CssColorParseResult.NoMatch();
-            var name = Lower(value.Token.Text, work);
-            work.Charge(name.Length);
-            if (CssColorKeywords.Named.TryGetValue(name, out var rgb))
-                return CssColorParseResult.Match(CssColorValue.Identity(CssColorKind.Named, name, value.Span, rgb));
-            return CssColorKeywords.ContextualKind(name) is { } kind
-                ? CssColorParseResult.Match(CssColorValue.Identity(kind, name, value.Span)) : CssColorParseResult.NoMatch();
+            case CssComponentKind.Token:
+                {
+                    switch (value.Token.Kind)
+                    {
+                        case CssTokenKind.Hash:
+                            return Hex(value.Token, work);
+                        case not CssTokenKind.Ident:
+                            return CssColorParseResult.NoMatch();
+                    }
+                    var name = Lower(value.Token.Text, work);
+                    work.Charge(name.Length);
+                    if (CssNamedColorLookup.Match(name) is { } rgb)
+                        return CssColorParseResult.Match(CssColorValue.Identity(CssColorKind.Named, name, value.Span, rgb));
+                    return CssColorKeywords.ContextualKind(name) is { } kind
+                        ? CssColorParseResult.Match(CssColorValue.Identity(kind, name, value.Span)) : CssColorParseResult.NoMatch();
+                }
+            case not CssComponentKind.Function:
+                return CssColorParseResult.NoMatch();
         }
-        if (value.Kind != CssComponentKind.Function) return CssColorParseResult.NoMatch();
         var function = Lower(value.FunctionName, work);
-        if (function is "lab" or "lch" or "oklab" or "oklch" or "color-mix" or "light-dark" or "contrast-color" or "device-cmyk")
+        if (CssLabLchOklabNames.Match(function))
             return CssColorParseResult.Pending("color:" + function);
-        var space = function switch
-        {
-            "rgb" or "rgba" => CssColorSpace.Rgb,
-            "hsl" or "hsla" => CssColorSpace.Hsl,
-            "hwb" => CssColorSpace.Hwb,
-            "color" => CssColorSpace.Srgb,
-            _ => (CssColorSpace?) null
-        };
+        var space = CssColorFunctionLookup.Match(function);
         if (space is null) return CssColorParseResult.NoMatch();
         var parts = Significant(value.Values, 8, work);
         if (parts.Count != 0 && IsKeyword(parts[0], "from", work))
@@ -52,8 +54,7 @@ internal static class CssColorParser
             if (!IsKeyword(parts[0], "srgb", work))
             {
                 var name = Lower(parts[0].Token.Text, work);
-                return name is "srgb-linear" or "display-p3" or "display-p3-linear" or "a98-rgb" or "prophoto-rgb" or
-                    "rec2020" or "xyz" or "xyz-d50" or "xyz-d65" || name.StartsWith("--", StringComparison.Ordinal)
+                return CssSrgbLinearDisplayP3DisplayP3LinearNames.Match(name) || name.StartsWith("--", StringComparison.Ordinal)
                     ? CssColorParseResult.Pending("color:color") : CssColorParseResult.NoMatch();
             }
             work.Charge(parts.Count);
@@ -128,9 +129,13 @@ internal static class CssColorParser
         if (hue && math.Status == CssMathParseStatus.NoMatch)
             math = CssMathParser.ParseMath(value, new CssMathContext(CssMathProduction.Angle, percentages,
                 maximumNestingDepth: maximumNestingDepth, ancestorNestingDepth: 1), work);
-        if (math.Status == CssMathParseStatus.RequiresLaterGrammar)
-        { blocker = "math:" + math.PendingFunction; return false; }
-        if (math.Status != CssMathParseStatus.Match) return false;
+        switch (math.Status)
+        {
+            case CssMathParseStatus.RequiresLaterGrammar:
+                { blocker = "math:" + math.PendingFunction; return false; }
+            case not CssMathParseStatus.Match:
+                return false;
+        }
         if (!CssColorMath.TryEvaluate(math.Value, work, out var resolved))
         { channel = CssColorChannel.Calculation(math.Value, 0); blocker = "color:channel-environment"; return false; }
         channel = CssColorChannel.Calculation(math.Value, resolved);

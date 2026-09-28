@@ -8,20 +8,6 @@ internal sealed partial class XmlTreeParser
 {
     // HTML Standard §14.2. Only these identifiers activate the pinned local
     // character-entity catalog shared with the HTML tokenizer.
-    private static readonly HashSet<string> s_knownCatalogPublicIds = new(StringComparer.Ordinal)
-    {
-        "-//W3C//DTD XHTML 1.0 Transitional//EN",
-        "-//W3C//DTD XHTML 1.1//EN",
-        "-//W3C//DTD XHTML 1.0 Strict//EN",
-        "-//W3C//DTD XHTML 1.0 Frameset//EN",
-        "-//W3C//DTD XHTML Basic 1.0//EN",
-        "-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN",
-        "-//W3C//DTD XHTML 1.1 plus MathML 2.0 plus SVG 1.1//EN",
-        "-//W3C//DTD MathML 2.0//EN",
-        "-//WAPFORUM//DTD XHTML Mobile 1.0//EN",
-        "-//WAPFORUM//DTD XHTML Mobile 1.1//EN",
-        "-//WAPFORUM//DTD XHTML Mobile 1.2//EN"
-    };
     private readonly Dictionary<string, List<XmlAttributeDeclaration>> _attributeDeclarations = new(StringComparer.Ordinal);
     private readonly Dictionary<string, HashSet<string>> _declaredAttributeNames = new(StringComparer.Ordinal);
 
@@ -54,7 +40,7 @@ internal sealed partial class XmlTreeParser
         if (!_generalEntities.TryGetValue(name, out var declaration))
         {
             if (_catalogActive && (!_standalone || referenceInsideParameterEntity) &&
-                HtmlEntities.Values.TryGetValue(name + ";", out var catalogValue))
+                HtmlEntities.Lookup.FindTerminatedName(name) is { } catalogValue)
                 return IncludeCatalogEntity(catalogValue, inAttribute);
             if ((!_hasExternalSubset && !_sawParameterReference || _standalone) && !referenceInsideParameterEntity)
                 Error("xml/undeclared-entity", offset);
@@ -134,15 +120,7 @@ internal sealed partial class XmlTreeParser
                 }
                 ValidateEntityReferenceName(reference, offset);
                 var referenceName = reference.ToString();
-                var predefined = referenceName switch
-                {
-                    "amp" => "&",
-                    "lt" => "<",
-                    "gt" => ">",
-                    "apos" => "'",
-                    "quot" => "\"",
-                    _ => null
-                };
+                var predefined = XmlPredefinedEntityLookup.Match(referenceName);
                 if (predefined is not null)
                 {
                     result.Append(predefined);
@@ -152,7 +130,7 @@ internal sealed partial class XmlTreeParser
                 {
                     var referenceInsideParameterEntity = _inputFrames.Count != 0 && _inputFrames.Peek().Parameter;
                     if (_catalogActive && (!_standalone || referenceInsideParameterEntity) &&
-                        HtmlEntities.Values.TryGetValue(referenceName + ";", out var catalogValue))
+                        HtmlEntities.Lookup.FindTerminatedName(referenceName) is { } catalogValue)
                     {
                         var included = IncludeCatalogEntity(catalogValue, inAttribute: true);
                         AppendCopy(result, included);
@@ -266,7 +244,7 @@ internal sealed partial class XmlTreeParser
             {
                 (publicId, systemId) = ReadExternalId();
                 _hasExternalSubset = true;
-                _catalogActive = publicId is not null && s_knownCatalogPublicIds.Contains(publicId);
+                _catalogActive = publicId is not null && XmlCatalogIdentifierLookup.Match(publicId);
                 if (!_catalogActive)
                     AddSkip(XmlSkippedEntityKind.ExternalSubset, string.Empty, publicId, systemId, start);
                 SkipWhitespace(_position);
@@ -627,75 +605,76 @@ internal sealed partial class XmlTreeParser
 
     private string NormalizeDtdDefault(string value, int offset, bool replacementSource)
     {
-        var result = new StringBuilder(value.Length);
-        for (var i = 0; i < value.Length; i++)
+        var result = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            var c = value[i];
-            WorkUnit();
-            if (c == '<') Error("xml/invalid-markup", offset);
-            if (c == '&')
+            for (var i = 0; i < value.Length; i++)
             {
-                var start = ++i;
-                while (i < value.Length && value[i] != ';')
+                var c = value[i];
+                WorkUnit();
+                if (c == '<') Error("xml/invalid-markup", offset);
+                if (c == '&')
                 {
-                    WorkUnit();
-                    i++;
-                }
-                if (i == value.Length) Error("xml/invalid-markup", offset);
-                var reference = value.AsSpan(start, i - start);
-                if (reference.IsEmpty) Error("xml/invalid-markup", offset);
-                if (reference[0] == '#')
-                {
-                    result.Append(DecodeCharacterReference(reference, offset));
+                    var start = ++i;
+                    while (i < value.Length && value[i] != ';')
+                    {
+                        WorkUnit();
+                        i++;
+                    }
+                    if (i == value.Length) Error("xml/invalid-markup", offset);
+                    var reference = value.AsSpan(start, i - start);
+                    if (reference.IsEmpty) Error("xml/invalid-markup", offset);
+                    if (reference[0] == '#')
+                    {
+                        result.Append(DecodeCharacterReference(reference, offset));
+                        continue;
+                    }
+                    ValidateEntityReferenceName(reference, offset);
+                    var name = reference.ToString();
+                    var predefined = XmlPredefinedEntityLookup.Match(name);
+                    if (predefined is not null) result.Append(predefined);
+                    else AppendCopy(ref result, ResolveGeneralEntity(name, offset, inAttribute: true));
                     continue;
                 }
-                ValidateEntityReferenceName(reference, offset);
-                var name = reference.ToString();
-                var predefined = name switch
+                if (char.IsHighSurrogate(c))
                 {
-                    "amp" => "&",
-                    "lt" => "<",
-                    "gt" => ">",
-                    "apos" => "'",
-                    "quot" => "\"",
-                    _ => null
-                };
-                if (predefined is not null) result.Append(predefined);
-                else AppendCopy(result, ResolveGeneralEntity(name, offset, inAttribute: true));
-                continue;
+                    if (i + 1 == value.Length || !char.IsLowSurrogate(value[i + 1]))
+                        Error("xml/invalid-character", offset);
+                    result.Append(c);
+                    result.Append(value[++i]);
+                    WorkUnit();
+                    continue;
+                }
+                if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
+                if (c == '\r' && !replacementSource && i + 1 < value.Length && value[i + 1] == '\n') i++;
+                result.Append(IsWhitespace(c) ? ' ' : c);
             }
-            if (char.IsHighSurrogate(c))
-            {
-                if (i + 1 == value.Length || !char.IsLowSurrogate(value[i + 1]))
-                    Error("xml/invalid-character", offset);
-                result.Append(c).Append(value[++i]);
-                WorkUnit();
-                continue;
-            }
-            if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
-            if (c == '\r' && !replacementSource && i + 1 < value.Length && value[i + 1] == '\n') i++;
-            result.Append(IsWhitespace(c) ? ' ' : c);
+            return Materialize(ref result);
         }
-        return Materialize(result);
+        finally { result.Dispose(); }
     }
 
     private string CollapseSpaces(string value)
     {
-        var result = new StringBuilder(value.Length);
-        var pendingSpace = false;
-        foreach (var c in value)
+        var result = new ValueStringBuilder(stackalloc char[128]);
+        try
         {
-            WorkUnit();
-            if (c == ' ')
+            var pendingSpace = false;
+            foreach (var c in value)
             {
-                pendingSpace = result.Length != 0;
-                continue;
+                WorkUnit();
+                if (c == ' ')
+                {
+                    pendingSpace = result.Length != 0;
+                    continue;
+                }
+                if (pendingSpace) result.Append(' ');
+                result.Append(c);
+                pendingSpace = false;
             }
-            if (pendingSpace) result.Append(' ');
-            result.Append(c);
-            pendingSpace = false;
+            return Materialize(ref result);
         }
-        return Materialize(result);
+        finally { result.Dispose(); }
     }
 
     private string ReadAttributeType()
@@ -708,7 +687,7 @@ internal sealed partial class XmlTreeParser
             ReadDtdEnumeration(namesOnly: true);
             return type;
         }
-        if (type is not ("CDATA" or "ID" or "IDREF" or "IDREFS" or "ENTITY" or "ENTITIES" or "NMTOKEN" or "NMTOKENS"))
+        if (!XmlAttributeTypeLookup.Match(type))
             Error("xml/invalid-declaration", _position);
         return type;
     }

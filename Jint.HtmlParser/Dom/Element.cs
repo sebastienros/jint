@@ -385,7 +385,7 @@ public sealed class Element : Node
             if (NamespaceUri == Namespaces.Html && LocalName == "script" &&
                 parsed.NamespaceUri is null && parsed.LocalName == "async") scriptAsyncAdded = true;
             var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix,
-                parsed.Value, parsed.IsDtdId)
+                parsed.ValueSlice, parsed.IsDtdId)
             {
                 OwnerElement = this
             };
@@ -446,7 +446,7 @@ public sealed class Element : Node
             }
 
             var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix,
-                parsed.Value, parsed.IsDtdId);
+                parsed.ValueSlice, parsed.IsDtdId);
             AppendNewAttribute(attribute);
             committed++;
             workCheckpoint?.Invoke(ParsedAttributeMergeCheckpoint.AfterCommit, committed);

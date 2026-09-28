@@ -9,13 +9,18 @@ internal static class CssContainerPropertyParser
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts, CssValueWork work)
     {
         if (parts.Count == 0) return Invalid();
-        if (grammar == CssPropertyGrammar.ContainerName) return Names(parts, work);
-        if (grammar == CssPropertyGrammar.Container) return Shorthand(parts, work);
-        if (grammar == CssPropertyGrammar.WritingMode)
+        switch (grammar)
         {
-            if (parts.Count != 1) return Invalid();
-            var mode = CssPropertyParser.Keyword(parts[0], "horizontal-tb vertical-rl vertical-lr sideways-rl sideways-lr", work);
-            return mode is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(mode, parts[0].Span));
+            case CssPropertyGrammar.ContainerName:
+                return Names(parts, work);
+            case CssPropertyGrammar.Container:
+                return Shorthand(parts, work);
+            case CssPropertyGrammar.WritingMode:
+                {
+                    if (parts.Count != 1) return Invalid();
+                    var mode = CssPropertyParser.Keyword(parts[0], CssKeywordSet.HorizontalTbVerticalRlVerticalLrSidewaysRlEtc, work);
+                    return mode is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(mode, parts[0].Span));
+                }
         }
         // scroll-state is retained as grammar; querying it is a separate C6 dependency.
         if (parts.Count > 2) return Invalid();
@@ -23,7 +28,7 @@ internal static class CssContainerPropertyParser
         var scroll = false;
         foreach (var part in parts)
         {
-            var keyword = CssPropertyParser.Keyword(part, "normal size inline-size scroll-state", work);
+            var keyword = CssPropertyParser.Keyword(part, CssKeywordSet.NormalSizeInlineSizeScrollState, work);
             if (keyword is null || keyword == "normal" && parts.Count != 1) return Invalid();
             if (keyword == "scroll-state") { if (scroll) return Invalid(); scroll = true; }
             else { if (size is not null) return Invalid(); size = keyword; }
@@ -35,13 +40,13 @@ internal static class CssContainerPropertyParser
     internal static bool IsName(CssComponentValue part, CssValueWork work)
     {
         if (part.Kind != CssComponentKind.Token || part.Token.Kind != CssTokenKind.Ident) return false;
-        return CssPropertyParser.Keyword(part, "none and or not default initial inherit unset revert revert-layer revert-rule", work) is null;
+        return CssPropertyParser.Keyword(part, CssKeywordSet.NoneAndOrNotEtc, work) is null;
     }
 
     private static CssPropertyResult Names(List<CssComponentValue> parts, CssValueWork work)
     {
         if (parts.Count == 0) return Invalid();
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "none", work) is not null)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.None, work) is not null)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword("none", parts[0].Span));
         var names = new string[parts.Count];
         var spellings = new string[parts.Count];

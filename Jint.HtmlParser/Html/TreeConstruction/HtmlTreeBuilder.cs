@@ -162,18 +162,20 @@ internal sealed partial class HtmlTreeBuilder
             _mode = _tableTextOriginalMode;
             if (_remaining <= 0) return new HtmlParseStep(HtmlParseStepKind.Yielded);
         }
-        if (_token.Kind == HtmlTokenKind.Text)
+        switch (_token.Kind)
         {
-            ProcessCharacters();
-            if (_missing is { } textFamily)
-                return new HtmlParseStep(HtmlParseStepKind.MissingFeature, textFamily, _token.Offset);
-            if (_textIndex < _token.Data.Length) return new HtmlParseStep(HtmlParseStepKind.Yielded);
-            FinishToken();
-            return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            case HtmlTokenKind.Text:
+                {
+                    ProcessCharacters();
+                    if (_missing is { } textFamily)
+                        return new HtmlParseStep(HtmlParseStepKind.MissingFeature, textFamily, _token.Offset);
+                    if (_textIndex < _token.DataSlice.Length) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                    FinishToken();
+                    return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                }
+            case HtmlTokenKind.StartTag when _token.Attributes.Count > 0 && !PrepareTokenAttributes():
+                return new HtmlParseStep(HtmlParseStepKind.Yielded);
         }
-
-        if (_token.Kind == HtmlTokenKind.StartTag && _token.Attributes.Count > 0 && !PrepareTokenAttributes())
-            return new HtmlParseStep(HtmlParseStepKind.Yielded);
 
         _ignoreNextLf = false;
 
@@ -360,27 +362,29 @@ internal sealed partial class HtmlTreeBuilder
         while (_preparedAttributeIndex < attributes.Count && _remaining > 0)
         {
             var item = attributes[_preparedAttributeIndex];
-            _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
+            var formatting = IsFormatting(_token.Name!);
+            if (formatting) item = new HtmlAttribute(item.Name, item.Value);
+            _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.ValueSlice);
             if (item.Name == "is") _preparedIsValue = item.Value;
-            if (item.Name is "color" or "face" or "size") _foreignFontBreakout = true;
+            if (HtmlColorFaceSizeNames.Match(item.Name)) _foreignFontBreakout = true;
             if (item.Name == "encoding")
-                _foreignAnnotationEncoding = AsciiEquals(item.Value, "text/html") || AsciiEquals(item.Value, "application/xhtml+xml");
+                _foreignAnnotationEncoding = AsciiEquals(item.ValueSlice.Span, "text/html") || AsciiEquals(item.ValueSlice.Span, "application/xhtml+xml");
             if (_token.Name == "template")
             {
                 if (item.Name == "for") { _templateHasFor = true; _templateForValue = item.Value; }
                 if (item.Name == "shadowrootmode" &&
-                    (string.Equals(item.Value, "open", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(item.Value, "closed", StringComparison.OrdinalIgnoreCase)))
+                    (item.ValueSlice.Span.Equals("open", StringComparison.OrdinalIgnoreCase) ||
+                     item.ValueSlice.Span.Equals("closed", StringComparison.OrdinalIgnoreCase)))
                     _templateHasValidShadowMode = true;
                 if (item.Name == "shadowrootdelegatesfocus") _templateDelegatesFocus = true;
                 if (item.Name == "shadowrootserializable") _templateSerializable = true;
                 if (item.Name == "shadowrootclonable") _templateClonable = true;
                 if (item.Name == "shadowrootcustomelementregistry") _templateKeepRegistryNull = true;
-                if (item.Name == "shadowrootslotassignment" && AsciiEquals(item.Value, "manual")) _templateManualSlotAssignment = true;
+                if (item.Name == "shadowrootslotassignment" && AsciiEquals(item.ValueSlice.Span, "manual")) _templateManualSlotAssignment = true;
             }
-            var itemWork = 1L + item.Name.Length + item.Value.Length;
+            var itemWork = 1L + item.Name.Length + item.ValueSlice.Length;
             _preparedAttributeWork = _preparedAttributeWork > long.MaxValue - itemWork ? long.MaxValue : _preparedAttributeWork + itemWork;
-            var formattingWork = IsFormatting(_token.Name!) ? PrepareFormattingAttribute(item) : 0;
+            var formattingWork = formatting ? PrepareFormattingAttribute(item) : 0;
             Charge(itemWork + formattingWork);
         }
         return _preparedAttributeIndex == attributes.Count;
@@ -410,9 +414,9 @@ internal sealed partial class HtmlTreeBuilder
             _nameIndexes[(element.NamespaceUri, element.LocalName)] = indexes = [];
         indexes.Add(index);
         if (IsSpecialElement(element)) _specialIndexes.Add(index);
-        if (IsSpecialElement(element) && element.LocalName is not ("address" or "div" or "p" or "li"))
+        if (IsSpecialElement(element) && !HtmlAddressDivPNames.Match(element.LocalName))
             _liStops.Add(index);
-        if (IsSpecialElement(element) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
+        if (IsSpecialElement(element) && !HtmlAddressDivPDdNames.Match(element.LocalName))
             _ddDtStops.Add(index);
         if (IsScopeBoundary(element)) _scopeStops.Add(index);
         if (IsResetModeElement(element)) _resetModeIndexes.Add(index);
@@ -427,8 +431,8 @@ internal sealed partial class HtmlTreeBuilder
         if (IsSpecialElement(element))
         {
             RemoveIndex(_specialIndexes, index);
-            if (element.LocalName is not ("address" or "div" or "p" or "li")) RemoveIndex(_liStops, index);
-            if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) RemoveIndex(_ddDtStops, index);
+            if (!HtmlAddressDivPNames.Match(element.LocalName)) RemoveIndex(_liStops, index);
+            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) RemoveIndex(_ddDtStops, index);
         }
         if (IsScopeBoundary(element)) RemoveIndex(_scopeStops, index);
         if (IsResetModeElement(element)) RemoveIndex(_resetModeIndexes, index);
@@ -440,8 +444,8 @@ internal sealed partial class HtmlTreeBuilder
         if (IsSpecialElement(element))
         {
             ShiftIndex(_specialIndexes, oldIndex);
-            if (element.LocalName is not ("address" or "div" or "p" or "li")) ShiftIndex(_liStops, oldIndex);
-            if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) ShiftIndex(_ddDtStops, oldIndex);
+            if (!HtmlAddressDivPNames.Match(element.LocalName)) ShiftIndex(_liStops, oldIndex);
+            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) ShiftIndex(_ddDtStops, oldIndex);
         }
         if (IsScopeBoundary(element)) ShiftIndex(_scopeStops, oldIndex);
         if (IsResetModeElement(element)) ShiftIndex(_resetModeIndexes, oldIndex);
@@ -521,14 +525,13 @@ internal sealed partial class HtmlTreeBuilder
         element.NamespaceUri == Namespaces.Html && element.LocalName == name;
     private static bool IsScopeBoundary(Element element) => element.NamespaceUri switch
     {
-        Namespaces.Html => element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "select" or "template",
-        Namespaces.MathMl => element.LocalName is "mi" or "mo" or "mn" or "ms" or "mtext" or "annotation-xml",
-        Namespaces.Svg => element.LocalName is "foreignObject" or "desc" or "title",
+        Namespaces.Html => HtmlAppletCaptionHtmlNames.Match(element.LocalName),
+        Namespaces.MathMl => HtmlMiMoMnNames.Match(element.LocalName),
+        Namespaces.Svg => HtmlForeignObjectDescTitleNames.Match(element.LocalName),
         _ => false
     };
     private static bool IsResetModeElement(Element element) => element.NamespaceUri == Namespaces.Html &&
-        element.LocalName is "td" or "th" or "tr" or "tbody" or "thead" or "tfoot" or "caption" or
-            "colgroup" or "table" or "template" or "head" or "body" or "frameset" or "html";
+        HtmlTdThTrNames.Match(element.LocalName);
 
     private bool TryGenerateImpliedEndTags(string? except = null)
     {
@@ -568,7 +571,7 @@ internal sealed partial class HtmlTreeBuilder
         Charge(_token.Data.Length + (_token.Name?.Length ?? 0) + 1L);
     }
 
-    private void InsertText(ReadOnlySpan<char> text)
+    private void InsertText(StringSlice text)
     {
         if (text.IsEmpty) return;
         var location = FindAdjustedInsertionLocation();
@@ -594,21 +597,9 @@ internal sealed partial class HtmlTreeBuilder
     }
 
     private static bool White(char c) => c is '\t' or '\n' or '\f' or '\r' or ' ';
-    private static bool IsHeading(string name) => name is "h1" or "h2" or "h3" or "h4" or "h5" or "h6";
-    private static bool IsImpliedEndTag(string name) => name is "dd" or "dt" or "li" or "optgroup" or "option" or "p" or "rb" or "rp" or "rt" or "rtc";
-    private static bool AllowedOpenAtEof(Element element) => element.NamespaceUri == Namespaces.Html && element.LocalName is "dd" or "dt" or "li" or "optgroup" or
-        "option" or "p" or "rb" or "rp" or "rt" or "rtc" or "tbody" or "td" or "tfoot" or "th" or
-        "thead" or "tr" or "body" or "html";
+    private static bool IsHeading(string name) => HtmlHeadingLookup.Match(name);
+    private static bool IsImpliedEndTag(string name) => HtmlImpliedEndLookup.Match(name);
+    private static bool AllowedOpenAtEof(Element element) => element.NamespaceUri == Namespaces.Html && HtmlDdDtLiNames.Match(element.LocalName);
 
-    private static bool IsSpecial(string name) => name is
-        "address" or "applet" or "area" or "article" or "aside" or "base" or "basefont" or "bgsound" or
-        "blockquote" or "body" or "br" or "button" or "caption" or "center" or "col" or "colgroup" or
-        "dd" or "details" or "dialog" or "dir" or "div" or "dl" or "dt" or "embed" or "fieldset" or "figcaption" or
-        "figure" or "footer" or "form" or "frame" or "frameset" or "h1" or "h2" or "h3" or "h4" or
-        "h5" or "h6" or "head" or "header" or "hgroup" or "hr" or "html" or "iframe" or "img" or
-        "input" or "keygen" or "li" or "link" or "listing" or "main" or "marquee" or "menu" or
-        "meta" or "nav" or "noembed" or "noframes" or "noscript" or "object" or "ol" or "p" or
-        "param" or "plaintext" or "pre" or "script" or "search" or "section" or "select" or "source" or
-        "style" or "summary" or "table" or "tbody" or "td" or "template" or "textarea" or "tfoot" or
-        "th" or "thead" or "title" or "tr" or "track" or "ul" or "wbr" or "xmp";
+    private static bool IsSpecial(string name) => HtmlSpecialElementLookup.Match(name);
 }

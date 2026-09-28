@@ -26,6 +26,13 @@ internal sealed class HtmlInput
             else _column++;
             _cr = value == '\r';
         }
+
+        internal void ConsumeOrdinaryRun(int length)
+        {
+            _offset += length;
+            _column += length;
+            _cr = false;
+        }
     }
 
     internal sealed class Node
@@ -74,6 +81,12 @@ internal sealed class HtmlInput
 
     internal HtmlSourceLocation SourceLocation => (_lastUnit ?? _primary).Location;
     internal long SourceChanges { get; private set; }
+
+    internal StringSlice GetCurrentSource(int length)
+    {
+        var node = _head.Next;
+        return new StringSlice(node.Source!, node.Start + _offset, length);
+    }
 
     private void ConsumeSource(Node node, char value)
     {
@@ -205,6 +218,21 @@ internal sealed class HtmlInput
         return probe.Found;
     }
 
+    internal bool PeekCurrent(out char value)
+    {
+        var node = _head.Next;
+        if (node.Source is { } source && !WorkExhausted)
+        {
+            value = source[node.Start + _offset];
+            return true;
+        }
+        return Peek(0, out value);
+    }
+
+    internal ReadOnlySpan<char> CurrentSpan => _head.Next.Source is { } source && !WorkExhausted
+        ? source.AsSpan(_head.Next.Start + _offset, _head.Next.End - _head.Next.Start - _offset)
+        : default;
+
     internal static bool HasPassed(Node marker) => marker.Passed || marker.Crossings?.Passed == true;
 
     // Prefix has already located each character. Commit its bounded character
@@ -252,10 +280,28 @@ internal sealed class HtmlInput
         return value;
     }
 
+    // The tokenizer stops before CR/LF and never crosses a source slice or marker.
+    internal void ConsumeOrdinaryRun(int length)
+    {
+        var node = _head.Next;
+        var unit = node.Unit!;
+        if (_lastUnit is not null && _lastUnit != unit) SourceChanges++;
+        _lastUnit = unit;
+        unit.ConsumeOrdinaryRun(length);
+        Offset += length;
+        _offset += length;
+        if (node.Start + _offset == node.End)
+        {
+            Unlink(node);
+            _offset = 0;
+        }
+        InvalidateProbes();
+    }
+
     private void InvalidateProbes()
     {
-        // Ordinary scanning populates only Peek(0). Release just the populated
-        // slots, including all saved source references after declaration probes.
+        if (_probeCount == 0) return;
+        // Release only populated lookahead slots and their saved source references.
         Array.Clear(_probes, 0, _probeCount);
         _probeCount = 0;
         _crossings = null;

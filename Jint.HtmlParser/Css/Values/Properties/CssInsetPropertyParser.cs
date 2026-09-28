@@ -8,7 +8,7 @@ internal static class CssInsetPropertyParser
         if (parts.Count != 1) return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
         var part = parts[0];
         work.Charge(4);
-        if (CssPropertyParser.Keyword(part, "auto", work) is { } keyword)
+        if (CssPropertyParser.Keyword(part, CssKeywordSet.Auto, work) is { } keyword)
         {
             work.CheckCancellation();
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
@@ -22,16 +22,21 @@ internal static class CssInsetPropertyParser
         while (stack.TryPop(out var component))
         {
             work.Charge(1);
-            if (component.Kind is not (CssComponentKind.Function or CssComponentKind.SimpleBlock)) continue;
-            if (component.Kind == CssComponentKind.Function)
+            switch (component.Kind)
             {
-                var name = CssPropertyRegistry.NormalizeName(component.FunctionName, work);
-                work.Charge("anchor anchor-size".Length);
-                if (name is "anchor" or "anchor-size")
-                {
-                    work.CheckCancellation();
-                    return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "inset:" + name);
-                }
+                case not (CssComponentKind.Function or CssComponentKind.SimpleBlock):
+                    continue;
+                case CssComponentKind.Function:
+                    {
+                        var name = CssPropertyRegistry.NormalizeName(component.FunctionName, work);
+                        work.Charge("anchor anchor-size".Length);
+                        if (CssAnchorAnchorSizeNames.Match(name))
+                        {
+                            work.CheckCancellation();
+                            return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "inset:" + name);
+                        }
+                    }
+                    break;
             }
             var children = component.Values;
             for (var i = children.Count - 1; i >= 0; i--)

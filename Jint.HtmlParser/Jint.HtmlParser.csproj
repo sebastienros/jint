@@ -17,7 +17,9 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" />
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="Parsing/ValueStringBuilder.LICENSE.txt" Pack="true" PackagePath="licenses/" />
     <Using Remove="Acornima" />
     <Using Remove="Acornima.Ast" />
   </ItemGroup>

@@ -25,13 +25,13 @@ internal sealed partial class HtmlTreeBuilder
         _fragmentResult = result;
         _fragmentAncestor = context;
         _fragmentBootstrapPending = true;
-        var textMode = context.NamespaceUri != Namespaces.Html ? HtmlTextMode.Data : context.LocalName switch
+        var textMode = context.NamespaceUri != Namespaces.Html ? HtmlTextMode.Data : HtmlFragmentTextModeLookup.Match(context.LocalName) switch
         {
-            "title" or "textarea" => HtmlTextMode.RcData,
-            "style" or "xmp" or "iframe" or "noembed" or "noframes" => HtmlTextMode.RawText,
-            "script" => HtmlTextMode.ScriptData,
-            "noscript" when _scriptingEnabled => HtmlTextMode.RawText,
-            "plaintext" => HtmlTextMode.PlainText,
+            HtmlFragmentTextModeKind.Title or HtmlFragmentTextModeKind.Textarea => HtmlTextMode.RcData,
+            HtmlFragmentTextModeKind.Style or HtmlFragmentTextModeKind.Xmp or HtmlFragmentTextModeKind.Iframe or HtmlFragmentTextModeKind.Noembed or HtmlFragmentTextModeKind.Noframes => HtmlTextMode.RawText,
+            HtmlFragmentTextModeKind.Script => HtmlTextMode.ScriptData,
+            HtmlFragmentTextModeKind.Noscript when _scriptingEnabled => HtmlTextMode.RawText,
+            HtmlFragmentTextModeKind.Plaintext => HtmlTextMode.PlainText,
             _ => HtmlTextMode.Data
         };
         _tokenizer.InitializeFragmentTextMode(textMode);

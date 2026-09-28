@@ -9,7 +9,7 @@ internal static class CssTransformListParser
     internal static CssPropertyResult Parse(List<CssComponentValue> parts, int maximumDepth, CssValueWork work)
     {
         work.CheckCancellation();
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "none", work) is not null)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.None, work) is not null)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword("none", parts[0].Span));
         if (parts.Count == 0) return Invalid();
         var functions = new List<CssTransformFunction>();
@@ -32,7 +32,7 @@ internal static class CssTransformListParser
                     children[i * 2 - 1].Token.Kind != CssTokenKind.Comma)) return Invalid();
                 var child = children[i * 2];
                 if (function.Kind == CssTransformFunctionKind.Perspective &&
-                    CssPropertyParser.Keyword(child, "none", work) is not null)
+                    CssPropertyParser.Keyword(child, CssKeywordSet.None, work) is not null)
                 {
                     arguments[i] = CssPropertyValue.Keyword("none", child.Span);
                     continue;

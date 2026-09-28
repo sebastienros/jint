@@ -5,6 +5,23 @@ namespace Jint.Tests.HtmlParser.Xml;
 
 public class XmlCoreTests
 {
+    [TestCase(0)]
+    [TestCase(127)]
+    [TestCase(128)]
+    [TestCase(10000)]
+    public void NormalizedValuesSurviveStackAndPoolBoundaries(int length)
+    {
+        var prefix = new string('x', length);
+        var literal = prefix + "\r\n\U0001F600";
+        var source = "<r a='" + literal + "&#10;&amp;'>" + literal +
+            "<![CDATA[" + literal + "]]><!--" + literal + "--></r>";
+        var root = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default).DocumentElement!;
+        root.GetAttribute("a").Should().Be(prefix + " \U0001F600\n&");
+        ((Text) root.FirstChild!).Data.Should().Be(prefix + "\n\U0001F600");
+        ((CDataSection) root.FirstChild!.NextSibling!).Data.Should().Be(prefix + "\n\U0001F600");
+        ((Comment) root.LastChild!).Data.Should().Be(prefix + "\n\U0001F600");
+    }
+
     [Test]
     public void PreservesCaseNamespacesAttributesAndNodeKinds()
     {

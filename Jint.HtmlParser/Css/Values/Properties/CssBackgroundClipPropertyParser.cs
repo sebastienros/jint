@@ -17,15 +17,15 @@ internal static class CssBackgroundClipPropertyParser
             work.Charge(1);
             var first = parts[index++];
             work.Charge("border-box padding-box content-box border-area text".Length);
-            var layer = CssPropertyParser.Keyword(first, "border-box padding-box content-box border-area text", work);
+            var layer = CssPropertyParser.Keyword(first, CssKeywordSet.BorderBoxPaddingBoxContentBoxBorderAreaEtc, work);
             if (layer is null) return Invalid();
             var layerSpan = first.Span;
-            if ((layer is "border-area" or "text") && index < parts.Count && !Comma(parts[index]))
+            if ((CssBorderAreaTextNames.Match(layer)) && index < parts.Count && !Comma(parts[index]))
             {
                 work.Charge(1);
                 var component = parts[index++];
                 work.Charge("border-area text".Length);
-                var second = CssPropertyParser.Keyword(component, "border-area text", work);
+                var second = CssPropertyParser.Keyword(component, CssKeywordSet.BorderAreaText, work);
                 work.Charge(layer.Length);
                 if (second is null || second == layer) return Invalid();
                 layer = "border-area text";

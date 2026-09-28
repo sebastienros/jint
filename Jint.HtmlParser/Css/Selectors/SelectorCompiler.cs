@@ -324,50 +324,51 @@ internal static class SelectorCompiler
             }
             var args = nameValue.Values;
             var argumentEnd = ContainerEndOffset(nameValue, ')');
-            if (kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has or
-                PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted)
+            switch (kind)
             {
-                f.Pending = new Pending(kind, span);
-                var pseudoElementContext = (kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not) &&
-                    (f.PseudoElementContext || compound.PseudoElement);
-                child = new Frame(args, _supportsWork is null && (kind is PredicateKind.Is or PredicateKind.Where),
-                    kind == PredicateKind.Has, kind != PredicateKind.Has && f.InsideHas,
-                    false, argumentEnd,
-                    compoundOnly: pseudoElementContext || kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
-                    singleBranch: kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
-                    pseudoElementContext: pseudoElementContext);
-                // The relative list itself is inside :has for nested-has rejection.
-                if (kind == PredicateKind.Has) child.InsideHas = true;
-                return true;
-            }
-            if (kind is PredicateKind.NthChild or PredicateKind.NthLastChild or PredicateKind.NthOfType or
-                PredicateKind.NthLastOfType or PredicateKind.NthCol or PredicateKind.NthLastCol)
-            {
-                ParseNth(args, kind is PredicateKind.NthChild or PredicateKind.NthLastChild, argumentEnd,
-                    out var a, out var b, out var ofValues);
-                if (ofValues is not null)
-                {
-                    f.Pending = new Pending(kind, span, a, b);
-                    child = new Frame(ofValues, false, false, f.InsideHas, false,
-                        argumentEnd);
-                }
-                else compound.Predicates.Add(new Predicate(kind, span, a: a, b: b));
-                return true;
-            }
-            if (kind is PredicateKind.Lang or PredicateKind.Dir)
-            {
-                var text = kind == PredicateKind.Lang ? ParseTextArguments(args, argumentEnd) :
-                    Freeze(new List<string> { ParseSingleIdent(args, argumentEnd) });
-                compound.Predicates.Add(new Predicate(kind, span, textArguments: text));
-                return true;
-            }
-            if (kind == PredicateKind.Picker)
-            {
-                var text = ParseSingleIdent(args, argumentEnd);
-                if (!EqualsAscii(text, "select"))
-                    throw Error("selector/invalid-syntax", nameValue.Span.Start);
-                compound.Predicates.Add(new Predicate(kind, span, name: "select"));
-                return true;
+                case PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has or PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted:
+                    {
+                        f.Pending = new Pending(kind, span);
+                        var pseudoElementContext = (kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not) &&
+                            (f.PseudoElementContext || compound.PseudoElement);
+                        child = new Frame(args, _supportsWork is null && (kind is PredicateKind.Is or PredicateKind.Where),
+                            kind == PredicateKind.Has, kind != PredicateKind.Has && f.InsideHas,
+                            false, argumentEnd,
+                            compoundOnly: pseudoElementContext || kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
+                            singleBranch: kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
+                            pseudoElementContext: pseudoElementContext);
+                        // The relative list itself is inside :has for nested-has rejection.
+                        if (kind == PredicateKind.Has) child.InsideHas = true;
+                        return true;
+                    }
+                case PredicateKind.NthChild or PredicateKind.NthLastChild or PredicateKind.NthOfType or PredicateKind.NthLastOfType or PredicateKind.NthCol or PredicateKind.NthLastCol:
+                    {
+                        ParseNth(args, kind is PredicateKind.NthChild or PredicateKind.NthLastChild, argumentEnd,
+                            out var a, out var b, out var ofValues);
+                        if (ofValues is not null)
+                        {
+                            f.Pending = new Pending(kind, span, a, b);
+                            child = new Frame(ofValues, false, false, f.InsideHas, false,
+                                argumentEnd);
+                        }
+                        else compound.Predicates.Add(new Predicate(kind, span, a: a, b: b));
+                        return true;
+                    }
+                case PredicateKind.Lang or PredicateKind.Dir:
+                    {
+                        var text = kind == PredicateKind.Lang ? ParseTextArguments(args, argumentEnd) :
+                            Freeze(new List<string> { ParseSingleIdent(args, argumentEnd) });
+                        compound.Predicates.Add(new Predicate(kind, span, textArguments: text));
+                        return true;
+                    }
+                case PredicateKind.Picker:
+                    {
+                        var text = ParseSingleIdent(args, argumentEnd);
+                        if (!EqualsAscii(text, "select"))
+                            throw Error("selector/invalid-syntax", nameValue.Span.Start);
+                        compound.Predicates.Add(new Predicate(kind, span, name: "select"));
+                        return true;
+                    }
             }
             throw Error("selector/unsupported-construct", nameValue.Span.Start);
         }
@@ -730,84 +731,16 @@ internal static class SelectorCompiler
         {
             if (element)
             {
-                if (function) return AsciiLower(name) switch
-                {
-                    "picker" => PredicateKind.Picker,
-                    "slotted" => PredicateKind.Slotted,
-                    _ => throw Error("selector/unsupported-construct", offset)
-                };
+                if (function) return SelectorElementFunctionLookup.Match(AsciiLower(name)) ?? throw Error("selector/unsupported-construct", offset);
                 if (name.Length >= 8 && CssAscii.EqualsIgnoreCase(name[..8], "-webkit-"))
                     return PredicateKind.WebkitUnknownPseudoElement;
-                return AsciiLower(name) switch
-                {
-                    "before" or "after" or "selection" or "footnote-call" or "footnote-marker" or
-                    "first-line" or "first-letter" or "content" or "checkmark" or "picker-icon" => PredicateKind.PseudoElement,
-                    _ => throw Error("selector/unsupported-construct", offset)
-                };
+                return SelectorElementLookup.Match(AsciiLower(name)) ?? throw Error("selector/unsupported-construct", offset);
             }
             if (!function)
             {
-                return AsciiLower(name) switch
-                {
-                    "before" or "after" or "first-line" or "first-letter" => PredicateKind.PseudoElement,
-                    "scope" => PredicateKind.Scope,
-                    "root" => PredicateKind.Root,
-                    "empty" => PredicateKind.Empty,
-                    "first-child" => PredicateKind.FirstChild,
-                    "last-child" => PredicateKind.LastChild,
-                    "only-child" => PredicateKind.OnlyChild,
-                    "first-of-type" => PredicateKind.FirstOfType,
-                    "last-of-type" => PredicateKind.LastOfType,
-                    "only-of-type" => PredicateKind.OnlyOfType,
-                    "any-link" => PredicateKind.AnyLink,
-                    "link" => PredicateKind.Link,
-                    "visited" => PredicateKind.Visited,
-                    "checked" => PredicateKind.Checked,
-                    "unchecked" => PredicateKind.Unchecked,
-                    "indeterminate" => PredicateKind.Indeterminate,
-                    "default" => PredicateKind.Default,
-                    "enabled" => PredicateKind.Enabled,
-                    "disabled" => PredicateKind.Disabled,
-                    "required" => PredicateKind.Required,
-                    "optional" => PredicateKind.Optional,
-                    "valid" => PredicateKind.Valid,
-                    "invalid" => PredicateKind.Invalid,
-                    "in-range" => PredicateKind.InRange,
-                    "out-of-range" => PredicateKind.OutOfRange,
-                    "read-only" => PredicateKind.ReadOnly,
-                    "read-write" => PredicateKind.ReadWrite,
-                    "placeholder-shown" => PredicateKind.PlaceholderShown,
-                    "open" => PredicateKind.Open,
-                    "closed" => PredicateKind.Closed,
-                    "hover" => PredicateKind.Hover,
-                    "active" => PredicateKind.Active,
-                    "focus" => PredicateKind.Focus,
-                    "focus-within" => PredicateKind.FocusWithin,
-                    "focus-visible" => PredicateKind.FocusVisible,
-                    "target" => PredicateKind.Target,
-                    "autofill" or "-webkit-autofill" => PredicateKind.Autofill,
-                    "host" => PredicateKind.Host,
-                    _ => throw Error("selector/unsupported-construct", offset)
-                };
+                return SelectorPseudoClassLookup.Match(AsciiLower(name)) ?? throw Error("selector/unsupported-construct", offset);
             }
-            return AsciiLower(name) switch
-            {
-                "is" or "matches" => PredicateKind.Is,
-                "where" => PredicateKind.Where,
-                "not" => PredicateKind.Not,
-                "has" => PredicateKind.Has,
-                "nth-child" => PredicateKind.NthChild,
-                "nth-last-child" => PredicateKind.NthLastChild,
-                "nth-of-type" => PredicateKind.NthOfType,
-                "nth-last-of-type" => PredicateKind.NthLastOfType,
-                "nth-col" => PredicateKind.NthCol,
-                "nth-last-col" => PredicateKind.NthLastCol,
-                "lang" => PredicateKind.Lang,
-                "dir" => PredicateKind.Dir,
-                "host" => PredicateKind.Host,
-                "host-context" => PredicateKind.HostContext,
-                _ => throw Error("selector/unsupported-construct", offset)
-            };
+            return SelectorPseudoFunctionLookup.Match(AsciiLower(name)) ?? throw Error("selector/unsupported-construct", offset);
         }
 
         private SelectorParseException Error(string code, int offset)

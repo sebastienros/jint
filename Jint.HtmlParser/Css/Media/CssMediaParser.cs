@@ -44,14 +44,14 @@ internal static class CssMediaParser
             if (Ident(values[0], work) is { } first &&
                 !(first == "not" && values.Length > 1 && InParens(values[1])))
             {
-                if (first is "not" or "only")
+                if (CssNotOnlyNames.Match(first))
                 {
                     negate = first == "not";
                     modifier = first + " ";
                     start++;
                 }
                 if (start == values.Length || Ident(values[start], work) is not { } mediaType ||
-                    mediaType is "not" or "only" or "and" or "or" or "layer") throw new MediaSyntaxException();
+                    CssNotOnlyAndNames.Match(mediaType)) throw new MediaSyntaxException();
                 type = mediaType;
                 start++;
                 if (start < values.Length)
@@ -140,7 +140,7 @@ internal static class CssMediaParser
                 {
                     work.Charge(1);
                     var op = Ident(items[i], work);
-                    if (op is not ("and" or "or") || (!task.AllowOr && op == "or") ||
+                    if (!CssAndOrNames.Match(op) || (!task.AllowOr && op == "or") ||
                         (join is not null && op != join)) throw new MediaSyntaxException();
                     join = op;
                 }
@@ -197,8 +197,8 @@ internal static class CssMediaParser
             var baseName = name;
             if (name.StartsWith("min-", StringComparison.Ordinal)) { baseName = name[4..]; comparison = CssMediaComparison.GreaterEqual; }
             if (name.StartsWith("max-", StringComparison.Ordinal)) { baseName = name[4..]; comparison = CssMediaComparison.LessEqual; }
-            var discrete = Discrete(baseName);
-            if (comparison != CssMediaComparison.Boolean && (items.Length == 1 || discrete is not null || baseName == "grid"))
+            var discrete = CssMediaFeatureKeywordLookup.Match(baseName);
+            if (comparison != CssMediaComparison.Boolean && (items.Length == 1 || discrete != CssKeywordSet.Empty || baseName == "grid"))
                 return Unknown(program, builder, source, parser, items, work);
             if (items.Length > 1 && comparison == CssMediaComparison.Boolean) comparison = CssMediaComparison.Equal;
             var value = items.Length == 1 ? [] : items[2..];
@@ -236,7 +236,7 @@ internal static class CssMediaParser
         else if (right.Length == 1 && Ident(right[0], work) is { } rightName) { rangeName = rightName; rangeValue = left; reverse = true; }
         else throw new MediaSyntaxException();
         if (operators.Count == 2 && (!reverse || first.Comparison == CssMediaComparison.Equal)) throw new MediaSyntaxException();
-        if (rangeName == "grid" || Discrete(rangeName) is not null || rangeName.StartsWith("min-", StringComparison.Ordinal) ||
+        if (rangeName == "grid" || CssMediaFeatureKeywordLookup.Match(rangeName) != CssKeywordSet.Empty || rangeName.StartsWith("min-", StringComparison.Ordinal) ||
             rangeName.StartsWith("max-", StringComparison.Ordinal)) return Unknown(program, builder, source, parser, items, work);
         var feature1 = Validate(rangeName, reverse ? Reverse(first.Comparison) : first.Comparison, rangeValue, work);
         if (feature1 is null) return Unknown(program, builder, source, parser, items, work);
@@ -267,13 +267,14 @@ internal static class CssMediaParser
     private static CssMediaFeature? Validate(string name, CssMediaComparison comparison,
         CssComponentValue[] value, CssValueWork work)
     {
-        if (Discrete(name) is { } keywords)
+        var keywords = CssMediaFeatureKeywordLookup.Match(name);
+        if (keywords != CssKeywordSet.Empty)
         {
             if (comparison == CssMediaComparison.Boolean) return new(name, comparison, 0, CssUnit.None, "");
-            if (value.Length != 1 || Ident(value[0], work) is not { } keyword || !keywords.Contains(keyword, StringComparer.Ordinal)) return null;
+            if (value.Length != 1 || Ident(value[0], work) is not { } keyword || CssKeywordLookup.Match(keyword, keywords) is null) return null;
             return new(name, comparison, 0, CssUnit.None, keyword);
         }
-        if (name is not ("width" or "height" or "aspect-ratio" or "resolution" or "color" or "color-index" or "monochrome" or "grid"))
+        if (!CssWidthHeightAspectRatioNames.Match(name))
         {
             if (KnownPending(name)) throw new CssIncompleteRuleGrammarException("media", "R2:media-feature:" + name,
                 value.Length == 0 ? default : value[0].Span);
@@ -302,7 +303,7 @@ internal static class CssMediaParser
         var token = value[0].Token;
         if (token.Kind is not (CssTokenKind.Number or CssTokenKind.Dimension)) return null;
         var number = CssNumber.FromValidatedToken(token.NumberText, work);
-        if (name is "width" or "height")
+        if (CssWidthHeightNames.Match(name))
         {
             if (token.Kind == CssTokenKind.Number)
                 return number.Sign == 0 ? NumericFeature(name, comparison, number, CssUnit.None, work) : null;
@@ -332,25 +333,7 @@ internal static class CssMediaParser
         return new(name, comparison, projected, unit, null, spelling);
     }
 
-    private static string[]? Discrete(string name) => name switch
-    {
-        "orientation" => ["portrait", "landscape"],
-        "pointer" or "any-pointer" => ["none", "coarse", "fine"],
-        "hover" or "any-hover" => ["none", "hover"],
-        "display-mode" => ["fullscreen", "standalone", "minimal-ui", "browser", "picture-in-picture"],
-        "prefers-color-scheme" => ["light", "dark"],
-        "prefers-reduced-motion" or "prefers-reduced-transparency" or "prefers-reduced-data" => ["no-preference", "reduce"],
-        "prefers-contrast" => ["no-preference", "more", "less", "custom"],
-        "forced-colors" => ["none", "active"],
-        "scripting" => ["none", "initial-only", "enabled"],
-        _ => null
-    };
-
-    private static bool KnownPending(string name) => name.StartsWith("--", StringComparison.Ordinal) || name is
-        "device-width" or "device-height" or "device-aspect-ratio" or
-        "overflow-block" or "overflow-inline" or "horizontal-viewport-segments" or "vertical-viewport-segments" or
-        "scan" or "update" or "environment-blending" or "color-gamut" or "dynamic-range" or
-        "inverted-colors" or "nav-controls" or "video-color-gamut" or "video-dynamic-range" or "ua-color-scheme";
+    private static bool KnownPending(string name) => name.StartsWith("--", StringComparison.Ordinal) || CssDeviceWidthDeviceHeightDeviceAspectRatioNames.Match(name);
 
     private static string ValueText(CssMediaFeature feature) => feature.Keyword ?? feature.SpecifiedValue;
     private static string Operator(CssMediaComparison comparison) => comparison switch

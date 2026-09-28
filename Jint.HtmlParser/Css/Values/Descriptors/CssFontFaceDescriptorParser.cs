@@ -11,10 +11,6 @@ namespace Jint.HtmlParser.Css.Values.Descriptors;
 // https://drafts.csswg.org/css-fonts-4/#font-resources (Editor's Draft, 13 September 2026).
 internal static class CssFontFaceDescriptorParser
 {
-    private const string Formats = "collection embedded-opentype opentype svg truetype woff woff2";
-    private static readonly string[] FormatNames = Formats.Split(' ');
-    private const string Technologies = "features-opentype features-aat features-graphite color-colrv0 color-colrv1 color-svg color-sbix color-cbdt variations palettes incremental";
-    private const string ReservedFamilies = "initial inherit unset revert revert-layer revert-rule default serif sans-serif cursive fantasy monospace system-ui ui-serif ui-sans-serif ui-monospace ui-rounded emoji math fangsong caption icon menu message-box small-caption status-bar";
 
     internal static CssPropertyResult Parse(string name, CssReferenceInput input, CssValueWork work)
     {
@@ -26,14 +22,14 @@ internal static class CssFontFaceDescriptorParser
             return Family(parts, work) is { } family ? Accepted(name, family) : Invalid();
         if (name == "src") return Sources(parts, work);
         if (name == "font-display")
-            return parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "auto block swap fallback optional", work) is { } display
+            return parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.AutoBlockSwapFallbackEtc, work) is { } display
                 ? Accepted(name, display) : Invalid();
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "auto", work) is { } automatic)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.Auto, work) is { } automatic)
             return Accepted(name, automatic);
         if (name == "font-weight") return Weight(input, parts, work);
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "normal italic left right oblique", work) is { } style)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.NormalItalicLeftRightEtc, work) is { } style)
             return Accepted(name, style);
-        if (parts.Count is < 2 or > 3 || CssPropertyParser.Keyword(parts[0], "oblique", work) is null) return Invalid();
+        if (parts.Count is < 2 or > 3 || CssPropertyParser.Keyword(parts[0], CssKeywordSet.Oblique, work) is null) return Invalid();
         var endpoints = new List<CssPropertyValue>();
         for (var i = 1; i < parts.Count; i++)
         {
@@ -65,7 +61,7 @@ internal static class CssFontFaceDescriptorParser
         foreach (var part in parts)
         {
             work.Charge(1);
-            if (CssPropertyParser.Keyword(part, "bolder lighter", work) is not null) return Invalid();
+            if (CssPropertyParser.Keyword(part, CssKeywordSet.BolderLighter, work) is not null) return Invalid();
             var parsed = CssFontWeightPropertyParser.ParseComponent(part, input.MaxNestingDepth, work);
             if (parsed.Status != CssPropertyStatus.Valid) return parsed;
             values.Add(parsed.Value);
@@ -94,7 +90,7 @@ internal static class CssFontFaceDescriptorParser
         {
             work.Charge(1);
             if (part.Kind != CssComponentKind.Token || part.Token.Kind != CssTokenKind.Ident ||
-                CssPropertyParser.Keyword(part, ReservedFamilies, work) is not null) return null;
+                CssPropertyParser.Keyword(part, CssKeywordSet.InitialInheritUnsetRevertEtc, work) is not null) return null;
             if (builder.Length != 0) builder.Append(' ');
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(part.Token.Text, work));
         }
@@ -151,10 +147,10 @@ internal static class CssFontFaceDescriptorParser
             if (arguments[0].Token.Kind == CssTokenKind.String && format.EndsWith("-variations", StringComparison.Ordinal))
             {
                 format = format[..^11];
-                if (format is not ("woff2" or "woff" or "truetype" or "opentype")) return null;
+                if (!CssWoff2WoffTruetypeNames.Match(format)) return null;
                 technologies.Add("variations");
             }
-            if (!FormatNames.Contains(format, StringComparer.Ordinal)) return null;
+            if (CssKeywordLookup.Match(format, CssKeywordSet.CollectionEmbeddedOpentypeOpentypeSvgEtc) is null) return null;
             // Recognition describes syntax; it does not claim decoder availability or font activation.
             text += " format(" + Quote(format, work) + ")";
         }
@@ -170,7 +166,7 @@ internal static class CssFontFaceDescriptorParser
                     if (arguments[i].Kind != CssComponentKind.Token || arguments[i].Token.Kind != CssTokenKind.Comma) return null;
                     continue;
                 }
-                var technology = CssPropertyParser.Keyword(arguments[i], Technologies, work);
+                var technology = CssPropertyParser.Keyword(arguments[i], CssKeywordSet.FeaturesOpentypeFeaturesAatFeaturesGraphiteColorColrv0Etc, work);
                 if (technology is null) return null;
                 technologies.Add(technology);
             }

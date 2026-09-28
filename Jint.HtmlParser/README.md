@@ -78,6 +78,73 @@ non-preemptible compilation/evaluation intervals.
 depend on AngleSharp. AngleSharp, AngleSharp.Css and AngleSharp.Xml remain only in `Jint.Benchmark`
 as comparison controls; dependency removal is not a claim of complete behavioral parity.
 
+## HTML scanning
+
+The UTF-16 tokenizer uses cached `SearchValues<char>` sets to append ordinary
+text, names, attribute values and comment runs in bulk. Each run stays within
+the current input slice and work quota; CR/LF preprocessing, diagnostics,
+token limits and insertion markers retain their scalar handling. Names still
+use HTML's ASCII-only case folding. Common names use generated, length-first
+decision trees with discriminating UTF-16 positions and wide integer comparisons.
+Every character is verified before returning the canonical string literal;
+no input string is materialized. A bounded, parse-local cache reuses other short
+names before allocating strings. The generator, safety model and isolated
+comparison are documented in [Known-name recognition](Html/known-name-lookup.md).
+The cache uses xxHash3 over the UTF-16 bytes without an encoding allocation.
+Long names and cache collisions remain correct without process-global interning.
+
+Generated recognition also covers fixed HTML/SVG tree-construction names, XML
+keywords and catalog identifiers, and CSS values, properties, selectors, media
+features and at-rules. CSS keyword sets return canonical literals without
+allocating a normalized string or scanning a space-delimited list. Property
+metadata uses generated indices while keeping its existing context restrictions.
+The vocabularies and regeneration commands are documented in
+[Parser-wide recognition](Html/known-name-lookup.md#parser-wide-recognition).
+
+Parser dispatch uses `switch` statements or expressions for alternatives on the
+same token-kind, mode, grammar or status enum. Guarded cases retain their original
+priority and fallback behavior. Independent checks and sequential state updates
+remain separate when more than one branch must execute; XML's character and
+prefix recognition does not introduce enums solely to replace those checks.
+
+Ordinary text and attribute values carry internal immutable source slices from
+the tokenizer into the DOM. Each slice owns a reference to its source string and
+exposes a `ReadOnlySpan<char>` internally. Entities, line normalization and
+noncontiguous input fall back to owned decoded storage; only adjacent ranges of
+the same source can coalesce without copying. Caller arrays and reusable
+tokenizer buffers are never retained as immutable values.
+
+Public `Text.Data` and `Attr.Value` remain strings. Their first read materializes
+and caches the current value when needed; source-backed values then release their
+reference to the larger input. Internal span consumers, including HTML
+serialization, can read without materialization. Mutation, cloning and old-value
+notifications preserve the existing string and ownership contracts.
+
+This trades fewer copies for source retention: an unread value can keep its whole
+input string alive, including on a detached node. Shared text/attribute storage
+also has a layout cost for already materialized values such as XML input.
+Source slices are not a new public API or raw-markup provenance contract.
+`HtmlParserValueAccessBenchmark` measures complete parsing plus string or span
+consumption separately, so parse-only measurements cannot hide deferred work.
+
+Named character references advance through a shared immutable trie built from
+the pinned WHATWG table. Prefix recognition does not allocate candidate strings;
+longest-match recovery and the attribute-specific semicolon rules remain part
+of the tokenizer. `Html/generate_entities.py` verifies the pinned input hash
+when regenerating the table.
+
+## Temporary parsing buffers
+
+CSS token values and XML attribute/line normalization use a stack-backed
+`ValueStringBuilder` with 128-character initial buffers and pooled growth.
+Only synchronous, method-local buffers use it; builders retained between HTML
+tokenizer yields or XML entity frames remain heap-backed. Completed values own
+their strings, and pooled buffers are returned on success, errors and cancellation.
+The implementation is copied from [.NET's pinned source](https://github.com/dotnet/dotnet/blob/9cc5eb8d49d3381ff9890b959faca397b8d537e7/src/runtime/src/libraries/Common/src/System/Text/ValueStringBuilder.cs),
+with only namespace and formatting changes. Its [MIT license](Parsing/ValueStringBuilder.LICENSE.txt)
+is included in the package. The parser does not acquire a dependency on the Jint engine
+to reuse its separate, engine-specific builder.
+
 ## Remaining replacement work
 
 The main gaps are above HTML tokenization and tree construction:

@@ -37,14 +37,7 @@ def main() -> None:
         lines.append(f"        [{csharp_string(key[1:])}] = {csharp_string(value['characters'])},")
     lines.extend([
         "    };",
-        "    internal static readonly HashSet<string> Prefixes = BuildPrefixes();",
-        "    private static HashSet<string> BuildPrefixes()",
-        "    {",
-        "        var prefixes = new HashSet<string>(System.StringComparer.Ordinal);",
-        "        foreach (var key in Values.Keys)",
-        "            for (var i = 1; i <= key.Length; i++) prefixes.Add(key[..i]);",
-        "        return prefixes;",
-        "    }",
+        "    internal static readonly HtmlEntityLookup Lookup = new(Values);",
         "}",
     ])
     pathlib.Path(__file__).with_name("HtmlEntities.g.cs").write_text("\n".join(lines) + "\n")
