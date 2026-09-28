@@ -5,7 +5,7 @@ replacement. AngleSharp is permitted only in `Jint.Benchmark` for comparisons wi
 The [CSSOM contract](html-parser-cssom.md), [standalone contract](html-parser.md#4-native-api-contract)
 and focused serialization/XPath designs remain the acceptance definitions.
 
-The latest implemented baseline is `9a43c6b8e` (typed legacy clip rectangles).
+The latest implemented baseline is `0d9bf3790` (typed borders, radii and outlines).
 The checkboxes below track remaining work, not a claim that writing this plan completed it.
 Historical measurements remain at the end; the older `html-parser-progress.md` is a chronological
 record, not the current backlog.
@@ -32,7 +32,7 @@ boundary to its entry or to a linked completed slice. Update the family roll-up 
 assigned names and tasks have dispositions; a standards-based rejection requires a reviewed
 specification/fixture explanation, not an unsupported-feature success fallback.
 
-**Recommended order:** implement `V1-01` (the next Scalar blocker is `border-width`) and rerun
+**Recommended order:** address `C6-02`'s newly exposed Scalar width-feature syntax boundary and rerun
 `ACC-01` first; then finish the registration gaps
 `R6-01` through `R6-03`. Shared-value, rule and intrinsic-selector tasks can proceed independently
 where their named dependencies permit. Public CSS promotion waits for its grammar gates.
@@ -110,6 +110,14 @@ Byte/stream API review is a separate phase, not a reason to delay decoded-string
   Evidence: `9a43c6b8e`, `CssClipDeclarationTests` and both `NativeCssClipTests` fixtures;
   [commands and the newly exposed Scalar boundary](#v7-01-legacy-clip-completion).
   This is CSSOM/computation support, not a clipping renderer or clip-path shape implementation.
+- [x] **V1-01 borders, radii and outlines**: physical/logical width, style and color values,
+  corner-radius pairs and slash shorthands, outline values and offset, and border-image reset-only
+  membership. Specified and computed routes preserve logical/physical cascade order, priorities,
+  substitutions, inheritance, font/color dependencies and device-pixel snapping.
+  Browser named/generic accessors share declarations, null removal and readonly/receiver guards.
+  Evidence: `0d9bf3790`, `CssBorderDeclarationTests` and both `NativeCssBorderTests` fixtures;
+  [commands and the newly exposed Scalar boundary](#v1-01-border-radius-and-outline-completion).
+  General border-image/shadow grammar, advanced shared colors and actual painting remain separate.
 - [x] **R2 cascade layer blocks/statements**: named, dotted, anonymous and nested layer identities;
   first-occurrence ordering across sheets, origin/shadow separation, conditional ordering,
   reversed important precedence and ordinary/custom-property `revert-layer` rollback.
@@ -170,7 +178,7 @@ Browser named/generic route evidence before it can close.
 | --- | --- | --- | --- |
 | Open | Coverage inventory | INV-01 | Assign every catalog name, context, alias and partial grammar to a task or completed fixture. |
 | Open | V0 shared grammar | V0-01 through V0-05 | Advanced/relative colors, math follow-ups and typed reference functions. The `all` reset is complete. |
-| Open | V1 paint/decoration | V1-01 through V1-05 | Borders, image/layer shorthands, backgrounds, outlines/shadows and remaining paint values. |
+| Open | V1 paint/decoration | V1-02 through V1-05 | V1-01 borders/radii/outlines complete; image/layer shorthands, backgrounds, border images/shadows and remaining paint values remain. |
 | Open | V2 box/position | V2-01 through V2-03 | Logical dimensions/spacing/insets, anchors and remaining sizing grammar. |
 | Open | V3 layout/containment | V3-01 through V3-04 | Grid tracks/templates, columns, fragmentation and remaining containment. Distribution and gaps are complete. |
 | Open | V4 typography | V4-01 through V4-04 | Fonts, line-height and remaining writing/text/ruby/whitespace properties. |
@@ -240,11 +248,12 @@ The names below identify bounded work packages; `INV-01` supplies the exhaustive
 
 ### V1 - Paint and decoration
 
-- [ ] **V1-01 - Borders, radii and outlines.** Implement physical/logical border width/style/color
+- [x] **V1-01 - Borders, radii and outlines.** Implement physical/logical border width/style/color
   longhands, corner radii and outline values, then their shorthands. Reuse color/numeric values;
   specify omitted-component defaults, radius slash syntax and border-image reset-only membership.
   Done when mixed shorthand/longhand priority, invalid atomic assignments and logical aliases agree
   through specified and computed routes.
+  Completed in `0d9bf3790`; see [the implementation evidence](#v1-01-border-radius-and-outline-completion).
 - [ ] **V1-02 - Shared image and gradient grammar.** Extend `CssImagePropertyParser` beyond
   `none` and URL lists with the adopted gradient/image functions, stops, color spaces and URL
   modifiers. Reuse V0 color work where required. Done when typed images can be shared by background,
@@ -509,6 +518,8 @@ Rule work extends `Css/Model/CssStyleSheet.cs`, the existing rule hierarchy and
   beyond its supported metric cases to height, logical/non-px dimensions and the remaining
   flat-tree/container-unit dependencies. Done when nested/named container selection, fallback,
   shadow/slot ancestry and percent/font-dependent sizes have exact results and bounded cycle checks.
+  After V1-01, Scalar reaches `C6:container-feature-syntax:width`; implement that width-feature
+  form and its metric dependencies, then rerun ACC-01 without changing budgets.
 - [ ] **C6-03 - Remaining container conditions.** Implement the adopted style/scroll-state
   conditions and their required snapshots separately from parsing a condition.
   Done when unsupported state is not assumed false/true, per-turn state changes invalidate
@@ -603,15 +614,15 @@ friend access or a project reference. A separate native pack/run is required for
   through the Try-it-out control on both frameworks, with its original task and wait budgets.
 - [ ] **ACC-01 - Finish the real Scalar interaction.** Its 66 property registrations and
   document-level `:host` selectors
-  no longer stop scrollbar measurement. V7-01 also removes the legacy clip failure.
-  It fetches and processes the captured OpenAPI document, then reports
-  `CSSStyleDeclaration.borderWidth: Unimplemented CSS grammar: V1:border-width` on both frameworks;
-  navigation buttons still do not appear. Implement V1-01's border-width grammar rather than
-  discarding the declaration.
+  no longer stop scrollbar measurement. V7-01 removes the legacy clip failure and V1-01 removes
+  the border-width failure. The latest rerun fails on both frameworks with
+  `The native CSS read context was aborted.` during an `offsetHeight` read.
+  Triage of the original abort identifies `C6:container-feature-syntax:width` in
+  `NativeCssQuery.EvaluateFeature`; implement that C6-02 form rather than discarding the condition.
   Framework-caught failures require bounded console/request/DOM diagnostics; the console snapshot
   retains both its first and last messages so later timing logs cannot hide the initial exception.
   An empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
-  After V7-01, rerun `ScalarFixtureTests` after each newly exposed fix. Done when the fixture opens
+  After V1-01, rerun `ScalarFixtureTests` after each newly exposed fix. Done when the fixture opens
   the GetEndpoint group/GET operation, opens Test Request's API Client dialog, observes the expected
   OpenAPI request and reports no unexpected request/page/console failures on both frameworks.
 - [ ] **ACC-02 - Close named native Browser WPT debt.**
@@ -657,6 +668,62 @@ the public API snapshots, the packed consumer and the dependency inventory. Neve
 unfinished grammar as valid raw text merely to make an acceptance run pass.
 
 ### Evidence for the completed slices
+
+#### V1-01 border, radius and outline completion
+
+Implementation: `0d9bf3790`, macOS arm64, net8.0/net10.0, Release.
+The grammar and computation follow [CSS Backgrounds 3](https://drafts.csswg.org/css-backgrounds-3/#borders),
+[CSS Logical 1](https://drafts.csswg.org/css-logical-1/#border-properties),
+[CSS UI 4](https://drafts.csswg.org/css-ui-4/#outline) and
+[CSS Values 4 line-width snapping](https://drafts.csswg.org/css-values-4/#snap-as-a-line-width).
+Physical/logical border longhands and shorthands, typed radius pairs, slash expansion, outline
+auto disambiguation and signed offsets share numeric/color parsing. `border` resets its five
+border-image longhands without resetting radii; `outline` does not reset `outline-offset`.
+Logical names remain distinct in specified storage and map per element before cascade resolution.
+Serialization and setters preserve interleaved logical/physical ordering.
+
+`CssBorderDeclarationTests` covers exact serialization, metadata, CSS-wide/all resets, priority,
+pending substitutions, invalid atomic writes and cancellation during typed parsing.
+The native `NativeCssBorderTests` covers all five writing modes in both directions, corner mappings,
+computed versus style-suppressed widths, device-pixel snapping, inheritance, invalid-at-computed-value
+fallbacks and warm-query invalidation. The Browser fixture covers named/generic/rule agreement,
+null removal, readonly and brand checks, layer rollback and live font/direction/style edits.
+The regenerated binding contract adds 29 logical-border/radius/outline-offset accessors.
+
+Final commands and outcomes (the explicit restore source avoids an unrelated machine-local
+NuGet feed warning without changing repository or user configuration):
+
+```sh
+dotnet test -c Release --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~Jint.Tests.HtmlParser.Css|FullyQualifiedName~Parsing.PublicApiTest|FullyQualifiedName~ParserLookup'
+dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~NativeCss|FullyQualifiedName~CssSupportsTests|FullyQualifiedName~CssCoverageTests|FullyQualifiedName~DomBindingsStalenessTests|FullyQualifiedName~ParserDependencyTests|FullyQualifiedName~SwaggerFixtureTests'
+python3 -B Jint.HtmlParser/Parsing/generate_parser_lookups.py --check
+python3 -B -m unittest discover -s Jint.HtmlParser/Parsing -p test_generate_parser_lookups.py
+python3 -B tools/html-parser-inventory/inventory.py
+python3 -B -m unittest discover -s tools/html-parser-inventory -p 'test_*.py'
+```
+
+All 5,836 native CSS/public-API/lookup cases, 392 Browser cases, three lookup-generator tests and
+six inventory tests passed. The inventory now has 1,766 generated members across 166 interfaces;
+only the new accessors and generated CSS file hash changed, not the historical Windows WPT census.
+The fresh local-feed pack and unsigned net8.0/net10.0 consumers passed using the
+[documented package-consumer commands](../../tools/html-parser-package-consumer/README.md).
+The package retains both framework assets, only its `System.IO.Hashing` dependency and the imported
+MIT license. No public CLR API was promoted or API snapshot changed.
+
+The required ACC-01 rerun used:
+
+```sh
+dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~ScalarFixtureTests'
+```
+
+Both Scalar cases still fail, now with an aborted CSS read context during `offsetHeight`.
+Temporary abort-site diagnostics on net10.0 identified the preceding exception as
+`Unimplemented CSS grammar: C6:container-feature-syntax:width`, from `EvaluateFeature` through
+container-condition evaluation and candidate selection. That instrumentation was removed before
+the final rerun; the border-width grammar failure is gone. The 30-second task and 60-second wait
+budgets remain unchanged, and ACC-01 stays open with C6-02 as the next action.
+General border-image and shadow values remain V1-04, advanced colors remain V0 work, and actual
+painting/used geometry is not supplied by this CSSOM slice.
 
 #### V7-01 legacy clip completion
 
