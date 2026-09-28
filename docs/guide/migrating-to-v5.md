@@ -5818,7 +5818,7 @@ date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "3:07:00 pm"
 // 5.x
 new Intl.DateTimeFormat('en-GB', hm).format(date);          // "15:07"
 new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "15:07"
-new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p. m."
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p.m." (CLDR's designator, 4.142)
 date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "15:07:00"
 ```
 
@@ -5843,6 +5843,126 @@ and that is the one line to add at each call site:
 new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h12' }); // or hour12: true
 date.toLocaleTimeString('es-MX', { hour12: false });
 ```
+
+### 4.142 `Intl.DateTimeFormat` writes a component bag with the locale's CLDR pattern and names ([#4158](https://github.com/sebastienros/jint/issues/4158))
+
+A bag of component options — `{ weekday: 'short', day: 'numeric', month: 'long' }` and the like, including the
+defaults `Date.prototype.toLocaleString` and Temporal's `toLocaleString` fill in — was written by laying its fields out
+in the order of the .NET culture's short date pattern, with fixed separators and .NET's names. It is now resolved the
+way ICU resolves it ([BestFitFormatMatcher](https://tc39.es/ecma402/#sec-bestfitformatmatcher)): the locale's CLDR 48.2
+`availableFormats` pattern nearest the request, missing fields appended through `appendItems`, a date and a time joined
+with the `atTime` `dateTimeFormats`, and CLDR's month, weekday, era and am/pm names in the context the pattern asks
+for. The output is what V8 writes:
+
+```js
+const date = new Date(Date.UTC(2022, 11, 24, 15, 7, 9));
+const f = (locale, options) => new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(date);
+
+//                                                                4.16.x / earlier 5.0            5.x
+f('de', { weekday: 'short', day: 'numeric', month: 'long' });    // "Sa 24 Dezember"               "Sa., 24. Dezember"
+f('en', { weekday: 'short', day: 'numeric', month: 'long' });    // "Sat December 24"              "Sat, December 24"
+f('en', { year: 'numeric', month: 'long' });                     // "December, 2022"               "December 2022"
+f('ja', { year: 'numeric', month: 'long', day: 'numeric' });     // "2022 12月 24"                 "2022年12月24日"
+f('ko', { year: 'numeric', month: 'numeric', day: 'numeric' });  // "2022. 12. 24"                 "2022. 12. 24."
+f('de', { era: 'short', year: 'numeric' });                      // "2022 AD"                      "2022 n. Chr."
+f('en', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+                                                                 // "December 24, 2022, 3:07 PM"   "December 24, 2022 at 3:07 PM"
+f('fr', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+                                                                 // "24/12/2022, 15:07:09"         "24/12/2022 15:07:09"
+f('en', { weekday: 'short', hour: 'numeric', minute: 'numeric' }); // "Sat, 3:07 PM"               "Sat 3:07 PM"
+```
+
+**What could break:**
+
+- **The text of any component bag**, in any locale: the order of its fields, the punctuation between them, the joiner
+  between a date and a time, and the names — format-context weekdays and months (`Sa.` beside a day where .NET has only
+  the stand-alone `Sa`), localized eras where every locale wrote `AD`/`BC`, and CLDR's am/pm where .NET's differ
+  (`es-MX` `p.m.`, `he` and `th` `PM`). `formatToParts()` changes the same way, and so does `formatRange()`, which
+  4.143 moves onto CLDR's interval patterns.
+- **`resolvedOptions()` reports the pattern that was chosen**, as
+  [the specification](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions) requires, not the
+  options that asked for it: `en-GB` `{ month: 'numeric', day: 'numeric' }` reports `'2-digit'` for both (it writes
+  `24/12`), `ja` `{ month: 'long' }` reports `'numeric'` (`12月`), `de` `{ hour: 'numeric' }` reports `'2-digit'`
+  (`15 Uhr`), and a numeric minute or second written with two digits reports `'2-digit'`. A 24-hour locale drops a
+  `dayPeriod` it has no pattern for (`de` `{ hour: 'numeric', dayPeriod: 'short' }` writes `15 Uhr` and reports no
+  `dayPeriod`).
+- **A year of zero or less is written `1 - year`**, as
+  [FormatDateTimePattern](https://tc39.es/ecma402/#sec-formatdatetimepattern) says, with or without an era: year 0 is
+  `1` and the earliest time value's year, -271821, is `271822` (`new Date(-8.64e15).toLocaleDateString('en-US')` is
+  `4/20/271822`, as in V8).
+- **U+202F**, which CLDR writes in time patterns, is a plain space in `format()` and `formatToParts()` alike.
+- **An `ICldrProvider`'s month, weekday, era and day-period names** now reach a component bag only where they differ
+  from `DefaultCldrProvider.Instance`'s answer for the same arguments, and then in both the format and the stand-alone
+  context. A provider that overrides nothing name-related — or delegates the names to the default, as a provider
+  implementing the interface directly often does — used to have .NET's names written and now has CLDR's.
+- `formatMatcher: 'basic'` is still accepted and still answered by the best-fit matcher; V8 does the same.
+
+Not changed: `dateStyle` and `timeStyle` (they still write .NET's patterns, and so can disagree with a component bag in
+am/pm names — `he`, `th`, `es-MX` — until they move onto CLDR as well), the Chinese and Dangi calendars' lane, and the
+other non-Gregorian calendars, which were and are written in the Gregorian patterns with their own year, month and day.
+The fractional-second separator is still the numbering system's (`.` for Latin digits) where ICU writes the locale's
+decimal separator (`,` in `de`).
+
+There is no switch back. A script that parses a formatted date should use `formatToParts()`; a host that needs
+particular names supplies them through its `ICldrProvider`, and a script that needs a fixed shape asks for
+`dateStyle`/`timeStyle` or builds the string from `formatToParts()`.
+
+### 4.143 `Intl.DateTimeFormat`'s `formatRange` writes a component bag with the locale's CLDR interval patterns ([#4158](https://github.com/sebastienros/jint/issues/4158))
+
+`formatRange()` and `formatRangeToParts()` wrote a component bag's two dates in full and dropped the prefix and suffix
+they shared, when those ended at something that looked like a separator, joining what was left with a fixed `" – "`.
+They are now written the way ICU's `DateIntervalFormat` writes them, as V8 drives it
+([PartitionDateTimeRangePattern](https://tc39.es/ecma402/#sec-partitiondatetimerangepattern)): the pattern CLDR 48.2's
+`intervalFormats` has for the largest field in which the two dates differ, widened to the widths asked for; a date
+and a time on one day as the date once and the time's interval; and any other range as the two whole dates in the
+locale's `intervalFormatFallback`. Two dates that differ only in fields the format does not show are still written as
+one date. The output is what V8 writes:
+
+```js
+const f = (locale, options, a, b) =>
+  new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).formatRange(new Date(a + 'Z'), new Date(b + 'Z'));
+
+//                                                                             4.16.x / earlier 5.0        5.x
+f('en', { month: 'short', day: 'numeric' }, '2022-12-24', '2022-12-27');      // "Dec 24 – Dec 27"           "Dec 24 – 27"
+f('de', { month: 'short', day: 'numeric' }, '2022-12-24', '2022-12-27');      // "24 – 27. Dez."             "24.–27. Dez."
+f('ja', { month: 'short', day: 'numeric' }, '2022-12-24', '2022-12-27');      // "12月24 – 12月27日"          "12/24～12/27"
+f('en', { month: 'short', day: 'numeric' }, '2022-12-24', '2023-01-03');      // "Dec 24 – Jan 3"            "Dec 24, 2022 – Jan 3, 2023"
+f('en', { day: 'numeric' }, '2022-12-24', '2023-01-03');                      // "24 – 3"                    "12/24/2022 – 1/3/2023"
+f('en', { hour: 'numeric', minute: 'numeric' }, '2022-12-24T09:05', '2022-12-25T15:45');
+                                                                              // "9:05 AM – 3:45 PM"         "12/24/2022, 9:05 AM – 12/25/2022, 3:45 PM"
+f('en', { year: 'numeric', month: '2-digit', day: '2-digit' }, '2022-01-03', '2022-01-05');
+                                                                              // "01/03/2022 – 01/05/2022"   "1/3/2022 – 1/5/2022"
+f('en', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' }, '2022-12-24T09:00', '2022-12-24T15:00');
+                                                                              // "December 24, 2022 at 9:00 AM – 3:00 PM"
+                                                                              //                             "December 24, 2022, 9:00 AM – 3:00 PM"
+```
+
+**What could break:**
+
+- **The text of a component bag's range**, in any locale: where the dates are shared, the separator (`–`, `～`, `至`,
+  `a el`, whatever the locale's pattern writes), and which fields are written at all — a field the dates differ in
+  that the format does not show is written (the years of a `{ month, day }` range across a new year, the dates of a
+  time range across days), and a date beside a time range is joined as CLDR's medium date and time are (`, ` in `en`
+  where `format()` writes ` at `). The widths are CLDR's interval widths: a two-digit month or day asked for is written
+  as the pattern writes it (`1/3/2022`), and so is a two-digit hour.
+- **`formatRangeToParts()`'s parts and sources**: a field shared by both dates is one `shared` part (`Dec` in
+  `Dec 24 – 27`), and the text between one date's fields belongs to that date.
+- **CLDR's quirks, which V8 writes too**: a range's time zone name is the short one where the format writes the long
+  one, and a `shortOffset` or `longOffset` zone is not written in a range at all.
+- CLDR writes U+2009 THIN SPACE around the dash and U+202F before a day period; a range writes U+0020 for both, as every
+  lane writes U+0020 for U+202F, so its separator is still `" – "`.
+- A time value outside the years a .NET `DateTime` holds keeps its real year in every range, `dateStyle` and
+  `timeStyle` included (`formatRange(-8.64e15, 8.64e15)` is `4/20/271822 BC – 9/13/275760 AD`).
+
+Where V8 and the specification part, Jint follows the specification. Fractional seconds are compared at the digits the
+format writes: `{ minute, second, fractionalSecondDigits: 1 }` writes two dates 1 ms apart as one date, where V8
+writes `05:01.2 – 05:01.2`. And every `shared` part is the start date's: where CLDR's pattern writes a field of the end
+date that ICU does not pair with the start's (`fa`'s stand-alone month before the dash and format month after it,
+`sw`'s month written once after the second day), Jint reports it as `endRange`, which V8 reports as `shared`.
+
+Not changed: `dateStyle` and `timeStyle` ranges still drop the shared prefix and suffix of two whole dates, joined by
+`" – "`, until they move onto CLDR as well, and so do the Chinese and Dangi calendars. There is no switch back; a
+script that needs a fixed shape builds it from `formatToParts()` of each date.
 
 ## 5. New in v5
 

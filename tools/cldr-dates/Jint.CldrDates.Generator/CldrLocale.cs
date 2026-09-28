@@ -4,7 +4,8 @@ using System.Text.Json;
 namespace Jint.CldrDates.Generator;
 
 /// <summary>
-/// One locale's data as cldr-json resolves it: the <see cref="SlotLayout"/> values and the availableFormats kept.
+/// One locale's data as cldr-json resolves it: the <see cref="SlotLayout"/> values, the availableFormats kept and the
+/// intervalFormats.
 /// </summary>
 internal sealed class CldrLocale
 {
@@ -13,6 +14,107 @@ internal sealed class CldrLocale
     internal required string[] Slots { get; init; }
 
     internal required SortedDictionary<string, string> Formats { get; init; }
+
+    /// <summary>
+    /// <c>intervalFormats</c> as cldr-json resolves them: each skeleton's greatest-difference letters
+    /// (<c>G y M d a B h H m</c>) and their patterns.
+    /// </summary>
+    internal required SortedDictionary<string, SortedDictionary<char, string>> RawIntervals { get; init; }
+
+    /// <summary>
+    /// The interval patterns ICU's <c>DateIntervalInfo</c> ends up with, one per skeleton and greatest-difference field;
+    /// set by <see cref="IntervalResolution.Resolve"/>.
+    /// </summary>
+    internal SortedDictionary<IntervalKey, string> Intervals { get; set; } = new();
+}
+
+/// <summary>
+/// An interval pattern's key: its skeleton, and the field that differs as ICU's interval index names it — <c>G</c>
+/// era, <c>y</c> year, <c>M</c> month, <c>d</c> day, <c>a</c> am/pm (CLDR's <c>a</c> and <c>B</c>), <c>h</c> hour
+/// (CLDR's <c>h</c> and <c>H</c>), <c>m</c> minute. Ordered ordinally by skeleton, then field.
+/// </summary>
+internal readonly record struct IntervalKey(string Skeleton, char Field) : IComparable<IntervalKey>
+{
+    public int CompareTo(IntervalKey other)
+    {
+        var bySkeleton = string.CompareOrdinal(Skeleton, other.Skeleton);
+        return bySkeleton != 0 ? bySkeleton : Field.CompareTo(other.Field);
+    }
+}
+
+/// <summary>
+/// Resolves each locale's interval patterns the way ICU's <c>DateIntervalInfo</c> sink fills its table
+/// (icu4c <c>dtitvinf.cpp</c>): walking the locale's bundle and then each ancestor's, a (skeleton, field) takes the
+/// first pattern it meets, and within one bundle the keys come in binary order, so <c>B</c> wins over <c>a</c>.
+/// </summary>
+/// <remarks>
+/// cldr-json has already resolved every letter through the parent chain, so a locale's own bundle is taken to be the
+/// letters whose pattern differs from its parent's. <c>zh-Hant</c> has both an <c>a</c> and a <c>B</c> pattern for
+/// <c>h</c> and <c>hm</c>, and ICU formats with the <c>B</c> one.
+/// </remarks>
+internal static class IntervalResolution
+{
+    /// <summary>The greatest-difference letters CLDR keys an interval pattern by, and the field each stands for.</summary>
+    internal static readonly Dictionary<char, char> FieldOfLetter = new()
+    {
+        ['G'] = 'G',
+        ['y'] = 'y',
+        ['M'] = 'M',
+        ['d'] = 'd',
+        ['a'] = 'a',
+        ['B'] = 'a',
+        ['h'] = 'h',
+        ['H'] = 'h',
+        ['m'] = 'm',
+    };
+
+    internal static void Resolve(List<CldrLocale> locales, ParentLocales parents)
+    {
+        var byId = locales.ToDictionary(l => l.Id, StringComparer.Ordinal);
+        var done = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var locale in locales)
+        {
+            Resolve(locale, byId, parents, done);
+        }
+    }
+
+    private static void Resolve(CldrLocale locale, Dictionary<string, CldrLocale> byId, ParentLocales parents, HashSet<string> done)
+    {
+        if (done.Contains(locale.Id))
+        {
+            return;
+        }
+
+        var parentId = parents.ParentOf(locale.Id);
+        var parent = parentId is null ? null : byId[parentId];
+        var intervals = new SortedDictionary<IntervalKey, string>();
+        if (parent is not null)
+        {
+            Resolve(parent, byId, parents, done);
+            foreach (var (key, pattern) in parent.Intervals)
+            {
+                intervals.Add(key, pattern);
+            }
+        }
+
+        foreach (var (skeleton, letters) in locale.RawIntervals)
+        {
+            var fields = new HashSet<char>();
+            foreach (var (letter, pattern) in letters)
+            {
+                var inherited = parent is not null && parent.RawIntervals.TryGetValue(skeleton, out var parentLetters)
+                                && parentLetters.TryGetValue(letter, out var parentPattern)
+                                && string.Equals(parentPattern, pattern, StringComparison.Ordinal);
+                if (!inherited && fields.Add(FieldOfLetter[letter]))
+                {
+                    intervals[new IntervalKey(skeleton, FieldOfLetter[letter])] = pattern;
+                }
+            }
+        }
+
+        locale.Intervals = intervals;
+        done.Add(locale.Id);
+    }
 }
 
 /// <summary>
@@ -53,6 +155,17 @@ internal static class CldrExtraction
     ];
 
     /// <summary>
+    /// CLDR 48.2 interval patterns in which no field letter repeats, so that ICU's <c>splitPatternInto2Part</c> finds
+    /// no second date: ICU then writes the whole pattern for the first date, with no span, and V8 writes the first
+    /// date alone in its place. They are kept as CLDR writes them, and a new one fails the run.
+    /// </summary>
+    internal static readonly (string Locale, string Skeleton, char Letter)[] KnownUnsplittableIntervals =
+    [
+        ("fa", "GyMMM", 'M'), // "LLL تا MMM y G": the stand-alone month before the dash, the format month after
+        ("fa-AF", "GyMMM", 'M'), // inherited from fa
+    ];
+
+    /// <summary>
     /// Skeletons with a quarter (<c>Q</c>) or week (<c>w</c>, <c>W</c>) field, which ECMA-402 has no option for, and
     /// CLDR's plural (<c>-count-</c>) and alternative (<c>-alt-</c>) variants are not kept.
     /// </summary>
@@ -90,10 +203,11 @@ internal static class CldrExtraction
 
         var seenLetterExceptions = new HashSet<(string, string)>();
         var seenNumberingOverrides = new HashSet<(string, string)>();
+        var seenUnsplittable = new HashSet<(string, string)>();
         var locales = new List<CldrLocale>(ids.Count);
         foreach (var id in ids)
         {
-            locales.Add(Extract(inputs, id, problems, seenLetterExceptions, seenNumberingOverrides));
+            locales.Add(Extract(inputs, id, problems, seenLetterExceptions, seenNumberingOverrides, seenUnsplittable));
         }
 
         foreach (var (locale, skeleton, _) in KnownLetterExceptions)
@@ -112,6 +226,14 @@ internal static class CldrExtraction
             }
         }
 
+        foreach (var (locale, skeleton, letter) in KnownUnsplittableIntervals)
+        {
+            if (!seenUnsplittable.Contains((locale, skeleton + "/" + letter)))
+            {
+                problems.Add($"KnownUnsplittableIntervals lists {locale} {skeleton}/{letter}, which now splits: remove the entry");
+            }
+        }
+
         if (problems.Count > 0)
         {
             throw new InvalidDataException("The CLDR data failed validation:" + Environment.NewLine + string.Join(Environment.NewLine, problems.Select(p => "  " + p)));
@@ -120,7 +242,7 @@ internal static class CldrExtraction
         return locales;
     }
 
-    private static CldrLocale Extract(Inputs inputs, string id, List<string> problems, HashSet<(string, string)> seenLetterExceptions, HashSet<(string, string)> seenNumberingOverrides)
+    private static CldrLocale Extract(Inputs inputs, string id, List<string> problems, HashSet<(string, string)> seenLetterExceptions, HashSet<(string, string)> seenNumberingOverrides, HashSet<(string, string)> seenUnsplittable)
     {
         using var gregorianDocument = JsonDocument.Parse(inputs.DatesFiles[$"package/main/{id}/ca-gregorian.json"]);
         using var fieldsDocument = JsonDocument.Parse(inputs.DatesFiles[$"package/main/{id}/dateFields.json"]);
@@ -161,7 +283,117 @@ internal static class CldrExtraction
             problems.Add($"{id}: no availableFormats");
         }
 
-        return new CldrLocale { Id = id, Slots = slots, Formats = formats };
+        var intervals = new SortedDictionary<string, SortedDictionary<char, string>>(StringComparer.Ordinal);
+        foreach (var entry in gregorian.GetProperty("dateTimeFormats").GetProperty("intervalFormats").EnumerateObject())
+        {
+            if (string.Equals(entry.Name, "intervalFormatFallback", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (entry.Name.Any(c => !AllowedLetters.Contains(c, StringComparison.Ordinal)))
+            {
+                problems.Add($"{id}: the interval skeleton {entry.Name} has a letter outside {AllowedLetters}");
+            }
+
+            var letters = new SortedDictionary<char, string>();
+            foreach (var letter in entry.Value.EnumerateObject())
+            {
+                // ICU reads a single greatest-difference letter and ignores CLDR's -alt- variants (en-CA's
+                // "M-alt-variant"), as the availableFormats are read without theirs.
+                if (letter.Name.Contains("-alt-", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var name = "intervalFormats/" + entry.Name + "/" + letter.Name;
+                if (letter.Name.Length != 1 || !IntervalResolution.FieldOfLetter.ContainsKey(letter.Name[0]))
+                {
+                    problems.Add($"{id}: {name} is keyed by a letter ICU does not read");
+                    continue;
+                }
+
+                var pattern = ReadString(id, name, letter.Value, problems, seenNumberingOverrides);
+                CheckPattern(id, name, pattern, "", problems);
+                var split = SplitPoint(pattern);
+                if (Array.Exists(KnownUnsplittableIntervals, e => e.Locale == id && e.Skeleton == entry.Name && e.Letter == letter.Name[0]))
+                {
+                    seenUnsplittable.Add((id, entry.Name + "/" + letter.Name));
+                }
+                else if (split <= 0 || split >= pattern.Length)
+                {
+                    problems.Add($"{id}: {name} \"{pattern}\" writes no field twice, so it cannot be split into its two dates");
+                }
+
+                letters.Add(letter.Name[0], pattern);
+            }
+
+            if (letters.Count == 0)
+            {
+                problems.Add($"{id}: the interval skeleton {entry.Name} has no pattern ICU reads");
+            }
+
+            intervals.Add(entry.Name, letters);
+        }
+
+        if (intervals.Count == 0)
+        {
+            problems.Add($"{id}: no intervalFormats");
+        }
+
+        return new CldrLocale { Id = id, Slots = slots, Formats = formats, RawIntervals = intervals };
+    }
+
+    /// <summary>
+    /// Where ICU's <c>splitPatternInto2Part</c> (icu4c <c>dtitvfmt.cpp</c>) splits an interval pattern into its two
+    /// dates: at the first field whose letter was seen before. The pattern's length when no letter repeats.
+    /// </summary>
+    internal static int SplitPoint(string pattern)
+    {
+        var seen = new HashSet<char>();
+        var quoted = false;
+        var previous = '\0';
+        var count = 0;
+        var found = false;
+        var i = 0;
+        for (; i < pattern.Length; i++)
+        {
+            var c = pattern[i];
+            if (c != previous && count > 0)
+            {
+                if (!seen.Add(previous))
+                {
+                    found = true;
+                    break;
+                }
+
+                count = 0;
+            }
+
+            if (c == '\'')
+            {
+                if (i + 1 < pattern.Length && pattern[i + 1] == '\'')
+                {
+                    i++;
+                }
+                else
+                {
+                    quoted = !quoted;
+                }
+            }
+            else if (!quoted && char.IsAsciiLetter(c))
+            {
+                previous = c;
+                count++;
+            }
+        }
+
+        if (count > 0 && !found && !seen.Contains(previous))
+        {
+            count = 0;
+        }
+
+        return i - count;
     }
 
     private static JsonElement LocaleNode(JsonDocument document, string id, List<string> problems)
@@ -237,6 +469,14 @@ internal static class CldrExtraction
                 break;
             case SlotKind.AppendPattern:
                 CheckPlaceholders(id, name, value, allowsDisplayName: true, problems);
+                break;
+            case SlotKind.IntervalFallback:
+                // Literal text around the two dates, not a pattern: ICU writes it as it stands ("{0} a el {1}").
+                if (!value.Contains("{0}", StringComparison.Ordinal) || !value.Contains("{1}", StringComparison.Ordinal) || value.Contains('\'', StringComparison.Ordinal))
+                {
+                    problems.Add($"{id}: {name} \"{value}\" does not place both {{0}} and {{1}} around unquoted text");
+                }
+
                 break;
         }
     }

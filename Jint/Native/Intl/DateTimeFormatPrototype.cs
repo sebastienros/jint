@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Text;
 using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.Temporal;
@@ -542,7 +543,8 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             return EpochNanosecondsToDateTime(instant.EpochNanoseconds);
         }
 
-        return ToDateTimeForRange(formattable);
+        // A time value outside DateTime's range keeps its real year, as format() does.
+        return ToDateTimeWithOriginalYear(formattable, out originalYear);
     }
 
     /// <summary>
@@ -728,9 +730,27 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
         result.CreateDataPropertyOrThrow("timeZone", ToIanaTimeZoneId(timeZoneId));
 
+        // https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions reads a component bag's fields off
+        // dtf.[[DateTimeFormat]], the format record the matcher chose, not off the options that asked for it: an
+        // en-GB { month: "numeric", day: "numeric" } resolves to "dd/MM" and reports "2-digit" for both, a Japanese
+        // { month: "long" } resolves to "M月" and reports "numeric". A Chinese or Dangi date is not written through a
+        // pattern, and reports what it was asked for.
+        var record = dateTimeFormat.UsesComponentPattern ? dateTimeFormat.GetComponentPattern() : null;
+        var weekday = record is null ? dateTimeFormat.Weekday : record.Weekday;
+        var era = record is null ? dateTimeFormat.Era : record.Era;
+        var year = record is null ? dateTimeFormat.Year : record.Year;
+        var month = record is null ? dateTimeFormat.Month : record.Month;
+        var day = record is null ? dateTimeFormat.Day : record.Day;
+        var dayPeriod = record is null ? dateTimeFormat.DayPeriod : record.DayPeriod;
+        var hour = record is null ? dateTimeFormat.Hour : record.Hour;
+        var minute = record is null ? dateTimeFormat.Minute : record.Minute;
+        var second = record is null ? dateTimeFormat.Second : record.Second;
+        var fractionalSecondDigits = record is null ? dateTimeFormat.FractionalSecondDigits : record.FractionalSecondDigits;
+        var timeZoneName = record is null ? dateTimeFormat.TimeZoneName : record.TimeZoneName;
+
         // hourCycle and hour12 should be returned if hour is present OR if timeStyle is set
         // Per ECMA-402, timeStyle implies hour formatting
-        if (dateTimeFormat.Hour != null || dateTimeFormat.TimeStyle != null)
+        if (hour != null || dateTimeFormat.TimeStyle != null)
         {
             // The cycle the formatter writes with: an option's or keyword's, or the locale's own
             var hourCycle = dateTimeFormat.ResolvedHourCycle;
@@ -750,60 +770,60 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         // Component options
-        if (dateTimeFormat.Weekday != null)
+        if (weekday != null)
         {
-            result.CreateDataPropertyOrThrow("weekday", dateTimeFormat.Weekday);
+            result.CreateDataPropertyOrThrow("weekday", weekday);
         }
 
-        if (dateTimeFormat.Era != null)
+        if (era != null)
         {
-            result.CreateDataPropertyOrThrow("era", dateTimeFormat.Era);
+            result.CreateDataPropertyOrThrow("era", era);
         }
 
-        if (dateTimeFormat.Year != null)
+        if (year != null)
         {
-            result.CreateDataPropertyOrThrow("year", dateTimeFormat.Year);
+            result.CreateDataPropertyOrThrow("year", year);
         }
 
-        if (dateTimeFormat.Month != null)
+        if (month != null)
         {
-            result.CreateDataPropertyOrThrow("month", dateTimeFormat.Month);
+            result.CreateDataPropertyOrThrow("month", month);
         }
 
-        if (dateTimeFormat.Day != null)
+        if (day != null)
         {
-            result.CreateDataPropertyOrThrow("day", dateTimeFormat.Day);
+            result.CreateDataPropertyOrThrow("day", day);
         }
 
         // dayPeriod comes after day and before hour per ECMA-402 spec order
-        if (dateTimeFormat.DayPeriod != null)
+        if (dayPeriod != null)
         {
-            result.CreateDataPropertyOrThrow("dayPeriod", dateTimeFormat.DayPeriod);
+            result.CreateDataPropertyOrThrow("dayPeriod", dayPeriod);
         }
 
-        if (dateTimeFormat.Hour != null)
+        if (hour != null)
         {
-            result.CreateDataPropertyOrThrow("hour", dateTimeFormat.Hour);
+            result.CreateDataPropertyOrThrow("hour", hour);
         }
 
-        if (dateTimeFormat.Minute != null)
+        if (minute != null)
         {
-            result.CreateDataPropertyOrThrow("minute", dateTimeFormat.Minute);
+            result.CreateDataPropertyOrThrow("minute", minute);
         }
 
-        if (dateTimeFormat.Second != null)
+        if (second != null)
         {
-            result.CreateDataPropertyOrThrow("second", dateTimeFormat.Second);
+            result.CreateDataPropertyOrThrow("second", second);
         }
 
-        if (dateTimeFormat.FractionalSecondDigits.HasValue)
+        if (fractionalSecondDigits.HasValue)
         {
-            result.CreateDataPropertyOrThrow("fractionalSecondDigits", dateTimeFormat.FractionalSecondDigits.Value);
+            result.CreateDataPropertyOrThrow("fractionalSecondDigits", fractionalSecondDigits.Value);
         }
 
-        if (dateTimeFormat.TimeZoneName != null)
+        if (timeZoneName != null)
         {
-            result.CreateDataPropertyOrThrow("timeZoneName", dateTimeFormat.TimeZoneName);
+            result.CreateDataPropertyOrThrow("timeZoneName", timeZoneName);
         }
 
         return result;
@@ -840,6 +860,21 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         var isTemporalInput = IsTemporalObject(x);
         var isPlain = isTemporalInput && x is not JsInstant;
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
+
+        // A component bag is written through its range patterns (https://tc39.es/ecma402/#sec-formatdatetimerange is the
+        // concatenation of https://tc39.es/ecma402/#sec-partitiondatetimerangepattern's parts). dateStyle and timeStyle,
+        // and the Chinese and Dangi calendars, keep the lane below.
+        if (effectiveDtf.UsesComponentPattern)
+        {
+            var rangeParts = effectiveDtf.FormatRangeToParts(start, startOrigYear, end, endOrigYear, isPlain);
+            var builder = new ValueStringBuilder(stackalloc char[64]);
+            foreach (var part in rangeParts)
+            {
+                builder.Append(part.Value);
+            }
+
+            return builder.ToString();
+        }
 
         // Format both dates
         var startFormatted = effectiveDtf.Format(start, startOrigYear, isPlain: isPlain);
@@ -929,6 +964,20 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         var isPlain = isTemporalInput && x is not JsInstant;
         var effectiveDtf = isTemporalInput ? GetTemporalFormatDtf(dateTimeFormat, x) : dateTimeFormat;
 
+        // https://tc39.es/ecma402/#sec-formatdatetimerangetoparts over a component bag's range patterns.
+        if (effectiveDtf.UsesComponentPattern)
+        {
+            var rangeParts = effectiveDtf.FormatRangeToParts(start, startOrigYear, end, endOrigYear, isPlain);
+            var array = new JsArray(Engine, (uint) rangeParts.Count);
+            for (var i = 0; i < rangeParts.Count; i++)
+            {
+                var part = rangeParts[i];
+                AddPartToResult(array, (uint) i, part.Type, part.Value, part.Source);
+            }
+
+            return array;
+        }
+
         // Get parts for both dates
         var startParts = effectiveDtf.FormatToParts(start, startOrigYear, isPlain: isPlain);
         var endParts = effectiveDtf.FormatToParts(end, endOrigYear, isPlain: isPlain);
@@ -1008,15 +1057,21 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
 
     private void AddPartToResult(JsArray result, ref uint index, string type, string value, string source)
     {
+        AddPartToResult(result, index++, type, value, source);
+    }
+
+    private void AddPartToResult(JsArray result, uint index, string type, string value, string source)
+    {
         var partObj = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
         partObj.Set("type", type);
         partObj.Set("value", value);
         partObj.Set("source", source);
-        result.SetIndexValue(index++, partObj, updateLength: true);
+        result.SetIndexValue(index, partObj, updateLength: true);
     }
 
     /// <summary>
-    /// Finds the length of the shared prefix between start and end parts,
+    /// dateStyle and timeStyle's range, until they are written through CLDR's patterns too (issue #4158): finds the
+    /// length of the shared prefix between start and end parts,
     /// but only if the prefix ends at a natural boundary (e.g., the ", " literal
     /// separating date from time components, or a multi-char literal separator).
     /// Internal separators like "/" and ":" within date/time groups are not natural boundaries.
@@ -1133,53 +1188,6 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         return 0;
-    }
-
-    private DateTime ToDateTimeForRange(JsValue value)
-    {
-        if (value is JsDate jsDate)
-        {
-            // Check if date is within .NET DateTime range
-            if (!jsDate.DateTimeRangeValid)
-            {
-                // Date is outside .NET range - return min/max based on sign
-                return jsDate.DateValue < 0 ? DateTime.MinValue : DateTime.MaxValue;
-            }
-
-            var dt = jsDate.ToDateTime();
-            if (dt == DateTime.MinValue)
-            {
-                // Invalid date
-                Throw.RangeError(_realm, "Invalid time value");
-            }
-            // ECMA-402 requires formatting in local time unless a specific timezone is provided
-            if (dt.Kind == DateTimeKind.Utc || dt.Kind == DateTimeKind.Unspecified)
-            {
-                dt = dt.ToLocalTime();
-            }
-            return dt;
-        }
-
-        var timeValue = TypeConverter.ToNumber(value);
-        DatePresentation presentation = timeValue;
-        presentation = presentation.TimeClip();
-
-        if (presentation.IsNaN)
-        {
-            Throw.RangeError(_realm, "Invalid time value");
-        }
-
-        // Clamp to .NET DateTime range if necessary
-        if (presentation.Value < JsDate.Min)
-        {
-            return DateTime.MinValue;
-        }
-        if (presentation.Value > JsDate.Max)
-        {
-            return DateTime.MaxValue;
-        }
-
-        return presentation.ToDateTime().ToLocalTime();
     }
 
     /// <summary>

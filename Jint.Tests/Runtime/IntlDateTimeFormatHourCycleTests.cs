@@ -158,15 +158,15 @@ public class IntlDateTimeFormatHourCycleTests
     }
 
     /// <summary>
-    /// Mexican Spanish is a 12-hour clock now, written with the culture's own designator, and in both lanes.
+    /// Mexican Spanish is a 12-hour clock now, written with CLDR's own designator (<c>p.m.</c>, as ICU writes it), and
+    /// in both lanes.
     /// </summary>
     [Test]
     public void ATwelveHourLocaleWritesItsDayPeriodInBothLanes()
     {
         const string Formatter = "new Intl.DateTimeFormat('es-MX', { hour: 'numeric', minute: 'numeric', timeZone: 'UTC' })";
-        var designator = new CultureInfo("es-MX", useUserOverride: false).DateTimeFormat.PMDesignator;
 
-        Evaluate($"{Formatter}.format(Date.UTC(2024, 0, 15, 15, 7))").Should().Be("3:07 " + designator);
+        Evaluate($"{Formatter}.format(Date.UTC(2024, 0, 15, 15, 7))").Should().Be("3:07 p.m.");
         Evaluate($"{Formatter}.formatToParts(Date.UTC(2024, 0, 15, 15, 7)).map(function (p) {{ return p.type; }}).join()")
             .Should().Be("hour,literal,minute,literal,dayPeriod");
     }

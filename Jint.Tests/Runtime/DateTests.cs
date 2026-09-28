@@ -467,10 +467,11 @@ public class DateTests
     [TestCase(8640000000000000, "9/13/275760, 12:00:00 AM", "9/13/275760", "12:00:00 AM")]
     // one past what DateTime can hold, +010000-01-01T00:00:00.001Z
     [TestCase(253402300800001, "1/1/10000, 12:00:00 AM", "1/1/10000", "12:00:00 AM")]
-    // one before what DateTime can hold, 0000-12-31T23:59:59.999Z
-    [TestCase(-62135596800001, "12/31/0, 11:59:59 PM", "12/31/0", "11:59:59 PM")]
-    // the minimum time value, -271821-04-20T00:00:00.000Z
-    [TestCase(-8640000000000000, "4/20/-271821, 12:00:00 AM", "4/20/-271821", "12:00:00 AM")]
+    // one before what DateTime can hold, 0000-12-31T23:59:59.999Z: year 0 is written 1 - 0 = 1
+    // (https://tc39.es/ecma402/#sec-formatdatetimepattern step 15.f.ii), as V8 writes it
+    [TestCase(-62135596800001, "12/31/1, 11:59:59 PM", "12/31/1", "11:59:59 PM")]
+    // the minimum time value, -271821-04-20T00:00:00.000Z, written 1 - (-271821)
+    [TestCase(-8640000000000000, "4/20/271822, 12:00:00 AM", "4/20/271822", "12:00:00 AM")]
     public void ToLocaleStringOutsideDateTimeRangeRendersALocaleString(
         long timeValue, string expectedDateTime, string expectedDate, string expectedTime)
     {
@@ -493,7 +494,7 @@ public class DateTests
             .AsString().Should().Be("September");
 
         engine.Evaluate("new Date(8640000000000000).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })")
-            .AsString().Should().Be("Saturday September 13, 275760");
+            .AsString().Should().Be("Saturday, September 13, 275760");
 
         // A malformed locale is still a RangeError: the formatter is constructed before anything is
         // rendered, and none of its validation may be skipped.
@@ -513,8 +514,9 @@ public class DateTests
         engine.Evaluate("(function () { try { return new Date(8640000000000000).toLocaleString(); } catch (e) { return 'caught'; } })()")
             .AsString().Should().Contain("275760");
 
+        // The year is written 1 - (-271821), step 15.f.ii of https://tc39.es/ecma402/#sec-formatdatetimepattern.
         engine.Evaluate("(function () { try { return new Date(-8640000000000000).toLocaleDateString(); } catch (e) { return 'caught'; } })()")
-            .AsString().Should().Contain("-271821");
+            .AsString().Should().Contain("271822");
     }
 
     /// <summary>
