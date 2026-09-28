@@ -183,6 +183,15 @@ internal sealed class CssStyleRule : CssRule
 internal sealed class CssRuleList(List<CssRule> items) : IReadOnlyList<CssRule>
 {
     internal static readonly CssRuleList Empty = new(new List<CssRule>());
+    private ulong _version;
+    internal CssMutationStamp Stamp => new(_version);
+    internal void Changed() => CssMutationStamp.Advance(ref _version);
+    internal void Reserve(int count) => items.EnsureCapacity(count);
+    internal void PublishParsed(IReadOnlyList<CssRule> rules)
+    {
+        items.Clear();
+        for (var i = 0; i < rules.Count; i++) items.Add(rules[i]);
+    }
     public int Count => items.Count;
     public CssRule this[int index] => items[index];
     public IEnumerator<CssRule> GetEnumerator() => items.GetEnumerator();

@@ -16,10 +16,14 @@ internal sealed partial class CssSyntaxParser
     private int _work;
 
     internal CssSyntaxParser(string source, CssParseOptions? options, CancellationToken cancellationToken,
+        Action? checkpoint = null) : this(CssSourceText.From(source), options, cancellationToken, checkpoint)
+    {
+    }
+
+    internal CssSyntaxParser(CssSourceText input, CssParseOptions? options, CancellationToken cancellationToken,
         Action? checkpoint = null)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        _source = source;
+        _source = input.Source;
         _checkpoint = checkpoint;
         _tokens = new List<CssToken>();
         cancellationToken.ThrowIfCancellationRequested();
@@ -30,14 +34,15 @@ internal sealed partial class CssSyntaxParser
         _maxNestingDepth = limits.MaxNestingDepth;
         _maxTokenCharacters = limits.MaxTokenCharacters;
         _cancellationToken = cancellationToken;
-        _sourceLength = source.Length;
-        if (limits.MaxInputCharacters > 0 && source.Length > limits.MaxInputCharacters)
+        _sourceLength = input.End;
+        if (limits.MaxInputCharacters > 0 && input.Span.Length > limits.MaxInputCharacters)
         {
             throw new ParseLimitException(ParseLimitKind.InputCharacters,
-                limits.MaxInputCharacters, source.Length);
+                limits.MaxInputCharacters, input.Span.Length);
         }
 
-        var tokenizer = new CssTokenizer(source, limits.MaxTokenCharacters, _diagnostics, cancellationToken, checkpoint: checkpoint);
+        var tokenizer = new CssTokenizer(input.Text, limits.MaxTokenCharacters, _diagnostics, cancellationToken,
+            baseOffset: input.Span.Start, checkpoint: checkpoint);
         while (true)
         {
             var token = tokenizer.Next();

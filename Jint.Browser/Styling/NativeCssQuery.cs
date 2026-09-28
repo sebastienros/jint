@@ -74,6 +74,7 @@ internal sealed partial class NativeCssQuery
             if (!Enum.IsDefined(sheets[i].Origin)) throw new ArgumentException("Invalid CSS origin.", nameof(sheets));
             _sheets[i] = sheets[i];
             roots[i] = sheets[i].Sheet;
+            NativeCssParsing.PrepareImports(roots[i], work);
         }
         _sheetRevisions = CssStyleSheetRevisionSnapshot.Capture(roots, work);
         foreach (var item in inline)

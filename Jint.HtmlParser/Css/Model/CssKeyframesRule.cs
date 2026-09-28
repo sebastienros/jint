@@ -57,6 +57,7 @@ internal sealed class CssKeyframesRule : CssRule
         PrepareAppend(work); // capacity copies and callbacks precede publication
         _rules.Add(rule);
         Changed();
+        Rules.Changed();
     }
 
     internal CssKeyframeRule? FindRule(string selector, CssParseOptions? options = null, CssValueWork? work = null)
@@ -77,6 +78,7 @@ internal sealed class CssKeyframesRule : CssRule
         work.CheckCancellation();
         detachment.Commit();
         _rules.RemoveAt(index);
+        Rules.Changed();
         Changed();
     }
 

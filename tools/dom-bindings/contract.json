@@ -1474,7 +1474,7 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>CSS Animations 1 §6.3 indexed keyframe getter.</summary>\ninternal sealed class DomAccessorCSSKeyframesRule : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSKeyframesRule Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Rules.Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        realm.Engine.Constraints.Check();\n        realm.CancellationToken.ThrowIfCancellationRequested();\n        var rules = ((global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Rules;\n        var present = index < (uint) rules.Count;\n        value = present ? realm.Wrap(rules[(int) index]) : global::Jint.Native.JsValue.Undefined;\n        return present;\n    }\n}\n",
+      "AccessorClass": "/// <summary>CSS Animations 1 §6.3 indexed keyframe getter.</summary>\ninternal sealed class DomAccessorCSSKeyframesRule : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSKeyframesRule Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var rules = global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target);\n        var present = index < (uint) rules.Count;\n        value = present ? realm.Wrap(rules[(int) index]) : global::Jint.Native.JsValue.Undefined;\n        return present;\n    }\n}\n",
       "AccessorReference": "DomAccessorCSSKeyframesRule.Instance",
       "Members": [
         {
@@ -1512,7 +1512,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.length\");\nself.Realm.Engine.Constraints.Check();\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Rules.Count);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.ReadRules(self.Realm, self.Target).Count);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "CSS Animations 1 §6.3.2"
@@ -1977,13 +1977,13 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>Native CSSRuleList indexed properties.</summary>\ninternal sealed class DomAccessorCSSRuleList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSRuleList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssRuleList) target).Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.HtmlParser.Css.Model.CssRuleList) target;\n        if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native CSSRuleList indexed properties.</summary>\ninternal sealed class DomAccessorCSSRuleList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSRuleList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssRuleList) target).Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssRuleList) target);\n        if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }\n        value = realm.Wrap(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorCSSRuleList.Instance",
       "Members": [
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssRuleList>(thisObj, \"CSSRuleList.item\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CSSRuleList.item\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssRuleList>(thisObj, \"CSSRuleList.item\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CSSRuleList.item\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssRuleList.Item"
@@ -1991,7 +1991,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssRuleList>(thisObj, \"CSSRuleList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Count);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssRuleList>(thisObj, \"CSSRuleList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.ReadRules(self.Realm, self.Target).Count);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssRuleList.Length"
@@ -13574,7 +13574,7 @@
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>Native MediaList indexed properties.</summary>\ninternal sealed class DomAccessorMediaList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorMediaList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssMediaList) target).Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.HtmlParser.Css.Model.CssMediaList) target;\n        if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }\n        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Native MediaList indexed properties.</summary>\ninternal sealed class DomAccessorMediaList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorMediaList Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadMedia(realm, (global::Jint.HtmlParser.Css.Model.CssMediaList) target).Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = global::Jint.Browser.Styling.NativeCssBindings.ReadMedia(realm, (global::Jint.HtmlParser.Css.Model.CssMediaList) target);\n        if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }\n        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorMediaList.Instance",
       "Members": [
         {
@@ -13588,7 +13588,7 @@
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaList>(thisObj, \"MediaList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"MediaList.item\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaList>(thisObj, \"MediaList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"MediaList.item\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IMediaList.Item"
@@ -13596,7 +13596,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaList>(thisObj, \"MediaList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Count);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaList>(thisObj, \"MediaList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.ReadMedia(self.Realm, self.Target).Count);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IMediaList.Length"

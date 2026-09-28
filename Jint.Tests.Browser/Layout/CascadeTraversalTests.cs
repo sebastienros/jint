@@ -25,8 +25,9 @@ public sealed class CascadeTraversalTests
                 .Select(width => $"<i style='display:block;width:{width}px' data-width='{width}'></i>"))
             + string.Concat(Enumerable.Repeat("<div class='item'></div>", 64)) + "</main>");
         var document = fixture.Document;
-        var rule = NativeCssStyleSheets.Get(document, new CssValueWork(default)).Single().Sheet
-            .ApplicableStyleRules(new CssMediaEnvironment(), new CssValueWork(default)).Single();
+        var rule = NativeCssParsing.ApplicableRules(
+            NativeCssStyleSheets.Get(document, new CssValueWork(default)).Single().Sheet,
+            new CssMediaEnvironment(), new CssValueWork(default)).OfType<CssStyleRule>().Single();
         var authored = rule.Style.GetDeclaration(0).Value;
         var diagnostics = new NativeCssQueryDiagnostics(captureDetails: true);
         var scope = layout ? CssCascade.StyleScope.Layout : CssCascade.StyleScope.Visibility;

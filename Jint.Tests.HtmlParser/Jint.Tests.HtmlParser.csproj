@@ -19,6 +19,7 @@
     <PackageReference Include="Verify.NUnit" />
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.Query.cs" Link="Styling\NativeCssStyleSheets.Query.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssParsing.cs" Link="Styling\NativeCssParsing.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.cs" Link="Styling\NativeCssQuery.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Container.cs" Link="Styling\NativeCssQuery.Container.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Layers.cs" Link="Styling\NativeCssQuery.Layers.cs" />

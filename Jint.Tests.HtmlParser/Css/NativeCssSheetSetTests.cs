@@ -158,6 +158,7 @@ public sealed class NativeCssSheetSetTests
         var work = new CssValueWork(default);
         NativeCssStyleSheets.Install(document, style, text.Data, "", "", work);
         var retained = NativeCssStyleSheets.Get(document, work).Single().Sheet;
+        NativeCssParsing.ReadRules(retained.Rules, work);
         retained.InsertRule("span {display:none}", 1);
         NativeCssStyleSheets.Get(document, work).Single().Sheet.Should().BeSameAs(retained);
         text.Data = "div {display:none}";
@@ -169,7 +170,7 @@ public sealed class NativeCssSheetSetTests
         NativeCssStyleSheets.Install(document, style, text.Data, "", "", work);
         var replacement = NativeCssStyleSheets.Get(document, work).Single().Sheet;
         replacement.Should().NotBeSameAs(retained);
-        replacement.Rules.Count.Should().Be(1);
+        NativeCssParsing.ReadRules(replacement.Rules, work).Count.Should().Be(1);
         replacement.Rules[0].CssText.Should().Contain("display: none");
     }
 

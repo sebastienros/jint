@@ -54,7 +54,7 @@ internal sealed partial class NativeCssQuery
                 roots.Add(key, root);
             }
             var contexts = new Dictionary<CssRule, NativeCssLayer>();
-            foreach (var rule in input.Sheet.ApplicableRules(_media, _work))
+            foreach (var rule in NativeCssParsing.ApplicableRules(input.Sheet, _media, _work))
             {
                 _work.Charge(1);
                 var layer = rule.ParentRule is { } parent && contexts.TryGetValue(parent, out var inherited) ? inherited : root;

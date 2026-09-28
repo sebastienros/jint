@@ -28,6 +28,7 @@ internal abstract class CssGroupingRule : CssRule
         rule.Attach(ParentStyleSheet, this, work);
         work.CheckCancellation();
         _rules.Insert(index, rule);
+        Rules.Changed();
         Changed();
         return index;
     }
@@ -39,6 +40,7 @@ internal abstract class CssGroupingRule : CssRule
         var rule = _rules[index];
         rule.Detach(work);
         _rules.RemoveAt(index);
+        Rules.Changed();
         Changed();
     }
 }

@@ -85,6 +85,58 @@ non-preemptible compilation/evaluation intervals.
 depend on AngleSharp. AngleSharp, AngleSharp.Css and AngleSharp.Xml remain only in `Jint.Benchmark`
 as comparison controls; dependency removal is not a claim of complete behavioral parity.
 
+## Parser layers and demand
+
+Parsing a document builds the structure needed by that document grammar, not every language embedded
+in its text and attributes. Grammar implementations may live in this package; the browser consumer
+decides when to invoke them. This follows the separation in Lightpanda's
+[CSS parser](https://github.com/lightpanda-io/browser/blob/5932638bafb5c6584457c0cae037e6b395b265e5/src/browser/css/Parser.zig)
+and [style manager](https://github.com/lightpanda-io/browser/blob/5932638bafb5c6584457c0cae037e6b395b265e5/src/browser/StyleManager.zig),
+without adopting its narrower grammar support or copying its implementation.
+
+| Input | Structural layer | Consumer that demands interpretation |
+| --- | --- | --- |
+| HTML | Tokenization, tree construction, decoded attributes and text, required parser/control history | Browser script preparation/execution, resource scheduling, reflected attributes and control operations. Event handlers compile on first use, not while reading their attributes. |
+| XML and SVG | Well-formedness, namespaces, entities and native nodes | Processing-instruction pseudo-attributes are parsed when read. Embedded CSS, JavaScript, URLs and SVG data remain text; no stylesheet or script execution occurs in the native parser. |
+| CSS | Rule kinds and raw source spans; a streaming lexical scan finds balanced boundaries without retaining tokens or component trees | Browser CSSOM reads or styling explicitly parse the requested rule lists. Conditional bodies remain raw until applicable, or until explicitly inspected through CSSOM. |
+| Media queries | Raw condition text | Matching, serialization or indexed CSSOM reads explicitly parse the condition with the current operation's work budget. Import loading does not need that interpretation. |
+| Selectors and XPath | Document construction does not compile either language | Query APIs compile their arguments; stylesheet selector compilation happens when its containing rule list is demanded. |
+| CSS declarations, functions and typed values | Retained declaration syntax | Property reads, substitution and computation demand the relevant grammar. Explicit setters and validation APIs still validate their supplied input. |
+
+The internal `CssParser` entrypoints make these boundaries explicit:
+
+```csharp
+var rule = CssParser.ParseMediaRule(rawRuleText, work); // Raw prelude and body slices.
+var media = CssParser.ParseMediaQueryList(rule.Prelude, work);
+var children = CssParser.ParseRuleList(rule.Body.Value.Text, work);
+var declarations = CssParser.ParseDeclarationList(rawDeclarations, work);
+```
+
+String and source-slice overloads let the next parser run independently while preserving original
+UTF-16 offsets. `ParseMediaRule` does not interpret its condition or body. Browser integration uses
+the block-context overload of `ParseRuleList` for mixed declaration/nesting recovery. The existing
+public `MarkupParser.ParseCss*` APIs still return the explicitly requested complete syntax; the new
+layer-specific entrypoints and mutable CSSOM remain internal.
+
+`NativeCssParsing` in `Jint.Browser` owns parse-result caches, source generations and invalidation.
+Native rule-list and media-list getters only read already parsed data; they have no `IsDeferred`
+state and cannot invoke parsers. Raw slices retain only their source string and offsets, not a token
+tape, parser snapshot, diagnostic collector, cancellation token or engine callback. They can keep the
+source string alive, like source-backed HTML text.
+The initial scan still checks lexical limits, nesting, cancellation and diagnostics.
+
+Browser stylesheet installation retains source; import discovery promotes only the prefix needed to
+find valid imports, not unrelated rules or nested bodies. The explicit internal validated-sheet parser
+and CSSOM insertion still validate the requested rule tree. A known incomplete grammar in an inactive
+body therefore fails when that body is actually demanded, not merely because a document loaded it.
+Unknown-rule recovery is unchanged.
+
+Each explicit parse uses the current operation's budget, publishes completed state only, preserves rule/list
+identity and source offsets, and does not advance mutation stamps. Source replacement invalidates
+pending work; detached descendants retain their historical parent links without mutating the old sheet.
+Required history is not optional work: HTML repair, namespace/entity processing, radio/select state,
+script ordering and resource discovery must still happen at their specification-defined points.
+
 ## HTML scanning
 
 The UTF-16 tokenizer uses cached `SearchValues<char>` sets to append ordinary

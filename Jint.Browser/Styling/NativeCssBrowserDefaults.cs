@@ -43,7 +43,7 @@ internal static class NativeCssBrowserDefaults
     private static readonly ConditionalWeakTable<Document, CssStyleSheet> Sheets = new();
 
     internal static NativeCssSheet Sheet(Document document, CssValueWork work) =>
-        new(Sheets.GetValue(document, _ => CssStyleSheet.Parse(Source, null, work, work.Token)),
+        new(Sheets.GetValue(document, _ => NativeCssParsing.CreateSheet(Source, work)),
             NativeCssOrigin.UserAgent, Namespaces.Html);
 
     // Explicit headless-device policy: a neutral light/dark canvas, independent of a desktop theme.

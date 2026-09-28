@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using Jint.HtmlParser;
 using Jint.Browser.Dom;
+using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
@@ -33,7 +34,7 @@ internal static partial class NativeCssStyleSheets
         var resource = InlineResourceOf(element);
         if (resource.Block is null || resource.PublishedVersion != resource.Version || !CssSubstitutionArguments.Equals(resource.Source!, source, guarded))
         {
-            var block = CssDeclarationBlock.ParseUnresolved(source, CssDeclarationContext.Style, null, guarded, guarded.Token);
+            var block = CssParser.ParseDeclarationList(source, guarded);
             guarded.CheckCancellation();
             resource.Source = source;
             resource.Block = block;
@@ -207,11 +208,11 @@ internal static partial class NativeCssStyleSheets
         guarded.CheckCancellation();
         var resource = source.Resource;
         var cold = resource.Sheet is null;
-        var sheet = resource.Sheet ?? CssStyleSheet.Parse(source.Source, null, guarded, guarded.Token);
+        var sheet = resource.Sheet ?? NativeCssParsing.CreateSheet(source.Source, guarded);
         if (!cold && resource.Replaced)
         {
-            sheet.ReplaceText(source.Source, null, guarded, guarded.Token);
-            // ReplaceText already passed its final guarded callback and committed. Record that
+            NativeCssParsing.ReplaceSource(sheet, source.Source, guarded);
+            // ReplaceSource already passed its final guarded callback and committed. Record that
             // progress before any fallible metadata read, so recovery cannot replay the source
             // over a CSSOM edit made by a later callback on this same sheet.
             if (!IsCurrent(source) || !ReferenceEquals(resource.Sheet, sheet)) throw new CssImportSourceStaleException();
@@ -243,7 +244,7 @@ internal static partial class NativeCssStyleSheets
                         metadataWork.CheckCancellation();
                         if (!mediaStamp.CanReuse || sheet.Media.Stamp != mediaStamp) throw new CssImportMediaChangedException();
                     });
-                    try { sheet.Media.SetMediaText(media, null, producerWork, producerWork.Token); }
+                    try { NativeCssParsing.SetMediaSource(sheet.Media, media, producerWork); }
                     catch (CssImportMediaChangedException)
                     {
                         // An existing sheet's reentrant CSSOM media write wins over this earlier

@@ -27,6 +27,18 @@ internal static partial class NativeCssBindings
         return sheet;
     }
     internal static CssRuleList Rules(DomRealm realm, CssStyleSheet sheet) => Reconcile(realm, sheet).Rules;
+    internal static CssRuleList ReadRules(DomRealm realm, CssRuleList rules)
+    {
+        // Array-like indexed/length fast paths do not pass through the generated member guard.
+        try { return NativeCssParsing.ReadRules(rules, Work(realm)); }
+        catch (NotSupportedException exception)
+        {
+            DomFailures.Refuse(realm, "CSSRuleList", "NotSupportedError", exception.Message);
+            throw;
+        }
+    }
+    internal static CssRuleList ReadRules(DomRealm realm, CssRule rule) => ReadRules(realm, rule.Rules);
+    internal static CssMediaList ReadMedia(DomRealm realm, CssMediaList media) => NativeCssParsing.ReadMedia(media, Work(realm));
     internal static bool StyleDisabled(DomRealm realm, Element owner)
     {
         if (owner.NamespaceUri == Namespaces.Html && owner.LocalName == "link")
@@ -70,7 +82,12 @@ internal static partial class NativeCssBindings
             if (Jint.HtmlParser.Css.Values.References.CssSubstitutionArguments.Equals(entry, name, work)) return true;
         return false;
     }
-    internal static string CssText(DomRealm realm, CssRule rule) => CssRuleSerializer.Serialize(rule, Work(realm));
+    internal static string CssText(DomRealm realm, CssRule rule)
+    {
+        var work = Work(realm);
+        NativeCssParsing.ReadRule(rule, work);
+        return CssRuleSerializer.Serialize(rule, work);
+    }
     internal static string? Href(CssStyleSheet sheet) => sheet.Attachment.OwnerNode is Element { LocalName: "style" }
         ? null : sheet.Attachment.SourceUrl?.AbsoluteUri;
     internal static string? Title(DomRealm realm, CssStyleSheet sheet)
@@ -83,8 +100,16 @@ internal static partial class NativeCssBindings
     internal static CssRule? OwnerRule(CssStyleSheet sheet) => sheet.Attachment.ImportOwner;
     internal static CssStyleSheet? ParentStyleSheet(CssStyleSheet sheet) => sheet.Attachment.ImportOwner?.ParentStyleSheet;
     internal static string Type(CssStyleSheet sheet) => "text/css";
-    internal static CssRule? Item(CssRuleList rules, int index) => (uint) index < (uint) rules.Count ? rules[index] : null;
-    internal static string? Item(CssMediaList media, int index) => (uint) index < (uint) media.Count ? media[index] : null;
+    internal static CssRule? Item(DomRealm realm, CssRuleList rules, int index)
+    {
+        NativeCssParsing.ReadRules(rules, Work(realm));
+        return (uint) index < (uint) rules.Count ? rules[index] : null;
+    }
+    internal static string? Item(DomRealm realm, CssMediaList media, int index)
+    {
+        NativeCssParsing.ReadMedia(media, Work(realm));
+        return (uint) index < (uint) media.Count ? media[index] : null;
+    }
     internal static string ConditionText(DomRealm realm, CssConditionRule rule)
     {
         if (rule is CssMediaRule media) return MediaText(realm, media.Media);
@@ -93,7 +118,11 @@ internal static partial class NativeCssBindings
         work.CheckCancellation();
         return rule.ConditionText;
     }
-    internal static string MediaText(DomRealm realm, CssMediaList media) => media.Serialize(Work(realm));
+    internal static string MediaText(DomRealm realm, CssMediaList media)
+    {
+        var work = Work(realm);
+        return NativeCssParsing.ReadMedia(media, work).Serialize(work);
+    }
     internal static void SetMediaText(DomRealm realm, CssMediaList media, string text)
     {
         var work = MutationWork(realm, () => media.Stamp);
@@ -102,22 +131,26 @@ internal static partial class NativeCssBindings
     internal static void AppendMedium(DomRealm realm, CssMediaList media, string text)
     {
         var work = MutationWork(realm, () => media.Stamp);
+        NativeCssParsing.ReadMedia(media, work);
         media.AppendMedium(text, null, work, work.Token);
     }
     internal static void DeleteMedium(DomRealm realm, CssMediaList media, string text)
     {
         var work = MutationWork(realm, () => media.Stamp);
+        NativeCssParsing.ReadMedia(media, work);
         media.DeleteMedium(text, null, work, work.Token);
     }
     internal static void SetSelectorText(DomRealm realm, CssStyleRule rule, string text)
     {
         var work = MutationWork(realm, () => rule.Stamp);
+        NativeCssParsing.ReadTree(rule.Rules, work);
         rule.SetSelectorText(text, null, work, work.Token);
     }
     internal static int InsertRule(DomRealm realm, CssStyleSheet sheet, string text, int index)
     {
         Reconcile(realm, sheet);
         var work = MutationWork(realm, () => sheet.Stamp);
+        if (index >= 0) NativeCssParsing.ReadRules(sheet.Rules, work);
         var inserted = sheet.InsertRule(text, index, null, work, work.Token);
         QueueImports(realm, sheet);
         return inserted;
@@ -125,12 +158,14 @@ internal static partial class NativeCssBindings
     internal static int InsertRule(DomRealm realm, CssGroupingRule rule, string text, int index)
     {
         var work = MutationWork(realm, () => rule.Stamp);
+        if (index >= 0) NativeCssParsing.ReadRules(rule.Rules, work);
         return rule.InsertRule(text, index, null, work, work.Token);
     }
     internal static void DeleteRule(DomRealm realm, CssStyleSheet sheet, int index)
     {
         Reconcile(realm, sheet);
         var work = MutationWork(realm, () => sheet.Stamp);
+        if (index >= 0) NativeCssParsing.ReadRules(sheet.Rules, work);
         sheet.DeleteRule(index, work);
         QueueImports(realm, sheet);
     }
@@ -139,6 +174,7 @@ internal static partial class NativeCssBindings
     internal static void DeleteRule(DomRealm realm, CssGroupingRule rule, int index)
     {
         var work = MutationWork(realm, () => rule.Stamp);
+        if (index >= 0) NativeCssParsing.ReadRules(rule.Rules, work);
         rule.DeleteRule(index, work);
     }
     internal static string KeyText(DomRealm realm, CssKeyframeRule rule)
@@ -186,11 +222,23 @@ internal static partial class NativeCssBindings
     internal static void SetKeyText(DomRealm realm, CssKeyframeRule rule, string text)
         => rule.SetKeyText(text, null, MutationWork(realm, () => rule.Stamp));
     internal static void AppendKeyframe(DomRealm realm, CssKeyframesRule rule, string text)
-        => rule.AppendRule(text, null, MutationWork(realm, () => rule.Stamp));
+    {
+        var work = MutationWork(realm, () => rule.Stamp);
+        NativeCssParsing.ReadRules(rule.Rules, work);
+        rule.AppendRule(text, null, work);
+    }
     internal static void DeleteKeyframe(DomRealm realm, CssKeyframesRule rule, string text)
-        => rule.DeleteRule(text, null, MutationWork(realm, () => rule.Stamp));
+    {
+        var work = MutationWork(realm, () => rule.Stamp);
+        NativeCssParsing.ReadRules(rule.Rules, work);
+        rule.DeleteRule(text, null, work);
+    }
     internal static CssKeyframeRule? FindRule(DomRealm realm, CssKeyframesRule rule, string text)
-        => rule.FindRule(text, null, MutationWork(realm, () => rule.Stamp));
+    {
+        var work = MutationWork(realm, () => rule.Stamp);
+        NativeCssParsing.ReadRules(rule.Rules, work);
+        return rule.FindRule(text, null, work);
+    }
     // CSSOM §6.4: setting a rule's cssText intentionally does nothing.
     internal static void SetCssText(DomRealm realm, CssRule rule, string text) => realm.Engine.Constraints.Check();
 }

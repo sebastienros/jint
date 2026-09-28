@@ -629,8 +629,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, "CSSKeyframesRule.length");
-                    self.Realm.Engine.Constraints.Check();
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Rules.Count);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.ReadRules(self.Realm, self.Target).Count);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.name", static (thisObj, args) =>
@@ -943,14 +942,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSRuleList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssRuleList>(thisObj, "CSSRuleList.item");
-                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSRuleList.item")));
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSRuleList.item")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSRuleList.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssRuleList>(thisObj, "CSSRuleList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Count);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.ReadRules(self.Realm, self.Target).Count);
                 }))
             .Build();
 
@@ -4489,14 +4488,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaList>(thisObj, "MediaList.item");
-                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "MediaList.item")));
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "MediaList.item")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaList.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssMediaList>(thisObj, "MediaList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Count);
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.ReadMedia(self.Realm, self.Target).Count);
                 }))
             .Accessor("mediaText",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaList.mediaText", static (thisObj, args) =>

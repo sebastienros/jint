@@ -358,14 +358,14 @@ public sealed class NativeCssQueryTests
         sheet.Attachment.OwnerNode.Should().BeNull();
         var replacement = NativeCssStyleSheets.Get(document, work)[0].Sheet;
         replacement.Should().NotBeSameAs(sheet);
-        replacement.Rules[0].CssText.Should().Contain("display: none");
+        NativeCssParsing.ReadRules(replacement.Rules, work)[0].CssText.Should().Contain("display: none");
 
         // An installation never invokes a pending property validator during HTML parsing.
         source.Data = "div { background:red; }";
         NativeCssStyleSheets.DisassociateOwner(document, owner, work);
         NativeCssStyleSheets.Install(document, owner, "div { background:red; }", "", "", work);
         var pendingSheet = NativeCssStyleSheets.Get(document, work)[0].Sheet;
-        Assert.Throws<CssIncompleteGrammarException>(() => _ = pendingSheet.Rules[0].CssText);
+        Assert.Throws<CssIncompleteGrammarException>(() => _ = NativeCssParsing.ReadRules(pendingSheet.Rules, work)[0].CssText);
     }
 
     [TestCase("width:1in", "width", "96px")]
@@ -492,15 +492,15 @@ public sealed class NativeCssQueryTests
         source.Data = "div { display:none; }";
         // Reads consume the last explicit association; they do not advance parser/lifecycle state.
         NativeCssStyleSheets.Get(document, work)[0].Sheet.Should().BeSameAs(inline);
-        ((CssStyleRule) inline.Rules[0]).Style.GetPropertyValue("display").Should().Be("block");
+        ((CssStyleRule) NativeCssParsing.ReadRules(inline.Rules, work)[0]).Style.GetPropertyValue("display").Should().Be("block");
         NativeCssStyleSheets.DisassociateOwner(document, owner, work);
         NativeCssStyleSheets.Install(document, owner, source.Data, "", "", work);
         sheets = NativeCssStyleSheets.Get(document, work);
         sheets[0].Sheet.Should().NotBeSameAs(inline);
         inline.Attachment.OwnerNode.Should().BeNull();
-        ((CssStyleRule) sheets[0].Sheet.Rules[0]).Style.GetPropertyValue("display").Should().Be("none");
+        ((CssStyleRule) NativeCssParsing.ReadRules(sheets[0].Sheet.Rules, work)[0]).Style.GetPropertyValue("display").Should().Be("none");
         sheets[1].Sheet.Should().BeSameAs(fetched);
-        ((CssStyleRule) fetched.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.5");
+        ((CssStyleRule) NativeCssParsing.ReadRules(fetched.Rules, work)[0]).Style.GetPropertyValue("opacity").Should().Be("0.5");
     }
 
     [Test]
@@ -632,9 +632,9 @@ public sealed class NativeCssQueryTests
         });
         Assert.Throws<InvalidOperationException>(() => NativeCssStyleSheets.Get(document, guarded))!
             .Message.Should().Be(NativeCssQuery.Invalidated);
-        ((CssStyleRule) retained.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.25");
+        ((CssStyleRule) NativeCssParsing.ReadRules(retained.Rules, work)[0]).Style.GetPropertyValue("opacity").Should().Be("0.25");
         NativeCssStyleSheets.Get(document, work)[0].Sheet.Should().BeSameAs(retained);
-        ((CssStyleRule) retained.Rules[0]).Style.GetPropertyValue("opacity").Should().Be("0.75");
+        ((CssStyleRule) NativeCssParsing.ReadRules(retained.Rules, work)[0]).Style.GetPropertyValue("opacity").Should().Be("0.75");
     }
 
     [Test]

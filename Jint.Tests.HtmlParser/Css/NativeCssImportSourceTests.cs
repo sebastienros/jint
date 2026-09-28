@@ -52,10 +52,10 @@ public sealed class NativeCssImportSourceTests
         NativeCssStyleSheets.Get(document, _work).Single().Sheet.Should().BeSameAs(sheet);
         owner.SetAttribute("media", "print");
         owner.ParentNode!.AppendChild(document.CreateElement("aside"));
-        ((CssStyleRule) sheet.Rules[1]).Style.SetProperty("color", "blue");
+        ((CssStyleRule) NativeCssParsing.ReadRules(sheet.Rules, _work)[1]).Style.SetProperty("color", "blue");
         NativeCssStyleSheets.IsCurrent(source).Should().BeTrue();
         NativeCssStyleSheets.EnsureSheet(source, _work).Should().BeSameAs(sheet);
-        sheet.Media.MediaText.Should().Be("print");
+        NativeCssParsing.ReadMedia(sheet.Media, _work).MediaText.Should().Be("print");
         sheet.Attachment.BaseUrl!.AbsoluteUri.Should().Be("https://css.test/");
     }
 
@@ -91,7 +91,8 @@ public sealed class NativeCssImportSourceTests
         });
         Assert.Throws<CssImportSourceStaleException>(() => NativeCssStyleSheets.EnsureSheet(source, reentrant));
         source.Resource.Sheet.Should().BeNull();
-        ((CssImportRule) NativeCssStyleSheets.Get(document, _work).Single().Sheet.Rules[0]).Href.Should().Be("new.css");
+        ((CssImportRule) NativeCssParsing.ImportRules(NativeCssStyleSheets.Get(document, _work).Single().Sheet, _work)[0])
+            .Href.Should().Be("new.css");
     }
 
     [Test]
@@ -131,7 +132,7 @@ public sealed class NativeCssImportSourceTests
             // Keep changing through parsing and metadata reads; only the final stable read may publish.
             if (++checks <= 20) owner.SetAttribute("media", checks % 2 == 0 ? "print" : "screen");
         }));
-        sheet.Media.MediaText.Should().Be(owner.GetAttribute("media"));
+        NativeCssParsing.ReadMedia(sheet.Media, _work).MediaText.Should().Be(owner.GetAttribute("media"));
         source.Resource.MediaSource.Should().Be(owner.GetAttribute("media"));
         NativeCssStyleSheets.IsCurrent(source).Should().BeTrue();
     }
@@ -159,7 +160,7 @@ public sealed class NativeCssImportSourceTests
             // the enclosing operation's final proof. That intervening CSSOM write must survive.
             if (++checks == checkpoints - 1) retained.Media.SetMediaText("speech");
         })).Should().BeSameAs(retained);
-        retained.Media.MediaText.Should().Be("speech");
+        NativeCssParsing.ReadMedia(retained.Media, _work).MediaText.Should().Be("speech");
         source.Resource.MediaSource.Should().Be("print");
         NativeCssStyleSheets.IsCurrent(source).Should().BeTrue();
     }
@@ -170,14 +171,15 @@ public sealed class NativeCssImportSourceTests
         var (document, owner) = Owner();
         NativeCssStyleSheets.Install(document, owner, "p{color:red}", "https://css.test/a.css", "https://css.test/", _work);
         var sheet = NativeCssStyleSheets.EnsureSheet(NativeCssStyleSheets.CaptureImportSource(document, owner, _work)!, _work);
-        var previous = sheet.Rules[0];
+        var previous = NativeCssParsing.ReadRules(sheet.Rules, _work)[0];
         NativeCssStyleSheets.Install(document, owner, "p{color:blue}", "https://css.test/b.css", "https://css.test/other/", _work);
         var source = NativeCssStyleSheets.CaptureImportSource(document, owner, _work)!;
         CssRule? edited = null;
         var failure = new InvalidOperationException("metadata interrupted after replacement committed");
         Assert.Throws<InvalidOperationException>(() => NativeCssStyleSheets.EnsureSheet(source, new CssValueWork(default, () =>
         {
-            if (ReferenceEquals(sheet.Rules[0], previous)) return;
+            if (previous.ParentStyleSheet is not null) return;
+            NativeCssParsing.ReadRules(sheet.Rules, _work);
             sheet.InsertRule("span{color:green}", 1);
             edited = sheet.Rules[1];
             throw failure;

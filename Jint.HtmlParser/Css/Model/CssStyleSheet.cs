@@ -9,14 +9,14 @@ using Jint.HtmlParser.Css.Values.Properties;
 
 namespace Jint.HtmlParser.Css.Model;
 
-// CSSOM §6.1.2 and §6.4.3. This is a validated producer, independent of the syntax editors.
+// CSSOM §6.1.2 and §6.4.3. Storage and explicit producers, independent of browser parse caching.
 internal sealed class CssStyleSheet
 {
     private readonly List<CssRule> _rules = new();
     private ulong _version;
     private bool _disabled;
 
-    private CssStyleSheet()
+    internal CssStyleSheet()
     {
         Rules = new CssRuleList(_rules);
         Media = CssMediaList.Parse("");
@@ -78,6 +78,11 @@ internal sealed class CssStyleSheet
         CancellationToken cancellationToken)
     {
         var replacement = Parse(source, options, work, cancellationToken);
+        Replace(replacement, work);
+    }
+
+    internal void Replace(CssStyleSheet replacement, CssValueWork work)
+    {
         var detachments = new List<CssRule.Detachment>();
         foreach (var rule in _rules)
         {
@@ -90,6 +95,7 @@ internal sealed class CssStyleSheet
         foreach (var detachment in detachments) detachment.Commit();
         _rules.Clear();
         _rules.AddRange(replacement._rules);
+        Rules.Changed();
         Changed();
     }
 
@@ -121,6 +127,7 @@ internal sealed class CssStyleSheet
         rule.Attach(this, null, work);
         work.CheckCancellation();
         _rules.Insert(index, rule);
+        Rules.Changed();
         Changed();
         return index;
     }
@@ -132,6 +139,7 @@ internal sealed class CssStyleSheet
         var rule = _rules[index];
         rule.Detach(work);
         _rules.RemoveAt(index);
+        Rules.Changed();
         Changed();
     }
 
@@ -313,7 +321,7 @@ internal sealed class CssStyleSheet
         return root;
     }
 
-    private static CssRule? BuildShallow(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
+    internal static CssRule? BuildShallow(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
         CssStyleRule? nestingParent = null)
     {
@@ -392,14 +400,8 @@ internal sealed class CssStyleSheet
             return null;
         }
         if (syntax.Block is not { } block) return null;
-        CompiledSelector selector;
-        try
-        {
-            selector = new SelectorCompiler.Worker(source,
-                new SelectorParseContext(limits: options?.Limits, nestingParent: nestingParent?.Selector),
-                cancellationToken, work.CheckCancellation).Compile(syntax.Prelude);
-        }
-        catch (SelectorParseException) { return null; }
+        var selector = CompileSelector(source, syntax, options, work, cancellationToken, nestingParent);
+        if (selector is null) return null;
         var text = SelectorText(source, syntax.Prelude, parser, work);
         var body = parser.ParseBlockContents(block);
         var declarations = new List<CssDeclarationSyntax>();
@@ -429,6 +431,19 @@ internal sealed class CssStyleSheet
         var style = CssDeclarationBlock.FromDeclarations(source, declarations, CssDeclarationContext.Style,
             options?.Limits.MaxNestingDepth ?? 0, work);
         return new CssStyleRule(selector, text, style, syntax.Span, options?.Limits, nestingParent);
+    }
+
+    internal static CompiledSelector? CompileSelector(string source, CssRuleSyntax syntax,
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
+        CssStyleRule? nestingParent = null)
+    {
+        try
+        {
+            return new SelectorCompiler.Worker(source,
+                new SelectorParseContext(limits: options?.Limits, nestingParent: nestingParent?.Selector),
+                cancellationToken, work.CheckCancellation).Compile(syntax.Prelude);
+        }
+        catch (SelectorParseException) { return null; }
     }
 
     internal static string SelectorText(string source, CssComponentValueList values, CssSyntaxParser parser, CssValueWork work)

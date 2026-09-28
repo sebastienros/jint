@@ -8,7 +8,7 @@ namespace Jint.HtmlParser.Css.Model;
 // https://drafts.csswg.org/css-cascade-5/#at-import
 internal sealed class CssImportRule : CssRule
 {
-    private CssImportRule(string href, CssMediaList media, CssSourceSpan span) : base(span)
+    internal CssImportRule(string href, CssMediaList media, CssSourceSpan span) : base(span)
     {
         Href = href;
         Media = media;
@@ -90,6 +90,17 @@ internal sealed class CssImportRule : CssRule
 
     internal static CssImportRule? Parse(string source, CssRuleSyntax syntax, CssSyntaxParser parser, CssValueWork work)
     {
+        var header = ParseHeader(syntax, work);
+        if (header is null) return null;
+        var values = syntax.Prelude;
+        var remaining = new CssComponentValue[values.Count - header.Value.MediaIndex];
+        for (var i = 0; i < remaining.Length; i++) { work.Charge(1); remaining[i] = values[header.Value.MediaIndex + i]; }
+        return new CssImportRule(header.Value.Href,
+            CssMediaList.FromComponents(source, new CssComponentValueList(remaining), parser, work), syntax.Span);
+    }
+
+    internal static (string Href, int MediaIndex)? ParseHeader(CssRuleSyntax syntax, CssValueWork work)
+    {
         if (syntax.Block is not null) return null;
         var values = syntax.Prelude;
         var index = 0;
@@ -123,9 +134,8 @@ internal sealed class CssImportRule : CssRule
             if (condition.Kind == CssComponentKind.Function && CssAscii.EqualsIgnoreCase(condition.FunctionName, "supports"))
                 throw new CssIncompleteRuleGrammarException("import", "R1:import-prelude-supports", syntax.Span);
         }
-        var remaining = new CssComponentValue[values.Count - index];
-        for (var i = 0; i < remaining.Length; i++) { work.Charge(1); remaining[i] = values[index + i]; }
-        return new CssImportRule(href, CssMediaList.FromComponents(source, new CssComponentValueList(remaining), parser, work), syntax.Span);
+        work.CheckCancellation();
+        return (href, index);
     }
 
     private static bool White(CssComponentValue value) =>

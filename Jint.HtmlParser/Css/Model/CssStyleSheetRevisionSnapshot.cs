@@ -42,10 +42,10 @@ internal sealed class CssStyleSheetRevisionSnapshot
         foreach (var root in roots)
         {
             work.Charge(1);
-            for (var i = 0; i < root.Sheet.Rules.Count; i++)
+            foreach (var rule in root.Sheet.Rules)
             {
-                var rule = root.Sheet.Rules[i];
                 work.Charge(1);
+                if (rule is CssLayerStatementRule) continue;
                 if (rule is not CssImportRule import) break;
                 if (import.StyleSheet is { } child)
                     return CaptureGraph(roots, new Entry(child, child.Stamp), work);
@@ -70,10 +70,10 @@ internal sealed class CssStyleSheetRevisionSnapshot
         {
             var sheet = entries[i].Sheet;
             work.Charge(1);
-            for (var ruleIndex = 0; ruleIndex < sheet.Rules.Count; ruleIndex++)
+            foreach (var rule in sheet.Rules)
             {
-                var rule = sheet.Rules[ruleIndex];
                 work.Charge(1);
+                if (rule is CssLayerStatementRule) continue;
                 if (rule is not CssImportRule import) break;
                 if (import.StyleSheet is { } child && seen.Add(child))
                     entries.Add(new Entry(child, child.Stamp));

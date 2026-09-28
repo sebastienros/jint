@@ -1,5 +1,6 @@
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
+using Jint.Browser.Styling;
 
 namespace Jint.Browser.DevTools;
 
@@ -11,8 +12,11 @@ namespace Jint.Browser.DevTools;
 internal sealed class CssStyleSheetText(CssSerializationSnapshot snapshot)
 {
     internal string Text => snapshot.Text;
-    internal static CssStyleSheetText Of(CssStyleSheet sheet, CssValueWork work) =>
-        new(sheet.SerializeWithRanges(work));
+    internal static CssStyleSheetText Of(CssStyleSheet sheet, CssValueWork work)
+    {
+        NativeCssParsing.ReadTree(sheet.Rules, work);
+        return new(sheet.SerializeWithRanges(work));
+    }
     internal bool TryRangeOf(CssRule rule, out CssRuleRange range)
     {
         if (snapshot.Ranges.TryGetValue(rule, out var source))

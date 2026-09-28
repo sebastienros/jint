@@ -26,12 +26,10 @@ internal sealed class DomAccessorAudioTrackList : DomCollectionAccessor
 internal sealed class DomAccessorCSSKeyframesRule : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSKeyframesRule Instance = new();
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Rules.Count;
+    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Count;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        realm.Engine.Constraints.Check();
-        realm.CancellationToken.ThrowIfCancellationRequested();
-        var rules = ((global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Rules;
+        var rules = global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target);
         var present = index < (uint) rules.Count;
         value = present ? realm.Wrap(rules[(int) index]) : global::Jint.Native.JsValue.Undefined;
         return present;
@@ -50,10 +48,10 @@ internal sealed class DomAccessorCSSPseudoElementList : DomCollectionAccessor
 internal sealed class DomAccessorCSSRuleList : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSRuleList Instance = new();
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssRuleList) target).Count;
+    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssRuleList) target).Count;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::Jint.HtmlParser.Css.Model.CssRuleList) target;
+        var collection = global::Jint.Browser.Styling.NativeCssBindings.ReadRules(realm, (global::Jint.HtmlParser.Css.Model.CssRuleList) target);
         if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }
         value = realm.Wrap(collection[(int) index]);
         return true;
@@ -230,10 +228,10 @@ internal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor
 internal sealed class DomAccessorMediaList : DomCollectionAccessor
 {
     internal static readonly DomAccessorMediaList Instance = new();
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssMediaList) target).Count;
+    internal override uint Length(DomRealm realm, object target) => (uint) global::Jint.Browser.Styling.NativeCssBindings.ReadMedia(realm, (global::Jint.HtmlParser.Css.Model.CssMediaList) target).Count;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::Jint.HtmlParser.Css.Model.CssMediaList) target;
+        var collection = global::Jint.Browser.Styling.NativeCssBindings.ReadMedia(realm, (global::Jint.HtmlParser.Css.Model.CssMediaList) target);
         if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }
         value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);
         return true;

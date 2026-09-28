@@ -15,6 +15,9 @@ internal sealed class CssMediaList
     private ulong _version;
 
     private CssMediaList(CssMediaQuery[] queries) => _queries = queries;
+    internal static CssMediaList Empty() => new([]);
+    internal void Initialize(CssMediaList parsed) => _queries = parsed._queries;
+    internal void Reset() { _queries = []; Changed(); }
     internal int Count => _queries.Length;
     internal string this[int index] => _queries[index].Text;
     internal CssMutationStamp Stamp => new(_version);

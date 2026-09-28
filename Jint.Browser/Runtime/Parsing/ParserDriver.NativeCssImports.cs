@@ -183,7 +183,8 @@ internal sealed partial class ParserDriver
                 work.Charge(1);
                 if (!Current()) return CssImportLoadResult.Stale;
                 var frame = frames[^1];
-                if (frame.Next == frame.Sheet.Rules.Count)
+                var rules = NativeCssParsing.ImportRules(frame.Sheet, work);
+                if (frame.Next == rules.Count)
                 {
                     // A callback can delete an ancestor without changing this source generation.
                     // Validate before popping, while the exact path is still retained.
@@ -198,9 +199,9 @@ internal sealed partial class ParserDriver
                 }
                 // A deletion can move the next slot backwards while a fetch pumps; the coalesced CSSOM
                 // scan revisits that topology afterwards. Active links still require exact identity.
-                if (frame.Next > frame.Sheet.Rules.Count) frame.Next = frame.Sheet.Rules.Count;
-                if (frame.Next == frame.Sheet.Rules.Count) continue;
-                var rule = frame.Sheet.Rules[frame.Next++];
+                if (frame.Next > rules.Count) frame.Next = rules.Count;
+                if (frame.Next == rules.Count) continue;
+                var rule = rules[frame.Next++];
                 if (rule is not CssImportRule import) continue;
                 if (import.StyleSheet is { } existing)
                 {
@@ -250,11 +251,11 @@ internal sealed partial class ParserDriver
                 // chain. CSS BOM/@charset selected-encoding inheritance and response MIME
                 // eligibility remain follow-up work; this is not complete CSS fetching.
                 parsing.Charge(text.Length);
-                var child = CssStyleSheet.Parse(text, null, parsing, _cancellationToken);
+                var child = NativeCssParsing.CreateSheet(text, parsing);
                 var childCharset = ImportCharset(body.ContentType, frame.Charset);
                 var childKeys = requestedKey == finalKey ? new[] { finalKey } : new[] { requestedKey, finalKey };
                 // Charge before the final callback, then prove every active link with token checks only.
-                work.Charge(child.Rules.Count);
+                work.Charge(NativeCssParsing.ImportRules(child, work).Count);
                 if (!BoundaryCurrent(import)) return CssImportLoadResult.Stale;
                 _cancellationToken.ThrowIfCancellationRequested();
                 var url = new Uri(body.Url, UriKind.Absolute);

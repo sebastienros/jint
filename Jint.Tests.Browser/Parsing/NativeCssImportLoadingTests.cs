@@ -31,6 +31,7 @@ public sealed class NativeCssImportLoadingTests
             var owner = DomBindings.Bind<Element>(engine.GetValue("s"), "durable import notification").Target;
             var source = NativeCssStyleSheets.CaptureImportSource(owner.OwnerDocument!, owner, new CssValueWork(default))!;
             var sheet = NativeCssStyleSheets.EnsureSheet(source, new CssValueWork(default));
+            NativeCssParsing.ReadRules(sheet.Rules, new CssValueWork(default));
             // Commit the real producer once, then interrupt at the notification boundary.
             sheet.InsertRule("@import '/child.css';", 0);
             var import = (CssImportRule) sheet.Rules[0];
