@@ -17,6 +17,11 @@ internal sealed class CompiledSelector
     internal SelectorSpecificity MaximumSpecificity { get; }
     internal bool ContainsNesting { get; }
 
+    // SelectorMatcher's validation outcome, per control-facts availability: the program is immutable,
+    // so a selector matched against every element of a cascade is walked for support only once.
+    // A racing write can lose a bit, which only repeats a validation.
+    internal byte ValidatedImplemented;
+
     internal static IReadOnlyList<T> Freeze<T>(List<T> values) =>
         new ReadOnlyCollection<T>(values.ToArray());
 

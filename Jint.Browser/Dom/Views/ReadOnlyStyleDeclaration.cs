@@ -7,13 +7,13 @@ using Jint.WebApi.DomException;
 namespace Jint.Browser.Dom.Views;
 
 // CSSOM §6.6.1: a live declaration with its computed and read-only flags set.
-// Each script read creates a fresh native query; no cached query crosses DOM/CSSOM writes.
+// Reads share the document's current traversal; no cached query crosses DOM/CSSOM writes.
 internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
 {
     private readonly PageRuntime _runtime;
     private readonly Element _element;
 
-    internal ReadOnlyStyleDeclaration(PageRuntime runtime, Element element, NativeCssComputedStyle? computed = null)
+    internal ReadOnlyStyleDeclaration(PageRuntime runtime, Element element)
     {
         _runtime = runtime;
         _element = element;
@@ -55,7 +55,7 @@ internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
         var document = _element.OwnerDocument ?? throw new ArgumentException("Element needs a document.");
         var realm = NativeCssStyleSheets.RealmOf(document) ?? _runtime.Dom.RealmOfDocument(document);
         NativeCssStyleSheets.Associate(realm, document);
-        return CssCascade.Traversal.For(document)!.Of(_element);
+        return CssCascade.Traversal.Current(document).Of(_element);
     }
 
     private void Refuse(string member)

@@ -47,7 +47,7 @@ public sealed class CascadeTraversalTests
             }
             var record = diagnostics.Queries[query - 1];
             record.Rules![rule].Matches.Should().Be(64);
-            record.Rules[rule].Attempts.Should().Be(elements.Count + 3, "html, body and main are also warmed");
+            record.Rules[rule].Attempts.Should().Be(64, "the rule index offers .item only to elements carrying that class");
             foreach (var element in elements)
             {
                 record.Elements![element].StatePublications.Should().Be(1);
@@ -186,7 +186,7 @@ public sealed class CascadeTraversalTests
             actual.GetPropertyValue("visibility").Should().Be(expected.GetPropertyValue("visibility"));
             foreach (var property in new[] { "display", "visibility" })
             {
-                CssCascade.Of(element, resolveInheritance: false)!.GetPropertyValue(property)
+                CssCascade.Of(element)!.GetPropertyValue(property)
                     .Should().Be(expected.GetPropertyValue(property));
             }
         }
@@ -262,7 +262,7 @@ public sealed class CascadeTraversalTests
                 var eligible = elements.Count(element => owner is null
                     ? element.NamespaceUri == Namespaces.Html
                     : ReferenceEquals(owner.TreeShadowRoot, element.TreeShadowRoot));
-                detail.Attempts.Should().Be(eligible, "each eligible rule/receiver pair is matched once");
+                detail.Attempts.Should().BeLessThanOrEqualTo(eligible, "each eligible rule/receiver pair is matched at most once");
             }
             var attempts = record.RuleAttempts;
             var publications = record.ComputedPublications.ToArray();
@@ -328,10 +328,12 @@ public sealed class CascadeTraversalTests
             .ApplicableStyleRules(new CssMediaEnvironment(), new CssValueWork(default)).Length
             + NativeCssStyleSheets.Get(document, new CssValueWork(default)).Single().Sheet
                 .ApplicableStyleRules(new CssMediaEnvironment(), new CssValueWork(default)).Length;
-        record.RuleAttempts.Should().Be((long) elements.Length * eligibleRules);
+        record.Rules!.Values.Should().OnlyContain(detail => detail.Attempts <= elements.Length);
+        var attempts = record.RuleAttempts;
+        attempts.Should().BeLessThan((long) elements.Length * eligibleRules, "the rule index skips rules keyed to other names");
         var publications = record.ComputedPublications.ToArray();
         foreach (var element in elements) traversal.Of(element).GetPropertyValue("visibility");
-        record.RuleAttempts.Should().Be((long) elements.Length * eligibleRules);
+        record.RuleAttempts.Should().Be(attempts);
         record.ComputedPublications.ToArray().Should().BeEquivalentTo(publications);
         var baseline = new NativeCssQueryDiagnostics();
         foreach (var element in elements)

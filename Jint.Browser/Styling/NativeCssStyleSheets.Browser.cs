@@ -32,6 +32,8 @@ internal static partial class NativeCssStyleSheets
 
     internal static void Associate(DomRealm realm, Document document)
     {
+        if (Hosts.TryGetValue(document, out var existing) && existing.TryGetTarget(out var current) && ReferenceEquals(current, realm))
+            return;
         Hosts.Remove(document);
         Hosts.Add(document, new(realm));
     }

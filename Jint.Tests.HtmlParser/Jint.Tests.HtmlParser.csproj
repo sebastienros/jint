@@ -21,6 +21,7 @@
     <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.Query.cs" Link="Styling\NativeCssStyleSheets.Query.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssParsing.cs" Link="Styling\NativeCssParsing.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.cs" Link="Styling\NativeCssQuery.cs" />
+    <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Index.cs" Link="Styling\NativeCssQuery.Index.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Layers.cs" Link="Styling\NativeCssQuery.Layers.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQuery.Variables.cs" Link="Styling\NativeCssQuery.Variables.cs" />
     <Compile Include="..\Jint.Browser\Styling\NativeCssQueryDiagnostics.cs" Link="Styling\NativeCssQueryDiagnostics.cs" />

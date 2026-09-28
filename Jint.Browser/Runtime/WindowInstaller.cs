@@ -543,10 +543,7 @@ internal static class WindowInstaller
         }
 
         // The pseudo-element argument remains outside the native cascade's implemented surface.
-        return dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(
-            runtime,
-            element,
-            Dom.Views.CssCascade.Of(element, resolveInheritance: false)));
+        return dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime, element));
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)

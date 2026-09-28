@@ -56,6 +56,8 @@ internal static partial class SelectorMatcher
     private static void ValidateImplemented(CompiledSelector program, ref Work work,
         CancellationToken cancellationToken)
     {
+        var validated = (byte) (work.Environment.ControlFactsFactory is not null ? 1 : 2);
+        if ((program.ValidatedImplemented & validated) != 0) return;
         // Ordinary standalone compounds need neither VM frames nor validation stacks.
         if (program.Branches.Count == 1 && program.Branches[0].Compounds.Count == 1 &&
             program.Branches[0].LeadingCombinator is null)
@@ -69,7 +71,11 @@ internal static partial class SelectorMatcher
                 if (!IsImplemented(predicate, work.Environment.ControlFactsFactory is not null)) throw Unsupported(predicate.Kind.ToString());
                 if (predicate.Arguments is not null) simple = false;
             }
-            if (simple) return;
+            if (simple)
+            {
+                program.ValidatedImplemented |= validated;
+                return;
+            }
         }
         var pending = new Stack<(CompiledSelector Program, bool Relative)>();
         var visited = new HashSet<(CompiledSelector Program, bool Relative)>();
@@ -98,6 +104,7 @@ internal static partial class SelectorMatcher
             }
         }
         cancellationToken.ThrowIfCancellationRequested();
+        program.ValidatedImplemented |= validated;
     }
 
     // CSS Conditional 4 §2.1: inspect capabilities without manufacturing a DOM node.

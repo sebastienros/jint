@@ -238,9 +238,15 @@ internal sealed partial class NativeCssQuery
             _work.Charge(1);
             depth++;
         }
-        foreach (var (rule, origin, order, namespaceUri, layer) in _rules)
+        _index ??= new RuleIndex(_rules, _work);
+        // Matching may re-enter this query for another element; that call then allocates its own buffer.
+        var candidates = _candidateBuffer ?? [];
+        _candidateBuffer = null;
+        _index.Collect(element, candidates, _work);
+        foreach (var position in candidates)
         {
             _work.Charge(1);
+            var (rule, origin, order, namespaceUri, layer) = _rules[position];
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
             var scope = (rule.ParentStyleSheet?.Attachment.OwnerNode ??
                 rule.ParentStyleSheet?.EffectiveOwnerNode(_work))?.TreeShadowRoot;
@@ -254,6 +260,7 @@ internal sealed partial class NativeCssQuery
                 state.Sources.Add(new(rule, rule.Style, origin, specificity, order, false, layer, depth + (hostRule ? 1 : 0)));
             }
         }
+        _candidateBuffer = candidates;
         if (_readInlineAttributes && !_inline.ContainsKey(element))
             for (uint i = 0; i < (uint) element.AttributeCount; i++)
             {
@@ -331,25 +338,35 @@ internal sealed partial class NativeCssQuery
     internal void Verify()
     {
         if (_aborted) throw new InvalidOperationException("The native CSS read context was aborted.");
+        if (!InputsAreCurrent()) throw new InvalidOperationException(Invalidated);
+        _readWitness?.Invoke();
+    }
+
+    // Lets a caller reuse a whole query between separate reads: false, never a throw, when anything
+    // the query captured has moved. The caller owns the check of its own read witness.
+    internal bool IsReusable() => !_aborted && InputsAreCurrent();
+
+    private bool InputsAreCurrent()
+    {
         var inlineCount = _inline.Count;
         _work.Charge(inlineCount);
         var current = _sheetRevisions.IsCurrent(_work);
         if (!current || _inline.Count != inlineCount || !_resourceStamp.CanReuse || NativeCssStyleSheets.Stamp(_document) != _resourceStamp ||
             _documentStamp == ulong.MaxValue || _document.MutationStamp != _documentStamp)
-            throw new InvalidOperationException(Invalidated);
+            return false;
         if (_selectors.ControlFactsFactory is { } factory &&
             (!ReferenceEquals(_selectors.Document, _document) || _selectors.ControlFactsContext is null ||
             _selectors.ControlFactsRevision == ulong.MaxValue ||
             factory.ReadRevision(_selectors.ControlFactsContext, _document) != _selectors.ControlFactsRevision))
-            throw new InvalidOperationException(Invalidated);
+            return false;
         var compared = 0;
         foreach (var inline in _inline.Values)
         {
             if ((compared++ & 1023) == 0) _work.Token.ThrowIfCancellationRequested();
-            if (!inline.Stamp.CanReuse || inline.Block.Stamp != inline.Stamp) throw new InvalidOperationException(Invalidated);
+            if (!inline.Stamp.CanReuse || inline.Block.Stamp != inline.Stamp) return false;
         }
         _work.Token.ThrowIfCancellationRequested();
-        _readWitness?.Invoke();
+        return true;
     }
 
     private Element? InheritanceParent(Element element)
