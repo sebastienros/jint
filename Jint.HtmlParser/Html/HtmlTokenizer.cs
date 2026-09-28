@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace Jint.HtmlParser.Html;
@@ -18,14 +17,14 @@ internal sealed partial class HtmlTokenizer
     private bool _markupOpenerAfterText;
     private readonly long _maxInput;
     private readonly int _maxToken;
-    private readonly StringBuilder _text = new();
-    private readonly StringBuilder _tagName = new();
-    private readonly StringBuilder _name = new();
-    private readonly StringBuilder _value = new();
-    private readonly StringBuilder _comment = new();
-    private readonly StringBuilder _piTarget = new();
-    private readonly StringBuilder _piData = new();
-    private readonly StringBuilder _textEndTagBuffer = new();
+    private readonly CharBuffer _text = new();
+    private readonly CharBuffer _tagName = new();
+    private readonly CharBuffer _name = new();
+    private readonly CharBuffer _value = new();
+    private readonly CharBuffer _comment = new();
+    private readonly CharBuffer _piTarget = new();
+    private readonly CharBuffer _piData = new();
+    private readonly CharBuffer _textEndTagBuffer = new();
     private string? _piName;
     private readonly List<HtmlAttribute> _attributes = new();
     private readonly HashSet<string> _attributeNames = new(StringComparer.Ordinal);
@@ -67,7 +66,7 @@ internal sealed partial class HtmlTokenizer
     private int _bestEntityLength;
     private string? _bestEntityValue;
     private int _entityState;
-    private readonly StringBuilder _reference = new();
+    private readonly CharBuffer _reference = new();
 
     internal HtmlTokenizer(HtmlTokenizerContext context)
     {
@@ -418,26 +417,26 @@ internal sealed partial class HtmlTokenizer
         _remainingWork -= units;
     }
 
-    private void EnsureAppendCapacity(StringBuilder buffer, int extra)
+    private void EnsureAppendCapacity(CharBuffer buffer, int extra)
     {
         if (extra <= buffer.Capacity - buffer.Length) return;
         Poll();
         var existing = buffer.Length;
         var required = checked(existing + extra);
-        var doubled = Math.Min(buffer.MaxCapacity, (long) buffer.Capacity * 2);
+        var doubled = Math.Min(Array.MaxLength, (long) buffer.Capacity * 2);
         buffer.EnsureCapacity((int) Math.Max(required, doubled));
         ChargeCopy(existing);
         Poll();
     }
 
-    private void Append(StringBuilder buffer, char value)
+    private void Append(CharBuffer buffer, char value)
     {
         CopySourceToBuffer(buffer);
         EnsureAppendCapacity(buffer, 1);
         buffer.Append(value);
     }
 
-    private void Append(StringBuilder buffer, string value)
+    private void Append(CharBuffer buffer, string value)
     {
         CopySourceToBuffer(buffer);
         EnsureAppendCapacity(buffer, value.Length);
@@ -447,9 +446,9 @@ internal sealed partial class HtmlTokenizer
         Poll();
     }
 
-    private void Append(StringBuilder buffer, StringBuilder value) => Append(buffer, Materialize(value));
+    private void Append(CharBuffer buffer, CharBuffer value) => Append(buffer, Materialize(value));
 
-    private string Materialize(StringBuilder buffer)
+    private string Materialize(CharBuffer buffer)
     {
         Poll();
         var result = buffer.ToString();

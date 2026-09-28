@@ -181,7 +181,7 @@ internal sealed partial class HtmlTreeBuilder
                 return true;
             }
             var inspected = false;
-            while (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound)
+            while (_inputAttributeIndex < _token.Attributes.Length && !_inputTypeFound)
             {
                 if (_remaining <= 0 && inspected) break;
                 var attribute = _token.Attributes[_inputAttributeIndex++];
@@ -191,7 +191,7 @@ internal sealed partial class HtmlTreeBuilder
                 _inputTypeFound = true;
                 _inputTypeHidden = attribute.ValueSlice.Span.Equals("hidden", StringComparison.OrdinalIgnoreCase);
             }
-            if (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound) return true;
+            if (_inputAttributeIndex < _token.Attributes.Length && !_inputTypeFound) return true;
             if (inspected && _remaining <= 0) return true;
             if (!TryReconstructFormatting()) return true;
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true;

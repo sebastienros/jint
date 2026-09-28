@@ -268,7 +268,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool InspectInputType()
     {
         var inspected = false;
-        while (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound)
+        while (_inputAttributeIndex < _token.Attributes.Length && !_inputTypeFound)
         {
             if (_remaining <= 0 && inspected) return false;
             var attribute = _token.Attributes[_inputAttributeIndex++];

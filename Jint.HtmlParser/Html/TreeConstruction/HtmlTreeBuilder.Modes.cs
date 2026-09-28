@@ -436,15 +436,16 @@ internal sealed partial class HtmlTreeBuilder
 
     private void AppendCharacterRun(StringSlice data, bool whiteOnly, bool textMode = false)
     {
-        var span = data.Span;
         var start = _textIndex;
         var max = (int) Math.Min(data.Length, start + Math.Max(1, Math.Min(_remaining, 2048)));
-        while (_textIndex < max)
-        {
-            var c = span[_textIndex];
-            if (c == '\0' && !textMode || !textMode && White(c) != whiteOnly) break;
-            _textIndex++;
-        }
-        InsertText(data.Slice(start, _textIndex - start));
+        var run = data.Span[start..max];
+        var length = textMode ? run.Length
+            : whiteOnly ? run.IndexOfAnyExcept(BodyWhitespace)
+            : run.IndexOfAny(BodyWhitespaceOrNull);
+        if (length < 0) length = run.Length;
+        _textIndex = start + length;
+        InsertText(data.Slice(start, length));
     }
+
+    private static readonly SearchValues<char> BodyWhitespaceOrNull = SearchValues.Create("\t\n\f\r \0");
 }

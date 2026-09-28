@@ -297,7 +297,7 @@ internal sealed partial class HtmlTreeBuilder
         var name = _token.Name!;
         ulong key = (uint) comparer.GetHashCode(Namespaces.Html);
         key = key * 1099511628211UL ^ (uint) comparer.GetHashCode(name);
-        key ^= (ulong) _token.Attributes.Count * 0x9e3779b97f4a7c15UL;
+        key ^= (ulong) _token.Attributes.Length * 0x9e3779b97f4a7c15UL;
         _preparedFormattingKey = key;
         _preparedFormattingKeyInitialized = true;
         Charge(1L + name.Length);

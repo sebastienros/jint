@@ -31,29 +31,25 @@ internal sealed partial class HtmlTreeBuilder
     private void BufferTableText()
     {
         var data = _token.DataSlice;
-        var span = data.Span;
-        var start = _textIndex;
         while (_textIndex < data.Length && _remaining > 0)
         {
-            var c = span[_textIndex];
-            if (c == '\0')
-            {
-                AddTableSegment(data, start, _textIndex - start, _token.Offset);
-                Error("unexpected-null-character");
-                _textIndex++;
-                Charge(1);
-                start = _textIndex;
-                continue;
-            }
-            if (!White(c) && !_tableTextHasNonwhite)
+            var start = _textIndex;
+            var run = data.Span.Slice(start, (int) Math.Min(data.Length - start, _remaining));
+            var length = run.IndexOf('\0');
+            if (length < 0) length = run.Length;
+            if (!_tableTextHasNonwhite && run[..length].IndexOfAnyExcept(BodyWhitespace) >= 0)
             {
                 _tableTextHasNonwhite = true;
                 _tableTextNonwhiteOffset = _token.Offset;
             }
+            _textIndex += length;
+            Charge(length);
+            AddTableSegment(data, start, length, _token.Offset);
+            if (length == run.Length) continue;
+            Error("unexpected-null-character");
             _textIndex++;
             Charge(1);
         }
-        AddTableSegment(data, start, _textIndex - start, _token.Offset);
     }
 
     private void AddTableSegment(StringSlice data, int start, int length, long offset)

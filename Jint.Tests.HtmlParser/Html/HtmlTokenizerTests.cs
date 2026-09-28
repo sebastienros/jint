@@ -359,7 +359,7 @@ public class HtmlTokenizerTests
             tokenizer.AppendInput(input.ToString(), true);
             var tokens = new List<HtmlToken>();
             Drain(tokenizer, 7, tokens, true);
-            Assert.That(tokens[0].Attributes.Count, Is.EqualTo(count));
+            Assert.That(tokens[0].Attributes.Length, Is.EqualTo(count));
             return tokenizer.WorkCount;
         }
         var small = WorkFor(1000);

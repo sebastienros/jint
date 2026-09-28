@@ -181,7 +181,7 @@ internal sealed partial class HtmlTreeBuilder
                     FinishToken();
                     return new HtmlParseStep(HtmlParseStepKind.Yielded);
                 }
-            case HtmlTokenKind.StartTag when _token.Attributes.Count > 0 && !PrepareTokenAttributes():
+            case HtmlTokenKind.StartTag when _token.Attributes.Length > 0 && !PrepareTokenAttributes():
                 return new HtmlParseStep(HtmlParseStepKind.Yielded);
         }
 
@@ -366,8 +366,8 @@ internal sealed partial class HtmlTreeBuilder
     private bool PrepareTokenAttributes()
     {
         var attributes = _token.Attributes;
-        _preparedAttributes ??= new ParserAttribute[attributes.Count];
-        while (_preparedAttributeIndex < attributes.Count && _remaining > 0)
+        _preparedAttributes ??= new ParserAttribute[attributes.Length];
+        while (_preparedAttributeIndex < attributes.Length && _remaining > 0)
         {
             var item = attributes[_preparedAttributeIndex];
             var formatting = IsFormatting(_token.Name!);
@@ -395,12 +395,12 @@ internal sealed partial class HtmlTreeBuilder
             var formattingWork = formatting ? PrepareFormattingAttribute(item) : 0;
             Charge(itemWork + formattingWork);
         }
-        return _preparedAttributeIndex == attributes.Count;
+        return _preparedAttributeIndex == attributes.Length;
     }
 
     private void MergeAttributes(Element target)
     {
-        if (_token.Attributes.Count == 0) return;
+        if (_token.Attributes.Length == 0) return;
         var existing = target.AttributeCount;
         target.AddMissingParsedAttributes(_preparedAttributes!, _cancellationToken);
         Charge(existing + _preparedAttributes!.Length);

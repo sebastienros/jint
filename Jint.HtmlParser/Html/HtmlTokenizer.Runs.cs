@@ -1,6 +1,5 @@
 using System;
 using System.Buffers;
-using System.Text;
 
 namespace Jint.HtmlParser.Html;
 
@@ -20,7 +19,7 @@ internal sealed partial class HtmlTokenizer
     // ordinary append. Delimiters, errors and input preprocessing stay scalar.
     private bool TryConsumeRun(char current)
     {
-        StringBuilder buffer;
+        CharBuffer buffer;
         SearchValues<char> stops;
         switch (_state)
         {
