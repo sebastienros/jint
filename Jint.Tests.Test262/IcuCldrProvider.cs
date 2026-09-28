@@ -391,6 +391,14 @@ public sealed class IcuCldrProvider : ICldrProvider
     public WeekInfo? GetWeekInfo(string locale)
         => _fallback.GetWeekInfo(locale);
 
+    // The default provider reads CLDR's own timeData and calendarPreferenceData, the tables ICU would answer
+    // from, so these delegate the way GetDefaultCalendar does.
+    public string[]? GetHourCycles(string locale)
+        => _fallback.GetHourCycles(locale);
+
+    public string[]? GetCalendars(string locale)
+        => _fallback.GetCalendars(locale);
+
     // === Supported Values ===
 
     public IReadOnlyCollection<string> GetSupportedCollations()

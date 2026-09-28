@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Globalization;
+using Jint.Native.Intl;
 
 namespace Jint.Tests.Runtime;
 
@@ -203,4 +204,83 @@ public class IntlDateTimeFormatHourCycleTests
         Evaluate("Temporal.PlainDateTime.from('2024-01-15T15:07').toLocaleString('ja-JP')")
             .Should().EndWith(" 15:07:00");
     }
+
+    /// <summary>
+    /// The formatter asks <see cref="ICldrProvider.GetHourCycles"/> about its data locale — the available
+    /// locale it matched, with no Unicode extension — both for its default and for the cycle <c>hour12</c>
+    /// picks, and <see cref="ICldrProvider.GetDefaultCalendar"/> about the same locale. An option or keyword
+    /// naming the cycle leaves the provider unasked.
+    /// </summary>
+    [Test]
+    public void TheProviderIsAskedAboutTheDataLocale()
+    {
+        var provider = new RecordsWhatItWasAsked();
+        var engine = new Engine(options => options.Intl.CldrProvider = provider);
+
+        engine.Evaluate("new Intl.DateTimeFormat('en-US-u-nu-arab-rg-gbzzzz', { hour: 'numeric' }).resolvedOptions().hourCycle")
+            .AsString().Should().Be("h12");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB-u-nu-arab', { hour: 'numeric', hour12: false }).resolvedOptions().hourCycle")
+            .AsString().Should().Be("h23");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB-u-hc-h11', { hour: 'numeric' }).resolvedOptions().hourCycle")
+            .AsString().Should().Be("h11");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h12' }).resolvedOptions().hourCycle")
+            .AsString().Should().Be("h12");
+
+        provider.HourCyclesAsked.Should().Equal("en-US", "en-GB");
+        provider.DefaultCalendarsAsked.Should().Equal("en-US", "en-GB", "en-GB", "en-GB");
+    }
+
+    /// <summary>
+    /// A provider that derives from the shipped one and changes nothing is asked through the interface rather
+    /// than read directly, and it has to resolve every culture exactly as the shipped singleton does: the
+    /// default, and both cycles <c>hour12</c> picks.
+    /// </summary>
+    [Test]
+    public void AProviderThatChangesNothingResolvesEveryCultureAlike()
+    {
+        var derived = new Engine(options => options.Intl.CldrProvider = new ChangesNothing());
+
+        var disagreements = new List<string>();
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            if (culture.Name.Length == 0)
+            {
+                continue;
+            }
+
+            foreach (var options in new[] { "", ", hour12: true", ", hour12: false" })
+            {
+                var script = $"new Intl.DateTimeFormat('{culture.Name}', {{ hour: 'numeric'{options} }}).resolvedOptions().hourCycle";
+                var expected = Evaluate(script);
+                var actual = derived.Evaluate(script).AsString();
+                if (!string.Equals(expected, actual, StringComparison.Ordinal))
+                {
+                    disagreements.Add($"{culture.Name}{options}: {actual}, shipped provider {expected}");
+                }
+            }
+        }
+
+        disagreements.Should().BeEmpty();
+    }
+
+    private sealed class RecordsWhatItWasAsked : DefaultCldrProvider
+    {
+        public List<string> HourCyclesAsked { get; } = [];
+
+        public List<string> DefaultCalendarsAsked { get; } = [];
+
+        public override string[]? GetHourCycles(string locale)
+        {
+            HourCyclesAsked.Add(locale);
+            return base.GetHourCycles(locale);
+        }
+
+        public override string? GetDefaultCalendar(string locale)
+        {
+            DefaultCalendarsAsked.Add(locale);
+            return base.GetDefaultCalendar(locale);
+        }
+    }
+
+    private sealed class ChangesNothing : DefaultCldrProvider;
 }

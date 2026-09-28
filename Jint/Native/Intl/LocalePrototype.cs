@@ -187,12 +187,12 @@ internal sealed partial class LocalePrototype : Prototype
     /// https://tc39.es/ecma402/#sec-calendarsoflocale.
     /// </summary>
     /// <remarks>
-    /// The orderings are the CLDR <c>calendarPreferenceData</c> Jint embeds, read for the region
-    /// https://tc39.es/ecma402/#sec-regionpreference picks. <see cref="DefaultCldrProvider.GetDefaultCalendar"/>
-    /// reads the same table, so with the shipped provider the first calendar listed is the one
-    /// <c>Intl.DateTimeFormat</c> defaults to. <see cref="ICldrProvider"/> has no member for the ordering, so a
-    /// host overriding <see cref="ICldrProvider.GetDefaultCalendar"/> moves the formatter's default and not
-    /// this list, and the two can then disagree.
+    /// The ordering is what <see cref="ICldrProvider.GetCalendars"/> answers for the whole tag, and a provider
+    /// with no opinion leaves it to the CLDR <c>calendarPreferenceData</c> Jint embeds, read for the region
+    /// https://tc39.es/ecma402/#sec-regionpreference picks. <see cref="DefaultCldrProvider"/> answers both that
+    /// member and <see cref="ICldrProvider.GetDefaultCalendar"/> from the same table, so with it the first
+    /// calendar listed is the one <c>Intl.DateTimeFormat</c> defaults to. A host overriding only one of the two
+    /// moves only its own reader, and the two can then disagree.
     /// </remarks>
     [JsFunction]
     private JsArray GetCalendars(JsValue thisObject)
@@ -205,15 +205,22 @@ internal sealed partial class LocalePrototype : Prototype
             return CreateArrayOfOne(locale.Calendar);
         }
 
-        // 2-6. The calendars in common use in the region RegionPreference picks.
-        var calendarsInUse = CalendarPreferenceData.GetCalendarsInUse(RegionPreference.Of(locale.Locale));
+        // 2-6. The calendars in common use in the region RegionPreference picks, as the CLDR provider answers
+        // them for the whole tag. One with no opinion leaves them to the embedded table.
+        var calendarsInUse = Engine.Options.Intl.CldrProvider.GetCalendars(locale.Locale)
+                             ?? CalendarPreferenceData.GetCalendarsInUse(RegionPreference.Of(locale.Locale));
 
         // 7-9. Each one canonicalized, kept only if AvailableCalendars() contains it, and listed once. CLDR
         // lists islamic and islamic-rgsa for several regions, and neither is available unless a host
-        // calendar provider claims it.
+        // calendar provider claims it; a host's CLDR provider may answer anything at all.
         var list = new List<string>(calendarsInUse.Length);
         foreach (var identifier in calendarsInUse)
         {
+            if (identifier is null)
+            {
+                continue;
+            }
+
             var canonical = IntlUtilities.CanonicalizeUValue("ca", identifier);
             if (AvailableCalendars.Contains(Engine, canonical) && !list.Contains(canonical))
             {
@@ -277,11 +284,11 @@ internal sealed partial class LocalePrototype : Prototype
     /// https://tc39.es/ecma402/#sec-hourcyclesoflocale.
     /// </summary>
     /// <remarks>
-    /// The hour cycles are the CLDR <c>timeData</c> Jint embeds, read for the language and the region
-    /// https://tc39.es/ecma402/#sec-regionpreference picks. They used to be read off the .NET culture's short
-    /// time pattern, which gave one cycle, depended on the machine's globalization data, and ignored the
-    /// <c>-u-rg-</c> and <c>-u-sd-</c> keywords. <see cref="ICldrProvider"/> has no member for them, so a host
-    /// provider cannot change this answer.
+    /// The hour cycles are what <see cref="ICldrProvider.GetHourCycles"/> answers for the whole tag, and a
+    /// provider with no opinion leaves them to the CLDR <c>timeData</c> Jint embeds, read for the language and
+    /// the region https://tc39.es/ecma402/#sec-regionpreference picks. <c>Intl.DateTimeFormat</c> takes its
+    /// default hour cycle from the same member, through <see cref="IntlUtilities.GetLocaleHourCycles"/>, so a
+    /// host's answer moves both.
     /// </remarks>
     [JsFunction]
     private JsArray GetHourCycles(JsValue thisObject)
@@ -294,9 +301,9 @@ internal sealed partial class LocalePrototype : Prototype
             return CreateArrayOfOne(locale.HourCycle);
         }
 
-        // 2-7. The hour cycles in common use for the language in the region RegionPreference picks, or « "h23" ».
-        // GetLocaleLanguage is the language subtag, which JsLocale keeps canonicalized.
-        var hourCycles = TimeData.GetHourCycles(locale.Language, RegionPreference.Of(locale.Locale));
+        // 2-7. The hour cycles in common use for the language in the region RegionPreference picks, or « "h23" »,
+        // as the CLDR provider answers them for the whole tag.
+        var hourCycles = IntlUtilities.GetLocaleHourCycles(Engine, locale.Locale);
 
         // 8. Return CreateArrayFromList(hourCycles).
         var values = new JsValue[hourCycles.Length];

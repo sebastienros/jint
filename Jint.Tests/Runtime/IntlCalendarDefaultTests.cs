@@ -276,7 +276,7 @@ public class IntlCalendarDefaultTests
     }
 }
 
-/// <summary>One datum, and the other eighteen members inherited.</summary>
+/// <summary>One datum, and the other twenty members inherited.</summary>
 file sealed class EverywhereIsHebrew : DefaultCldrProvider
 {
     public override string? GetDefaultCalendar(string locale) => "hebrew";
