@@ -28,6 +28,13 @@ namespace Jint.Native.Intl;
 /// Cyrillic and Greek — and neither does for the locales where it is not, such as the numeric narrow months of
 /// <c>ja</c>, <c>ko</c>, <c>cs</c> and <c>he</c>. A host that needs them exactly overrides the one member.
 /// </para>
+/// <para>
+/// <c>Intl.DateTimeFormat</c> writes its patterns — a component bag's and a <c>dateStyle</c>/<c>timeStyle</c>'s — and
+/// its Gregorian month, weekday, era and am/pm names in the format and stand-alone contexts, from the CLDR 48.2 data
+/// embedded in the engine rather than from this class. A derived class's name answer takes the place of CLDR's where it differs from <see cref="Instance"/>'s
+/// answer for the same arguments, in both contexts (see <see cref="ICldrProvider.GetMonthNames"/>); the patterns are
+/// not replaceable.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -467,15 +474,8 @@ public class DefaultCldrProvider : ICldrProvider
     /// narrow month slot to read at all.
     /// </summary>
     private static string[] NarrowMonths(CultureInfo culture)
-        => NarrowMonthsOf(culture, culture.DateTimeFormat.AbbreviatedMonthNames);
-
-    /// <summary>
-    /// The same derivation over abbreviated names the caller already holds, so a formatter whose own
-    /// <see cref="DateTimeFormatInfo"/> carries a different calendar's names narrows those rather than the
-    /// ones the locale defaults to.
-    /// </summary>
-    internal static string[] NarrowMonthsOf(CultureInfo culture, string[] abbreviated)
     {
+        var abbreviated = culture.DateTimeFormat.AbbreviatedMonthNames;
         var result = new string[12];
         for (var i = 0; i < 12; i++)
         {

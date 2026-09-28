@@ -5818,7 +5818,7 @@ date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "3:07:00 pm"
 // 5.x
 new Intl.DateTimeFormat('en-GB', hm).format(date);          // "15:07"
 new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "15:07"
-new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p. m."
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p.m." (CLDR's designator, 4.142)
 date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "15:07:00"
 ```
 
@@ -5843,6 +5843,127 @@ and that is the one line to add at each call site:
 new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h12' }); // or hour12: true
 date.toLocaleTimeString('es-MX', { hour12: false });
 ```
+
+### 4.142 `Intl.DateTimeFormat` writes a component bag with the locale's CLDR pattern and names ([#4158](https://github.com/sebastienros/jint/issues/4158))
+
+A bag of component options — `{ weekday: 'short', day: 'numeric', month: 'long' }` and the like, including the
+defaults `Date.prototype.toLocaleString` and Temporal's `toLocaleString` fill in — was written by laying its fields out
+in the order of the .NET culture's short date pattern, with fixed separators and .NET's names. It is now resolved the
+way ICU resolves it ([BestFitFormatMatcher](https://tc39.es/ecma402/#sec-bestfitformatmatcher)): the locale's CLDR 48.2
+`availableFormats` pattern nearest the request, missing fields appended through `appendItems`, a date and a time joined
+with the `atTime` `dateTimeFormats`, and CLDR's month, weekday, era and am/pm names in the context the pattern asks
+for. The output is what V8 writes:
+
+```js
+const date = new Date(Date.UTC(2022, 11, 24, 15, 7, 9));
+const f = (locale, options) => new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(date);
+
+//                                                                4.16.x / earlier 5.0            5.x
+f('de', { weekday: 'short', day: 'numeric', month: 'long' });    // "Sa 24 Dezember"               "Sa., 24. Dezember"
+f('en', { weekday: 'short', day: 'numeric', month: 'long' });    // "Sat December 24"              "Sat, December 24"
+f('en', { year: 'numeric', month: 'long' });                     // "December, 2022"               "December 2022"
+f('ja', { year: 'numeric', month: 'long', day: 'numeric' });     // "2022 12月 24"                 "2022年12月24日"
+f('ko', { year: 'numeric', month: 'numeric', day: 'numeric' });  // "2022. 12. 24"                 "2022. 12. 24."
+f('de', { era: 'short', year: 'numeric' });                      // "2022 AD"                      "2022 n. Chr."
+f('en', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+                                                                 // "December 24, 2022, 3:07 PM"   "December 24, 2022 at 3:07 PM"
+f('fr', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+                                                                 // "24/12/2022, 15:07:09"         "24/12/2022 15:07:09"
+f('en', { weekday: 'short', hour: 'numeric', minute: 'numeric' }); // "Sat, 3:07 PM"               "Sat 3:07 PM"
+```
+
+**What could break:**
+
+- **The text of any component bag**, in any locale: the order of its fields, the punctuation between them, the joiner
+  between a date and a time, and the names — format-context weekdays and months (`Sa.` beside a day where .NET has only
+  the stand-alone `Sa`), localized eras where every locale wrote `AD`/`BC`, and CLDR's am/pm where .NET's differ
+  (`es-MX` `p.m.`, `he` and `th` `PM`). `formatToParts()` changes the same way, and `formatRange()` writes its two
+  dates with the new patterns (how it joins them is unchanged).
+- **`resolvedOptions()` reports the pattern that was chosen**, as
+  [the specification](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions) requires, not the
+  options that asked for it: `en-GB` `{ month: 'numeric', day: 'numeric' }` reports `'2-digit'` for both (it writes
+  `24/12`), `ja` `{ month: 'long' }` reports `'numeric'` (`12月`), `de` `{ hour: 'numeric' }` reports `'2-digit'`
+  (`15 Uhr`), and a numeric minute or second written with two digits reports `'2-digit'`. A 24-hour locale drops a
+  `dayPeriod` it has no pattern for (`de` `{ hour: 'numeric', dayPeriod: 'short' }` writes `15 Uhr` and reports no
+  `dayPeriod`).
+- **A year of zero or less is written `1 - year`**, as
+  [FormatDateTimePattern](https://tc39.es/ecma402/#sec-formatdatetimepattern) says, with or without an era: year 0 is
+  `1` and the earliest time value's year, -271821, is `271822` (`new Date(-8.64e15).toLocaleDateString('en-US')` is
+  `4/20/271822`, as in V8).
+- **U+202F**, which CLDR writes in time patterns, is a plain space in `format()` and `formatToParts()` alike.
+- **An `ICldrProvider`'s month, weekday, era and day-period names** now reach a component bag only where they differ
+  from `DefaultCldrProvider.Instance`'s answer for the same arguments, and then in both the format and the stand-alone
+  context. A provider that overrides nothing name-related — or delegates the names to the default, as a provider
+  implementing the interface directly often does — used to have .NET's names written and now has CLDR's.
+- `formatMatcher: 'basic'` is still accepted and still answered by the best-fit matcher; V8 does the same.
+
+Not changed here: `dateStyle` and `timeStyle` (they moved onto CLDR too, in 4.144), the Chinese and Dangi calendars'
+lane, and the other non-Gregorian calendars, which were and are written in the Gregorian patterns with their own year,
+month and day. The fractional-second separator is still the numbering system's (`.` for Latin digits) where ICU writes
+the locale's decimal separator (`,` in `de`).
+
+There is no switch back. A script that parses a formatted date should use `formatToParts()`; a host that needs
+particular names supplies them through its `ICldrProvider`, and a script that needs a fixed shape builds the string
+from `formatToParts()`.
+
+### 4.144 `Intl.DateTimeFormat` writes `dateStyle` and `timeStyle` with the locale's CLDR patterns ([#4158](https://github.com/sebastienros/jint/issues/4158))
+
+A `dateStyle` was written with the .NET culture's long or short date pattern — its weekday cut out for `long`, its
+month shortened for `medium` — and a `timeStyle` with a fixed hour, minute, second, am/pm and zone, the two joined by
+`", "`. Both now come from CLDR 48.2, the way ICU writes them
+([DateTimeStyleFormat](https://tc39.es/ecma402/#sec-date-time-style-format)): the locale's `dateFormats` and
+`timeFormats`, a date and a time joined with the `atTime` `dateTimeFormats` of the date's width, CLDR's names, and the
+hour cycle the formatter resolved — where that is not the one the locale's time pattern is written in, the pattern is
+matched again for the requested cycle, as V8 does. The output is what V8 writes:
+
+```js
+const date = new Date(Date.UTC(2022, 11, 24, 15, 7, 9));
+const f = (locale, options) => new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(date);
+
+//                                                                      4.16.x / earlier 5.0                     5.x
+f('de', { dateStyle: 'medium' });                                    // "24. Dez 2022"                           "24.12.2022"
+f('de', { dateStyle: 'short' });                                     // "24.12.2022"                             "24.12.22"
+f('en-GB', { dateStyle: 'short' });                                  // "24/12/22"                               "24/12/2022"
+f('en', { dateStyle: 'full', timeStyle: 'short' });                  // "Saturday, December 24, 2022, 3:07 PM"   "Saturday, December 24, 2022 at 3:07 PM"
+f('de', { dateStyle: 'long', timeStyle: 'short' });                  // "24. Dezember 2022, 15:07"               "24. Dezember 2022 um 15:07"
+f('vi', { dateStyle: 'short', timeStyle: 'short' });                 // "24/12/2022, 15:07"                      "15:07 24/12/22"
+f('ko', { timeStyle: 'medium' });                                    // "3:07:09 오후"                            "오후 3:07:09"
+f('zh', { timeStyle: 'long' });                                      // "15:07:09 UTC"                           "UTC 15:07:09"
+f('es-MX', { timeStyle: 'short' });                                  // "3:07 p. m."                             "3:07 p.m."
+f('de', { timeStyle: 'short', hour12: true });                       // "3:07 PM"                                "03:07 PM"
+f('ja', { dateStyle: 'long', timeStyle: 'long', hour12: true });     // "2022年12月24日, 3:07:09 午後 UTC"        "2022/12/24 午後3:07:09 UTC"
+```
+
+**What could break:**
+
+- **The text of any `dateStyle` or `timeStyle`**, in any locale: field widths (`de` short writes a two-digit year,
+  `en-GB` short a four-digit one, `de` medium a numeric month), the order of the fields (the Korean and Chinese
+  day period and zone come first), the joiner between a date and a time (`at`, `um`, `à`, `a las`), and CLDR's names
+  where .NET's differ (`es-MX` `p.m.`, `he` and `th` `PM`). `formatToParts()` changes the same way.
+  `Date.prototype.toLocaleString`, `toLocaleDateString` and `toLocaleTimeString` with a style change with it.
+- **A style in an hour cycle other than the locale's** — `hourCycle`, `hour12` or `-u-hc-` — is re-matched rather than
+  having its hour relabelled, so its hour and am/pm follow the locale's pattern for that cycle (`de` `03:07 PM`), and a
+  date written beside that time can take the locale's `availableFormats` shape rather than its `dateFormats` one
+  (`ja` `2022/12/24` above), as in ICU.
+- **Temporal values without all of a style's fields** are written with the format the matcher chooses for the fields
+  they have, as [AdjustDateTimeStyleFormat](https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat) says,
+  rather than with the style's pattern with the other fields cut out: a `PlainYearMonth` under `de` `dateStyle: 'short'`
+  writes `08/26` where it wrote `08.2026`, one under `ja` `dateStyle: 'full'` writes `2026/8` where it wrote `2026年8月`,
+  and a `PlainMonthDay` under `de` short writes `27.08.`. A `PlainTime` or `PlainDateTime` under a `long` or `full`
+  `timeStyle`, which writes a zone the value does not have, is re-matched the same way (`ja` `dateStyle: 'full'`
+  with `timeStyle: 'full'` writes `2022/12/24土曜日 15:07:09`). A style with every field the value has is written as
+  it is — a `PlainDate` under any `dateStyle`.
+- **`formatRange()`** writes its two dates with the new patterns; how it collapses and joins them is unchanged
+  (`de` `dateStyle: 'medium'` gives `24.12.2022 – 27.12.2022`).
+- **An `ICldrProvider`'s names** reach a style under 4.142's rule: only where they differ from
+  `DefaultCldrProvider.Instance`'s answer for the same arguments, and then in both contexts. Month and weekday names are
+  no longer seeded into a .NET culture for any calendar but the Chinese and Dangi ones.
+
+Not changed: `resolvedOptions()` of a style reports `dateStyle`, `timeStyle` and, beside a time, the hour cycle, never
+the fields of the pattern, as [the specification](https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.resolvedoptions)
+says. A zone is still named in English in every locale (`Coordinated Universal Time` where ICU writes `Koordinierte
+Weltzeit`). The Chinese and Dangi calendars keep their lane, and the other non-Gregorian calendars are written in the
+Gregorian patterns (a `buddhist` date has no `BE`) until a later step of #4158.
 
 ## 5. New in v5
 

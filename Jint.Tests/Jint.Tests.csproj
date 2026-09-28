@@ -21,6 +21,10 @@
          never against a second copy that could drift from it. -->
     <EmbeddedResource Include="..\tools\whatwg-encoding\indexes.json" LogicalName="whatwg-encoding-indexes.json" />
     <EmbeddedResource Include="..\tools\whatwg-encoding\encodings.json" LogicalName="whatwg-encoding-encodings.json" />
+    <!-- The Intl.DateTimeFormat format matcher's golden tables, component bags and dateStyle/timeStyle, read from
+         where tools\cldr-dates\reference\ wrote them for the same reason. -->
+    <EmbeddedResource Include="..\tools\cldr-dates\reference\golden.tsv" LogicalName="cldr-dates-golden.tsv" />
+    <EmbeddedResource Include="..\tools\cldr-dates\reference\golden-styles.tsv" LogicalName="cldr-dates-golden-styles.tsv" />
   </ItemGroup>
 
   <!--

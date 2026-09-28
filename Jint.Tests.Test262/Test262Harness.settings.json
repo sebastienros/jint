@@ -169,14 +169,6 @@
     "intl402/Collator/prototype/compare/non-normative-phonebook.js",
     "intl402/Collator/usage-de.js",
 
-    // DateTimeFormat - a component bag such as { weekday, day, month } is not resolved against CLDR's
-    // availableFormats skeletons by a format matcher (https://tc39.es/ecma402/#sec-createdatetimeformat);
-    // JsDateTimeFormat assembles the fields in ShortDatePattern order with fixed separators, and .NET has only
-    // the stand-alone abbreviated weekday names. German's MMMMEd pattern is "EEE, d. MMMM" with the
-    // format-context "Sa.", and this test's "Sa.," needs both; Jint writes "Sa 24 Dezember". Removed when
-    // component bags format through a matched locale pattern with format-context weekday names.
-    "intl402/DateTimeFormat/prototype/format/german-weekday-no-year.js",
-
     // DurationFormat - precision formatting requires exact sub-second arithmetic
     "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
     // Requires Spanish unit patterns (ICU4N doesn't include unit data, only core locale data)

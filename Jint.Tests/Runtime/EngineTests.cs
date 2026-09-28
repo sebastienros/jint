@@ -1888,9 +1888,10 @@ var prep = function (fn) { fn(); };
                     equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Daylight Time)', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
                     equal('05:00:00 GMT-0700 (Pacific Daylight Time)', d.toTimeString());
-                    // ECMA-402 compliant: numeric defaults used when no options specified
-                    equal('1/6/2015, 05:00:00', d.toLocaleString());
-                    equal('1/6/2015', d.toLocaleDateString());
+                    // ECMA-402 compliant: numeric defaults used when no options specified, written with
+                    // fr's own CLDR pattern (dd/MM/y, and a space before the time), as ICU writes them
+                    equal('01/06/2015 05:00:00', d.toLocaleString());
+                    equal('01/06/2015', d.toLocaleDateString());
                     equal('05:00:00', d.toLocaleTimeString());
             ");
     }

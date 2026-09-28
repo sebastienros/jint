@@ -1221,12 +1221,13 @@ public class IntlTests
 
     // The maximum time value: 275760-09-13T00:00:00.000Z.
     [TestCase(8640000000000000L, "9/13/275760")]
-    // The minimum time value: -271821-04-20T00:00:00.000Z.
-    [TestCase(-8640000000000000L, "4/20/-271821")]
+    // The minimum time value: -271821-04-20T00:00:00.000Z. A year of zero or less is written 1 - year, step 15.f.ii
+    // of https://tc39.es/ecma402/#sec-formatdatetimepattern.
+    [TestCase(-8640000000000000L, "4/20/271822")]
     // One millisecond past what DateTime can hold: +010000-01-01T00:00:00.001Z.
     [TestCase(253402300800001L, "1/1/10000")]
-    // One millisecond before it: 0000-12-31T23:59:59.999Z.
-    [TestCase(-62135596800001L, "12/31/0")]
+    // One millisecond before it: 0000-12-31T23:59:59.999Z, year 0, written 1.
+    [TestCase(-62135596800001L, "12/31/1")]
     public void DateTimeFormatKeepsEveryDateFieldOfAValueOutsideDateTimeRange(long timeValue, string expected)
     {
         // The conversion clamped an out-of-range time value to DateTime.MinValue/MaxValue and carried
@@ -1257,7 +1258,7 @@ public class IntlTests
                 timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric',
                 hour: 'numeric', minute: 'numeric', second: 'numeric'
             }).format(new Date(-62135596800001))
-            """).AsString().Should().Be("12/31/0, 11:59:59 PM");
+            """).AsString().Should().Be("12/31/1, 11:59:59 PM");
     }
 
     [Test]
@@ -1284,8 +1285,9 @@ public class IntlTests
         _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'full' }).format(new Date(8640000000000000))")
             .AsString().Should().Be("Saturday, September 13, 275760");
 
+        // A date style and a time style are joined with CLDR's atTime connector, as ICU joins them.
         _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'full', timeStyle: 'short' }).format(new Date(8640000000000000))")
-            .AsString().Should().Be("Saturday, September 13, 275760, 12:00 AM");
+            .AsString().Should().Be("Saturday, September 13, 275760 at 12:00 AM");
     }
 
     [Test]
@@ -1337,9 +1339,10 @@ public class IntlTests
     /// <summary>
     /// <see href="https://tc39.es/ecma402/#sec-date-time-style-format">DateTimeStyleFormat</see> takes the
     /// pattern out of the locale's own data, so a styled date is written in the locale's field order with the
-    /// locale's own literals - not in the American order with hard-coded slashes.
+    /// locale's own literals - not in the American order with hard-coded slashes. The data is CLDR's, whose
+    /// <c>de</c> short date has a two-digit year, as ICU writes it.
     /// </summary>
-    [TestCase("de-DE", "short", "27.08.2026")]
+    [TestCase("de-DE", "short", "27.08.26")]
     [TestCase("de-DE", "long", "27. August 2026")]
     [TestCase("de-DE", "full", "Donnerstag, 27. August 2026")]
     [TestCase("fr-FR", "full", "jeudi 27 août 2026")]
@@ -1361,18 +1364,20 @@ public class IntlTests
 
     /// <summary>
     /// <see href="https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat">AdjustDateTimeStyleFormat</see>
-    /// narrows the pattern a <c>dateStyle</c> resolved to down to the fields the value has, so neither the
+    /// matches the fields of the format a <c>dateStyle</c> resolved to that the value has, so neither the
     /// reference year a <c>Temporal.PlainMonthDay</c> carries nor the reference day a
-    /// <c>Temporal.PlainYearMonth</c> carries is written.
+    /// <c>Temporal.PlainYearMonth</c> carries is written. The format is the one an ICU engine writes for those fields
+    /// as a component bag: <c>de</c> short's two-digit year and month are <c>MM/yy</c>, <c>ja</c> full's numeric year
+    /// and month <c>y/M</c>.
     /// </summary>
     [TestCase("en-US", "full", "August 2026", "August 27")]
     [TestCase("en-US", "long", "August 2026", "August 27")]
     [TestCase("en-US", "medium", "Aug 2026", "Aug 27")]
     [TestCase("en-US", "short", "8/26", "8/27")]
     [TestCase("de-DE", "full", "August 2026", "27. August")]
-    [TestCase("de-DE", "short", "08.2026", "27.08")]
+    [TestCase("de-DE", "short", "08/26", "27.08.")]
     [TestCase("fr-FR", "full", "août 2026", "27 août")]
-    [TestCase("ja-JP", "full", "2026年8月", "8月27日")]
+    [TestCase("ja-JP", "full", "2026/8", "8/27")]
     [TestCase("pt-PT", "full", "agosto de 2026", "27 de agosto")]
     public void ADateStyleWritesOnlyTheFieldsAYearMonthOrAMonthDayHas(
         string locale, string dateStyle, string yearMonth, string monthDay)
@@ -1399,9 +1404,9 @@ public class IntlTests
     }
 
     /// <summary>
-    /// The narrowing takes the fields out of the pattern the style resolved to, so what is left is still the
-    /// locale's own: its field order, its own separators, and the field widths the style itself asked for -
-    /// a two-digit year under <c>"short"</c>, the month written out under <c>"long"</c>.
+    /// The adjusted format is the locale's own pattern for the fields the style kept, so it has the locale's field
+    /// order and separators and the field widths the style itself asked for - a two-digit year under <c>"short"</c>,
+    /// the month written out under <c>"long"</c> - and nothing left over from the fields it dropped.
     /// </summary>
     [Test]
     public void ANarrowedDateStyleKeepsTheLocalesOwnShape()
@@ -1706,10 +1711,14 @@ public class IntlTests
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-formatdatetimepattern step 15.g makes the <c>ampm</c> a pattern writes an
-    /// ILD String, so the two lanes that can write one — <c>timeStyle</c> and <c>hour</c> with
-    /// <c>hour12</c> — have to write the same locale's designators. The <c>timeStyle</c> lane used to write
-    /// two English literals.
+    /// ILD String, and both lanes that can write one — <c>timeStyle</c> and <c>hour</c> with <c>hour12</c> —
+    /// write the locale's own: the <c>timeStyle</c> lane used to write two English literals.
     /// </summary>
+    /// <remarks>
+    /// Both read the same data: CLDR 48.2's format-context am/pm, through the pattern each resolves to, which is what
+    /// ICU writes (sebastienros/jint#4158). It differs from .NET's where .NET's data is older than CLDR's: CLDR 48.2
+    /// writes "PM" for Hebrew and Thai, where the <c>timeStyle</c> lane used to write the culture's designator.
+    /// </remarks>
     [TestCase("en")]
     [TestCase("ar")]
     [TestCase("zh")]
@@ -1719,9 +1728,9 @@ public class IntlTests
     [TestCase("tr")]
     [TestCase("he")]
     [TestCase("th")]
-    public void TheTimeStyleLaneWritesTheSameDayPeriodAsTheComponentLane(string locale)
+    public void BothLanesWriteTheLocalesOwnDayPeriod(string locale)
     {
-        var expected = new CultureInfo(locale, false).DateTimeFormat.PMDesignator;
+        var cldr = Jint.Native.Intl.Data.DateTimePatternData.Shared.GetLocale(locale).GetDayPeriodNames(Jint.Native.Intl.Data.DateTimeNameWidth.Abbreviated)[1];
 
         var script = $$"""
             new Intl.DateTimeFormat('{{locale}}', { timeStyle: 'short', hour12: true, timeZone: 'UTC', numberingSystem: 'latn' })
@@ -1731,7 +1740,7 @@ public class IntlTests
                 .join('');
             """;
 
-        _engine.Evaluate(script).AsString().Should().Be(expected);
+        _engine.Evaluate(script).AsString().Should().Be(cldr);
 
         var componentScript = $$"""
             new Intl.DateTimeFormat('{{locale}}', { hour: 'numeric', hour12: true, timeZone: 'UTC', numberingSystem: 'latn' })
@@ -1741,7 +1750,7 @@ public class IntlTests
                 .join('');
             """;
 
-        _engine.Evaluate(componentScript).AsString().Should().Be(expected);
+        _engine.Evaluate(componentScript).AsString().Should().Be(cldr);
     }
 
     /// <summary>

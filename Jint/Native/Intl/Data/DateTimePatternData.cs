@@ -13,8 +13,10 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Nothing formats with this yet; issue #4158 moves <c>Intl.DateTimeFormat</c> onto it. The resource and its
-/// generator are described in <c>DateTimePatternData.Data.cs</c> and <c>tools/cldr-dates/README.md</c>.
+/// <c>Intl.DateTimeFormat</c> resolves a component bag and a <c>dateStyle</c>/<c>timeStyle</c> against it
+/// (<see cref="DateTimePatternGenerator"/>) and writes its names; its <c>formatRange</c> does not read it yet (issue
+/// #4158). The
+/// resource and its generator are described in <c>DateTimePatternData.Data.cs</c> and <c>tools/cldr-dates/README.md</c>.
 /// </para>
 /// <para>
 /// The records are deflated one block per language, and a block is inflated the first time a locale that needs it
@@ -213,7 +215,7 @@ internal sealed partial class DateTimePatternData
                 Throw.InvalidOperationException("The root's date/time pattern record is incomplete.");
             }
 
-            view = new DateTimePatternLocale(id, record.SlotValues, record.SetFormats);
+            view = new DateTimePatternLocale(id, record.SlotValues, record.SetFormats, parent: null, record.SetFormats);
         }
         else
         {
