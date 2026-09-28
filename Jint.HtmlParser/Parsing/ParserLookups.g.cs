@@ -2454,7 +2454,7 @@ internal static class CssPropertyAliasLookup
 
 internal static class CssPropertyNameLookup
 {
-    internal const int Count = 436;
+    internal const int Count = 437;
 
     internal static int Match(ReadOnlySpan<char> input)
     {
@@ -2467,17 +2467,22 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x00610067U:
                     {
-                        if ((uint) input[2] == 0x0070U) return 186;
+                        if ((uint) input[2] == 0x0070U) return 187;
+                        break;
+                    }
+                    case 0x006C0061U:
+                    {
+                        if ((uint) input[2] == 0x006CU) return 5;
                         break;
                     }
                     case 0x006F0074U:
                     {
-                        if ((uint) input[2] == 0x0070U) return 406;
+                        if ((uint) input[2] == 0x0070U) return 407;
                         break;
                     }
                     case 0x00720073U:
                     {
-                        if ((uint) input[2] == 0x0063U) return 374;
+                        if ((uint) input[2] == 0x0063U) return 375;
                         break;
                     }
                 }
@@ -2490,31 +2495,31 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x0064006900720067UL:
                     {
-                        return 187;
+                        return 188;
                     }
                     case 0x006B00730061006DUL:
                     {
-                        return 249;
+                        return 250;
                     }
                     case 0x006C006C00690066UL:
                     {
-                        return 152;
+                        return 153;
                     }
                     case 0x00700069006C0063UL:
                     {
-                        return 116;
+                        return 117;
                     }
                     case 0x007400660065006CUL:
                     {
-                        return 226;
+                        return 227;
                     }
                     case 0x0074006E006F0066UL:
                     {
-                        return 164;
+                        return 165;
                     }
                     case 0x00780065006C0066UL:
                     {
-                        return 156;
+                        return 157;
                     }
                 }
                 break;
@@ -2526,42 +2531,42 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x00610065006C0063UL:
                     {
-                        if ((uint) input[4] == 0x0072U) return 115;
+                        if ((uint) input[4] == 0x0072U) return 116;
                         break;
                     }
                     case 0x0061006F006C0066UL:
                     {
-                        if ((uint) input[4] == 0x0074U) return 163;
+                        if ((uint) input[4] == 0x0074U) return 164;
                         break;
                     }
                     case 0x006500640072006FUL:
                     {
-                        if ((uint) input[4] == 0x0072U) return 278;
+                        if ((uint) input[4] == 0x0072U) return 279;
                         break;
                     }
                     case 0x00650073006E0069UL:
                     {
-                        if ((uint) input[4] == 0x0074U) return 215;
+                        if ((uint) input[4] == 0x0074U) return 216;
                         break;
                     }
                     case 0x0068006700690072UL:
                     {
-                        if ((uint) input[4] == 0x0074U) return 325;
+                        if ((uint) input[4] == 0x0074U) return 326;
                         break;
                     }
                     case 0x006C006100630073UL:
                     {
-                        if ((uint) input[4] == 0x0065U) return 332;
+                        if ((uint) input[4] == 0x0065U) return 333;
                         break;
                     }
                     case 0x006F006C006F0063UL:
                     {
-                        if ((uint) input[4] == 0x0072U) return 119;
+                        if ((uint) input[4] == 0x0072U) return 120;
                         break;
                     }
                     case 0x0074006400690077UL:
                     {
-                        if ((uint) input[4] == 0x0068U) return 429;
+                        if ((uint) input[4] == 0x0068U) return 430;
                         break;
                     }
                 }
@@ -2574,57 +2579,57 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x00610074006F0072UL:
                     {
-                        if (Read2(input, 4) == 0x00650074U) return 326;
+                        if (Read2(input, 4) == 0x00650074U) return 327;
                         break;
                     }
                     case 0x00640072006F0062UL:
                     {
-                        if (Read2(input, 4) == 0x00720065U) return 45;
+                        if (Read2(input, 4) == 0x00720065U) return 46;
                         break;
                     }
                     case 0x0067006900650068UL:
                     {
-                        if (Read2(input, 4) == 0x00740068U) return 206;
+                        if (Read2(input, 4) == 0x00740068U) return 207;
                         break;
                     }
                     case 0x006700720061006DUL:
                     {
-                        if (Read2(input, 4) == 0x006E0069U) return 235;
+                        if (Read2(input, 4) == 0x006E0069U) return 236;
                         break;
                     }
                     case 0x0069007300650072UL:
                     {
-                        if (Read2(input, 4) == 0x0065007AU) return 324;
+                        if (Read2(input, 4) == 0x0065007AU) return 325;
                         break;
                     }
                     case 0x006F006400690077UL:
                     {
-                        if (Read2(input, 4) == 0x00730077U) return 428;
+                        if (Read2(input, 4) == 0x00730077U) return 429;
                         break;
                     }
                     case 0x006F007200740073UL:
                     {
-                        if (Read2(input, 4) == 0x0065006BU) return 376;
+                        if (Read2(input, 4) == 0x0065006BU) return 377;
                         break;
                     }
                     case 0x0073007200750063UL:
                     {
-                        if (Read2(input, 4) == 0x0072006FU) return 146;
+                        if (Read2(input, 4) == 0x0072006FU) return 147;
                         break;
                     }
                     case 0x0074006C00690066UL:
                     {
-                        if (Read2(input, 4) == 0x00720065U) return 155;
+                        if (Read2(input, 4) == 0x00720065U) return 156;
                         break;
                     }
                     case 0x0074006F00750071UL:
                     {
-                        if (Read2(input, 4) == 0x00730065U) return 323;
+                        if (Read2(input, 4) == 0x00730065U) return 324;
                         break;
                     }
                     case 0x00740074006F0062UL:
                     {
-                        if (Read2(input, 4) == 0x006D006FU) return 106;
+                        if (Read2(input, 4) == 0x006D006FU) return 107;
                         break;
                     }
                 }
@@ -2637,62 +2642,62 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x0061006800700072UL:
                     {
-                        if ((uint) input[0] == 0x006FU && Read2(input, 5) == 0x0073006EU) return 279;
+                        if ((uint) input[0] == 0x006FU && Read2(input, 5) == 0x0073006EU) return 280;
                         break;
                     }
                     case 0x00610074006E006FUL:
                     {
-                        if ((uint) input[0] == 0x0063U && Read2(input, 5) == 0x006E0069U) return 132;
+                        if ((uint) input[0] == 0x0063U && Read2(input, 5) == 0x006E0069U) return 133;
                         break;
                     }
                     case 0x0064006E0069002DUL:
                     {
-                        if ((uint) input[0] == 0x007AU && Read2(input, 5) == 0x00780065U) return 435;
+                        if ((uint) input[0] == 0x007AU && Read2(input, 5) == 0x00780065U) return 436;
                         break;
                     }
                     case 0x0065006800700079UL:
                     {
-                        if ((uint) input[0] == 0x0068U && Read2(input, 5) == 0x0073006EU) return 209;
+                        if ((uint) input[0] == 0x0068U && Read2(input, 5) == 0x0073006EU) return 210;
                         break;
                     }
                     case 0x00650074006E006FUL:
                     {
-                        if ((uint) input[0] == 0x0063U && Read2(input, 5) == 0x0074006EU) return 141;
+                        if ((uint) input[0] == 0x0063U && Read2(input, 5) == 0x0074006EU) return 142;
                         break;
                     }
                     case 0x0067002D0077006FUL:
                     {
-                        if ((uint) input[0] == 0x0072U && Read2(input, 5) == 0x00700061U) return 327;
+                        if ((uint) input[0] == 0x0072U && Read2(input, 5) == 0x00700061U) return 328;
                         break;
                     }
                     case 0x0069006300610070UL:
                     {
-                        if ((uint) input[0] == 0x006FU && Read2(input, 5) == 0x00790074U) return 277;
+                        if ((uint) input[0] == 0x006FU && Read2(input, 5) == 0x00790074U) return 278;
                         break;
                     }
                     case 0x0069006400640061UL:
                     {
-                        if ((uint) input[0] == 0x0070U && Read2(input, 5) == 0x0067006EU) return 296;
+                        if ((uint) input[0] == 0x0070U && Read2(input, 5) == 0x0067006EU) return 297;
                         break;
                     }
                     case 0x0069006C00740075UL:
                     {
-                        if ((uint) input[0] == 0x006FU && Read2(input, 5) == 0x0065006EU) return 280;
+                        if ((uint) input[0] == 0x006FU && Read2(input, 5) == 0x0065006EU) return 281;
                         break;
                     }
                     case 0x0069006E006E0075UL:
                     {
-                        if ((uint) input[0] == 0x0072U && Read2(input, 5) == 0x0067006EU) return 331;
+                        if ((uint) input[0] == 0x0072U && Read2(input, 5) == 0x0067006EU) return 332;
                         break;
                     }
                     case 0x006C007000730069UL:
                     {
-                        if ((uint) input[0] == 0x0064U && Read2(input, 5) == 0x00790061U) return 149;
+                        if ((uint) input[0] == 0x0064U && Read2(input, 5) == 0x00790061U) return 150;
                         break;
                     }
                     case 0x006D0075006C006FUL:
                     {
-                        if ((uint) input[0] == 0x0063U && Read2(input, 5) == 0x0073006EU) return 131;
+                        if ((uint) input[0] == 0x0063U && Read2(input, 5) == 0x0073006EU) return 132;
                         break;
                     }
                 }
@@ -2705,27 +2710,27 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x0065007A00690073UL:
                     {
-                        if (Read4(input, 0) == 0x002D006200610074UL) return 384;
+                        if (Read4(input, 0) == 0x002D006200610074UL) return 385;
                         break;
                     }
                     case 0x006E006F00690074UL:
                     {
-                        if (Read4(input, 0) == 0x00690073006F0070UL) return 316;
+                        if (Read4(input, 0) == 0x00690073006F0070UL) return 317;
                         break;
                     }
                     case 0x007000610067002DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL) return 196;
+                        if (Read4(input, 0) == 0x0064006900720067UL) return 197;
                         break;
                     }
                     case 0x0077006F006C0066UL:
                     {
-                        if (Read4(input, 0) == 0x007200650076006FUL) return 285;
+                        if (Read4(input, 0) == 0x007200650076006FUL) return 286;
                         break;
                     }
                     case 0x0077006F0072002DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL) return 197;
+                        if (Read4(input, 0) == 0x0064006900720067UL) return 198;
                         break;
                     }
                 }
@@ -2738,112 +2743,112 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x0061002D00640069UL:
                     {
-                        if (Read2(input, 0) == 0x00720067U && Read2(input, 6) == 0x00650072U && (uint) input[8] == 0x0061U) return 188;
+                        if (Read2(input, 0) == 0x00720067U && Read2(input, 6) == 0x00650072U && (uint) input[8] == 0x0061U) return 189;
                         break;
                     }
                     case 0x0063002D006B0073UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x0069006CU && (uint) input[8] == 0x0070U) return 257;
+                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x0069006CU && (uint) input[8] == 0x0070U) return 258;
                         break;
                     }
                     case 0x0066002D00780065UL:
                     {
-                        if (Read2(input, 0) == 0x006C0066U && Read2(input, 6) == 0x006F006CU && (uint) input[8] == 0x0077U) return 159;
+                        if (Read2(input, 0) == 0x006C0066U && Read2(input, 6) == 0x006F006CU && (uint) input[8] == 0x0077U) return 160;
                         break;
                     }
                     case 0x00660073006E0061UL:
                     {
-                        if (Read2(input, 0) == 0x00720074U && Read2(input, 6) == 0x0072006FU && (uint) input[8] == 0x006DU) return 408;
+                        if (Read2(input, 0) == 0x00720074U && Read2(input, 6) == 0x0072006FU && (uint) input[8] == 0x006DU) return 409;
                         break;
                     }
                     case 0x0067002D00780065UL:
                     {
-                        if (Read2(input, 0) == 0x006C0066U && Read2(input, 6) == 0x006F0072U && (uint) input[8] == 0x0077U) return 160;
+                        if (Read2(input, 0) == 0x006C0066U && Read2(input, 6) == 0x006F0072U && (uint) input[8] == 0x0077U) return 161;
                         break;
                     }
                     case 0x006900610074006EUL:
                     {
-                        if (Read2(input, 0) == 0x006F0063U && Read2(input, 6) == 0x0065006EU && (uint) input[8] == 0x0072U) return 138;
+                        if (Read2(input, 0) == 0x006F0063U && Read2(input, 6) == 0x0065006EU && (uint) input[8] == 0x0072U) return 139;
                         break;
                     }
                     case 0x00690077002D006EUL:
                     {
-                        if (Read2(input, 0) == 0x0069006DU && Read2(input, 6) == 0x00740064U && (uint) input[8] == 0x0068U) return 273;
+                        if (Read2(input, 0) == 0x0069006DU && Read2(input, 6) == 0x00740064U && (uint) input[8] == 0x0068U) return 274;
                         break;
                     }
                     case 0x00690077002D0078UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x00740064U && (uint) input[8] == 0x0068U) return 269;
+                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x00740064U && (uint) input[8] == 0x0068U) return 270;
                         break;
                     }
                     case 0x006C0073006E0061UL:
                     {
-                        if (Read2(input, 0) == 0x00720074U && Read2(input, 6) == 0x00740061U && (uint) input[8] == 0x0065U) return 417;
+                        if (Read2(input, 0) == 0x00720074U && Read2(input, 6) == 0x00740061U && (uint) input[8] == 0x0065U) return 418;
                         break;
                     }
                     case 0x006D002D006B0073UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x0064006FU && (uint) input[8] == 0x0065U) return 260;
+                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x0064006FU && (uint) input[8] == 0x0065U) return 261;
                         break;
                     }
                     case 0x0070002D00700069UL:
                     {
-                        if (Read2(input, 0) == 0x006C0063U && Read2(input, 6) == 0x00740061U && (uint) input[8] == 0x0068U) return 117;
+                        if (Read2(input, 0) == 0x006C0063U && Read2(input, 6) == 0x00740061U && (uint) input[8] == 0x0068U) return 118;
                         break;
                     }
                     case 0x0072002D006C006CUL:
                     {
-                        if (Read2(input, 0) == 0x00690066U && Read2(input, 6) == 0x006C0075U && (uint) input[8] == 0x0065U) return 154;
+                        if (Read2(input, 0) == 0x00690066U && Read2(input, 6) == 0x006C0075U && (uint) input[8] == 0x0065U) return 155;
                         break;
                     }
                     case 0x0072002D00700069UL:
                     {
-                        if (Read2(input, 0) == 0x006C0063U && Read2(input, 6) == 0x006C0075U && (uint) input[8] == 0x0065U) return 118;
+                        if (Read2(input, 0) == 0x006C0063U && Read2(input, 6) == 0x006C0075U && (uint) input[8] == 0x0065U) return 119;
                         break;
                     }
                     case 0x0073002D006B0073UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x007A0069U && (uint) input[8] == 0x0065U) return 264;
+                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x007A0069U && (uint) input[8] == 0x0065U) return 265;
                         break;
                     }
                     case 0x0073002D0074006EUL:
                     {
-                        if (Read2(input, 0) == 0x006F0066U && Read2(input, 6) == 0x007A0069U && (uint) input[8] == 0x0065U) return 172;
+                        if (Read2(input, 0) == 0x006F0066U && Read2(input, 6) == 0x007A0069U && (uint) input[8] == 0x0065U) return 173;
                         break;
                     }
                     case 0x0074002D006B0073UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x00700079U && (uint) input[8] == 0x0065U) return 265;
+                        if (Read2(input, 0) == 0x0061006DU && Read2(input, 6) == 0x00700079U && (uint) input[8] == 0x0065U) return 266;
                         break;
                     }
                     case 0x00740061006C006FUL:
                     {
-                        if (Read2(input, 0) == 0x00730069U && Read2(input, 6) == 0x006F0069U && (uint) input[8] == 0x006EU) return 222;
+                        if (Read2(input, 0) == 0x00730069U && Read2(input, 6) == 0x006F0069U && (uint) input[8] == 0x006EU) return 223;
                         break;
                     }
                     case 0x00740061006D0069UL:
                     {
-                        if (Read2(input, 0) == 0x006E0061U && Read2(input, 6) == 0x006F0069U && (uint) input[8] == 0x006EU) return 7;
+                        if (Read2(input, 0) == 0x006E0061U && Read2(input, 6) == 0x006F0069U && (uint) input[8] == 0x006EU) return 8;
                         break;
                     }
                     case 0x0074006300650072UL:
                     {
-                        if (Read2(input, 0) == 0x00690064U && Read2(input, 6) == 0x006F0069U && (uint) input[8] == 0x006EU) return 148;
+                        if (Read2(input, 0) == 0x00690064U && Read2(input, 6) == 0x006F0069U && (uint) input[8] == 0x006EU) return 149;
                         break;
                     }
                     case 0x0077002D00640072UL:
                     {
-                        if (Read2(input, 0) == 0x006F0077U && Read2(input, 6) == 0x00610072U && (uint) input[8] == 0x0070U) return 433;
+                        if (Read2(input, 0) == 0x006F0077U && Read2(input, 6) == 0x00610072U && (uint) input[8] == 0x0070U) return 434;
                         break;
                     }
                     case 0x0077002D00740078UL:
                     {
-                        if (Read2(input, 0) == 0x00650074U && Read2(input, 6) == 0x00610072U && (uint) input[8] == 0x0070U) return 403;
+                        if (Read2(input, 0) == 0x00650074U && Read2(input, 6) == 0x00610072U && (uint) input[8] == 0x0070U) return 404;
                         break;
                     }
                     case 0x0077002D00780065UL:
                     {
-                        if (Read2(input, 0) == 0x006C0066U && Read2(input, 6) == 0x00610072U && (uint) input[8] == 0x0070U) return 162;
+                        if (Read2(input, 0) == 0x006C0066U && Read2(input, 6) == 0x00610072U && (uint) input[8] == 0x0070U) return 163;
                         break;
                     }
                 }
@@ -2856,12 +2861,12 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006500630061UL:
                     {
-                        if (Read2(input, 0) == 0x006C0070U && Read4(input, 6) == 0x0066006C00650073UL) return 314;
+                        if (Read2(input, 0) == 0x006C0070U && Read4(input, 6) == 0x0066006C00650073UL) return 315;
                         break;
                     }
                     case 0x002D006B0063006FUL:
                     {
-                        if (Read2(input, 0) == 0x006C0062U && Read4(input, 6) == 0x0065007A00690073UL) return 41;
+                        if (Read2(input, 0) == 0x006C0062U && Read4(input, 6) == 0x0065007A00690073UL) return 42;
                         break;
                     }
                     case 0x002D006E00670069UL:
@@ -2871,67 +2876,67 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0061002D00740078UL:
                     {
-                        if (Read2(input, 0) == 0x00650074U && Read4(input, 6) == 0x006E00670069006CUL) return 386;
+                        if (Read2(input, 0) == 0x00650074U && Read4(input, 6) == 0x006E00670069006CUL) return 387;
                         break;
                     }
                     case 0x0061002D00790062UL:
                     {
-                        if (Read2(input, 0) == 0x00750072U && Read4(input, 6) == 0x006E00670069006CUL) return 328;
+                        if (Read2(input, 0) == 0x00750072U && Read4(input, 6) == 0x006E00670069006CUL) return 329;
                         break;
                     }
                     case 0x0062002D00640072UL:
                     {
-                        if (Read2(input, 0) == 0x006F0077U && Read4(input, 6) == 0x006B006100650072UL) return 431;
+                        if (Read2(input, 0) == 0x006F0077U && Read4(input, 6) == 0x006B006100650072UL) return 432;
                         break;
                     }
                     case 0x0062002D0065006EUL:
                     {
-                        if (Read2(input, 0) == 0x0069006CU && Read4(input, 6) == 0x006B006100650072UL) return 228;
+                        if (Read2(input, 0) == 0x0069006CU && Read4(input, 6) == 0x006B006100650072UL) return 229;
                         break;
                     }
                     case 0x0062002D00780065UL:
                     {
-                        if (Read2(input, 0) == 0x006C0066U && Read4(input, 6) == 0x0073006900730061UL) return 157;
+                        if (Read2(input, 0) == 0x006C0066U && Read4(input, 6) == 0x0073006900730061UL) return 158;
                         break;
                     }
                     case 0x00650068002D006EUL:
                     {
-                        if (Read2(input, 0) == 0x0069006DU && Read4(input, 6) == 0x0074006800670069UL) return 271;
+                        if (Read2(input, 0) == 0x0069006DU && Read4(input, 6) == 0x0074006800670069UL) return 272;
                         break;
                     }
                     case 0x00650068002D0078UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read4(input, 6) == 0x0074006800670069UL) return 267;
+                        if (Read2(input, 0) == 0x0061006DU && Read4(input, 6) == 0x0074006800670069UL) return 268;
                         break;
                     }
                     case 0x0067006E00690072UL:
                     {
-                        if (Read2(input, 0) == 0x00740073U && Read4(input, 6) == 0x007400650073002DUL) return 375;
+                        if (Read2(input, 0) == 0x00740073U && Read4(input, 6) == 0x007400650073002DUL) return 376;
                         break;
                     }
                     case 0x00680073002D0078UL:
                     {
-                        if (Read2(input, 0) == 0x006F0062U && Read4(input, 6) == 0x0077006F00640061UL) return 108;
+                        if (Read2(input, 0) == 0x006F0062U && Read4(input, 6) == 0x0077006F00640061UL) return 109;
                         break;
                     }
                     case 0x0069002D006B0073UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read4(input, 6) == 0x006500670061006DUL) return 259;
+                        if (Read2(input, 0) == 0x0061006DU && Read4(input, 6) == 0x006500670061006DUL) return 260;
                         break;
                     }
                     case 0x0069006200690073UL:
                     {
-                        if (Read2(input, 0) == 0x00690076U && Read4(input, 6) == 0x007900740069006CUL) return 424;
+                        if (Read2(input, 0) == 0x00690076U && Read4(input, 6) == 0x007900740069006CUL) return 425;
                         break;
                     }
                     case 0x00690073002D0078UL:
                     {
-                        if (Read2(input, 0) == 0x006F0062U && Read4(input, 6) == 0x0067006E0069007AUL) return 109;
+                        if (Read2(input, 0) == 0x006F0062U && Read4(input, 6) == 0x0067006E0069007AUL) return 110;
                         break;
                     }
                     case 0x00690073006E0061UL:
                     {
-                        if (Read2(input, 0) == 0x00720074U && Read4(input, 6) == 0x006E006F00690074UL) return 412;
+                        if (Read2(input, 0) == 0x00720074U && Read4(input, 6) == 0x006E006F00690074UL) return 413;
                         break;
                     }
                     case 0x006C006600720065UL:
@@ -2941,12 +2946,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x0078002D0077006FUL:
                             {
-                                if (Read2(input, 0) == 0x0076006FU) return 289;
+                                if (Read2(input, 0) == 0x0076006FU) return 290;
                                 break;
                             }
                             case 0x0079002D0077006FUL:
                             {
-                                if (Read2(input, 0) == 0x0076006FU) return 290;
+                                if (Read2(input, 0) == 0x0076006FU) return 291;
                                 break;
                             }
                         }
@@ -2954,22 +2959,22 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x006E006900670072UL:
                     {
-                        if (Read2(input, 0) == 0x0061006DU && Read4(input, 6) == 0x0070006F0074002DUL) return 245;
+                        if (Read2(input, 0) == 0x0061006DU && Read4(input, 6) == 0x0070006F0074002DUL) return 246;
                         break;
                     }
                     case 0x006E006D0075006CUL:
                     {
-                        if (Read2(input, 0) == 0x006F0063U && Read4(input, 6) == 0x007000610067002DUL) return 124;
+                        if (Read2(input, 0) == 0x006F0063U && Read4(input, 6) == 0x007000610067002DUL) return 125;
                         break;
                     }
                     case 0x0072006100650070UL:
                     {
-                        if (Read2(input, 0) == 0x00700061U && Read4(input, 6) == 0x00650063006E0061UL) return 21;
+                        if (Read2(input, 0) == 0x00700061U && Read4(input, 6) == 0x00650063006E0061UL) return 22;
                         break;
                     }
                     case 0x0072006500640072UL:
                     {
-                        if (Read2(input, 0) == 0x006F0062U && Read4(input, 6) == 0x0070006F0074002DUL) return 99;
+                        if (Read2(input, 0) == 0x006F0062U && Read4(input, 6) == 0x0070006F0074002DUL) return 100;
                         break;
                     }
                     case 0x00720065006B0072UL:
@@ -2979,12 +2984,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00640069006D002DUL:
                             {
-                                if (Read2(input, 0) == 0x0061006DU) return 247;
+                                if (Read2(input, 0) == 0x0061006DU) return 248;
                                 break;
                             }
                             case 0x0064006E0065002DUL:
                             {
-                                if (Read2(input, 0) == 0x0061006DU) return 246;
+                                if (Read2(input, 0) == 0x0061006DU) return 247;
                                 break;
                             }
                         }
@@ -2992,22 +2997,22 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x00720067006B0063UL:
                     {
-                        if (Read2(input, 0) == 0x00610062U && Read4(input, 6) == 0x0064006E0075006FUL) return 26;
+                        if (Read2(input, 0) == 0x00610062U && Read4(input, 6) == 0x0064006E0075006FUL) return 27;
                         break;
                     }
                     case 0x0073002D0074006EUL:
                     {
-                        if (Read2(input, 0) == 0x006F0066U && Read4(input, 6) == 0x0065006C00790074UL) return 175;
+                        if (Read2(input, 0) == 0x006F0066U && Read4(input, 6) == 0x0065006C00790074UL) return 176;
                         break;
                     }
                     case 0x0073002D00740073UL:
                     {
-                        if (Read2(input, 0) == 0x0069006CU && Read4(input, 6) == 0x0065006C00790074UL) return 231;
+                        if (Read2(input, 0) == 0x0069006CU && Read4(input, 6) == 0x0065006C00790074UL) return 232;
                         break;
                     }
                     case 0x007400630065006AUL:
                     {
-                        if (Read2(input, 0) == 0x0062006FU && Read4(input, 6) == 0x007400690066002DUL) return 275;
+                        if (Read2(input, 0) == 0x0062006FU && Read4(input, 6) == 0x007400690066002DUL) return 276;
                         break;
                     }
                 }
@@ -3020,152 +3025,152 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D0067006E0069UL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read2(input, 8) == 0x006F0074U && (uint) input[10] == 0x0070U) return 306;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read2(input, 8) == 0x006F0074U && (uint) input[10] == 0x0070U) return 307;
                         break;
                     }
                     case 0x002D007200650074UL:
                     {
-                        if (Read4(input, 0) == 0x006E0075006F0063UL && Read2(input, 8) == 0x00650073U && (uint) input[10] == 0x0074U) return 145;
+                        if (Read4(input, 0) == 0x006E0075006F0063UL && Read2(input, 8) == 0x00650073U && (uint) input[10] == 0x0074U) return 146;
                         break;
                     }
                     case 0x006100680063002DUL:
                     {
-                        if (Read4(input, 0) == 0x006C006C00690077UL && Read2(input, 8) == 0x0067006EU && (uint) input[10] == 0x0065U) return 430;
+                        if (Read4(input, 0) == 0x006C006C00690077UL && Read2(input, 8) == 0x0067006EU && (uint) input[10] == 0x0065U) return 431;
                         break;
                     }
                     case 0x006100680073002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 8) == 0x006F0064U && (uint) input[10] == 0x0077U) return 399;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 8) == 0x006F0064U && (uint) input[10] == 0x0077U) return 400;
                         break;
                     }
                     case 0x0063006E0061002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 8) == 0x006F0068U && (uint) input[10] == 0x0072U) return 389;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 8) == 0x006F0068U && (uint) input[10] == 0x0072U) return 390;
                         break;
                     }
                     case 0x0064006E0069002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 8) == 0x006E0065U && (uint) input[10] == 0x0074U) return 396;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 8) == 0x006E0065U && (uint) input[10] == 0x0074U) return 397;
                         break;
                     }
                     case 0x00650063002D0079UL:
                     {
-                        if (Read4(input, 0) == 0x00740070006D0065UL && Read2(input, 8) == 0x006C006CU && (uint) input[10] == 0x0073U) return 151;
+                        if (Read4(input, 0) == 0x00740070006D0065UL && Read2(input, 8) == 0x006C006CU && (uint) input[10] == 0x0073U) return 152;
                         break;
                     }
                     case 0x0066002D006E006DUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read2(input, 8) == 0x006C0069U && (uint) input[10] == 0x006CU) return 123;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read2(input, 8) == 0x006C0069U && (uint) input[10] == 0x006CU) return 124;
                         break;
                     }
                     case 0x00660061002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x0061006500720062UL && Read2(input, 8) == 0x00650074U && (uint) input[10] == 0x0072U) return 110;
+                        if (Read4(input, 0) == 0x0061006500720062UL && Read2(input, 8) == 0x00650074U && (uint) input[10] == 0x0072U) return 111;
                         break;
                     }
                     case 0x006900650068002DUL:
                     {
-                        if (Read4(input, 0) == 0x0065006E0069006CUL && Read2(input, 8) == 0x00680067U && (uint) input[10] == 0x0074U) return 230;
+                        if (Read4(input, 0) == 0x0065006E0069006CUL && Read2(input, 8) == 0x00680067U && (uint) input[10] == 0x0074U) return 231;
                         break;
                     }
                     case 0x006900650077002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read2(input, 8) == 0x00680067U && (uint) input[10] == 0x0074U) return 182;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read2(input, 8) == 0x00680067U && (uint) input[10] == 0x0074U) return 183;
                         break;
                     }
                     case 0x00690072006F002DUL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 8) == 0x00690067U && (uint) input[10] == 0x006EU) return 261;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 8) == 0x00690067U && (uint) input[10] == 0x006EU) return 262;
                         break;
                     }
                     case 0x006A00640061002DUL:
                     {
-                        if (Read4(input, 0) == 0x0065007A00690073UL && Read2(input, 8) == 0x00730075U && (uint) input[10] == 0x0074U) return 373;
+                        if (Read4(input, 0) == 0x0065007A00690073UL && Read2(input, 8) == 0x00730075U && (uint) input[10] == 0x0074U) return 374;
                         break;
                     }
                     case 0x006C002D006E0069UL:
                     {
-                        if (Read4(input, 0) == 0x006700720061006DUL && Read2(input, 8) == 0x00660065U && (uint) input[10] == 0x0074U) return 243;
+                        if (Read4(input, 0) == 0x006700720061006DUL && Read2(input, 8) == 0x00660065U && (uint) input[10] == 0x0074U) return 244;
                         break;
                     }
                     case 0x006C002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read2(input, 8) == 0x00660065U && (uint) input[10] == 0x0074U) return 86;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read2(input, 8) == 0x00660065U && (uint) input[10] == 0x0074U) return 87;
                         break;
                     }
                     case 0x006C0062002D0074UL:
                     {
-                        if (Read4(input, 0) == 0x00650073006E0069UL && Read2(input, 8) == 0x0063006FU && (uint) input[10] == 0x006BU) return 216;
+                        if (Read4(input, 0) == 0x00650073006E0069UL && Read2(input, 8) == 0x0063006FU && (uint) input[10] == 0x006BU) return 217;
                         break;
                     }
                     case 0x006C00650073002DUL:
                     {
-                        if (Read4(input, 0) == 0x0072006500730075UL && Read2(input, 8) == 0x00630065U && (uint) input[10] == 0x0074U) return 420;
+                        if (Read4(input, 0) == 0x0072006500730075UL && Read2(input, 8) == 0x00630065U && (uint) input[10] == 0x0074U) return 421;
                         break;
                     }
                     case 0x006C006F0063002DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 8) == 0x006D0075U && (uint) input[10] == 0x006EU) return 192;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 8) == 0x006D0075U && (uint) input[10] == 0x006EU) return 193;
                         break;
                     }
                     case 0x006D00610066002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read2(input, 8) == 0x006C0069U && (uint) input[10] == 0x0079U) return 166;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read2(input, 8) == 0x006C0069U && (uint) input[10] == 0x0079U) return 167;
                         break;
                     }
                     case 0x006E002D0072006FUL:
                     {
-                        if (Read4(input, 0) == 0x00680063006E0061UL && Read2(input, 8) == 0x006D0061U && (uint) input[10] == 0x0065U) return 5;
+                        if (Read4(input, 0) == 0x00680063006E0061UL && Read2(input, 8) == 0x006D0061U && (uint) input[10] == 0x0065U) return 6;
                         break;
                     }
                     case 0x006F0063002D0074UL:
                     {
-                        if (Read4(input, 0) == 0x0065007200610063UL && Read2(input, 8) == 0x006F006CU && (uint) input[10] == 0x0072U) return 114;
+                        if (Read4(input, 0) == 0x0065007200610063UL && Read2(input, 8) == 0x006F006CU && (uint) input[10] == 0x0072U) return 115;
                         break;
                     }
                     case 0x007000650072002DUL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 8) == 0x00610065U && (uint) input[10] == 0x0074U) return 263;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 8) == 0x00610065U && (uint) input[10] == 0x0074U) return 264;
                         break;
                     }
                     case 0x00700073002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x0074006900680077UL && Read2(input, 8) == 0x00630061U && (uint) input[10] == 0x0065U) return 425;
+                        if (Read4(input, 0) == 0x0074006900680077UL && Read2(input, 8) == 0x00630061U && (uint) input[10] == 0x0065U) return 426;
                         break;
                     }
                     case 0x0072002D006E006DUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read2(input, 8) == 0x006C0075U && (uint) input[10] == 0x0065U) return 125;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read2(input, 8) == 0x006C0075U && (uint) input[10] == 0x0065U) return 126;
                         break;
                     }
                     case 0x007200680073002DUL:
                     {
-                        if (Read4(input, 0) == 0x00780065006C0066UL && Read2(input, 8) == 0x006E0069U && (uint) input[10] == 0x006BU) return 161;
+                        if (Read4(input, 0) == 0x00780065006C0066UL && Read2(input, 8) == 0x006E0069U && (uint) input[10] == 0x006BU) return 162;
                         break;
                     }
                     case 0x0072006F0062002DUL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 8) == 0x00650064U && (uint) input[10] == 0x0072U) return 250;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 8) == 0x00650064U && (uint) input[10] == 0x0072U) return 251;
                         break;
                     }
                     case 0x0073002D0065006EUL:
                     {
-                        if (Read4(input, 0) == 0x0069006C006E0069UL && Read2(input, 8) == 0x007A0069U && (uint) input[10] == 0x0065U) return 214;
+                        if (Read4(input, 0) == 0x0069006C006E0069UL && Read2(input, 8) == 0x007A0069U && (uint) input[10] == 0x0065U) return 215;
                         break;
                     }
                     case 0x0073002D006E006DUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read2(input, 8) == 0x00610070U && (uint) input[10] == 0x006EU) return 129;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read2(input, 8) == 0x00610070U && (uint) input[10] == 0x006EU) return 130;
                         break;
                     }
                     case 0x0074006300650070UL:
                     {
-                        if (Read4(input, 0) == 0x0073007200650070UL && Read2(input, 8) == 0x00760069U && (uint) input[10] == 0x0065U) return 310;
+                        if (Read4(input, 0) == 0x0073007200650070UL && Read2(input, 8) == 0x00760069U && (uint) input[10] == 0x0065U) return 311;
                         break;
                     }
                     case 0x00740069002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x00630061006C0070UL && Read2(input, 8) == 0x006D0065U && (uint) input[10] == 0x0073U) return 313;
+                        if (Read4(input, 0) == 0x00630061006C0070UL && Read2(input, 8) == 0x006D0065U && (uint) input[10] == 0x0073U) return 314;
                         break;
                     }
                     case 0x00740069002D006EUL:
@@ -3186,132 +3191,132 @@ internal static class CssPropertyNameLookup
                         var chunk12 = Read4(input, 8);
                         if ((chunk12 & 0xFFFFFFFFFFFF0000UL) == 0x0064006E00650000UL)
                         {
-                            if (Read4(input, 0) == 0x0064006900720067UL && (uint) input[4] == 0x002DU) return 198;
+                            if (Read4(input, 0) == 0x0064006900720067UL && (uint) input[4] == 0x002DU) return 199;
                         }
                         else if ((chunk12 & 0xFFFFFFFFFFFF0000UL) == 0x0070006100670000UL)
                         {
-                            if (Read4(input, 0) == 0x0064006900720067UL && (uint) input[4] == 0x002DU) return 199;
+                            if (Read4(input, 0) == 0x0064006900720067UL && (uint) input[4] == 0x002DU) return 200;
                         }
                         break;
                     }
                     case 0x00610072002D0074UL:
                     {
-                        if (Read4(input, 0) == 0x0065007000730061UL && (uint) input[4] == 0x0063U && Read2(input, 9) == 0x00690074U && (uint) input[11] == 0x006FU) return 23;
+                        if (Read4(input, 0) == 0x0065007000730061UL && (uint) input[4] == 0x0063U && Read2(input, 9) == 0x00690074U && (uint) input[11] == 0x006FU) return 24;
                         break;
                     }
                     case 0x0062002D00650064UL:
                     {
-                        if (Read4(input, 0) == 0x00630069006E0075UL && (uint) input[4] == 0x006FU && Read2(input, 9) == 0x00640069U && (uint) input[11] == 0x0069U) return 418;
+                        if (Read4(input, 0) == 0x00630069006E0075UL && (uint) input[4] == 0x006FU && Read2(input, 9) == 0x00640069U && (uint) input[11] == 0x0069U) return 419;
                         break;
                     }
                     case 0x006300610070006FUL:
                     {
-                        if (Read4(input, 0) == 0x006C006C00690066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00740069U && (uint) input[11] == 0x0079U) return 153;
+                        if (Read4(input, 0) == 0x006C006C00690066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00740069U && (uint) input[11] == 0x0079U) return 154;
                         break;
                     }
                     case 0x0063006100700073UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0077UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x006E0069U && (uint) input[11] == 0x0067U) return 432;
+                        if (Read4(input, 0) == 0x00640072006F0077UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x006E0069U && (uint) input[11] == 0x0067U) return 433;
                         break;
                     }
                     case 0x00630073002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00680063006E0061UL && (uint) input[4] == 0x006FU && Read2(input, 9) == 0x0070006FU && (uint) input[11] == 0x0065U) return 6;
+                        if (Read4(input, 0) == 0x00680063006E0061UL && (uint) input[4] == 0x006FU && Read2(input, 9) == 0x0070006FU && (uint) input[11] == 0x0065U) return 7;
                         break;
                     }
                     case 0x0065006C00610070UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00740074U && (uint) input[11] == 0x0065U) return 171;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00740074U && (uint) input[11] == 0x0065U) return 172;
                         break;
                     }
                     case 0x0065007200740073UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00630074U && (uint) input[11] == 0x0068U) return 174;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00630074U && (uint) input[11] == 0x0068U) return 175;
                         break;
                     }
                     case 0x006600650062002DUL:
                     {
-                        if (Read4(input, 0) == 0x0061006500720062UL && (uint) input[4] == 0x006BU && Read2(input, 9) == 0x0072006FU && (uint) input[11] == 0x0065U) return 111;
+                        if (Read4(input, 0) == 0x0061006500720062UL && (uint) input[4] == 0x006BU && Read2(input, 9) == 0x0072006FU && (uint) input[11] == 0x0065U) return 112;
                         break;
                     }
                     case 0x006800630073002DUL:
                     {
-                        if (Read4(input, 0) == 0x006F006C006F0063UL && (uint) input[4] == 0x0072U && Read2(input, 9) == 0x006D0065U && (uint) input[11] == 0x0065U) return 121;
+                        if (Read4(input, 0) == 0x006F006C006F0063UL && (uint) input[4] == 0x0072U && Read2(input, 9) == 0x006D0065U && (uint) input[11] == 0x0065U) return 122;
                         break;
                     }
                     case 0x00690072002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x00680067U && (uint) input[11] == 0x0074U) return 244;
+                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x00680067U && (uint) input[11] == 0x0074U) return 245;
                         break;
                     }
                     case 0x00690072002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00680067U && (uint) input[11] == 0x0074U) return 91;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00680067U && (uint) input[11] == 0x0074U) return 92;
                         break;
                     }
                     case 0x0069007200610076UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x006E0061U && (uint) input[11] == 0x0074U) return 180;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x006E0061U && (uint) input[11] == 0x0074U) return 181;
                         break;
                     }
                     case 0x00690077002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && (uint) input[4] == 0x006BU && Read2(input, 9) == 0x00740064U && (uint) input[11] == 0x0068U) return 383;
+                        if (Read4(input, 0) == 0x006F007200740073UL && (uint) input[4] == 0x006BU && Read2(input, 9) == 0x00740064U && (uint) input[11] == 0x0068U) return 384;
                         break;
                     }
                     case 0x00690077002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && (uint) input[4] == 0x006DU && Read2(input, 9) == 0x00740064U && (uint) input[11] == 0x0068U) return 130;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && (uint) input[4] == 0x006DU && Read2(input, 9) == 0x00740064U && (uint) input[11] == 0x0068U) return 131;
                         break;
                     }
                     case 0x00690077002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00740064U && (uint) input[11] == 0x0068U) return 105;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00740064U && (uint) input[11] == 0x0068U) return 106;
                         break;
                     }
                     case 0x006C002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x00660065U && (uint) input[11] == 0x0074U) return 304;
+                        if (Read4(input, 0) == 0x0064006400610070UL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x00660065U && (uint) input[11] == 0x0074U) return 305;
                         break;
                     }
                     case 0x006C0062002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x0063006FU && (uint) input[11] == 0x006BU) return 236;
+                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x0063006FU && (uint) input[11] == 0x006BU) return 237;
                         break;
                     }
                     case 0x006C0062002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x0063006FU && (uint) input[11] == 0x006BU) return 46;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x0063006FU && (uint) input[11] == 0x006BU) return 47;
                         break;
                     }
                     case 0x006C006E0069002DUL:
                     {
-                        if (Read4(input, 0) == 0x00650073006E0069UL && (uint) input[4] == 0x0074U && Read2(input, 9) == 0x006E0069U && (uint) input[11] == 0x0065U) return 219;
+                        if (Read4(input, 0) == 0x00650073006E0069UL && (uint) input[4] == 0x0074U && Read2(input, 9) == 0x006E0069U && (uint) input[11] == 0x0065U) return 220;
                         break;
                     }
                     case 0x006D002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x0074006900720077UL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x0064006FU && (uint) input[11] == 0x0065U) return 434;
+                        if (Read4(input, 0) == 0x0074006900720077UL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x0064006FU && (uint) input[11] == 0x0065U) return 435;
                         break;
                     }
                     case 0x006D0069002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00670061U && (uint) input[11] == 0x0065U) return 68;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00670061U && (uint) input[11] == 0x0065U) return 69;
                         break;
                     }
                     case 0x006E00720065006BUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x006E0069U && (uint) input[11] == 0x0067U) return 168;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x006E0069U && (uint) input[11] == 0x0067U) return 169;
                         break;
                     }
                     case 0x006F0063002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && (uint) input[4] == 0x006DU && Read2(input, 9) == 0x006E0075U && (uint) input[11] == 0x0074U) return 122;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && (uint) input[4] == 0x006DU && Read2(input, 9) == 0x006E0075U && (uint) input[11] == 0x0074U) return 123;
                         break;
                     }
                     case 0x006F0063002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x006F006CU && (uint) input[11] == 0x0072U) return 65;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x006F006CU && (uint) input[11] == 0x0072U) return 66;
                         break;
                     }
                     case 0x006F0063002D0074UL:
@@ -3321,32 +3326,32 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0070007300690064UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x0061006CU && (uint) input[11] == 0x0079U) return 165;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x0061006CU && (uint) input[11] == 0x0079U) return 166;
                         break;
                     }
                     case 0x00720061006D002DUL:
                     {
-                        if (Read4(input, 0) == 0x0070006100680073UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00690067U && (uint) input[11] == 0x006EU) return 370;
+                        if (Read4(input, 0) == 0x0070006100680073UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x00690067U && (uint) input[11] == 0x006EU) return 371;
                         break;
                     }
                     case 0x0073002D006E006FUL:
                     {
-                        if (Read4(input, 0) == 0x0074007000610063UL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x00640069U && (uint) input[11] == 0x0065U) return 113;
+                        if (Read4(input, 0) == 0x0074007000610063UL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x00640069U && (uint) input[11] == 0x0065U) return 114;
                         break;
                     }
                     case 0x0073002D00790066UL:
                     {
-                        if (Read4(input, 0) == 0x007400730075006AUL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x006C0065U && (uint) input[11] == 0x0066U) return 225;
+                        if (Read4(input, 0) == 0x007400730075006AUL && (uint) input[4] == 0x0069U && Read2(input, 9) == 0x006C0065U && (uint) input[11] == 0x0066U) return 226;
                         break;
                     }
                     case 0x0073006E0069002DUL:
                     {
-                        if (Read4(input, 0) == 0x0061006500720062UL && (uint) input[4] == 0x006BU && Read2(input, 9) == 0x00640069U && (uint) input[11] == 0x0065U) return 112;
+                        if (Read4(input, 0) == 0x0061006500720062UL && (uint) input[4] == 0x006BU && Read2(input, 9) == 0x00640069U && (uint) input[11] == 0x0065U) return 113;
                         break;
                     }
                     case 0x007400630061002DUL:
                     {
-                        if (Read4(input, 0) == 0x00630075006F0074UL && (uint) input[4] == 0x0068U && Read2(input, 9) == 0x006F0069U && (uint) input[11] == 0x006EU) return 407;
+                        if (Read4(input, 0) == 0x00630075006F0074UL && (uint) input[4] == 0x0068U && Read2(input, 9) == 0x006F0069U && (uint) input[11] == 0x006EU) return 408;
                         break;
                     }
                     case 0x00740073002D0072UL:
@@ -3356,12 +3361,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00640072006F0062UL:
                             {
-                                if ((uint) input[4] == 0x0065U && Read2(input, 9) == 0x006C0079U && (uint) input[11] == 0x0065U) return 98;
+                                if ((uint) input[4] == 0x0065U && Read2(input, 9) == 0x006C0079U && (uint) input[11] == 0x0065U) return 99;
                                 break;
                             }
                             case 0x006B00720061006DUL:
                             {
-                                if ((uint) input[4] == 0x0065U && Read2(input, 9) == 0x00720061U && (uint) input[11] == 0x0074U) return 248;
+                                if ((uint) input[4] == 0x0065U && Read2(input, 9) == 0x00720061U && (uint) input[11] == 0x0074U) return 249;
                                 break;
                             }
                         }
@@ -3369,12 +3374,12 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x007400730075006AUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00660069U && (uint) input[11] == 0x0079U) return 397;
+                        if (Read4(input, 0) == 0x0074007800650074UL && (uint) input[4] == 0x002DU && Read2(input, 9) == 0x00660069U && (uint) input[11] == 0x0079U) return 398;
                         break;
                     }
                     case 0x00790061006C002DUL:
                     {
-                        if (Read4(input, 0) == 0x006C006200610074UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x0075006FU && (uint) input[11] == 0x0074U) return 385;
+                        if (Read4(input, 0) == 0x006C006200610074UL && (uint) input[4] == 0x0065U && Read2(input, 9) == 0x0075006FU && (uint) input[11] == 0x0074U) return 386;
                         break;
                     }
                 }
@@ -3387,37 +3392,37 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006E006F0069UL:
                     {
-                        if (Read4(input, 0) == 0x00690073006F0070UL && (uint) input[4] == 0x0074U && Read4(input, 9) == 0x0061006500720061UL) return 318;
+                        if (Read4(input, 0) == 0x00690073006F0070UL && (uint) input[4] == 0x0074U && Read4(input, 9) == 0x0061006500720061UL) return 319;
                         break;
                     }
                     case 0x002D0077006F006CUL:
                     {
-                        if (Read4(input, 0) == 0x007200650076006FUL && (uint) input[4] == 0x0066U && Read4(input, 9) == 0x0070006100720077UL) return 288;
+                        if (Read4(input, 0) == 0x007200650076006FUL && (uint) input[4] == 0x0066U && Read4(input, 9) == 0x0070006100720077UL) return 289;
                         break;
                     }
                     case 0x0061006D002D006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && (uint) input[4] == 0x006CU && Read4(input, 9) == 0x006E006900670072UL) return 334;
+                        if (Read4(input, 0) == 0x006F007200630073UL && (uint) input[4] == 0x006CU && Read4(input, 9) == 0x006E006900670072UL) return 335;
                         break;
                     }
                     case 0x00610072002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x0073007500690064UL) return 90;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x0073007500690064UL) return 91;
                         break;
                     }
                     case 0x0062002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x006B0063006F006CUL) return 297;
+                        if (Read4(input, 0) == 0x0064006400610070UL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x006B0063006F006CUL) return 298;
                         break;
                     }
                     case 0x0063002D0065006EUL:
                     {
-                        if (Read4(input, 0) == 0x006C00740075006FUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0072006F006C006FUL) return 281;
+                        if (Read4(input, 0) == 0x006C00740075006FUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0072006F006C006FUL) return 282;
                         break;
                     }
                     case 0x0069002D00790066UL:
                     {
-                        if (Read4(input, 0) == 0x007400730075006AUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0073006D00650074UL) return 224;
+                        if (Read4(input, 0) == 0x007400730075006AUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0073006D00650074UL) return 225;
                         break;
                     }
                     case 0x00690073006F0070UL:
@@ -3427,12 +3432,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x006B00730061006DUL:
                             {
-                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x006E006F00690074UL) return 262;
+                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x006E006F00690074UL) return 263;
                                 break;
                             }
                             case 0x0079006200750072UL:
                             {
-                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x006E006F00690074UL) return 330;
+                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x006E006F00690074UL) return 331;
                                 break;
                             }
                         }
@@ -3440,17 +3445,17 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x006D0072006F0066UL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && (uint) input[4] == 0x0073U && Read4(input, 9) == 0x0078006F0062002DUL) return 409;
+                        if (Read4(input, 0) == 0x006E006100720074UL && (uint) input[4] == 0x0073U && Read4(input, 9) == 0x0078006F0062002DUL) return 410;
                         break;
                     }
                     case 0x006E0069002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0065006E0069006CUL) return 240;
+                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0065006E0069006CUL) return 241;
                         break;
                     }
                     case 0x006E0069002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x0065006E0069006CUL) return 74;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x0065006E0069006CUL) return 75;
                         break;
                     }
                     case 0x006E006F0063002DUL:
@@ -3460,7 +3465,7 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00630061006C0070UL:
                             {
-                                if ((uint) input[4] == 0x0065U && Read4(input, 9) == 0x0074006E00650074UL) return 312;
+                                if ((uint) input[4] == 0x0065U && Read4(input, 9) == 0x0074006E00650074UL) return 313;
                                 break;
                             }
                             case 0x00670069006C0061UL:
@@ -3473,32 +3478,32 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x006F0062002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x006D006F00740074UL) return 239;
+                        if (Read4(input, 0) == 0x006700720061006DUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x006D006F00740074UL) return 240;
                         break;
                     }
                     case 0x006F0062002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x006D006F00740074UL) return 58;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x006D006F00740074UL) return 59;
                         break;
                     }
                     case 0x0070006D00650074UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && (uint) input[4] == 0x002DU && Read4(input, 9) == 0x006500740061006CUL) return 201;
+                        if (Read4(input, 0) == 0x0064006900720067UL && (uint) input[4] == 0x002DU && Read4(input, 9) == 0x006500740061006CUL) return 202;
                         break;
                     }
                     case 0x0072002D00650064UL:
                     {
-                        if (Read4(input, 0) == 0x00630069006E0075UL && (uint) input[4] == 0x006FU && Read4(input, 9) == 0x00650067006E0061UL) return 419;
+                        if (Read4(input, 0) == 0x00630069006E0075UL && (uint) input[4] == 0x006FU && Read4(input, 9) == 0x00650067006E0061UL) return 420;
                         break;
                     }
                     case 0x0072002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0074006800670069UL) return 305;
+                        if (Read4(input, 0) == 0x0064006400610070UL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0074006800670069UL) return 306;
                         break;
                     }
                     case 0x0072002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x006E0075006F0063UL && (uint) input[4] == 0x0074U && Read4(input, 9) == 0x0074006500730065UL) return 144;
+                        if (Read4(input, 0) == 0x006E0075006F0063UL && (uint) input[4] == 0x0074U && Read4(input, 9) == 0x0074006500730065UL) return 145;
                         break;
                     }
                     case 0x007200650076006FUL:
@@ -3508,12 +3513,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x0074007800650074UL:
                             {
-                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x0077006F006C0066UL) return 398;
+                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x0077006F006C0066UL) return 399;
                                 break;
                             }
                             case 0x0079006200750072UL:
                             {
-                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x0067006E00610068UL) return 329;
+                                if ((uint) input[4] == 0x002DU && Read4(input, 9) == 0x0067006E00610068UL) return 330;
                                 break;
                             }
                         }
@@ -3521,17 +3526,17 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0073002D0065006EUL:
                     {
-                        if (Read4(input, 0) == 0x006C00740075006FUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0065006C00790074UL) return 283;
+                        if (Read4(input, 0) == 0x006C00740075006FUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0065006C00790074UL) return 284;
                         break;
                     }
                     case 0x00740075006F002DUL:
                     {
-                        if (Read4(input, 0) == 0x0070006100680073UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x0065006400690073UL) return 371;
+                        if (Read4(input, 0) == 0x0070006100680073UL && (uint) input[4] == 0x0065U && Read4(input, 9) == 0x0065006400690073UL) return 372;
                         break;
                     }
                     case 0x0077002D0065006EUL:
                     {
-                        if (Read4(input, 0) == 0x006C00740075006FUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0068007400640069UL) return 284;
+                        if (Read4(input, 0) == 0x006C00740075006FUL && (uint) input[4] == 0x0069U && Read4(input, 9) == 0x0068007400640069UL) return 285;
                         break;
                     }
                 }
@@ -3544,17 +3549,17 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006E00670069UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 4) == 0x0061002DU && (uint) input[6] == 0x006CU && Read2(input, 11) == 0x006C0061U && (uint) input[13] == 0x006CU) return 387;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 4) == 0x0061002DU && (uint) input[6] == 0x006CU && Read2(input, 11) == 0x006C0061U && (uint) input[13] == 0x006CU) return 388;
                         break;
                     }
                     case 0x0061006C002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x006B006F006F0062UL && Read2(input, 4) == 0x0061006DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x00650062U && (uint) input[13] == 0x006CU) return 42;
+                        if (Read4(input, 0) == 0x006B006F006F0062UL && Read2(input, 4) == 0x0061006DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x00650062U && (uint) input[13] == 0x006CU) return 43;
                         break;
                     }
                     case 0x006300610070006FUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && Read2(input, 4) == 0x0065006BU && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x00740069U && (uint) input[13] == 0x0079U) return 382;
+                        if (Read4(input, 0) == 0x006F007200740073UL && Read2(input, 4) == 0x0065006BU && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x00740069U && (uint) input[13] == 0x0079U) return 383;
                         break;
                     }
                     case 0x0063006100700073UL:
@@ -3564,12 +3569,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00640072006F0062UL:
                             {
-                                if (Read2(input, 4) == 0x00720065U && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0067U) return 95;
+                                if (Read2(input, 4) == 0x00720065U && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0067U) return 96;
                                 break;
                             }
                             case 0x007400740065006CUL:
                             {
-                                if (Read2(input, 4) == 0x00720065U && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0067U) return 227;
+                                if (Read2(input, 4) == 0x00720065U && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0067U) return 228;
                                 break;
                             }
                         }
@@ -3577,82 +3582,82 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0064006400610070UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read2(input, 4) == 0x006C006CU && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0067U) return 345;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read2(input, 4) == 0x006C006CU && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0067U) return 346;
                         break;
                     }
                     case 0x006500680074006EUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read2(input, 4) == 0x0073002DU && (uint) input[6] == 0x0079U && Read2(input, 11) == 0x00690073U && (uint) input[13] == 0x0073U) return 176;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read2(input, 4) == 0x0073002DU && (uint) input[6] == 0x0079U && Read2(input, 11) == 0x00690073U && (uint) input[13] == 0x0073U) return 177;
                         break;
                     }
                     case 0x0065006C002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x006B006F006F0062UL && Read2(input, 4) == 0x0061006DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x00650076U && (uint) input[13] == 0x006CU) return 43;
+                        if (Read4(input, 0) == 0x006B006F006F0062UL && Read2(input, 4) == 0x0061006DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x00650076U && (uint) input[13] == 0x006CU) return 44;
                         break;
                     }
                     case 0x0065006E0069006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && Read2(input, 4) == 0x0065006BU && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x00610063U && (uint) input[13] == 0x0070U) return 379;
+                        if (Read4(input, 0) == 0x006F007200740073UL && Read2(input, 4) == 0x0065006BU && (uint) input[6] == 0x002DU && Read2(input, 11) == 0x00610063U && (uint) input[13] == 0x0070U) return 380;
                         break;
                     }
                     case 0x006500760065002DUL:
                     {
-                        if (Read4(input, 0) == 0x006E0069006F0070UL && Read2(input, 4) == 0x00650074U && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x0074006EU && (uint) input[13] == 0x0073U) return 315;
+                        if (Read4(input, 0) == 0x006E0069006F0070UL && Read2(input, 4) == 0x00650074U && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x0074006EU && (uint) input[13] == 0x0073U) return 316;
                         break;
                     }
                     case 0x0066002D006F0074UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 4) == 0x0061002DU && (uint) input[6] == 0x0075U && Read2(input, 11) == 0x006F006CU && (uint) input[13] == 0x0077U) return 190;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 4) == 0x0061002DU && (uint) input[6] == 0x0075U && Read2(input, 11) == 0x006F006CU && (uint) input[13] == 0x0077U) return 191;
                         break;
                     }
                     case 0x00660066006F002DUL:
                     {
-                        if (Read4(input, 0) == 0x006C00740075006FUL && Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0065U && Read2(input, 11) == 0x00650073U && (uint) input[13] == 0x0074U) return 282;
+                        if (Read4(input, 0) == 0x006C00740075006FUL && Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0065U && Read2(input, 11) == 0x00650073U && (uint) input[13] == 0x0074U) return 283;
                         break;
                     }
                     case 0x00660073006E0061UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 4) == 0x0074002DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x0072006FU && (uint) input[13] == 0x006DU) return 400;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 4) == 0x0074002DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x0072006FU && (uint) input[13] == 0x006DU) return 401;
                         break;
                     }
                     case 0x00680073002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x0065007300610062UL && Read2(input, 4) == 0x0069006CU && (uint) input[6] == 0x006EU && Read2(input, 11) == 0x00660069U && (uint) input[13] == 0x0074U) return 40;
+                        if (Read4(input, 0) == 0x0065007300610062UL && Read2(input, 4) == 0x0069006CU && (uint) input[6] == 0x006EU && Read2(input, 11) == 0x00660069U && (uint) input[13] == 0x0074U) return 41;
                         break;
                     }
                     case 0x006C0061002D006CUL:
                     {
-                        if (Read4(input, 0) == 0x0074007200650076UL && Read2(input, 4) == 0x00630069U && (uint) input[6] == 0x0061U && Read2(input, 11) == 0x00670069U && (uint) input[13] == 0x006EU) return 421;
+                        if (Read4(input, 0) == 0x0074007200650076UL && Read2(input, 4) == 0x00630069U && (uint) input[6] == 0x0061U && Read2(input, 11) == 0x00670069U && (uint) input[13] == 0x006EU) return 422;
                         break;
                     }
                     case 0x006C006E0069002DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0067U && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0065U) return 301;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0067U && Read2(input, 11) == 0x006E0069U && (uint) input[13] == 0x0065U) return 302;
                         break;
                     }
                     case 0x006D002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x002D00780069006DUL && Read2(input, 4) == 0x006C0062U && (uint) input[6] == 0x0065U && Read2(input, 11) == 0x0064006FU && (uint) input[13] == 0x0065U) return 274;
+                        if (Read4(input, 0) == 0x002D00780069006DUL && Read2(input, 4) == 0x006C0062U && (uint) input[6] == 0x0065U && Read2(input, 11) == 0x0064006FU && (uint) input[13] == 0x0065U) return 275;
                         break;
                     }
                     case 0x006D002D00700061UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 4) == 0x0077002DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x0064006FU && (uint) input[13] == 0x0065U) return 404;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read2(input, 4) == 0x0077002DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x0064006FU && (uint) input[13] == 0x0065U) return 405;
                         break;
                     }
                     case 0x006E002D006E006FUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read2(input, 4) == 0x00740061U && (uint) input[6] == 0x0069U && Read2(input, 11) == 0x006D0061U && (uint) input[13] == 0x0065U) return 14;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read2(input, 4) == 0x00740061U && (uint) input[6] == 0x0069U && Read2(input, 11) == 0x006D0061U && (uint) input[13] == 0x0065U) return 15;
                         break;
                     }
                     case 0x006E002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read2(input, 4) == 0x00690061U && (uint) input[6] == 0x006EU && Read2(input, 11) == 0x006D0061U && (uint) input[13] == 0x0065U) return 139;
+                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read2(input, 4) == 0x00690061U && (uint) input[6] == 0x006EU && Read2(input, 11) == 0x006D0061U && (uint) input[13] == 0x0065U) return 140;
                         break;
                     }
                     case 0x0072002D006F0074UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 4) == 0x0061002DU && (uint) input[6] == 0x0075U && Read2(input, 11) == 0x0077006FU && (uint) input[13] == 0x0073U) return 191;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 4) == 0x0061002DU && (uint) input[6] == 0x0075U && Read2(input, 11) == 0x0077006FU && (uint) input[13] == 0x0073U) return 192;
                         break;
                     }
                     case 0x0073002D006B0063UL:
@@ -3662,12 +3667,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x002D006E0069006DUL:
                             {
-                                if (Read2(input, 4) == 0x006C0062U && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x007A0069U && (uint) input[13] == 0x0065U) return 270;
+                                if (Read2(input, 4) == 0x006C0062U && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x007A0069U && (uint) input[13] == 0x0065U) return 271;
                                 break;
                             }
                             case 0x002D00780061006DUL:
                             {
-                                if (Read2(input, 4) == 0x006C0062U && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x007A0069U && (uint) input[13] == 0x0065U) return 266;
+                                if (Read2(input, 4) == 0x006C0062U && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x007A0069U && (uint) input[13] == 0x0065U) return 267;
                                 break;
                             }
                         }
@@ -3675,37 +3680,37 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0073006F0070006DUL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 4) == 0x0063002DU && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x00740069U && (uint) input[13] == 0x0065U) return 258;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read2(input, 4) == 0x0063002DU && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x00740069U && (uint) input[13] == 0x0065U) return 259;
                         break;
                     }
                     case 0x0074002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read2(input, 4) == 0x00690061U && (uint) input[6] == 0x006EU && Read2(input, 11) == 0x00700079U && (uint) input[13] == 0x0065U) return 140;
+                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read2(input, 4) == 0x00690061U && (uint) input[6] == 0x006EU && Read2(input, 11) == 0x00700079U && (uint) input[13] == 0x0065U) return 141;
                         break;
                     }
                     case 0x0074006300650072UL:
                     {
-                        if (Read4(input, 0) == 0x00780065006C0066UL && Read2(input, 4) == 0x0064002DU && (uint) input[6] == 0x0069U && Read2(input, 11) == 0x006F0069U && (uint) input[13] == 0x006EU) return 158;
+                        if (Read4(input, 0) == 0x00780065006C0066UL && Read2(input, 4) == 0x0064002DU && (uint) input[6] == 0x0069U && Read2(input, 11) == 0x006F0069U && (uint) input[13] == 0x006EU) return 159;
                         break;
                     }
                     case 0x00740065006C002DUL:
                     {
-                        if (Read4(input, 0) == 0x00740069006E0069UL && Read2(input, 4) == 0x00610069U && (uint) input[6] == 0x006CU && Read2(input, 11) == 0x00650074U && (uint) input[13] == 0x0072U) return 212;
+                        if (Read4(input, 0) == 0x00740069006E0069UL && Read2(input, 4) == 0x00610069U && (uint) input[6] == 0x006CU && Read2(input, 11) == 0x00650074U && (uint) input[13] == 0x0072U) return 213;
                         break;
                     }
                     case 0x0074006F0062002DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0067U && Read2(input, 11) == 0x006F0074U && (uint) input[13] == 0x006DU) return 300;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0067U && Read2(input, 11) == 0x006F0074U && (uint) input[13] == 0x006DU) return 301;
                         break;
                     }
                     case 0x00740073002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x006B006F006F0062UL && Read2(input, 4) == 0x0061006DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x00740061U && (uint) input[13] == 0x0065U) return 44;
+                        if (Read4(input, 0) == 0x006B006F006F0062UL && Read2(input, 4) == 0x0061006DU && (uint) input[6] == 0x0072U && Read2(input, 11) == 0x00740061U && (uint) input[13] == 0x0065U) return 45;
                         break;
                     }
                     case 0x00740073002D0077UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 4) == 0x0072002DU && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x00720061U && (uint) input[13] == 0x0074U) return 200;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read2(input, 4) == 0x0072002DU && (uint) input[6] == 0x006FU && Read2(input, 11) == 0x00720061U && (uint) input[13] == 0x0074U) return 201;
                         break;
                     }
                 }
@@ -3718,7 +3723,7 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006B0063006FUL:
                     {
-                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006C0062002D0074UL && Read2(input, 12) == 0x006E0065U && (uint) input[14] == 0x0064U) return 217;
+                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006C0062002D0074UL && Read2(input, 12) == 0x006E0065U && (uint) input[14] == 0x0064U) return 218;
                         break;
                     }
                     case 0x002D006E006D0075UL:
@@ -3726,27 +3731,27 @@ internal static class CssPropertyNameLookup
                         var chunk22 = Read4(input, 11);
                         if ((chunk22 & 0xFFFFFFFFFFFF0000UL) == 0x0064006E00650000UL)
                         {
-                            if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006C006F0063002DUL) return 193;
+                            if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006C006F0063002DUL) return 194;
                         }
                         else if ((chunk22 & 0xFFFFFFFFFFFF0000UL) == 0x0070006100670000UL)
                         {
-                            if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006C006F0063002DUL) return 194;
+                            if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006C006F0063002DUL) return 195;
                         }
                         break;
                     }
                     case 0x0061006C006C006FUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0063002D00720065UL && Read2(input, 12) == 0x00730070U && (uint) input[14] == 0x0065U) return 64;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0063002D00720065UL && Read2(input, 12) == 0x00730070U && (uint) input[14] == 0x0065U) return 65;
                         break;
                     }
                     case 0x00610072002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 12) == 0x0067006EU && (uint) input[14] == 0x0065U) return 16;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 12) == 0x0067006EU && (uint) input[14] == 0x0065U) return 17;
                         break;
                     }
                     case 0x0063002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read2(input, 12) == 0x0069006CU && (uint) input[14] == 0x0070U) return 29;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read2(input, 12) == 0x0069006CU && (uint) input[14] == 0x0070U) return 30;
                         break;
                     }
                     case 0x0063006E0061002DUL:
@@ -3756,12 +3761,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00690073006F0070UL:
                             {
-                                if (Read4(input, 4) == 0x006E006F00690074UL && Read2(input, 12) == 0x006F0068U && (uint) input[14] == 0x0072U) return 317;
+                                if (Read4(input, 4) == 0x006E006F00690074UL && Read2(input, 12) == 0x006F0068U && (uint) input[14] == 0x0072U) return 318;
                                 break;
                             }
                             case 0x007200650076006FUL:
                             {
-                                if (Read4(input, 4) == 0x0077006F006C0066UL && Read2(input, 12) == 0x006F0068U && (uint) input[14] == 0x0072U) return 286;
+                                if (Read4(input, 4) == 0x0077006F006C0066UL && Read2(input, 12) == 0x006F0068U && (uint) input[14] == 0x0072U) return 287;
                                 break;
                             }
                         }
@@ -3769,37 +3774,37 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x00650064002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 12) == 0x0061006CU && (uint) input[14] == 0x0079U) return 9;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 12) == 0x0061006CU && (uint) input[14] == 0x0079U) return 10;
                         break;
                     }
                     case 0x00690077002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read2(input, 12) == 0x00740064U && (uint) input[14] == 0x0068U) return 367;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read2(input, 12) == 0x00740064U && (uint) input[14] == 0x0068U) return 368;
                         break;
                     }
                     case 0x006A0065006E0069UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x006C002D0065006BUL && Read2(input, 12) == 0x0069006FU && (uint) input[14] == 0x006EU) return 380;
+                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x006C002D0065006BUL && Read2(input, 12) == 0x0069006FU && (uint) input[14] == 0x006EU) return 381;
                         break;
                     }
                     case 0x006C002D006E0067UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x0069006C0061002DUL && Read2(input, 12) == 0x00730061U && (uint) input[14] == 0x0074U) return 388;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x0069006C0061002DUL && Read2(input, 12) == 0x00730061U && (uint) input[14] == 0x0074U) return 389;
                         break;
                     }
                     case 0x006C00690066002DUL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0070006F00720064UL && Read2(input, 12) == 0x00650074U && (uint) input[14] == 0x0072U) return 24;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0070006F00720064UL && Read2(input, 12) == 0x00650074U && (uint) input[14] == 0x0072U) return 25;
                         break;
                     }
                     case 0x006C006F0070002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074006F006F0066UL && Read4(input, 4) == 0x00650074006F006EUL && Read2(input, 12) == 0x00630069U && (uint) input[14] == 0x0079U) return 184;
+                        if (Read4(input, 0) == 0x0074006F006F0066UL && Read4(input, 4) == 0x00650074006F006EUL && Read2(input, 12) == 0x00630069U && (uint) input[14] == 0x0079U) return 185;
                         break;
                     }
                     case 0x006F0063002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read2(input, 12) == 0x006F006CU && (uint) input[14] == 0x0072U) return 360;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read2(input, 12) == 0x006F006CU && (uint) input[14] == 0x0072U) return 361;
                         break;
                     }
                     case 0x007200650064006EUL:
@@ -3809,12 +3814,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00670061006D0069UL:
                             {
-                                if (Read4(input, 4) == 0x00650072002D0065UL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0067U) return 211;
+                                if (Read4(input, 4) == 0x00650072002D0065UL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0067U) return 212;
                                 break;
                             }
                             case 0x0070006100680073UL:
                             {
-                                if (Read4(input, 4) == 0x00650072002D0065UL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0067U) return 372;
+                                if (Read4(input, 4) == 0x00650072002D0065UL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0067U) return 373;
                                 break;
                             }
                         }
@@ -3822,12 +3827,12 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0072007200650076UL:
                     {
-                        if (Read4(input, 0) == 0x0065006300730061UL && Read4(input, 4) == 0x006F002D0074006EUL && Read2(input, 12) == 0x00640069U && (uint) input[14] == 0x0065U) return 22;
+                        if (Read4(input, 0) == 0x0065006300730061UL && Read4(input, 4) == 0x006F002D0074006EUL && Read2(input, 12) == 0x00640069U && (uint) input[14] == 0x0065U) return 23;
                         break;
                     }
                     case 0x0073002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read2(input, 12) == 0x007A0069U && (uint) input[14] == 0x0065U) return 39;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read2(input, 12) == 0x007A0069U && (uint) input[14] == 0x0065U) return 40;
                         break;
                     }
                     case 0x0073002D0065006EUL:
@@ -3837,12 +3842,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x002D006E0069006DUL:
                             {
-                                if (Read4(input, 4) == 0x0069006C006E0069UL && Read2(input, 12) == 0x007A0069U && (uint) input[14] == 0x0065U) return 272;
+                                if (Read4(input, 4) == 0x0069006C006E0069UL && Read2(input, 12) == 0x007A0069U && (uint) input[14] == 0x0065U) return 273;
                                 break;
                             }
                             case 0x002D00780061006DUL:
                             {
-                                if (Read4(input, 4) == 0x0069006C006E0069UL && Read2(input, 12) == 0x007A0069U && (uint) input[14] == 0x0065U) return 268;
+                                if (Read4(input, 4) == 0x0069006C006E0069UL && Read2(input, 12) == 0x007A0069U && (uint) input[14] == 0x0065U) return 269;
                                 break;
                             }
                         }
@@ -3850,37 +3855,37 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0074002D0065006CUL:
                     {
-                        if (Read4(input, 0) == 0x007400730069006CUL && Read4(input, 4) == 0x007900740073002DUL && Read2(input, 12) == 0x00700079U && (uint) input[14] == 0x0065U) return 234;
+                        if (Read4(input, 0) == 0x007400730069006CUL && Read4(input, 4) == 0x007900740073002DUL && Read2(input, 12) == 0x00700079U && (uint) input[14] == 0x0065U) return 235;
                         break;
                     }
                     case 0x007400610072006FUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read2(input, 12) == 0x006F0069U && (uint) input[14] == 0x006EU) return 390;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read2(input, 12) == 0x006F0069U && (uint) input[14] == 0x006EU) return 391;
                         break;
                     }
                     case 0x007400690073006FUL:
                     {
-                        if (Read4(input, 0) == 0x0065006A0062006FUL && Read4(input, 4) == 0x0070002D00740063UL && Read2(input, 12) == 0x006F0069U && (uint) input[14] == 0x006EU) return 276;
+                        if (Read4(input, 0) == 0x0065006A0062006FUL && Read4(input, 4) == 0x0070002D00740063UL && Read2(input, 12) == 0x006F0069U && (uint) input[14] == 0x006EU) return 277;
                         break;
                     }
                     case 0x0074006E006F0063UL:
                     {
-                        if (Read4(input, 0) == 0x007400730075006AUL && Read4(input, 4) == 0x002D007900660069UL && Read2(input, 12) == 0x006E0065U && (uint) input[14] == 0x0074U) return 223;
+                        if (Read4(input, 0) == 0x007400730075006AUL && Read4(input, 4) == 0x002D007900660069UL && Read2(input, 12) == 0x006E0065U && (uint) input[14] == 0x0074U) return 224;
                         break;
                     }
                     case 0x00740073002D006DUL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0072006F00660073UL && Read2(input, 12) == 0x006C0079U && (uint) input[14] == 0x0065U) return 411;
+                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0072006F00660073UL && Read2(input, 12) == 0x006C0079U && (uint) input[14] == 0x0065U) return 412;
                         break;
                     }
                     case 0x00740073002D0070UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006100720077002DUL && Read2(input, 12) == 0x006C0079U && (uint) input[14] == 0x0065U) return 405;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006100720077002DUL && Read2(input, 12) == 0x006C0079U && (uint) input[14] == 0x0065U) return 406;
                         break;
                     }
                     case 0x0076006100680065UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0062002D006C006CUL && Read2(input, 12) == 0x006F0069U && (uint) input[14] == 0x0072U) return 333;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0062002D006C006CUL && Read2(input, 12) == 0x006F0069U && (uint) input[14] == 0x0072U) return 334;
                         break;
                     }
                 }
@@ -3893,7 +3898,7 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D0065006E0069UL:
                     {
-                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006E0069002D0074UL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x006E0065U && (uint) input[15] == 0x0064U) return 220;
+                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006E0069002D0074UL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x006E0065U && (uint) input[15] == 0x0064U) return 221;
                         break;
                     }
                     case 0x002D006B0063006FUL:
@@ -3903,12 +3908,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00640072006F0062UL:
                             {
-                                if (Read4(input, 4) == 0x0062002D00720065UL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x006E0065U && (uint) input[15] == 0x0064U) return 48;
+                                if (Read4(input, 4) == 0x0062002D00720065UL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x006E0065U && (uint) input[15] == 0x0064U) return 49;
                                 break;
                             }
                             case 0x006700720061006DUL:
                             {
-                                if (Read4(input, 4) == 0x0062002D006E0069UL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x006E0065U && (uint) input[15] == 0x0064U) return 237;
+                                if (Read4(input, 4) == 0x0062002D006E0069UL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x006E0065U && (uint) input[15] == 0x0064U) return 238;
                                 break;
                             }
                         }
@@ -3916,92 +3921,92 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x00650064002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0069007400690073UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x0061006CU && (uint) input[15] == 0x0079U) return 413;
+                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0069007400690073UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x0061006CU && (uint) input[15] == 0x0079U) return 414;
                         break;
                     }
                     case 0x00660061002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x0065006700610070UL && Read4(input, 4) == 0x006500720062002DUL && (uint) input[8] == 0x0061U && Read2(input, 13) == 0x00650074U && (uint) input[15] == 0x0072U) return 307;
+                        if (Read4(input, 0) == 0x0065006700610070UL && Read4(input, 4) == 0x006500720062002DUL && (uint) input[8] == 0x0061U && Read2(input, 13) == 0x00650074U && (uint) input[15] == 0x0072U) return 308;
                         break;
                     }
                     case 0x00690072006F002DUL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0072006F00660073UL && (uint) input[8] == 0x006DU && Read2(input, 13) == 0x00690067U && (uint) input[15] == 0x006EU) return 410;
+                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0072006F00660073UL && (uint) input[8] == 0x006DU && Read2(input, 13) == 0x00690067U && (uint) input[15] == 0x006EU) return 411;
                         break;
                     }
                     case 0x00690077002D0070UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x00740064U && (uint) input[15] == 0x0068U) return 104;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x00740064U && (uint) input[15] == 0x0068U) return 105;
                         break;
                     }
                     case 0x006A00640061002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x007A00690073002DUL && (uint) input[8] == 0x0065U && Read2(input, 13) == 0x00730075U && (uint) input[15] == 0x0074U) return 173;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x007A00690073002DUL && (uint) input[8] == 0x0065U && Read2(input, 13) == 0x00730075U && (uint) input[15] == 0x0074U) return 174;
                         break;
                     }
                     case 0x006D002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && (uint) input[8] == 0x0064U && Read2(input, 13) == 0x0064006FU && (uint) input[15] == 0x0065U) return 251;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && (uint) input[8] == 0x0064U && Read2(input, 13) == 0x0064006FU && (uint) input[15] == 0x0065U) return 252;
                         break;
                     }
                     case 0x006D0069002D0064UL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x00670061U && (uint) input[15] == 0x0065U) return 31;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x00670061U && (uint) input[15] == 0x0065U) return 32;
                         break;
                     }
                     case 0x006D0069002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x007400730069006CUL && Read4(input, 4) == 0x007900740073002DUL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x00670061U && (uint) input[15] == 0x0065U) return 232;
+                        if (Read4(input, 0) == 0x007400730069006CUL && Read4(input, 4) == 0x007900740073002DUL && (uint) input[8] == 0x006CU && Read2(input, 13) == 0x00670061U && (uint) input[15] == 0x0065U) return 233;
                         break;
                     }
                     case 0x006F0063002D0064UL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x006F006CU && (uint) input[15] == 0x0072U) return 30;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x006F006CU && (uint) input[15] == 0x0072U) return 31;
                         break;
                     }
                     case 0x006F0063002D0070UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x006F006CU && (uint) input[15] == 0x0072U) return 100;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x006F006CU && (uint) input[15] == 0x0072U) return 101;
                         break;
                     }
                     case 0x0070007300690064UL:
                     {
-                        if (Read4(input, 0) == 0x0074006F006F0066UL && Read4(input, 4) == 0x00650074006F006EUL && (uint) input[8] == 0x002DU && Read2(input, 13) == 0x0061006CU && (uint) input[15] == 0x0079U) return 183;
+                        if (Read4(input, 0) == 0x0074006F006F0066UL && Read4(input, 4) == 0x00650074006F006EUL && (uint) input[8] == 0x002DU && Read2(input, 13) == 0x0061006CU && (uint) input[15] == 0x0079U) return 184;
                         break;
                     }
                     case 0x0072006100680073UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x0064002D0065006BUL && (uint) input[8] == 0x0061U && Read2(input, 13) == 0x00610072U && (uint) input[15] == 0x0079U) return 377;
+                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x0064002D0065006BUL && (uint) input[8] == 0x0061U && Read2(input, 13) == 0x00610072U && (uint) input[15] == 0x0079U) return 378;
                         break;
                     }
                     case 0x0072007200650076UL:
                     {
-                        if (Read4(input, 0) == 0x0063007300650064UL && Read4(input, 4) == 0x002D0074006E0065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x00640069U && (uint) input[15] == 0x0065U) return 147;
+                        if (Read4(input, 0) == 0x0063007300650064UL && Read4(input, 4) == 0x002D0074006E0065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x00640069U && (uint) input[15] == 0x0065U) return 148;
                         break;
                     }
                     case 0x0073002D00700061UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0073002D006C006CUL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x006F0074U && (uint) input[15] == 0x0070U) return 356;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0073002D006C006CUL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x006F0074U && (uint) input[15] == 0x0070U) return 357;
                         break;
                     }
                     case 0x0074002D00650063UL:
                     {
-                        if (Read4(input, 0) == 0x0074006900680077UL && Read4(input, 4) == 0x00700073002D0065UL && (uint) input[8] == 0x0061U && Read2(input, 13) == 0x00690072U && (uint) input[15] == 0x006DU) return 427;
+                        if (Read4(input, 0) == 0x0074006900680077UL && Read4(input, 4) == 0x00700073002D0065UL && (uint) input[8] == 0x0061U && Read2(input, 13) == 0x00690072U && (uint) input[15] == 0x006DU) return 428;
                         break;
                     }
                     case 0x0074002D00700061UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0073002D006C006CUL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x00700079U && (uint) input[15] == 0x0065U) return 357;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0073002D006C006CUL && (uint) input[8] == 0x006EU && Read2(input, 13) == 0x00700079U && (uint) input[15] == 0x0065U) return 358;
                         break;
                     }
                     case 0x00740073002D0070UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x006C0079U && (uint) input[15] == 0x0065U) return 103;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && (uint) input[8] == 0x006FU && Read2(input, 13) == 0x006C0079U && (uint) input[15] == 0x0065U) return 104;
                         break;
                     }
                     case 0x007400750067002DUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && (uint) input[8] == 0x0072U && Read2(input, 13) == 0x00650074U && (uint) input[15] == 0x0072U) return 363;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && (uint) input[8] == 0x0072U && Read2(input, 13) == 0x00650074U && (uint) input[15] == 0x0072U) return 364;
                         break;
                     }
                 }
@@ -4014,22 +4019,22 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x00610074006E0065UL:
                     {
-                        if (Read4(input, 0) == 0x00670061006D0069UL && Read4(input, 4) == 0x0072006F002D0065UL && (uint) input[8] == 0x0069U && Read4(input, 13) == 0x006E006F00690074UL) return 210;
+                        if (Read4(input, 0) == 0x00670061006D0069UL && Read4(input, 4) == 0x0072006F002D0065UL && (uint) input[8] == 0x0069U && Read4(input, 13) == 0x006E006F00690074UL) return 211;
                         break;
                     }
                     case 0x0063002D0065006CUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read4(input, 4) == 0x0072002D006E006DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0072006F006C006FUL) return 126;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read4(input, 4) == 0x0072002D006E006DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0072006F006C006FUL) return 127;
                         break;
                     }
                     case 0x0063002D00740066UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x006C002D00720065UL && (uint) input[8] == 0x0065U && Read4(input, 13) == 0x0072006F006C006FUL) return 87;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x006C002D00720065UL && (uint) input[8] == 0x0065U && Read4(input, 13) == 0x0072006F006C006FUL) return 88;
                         break;
                     }
                     case 0x00650062002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x0065006700610070UL && Read4(input, 4) == 0x006500720062002DUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x00650072006F0066UL) return 308;
+                        if (Read4(input, 0) == 0x0065006700610070UL && Read4(input, 4) == 0x006500720062002DUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x00650072006F0066UL) return 309;
                         break;
                     }
                     case 0x0065006E0069006CUL:
@@ -4039,12 +4044,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00640072006F0062UL:
                             {
-                                if (Read4(input, 4) == 0x0069002D00720065UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x0064006E0065002DUL) return 76;
+                                if (Read4(input, 4) == 0x0069002D00720065UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x0064006E0065002DUL) return 77;
                                 break;
                             }
                             case 0x006700720061006DUL:
                             {
-                                if (Read4(input, 4) == 0x0069002D006E0069UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x0064006E0065002DUL) return 241;
+                                if (Read4(input, 4) == 0x0069002D006E0069UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x0064006E0065002DUL) return 242;
                                 break;
                             }
                         }
@@ -4052,97 +4057,97 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x00650072002D0064UL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x0074006100650070UL) return 36;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x0074006100650070UL) return 37;
                         break;
                     }
                     case 0x006500720063006EUL:
                     {
-                        if (Read4(input, 0) == 0x006E0075006F0063UL && Read4(input, 4) == 0x002D007200650074UL && (uint) input[8] == 0x0069U && Read4(input, 13) == 0x0074006E0065006DUL) return 143;
+                        if (Read4(input, 0) == 0x006E0075006F0063UL && Read4(input, 4) == 0x002D007200650074UL && (uint) input[8] == 0x0069U && Read4(input, 13) == 0x0074006E0065006DUL) return 144;
                         break;
                     }
                     case 0x0065007300610062UL:
                     {
-                        if (Read4(input, 0) == 0x0069006D006F0064UL && Read4(input, 4) == 0x0074006E0061006EUL && (uint) input[8] == 0x002DU && Read4(input, 13) == 0x0065006E0069006CUL) return 150;
+                        if (Read4(input, 0) == 0x0069006D006F0064UL && Read4(input, 4) == 0x0074006E0061006EUL && (uint) input[8] == 0x002DU && Read4(input, 13) == 0x0065006E0069006CUL) return 151;
                         break;
                     }
                     case 0x0066006F00680073UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x0064002D0065006BUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x0074006500730066UL) return 378;
+                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x0064002D0065006BUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x0074006500730066UL) return 379;
                         break;
                     }
                     case 0x006B0063006F006CUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && (uint) input[8] == 0x0062U && Read4(input, 13) == 0x0064006E0065002DUL) return 298;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && (uint) input[8] == 0x0062U && Read4(input, 13) == 0x0064006E0065002DUL) return 299;
                         break;
                     }
                     case 0x006C006F0063002DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x007400750061002DUL && (uint) input[8] == 0x006FU && Read4(input, 13) == 0x0073006E006D0075UL) return 189;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x007400750061002DUL && (uint) input[8] == 0x006FU && Read4(input, 13) == 0x0073006E006D0075UL) return 190;
                         break;
                     }
                     case 0x006C007200650074UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x006D002D0065006BUL && (uint) input[8] == 0x0069U && Read4(input, 13) == 0x00740069006D0069UL) return 381;
+                        if (Read4(input, 0) == 0x006F007200740073UL && Read4(input, 4) == 0x006D002D0065006BUL && (uint) input[8] == 0x0069U && Read4(input, 13) == 0x00740069006D0069UL) return 382;
                         break;
                     }
                     case 0x006E0069002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x0065006700610070UL && Read4(input, 4) == 0x006500720062002DUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x0065006400690073UL) return 309;
+                        if (Read4(input, 0) == 0x0065006700610070UL && Read4(input, 4) == 0x006500720062002DUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x0065006400690073UL) return 310;
                         break;
                     }
                     case 0x006E006900670072UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x0070006F0074002DUL) return 344;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && (uint) input[8] == 0x0061U && Read4(input, 13) == 0x0070006F0074002DUL) return 345;
                         break;
                     }
                     case 0x007200650076006FUL:
                     {
-                        if (Read4(input, 0) == 0x0065006E0069006CUL && Read4(input, 4) == 0x007000610067002DUL && (uint) input[8] == 0x002DU && Read4(input, 13) == 0x0065006400690072UL) return 229;
+                        if (Read4(input, 0) == 0x0065006E0069006CUL && Read4(input, 4) == 0x007000610067002DUL && (uint) input[8] == 0x002DU && Read4(input, 13) == 0x0065006400690072UL) return 230;
                         break;
                     }
                     case 0x0072006F002D0064UL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x006E006900670069UL) return 32;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && (uint) input[8] == 0x006EU && Read4(input, 13) == 0x006E006900670069UL) return 33;
                         break;
                     }
                     case 0x0073002D0065006CUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read4(input, 4) == 0x0072002D006E006DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0065006C00790074UL) return 127;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read4(input, 4) == 0x0072002D006E006DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0065006C00790074UL) return 128;
                         break;
                     }
                     case 0x0073002D006B0063UL:
                     {
-                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006C0062002D0074UL && (uint) input[8] == 0x006FU && Read4(input, 13) == 0x0074007200610074UL) return 218;
+                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006C0062002D0074UL && (uint) input[8] == 0x006FU && Read4(input, 13) == 0x0074007200610074UL) return 219;
                         break;
                     }
                     case 0x0073002D006E006DUL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006C006F0063002DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0074007200610074UL) return 195;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006C006F0063002DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0074007200610074UL) return 196;
                         break;
                     }
                     case 0x0073002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && (uint) input[8] == 0x0064U && Read4(input, 13) == 0x006500630069006CUL) return 254;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && (uint) input[8] == 0x0064U && Read4(input, 13) == 0x006500630069006CUL) return 255;
                         break;
                     }
                     case 0x0073002D00740066UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x006C002D00720065UL && (uint) input[8] == 0x0065U && Read4(input, 13) == 0x0065006C00790074UL) return 88;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x006C002D00720065UL && (uint) input[8] == 0x0065U && Read4(input, 13) == 0x0065006C00790074UL) return 89;
                         break;
                     }
                     case 0x0077002D0065006CUL:
                     {
-                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read4(input, 4) == 0x0072002D006E006DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0068007400640069UL) return 128;
+                        if (Read4(input, 0) == 0x0075006C006F0063UL && Read4(input, 4) == 0x0072002D006E006DUL && (uint) input[8] == 0x0075U && Read4(input, 13) == 0x0068007400640069UL) return 129;
                         break;
                     }
                     case 0x0077002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && (uint) input[8] == 0x0064U && Read4(input, 13) == 0x0068007400640069UL) return 256;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && (uint) input[8] == 0x0064U && Read4(input, 13) == 0x0068007400640069UL) return 257;
                         break;
                     }
                     case 0x0077002D00740066UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x006C002D00720065UL && (uint) input[8] == 0x0065U && Read4(input, 13) == 0x0068007400640069UL) return 89;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x006C002D00720065UL && (uint) input[8] == 0x0065U && Read4(input, 13) == 0x0068007400640069UL) return 90;
                         break;
                     }
                 }
@@ -4155,47 +4160,47 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006500740061UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006D00650074002DUL && Read2(input, 8) == 0x006C0070U && Read4(input, 14) == 0x00730077006F0072UL) return 204;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006D00650074002DUL && Read2(input, 8) == 0x006C0070U && Read4(input, 14) == 0x00730077006F0072UL) return 205;
                         break;
                     }
                     case 0x002D006E00690067UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read2(input, 8) == 0x00720061U && Read4(input, 14) == 0x007400660065006CUL) return 342;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read2(input, 8) == 0x00720061U && Read4(input, 14) == 0x007400660065006CUL) return 343;
                         break;
                     }
                     case 0x0061007200750064UL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 8) == 0x002D006EU && Read4(input, 14) == 0x006E006F00690074UL) return 11;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 8) == 0x002D006EU && Read4(input, 14) == 0x006E006F00690074UL) return 12;
                         break;
                     }
                     case 0x0063002D006B0063UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x0072006F006C006FUL) return 47;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x0072006F006C006FUL) return 48;
                         break;
                     }
                     case 0x0063002D00740068UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0072002D00720065UL && Read2(input, 8) == 0x00670069U && Read4(input, 14) == 0x0072006F006C006FUL) return 92;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0072002D00720065UL && Read2(input, 8) == 0x00670069U && Read4(input, 14) == 0x0072006F006C006FUL) return 93;
                         break;
                     }
                     case 0x00640061002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006E006900720070UL && Read4(input, 4) == 0x006F0063002D0074UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x007400730075006AUL) return 322;
+                        if (Read4(input, 0) == 0x006E006900720070UL && Read4(input, 4) == 0x006F0063002D0074UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x007400730075006AUL) return 323;
                         break;
                     }
                     case 0x0065006D00690074UL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 8) == 0x002D006EU && Read4(input, 14) == 0x0065006E0069006CUL) return 19;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read2(input, 8) == 0x002D006EU && Read4(input, 14) == 0x0065006E0069006CUL) return 20;
                         break;
                     }
                     case 0x0065006E0069006CUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && Read2(input, 8) == 0x006E0069U && Read4(input, 14) == 0x0064006E0065002DUL) return 302;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && Read2(input, 8) == 0x006E0069U && Read4(input, 14) == 0x0064006E0065002DUL) return 303;
                         break;
                     }
                     case 0x00650072002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && Read2(input, 8) == 0x00650064U && Read4(input, 14) == 0x0074006100650070UL) return 253;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && Read2(input, 8) == 0x00650064U && Read4(input, 14) == 0x0074006100650070UL) return 254;
                         break;
                     }
                     case 0x0065007300610062UL:
@@ -4205,37 +4210,37 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0067006E00690064UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read2(input, 8) == 0x00640061U && Read4(input, 14) == 0x0070006F0074002DUL) return 355;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read2(input, 8) == 0x00640061U && Read4(input, 14) == 0x0070006F0074002DUL) return 356;
                         break;
                     }
                     case 0x0069006200690073UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D0074006E0065UL && Read2(input, 8) == 0x00690076U && Read4(input, 14) == 0x007900740069006CUL) return 142;
+                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D0074006E0065UL && Read2(input, 8) == 0x00690076U && Read4(input, 14) == 0x007900740069006CUL) return 143;
                         break;
                     }
                     case 0x006F002D00790072UL:
                     {
-                        if (Read4(input, 0) == 0x00690073006F0070UL && Read4(input, 4) == 0x006E006F00690074UL && Read2(input, 8) == 0x0074002DU && Read4(input, 14) == 0x0072006500640072UL) return 320;
+                        if (Read4(input, 0) == 0x00690073006F0070UL && Read4(input, 4) == 0x006E006F00690074UL && Read2(input, 8) == 0x0074002DU && Read4(input, 14) == 0x0072006500640072UL) return 321;
                         break;
                     }
                     case 0x006F0073002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && Read2(input, 8) == 0x00650064U && Read4(input, 14) == 0x0065006300720075UL) return 255;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && Read2(input, 8) == 0x00650064U && Read4(input, 14) == 0x0065006300720075UL) return 256;
                         break;
                     }
                     case 0x0072006F002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x0073007200650070UL && Read4(input, 4) == 0x0074006300650070UL && Read2(input, 8) == 0x00760069U && Read4(input, 14) == 0x006E006900670069UL) return 311;
+                        if (Read4(input, 0) == 0x0073007200650070UL && Read4(input, 4) == 0x0074006300650070UL && Read2(input, 8) == 0x00760069U && Read4(input, 14) == 0x006E006900670069UL) return 312;
                         break;
                     }
                     case 0x0073002D00650067UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read2(input, 8) == 0x0061006DU && Read4(input, 14) == 0x006500630069006CUL) return 71;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read2(input, 8) == 0x0061006DU && Read4(input, 14) == 0x006500630069006CUL) return 72;
                         break;
                     }
                     case 0x0073002D0065006EUL:
                     {
-                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006E0069002D0074UL && Read2(input, 8) == 0x0069006CU && Read4(input, 14) == 0x0074007200610074UL) return 221;
+                        if (Read4(input, 0) == 0x00650073006E0069UL && Read4(input, 4) == 0x006E0069002D0074UL && Read2(input, 8) == 0x0069006CU && Read4(input, 14) == 0x0074007200610074UL) return 222;
                         break;
                     }
                     case 0x0073002D006B0063UL:
@@ -4250,12 +4255,12 @@ internal static class CssPropertyNameLookup
                                 {
                                     case 0x0065006C00790074UL:
                                     {
-                                        if (Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU) return 56;
+                                        if (Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU) return 57;
                                         break;
                                     }
                                     case 0x0074007200610074UL:
                                     {
-                                        if (Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU) return 52;
+                                        if (Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU) return 53;
                                         break;
                                     }
                                 }
@@ -4263,7 +4268,7 @@ internal static class CssPropertyNameLookup
                             }
                             case 0x006700720061006DUL:
                             {
-                                if (Read4(input, 4) == 0x0062002D006E0069UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x0074007200610074UL) return 238;
+                                if (Read4(input, 4) == 0x0062002D006E0069UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x0074007200610074UL) return 239;
                                 break;
                             }
                         }
@@ -4271,27 +4276,27 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0073002D00740068UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0072002D00720065UL && Read2(input, 8) == 0x00670069U && Read4(input, 14) == 0x0065006C00790074UL) return 93;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0072002D00720065UL && Read2(input, 8) == 0x00670069U && Read4(input, 14) == 0x0065006C00790074UL) return 94;
                         break;
                     }
                     case 0x0075006F002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && Read2(input, 8) == 0x00650064U && Read4(input, 14) == 0x0074006500730074UL) return 252;
+                        if (Read4(input, 0) == 0x006B00730061006DUL && Read4(input, 4) == 0x0072006F0062002DUL && Read2(input, 8) == 0x00650064U && Read4(input, 14) == 0x0074006500730074UL) return 253;
                         break;
                     }
                     case 0x0077002D00650067UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read2(input, 8) == 0x0061006DU && Read4(input, 14) == 0x0068007400640069UL) return 73;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read2(input, 8) == 0x0061006DU && Read4(input, 14) == 0x0068007400640069UL) return 74;
                         break;
                     }
                     case 0x0077002D006B0063UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x0068007400640069UL) return 57;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read2(input, 8) == 0x006F006CU && Read4(input, 14) == 0x0068007400640069UL) return 58;
                         break;
                     }
                     case 0x0077002D00740068UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0072002D00720065UL && Read2(input, 8) == 0x00670069U && Read4(input, 14) == 0x0068007400640069UL) return 94;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0072002D00720065UL && Read2(input, 8) == 0x00670069U && Read4(input, 14) == 0x0068007400640069UL) return 95;
                         break;
                     }
                 }
@@ -4304,7 +4309,7 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D00650067006EUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00610072002D006EUL && Read2(input, 16) == 0x006E0065U && (uint) input[18] == 0x0064U) return 17;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00610072002D006EUL && Read2(input, 16) == 0x006E0065U && (uint) input[18] == 0x0064U) return 18;
                         break;
                     }
                     case 0x0061006500700065UL:
@@ -4312,52 +4317,52 @@ internal static class CssPropertyNameLookup
                         var chunk34 = Read4(input, 15);
                         if ((chunk34 & 0xFFFFFFFFFFFF0000UL) == 0x0078002D00740000UL)
                         {
-                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0072002D0064006EUL) return 37;
+                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0072002D0064006EUL) return 38;
                         }
                         else if ((chunk34 & 0xFFFFFFFFFFFF0000UL) == 0x0079002D00740000UL)
                         {
-                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0072002D0064006EUL) return 38;
+                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0072002D0064006EUL) return 39;
                         }
                         break;
                     }
                     case 0x0063006100720061UL:
                     {
-                        if (Read4(input, 0) == 0x0068007000790068UL && Read4(input, 4) == 0x00740061006E0065UL && Read4(input, 8) == 0x00680063002D0065UL && Read2(input, 16) == 0x00650074U && (uint) input[18] == 0x0072U) return 207;
+                        if (Read4(input, 0) == 0x0068007000790068UL && Read4(input, 4) == 0x00740061006E0065UL && Read4(input, 8) == 0x00680063002D0065UL && Read2(input, 16) == 0x00650074U && (uint) input[18] == 0x0072U) return 208;
                         break;
                     }
                     case 0x00650070006F0072UL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0069007400690073UL && Read4(input, 8) == 0x0070002D006E006FUL && Read2(input, 16) == 0x00740072U && (uint) input[18] == 0x0079U) return 415;
+                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0069007400690073UL && Read4(input, 8) == 0x0070002D006E006FUL && Read2(input, 16) == 0x00740072U && (uint) input[18] == 0x0079U) return 416;
                         break;
                     }
                     case 0x00690072002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read2(input, 16) == 0x00680067U && (uint) input[18] == 0x0074U) return 343;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read2(input, 16) == 0x00680067U && (uint) input[18] == 0x0074U) return 344;
                         break;
                     }
                     case 0x00690077002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 16) == 0x00740064U && (uint) input[18] == 0x0068U) return 85;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 16) == 0x00740064U && (uint) input[18] == 0x0068U) return 86;
                         break;
                     }
                     case 0x00690077002D006DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006F00740074006FUL && Read2(input, 16) == 0x00740064U && (uint) input[18] == 0x0068U) return 63;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006F00740074006FUL && Read2(input, 16) == 0x00740064U && (uint) input[18] == 0x0068U) return 64;
                         break;
                     }
                     case 0x006A00640061002DUL:
                     {
-                        if (Read4(input, 0) == 0x00630072006F0066UL && Read4(input, 4) == 0x0063002D00640065UL && Read4(input, 8) == 0x0072006F006C006FUL && Read2(input, 16) == 0x00730075U && (uint) input[18] == 0x0074U) return 185;
+                        if (Read4(input, 0) == 0x00630072006F0066UL && Read4(input, 4) == 0x0063002D00640065UL && Read4(input, 8) == 0x0072006F006C006FUL && Read2(input, 16) == 0x00730075U && (uint) input[18] == 0x0074U) return 186;
                         break;
                     }
                     case 0x006C002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read2(input, 16) == 0x00660065U && (uint) input[18] == 0x0074U) return 353;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read2(input, 16) == 0x00660065U && (uint) input[18] == 0x0074U) return 354;
                         break;
                     }
                     case 0x006C0062002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read2(input, 16) == 0x0063006FU && (uint) input[18] == 0x006BU) return 335;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read2(input, 16) == 0x0063006FU && (uint) input[18] == 0x006BU) return 336;
                         break;
                     }
                     case 0x006C006900620069UL:
@@ -4367,12 +4372,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x00690073006F0070UL:
                             {
-                                if (Read4(input, 4) == 0x006E006F00690074UL && Read4(input, 8) == 0x007300690076002DUL && Read2(input, 16) == 0x00740069U && (uint) input[18] == 0x0079U) return 321;
+                                if (Read4(input, 4) == 0x006E006F00690074UL && Read4(input, 8) == 0x007300690076002DUL && Read2(input, 16) == 0x00740069U && (uint) input[18] == 0x0079U) return 322;
                                 break;
                             }
                             case 0x006B006300610062UL:
                             {
-                                if (Read4(input, 4) == 0x0065006300610066UL && Read4(input, 8) == 0x007300690076002DUL && Read2(input, 16) == 0x00740069U && (uint) input[18] == 0x0079U) return 25;
+                                if (Read4(input, 4) == 0x0065006300610066UL && Read4(input, 8) == 0x007300690076002DUL && Read2(input, 16) == 0x00740069U && (uint) input[18] == 0x0079U) return 26;
                                 break;
                             }
                         }
@@ -4380,42 +4385,42 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x006D002D006C006CUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00690066002D006EUL && Read2(input, 16) == 0x0064006FU && (uint) input[18] == 0x0065U) return 12;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00690066002D006EUL && Read2(input, 16) == 0x0064006FU && (uint) input[18] == 0x0065U) return 13;
                         break;
                     }
                     case 0x006F0063002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 16) == 0x006F006CU && (uint) input[18] == 0x0072U) return 75;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 16) == 0x006F006CU && (uint) input[18] == 0x0072U) return 76;
                         break;
                     }
                     case 0x006F0063002D006DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006F00740074006FUL && Read2(input, 16) == 0x006F006CU && (uint) input[18] == 0x0072U) return 59;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006F00740074006FUL && Read2(input, 16) == 0x006F006CU && (uint) input[18] == 0x0072U) return 60;
                         break;
                     }
                     case 0x007000650072002DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006500670061006DUL && Read2(input, 16) == 0x00610065U && (uint) input[18] == 0x0074U) return 70;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006500670061006DUL && Read2(input, 16) == 0x00610065U && (uint) input[18] == 0x0074U) return 71;
                         break;
                     }
                     case 0x00720061002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006D00650074002DUL && Read4(input, 8) == 0x00740061006C0070UL && Read2(input, 16) == 0x00610065U && (uint) input[18] == 0x0073U) return 202;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006D00650074002DUL && Read4(input, 8) == 0x00740061006C0070UL && Read2(input, 16) == 0x00610065U && (uint) input[18] == 0x0073U) return 203;
                         break;
                     }
                     case 0x0074006100720075UL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0069007400690073UL && Read4(input, 8) == 0x0064002D006E006FUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 414;
+                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 4) == 0x0069007400690073UL && Read4(input, 8) == 0x0064002D006E006FUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 415;
                         break;
                     }
                     case 0x0074006100750074UL:
                     {
-                        if (Read4(input, 0) == 0x0067006E00610068UL && Read4(input, 4) == 0x002D0067006E0069UL && Read4(input, 8) == 0x0063006E00750070UL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 205;
+                        if (Read4(input, 0) == 0x0067006E00610068UL && Read4(input, 4) == 0x002D0067006E0069UL && Read4(input, 8) == 0x0063006E00750070UL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 206;
                         break;
                     }
                     case 0x0074006300650072UL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00690064002D006EUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 10;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00690064002D006EUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 11;
                         break;
                     }
                     case 0x007400690073006FUL:
@@ -4425,12 +4430,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x006B006300610062UL:
                             {
-                                if (Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0070002D0064006EUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 33;
+                                if (Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0070002D0064006EUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 34;
                                 break;
                             }
                             case 0x007400730069006CUL:
                             {
-                                if (Read4(input, 4) == 0x007900740073002DUL && Read4(input, 8) == 0x0070002D0065006CUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 233;
+                                if (Read4(input, 4) == 0x007900740073002DUL && Read4(input, 8) == 0x0070002D0065006CUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x006EU) return 234;
                                 break;
                             }
                         }
@@ -4446,17 +4451,17 @@ internal static class CssPropertyNameLookup
                                 var chunk38 = Read4(input, 15);
                                 if ((chunk38 & 0xFFFFFFFFFFFF0000UL) == 0x0065006C00790000UL)
                                 {
-                                    if (Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL) return 84;
+                                    if (Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL) return 85;
                                 }
                                 else if ((chunk38 & 0xFFFFFFFFFFFF0000UL) == 0x0074007200610000UL)
                                 {
-                                    if (Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL) return 80;
+                                    if (Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL) return 81;
                                 }
                                 break;
                             }
                             case 0x006700720061006DUL:
                             {
-                                if (Read4(input, 4) == 0x0069002D006E0069UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 16) == 0x00720061U && (uint) input[18] == 0x0074U) return 242;
+                                if (Read4(input, 4) == 0x0069002D006E0069UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 16) == 0x00720061U && (uint) input[18] == 0x0074U) return 243;
                                 break;
                             }
                         }
@@ -4464,32 +4469,32 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x00740073002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && Read4(input, 8) == 0x0063006F006C0062UL && Read2(input, 16) == 0x00720061U && (uint) input[18] == 0x0074U) return 299;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && Read4(input, 8) == 0x0063006F006C0062UL && Read2(input, 16) == 0x00720061U && (uint) input[18] == 0x0074U) return 300;
                         break;
                     }
                     case 0x00740073002D006DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006F00740074006FUL && Read2(input, 16) == 0x006C0079U && (uint) input[18] == 0x0065U) return 62;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006F00740074006FUL && Read2(input, 16) == 0x006C0079U && (uint) input[18] == 0x0065U) return 63;
                         break;
                     }
                     case 0x00740075006F002DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006500670061006DUL && Read2(input, 16) == 0x00650073U && (uint) input[18] == 0x0074U) return 69;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006500670061006DUL && Read2(input, 16) == 0x00650073U && (uint) input[18] == 0x0074U) return 70;
                         break;
                     }
                     case 0x0075006F0073002DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006500670061006DUL && Read2(input, 16) == 0x00630072U && (uint) input[18] == 0x0065U) return 72;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006500670061006DUL && Read2(input, 16) == 0x00630072U && (uint) input[18] == 0x0065U) return 73;
                         break;
                     }
                     case 0x0076006100680065UL:
                     {
-                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x0072U) return 291;
+                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read2(input, 16) == 0x006F0069U && (uint) input[18] == 0x0072U) return 292;
                         break;
                     }
                     case 0x007A00690073002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x00740070006F002DUL && Read4(input, 8) == 0x006C006100630069UL && Read2(input, 16) == 0x006E0069U && (uint) input[18] == 0x0067U) return 170;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x00740070006F002DUL && Read4(input, 8) == 0x006C006100630069UL && Read2(input, 16) == 0x006E0069U && (uint) input[18] == 0x0067U) return 171;
                         break;
                     }
                 }
@@ -4507,12 +4512,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x0074007800650074UL:
                             {
-                                if (Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read4(input, 16) == 0x0065006E0069006CUL) return 392;
+                                if (Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read4(input, 16) == 0x0065006E0069006CUL) return 393;
                                 break;
                             }
                             case 0x0077006500690076UL:
                             {
-                                if (Read4(input, 4) == 0x006100720074002DUL && Read4(input, 8) == 0x007400690073006EUL && Read4(input, 16) == 0x0065006D0061006EUL) return 423;
+                                if (Read4(input, 4) == 0x006100720074002DUL && Read4(input, 8) == 0x007400690073006EUL && Read4(input, 16) == 0x0065006D0061006EUL) return 424;
                                 break;
                             }
                         }
@@ -4520,67 +4525,67 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0061002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x00740069006E0069UL && Read4(input, 4) == 0x002D006C00610069UL && Read4(input, 8) == 0x007400740065006CUL && Read4(input, 16) == 0x006E00670069006CUL) return 213;
+                        if (Read4(input, 0) == 0x00740069006E0069UL && Read4(input, 4) == 0x002D006C00610069UL && Read4(input, 8) == 0x007400740065006CUL && Read4(input, 16) == 0x006E00670069006CUL) return 214;
                         break;
                     }
                     case 0x0061006D002D0070UL:
                     {
-                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x0077006F006C0066UL && Read4(input, 8) == 0x0069006C0063002DUL && Read4(input, 16) == 0x006E006900670072UL) return 287;
+                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x0077006F006C0066UL && Read4(input, 8) == 0x0069006C0063002DUL && Read4(input, 16) == 0x006E006900670072UL) return 288;
                         break;
                     }
                     case 0x0062002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 16) == 0x006B0063006F006CUL) return 346;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 16) == 0x006B0063006F006CUL) return 347;
                         break;
                     }
                     case 0x0062002D006E006FUL:
                     {
-                        if (Read4(input, 0) == 0x002D0078006F0062UL && Read4(input, 4) == 0x006F006300650064UL && Read4(input, 8) == 0x0069007400610072UL && Read4(input, 16) == 0x006B006100650072UL) return 107;
+                        if (Read4(input, 0) == 0x002D0078006F0062UL && Read4(input, 4) == 0x006F006300650064UL && Read4(input, 8) == 0x0069007400610072UL && Read4(input, 16) == 0x006B006100650072UL) return 108;
                         break;
                     }
                     case 0x0063002D00650063UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00610066002D0072UL && Read4(input, 16) == 0x0072006F006C006FUL) return 362;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00610066002D0072UL && Read4(input, 16) == 0x0072006F006C006FUL) return 363;
                         break;
                     }
                     case 0x0063002D00650073UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00610062002D0072UL && Read4(input, 16) == 0x0072006F006C006FUL) return 359;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00610062002D0072UL && Read4(input, 16) == 0x0072006F006C006FUL) return 360;
                         break;
                     }
                     case 0x006C006C006F0063UL:
                     {
-                        if (Read4(input, 0) == 0x0074006900680077UL && Read4(input, 4) == 0x00700073002D0065UL && Read4(input, 8) == 0x002D006500630061UL && Read4(input, 16) == 0x0065007300700061UL) return 426;
+                        if (Read4(input, 0) == 0x0074006900680077UL && Read4(input, 4) == 0x00700073002D0065UL && Read4(input, 8) == 0x002D006500630061UL && Read4(input, 16) == 0x0065007300700061UL) return 427;
                         break;
                     }
                     case 0x006E0069002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 16) == 0x0065006E0069006CUL) return 339;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 16) == 0x0065006E0069006CUL) return 340;
                         break;
                     }
                     case 0x006F0062002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 16) == 0x006D006F00740074UL) return 338;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 16) == 0x006D006F00740074UL) return 339;
                         break;
                     }
                     case 0x0072002D0067006EUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 16) == 0x0074006800670069UL) return 354;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 16) == 0x0074006800670069UL) return 355;
                         break;
                     }
                     case 0x0073002D0065006EUL:
                     {
-                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && Read4(input, 8) == 0x0069006C006E0069UL && Read4(input, 16) == 0x0074007200610074UL) return 303;
+                        if (Read4(input, 0) == 0x0064006400610070UL && Read4(input, 4) == 0x002D0067006E0069UL && Read4(input, 8) == 0x0069006C006E0069UL && Read4(input, 16) == 0x0074007200610074UL) return 304;
                         break;
                     }
                     case 0x0073002D00730069UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E00790073002DUL && Read4(input, 8) == 0x0073006500680074UL && Read4(input, 16) == 0x0065006C00790074UL) return 178;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E00790073002DUL && Read4(input, 8) == 0x0073006500680074UL && Read4(input, 16) == 0x0065006C00790074UL) return 179;
                         break;
                     }
                     case 0x0073002D00790061UL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x006C0070002D006EUL && Read4(input, 16) == 0x0065007400610074UL) return 15;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x006C0070002D006EUL && Read4(input, 16) == 0x0065007400610074UL) return 16;
                         break;
                     }
                 }
@@ -4593,67 +4598,67 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x006400610072002DUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0065002D00720065UL && Read4(input, 8) == 0x0065002D0064006EUL && Read2(input, 12) == 0x0064006EU && Read2(input, 18) == 0x00750069U && (uint) input[20] == 0x0073U) return 66;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0065002D00720065UL && Read4(input, 8) == 0x0065002D0064006EUL && Read2(input, 12) == 0x0064006EU && Read2(input, 18) == 0x00750069U && (uint) input[20] == 0x0073U) return 67;
                         break;
                     }
                     case 0x00660066006F002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x0064006E0075002DUL && Read4(input, 8) == 0x0069006C00720065UL && Read2(input, 12) == 0x0065006EU && Read2(input, 18) == 0x00650073U && (uint) input[20] == 0x0074U) return 401;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x0064006E0075002DUL && Read4(input, 8) == 0x0069006C00720065UL && Read2(input, 12) == 0x0065006EU && Read2(input, 18) == 0x00650073U && (uint) input[20] == 0x0074U) return 402;
                         break;
                     }
                     case 0x00680063002D0074UL:
                     {
-                        if (Read4(input, 0) == 0x0068007000790068UL && Read4(input, 4) == 0x00740061006E0065UL && Read4(input, 8) == 0x0069006C002D0065UL && Read2(input, 12) == 0x0069006DU && Read2(input, 18) == 0x00720061U && (uint) input[20] == 0x0073U) return 208;
+                        if (Read4(input, 0) == 0x0068007000790068UL && Read4(input, 4) == 0x00740061006E0065UL && Read4(input, 8) == 0x0069006C002D0065UL && Read2(input, 12) == 0x0069006DU && Read2(input, 18) == 0x00720061U && (uint) input[20] == 0x0073U) return 209;
                         break;
                     }
                     case 0x0068007300650072UL:
                     {
-                        if (Read4(input, 0) == 0x0070006100680073UL && Read4(input, 4) == 0x006D0069002D0065UL && Read4(input, 8) == 0x002D006500670061UL && Read2(input, 12) == 0x00680074U && Read2(input, 18) == 0x006C006FU && (uint) input[20] == 0x0064U) return 369;
+                        if (Read4(input, 0) == 0x0070006100680073UL && Read4(input, 4) == 0x006D0069002D0065UL && Read4(input, 8) == 0x002D006500670061UL && Read2(input, 12) == 0x00680074U && Read2(input, 18) == 0x006C006FU && (uint) input[20] == 0x0064U) return 370;
                         break;
                     }
                     case 0x006900650077002DUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E00790073002DUL && Read4(input, 8) == 0x0073006500680074UL && Read2(input, 12) == 0x00730069U && Read2(input, 18) == 0x00680067U && (uint) input[20] == 0x0074U) return 179;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E00790073002DUL && Read4(input, 8) == 0x0073006500680074UL && Read2(input, 12) == 0x00730069U && Read2(input, 18) == 0x00680067U && (uint) input[20] == 0x0074U) return 180;
                         break;
                     }
                     case 0x0069007400740065UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006100650066002DUL && Read4(input, 8) == 0x0065007200750074UL && Read2(input, 12) == 0x0073002DU && Read2(input, 18) == 0x0067006EU && (uint) input[20] == 0x0073U) return 167;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006100650066002DUL && Read4(input, 8) == 0x0065007200750074UL && Read2(input, 12) == 0x0073002DU && Read2(input, 18) == 0x0067006EU && (uint) input[20] == 0x0073U) return 168;
                         break;
                     }
                     case 0x006C0063002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x0077006500690076UL && Read4(input, 4) == 0x006100720074002DUL && Read4(input, 8) == 0x007400690073006EUL && Read2(input, 12) == 0x006F0069U && Read2(input, 18) == 0x00730061U && (uint) input[20] == 0x0073U) return 422;
+                        if (Read4(input, 0) == 0x0077006500690076UL && Read4(input, 4) == 0x006100720074002DUL && Read4(input, 8) == 0x007400690073006EUL && Read2(input, 12) == 0x006F0069U && Read2(input, 18) == 0x00730061U && (uint) input[20] == 0x0073U) return 423;
                         break;
                     }
                     case 0x006C006E0069002DUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read2(input, 12) == 0x0067006EU && Read2(input, 18) == 0x006E0069U && (uint) input[20] == 0x0065U) return 350;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read2(input, 12) == 0x0067006EU && Read2(input, 18) == 0x006E0069U && (uint) input[20] == 0x0065U) return 351;
                         break;
                     }
                     case 0x006D002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0062002D0064006EUL && Read2(input, 12) == 0x0065006CU && Read2(input, 18) == 0x0064006FU && (uint) input[20] == 0x0065U) return 28;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0062002D0064006EUL && Read2(input, 12) == 0x0065006CU && Read2(input, 18) == 0x0064006FU && (uint) input[20] == 0x0065U) return 29;
                         break;
                     }
                     case 0x006D006800630061UL:
                     {
-                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0061002D0064006EUL && Read2(input, 12) == 0x00740074U && Read2(input, 18) == 0x006E0065U && (uint) input[20] == 0x0074U) return 27;
+                        if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0061002D0064006EUL && Read2(input, 12) == 0x00740074U && Read2(input, 18) == 0x006E0065U && (uint) input[20] == 0x0074U) return 28;
                         break;
                     }
                     case 0x006F0063002D006BUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00720074002D0072UL && Read2(input, 12) == 0x00630061U && Read2(input, 18) == 0x006F006CU && (uint) input[20] == 0x0072U) return 366;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00720074002D0072UL && Read2(input, 12) == 0x00630061U && Read2(input, 18) == 0x006F006CU && (uint) input[20] == 0x0072U) return 367;
                         break;
                     }
                     case 0x006F0063002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read2(input, 12) == 0x006F0069U && Read2(input, 18) == 0x006F006CU && (uint) input[20] == 0x0072U) return 391;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read2(input, 12) == 0x006F0069U && Read2(input, 18) == 0x006F006CU && (uint) input[20] == 0x0072U) return 392;
                         break;
                     }
                     case 0x006F0063002D0077UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00720061002D0072UL && Read2(input, 12) == 0x006F0072U && Read2(input, 18) == 0x006F006CU && (uint) input[20] == 0x0072U) return 358;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00720061002D0072UL && Read2(input, 12) == 0x006F0072U && Read2(input, 18) == 0x006F006CU && (uint) input[20] == 0x0072U) return 359;
                         break;
                     }
                     case 0x006F006900740069UL:
@@ -4661,11 +4666,11 @@ internal static class CssPropertyNameLookup
                         var chunk42 = Read4(input, 17);
                         if ((chunk42 & 0xFFFFFFFFFFFF0000UL) == 0x0078002D006E0000UL)
                         {
-                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0070002D0064006EUL && Read2(input, 12) == 0x0073006FU) return 34;
+                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0070002D0064006EUL && Read2(input, 12) == 0x0073006FU) return 35;
                         }
                         else if ((chunk42 & 0xFFFFFFFFFFFF0000UL) == 0x0079002D006E0000UL)
                         {
-                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0070002D0064006EUL && Read2(input, 12) == 0x0073006FU) return 35;
+                            if (Read4(input, 0) == 0x006B006300610062UL && Read4(input, 4) == 0x0075006F00720067UL && Read4(input, 8) == 0x0070002D0064006EUL && Read2(input, 12) == 0x0073006FU) return 36;
                         }
                         break;
                     }
@@ -4674,37 +4679,37 @@ internal static class CssPropertyNameLookup
                         var chunk43 = Read4(input, 17);
                         if ((chunk43 & 0xFFFFFFFFFFFF0000UL) == 0x0078002D00720000UL)
                         {
-                            if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read2(input, 12) == 0x00680065U) return 294;
+                            if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read2(input, 12) == 0x00680065U) return 295;
                         }
                         else if ((chunk43 & 0xFFFFFFFFFFFF0000UL) == 0x0079002D00720000UL)
                         {
-                            if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read2(input, 12) == 0x00680065U) return 295;
+                            if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read2(input, 12) == 0x00680065U) return 296;
                         }
                         break;
                     }
                     case 0x007400690073006FUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x006F0063002D006EUL && Read2(input, 12) == 0x0070006DU && Read2(input, 18) == 0x006F0069U && (uint) input[20] == 0x006EU) return 8;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x006F0063002D006EUL && Read2(input, 12) == 0x0070006DU && Read2(input, 18) == 0x006F0069U && (uint) input[20] == 0x006EU) return 9;
                         break;
                     }
                     case 0x0074006F0062002DUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read2(input, 12) == 0x0067006EU && Read2(input, 18) == 0x006F0074U && (uint) input[20] == 0x006DU) return 349;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read2(input, 12) == 0x0067006EU && Read2(input, 18) == 0x006F0074U && (uint) input[20] == 0x006DU) return 350;
                         break;
                     }
                     case 0x00740073002D0065UL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00610072002D006EUL && Read2(input, 12) == 0x0067006EU && Read2(input, 18) == 0x00720061U && (uint) input[20] == 0x0074U) return 18;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00610072002D006EUL && Read2(input, 12) == 0x0067006EU && Read2(input, 18) == 0x00720061U && (uint) input[20] == 0x0074U) return 19;
                         break;
                     }
                     case 0x00740073002D006EUL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read2(input, 12) == 0x006F0069U && Read2(input, 18) == 0x006C0079U && (uint) input[20] == 0x0065U) return 394;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read2(input, 12) == 0x006F0069U && Read2(input, 18) == 0x006C0079U && (uint) input[20] == 0x0065U) return 395;
                         break;
                     }
                     case 0x0075006C006F0063UL:
                     {
-                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006D00650074002DUL && Read4(input, 8) == 0x00740061006C0070UL && Read2(input, 12) == 0x002D0065U && Read2(input, 18) == 0x006E006DU && (uint) input[20] == 0x0073U) return 203;
+                        if (Read4(input, 0) == 0x0064006900720067UL && Read4(input, 4) == 0x006D00650074002DUL && Read4(input, 8) == 0x00740061006C0070UL && Read2(input, 12) == 0x002D0065U && Read2(input, 18) == 0x006E006DU && (uint) input[20] == 0x0073U) return 204;
                         break;
                     }
                 }
@@ -4717,42 +4722,42 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006300690073UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read2(input, 12) == 0x006E0069U && Read4(input, 18) == 0x0065007A00690073UL) return 136;
+                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read2(input, 12) == 0x006E0069U && Read4(input, 18) == 0x0065007A00690073UL) return 137;
                         break;
                     }
                     case 0x00610072002D0074UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && Read4(input, 8) == 0x006C002D0070006FUL && Read2(input, 12) == 0x00660065U && Read4(input, 18) == 0x0073007500690064UL) return 101;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0074002D00720065UL && Read4(input, 8) == 0x006C002D0070006FUL && Read2(input, 12) == 0x00660065U && Read4(input, 18) == 0x0073007500690064UL) return 102;
                         break;
                     }
                     case 0x0062006C006C0061UL:
                     {
-                        if (Read4(input, 0) == 0x00690073006F0070UL && Read4(input, 4) == 0x006E006F00690074UL && Read4(input, 8) == 0x007900720074002DUL && Read2(input, 12) == 0x0066002DU && Read4(input, 18) == 0x0073006B00630061UL) return 319;
+                        if (Read4(input, 0) == 0x00690073006F0070UL && Read4(input, 4) == 0x006E006F00690074UL && Read4(input, 8) == 0x007900720074002DUL && Read2(input, 12) == 0x0066002DU && Read4(input, 18) == 0x0073006B00630061UL) return 320;
                         break;
                     }
                     case 0x0063002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read2(input, 12) == 0x0065002DU && Read4(input, 18) == 0x0072006F006C006FUL) return 49;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read2(input, 12) == 0x0065002DU && Read4(input, 18) == 0x0072006F006C006FUL) return 50;
                         break;
                     }
                     case 0x0063002D0077006FUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00680073002D0072UL && Read2(input, 12) == 0x00640061U && Read4(input, 18) == 0x0072006F006C006FUL) return 365;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00680073002D0072UL && Read2(input, 12) == 0x00640061U && Read4(input, 18) == 0x0072006F006C006FUL) return 366;
                         break;
                     }
                     case 0x007200650076006FUL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E0061006C002DUL && Read4(input, 8) == 0x0067006100750067UL && Read2(input, 12) == 0x002D0065U && Read4(input, 18) == 0x0065006400690072UL) return 169;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E0061006C002DUL && Read4(input, 8) == 0x0067006100750067UL && Read2(input, 12) == 0x002D0065U && Read4(input, 18) == 0x0065006400690072UL) return 170;
                         break;
                     }
                     case 0x0073002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read2(input, 12) == 0x0065002DU && Read4(input, 18) == 0x0065006C00790074UL) return 50;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read2(input, 12) == 0x0065002DU && Read4(input, 18) == 0x0065006C00790074UL) return 51;
                         break;
                     }
                     case 0x0077002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read2(input, 12) == 0x0065002DU && Read4(input, 18) == 0x0068007400640069UL) return 51;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read2(input, 12) == 0x0065002DU && Read4(input, 18) == 0x0068007400640069UL) return 52;
                         break;
                     }
                 }
@@ -4765,7 +4770,7 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x00610072002D0064UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0073002D00720065UL && Read4(input, 8) == 0x0074007200610074UL && Read2(input, 12) == 0x0065002DU && (uint) input[14] == 0x006EU && Read4(input, 19) == 0x0073007500690064UL) return 96;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0073002D00720065UL && Read4(input, 8) == 0x0074007200610074UL && Read2(input, 12) == 0x0065002DU && (uint) input[14] == 0x006EU && Read4(input, 19) == 0x0073007500690064UL) return 97;
                         break;
                     }
                     case 0x00610072002D0074UL:
@@ -4775,12 +4780,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x0065002D00720065UL:
                             {
-                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x0073002D0064006EUL && Read2(input, 12) == 0x00610074U && (uint) input[14] == 0x0072U && Read4(input, 19) == 0x0073007500690064UL) return 67;
+                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x0073002D0064006EUL && Read2(input, 12) == 0x00610074U && (uint) input[14] == 0x0072U && Read4(input, 19) == 0x0073007500690064UL) return 68;
                                 break;
                             }
                             case 0x0074002D00720065UL:
                             {
-                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x0072002D0070006FUL && Read2(input, 12) == 0x00670069U && (uint) input[14] == 0x0068U && Read4(input, 19) == 0x0073007500690064UL) return 102;
+                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x0072002D0070006FUL && Read2(input, 12) == 0x00670069U && (uint) input[14] == 0x0068U && Read4(input, 19) == 0x0073007500690064UL) return 103;
                                 break;
                             }
                         }
@@ -4788,42 +4793,42 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0063002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 12) == 0x002D0065U && (uint) input[14] == 0x0065U && Read4(input, 19) == 0x0072006F006C006FUL) return 77;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 12) == 0x002D0065U && (uint) input[14] == 0x0065U && Read4(input, 19) == 0x0072006F006C006FUL) return 78;
                         break;
                     }
                     case 0x0063002D00740068UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x002D006400330072UL && Read2(input, 12) == 0x0069006CU && (uint) input[14] == 0x0067U && Read4(input, 19) == 0x0072006F006C006FUL) return 368;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x002D006400330072UL && Read2(input, 12) == 0x0069006CU && (uint) input[14] == 0x0067U && Read4(input, 19) == 0x0072006F006C006FUL) return 369;
                         break;
                     }
                     case 0x00690073006F0070UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x0064006E0075002DUL && Read4(input, 8) == 0x0069006C00720065UL && Read2(input, 12) == 0x0065006EU && (uint) input[14] == 0x002DU && Read4(input, 19) == 0x006E006F00690074UL) return 402;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x0064006E0075002DUL && Read4(input, 8) == 0x0069006C00720065UL && Read2(input, 12) == 0x0065006EU && (uint) input[14] == 0x002DU && Read4(input, 19) == 0x006E006F00690074UL) return 403;
                         break;
                     }
                     case 0x006B0063006F006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read2(input, 12) == 0x002D006EU && (uint) input[14] == 0x0062U && Read4(input, 19) == 0x0064006E0065002DUL) return 336;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read2(input, 12) == 0x002D006EU && (uint) input[14] == 0x0062U && Read4(input, 19) == 0x0064006E0065002DUL) return 337;
                         break;
                     }
                     case 0x0073002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 12) == 0x002D0065U && (uint) input[14] == 0x0065U && Read4(input, 19) == 0x0065006C00790074UL) return 78;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 12) == 0x002D0065U && (uint) input[14] == 0x0065U && Read4(input, 19) == 0x0065006C00790074UL) return 79;
                         break;
                     }
                     case 0x0074007400650073UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x007200610076002DUL && Read4(input, 8) == 0x0069007400610069UL && Read2(input, 12) == 0x006E006FU && (uint) input[14] == 0x002DU && Read4(input, 19) == 0x00730067006E0069UL) return 181;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x007200610076002DUL && Read4(input, 8) == 0x0069007400610069UL && Read2(input, 12) == 0x006E006FU && (uint) input[14] == 0x002DU && Read4(input, 19) == 0x00730067006E0069UL) return 182;
                         break;
                     }
                     case 0x0077002D00630069UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0073U && Read4(input, 19) == 0x0068007400640069UL) return 137;
+                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0073U && Read4(input, 19) == 0x0068007400640069UL) return 138;
                         break;
                     }
                     case 0x0077002D0064006EUL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 12) == 0x002D0065U && (uint) input[14] == 0x0065U && Read4(input, 19) == 0x0068007400640069UL) return 79;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read2(input, 12) == 0x002D0065U && (uint) input[14] == 0x0065U && Read4(input, 19) == 0x0068007400640069UL) return 80;
                         break;
                     }
                 }
@@ -4836,37 +4841,37 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x0063002D00740072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read4(input, 12) == 0x006100740073002DUL && Read4(input, 20) == 0x0072006F006C006FUL) return 53;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read4(input, 12) == 0x006100740073002DUL && Read4(input, 20) == 0x0072006F006C006FUL) return 54;
                         break;
                     }
                     case 0x00650068002D0063UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read4(input, 12) == 0x00690073006E0069UL && Read4(input, 20) == 0x0074006800670069UL) return 134;
+                        if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read4(input, 12) == 0x00690073006E0069UL && Read4(input, 20) == 0x0074006800670069UL) return 135;
                         break;
                     }
                     case 0x0065006E0069006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 12) == 0x006E0069002D006EUL && Read4(input, 20) == 0x0064006E0065002DUL) return 340;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 12) == 0x006E0069002D006EUL && Read4(input, 20) == 0x0064006E0065002DUL) return 341;
                         break;
                     }
                     case 0x006B0063006F006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0062002D0067006EUL && Read4(input, 20) == 0x0064006E0065002DUL) return 347;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0062002D0067006EUL && Read4(input, 20) == 0x0064006E0065002DUL) return 348;
                         break;
                     }
                     case 0x00700069006B0073UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read4(input, 12) == 0x002D006E006F0069UL && Read4(input, 20) == 0x006B006E0069002DUL) return 393;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read4(input, 12) == 0x002D006E006F0069UL && Read4(input, 20) == 0x006B006E0069002DUL) return 394;
                         break;
                     }
                     case 0x0073002D00740072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read4(input, 12) == 0x006100740073002DUL && Read4(input, 20) == 0x0065006C00790074UL) return 54;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read4(input, 12) == 0x006100740073002DUL && Read4(input, 20) == 0x0065006C00790074UL) return 55;
                         break;
                     }
                     case 0x0077002D00740072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read4(input, 12) == 0x006100740073002DUL && Read4(input, 20) == 0x0068007400640069UL) return 55;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0062002D00720065UL && Read4(input, 8) == 0x006B0063006F006CUL && Read4(input, 12) == 0x006100740073002DUL && Read4(input, 20) == 0x0068007400640069UL) return 56;
                         break;
                     }
                 }
@@ -4879,7 +4884,7 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x002D006C006C0061UL:
                     {
-                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E00790073002DUL && Read4(input, 8) == 0x0073006500680074UL && Read4(input, 12) == 0x0073002D00730069UL && (uint) input[16] == 0x006DU && Read4(input, 21) == 0x0073007000610063UL) return 177;
+                        if (Read4(input, 0) == 0x0074006E006F0066UL && Read4(input, 4) == 0x006E00790073002DUL && Read4(input, 8) == 0x0073006500680074UL && Read4(input, 12) == 0x0073002D00730069UL && (uint) input[16] == 0x006DU && Read4(input, 21) == 0x0073007000610063UL) return 178;
                         break;
                     }
                     case 0x00610072002D0074UL:
@@ -4889,12 +4894,12 @@ internal static class CssPropertyNameLookup
                         {
                             case 0x0062002D00720065UL:
                             {
-                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x006F00740074006FUL && Read4(input, 12) == 0x0065006C002D006DUL && (uint) input[16] == 0x0066U && Read4(input, 21) == 0x0073007500690064UL) return 60;
+                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x006F00740074006FUL && Read4(input, 12) == 0x0065006C002D006DUL && (uint) input[16] == 0x0066U && Read4(input, 21) == 0x0073007500690064UL) return 61;
                                 break;
                             }
                             case 0x0073002D00720065UL:
                             {
-                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x0074007200610074UL && Read4(input, 12) == 0x006100740073002DUL && (uint) input[16] == 0x0072U && Read4(input, 21) == 0x0073007500690064UL) return 97;
+                                if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x0074007200610074UL && Read4(input, 12) == 0x006100740073002DUL && (uint) input[16] == 0x0072U && Read4(input, 21) == 0x0073007500690064UL) return 98;
                                 break;
                             }
                         }
@@ -4902,52 +4907,52 @@ internal static class CssPropertyNameLookup
                     }
                     case 0x0062002D0072006FUL:
                     {
-                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read4(input, 12) == 0x0076006100680065UL && (uint) input[16] == 0x0069U && Read4(input, 21) == 0x006B0063006F006CUL) return 292;
+                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x006F007200630073UL && Read4(input, 8) == 0x0062002D006C006CUL && Read4(input, 12) == 0x0076006100680065UL && (uint) input[16] == 0x0069U && Read4(input, 21) == 0x006B0063006F006CUL) return 293;
                         break;
                     }
                     case 0x0063002D006E006FUL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00740069002D006EUL && Read4(input, 12) == 0x0074006100720065UL && (uint) input[16] == 0x0069U && Read4(input, 21) == 0x0074006E0075006FUL) return 13;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00740069002D006EUL && Read4(input, 12) == 0x0074006100720065UL && (uint) input[16] == 0x0069U && Read4(input, 21) == 0x0074006E0075006FUL) return 14;
                         break;
                     }
                     case 0x0063002D00740068UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00690068002D0072UL && Read4(input, 12) == 0x0069006C00680067UL && (uint) input[16] == 0x0067U && Read4(input, 21) == 0x0072006F006C006FUL) return 364;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x00610062006C006CUL && Read4(input, 8) == 0x00690068002D0072UL && Read4(input, 12) == 0x0069006C00680067UL && (uint) input[16] == 0x0067U && Read4(input, 21) == 0x0072006F006C006FUL) return 365;
                         break;
                     }
                     case 0x0063002D00740072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read4(input, 12) == 0x00740073002D0065UL && (uint) input[16] == 0x0061U && Read4(input, 21) == 0x0072006F006C006FUL) return 81;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read4(input, 12) == 0x00740073002D0065UL && (uint) input[16] == 0x0061U && Read4(input, 21) == 0x0072006F006C006FUL) return 82;
                         break;
                     }
                     case 0x0063006E00750066UL:
                     {
-                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00690074002D006EUL && Read4(input, 12) == 0x0067006E0069006DUL && (uint) input[16] == 0x002DU && Read4(input, 21) == 0x006E006F00690074UL) return 20;
+                        if (Read4(input, 0) == 0x006D0069006E0061UL && Read4(input, 4) == 0x006F006900740061UL && Read4(input, 8) == 0x00690074002D006EUL && Read4(input, 12) == 0x0067006E0069006DUL && (uint) input[16] == 0x002DU && Read4(input, 21) == 0x006E006F00690074UL) return 21;
                         break;
                     }
                     case 0x0065006E0069006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0069002D0067006EUL && (uint) input[16] == 0x006EU && Read4(input, 21) == 0x0064006E0065002DUL) return 351;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x0070002D006C006CUL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0069002D0067006EUL && (uint) input[16] == 0x006EU && Read4(input, 21) == 0x0064006E0065002DUL) return 352;
                         break;
                     }
                     case 0x006B006300690068UL:
                     {
-                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read4(input, 12) == 0x002D006E006F0069UL && (uint) input[16] == 0x0074U && Read4(input, 21) == 0x007300730065006EUL) return 395;
+                        if (Read4(input, 0) == 0x0074007800650074UL && Read4(input, 4) == 0x006300650064002DUL && Read4(input, 8) == 0x007400610072006FUL && Read4(input, 12) == 0x002D006E006F0069UL && (uint) input[16] == 0x0074U && Read4(input, 21) == 0x007300730065006EUL) return 396;
                         break;
                     }
                     case 0x0073002D006B0063UL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 12) == 0x006C0062002D006EUL && (uint) input[16] == 0x006FU && Read4(input, 21) == 0x0074007200610074UL) return 337;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 4) == 0x006D002D006C006CUL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 12) == 0x006C0062002D006EUL && (uint) input[16] == 0x006FU && Read4(input, 21) == 0x0074007200610074UL) return 338;
                         break;
                     }
                     case 0x0073002D00740072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read4(input, 12) == 0x00740073002D0065UL && (uint) input[16] == 0x0061U && Read4(input, 21) == 0x0065006C00790074UL) return 82;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read4(input, 12) == 0x00740073002D0065UL && (uint) input[16] == 0x0061U && Read4(input, 21) == 0x0065006C00790074UL) return 83;
                         break;
                     }
                     case 0x0077002D00740072UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read4(input, 12) == 0x00740073002D0065UL && (uint) input[16] == 0x0061U && Read4(input, 21) == 0x0068007400640069UL) return 83;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 4) == 0x0069002D00720065UL && Read4(input, 8) == 0x006E0069006C006EUL && Read4(input, 12) == 0x00740073002D0065UL && (uint) input[16] == 0x0061U && Read4(input, 21) == 0x0068007400640069UL) return 84;
                         break;
                     }
                 }
@@ -4960,27 +4965,27 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x0062002D00720065UL:
                     {
-                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x006F00740074006FUL && Read4(input, 12) == 0x00690072002D006DUL && Read4(input, 16) == 0x002D007400680067UL && Read4(input, 20) == 0x0069006400610072UL && Read2(input, 24) == 0x00730075U) return 61;
+                        if (Read4(input, 0) == 0x00640072006F0062UL && Read4(input, 8) == 0x006F00740074006FUL && Read4(input, 12) == 0x00690072002D006DUL && Read4(input, 16) == 0x002D007400680067UL && Read4(input, 20) == 0x0069006400610072UL && Read2(input, 24) == 0x00730075U) return 62;
                         break;
                     }
                     case 0x0069007400690073UL:
                     {
-                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 8) == 0x0074002D006E006FUL && Read4(input, 12) == 0x006E0069006D0069UL && Read4(input, 16) == 0x00750066002D0067UL && Read4(input, 20) == 0x006900740063006EUL && Read2(input, 24) == 0x006E006FU) return 416;
+                        if (Read4(input, 0) == 0x006E006100720074UL && Read4(input, 8) == 0x0074002D006E006FUL && Read4(input, 12) == 0x006E0069006D0069UL && Read4(input, 16) == 0x00750066002D0067UL && Read4(input, 20) == 0x006900740063006EUL && Read2(input, 24) == 0x006E006FU) return 417;
                         break;
                     }
                     case 0x006D002D006C006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 12) == 0x006E0069002D006EUL && Read4(input, 16) == 0x0065006E0069006CUL && Read4(input, 20) == 0x006100740073002DUL && Read2(input, 24) == 0x00740072U) return 341;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x0069006700720061UL && Read4(input, 12) == 0x006E0069002D006EUL && Read4(input, 16) == 0x0065006E0069006CUL && Read4(input, 20) == 0x006100740073002DUL && Read2(input, 24) == 0x00740072U) return 342;
                         break;
                     }
                     case 0x006F007200630073UL:
                     {
-                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 8) == 0x0062002D006C006CUL && Read4(input, 12) == 0x0076006100680065UL && Read4(input, 16) == 0x002D0072006F0069UL && Read4(input, 20) == 0x0069006C006E0069UL && Read2(input, 24) == 0x0065006EU) return 293;
+                        if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 8) == 0x0062002D006C006CUL && Read4(input, 12) == 0x0076006100680065UL && Read4(input, 16) == 0x002D0072006F0069UL && Read4(input, 20) == 0x0069006C006E0069UL && Read2(input, 24) == 0x0065006EU) return 294;
                         break;
                     }
                     case 0x0070002D006C006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0062002D0067006EUL && Read4(input, 16) == 0x006B0063006F006CUL && Read4(input, 20) == 0x006100740073002DUL && Read2(input, 24) == 0x00740072U) return 348;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0062002D0067006EUL && Read4(input, 16) == 0x006B0063006F006CUL && Read4(input, 20) == 0x006100740073002DUL && Read2(input, 24) == 0x00740072U) return 349;
                         break;
                     }
                 }
@@ -4993,17 +4998,17 @@ internal static class CssPropertyNameLookup
                 {
                     case 0x00610062006C006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x00610064002D0072UL && Read4(input, 12) == 0x0073002D006B0072UL && Read4(input, 16) == 0x006F006400610068UL && Read4(input, 20) == 0x006F0063002D0077UL && Read2(input, 24) == 0x006F006CU && (uint) input[26] == 0x0072U) return 361;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x00610064002D0072UL && Read4(input, 12) == 0x0073002D006B0072UL && Read4(input, 16) == 0x006F006400610068UL && Read4(input, 20) == 0x006F0063002D0077UL && Read2(input, 24) == 0x006F006CU && (uint) input[26] == 0x0072U) return 362;
                         break;
                     }
                     case 0x006E0069002D0072UL:
                     {
-                        if (Read4(input, 0) == 0x006F006C006F0063UL && Read4(input, 8) == 0x0070007200650074UL && Read4(input, 12) == 0x00740061006C006FUL && Read4(input, 16) == 0x002D006E006F0069UL && Read4(input, 20) == 0x0074006C00690066UL && Read2(input, 24) == 0x00720065U && (uint) input[26] == 0x0073U) return 120;
+                        if (Read4(input, 0) == 0x006F006C006F0063UL && Read4(input, 8) == 0x0070007200650074UL && Read4(input, 12) == 0x00740061006C006FUL && Read4(input, 16) == 0x002D006E006F0069UL && Read4(input, 20) == 0x0074006C00690066UL && Read2(input, 24) == 0x00720065U && (uint) input[26] == 0x0073U) return 121;
                         break;
                     }
                     case 0x0070002D006C006CUL:
                     {
-                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0069002D0067006EUL && Read4(input, 16) == 0x006E0069006C006EUL && Read4(input, 20) == 0x00740073002D0065UL && Read2(input, 24) == 0x00720061U && (uint) input[26] == 0x0074U) return 352;
+                        if (Read4(input, 0) == 0x006F007200630073UL && Read4(input, 8) == 0x0069006400640061UL && Read4(input, 12) == 0x0069002D0067006EUL && Read4(input, 16) == 0x006E0069006C006EUL && Read4(input, 20) == 0x00740073002D0065UL && Read2(input, 24) == 0x00720061U && (uint) input[26] == 0x0074U) return 353;
                         break;
                     }
                 }
@@ -5011,12 +5016,12 @@ internal static class CssPropertyNameLookup
             }
             case 28:
             {
-                if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read4(input, 12) == 0x00690073006E0069UL && Read4(input, 16) == 0x006C0062002D0063UL && Read4(input, 20) == 0x002D006B0063006FUL && Read4(input, 24) == 0x0065007A00690073UL) return 133;
+                if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read4(input, 12) == 0x00690073006E0069UL && Read4(input, 16) == 0x006C0062002D0063UL && Read4(input, 20) == 0x002D006B0063006FUL && Read4(input, 24) == 0x0065007A00690073UL) return 134;
                 break;
             }
             case 29:
             {
-                if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read4(input, 12) == 0x00690073006E0069UL && Read4(input, 16) == 0x006E0069002D0063UL && Read4(input, 20) == 0x0065006E0069006CUL && Read4(input, 24) == 0x007A00690073002DUL && (uint) input[28] == 0x0065U) return 135;
+                if (Read4(input, 0) == 0x0074006E006F0063UL && Read4(input, 4) == 0x002D006E00690061UL && Read4(input, 8) == 0x00720074006E0069UL && Read4(input, 12) == 0x00690073006E0069UL && Read4(input, 16) == 0x006E0069002D0063UL && Read4(input, 20) == 0x0065006E0069006CUL && Read4(input, 24) == 0x007A00690073002DUL && (uint) input[28] == 0x0065U) return 136;
                 break;
             }
         }

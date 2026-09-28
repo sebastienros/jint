@@ -123,8 +123,11 @@ internal struct SelectorMatchWork
     {
         Verify();
         if (ReferenceEquals(node, _root)) return;
-        // Additional identities are retained only when necessary. A document stamp
-        // covers all ordinary reads; retain explicit roots to detect adoption too.
+        // Adoption marks the old document, even for detached nodes. One document
+        // witness covers its candidates; retaining each makes repeated matches quadratic.
+        var document = node as Document ?? node.OwnerDocument;
+        if (document is not null && (ReferenceEquals(document, _document) ||
+            _controlSeed.ControlFactsFactory is not null && ReferenceEquals(document, _controlSeed.Document))) return;
         EnsureCell().Observe(node);
     }
     internal Cell EnsureCell()
@@ -301,10 +304,16 @@ internal struct SelectorMatchWork
         internal void Observe(Node node)
         {
             if (ReferenceEquals(node, _root)) return;
+            var document = node as Document ?? node.OwnerDocument;
+            if (document is not null)
+            {
+                if (ReferenceEquals(document, _document) ||
+                    _controlSeed.ControlFactsFactory is not null && ReferenceEquals(document, _controlSeed.Document)) return;
+                node = document;
+            }
             _observations ??= [];
             foreach (var observation in _observations)
                 if (ReferenceEquals(observation.Node, node)) return;
-            var document = node as Document ?? node.OwnerDocument;
             _observations.Add((node, document, document?.MutationStamp ?? 0));
             Verify();
         }

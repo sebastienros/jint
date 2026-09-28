@@ -17,7 +17,7 @@ internal enum NativeCssOrigin { UserAgent, User, Author }
 internal enum NativeCssDisposition { Cascaded, Initial, Inherited, InvalidAtComputedValue }
 internal sealed record NativeCssSheet(CssStyleSheet Sheet, NativeCssOrigin Origin, string? NamespaceUri = null);
 internal sealed record NativeCssSource(CssStyleRule? Rule, CssDeclarationBlock Block,
-    NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline);
+    NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline, NativeCssLayer? Layer = null);
 internal sealed record NativeCssProperty(string Name, string Text, CssPropertyValue? Value,
     NativeCssSource? Source, NativeCssDisposition Disposition);
 
@@ -45,7 +45,7 @@ internal sealed partial class NativeCssQuery
     private readonly CssValueWork _work;
     private readonly bool _readInlineAttributes;
     private readonly NativeCssUrlResolver? _resolveUrl;
-    private List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri)>? _rules;
+    private List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri, NativeCssLayer Layer)>? _rules;
 
     internal NativeCssQuery(Document document, IReadOnlyList<NativeCssSheet> sheets,
         IReadOnlyList<(Element Element, CssDeclarationBlock Block)> inline,
@@ -126,6 +126,8 @@ internal sealed partial class NativeCssQuery
         Verify();
         matching.Observe(element);
         if (name.StartsWith("--", StringComparison.Ordinal)) return Custom(element, name, ref matching);
+        // Resolved longhands never serialize as one CSS-wide reset.
+        if (name == "all") return new(name, "", null, null, NativeCssDisposition.Cascaded);
         var metadata = CssPropertyRegistry.Find(name, CssDeclarationContext.Style);
         if (metadata is null)
         {
@@ -225,6 +227,8 @@ internal sealed partial class NativeCssQuery
             {
                 CssPropertyValueKind.Color => ComputeColor(current, name, value, ref matching),
                 CssPropertyValueKind.PaintServer => ComputePaint(current, name, value, candidate?.Source, ref matching),
+                CssPropertyValueKind.Url => ComputeUrl(name, value, candidate?.Source),
+                CssPropertyValueKind.ImageList => ComputeImages(name, value, candidate?.Source),
                 _ => ComputeForElement(current, name, value, ref matching)
             };
             if (adjust && name == "display") value = Display(current, value, ref matching);
@@ -345,20 +349,8 @@ internal sealed partial class NativeCssQuery
         if (_states.TryGetValue(element, out var cached)) return cached;
         matching.Observe(element);
         var state = new State(element, _work);
-        if (_rules is null)
-        {
-            var rules = new List<(CssStyleRule, NativeCssOrigin, long, string?)>();
-            long order = 0;
-            foreach (var input in _sheets)
-                foreach (var rule in input.Sheet.ApplicableStyleRules(_media, _work))
-                {
-                    _work.Charge(1);
-                    rules.Add((rule, input.Origin, order++, input.NamespaceUri));
-                }
-            Verify();
-            _rules = rules;
-        }
-        foreach (var (rule, origin, order, namespaceUri) in _rules)
+        _rules ??= BuildRules();
+        foreach (var (rule, origin, order, namespaceUri, layer) in _rules)
         {
             _work.Charge(1);
             if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
@@ -371,7 +363,7 @@ internal sealed partial class NativeCssQuery
             {
                 _diagnostics?.RuleMatched(element, rule);
                 state.Matches.Add(rule);
-                Add(state, new(rule, rule.Style, origin, specificity, order, false));
+                Add(state, new(rule, rule.Style, origin, specificity, order, false, layer));
             }
         }
         if (_readInlineAttributes && !_inline.ContainsKey(element))
@@ -438,6 +430,8 @@ internal sealed partial class NativeCssQuery
         if (comparison != 0) return comparison;
         comparison = left.Inline.CompareTo(right.Inline);
         if (comparison != 0) return comparison;
+        comparison = (left.Layer?.Rank ?? int.MaxValue).CompareTo(right.Layer?.Rank ?? int.MaxValue);
+        if (comparison != 0) return leftImportant ? -comparison : comparison;
         comparison = left.Specificity.CompareTo(right.Specificity);
         return comparison != 0 ? comparison : left.Order.CompareTo(right.Order);
     }
@@ -458,11 +452,12 @@ internal sealed partial class NativeCssQuery
         });
         var excludedOrigins = new bool[3];
         var excludedRules = new HashSet<CssDeclarationBlock>();
+        List<NativeCssSource>? excludedLayers = null;
         foreach (var candidate in candidates)
         {
             _work.Charge(1);
             var origin = (int) candidate.Source.Origin;
-            if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block)) continue;
+            if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block) || LayerExcluded(candidate.Source, excludedLayers)) continue;
             switch (candidate.Declaration.WideKeyword)
             {
                 case "revert":
@@ -470,7 +465,8 @@ internal sealed partial class NativeCssQuery
                     continue;
                 case "revert-rule": excludedRules.Add(candidate.Source.Block); continue;
                 case "revert-layer":
-                    return (new(CssSubstitutionBinding.Pending(name, "revert-layer"), null, candidate.Declaration.IsImportant), candidate.Source);
+                    (excludedLayers ??= []).Add(candidate.Source);
+                    continue;
             }
             return candidate;
         }
@@ -482,11 +478,12 @@ internal sealed partial class NativeCssQuery
         var candidates = Candidates(state, name, ref matching);
         var excludedOrigins = new bool[3];
         var excludedRules = new HashSet<CssDeclarationBlock>();
+        List<NativeCssSource>? excludedLayers = null;
         foreach (var candidate in candidates)
         {
             _work.Charge(1);
             var origin = (int) candidate.Source.Origin;
-            if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block)) continue;
+            if (excludedOrigins[origin] || excludedRules.Contains(candidate.Source.Block) || LayerExcluded(candidate.Source, excludedLayers)) continue;
             var value = candidate.Declaration.Value;
             var deferred = substitute && value.Kind == CssPropertyValueKind.Deferred;
             if (deferred) value = Substitute(state, candidate, name, ref matching);
@@ -501,7 +498,10 @@ internal sealed partial class NativeCssQuery
                 continue;
             }
             if (value?.Kind == CssPropertyValueKind.Keyword && value.Text == "revert-layer")
-                throw new CssIncompleteGrammarException(name, "C6:revert-layer", value.Span);
+            {
+                (excludedLayers ??= []).Add(candidate.Source);
+                continue;
+            }
             return deferred ? candidate with { Resolved = value, WasSubstituted = true } : candidate;
         }
         return null;

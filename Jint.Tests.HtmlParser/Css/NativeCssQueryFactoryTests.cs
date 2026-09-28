@@ -10,18 +10,20 @@ namespace Jint.Tests.HtmlParser.Css;
 
 public sealed class NativeCssQueryFactoryTests
 {
-    [Test]
-    public void PaintUrlsNeedAnExplicitResolverAndOnlyResolveWhenRead()
+    [TestCase("fill", " currentcolor", " rgb(255, 0, 0)")]
+    [TestCase("clip-path", "", "")]
+    [TestCase("background-image", "", "")]
+    public void UrlsNeedAnExplicitResolverAndOnlyResolveWhenRead(string name, string fallback, string computedFallback)
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
         document.AppendChild(target);
-        target.SetAttribute("style", "fill:src(var(--url)) currentcolor;--url:'paint.svg#p';color:red");
+        target.SetAttribute("style", name + ":src(var(--url))" + fallback + ";--url:'paint.svg#p';color:red");
         var work = new CssValueWork(default);
         var selectors = new SelectorEnvironment(document, null, null, null);
         var without = NativeCssStyleSheets.CreateQuery(document, new(), selectors, work);
         without.Query.GetProperty(target, "color", ref without.Matching).Text.Should().Be("rgb(255, 0, 0)");
-        Action read = () => without.Query.GetProperty(target, "fill", ref without.Matching);
+        Action read = () => without.Query.GetProperty(target, name, ref without.Matching);
         read.Should().Throw<CssIncompleteGrammarException>().Which.Blocker.Should().Be("C6:url-resolver");
 
         var calls = 0;
@@ -35,20 +37,24 @@ public sealed class NativeCssQueryFactoryTests
                 return "https://example.test/paint.svg#p";
             });
         calls.Should().Be(0);
-        input.Query.GetProperty(target, "fill", ref input.Matching).Text
-            .Should().Be("src(\"https://example.test/paint.svg#p\") rgb(255, 0, 0)");
-        input.Query.GetProperty(target, "fill", ref input.Matching);
+        input.Query.GetProperty(target, name, ref input.Matching).Text
+            .Should().Be("src(\"https://example.test/paint.svg#p\")" + computedFallback);
+        input.Query.GetProperty(target, name, ref input.Matching);
         calls.Should().Be(1);
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void PaintResolutionCannotPublishAfterMutationOrCancellation(bool cancel)
+    [TestCase("fill", false)]
+    [TestCase("fill", true)]
+    [TestCase("clip-path", false)]
+    [TestCase("clip-path", true)]
+    [TestCase("background-image", false)]
+    [TestCase("background-image", true)]
+    public void UrlResolutionCannotPublishAfterMutationOrCancellation(string name, bool cancel)
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
         document.AppendChild(target);
-        target.SetAttribute("style", "fill:url(paint.svg#p)");
+        target.SetAttribute("style", name + ":url(paint.svg#p)");
         using var cancellation = new CancellationTokenSource();
         var input = NativeCssStyleSheets.CreateQuery(document, new(),
             new SelectorEnvironment(document, null, null, null), new CssValueWork(cancellation.Token),
@@ -58,7 +64,7 @@ public sealed class NativeCssQueryFactoryTests
                 else target.SetAttribute("class", "changed");
                 return "https://example.test/paint.svg#p";
             });
-        Action read = () => input.Query.GetProperty(target, "fill", ref input.Matching);
+        Action read = () => input.Query.GetProperty(target, name, ref input.Matching);
         if (cancel) read.Should().Throw<OperationCanceledException>();
         else read.Should().Throw<InvalidOperationException>().WithMessage(NativeCssQuery.Invalidated);
     }

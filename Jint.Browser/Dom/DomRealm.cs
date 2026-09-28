@@ -51,6 +51,7 @@ internal sealed class DomRealm
     private readonly ConditionalWeakTable<object, DomRealm>.CreateValueCallback _creationRealmFactory;
     private readonly ConditionalWeakTable<DomBrowsingContext, DomRealm> _contexts;
     private readonly ConditionalWeakTable<Element, AriaElementReflection.Cache> _ariaCaches = new();
+    private ConditionalWeakTable<HtmlParser.Css.Model.CssLayerStatementRule, ObjectInstance>? _cssLayerNames;
     private Dictionary<string, JsString>? _htmlUppercasedTagNames;
     private int _nodes;
     private DomHostHooks _hooks = DomHostHooks.Default;
@@ -169,6 +170,9 @@ internal sealed class DomRealm
     /// whichever wrapper happened to reach it first.
     /// </remarks>
     internal AriaElementReflection.Cache AriaCacheFor(Element element) => _ariaCaches.GetOrCreateValue(element);
+
+    internal ConditionalWeakTable<HtmlParser.Css.Model.CssLayerStatementRule, ObjectInstance> CssLayerNames =>
+        _cssLayerNames ??= new();
 
     /// <summary>
     /// The maximum number of distinct <a

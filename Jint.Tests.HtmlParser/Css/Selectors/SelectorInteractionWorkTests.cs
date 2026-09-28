@@ -9,6 +9,28 @@ namespace Jint.Tests.HtmlParser.Css.Selectors;
 [TestFixture]
 public sealed class SelectorInteractionWorkTests
 {
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void RepeatedMatchesRetainDocumentWitnessesRatherThanEveryCandidate(bool foreign, bool adopt)
+    {
+        var document = Document.CreateHtml();
+        var owner = foreign ? Document.CreateHtml() : document;
+        var candidates = Enumerable.Range(0, 1024).Select(_ => owner.CreateElement("div")).ToArray();
+        var work = new SelectorMatchWork(document, default, () => { });
+        var selector = Parse("div");
+        foreach (var candidate in candidates)
+            SelectorMatcher.Matches(selector, candidate, null, default, ref work).Should().BeTrue();
+        var witnesses = typeof(SelectorMatchWork.Cell).GetField("_observations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(work.EnsureCell()) as System.Collections.ICollection;
+        (witnesses?.Count ?? 0).Should().Be(foreign ? 1 : 0);
+        if (adopt) Document.CreateHtml().AdoptNode(candidates[0]);
+        else candidates[0].SetAttribute("id", "changed");
+        Action verify = () => work.VerifyRead();
+        verify.Should().Throw<InvalidOperationException>().WithMessage(SelectorMatchWork.Invalidated);
+    }
+
     private static CompiledSelector Parse(string source) => SelectorCompiler.Compile(source, null, default);
     private static Element Add(Node parent, string name)
     {

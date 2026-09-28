@@ -71,6 +71,27 @@ internal static class CssRuleSerializer
                 builder.Append(';');
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
+            else if (rule is CssLayerStatementRule statement)
+            {
+                builder.Append("@layer ");
+                for (var i = 0; i < statement.Names.Count; i++)
+                {
+                    if (i != 0) builder.Append(", ");
+                    work.Charge(statement.Names[i].Text.Length + 1);
+                    builder.Append(statement.Names[i].Text);
+                }
+                builder.Append(';');
+                ranges?.Add(rule, new CssTextRange(start, builder.Length));
+            }
+            else if (rule is CssLayerBlockRule layer)
+            {
+                builder.Append("@layer");
+                if (layer.Name.Length != 0) builder.Append(' ').Append(layer.Name);
+                work.Charge(layer.Name.Length + 1);
+                builder.Append(" {");
+                if (layer.Rules.Count != 0) builder.Append('\n');
+                frames.Push(new Frame(layer.Rules, layer, start));
+            }
             else if (rule is CssConditionRule conditionRule)
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;

@@ -57,6 +57,33 @@ and focused serialization/XPath designs remain the acceptance definitions.
   The document-write WPT timing case and two formerly excluded attribute/connection checks now pass.
   Synchronous construction before attributes and constructor-failure semantics remain open.
   Evidence: `HtmlScriptHandoffTests`, `CustomElementUpgradeTests` and the pinned custom-element WPT cases.
+- [x] **V0 `all` reset**: expands the known ordinary longhand/reset membership, excluding
+  descriptors, aliases, `direction`, `unicode-bidi` and custom properties. CSS-wide values,
+  priority, deferred substitutions, partial removal and shorthand reconstruction share declaration
+  storage. Computed `all` is empty rather than demanding every pending value grammar.
+  This does not implement the non-wide grammars of reset longhands or close the V9 context audit.
+  Evidence: `CssAllDeclarationTests`, `NativeCssAllTests`.
+- [x] **Clip references and background image references**: typed `url()`/`src()` values,
+  clip geometry-box keywords and ordered `background-image` lists with `none`. Specified, named,
+  generic and computed routes share validation, null removal, substitution and source-aware URL
+  resolution; no referenced resource is fetched. Basic shapes, gradients, other image functions and
+  URL modifiers retain named incomplete-grammar failures.
+  Evidence: `CssClipPathDeclarationTests`, `CssImageDeclarationTests`,
+  `NativeCssClipPathTests`, `NativeCssImageTests`, `NativeCssQueryFactoryTests`.
+- [x] **R2 cascade layer blocks/statements**: named, dotted, anonymous and nested layer identities;
+  first-occurrence ordering across sheets, origin/shadow separation, conditional ordering,
+  reversed important precedence and ordinary/custom-property `revert-layer` rollback.
+  `CSSLayerBlockRule` and `CSSLayerStatementRule` expose real identities, frozen name lists,
+  parentage, live mutation and serialization. The `CSSGroupingRule` interface object is exposed.
+  Leading layer statements preserve the import prologue; statements cannot split imports.
+  Layered imports and layers nested in style rules still require their named R1/C2 work.
+  The historical, nonstandard `CSSLayerRule` remains unavailable; it is not a brand for either
+  standard layer rule. Evidence: `CssLayerRuleTests`, both `NativeCssLayerTests` fixtures.
+- [x] **Selector observation scaling**: repeated matches retain one mutation witness per document,
+  not per candidate. Mutation and detached-node adoption still invalidate the operation; ownerless
+  nodes retain identity witnesses. Deterministic witness-count and invalidation tests cover the
+  change. This removes Swagger's click-time stall without changing its task budget.
+  Evidence: `SelectorInteractionWorkTests`, `SelectorControlFactsTests`, `SwaggerFixtureTests`.
 
 Gaps and distribution above are grammar/CSSOM/computed-value work, not grid/flex layout completion.
 Normal gap and line-width keywords remain keywords at computed-value time, per
@@ -77,7 +104,7 @@ Browser named/generic route evidence before it can close.
 
 | Status | Contract group | Remaining completion criterion |
 | --- | --- | --- |
-| Open | V0 shared grammar | `all` reset; remaining advanced/relative colors; reference functions including typed `attr`, `if`, `inherit`, `ident`, `random-item` and custom functions; preserve real typed dependencies. |
+| Open | V0 shared grammar | Remaining advanced/relative colors; reference functions including typed `attr`, `if`, `inherit`, `ident`, `random-item` and custom functions; preserve real typed dependencies. The `all` reset slice is complete above. |
 | Open | V1 paint/decoration | Border/background/image/layer shorthands, outlines/shadows and remaining paint grammars. Existing colors/decoration/clip do not complete the group. |
 | Open | V2 box/position | Logical dimensions/spacing/insets, anchors and remaining sizing grammar; retain percentage and writing-mode dependencies. |
 | Open | V3 layout/containment | Grid lines/tracks/templates/auto-placement, columns, fragmentation and remaining containment. Content distribution and gaps are complete slices above. |
@@ -88,7 +115,7 @@ Browser named/generic route evidence before it can close.
 | Open | V8 generated/table/page | Content/counters/lists/quotes, table and paged-media values; contextual descriptors belong to R5. |
 | Open | V9/context audit | Disposition every descriptor-only registration against real descriptor parsers; never admit arbitrary ordinary values. |
 | Open | R1 prologue/imports | Namespaces and selector environments, import layer/supports modifiers and placement; explicit decoded-string charset policy. |
-| Open | R2 groups/nesting | Layers/order, scope, starting-style, nested conditional selector contexts and interleaved declarations. |
+| Open | R2 groups/nesting | Scope, starting-style, nested conditional selector contexts (including layers inside style rules) and interleaved declarations. Layer blocks/statements and their cascade order are complete slices above. |
 | Open | R3 animation rules | Timeline-range keyframe selectors and reviewed aliases; classic keyframes already exist. |
 | Open | R4 fonts | Feature-value maps, palette descriptors and remaining font-face descriptor obligations. |
 | Open | R5 pages/counters | Page selectors/margin rules, counter descriptors, dependencies and whole-rule invalidity. |
@@ -123,10 +150,15 @@ friend access or a project reference. A separate native pack/run is required for
   including 66 reviewed no-fetch alternatives; unresolved cases, harness failures and known
   required-profile defects are zero. Missing-review, omission, notation, DTD PI and output corruption
   probes remain enforced.
-- [ ] Finish the Scalar/Swagger fixtures. Scalar currently reports the missing `R2:layer` rule grammar
-  while reading `clientWidth`. Swagger now gets past `fill` and reports `V7:clip-path` in its logo.
-  Their frameworks catch these failures, so bounded console/request/DOM diagnostics are necessary;
-  an empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
+- [x] Finish the Swagger fixture. Its logo renders and the real summary click expands the operation
+  through the Try-it-out control on both frameworks, with its original task and wait budgets.
+- [ ] Finish the Scalar fixture. Layer parsing is no longer its blocker: a direct probe of the
+  abandoned scrollbar-measurement element now reports `R6:property` from `clientWidth`.
+  The captured stylesheet contains 66 registrations, including universal, color and
+  length-percentage syntax. Implement registration semantics rather than discarding these rules.
+  Framework-caught failures require bounded console/request/DOM diagnostics; the console snapshot
+  retains both its first and last messages so later timing logs cannot hide the initial exception.
+  An empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
 - [ ] Remeasure the current native Browser WPT census and finish its named debt.
   The `document.write` custom-element connection timing case is fixed. Two newly passing
   ordinary-parser reaction exclusions were removed; passing rows cannot remain excluded.
@@ -171,3 +203,13 @@ excluded. Both freshly packed unsigned consumers and the net10.0 osx-arm64 Nativ
 The dependency inventory and its six tooling tests pass; only reviewed exclusion-source drift changed
 the lock, not its historical Windows census. This checkpoint does not close the remaining CSS,
 public API, application-fixture or benchmark obligations.
+
+The reset/reference/layer checkpoint passes all 14,150 native parser cases across net8.0/net10.0.
+The broader Browser native-CSS, Swagger, binding and pinned WPT selection passes 1,304 cases;
+the four skipped cases are the two opt-in census checks on each framework. Final native-CSS,
+Swagger and dependency checks pass 352 cases, and the layer/interface/default-argument check
+passes 38 cases. Both freshly packed unsigned consumers and the net10.0 osx-arm64 Native AOT
+consumer pass. The inventory and its six tooling checks pass with 1,739 generated members and
+166 interfaces; its historical Windows WPT table is unchanged. Scalar remains a failing acceptance
+fixture at the registration boundary described above. None of these results closes the remaining
+grammar/API rows or substitutes for paired benchmarks and the prescribed Windows census.

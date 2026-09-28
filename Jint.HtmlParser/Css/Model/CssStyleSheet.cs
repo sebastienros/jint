@@ -44,12 +44,14 @@ internal sealed class CssStyleSheet
         var syntax = parser.ParseStyleSheet();
         var sheet = new CssStyleSheet();
         var importsAllowed = true;
+        var hasImport = false;
         foreach (var item in syntax)
         {
             work.Charge(1);
             if (!importsAllowed && item.Kind == CssRuleKind.AtRule && CssAscii.EqualsIgnoreCase(item.Name, "import")) continue;
             var rule = BuildRule(source, item, parser, options, work, cancellationToken);
-            if (rule is not null && rule is not CssImportRule) importsAllowed = false;
+            if (rule is CssImportRule) hasImport = true;
+            else if (rule is not null && (rule is not CssLayerStatementRule || hasImport)) importsAllowed = false;
             if (rule is not null) { rule.Attach(sheet, null, work); sheet._rules.Add(rule); }
         }
         work.CheckCancellation();
@@ -103,12 +105,18 @@ internal sealed class CssStyleSheet
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
         var rule = ParseSingle(source, options, work, cancellationToken);
         // CSSOM insert a CSS rule: parse precedes hierarchy validation.
-        for (var i = 0; i < _rules.Count; i++)
+        var importsAllowed = true;
+        var hasImport = false;
+        for (var i = 0; i <= _rules.Count; i++)
         {
             work.Charge(1);
-            if (rule is CssImportRule && i < index && _rules[i] is not CssImportRule ||
-                rule is not CssImportRule && i >= index && _rules[i] is CssImportRule)
-                throw new DomException("HierarchyRequestError", "Imports must precede other rules.");
+            var next = i == index ? rule : _rules[i < index ? i : i - 1];
+            if (next is CssImportRule)
+            {
+                if (!importsAllowed) throw new DomException("HierarchyRequestError", "Imports must precede other rules.");
+                hasImport = true;
+            }
+            else if (next is not CssLayerStatementRule || hasImport) importsAllowed = false;
         }
         rule.Attach(this, null, work);
         work.CheckCancellation();
@@ -178,9 +186,21 @@ internal sealed class CssStyleSheet
 
     internal CssStyleRule[] ApplicableStyleRules(CssMediaEnvironment environment, CssValueWork work)
     {
+        var styles = new List<CssStyleRule>();
+        foreach (var rule in ApplicableRules(environment, work))
+        {
+            work.Charge(1);
+            if (rule is CssStyleRule style) styles.Add(style);
+        }
+        work.CheckCancellation();
+        return styles.ToArray();
+    }
+
+    internal CssRule[] ApplicableRules(CssMediaEnvironment environment, CssValueWork work)
+    {
         work.CheckCancellation();
         if (Disabled || !Media.Matches(environment, work)) return [];
-        var result = new List<CssStyleRule>();
+        var result = new List<CssRule>();
         var active = new HashSet<CssStyleSheet>(ReferenceEqualityComparer.Instance) { this };
         var frames = new Stack<(CssRuleList Rules, int Index, CssStyleSheet? Sheet)>();
         frames.Push((Rules, 0, this));
@@ -194,11 +214,13 @@ internal sealed class CssStyleSheet
             }
             var rule = frame.Rules[frame.Index];
             frames.Push((frame.Rules, frame.Index + 1, frame.Sheet));
+            result.Add(rule);
             if (rule is CssStyleRule style)
             {
-                result.Add(style);
                 frames.Push((style.Rules, 0, null));
             }
+            else if (rule is CssLayerBlockRule layer)
+                frames.Push((layer.Rules, 0, null));
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
                 frames.Push((media.Rules, 0, null));
             // Container conditions depend on the matched element/property, so retain their children cold.
@@ -303,6 +325,21 @@ internal sealed class CssStyleSheet
             {
                 case CssAtRuleKind.Import:
                     return CssImportRule.Parse(source, syntax, parser, work);
+                case CssAtRuleKind.Layer:
+                    {
+                        if (nestingParent is not null)
+                            throw new CssIncompleteRuleGrammarException("nested-layer", "C2:nesting-selector-context", syntax.Span);
+                        var names = CssLayerName.Parse(syntax.Prelude, work);
+                        if (names is null) return null;
+                        if (syntax.Block is null)
+                            return names.Length == 0 ? null : new CssLayerStatementRule(names, syntax.Span);
+                        return names.Length switch
+                        {
+                            0 => new CssLayerBlockRule(null, syntax.Span),
+                            1 => new CssLayerBlockRule(names[0], syntax.Span),
+                            _ => null
+                        };
+                    }
                 case CssAtRuleKind.FontFace:
                     {
                         if (syntax.Block is not { } descriptorBlock || nestingParent is not null) return null;
@@ -342,7 +379,7 @@ internal sealed class CssStyleSheet
             var group = kind switch
             {
                 CssAtRuleKind.Namespace => "R1",
-                CssAtRuleKind.Scope or CssAtRuleKind.StartingStyle or CssAtRuleKind.Layer => "R2",
+                CssAtRuleKind.Scope or CssAtRuleKind.StartingStyle => "R2",
                 CssAtRuleKind.FontFeatureValues or CssAtRuleKind.FontPaletteValues => "R4",
                 CssAtRuleKind.Page or CssAtRuleKind.CounterStyle => "R5",
                 CssAtRuleKind.Property or CssAtRuleKind.ViewTransition or CssAtRuleKind.PositionTry or CssAtRuleKind.ColorProfile => "R6",
@@ -376,7 +413,8 @@ internal sealed class CssStyleSheet
                     continue;
                 }
                 // Unknown at-rules recover; known nested grammars must remain completion blockers.
-                if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media") || CssAscii.EqualsIgnoreCase(item.Rule.Name, "supports"))
+                if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media") || CssAscii.EqualsIgnoreCase(item.Rule.Name, "supports") ||
+                    CssAscii.EqualsIgnoreCase(item.Rule.Name, "layer"))
                     throw new CssIncompleteRuleGrammarException("nested-" + item.Rule.Name, "C2:nesting-selector-context", item.Rule.Span);
                 if (!CssAscii.EqualsIgnoreCase(item.Rule.Name, "import"))
                     BuildShallow(source, item.Rule, parser, options, work, cancellationToken);

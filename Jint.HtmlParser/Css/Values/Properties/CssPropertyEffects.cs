@@ -6,6 +6,7 @@ internal static class CssPropertyEffects
 {
     private static readonly System.Collections.ObjectModel.ReadOnlyDictionary<string, string[]> Shorthands = Create();
     private static readonly string[]?[] IndexedShorthands = CssPropertyCatalog.Index(Shorthands);
+    internal static IReadOnlyDictionary<string, string[]> ShorthandEffects => Shorthands;
 
     internal static string Canonical(string name) => CssPropertyAliasLookup.Match(name) ?? name;
 

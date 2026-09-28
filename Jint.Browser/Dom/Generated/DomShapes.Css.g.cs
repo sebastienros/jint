@@ -159,9 +159,9 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSGroupingRule.insertRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, "CSSGroupingRule.insertRule");
-                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSGroupingRule.insertRule"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CSSGroupingRule.insertRule")));
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSGroupingRule.insertRule"), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));
                 }),
-                length: 2)
+                length: 1)
             .Accessor("rules",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSGroupingRule.rules", static (thisObj, args) =>
                 {
@@ -651,6 +651,32 @@ internal static partial class DomInterfaces
                 }))
             .Build();
 
+    /// <summary>The members of <c>CSSLayerBlockRule</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildCSSLayerBlockRule()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("CSSLayerBlockRule")
+            .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("name",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSLayerBlockRule.name", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssLayerBlockRule>(thisObj, "CSSLayerBlockRule.name");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.LayerName(self.Realm, self.Target));
+                }))
+            .Build();
+
+    /// <summary>The members of <c>CSSLayerStatementRule</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildCSSLayerStatementRule()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("CSSLayerStatementRule")
+            .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("nameList",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSLayerStatementRule.nameList", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssLayerStatementRule>(thisObj, "CSSLayerStatementRule.nameList");
+                    return global::Jint.Browser.Styling.NativeCssBindings.LayerNames(self.Realm, self.Target);
+                }))
+            .Build();
+
     /// <summary>The members of <c>CSSLayerRule</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildCSSLayerRule()
         => new global::Jint.Native.JsObjectShape.Builder()
@@ -1031,6 +1057,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.alignmentBaseline");
                     self.Target.SetProperty("alignment-baseline", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.alignmentBaseline")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("all",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.all", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.all");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("all"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.all", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.all");
+                    self.Target.SetProperty("all", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.all")); return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("animation",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animation", static (thisObj, args) =>
                 {
@@ -1194,7 +1231,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundImage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.backgroundImage");
-                    self.Target.SetProperty("background-image", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundImage")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("background-image", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.backgroundImage")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("backgroundOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundOrigin", static (thisObj, args) =>
@@ -1777,7 +1814,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipPath", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.clipPath");
-                    self.Target.SetProperty("clip-path", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipPath")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty("clip-path", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.clipPath")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("clipRight",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipRight", static (thisObj, args) =>

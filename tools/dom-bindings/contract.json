@@ -935,7 +935,7 @@
       "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssGroupingRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
-      "HasInterfaceObject": false,
+      "HasInterfaceObject": true,
       "Kind": 0,
       "FieldName": "CSSGroupingRule",
       "Group": "Css",
@@ -963,9 +963,9 @@
         {
           "DomName": "insertRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, \"CSSGroupingRule.insertRule\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSGroupingRule.insertRule\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"CSSGroupingRule.insertRule\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssGroupingRule>(thisObj, \"CSSGroupingRule.insertRule\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.InsertRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSGroupingRule.insertRule\"), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 0)));",
           "SetterBody": null,
-          "Length": 2,
+          "Length": 1,
           "Origin": "ICssGroupingRule.Insert"
         },
         {
@@ -1538,6 +1538,60 @@
       "Unscopables": []
     },
     {
+      "DomName": "CSSLayerBlockRule",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssLayerBlockRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssLayerBlockRule",
+      "Parent": "CSSGroupingRule",
+      "RootsAtEventTarget": false,
+      "HasInterfaceObject": true,
+      "Kind": 0,
+      "FieldName": "CSSLayerBlockRule",
+      "Group": "Css",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "name",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssLayerBlockRule>(thisObj, \"CSSLayerBlockRule.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.LayerName(self.Realm, self.Target));",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Cascade 5 CSSLayerBlockRule.name"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": []
+    },
+    {
+      "DomName": "CSSLayerStatementRule",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssLayerStatementRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssLayerStatementRule",
+      "Parent": "CSSRule",
+      "RootsAtEventTarget": false,
+      "HasInterfaceObject": true,
+      "Kind": 0,
+      "FieldName": "CSSLayerStatementRule",
+      "Group": "Css",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "nameList",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssLayerStatementRule>(thisObj, \"CSSLayerStatementRule.nameList\");\nreturn global::Jint.Browser.Styling.NativeCssBindings.LayerNames(self.Realm, self.Target);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Cascade 5 CSSLayerStatementRule.nameList"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": []
+    },
+    {
       "DomName": "CSSLayerRule",
       "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
       "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
@@ -2063,6 +2117,14 @@
           "Origin": "StyleDeclarationExtensions.GetAlignmentBaseline"
         },
         {
+          "DomName": "all",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.all\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"all\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.all\");\nself.Target.SetProperty(\"all\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.all\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSS Cascade 5 §3.1"
+        },
+        {
           "DomName": "animation",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.animation\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"animation\"));",
@@ -2178,7 +2240,7 @@
           "DomName": "backgroundImage",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.backgroundImage\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"background-image\"));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.backgroundImage\");\nself.Target.SetProperty(\"background-image\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.backgroundImage\")); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.backgroundImage\");\nself.Target.SetProperty(\"background-image\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.backgroundImage\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetBackgroundImage"
         },
@@ -2602,7 +2664,7 @@
           "DomName": "clipPath",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.clipPath\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"clip-path\"));",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.clipPath\");\nself.Target.SetProperty(\"clip-path\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSStyleDeclaration.clipPath\")); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.clipPath\");\nself.Target.SetProperty(\"clip-path\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.clipPath\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "StyleDeclarationExtensions.GetClipPath"
         },

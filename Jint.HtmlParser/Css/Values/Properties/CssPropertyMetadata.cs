@@ -12,11 +12,11 @@ internal enum CssPropertyGrammar
     Sizing, MinSizing, MaxSizing, Margin, MarginSide, Padding, PaddingSide,
     FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf,
-    AlignContent, JustifyContent, PlaceContent, GapSide, Gap, Color, Paint,
+    AlignContent, JustifyContent, PlaceContent, GapSide, Gap, Color, Paint, ClipPath, Image,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
     TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor, InsetSide,
-    ContainerName, ContainerType, Container, WritingMode
+    ContainerName, ContainerType, Container, WritingMode, All
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -73,6 +73,8 @@ internal static class CssPropertyRegistry
         // https://svgwg.org/svg2-draft/painting.html#SpecifyingPaint
         Add("fill", CssPropertyGrammar.Paint, "black", true);
         Add("stroke", CssPropertyGrammar.Paint, "none", true);
+        Add("clip-path", CssPropertyGrammar.ClipPath, "none");
+        Add("background-image", CssPropertyGrammar.Image, "none");
         // Backgrounds 4 §2.8. Computed layer lists retain their authored count and order.
         Add("background-clip", CssPropertyGrammar.BackgroundClip, "border-box");
         Add("opacity", CssPropertyGrammar.Opacity, "1");
@@ -158,6 +160,7 @@ internal static class CssPropertyRegistry
         Add("white-space-trim", CssPropertyGrammar.WhiteSpaceTrim, "none");
         Shorthand("white-space", CssPropertyGrammar.WhiteSpace, "normal",
             ["white-space-collapse", "text-wrap-mode", "white-space-trim"]);
+        Shorthand("all", CssPropertyGrammar.All, "initial", CssAllReset.Longhands(entries));
         return new System.Collections.ObjectModel.ReadOnlyDictionary<string, CssPropertyMetadata>(entries);
 
         void Shorthand(string name, CssPropertyGrammar grammar, string initial, string[] longhands) =>

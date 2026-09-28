@@ -49,6 +49,32 @@ internal static class CssPropertyParser
         var entry = CssPropertyRegistry.Find(name, context);
         if (entry is null)
         {
+            // Universal keywords need no property-specific value grammar. Reset membership is
+            // known independently, including longhands whose non-wide grammar is still pending.
+            if (ordinary && CssPropertyRegistry.Completed["all"].Longhands.Contains(name))
+            {
+                var universal = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
+                if (universal.IsMatch)
+                    return CssPropertyResult.Accepted(CssPropertyValue.Keyword(universal.Value.CanonicalSpelling(), universal.Span));
+            }
+            if (ordinary && CssPropertyCatalog.FindFamily(name) is { } family && family != "V9")
+            {
+                // CSS Values 4: a CSS-wide keyword cannot be combined with other tokens.
+                // Do not infer this before substitution when functions are present.
+                var tokens = Significant(input.Components, work);
+                if (tokens.Count > 1)
+                {
+                    var hasWideKeyword = false;
+                    foreach (var token in tokens)
+                    {
+                        if (token.Kind != CssComponentKind.Token) { hasWideKeyword = false; break; }
+                        work.Charge(token.Token.Text.Length + 1);
+                        if (token.Token.Kind == CssTokenKind.Ident && CssWideKeywords.Recognize(token.Token.Text) != CssWideKeyword.None)
+                            hasWideKeyword = true;
+                    }
+                    if (hasWideKeyword) return Invalid();
+                }
+            }
             return NameFailure(name, context)!.Value;
         }
         var analysis = CssReferenceParser.Analyze(input, CssReferenceUse.PropertyValue, work);
@@ -63,6 +89,7 @@ internal static class CssPropertyParser
         }
         var wide = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
         if (wide.IsMatch) return CssPropertyResult.Accepted(CssPropertyValue.Keyword(wide.Value.CanonicalSpelling(), wide.Span));
+        if (entry.Grammar == CssPropertyGrammar.All) return Invalid();
         if (entry.Grammar == CssPropertyGrammar.Color)
         {
             var color = CssColorParser.Parse(input.Components, input.MaxNestingDepth, work);
@@ -79,6 +106,10 @@ internal static class CssPropertyParser
         {
             case CssPropertyGrammar.Paint:
                 return CssPaintPropertyParser.Parse(parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.ClipPath:
+                return CssClipPathPropertyParser.Parse(parts, work);
+            case CssPropertyGrammar.Image:
+                return CssImagePropertyParser.Parse(parts, work);
             case CssPropertyGrammar.InsetSide:
                 return CssInsetPropertyParser.Parse(parts, input.MaxNestingDepth, work);
             case CssPropertyGrammar.Cursor:
@@ -144,7 +175,6 @@ internal static class CssPropertyParser
         if (normalizedName.Length > 2 && normalizedName.StartsWith("--", StringComparison.Ordinal))
             return ordinary ? null : CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
         if (CssPropertyRegistry.Find(normalizedName, context) is not null) return null;
-        if (normalizedName == "all") return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "V0:all-reset");
         if (CssPropertyCatalog.FindFamily(normalizedName) is { } family)
         {
             if (family == "V9" && ordinary) return CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);

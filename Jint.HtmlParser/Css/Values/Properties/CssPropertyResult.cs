@@ -8,7 +8,7 @@ using Jint.HtmlParser.Css.Serialization;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList, Descriptor, IdentifierList, PaintServer, Url, ImageList }
 
 internal sealed class CssPropertyValue
 {
@@ -23,18 +23,20 @@ internal sealed class CssPropertyValue
     private readonly IReadOnlyList<CssPropertyValue>? _components;
     private readonly string? _paintUrl;
     private readonly CssPropertyValue? _paintFallback;
+    private readonly CssUrlValue? _url;
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
         CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null,
         CssTransformValue? transform = null, CssTransformList? transformList = null, CssFontFaceDescriptorValue? descriptor = null,
         IReadOnlyList<string>? identifiers = null, string? paintUrl = null, CssPropertyValue? paintFallback = null,
-        bool paintUsesSrc = false)
+        bool paintUsesSrc = false, CssUrlValue? url = null)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
         _color = color; _references = references; SecondKeyword = second; _components = components;
         _transform = transform; _transformList = transformList; _descriptor = descriptor; _identifiers = identifiers;
         _paintUrl = paintUrl; _paintFallback = paintFallback;
         PaintUsesSrc = paintUsesSrc;
+        _url = url;
     }
     internal CssFontFaceDescriptorValue DescriptorValue => Kind == CssPropertyValueKind.Descriptor ? _descriptor! : throw new InvalidOperationException();
     internal static CssPropertyValue Descriptor(CssFontFaceDescriptorValue value) => new(CssPropertyValueKind.Descriptor, value.Text, default, descriptor: value);
@@ -43,6 +45,9 @@ internal sealed class CssPropertyValue
     internal static CssPropertyValue IdentifierList(string text, CssSourceSpan span, string[] identifiers) =>
         new(CssPropertyValueKind.IdentifierList, text, span, identifiers: Array.AsReadOnly(identifiers));
     internal CssPropertyValueKind Kind { get; }
+    internal CssUrlValue Url => Kind == CssPropertyValueKind.Url ? _url! : throw new InvalidOperationException();
+    internal static CssPropertyValue UrlValue(CssUrlValue value, CssSourceSpan span, CssValueWork work) =>
+        new(CssPropertyValueKind.Url, value.Serialize(work), span, url: value);
     internal string PaintUrl => Kind == CssPropertyValueKind.PaintServer ? _paintUrl! : throw new InvalidOperationException();
     internal CssPropertyValue? PaintFallback => Kind == CssPropertyValueKind.PaintServer ? _paintFallback : throw new InvalidOperationException();
     internal bool PaintUsesSrc { get; }
@@ -60,8 +65,26 @@ internal sealed class CssPropertyValue
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
     internal string? SecondKeyword { get; }
-    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList
+    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList or CssPropertyValueKind.ImageList
         ? _components! : throw new InvalidOperationException();
+    internal static CssPropertyValue ImageList(IReadOnlyList<CssPropertyValue> values, CssSourceSpan span, CssValueWork work)
+    {
+        var owned = new CssPropertyValue[values.Count];
+        var text = new System.Text.StringBuilder();
+        for (var i = 0; i < owned.Length; i++)
+        {
+            work.Charge(1);
+            var value = values[i];
+            if (value.Kind != CssPropertyValueKind.Url && value is not { Kind: CssPropertyValueKind.Keyword, Text: "none" })
+                throw new ArgumentException("Image layers are required.", nameof(values));
+            owned[i] = value;
+            if (i != 0) text.Append(", ");
+            work.Charge(value.Text.Length + 2);
+            text.Append(value.Text);
+        }
+        work.CheckCancellation();
+        return new(CssPropertyValueKind.ImageList, text.ToString(), span, components: Array.AsReadOnly(owned));
+    }
     internal CssColorValue Color => Kind == CssPropertyValueKind.Color ? _color! : throw new InvalidOperationException();
     internal CssTransformValue Transform => Kind == CssPropertyValueKind.Transform ? _transform! : throw new InvalidOperationException();
     internal static CssPropertyValue TransformValue(CssTransformValue transform, string text) =>

@@ -43,7 +43,6 @@ public sealed class CssDeclarationBlockTests
         block.Stamp.Should().Be(stamp);
     }
 
-    [TestCase("all", "V0:all-reset")]
     [TestCase("margin-block", "V2:margin-block")]
     [TestCase("min-inline-size", "V2:min-inline-size")]
     public void PendingRemovalMetadataAbortsBeforeMutationAndBeforeInvalidPriority(string name, string blocker)
@@ -344,7 +343,6 @@ public sealed class CssDeclarationBlockTests
         block.Stamp.Should().Be(stamp);
     }
 
-    [TestCase("all:initial", "V0:all-reset")]
     [TestCase("opacity:attr(foo)", "attr")]
     [TestCase("--x:attr(foo)", "attr")]
     public void KnownUnfinishedFormsNeverBecomeInvalidRecovery(string source, string blocker)

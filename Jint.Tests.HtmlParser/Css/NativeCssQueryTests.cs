@@ -163,7 +163,7 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
-    public void UnsupportedCustomRollbackRefusesOnlyWhenThatBindingIsDemanded()
+    public void CustomLayerRollbackLeavesOtherBindingsAvailableAndAllowsFallback()
     {
         var document = Document.CreateHtml();
         var target = document.CreateElement("div");
@@ -171,8 +171,8 @@ public sealed class NativeCssQueryTests
         var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
         var matching = new SelectorMatchWork(document, default);
         query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "--unused", ref matching))!.Message.Should().Contain("revert-layer");
-        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "visibility", ref matching));
+        query.GetProperty(target, "--unused", ref matching).Text.Should().BeEmpty();
+        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
     }
 
     [Test]

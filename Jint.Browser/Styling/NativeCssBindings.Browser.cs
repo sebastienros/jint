@@ -157,6 +157,30 @@ internal static partial class NativeCssBindings
         work.CheckCancellation();
         return name;
     }
+    internal static string LayerName(DomRealm realm, CssLayerBlockRule rule)
+    {
+        var work = Work(realm);
+        work.Charge(rule.Name.Length);
+        work.CheckCancellation();
+        return rule.Name;
+    }
+    internal static Native.Object.ObjectInstance LayerNames(DomRealm realm, CssLayerStatementRule rule)
+    {
+        var work = Work(realm);
+        work.CheckCancellation();
+        if (realm.CssLayerNames.TryGetValue(rule, out var cached)) return cached;
+        var values = new Native.JsValue[rule.Names.Count];
+        for (var i = 0; i < values.Length; i++)
+        {
+            work.Charge(rule.Names[i].Text.Length + 1);
+            values[i] = rule.Names[i].Text;
+        }
+        var array = realm.OwningRealm.Intrinsics.Array.Construct(values);
+        array.SetIntegrityLevel(Native.Object.ObjectInstance.IntegrityLevel.Frozen);
+        work.CheckCancellation();
+        realm.CssLayerNames.Add(rule, array);
+        return array;
+    }
     internal static void SetName(DomRealm realm, CssKeyframesRule rule, string name)
         => rule.SetName(name, MutationWork(realm, () => rule.Stamp));
     internal static void SetKeyText(DomRealm realm, CssKeyframeRule rule, string text)

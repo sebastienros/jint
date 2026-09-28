@@ -75,6 +75,12 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSKeyframesRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssKeyframesRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSKeyframesRule;
 
+    /// <summary>The <c>CSSLayerBlockRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssLayerBlockRule</c>.</summary>
+    internal static readonly DomInterfaceDefinition CSSLayerBlockRule;
+
+    /// <summary>The <c>CSSLayerStatementRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssLayerStatementRule</c>.</summary>
+    internal static readonly DomInterfaceDefinition CSSLayerStatementRule;
+
     /// <summary>The <c>CSSLayerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSLayerRule;
 
@@ -512,7 +518,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(164);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(166);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -660,7 +666,7 @@ internal static partial class DomInterfaces
             BuildCSSGroupingRule,
             CSSRule,
             rootsAtEventTarget: false,
-            hasInterfaceObject: false,
+            hasInterfaceObject: true,
             DomWrapperKind.Object));
 
         CSSConditionRule = Add(new DomInterfaceDefinition(
@@ -753,6 +759,24 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Collection,
             collectionAccessor: DomAccessorCSSKeyframesRule.Instance));
+
+        CSSLayerBlockRule = Add(new DomInterfaceDefinition(
+            "CSSLayerBlockRule",
+            typeof(global::Jint.HtmlParser.Css.Model.CssLayerBlockRule),
+            BuildCSSLayerBlockRule,
+            CSSGroupingRule,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Object));
+
+        CSSLayerStatementRule = Add(new DomInterfaceDefinition(
+            "CSSLayerStatementRule",
+            typeof(global::Jint.HtmlParser.Css.Model.CssLayerStatementRule),
+            BuildCSSLayerStatementRule,
+            CSSRule,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Object));
 
         CSSLayerRule = Add(new DomInterfaceDefinition(
             "CSSLayerRule",

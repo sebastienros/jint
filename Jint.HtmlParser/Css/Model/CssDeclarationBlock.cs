@@ -159,7 +159,13 @@ internal sealed partial class CssDeclarationBlock
         work.Charge(name.Length);
         name = NormalizeName(name, _context, work);
         if (CssPropertyParser.NameFailure(name, _context) is { } failure)
-            RequireCompleted(name, failure, default);
+        {
+            var reset = _context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe &&
+                CssPropertyRegistry.Completed["all"].Longhands.Contains(name)
+                ? ResolveProperty(name, work) : null;
+            if (reset is null || reset.PendingShorthand?.Name != "all" && !IsWide(reset.Value.Text))
+                RequireCompleted(name, failure, default);
+        }
         var oldValue = GetPropertyValue(name, work);
         CommitTarget(name, [], work, remove: true);
         return oldValue;
@@ -338,6 +344,7 @@ internal sealed partial class CssDeclarationBlock
             anyWide |= IsWide(values[i]);
         }
         if (anyWide) return allEqual ? values[0] : "";
+        if (shorthand.Grammar == CssPropertyGrammar.All) return "";
         if (shorthand.Grammar == CssPropertyGrammar.Container)
             return values[1] == "normal" ? values[0] : values[0] + " / " + values[1];
         if (shorthand.Grammar == CssPropertyGrammar.WhiteSpace)
@@ -399,10 +406,15 @@ internal sealed partial class CssDeclarationBlock
         var builder = new StringBuilder();
         var shorthandValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var written = new HashSet<string>(StringComparer.Ordinal);
+        if (_context != CssDeclarationContext.FontFace)
+        {
+            var all = CssPropertyRegistry.Completed["all"];
+            shorthandValues.Add(all.Name, ShorthandValue(_entries, all, work));
+        }
         foreach (var metadata in CssPropertyRegistry.Completed.Values)
         {
             work.Charge(1);
-            if (_context != CssDeclarationContext.FontFace && metadata.Longhands.Count != 0)
+            if (_context != CssDeclarationContext.FontFace && metadata.Longhands.Count != 0 && metadata.Name != "all")
                 shorthandValues.Add(metadata.Name, ShorthandValue(_entries, metadata, work));
         }
         foreach (var entry in _entries)

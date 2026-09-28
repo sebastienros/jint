@@ -61,7 +61,8 @@ internal sealed partial class CssDeclarationBlock
             work.Charge(1);
             var raw = _raw[i];
             var names = new HashSet<string>(StringComparer.Ordinal) { raw.Name };
-            foreach (var name in _context == CssDeclarationContext.FontFace ? [] : CssPropertyEffects.Longhands(raw.Name)) { work.Charge(name.Length); names.Add(name); }
+            foreach (var name in _context == CssDeclarationContext.FontFace || raw.Name == "all" ? [] : CssPropertyEffects.Longhands(raw.Name))
+            { work.Charge(name.Length); names.Add(name); }
             if (CssPropertyRegistry.Find(raw.Name, _context) is { } metadata)
                 foreach (var name in metadata.ResetOnlyLonghands) { work.Charge(name.Length); names.Add(name); }
             foreach (var name in names)

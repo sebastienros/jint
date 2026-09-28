@@ -197,7 +197,9 @@
       "CSSImportRule",
       "CSSKeyframeRule",
       "CSSKeyframesRule",
+      "CSSLayerBlockRule",
       "CSSLayerRule",
+      "CSSLayerStatementRule",
       "CSSMarginRule",
       "CSSMediaRule",
       "CSSNamespaceRule",
@@ -1161,6 +1163,18 @@
         "owner": "B5:css-binding"
       },
       {
+        "interface": "CSSLayerBlockRule",
+        "kind": "Accessor",
+        "name": "name",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSLayerBlockRule",
+        "kind": "PerRealmSlot",
+        "name": "constructor",
+        "owner": "B5:css-binding"
+      },
+      {
         "interface": "CSSLayerRule",
         "kind": "Accessor",
         "name": "name",
@@ -1174,6 +1188,18 @@
       },
       {
         "interface": "CSSLayerRule",
+        "kind": "PerRealmSlot",
+        "name": "constructor",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSLayerStatementRule",
+        "kind": "Accessor",
+        "name": "nameList",
+        "owner": "B5:css-binding"
+      },
+      {
+        "interface": "CSSLayerStatementRule",
         "kind": "PerRealmSlot",
         "name": "constructor",
         "owner": "B5:css-binding"
@@ -1627,6 +1653,12 @@
         "kind": "Accessor",
         "name": "alignmentBaseline",
         "owner": "C5:box-layout"
+      },
+      {
+        "interface": "CSSStyleDeclaration",
+        "kind": "Accessor",
+        "name": "all",
+        "owner": "C5:legacy-svg-and-page"
       },
       {
         "interface": "CSSStyleDeclaration",
@@ -10756,16 +10788,16 @@
     "files": {
       "DomCollectionAccessors.g.cs": "9aa14d672706266ad0b8cfff95fc69d42835dedc21983d3b8509599949ba8c1e",
       "DomEnums.g.cs": "a1cf04894d9d443d5c8958021ca324c0d81a4e9cb85612e4f9be172f979805f3",
-      "DomInterfaces.g.cs": "b9bb34d304b70736eff6cbed59cb180a7242b864845e84b640ddedb318e08339",
+      "DomInterfaces.g.cs": "f9b9611bdc62620aab9716142c5291b13f40835d5af40e56dbf4684de74126e8",
       "DomReflected.g.cs": "c1b4e96be2dd60e3c661b47a07eedae5e902b21d50fe059eb7f1eafd9d009c0e",
       "DomShapes.Browser.g.cs": "bf94aa3a5a39dc9731fe7935cdc52c2c55b7a8d20db3fa1726f2e4196eb41e23",
-      "DomShapes.Css.g.cs": "c66a3467ac0594fab693a16301e8490f18eaebd9b4f0d14723439f77b7d15fee",
+      "DomShapes.Css.g.cs": "6eb36b51ace740c35601868a268c86303ae838bcaa615275ea6de0d04fec9a18",
       "DomShapes.Dom.g.cs": "59b7dca75ab38691066f592f3293d6d4487648aa44889ecb79045c1464ecc8f0",
       "DomShapes.Html.g.cs": "175f60fbd7af539a8a1e054f94f518acdb32a0e73aeebf9a3c03266248df2c14",
       "DomShapes.Io.g.cs": "c82647251234f0990210bae2bfdc38fbc4f3b7c305bb4fa9aa71368a77015c63",
       "DomShapes.Media.g.cs": "25d0cbaa8fec04148fc66852a42d61f9be7154531f777b1aabdbf9eb770000c1",
       "DomShapes.Svg.g.cs": "39aba4a29eaa4e2b878d133a4e7debdd6e21693e88a739a197ba5787b605c716",
-      "DomTypeMap.g.cs": "c5431b0062b80381d3b2228610d9e806f765b14dd369d558b434f8ef6c572782"
+      "DomTypeMap.g.cs": "c123ff009ec475399c32f0c25bf7d22c0f7d4222fa3de183588c7c081bfee960"
     },
     "overrideSource": "tools/dom-bindings/overrides.json",
     "overrideSha256": "72406582600d4ca99842df12aa160a03ac0c3db0f434ed0420e754378dbd4dbf",
