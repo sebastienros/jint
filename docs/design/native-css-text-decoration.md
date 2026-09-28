@@ -1,5 +1,10 @@
 # Native text-decoration slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Authorities: [Text Decoration 4 §§2.1–2.6](https://drafts.csswg.org/css-text-decor-4/#text-decoration-property),
 [Borders 4 line-width](https://drafts.csswg.org/css-borders-4/#typedef-line-width),
 [Values 4 component combinators](https://drafts.csswg.org/css-values-4/#component-combinators), and

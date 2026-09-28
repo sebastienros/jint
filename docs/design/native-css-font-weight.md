@@ -1,5 +1,10 @@
 # Native font-weight slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Authority: [CSS Fonts 4 §2.2](https://drafts.csswg.org/css-fonts-4/#font-weight-prop)
 and [§2.2.1](https://drafts.csswg.org/css-fonts-4/#relative-weights).
 

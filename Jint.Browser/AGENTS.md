@@ -14,7 +14,7 @@
 **Jint.HtmlParser is the native document foundation; Jint.Browser supplies browser semantics over its
 output.** Tokenization, tree construction, DOM storage, CSS syntax/CSSOM/cascade machinery, selectors,
 XPath, XML and serialization belong to the native foundation, not to a replacement tree inside Browser.
-The current `Styling/NativeCssQuery` composes native CSS models, selectors and value algorithms into the
+The current `Styling/NativeCssQuery` composes native CSS models, selectors and text declarations into the
 Browser cascade; bindings, page state, events, resource loading, observer delivery and layout-free geometry
 remain Browser's responsibility. The binding layer projects native identities onto Jint's shapes, without
 a reflection trampoline.
@@ -69,14 +69,20 @@ difference; `JINT_DOM_BINDINGS=update` writes the difference back.
 
 `Dom/Views/CssCascade` is the shared on-demand query entrance over `Styling/NativeCssStyleSheets` and
 `NativeCssQuery`. Native CSS models own parsed rules and declarations; Browser supplies author/UA sheets,
-media and selector state, and adapts computed values to its geometry. Do not restore the old whole-declaration
-fallbacks or the ten-property initial-value patch.
+media and selector state, and adapts width/height to synthetic geometry. CSS intentionally follows
+[the LightPanda-style text boundary](../Jint.HtmlParser/README.md#renderless-css-boundary), not full computed-value semantics.
+Do not restore typed grammar engines or eagerly parse CSS during HTML construction.
 
 | Surface | Current implementation and boundary |
 | --- | --- |
-| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` handles initial/inherited values and computes requested properties lazily, rather than eagerly computing unrelated paint or sizing values. |
-| Resolved values | `Dom/Views/ResolvedStyle` applies CSSOM's resolved-value layer to the synthetic flat model: supported width/height, edge percentages and transform reference boxes use that model, not real layout. Missing positioned, SVG or other geometry dependencies raise `CssIncompleteGrammarException`; do not invent metrics. |
+| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/order and inline precedence, with inherited values and a small catalog default table. |
+| Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, otherwise declaration text. No calc, color, font-unit, transform, border or URL computation. |
 | Computed declaration | `ReadOnlyStyleDeclaration` is a read-only Browser view, not a mutable detached stylesheet declaration. Preserve mutation/read witnesses when reusing queries. |
+
+Custom properties inherit declared text; ordinary values optionally use depth-limited textual `var()`.
+Only layout-used shorthands expand, by whitespace splitting. Other than style/media/supports/layer/import/
+font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
+typed OM interfaces are removed by design. Retain query stamps, bounded work and CSSOM identity.
 
 **Rule-usage coverage observes the same native rule identities the cascade matched**, independently of
 which declaration won. `Dom/Views/CssRuleUsage` has a static arming switch; `CssCascade.Traversal.Of` records
@@ -101,7 +107,8 @@ members are explicit binding-contract bodies. The htmx fixture exercises both XP
   evaluation. Do not confuse the snapshot policy with permission to ignore those guards.
 - **`CSS` is a namespace object, not an interface**: no constructor or interface prototype, `[object CSS]`.
   `escape` implements CSSOM's serialize-an-identifier; `supports` calls native
-  `CssSupports.EvaluateCondition` / `EvaluateDeclaration` with bounded work. Pending grammar answers false;
+  `CssSupports.EvaluateCondition` / `EvaluateDeclaration` with bounded work. Known/custom properties with
+  nonempty text are accepted without value validation;
   a support query neither executes a stylesheet nor matches against the DOM.
 
 ### The bindings have a file of their own

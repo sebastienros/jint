@@ -1,5 +1,10 @@
 # C5 common specified-value grammar foundation
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Design for independent review, 2026-09-23. This refines V0 in
 [the CSSOM design](html-parser-cssom.md), without changing its 433-registration completion baseline,
 rule/descriptor obligations, or separation between syntax editors and validated CSSOM. The first

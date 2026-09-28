@@ -1,5 +1,10 @@
 # R4a passive font-face source packet
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 This slice is based on reviewed common commit `674ae0fc211fca17c8dfd4c8d3e4aaa36e1eb130`.
 It removes the `R4:font-face` sheet-read blocker by retaining a real native rule and
 one stable descriptor declaration block. Native packets: `f21a8fdb0`, `ebb34617f`, and `f457872c2`.

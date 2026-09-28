@@ -1,5 +1,10 @@
 # Native text-align slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Authority: [CSS Text 4 §7.1](https://drafts.csswg.org/css-text-4/#text-align-property),
 [§7.3](https://drafts.csswg.org/css-text-4/#text-align-all-property) and
 [§7.4](https://drafts.csswg.org/css-text-4/#text-align-last-property).

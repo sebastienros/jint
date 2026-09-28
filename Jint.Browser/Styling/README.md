@@ -1,54 +1,35 @@
 # Native styling boundary
 
-HTML parsing retains a native tree and source strings. `NativeCssStyleSheets.Install` is the
-Browser loader handoff: it stores a stylesheet owner's identity, source text, source/base URLs
-and a resource revision. It does not parse inline style attributes, run the cascade, compute
-values or perform layout. CSS syntax and property validation are requested separately by
-`Get`; a pending grammar remains a named completion failure, never an accepted declaration.
-Materialized stylesheet identity survives source replacement. DOM order determines source
-order, independently of fetch completion order.
+Browser follows the [renderless CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary).
+`NativeCssStyleSheets.Install` stores owner identity, source/base URLs, source text and resource
+revision. It does not parse inline attributes, run the cascade or perform layout. `NativeCssParsing`
+owns demand-driven rule/media caches; inactive bodies stay raw until CSSOM inspection or matching
+requires them. Imports load without parsing unrelated rule bodies.
 
-`NativeCssQuery` owns matching candidates and memoized answers for one synchronous query.
-It verifies native document, resource, imported stylesheet graph and inline-block stamps,
-including children whose media does not match. Mutable states
-and caches are not stored on native nodes or shared between queries. Matching uses native
-selector state and invocation work; conditional rules use an immutable media snapshot.
-Only a requested property and its dependencies compute. Enumerating every supported
-property is a separate, explicit demand. The registry is the only source of initial values
-and inheritance metadata; pending catalog entries supply neither.
+`NativeCssQuery` memoizes matching sources and requested text values for one synchronous query.
+It checks document, resource, imported-sheet graph, inline-block and Browser read witnesses.
+Matching occurs once per element/query, including native shadow scope and slot/host inheritance.
+No state is attached to native nodes. Origin, importance, encapsulation, inline style, layer rank,
+specificity and source order select declarations; inherited properties and catalog defaults fill gaps.
+Explicit revert/revert-rule/revert-layer values retain cascade rollback.
 
-Custom-property snapshots have immutable parent layers. A binding resolves references in
-the layer where it was specified, even when a descendant overrides one of those names.
-The substitution executor keys cycle detection and memoization by scope and name. This
-preserves inherited computed semantics without evaluating every ancestor variable first.
-Projected component tokens feed property validators directly, without retokenizing their
-concatenated spelling. Computed custom text uses token-boundary-safe syntax serialization.
-Deferred shorthands share one substitution result and the declaration producer's expansion
-and serialization algorithms. An invalid winning declaration defaults at computed-value
-time; it never resurrects an earlier candidate.
+Values are text, not typed grammars. Custom properties inherit declared text. Ordinary values may
+use bounded textual `var()` substitution with fallbacks (depth 32; expansion limit 1,000,000 characters).
+It is not token substitution: no declaration-scope resolution, deferred shorthand evaluation, typed
+functions, URL resolution, color conversion or unit computation. A missing/cyclic expansion defaults
+the property rather than selecting an earlier declaration. Substitution-produced rollback keywords
+remain text. Simple display blockification stays; overflow axes no longer compute together.
 
-Origin/importance/inline/specificity/source-order
-selection, inheritance/defaulting, origin/rule rollback, deferred values, media filtering,
-source identity and invalidation have actual-source tests in `Jint.Tests.HtmlParser`.
-Typed numeric computation converts absolute/viewport/font-metric lengths and simplifies the
-shared math graph on demand. Unresolved percentage bases stay typed percentages/calculations;
-font metrics must be supplied explicitly. Browser supplies its 16px initial font size and
-actual computed parent/root sizes for em/rem; it supplies no glyph or line-height metrics.
-CurrentColor follows the inherited color dependency, and named colors compute to absolute
-coordinates. System colors require an explicit immutable host palette; the Browser handoff
-supplies an explicit neutral light/dark canvas palette; other system colors retain a missing-input failure. Layer rollback remains explicitly pending. Supported display keywords blockify/inlinify from their box context, and overflow axes compute jointly. Cascade, read-only
-declaration, generated bindings, native node tracking and CSS protocol consumers now target
-this producer. Native query and Browser tests cover these boundaries; the cutover remains
-in progress until production validation is complete. Used geometry belongs to Browser layout,
-not CSS syntax or validators.
+The data catalog supplies a small initial-value table and inherited flags; other known names have
+empty initial text. Only layout-used shorthands expand by whitespace splitting. `ResolvedStyle`
+returns synthetic box width/height where available and text otherwise. Text extraction interprets
+white-space keywords locally. DevTools and CSSOM consume the same values and native rule identities.
 
-Browser defaults are inputs to the cascade, not declaration fallbacks. The supported HTML
-user-agent display rules are namespace-filtered and apply in every tree; author rules retain
-their owner tree scope. Inheritance follows native shadow hosts and fresh slot assignments.
-Document stylesheet lists exclude shadow sheets; matching and coverage can request both.
-Inline source reads use the shared bounded descendant-text producer. Type and media owner
-attributes reconcile at CSS demand, with fetched link text retained independently.
+Style, media, supports, layer, import and font-face rules retain real models and mutation identities.
+Other at-rules are plain CSSRule objects preserving cssText and never entering the cascade.
+Font-face descriptors remain passive text. CSS.supports tests known/custom names and nonempty values,
+with the existing condition/selector parser, not property grammars.
 
-Computed-declaration mutation rejection retains the existing principal-realm exception
-branding. Correctly branding exceptions from mutators borrowed across realms remains
-separate core binding work.
+Keep `CssValueWork` and selector work checks in surviving loops. Cancellation and reentrant edits
+must not publish obsolete state. Computed declarations stay read-only and live across later reads;
+borrowed cross-realm mutator exception branding remains separate binding work.

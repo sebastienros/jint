@@ -1,5 +1,10 @@
 # First internal shared-color slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Approved finite V0d1 continuation, 2026-09-26. This implements shared color specified-value
 parsing and narrow `color`/`background-color` consumers, not Browser cutover, computed cascade,
 painting, wide-gamut conversion, or completion of the full color/CSSOM gate.

@@ -1,5 +1,10 @@
 # V0b basic CSS math: implementation design
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Independently reviewed design, 2026-09-23. Refines section 4 of
 [the common value design](html-parser-css-values.md). V0a is integrated. The first math stage,
 **V0b1**, implements basic math syntax, dimensional typing, specified-value simplification and

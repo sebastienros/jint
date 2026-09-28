@@ -1,5 +1,10 @@
 # CSS V0c: substitution syntax and the execution boundary
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Design for independent review, 2026-09-23. This refines V0c in
 `html-parser-css-values.md` and C5/C6 in `html-parser-cssom.md`. Implement an internal
 source-preserving analyzer first; it is useful without a property registry or cascade.

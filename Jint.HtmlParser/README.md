@@ -92,7 +92,7 @@ in its text and attributes. Grammar implementations may live in this package; th
 decides when to invoke them. This follows the separation in Lightpanda's
 [CSS parser](https://github.com/lightpanda-io/browser/blob/5932638bafb5c6584457c0cae037e6b395b265e5/src/browser/css/Parser.zig)
 and [style manager](https://github.com/lightpanda-io/browser/blob/5932638bafb5c6584457c0cae037e6b395b265e5/src/browser/StyleManager.zig),
-without adopting its narrower grammar support or copying its implementation.
+with its renderless text-value boundary, while retaining this package's existing selectors and media queries.
 
 | Input | Structural layer | Consumer that demands interpretation |
 | --- | --- | --- |
@@ -101,7 +101,7 @@ without adopting its narrower grammar support or copying its implementation.
 | CSS | Rule kinds and raw source spans; a streaming lexical scan finds balanced boundaries without retaining tokens or component trees | Browser CSSOM reads or styling explicitly parse the requested rule lists. Conditional bodies remain raw until applicable, or until explicitly inspected through CSSOM. |
 | Media queries | Raw condition text | Matching, serialization or indexed CSSOM reads explicitly parse the condition with the current operation's work budget. Import loading does not need that interpretation. |
 | Selectors and XPath | Document construction does not compile either language | Query APIs compile their arguments; stylesheet selector compilation happens when its containing rule list is demanded. |
-| CSS declarations, functions and typed values | Retained declaration syntax | Property reads, substitution and computation demand the relevant grammar. Explicit setters and validation APIs still validate their supplied input. |
+| CSS declarations and functions | Names, raw value text and importance | CSSOM reads/mutations parse declaration syntax on demand; values have no per-property grammar validation. |
 
 The internal `CssParser` entrypoints make these boundaries explicit:
 
@@ -127,9 +127,8 @@ The initial scan still checks lexical limits, nesting, cancellation and diagnost
 
 Browser stylesheet installation retains source; import discovery promotes only the prefix needed to
 find valid imports, not unrelated rules or nested bodies. The explicit internal validated-sheet parser
-and CSSOM insertion still validate the requested rule tree. A known incomplete grammar in an inactive
-body therefore fails when that body is actually demanded, not merely because a document loaded it.
-Unknown-rule recovery is unchanged.
+and CSSOM insertion parse the requested rule tree. Generic at-rules preserve text without
+interpreting their bodies; retained media/nesting grammar limitations still fail only when demanded.
 
 Each explicit parse uses the current operation's budget, publishes completed state only, preserves rule/list
 identity and source offsets, and does not advance mutation stamps. Source replacement invalidates
@@ -153,10 +152,8 @@ The cache uses xxHash3 over the UTF-16 bytes without an encoding allocation.
 Long names and cache collisions remain correct without process-global interning.
 
 Generated recognition also covers fixed HTML/SVG tree-construction names, XML
-keywords and catalog identifiers, and CSS values, properties, selectors, media
-features and at-rules. CSS keyword sets return canonical literals without
-allocating a normalized string or scanning a space-delimited list. Property
-metadata uses generated indices while keeping its existing context restrictions.
+keywords and catalog identifiers, and CSS units, selectors, media features and at-rules. CSS keyword sets return canonical literals without
+allocating a normalized string or scanning a space-delimited list. Property metadata is a data-only catalog.
 The vocabularies and regeneration commands are documented in
 [Parser-wide recognition](Html/known-name-lookup.md#parser-wide-recognition).
 
@@ -236,27 +233,33 @@ with only namespace and formatting changes. Its [MIT license](Parsing/ValueStrin
 is included in the package. The parser does not acquire a dependency on the Jint engine
 to reuse its separate, engine-specific builder.
 
-## Remaining replacement work
+## Renderless CSS boundary
 
-The main gaps are above HTML tokenization and tree construction:
+CSS intentionally targets [LightPanda](https://github.com/lightpanda-io/browser), not a rendering
+engine. Syntax, the complete existing selector engine, media queries, CSSOM mutation and
+style/media/supports/layer/import/font-face models remain. Every other at-rule is an opaque
+`CSSRule` retaining its source `cssText`; it contributes nothing to matching or the cascade.
 
-| Area | Current boundary |
-| --- | --- |
-| CSS property grammars | `CssPropertyRegistry` implements a subset of `CssPropertyCatalog`. Content alignment, gap, legacy grid-gap aliases, SVG fill/stroke paint, clip references/geometry boxes, background image references and `all` resets have declaration/computation support. Typed URLs resolve without fetching or rendering; shapes, gradients, advanced colors and URL modifiers retain named pending boundaries. Borders/background shorthands, grid tracks, font-family/line-height, animation/transition and other SVG properties remain pending. A catalog entry is an obligation, not implemented support. |
-| CSS rules and nesting | Native media, supports, container, imports, font-face, keyframes, layer blocks/statements and primitive `@property` registrations exist. Layers preserve origin/shadow scope, nesting, conditional order and important/rollback semantics. Registrations validate descriptors and expose readonly CSSOM metadata; URL/image/transform registration grammars remain incomplete. Namespaces, scope, page/counter-style, import `layer()`/`supports()` conditions, nested conditional rules and interleaved declarations remain pending. |
-| Computed and resolved values | Registered primitive values compute before substitution and inheritance; invalid values reset according to the registration. Advanced colors, ordinary-property registration cycles, typed `attr()` and other substitution functions, some container metrics and used-value dependencies remain named completion failures. Browser also still documents incomplete stylesheet BOM/charset and MIME handling. |
-| Standalone APIs | HTML/XML serialization and owned XPath APIs are public. Selectors, mutable CSSOM/typed values and incremental HTML sessions remain internal. Public parsing accepts decoded strings, not streams or byte inputs. |
-| Selector language and direction | Internal `:lang()` matching supports inherited HTML `lang`/XML `xml:lang` and extended language ranges. HTTP/document language metadata fallback remains open. `:dir()` uses Browser's bounded directionality facts; a standalone caller must supply a directionality producer. |
-| Shadow selectors | Stylesheet `:host`/`:host(...)` matching preserves featureless hosts, tree boundaries, argument specificity and encapsulation precedence. DOM queries do not gain stylesheet host context. `:host-context()` remains unsupported. |
-| Acceptance | The complete pinned XML profile has zero unresolved cases and compares all 386 eligible outputs. Swagger completes its real interaction under unchanged budgets; Scalar gets past registrations and `:host`, then stops on `V7:clip`. The canonical Windows WPT census and remaining public API/benchmark gates remain separate obligations. |
+Declarations store property names, text and importance. A data-only catalog supplies known names,
+inheritance flags, a small initial-value table and the layout shorthands (overflow, flex, flex-flow,
+margin, padding, inset, gap, border-width/style). Whitespace splitting replaces typed grammars.
+Colors, lengths, fonts, transforms and functions are returned as declared, with only light CSSOM
+normalization. There is no math evaluation, color conversion, typed URL resolution, `all` reset,
+container query, keyframe model or `@property` registration.
 
-Unknown syntax and known-but-unimplemented semantics are deliberately different: raw CSS syntax can
-be retained lazily, but demanding an incomplete grammar raises a named failure rather than inventing a
-computed value. Passing tests for that failure boundary does not establish support for the feature.
-HTML/XML comparisons have untimed structural checks; equivalent CSSOM comparison and paired
-performance acceptance remain separate work.
+Browser retains origin/importance/layer/specificity/order and inline precedence, inheritance,
+per-element caching, live invalidation and cooperative work checks. `getComputedStyle` answers
+text; width and height come from synthetic layout when a box exists. Unknown catalog defaults
+are empty text. `CSS.supports` accepts a known or custom name with nonempty text, not a validated
+value grammar; its condition/selector parser remains.
 
-The dependency-ordered [completion tracker](../docs/design/html-parser-completeness.md) separates
-implemented slices from still-open CSS families, public API gates and acceptance debt.
-It also records the registration slice's published CSS Properties and Values API Level 1 contract;
-the newer editor's-draft descriptor defaults and multiple-name syntax are not implemented.
+Intentional conveniences beyond LightPanda include the existing UA/shadow/import cascade,
+broader selectors/media conditions, synthetic flex geometry, and small textual `var()` substitution
+for ordinary properties (depth 32, bounded expansion). Custom properties themselves remain
+declared text and inherit. Variables resolve at the consuming element, not in a typed declaration
+environment; there is no deferred shorthand or token-graph substitution engine.
+Text extraction interprets white-space keywords without reviving a typed typography engine.
+
+HTML parsing still performs no eager CSS work. Browser owns on-demand sheet and declaration
+parsing. Public `MarkupParser.ParseCss*` stays syntax-only; mutable CSSOM and selectors remain
+internal. See the [remaining public/integration work](../docs/design/html-parser-completeness.md).

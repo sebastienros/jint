@@ -1,5 +1,10 @@
 # Native all-input media features
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 This finite slice implements `any-pointer`, `any-hover`, and `display-mode` on the existing
 component parser and bounded postfix evaluator. The authorities are
 [Media Queries 4 §7.3](https://drafts.csswg.org/mediaqueries-4/#any-input) and

@@ -1,5 +1,10 @@
 # Native background-clip slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Authority: [CSS Backgrounds 4 §2.8](https://drafts.csswg.org/css-backgrounds-4/#the-background-clip).
 
 This declaration/computation slice accepts a comma list of border-box, padding-box, content-box,

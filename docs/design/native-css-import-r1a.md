@@ -1,5 +1,10 @@
 # Native stylesheet imports: finite R1a
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Specification: [CSS Cascade §2](https://drafts.csswg.org/css-cascade-5/#at-import)
 and [CSSOM CSSImportRule](https://drafts.csswg.org/cssom/#the-cssimportrule-interface).
 

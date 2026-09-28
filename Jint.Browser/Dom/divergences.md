@@ -19,7 +19,7 @@ a reproducible case and a verified implementation boundary.
 | DOM queries | `DomSelectors` calls native `SelectorCompiler` / `SelectorMatcher`, with Browser focus, press, target and control facts. Empty-tree calls still compile the selector. `querySelectorAll` is projected through `DomStaticNodeList`; it is not a live collection. |
 | Form ownership | `HtmlFormOwner.Of` uses native `HtmlFormState.GetOwner`. Submission inventories walk tree order with that same owner; `form.elements` applies its listed-control filter and excludes image inputs. Do not substitute the latter for the former. |
 | Mutation delivery | Native `MutationSubscription` records reach `MutationObserverLane`, which delivers script callbacks at a microtask checkpoint. Resource and custom-element subscriptions are separate trusted consumers; their pending callbacks record/schedule work rather than running script inside mutation. The resource-only `OmitInertCharacterRecords` flag must never filter script observers. |
-| CSS and geometry | Native CSS syntax, rule/declaration models, selectors and values feed `Styling/NativeCssQuery`. Browser's flat boxes are not real layout. CSSOM resolved values use `ResolvedStyle`; an unavailable dependency raises `CssIncompleteGrammarException`, not an invented measurement. See [the cascade boundary](../AGENTS.md#where-the-cascade-diverges-from-cssom). |
+| CSS and geometry | Native syntax/selectors and a text cascade feed `Styling/NativeCssQuery`. Values do not compute colors, math or units. `ResolvedStyle` uses synthetic box width/height; other reads return text. This is an intentional LightPanda-parity boundary. See [the cascade boundary](../AGENTS.md#where-the-cascade-diverges-from-cssom). |
 | Media | Stylesheets use native CSS media evaluation; `matchMedia` uses `Runtime/MediaQuery`'s subset. Both read page media inputs, but their supported grammars are not identical. |
 | XPath | Native XPath preserves namespaces. `BrowserXPathNavigator` deliberately hides namespaces and the namespace axis so unprefixed names match HTML. Prefixed name tests therefore do not match through that Browser cursor. Node sets are snapshots and `invalidIteratorState` remains false; native guards still reject mutation during evaluation. |
 | Intersection/resize | Intersection reports a target once, fully intersecting. Resize tracks the synthetic flat model and defers callback-induced changes to another task, rather than implementing a rendering engine's resize loop. |
@@ -98,34 +98,20 @@ there is no Browser-only same-value notification workaround. Keep range repair a
 the native operation. `ProcessingInstructionAttributeTests` and `ProcessingInstructionRangeTests` exercise
 the binding, copies and ranges; historical external-browser counts are not a current pass/fail census.
 
-### Native passive classic keyframes
+### Renderless CSS and shadow hosts
 
-The native stylesheet producer exposes `CSSKeyframesRule` and `CSSKeyframeRule`, following
-[CSS Animations 1](https://drafts.csswg.org/css-animations-1/#dom-interfaces), with stable ordered children,
-classic percentage selectors and last-match edits. It reuses native rule ownership and declaration adapters.
-`NativeCssKeyframesBindingTests` covers brands, editing, receiver checks and unaffected geometry.
-Timeline-range selectors remain named pending; no animation execution or animation events are claimed.
-The [design checkpoint](../../docs/design/native-css-keyframes-rules.md) records the scope.
+Typed colors/math/transforms/typography, container queries, registrations and keyframe models
+are removed by design for [LightPanda parity](../../Jint.HtmlParser/README.md#renderless-css-boundary).
+Their at-rules, and page/namespace/counter-style rules, expose only CSSRule and round-trip cssText.
+They never affect the cascade. No removed rule interface is installed.
 
-### Native content alignment and gaps
-
-The native declaration model implements `align-content`, `justify-content`, `place-content`, `gap`,
-`row-gap` and `column-gap`, including legacy `grid-*` gap aliases. Grammar and shorthand defaults follow
-[Box Alignment](https://drafts.csswg.org/css-align-3/#content-distribution) and
-[CSS Gaps](https://drafts.csswg.org/css-gaps-1/#gaps), rather than arbitrary-value acceptance.
-Named accessors use CSSOM null-to-empty conversion and the same native declarations as generic operations.
-
-`NativeCssContentAlignmentAndGapTests` covers rule/inline and live computed values, `CSS.supports`,
-receiver guards, read-only declarations and invalidation. This supplies specified/computed semantics,
-not a grid or gap layout implementation. Change the contract and regenerate, never patch generated output.
-
-### Native property registrations and shadow hosts
-
-`CSSPropertyRule` exposes the [Properties and Values API Level 1
-attributes](https://www.w3.org/TR/css-properties-values-api-1/#the-csspropertyrule-interface):
-read-only `name`, `syntax`, `inherits` and nullable `initialValue`, not the old descriptor-map operations.
-`NativeCssPropertyRegistrationTests` covers brand, parentage, serialization and live registration effects.
-The [completion tracker](../../docs/design/html-parser-completeness.md) records the supported scope.
+Alignment, gaps and all other catalog properties accept nonempty text rather than grammar-validated
+values. Only the small layout shorthand set expands. Named/generic CSSOM accessors still share one
+store, receiver checks, null removal, readonly computed views and live invalidation.
+CSS.supports checks known/custom names and nonempty values; it is not proof of a value grammar.
+Custom properties inherit raw text; small bounded textual var() substitution supports ordinary values.
+Whitespace keywords remain usable by text extraction. Colors retain their specified spelling rather
+than converting to sRGB; the affected WPT color-serialization cases are explicitly outside this boundary.
 
 The native selector VM implements [shadow stylesheet `:host` and
 `:host(...)`](https://drafts.csswg.org/css-shadow-1/#host-selector), including featureless hosts and the

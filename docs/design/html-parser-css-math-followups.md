@@ -1,5 +1,10 @@
 # V0b2–V0b3: remaining CSS math dispatches
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Design proposal for independent review, 2026-09-23. Extends the integrated
 [basic math contract](html-parser-css-math.md), not the public CSS/property API.
 The existing eight-file implementation already owns component parsing, numeric conversion,

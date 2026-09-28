@@ -1,5 +1,10 @@
 # Internal CSS property core checkpoint
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 This stage implements property parsing only. It does not publish validated CSSOM or enable Browser
 cutover. The public parser facade, syntax editors, selector implementation and public snapshots are
 unchanged. The authoritative scope remains `html-parser-cssom.md` sections 5–9 and its exact appendix.

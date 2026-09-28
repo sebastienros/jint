@@ -1,5 +1,10 @@
 # Native physical inset slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Authority: [Positioned Layout 3 §3.1](https://drafts.csswg.org/css-position-3/#insets),
 [Anchor Positioning 1](https://drafts.csswg.org/css-anchor-position-1/#anchor-pos), and CSSOM resolved values.
 

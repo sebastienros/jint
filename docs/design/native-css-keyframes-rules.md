@@ -1,5 +1,10 @@
 # Passive classic keyframes checkpoint
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 This finite stage starts at native Browser integration `29b69cb5e`, reusing the supports/grouping
 child enumeration, ownership and root-only detachment model. It models stylesheet rules only.
 Animation execution, animation events, timers, visual layout and timeline-range selectors are not

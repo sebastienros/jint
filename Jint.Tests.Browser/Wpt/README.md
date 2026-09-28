@@ -268,7 +268,7 @@ six DOM suites, and every one of these is a failure of this suite alone.
 | Tests | What it is |
 | ---: | --- |
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
-| 8 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these eight rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
+| 8 | **Computed colors stay declared text by design** at the LightPanda renderless boundary. These eight assertions require sRGB serialization, not different selector matching; they are categorized as `NeedsComputedCssValues`. |
 | 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
 | 1 | **A cloned control loses its dirty value flag**, so `maxlength`'s "too long" state does not survive `cloneNode`. `element.validity` says the same. |
 
@@ -281,7 +281,8 @@ type state, answer for a `<textarea>`, and know about a radio button group and a
 that is absent rather than empty. That retired 34 rows of this suite and one of
 `dom/nodes/Element-closest.html`. **Three type-change documents did not become green and moved instead**:
 their selectors answer correctly now and their remaining assertion compares a computed colour against a
-literal, so they sit in the `rgba()` row above beside the four that were always there.
+literal. That historical serialization discrepancy is now superseded by the intentional raw-color
+boundary above; `RenderlessSelectorStyleTests` independently checks the type changes and live cascade.
 
 **`:focus` is the sixth, and it needed the page rather than the predicate.** AngleSharp answers `:focus` and
 `:focus-within` from `IElement.IsFocused`, a flag nothing in this package sets — its own `DoFocus()` assigns
@@ -304,7 +305,7 @@ element is disabled and the standard does not either, which is the whole subject
 `:checked` stops answering for the historical `<menuitem>` and starts asking an input for its type state.
 `:required`/`:optional` ask §4.10.5.3.4 whether the attribute *applies*, so an input outside its fifteen type
 states is in neither class — which is what `required-optional-hidden.html` is about, and that document's row
-moved to the `rgba()` group above rather than turning green, exactly as three type-change documents did
+moved to the color-serialization group above rather than turning green, exactly as three type-change documents did
 before it.
 
 **`checked.html` is green now, and its last row was never a selector at all.** Only two of that file's three

@@ -1,5 +1,10 @@
 # Native CSS contract receivers
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 The generated CSS contract uses the native semantic models: style and media rules,
 their actual stylesheet and rule lists, media lists, and the Browser declaration
 adapters shared by specified and computed styles. `MediaQueryList` uses its existing

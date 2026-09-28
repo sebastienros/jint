@@ -1,5 +1,10 @@
 # Native supports rule checkpoint
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 This finite stage adds validated `@supports` at stylesheet, media and supports-group level.
 It starts from committed Browser native integration `69ccdb6c2`. Imports, containers, keyframes,
 animations and conditional groups inside style rules retain their independent named blockers.

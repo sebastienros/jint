@@ -1,5 +1,10 @@
 # Native cursor keyword slice
 
+
+> Historical design: the current [LightPanda-style CSS boundary](../../Jint.HtmlParser/README.md#renderless-css-boundary)
+> supersedes typed-value, computation, registration, container and keyframe claims below.
+> These are retained design notes, not instructions to restore removed features.
+
 Authority: [CSS UI 4 §5.1.1](https://drafts.csswg.org/css-ui-4/#cursor).
 
 The completed cursor property accepts all 36 predefined keywords as one decoded, ASCII-case-insensitive
