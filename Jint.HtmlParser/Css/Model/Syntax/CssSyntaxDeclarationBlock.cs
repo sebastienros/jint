@@ -15,7 +15,8 @@ internal sealed class CssSyntaxDeclarationBlock
     internal static CssSyntaxDeclarationBlock Parse(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var parsed = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
+        using var parsedParser = new CssSyntaxParser(source, options, cancellationToken);
+        var parsed = parsedParser.ParseDeclarationList();
         var block = new CssSyntaxDeclarationBlock();
         block._declarations.AddRange(parsed);
         cancellationToken.ThrowIfCancellationRequested();
@@ -29,7 +30,8 @@ internal sealed class CssSyntaxDeclarationBlock
         CancellationToken cancellationToken = default)
     {
         if ((uint) index > (uint) _declarations.Count) throw new ArgumentOutOfRangeException(nameof(index));
-        var declaration = new CssSyntaxParser(source, options, cancellationToken).ParseDeclaration();
+        using var declarationParser = new CssSyntaxParser(source, options, cancellationToken);
+        var declaration = declarationParser.ParseDeclaration();
         cancellationToken.ThrowIfCancellationRequested();
         _declarations.Insert(index, declaration);
         CssMutationStamp.Advance(ref _version);
@@ -39,7 +41,8 @@ internal sealed class CssSyntaxDeclarationBlock
         CancellationToken cancellationToken = default)
     {
         if ((uint) index >= (uint) _declarations.Count) throw new ArgumentOutOfRangeException(nameof(index));
-        var declaration = new CssSyntaxParser(source, options, cancellationToken).ParseDeclaration();
+        using var declarationParser = new CssSyntaxParser(source, options, cancellationToken);
+        var declaration = declarationParser.ParseDeclaration();
         cancellationToken.ThrowIfCancellationRequested();
         _declarations[index] = declaration;
         CssMutationStamp.Advance(ref _version);
@@ -55,7 +58,8 @@ internal sealed class CssSyntaxDeclarationBlock
     internal void ReplaceText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var declarations = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
+        using var declarationsParser = new CssSyntaxParser(source, options, cancellationToken);
+        var declarations = declarationsParser.ParseDeclarationList();
         var replacement = new List<CssDeclarationSyntax>(declarations);
         cancellationToken.ThrowIfCancellationRequested();
         _declarations = replacement;

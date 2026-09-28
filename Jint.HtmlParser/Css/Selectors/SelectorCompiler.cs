@@ -15,8 +15,9 @@ internal static class SelectorCompiler
         ArgumentNullException.ThrowIfNull(source);
         cancellationToken.ThrowIfCancellationRequested();
         context ??= new SelectorParseContext();
-        var values = new CssSyntaxParser(source, new CssParseOptions { Limits = context.Limits },
-            cancellationToken).ParseComponentValues();
+        using var valuesParser = new CssSyntaxParser(source, new CssParseOptions { Limits = context.Limits },
+            cancellationToken);
+        var values = valuesParser.ParseComponentValues();
         var compiler = new Worker(source, context, cancellationToken);
         return compiler.Compile(values);
     }

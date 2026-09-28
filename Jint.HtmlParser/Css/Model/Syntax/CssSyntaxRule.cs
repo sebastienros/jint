@@ -23,7 +23,8 @@ internal sealed class CssSyntaxRule
     internal void ReplaceSyntax(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseRule();
+        using var syntaxParser = new CssSyntaxParser(source, options, cancellationToken);
+        var syntax = syntaxParser.ParseRule();
         cancellationToken.ThrowIfCancellationRequested();
         _syntax = syntax;
         CssMutationStamp.Advance(ref _version);

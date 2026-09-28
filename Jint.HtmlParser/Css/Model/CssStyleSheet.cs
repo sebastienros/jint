@@ -40,7 +40,7 @@ internal sealed class CssStyleSheet
     internal static CssStyleSheet Parse(string source, CssParseOptions? options, CssValueWork work,
         CancellationToken cancellationToken)
     {
-        var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         var syntax = parser.ParseStyleSheet();
         var sheet = new CssStyleSheet();
         var importsAllowed = true;
@@ -272,7 +272,7 @@ internal sealed class CssStyleSheet
     internal static CssRule ParseSingle(string source, CssParseOptions? options, CssValueWork work,
         CancellationToken cancellationToken)
     {
-        var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         CssRuleSyntax syntax;
         try { syntax = parser.ParseRule(); }
         catch (CssParseException) { throw new DomException("SyntaxError", "Exactly one valid CSS rule is required."); }

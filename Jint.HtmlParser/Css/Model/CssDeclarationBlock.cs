@@ -31,7 +31,8 @@ internal sealed class CssDeclarationBlock
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var declarations = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
+        using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
+        var declarations = parser.ParseDeclarationList();
         return FromDeclarations(source, declarations, context, options?.Limits.MaxNestingDepth ?? 0, work);
     }
 
@@ -155,7 +156,7 @@ internal sealed class CssDeclarationBlock
         if (value.Length == 0) { RemoveProperty(name, work); return; }
         if (!Accepts(name, _context) || !string.IsNullOrEmpty(priority) &&
             !CssAscii.EqualsIgnoreCase(priority, "important")) return;
-        var parser = new CssSyntaxParser(value, options, cancellationToken, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(value, options, cancellationToken, work.CheckCancellation);
         var values = parser.ParseComponentValues();
         foreach (var component in values)
         {

@@ -45,7 +45,7 @@ internal sealed class CssMediaList
     internal static CssMediaList Parse(string source, CssParseOptions? options, CssValueWork work,
         CancellationToken cancellationToken)
     {
-        var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         var values = parser.ParseComponentValues();
         return FromComponents(source, values, parser, work);
     }

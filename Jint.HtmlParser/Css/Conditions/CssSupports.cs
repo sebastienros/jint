@@ -56,8 +56,11 @@ internal static class CssSupports
         return result != Result.Invalid;
     }
 
-    private static CssComponentValueList Parse(string source, CssParseOptions? options, CssValueWork work) =>
-        new CssSyntaxParser(source, options, work.Token, work.CheckCancellation).ParseComponentValues();
+    private static CssComponentValueList Parse(string source, CssParseOptions? options, CssValueWork work)
+    {
+        using var parser = new CssSyntaxParser(source, options, work.Token, work.CheckCancellation);
+        return parser.ParseComponentValues();
+    }
 
     private static bool Declaration(string name, string source, CssComponentValueList values,
         CssParseOptions? options, CssValueWork work)

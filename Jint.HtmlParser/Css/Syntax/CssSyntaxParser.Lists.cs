@@ -8,7 +8,7 @@ internal sealed partial class CssSyntaxParser
         var values = ConsumeAllComponents();
         var rules = new List<CssRuleSyntax>();
         var index = 0;
-        while (index < values.Count)
+        while (index < values.Length)
         {
             PollCancellation();
             var value = values[index];
@@ -31,13 +31,8 @@ internal sealed partial class CssSyntaxParser
     // §5.4.5 and §5.5.5: parse the mixed contents first, then project declarations.
     internal CssDeclarationSyntax[] ParseDeclarationList()
     {
-        CheckCancellation();
-        var values = new List<CssComponentValue>();
         // §5.5.5 returns at the first top-level }, leaving subsequent input untouched.
-        while (Current.Kind is not (CssTokenKind.None or CssTokenKind.CloseCurlyBracket))
-        {
-            values.Add(ConsumeComponent());
-        }
+        var values = ConsumeAllComponents(stopAtCloseCurly: true);
         var closed = Current.Kind == CssTokenKind.CloseCurlyBracket;
         var contents = ConsumeBlockContents(values,
             closed ? Current.Span.Start : _sourceLength, closed);
@@ -69,10 +64,10 @@ internal sealed partial class CssSyntaxParser
     {
         CheckCancellation();
         var rules = new List<CssRuleSyntax>();
-        var values = block.Values;
+        var values = block.Values.AsSpan();
         var index = 0;
         var end = block.Span.Start + block.Span.Length - (block.IsClosed ? 1 : 0);
-        while (index < values.Count)
+        while (index < values.Length)
         {
             PollCancellation();
             var value = values[index];
@@ -108,36 +103,31 @@ internal sealed partial class CssSyntaxParser
         }
 
         CheckCancellation();
-        var values = block.Values;
+        var values = block.Values.AsSpan();
         var blockEnd = block.Span.Start + block.Span.Length;
         var closed = block.IsClosed;
         return ConsumeBlockContents(values, closed ? blockEnd - 1 : blockEnd, closed);
     }
 
-    private CssBlockSyntax ConsumeBlockContents(IReadOnlyList<CssComponentValue> values,
+    private CssBlockSyntax ConsumeBlockContents(ReadOnlySpan<CssComponentValue> values,
         int terminalOffset, bool closed)
     {
         var items = new List<CssBlockItemSyntax>();
         var declarationRun = new List<CssDeclarationSyntax>();
         var index = 0;
 
-        while (index < values.Count)
+        while (index < values.Length)
         {
             PollCancellation();
-            var value = values[index];
-            if (value.Kind == CssComponentKind.Token)
+            switch (values[index].TokenKind)
             {
-                switch (value.Token.Kind)
-                {
-                    case CssTokenKind.Whitespace or CssTokenKind.Semicolon:
-                        index++;
-                        continue;
-                    case CssTokenKind.AtKeyword:
-                        FlushRun();
-                        var rule = ConsumeAtRule(values, ref index, terminalOffset, closed);
-                        if (rule is not null) items.Add(CssBlockItemSyntax.FromRule(rule));
-                        continue;
-                }
+                case CssTokenKind.Whitespace or CssTokenKind.Semicolon:
+                    index++;
+                    continue;
+                case CssTokenKind.AtKeyword:
+                    FlushRun();
+                    items.Add(CssBlockItemSyntax.FromRule(ConsumeAtRule(values, ref index, terminalOffset, closed)));
+                    continue;
             }
 
             var end = index;
@@ -145,15 +135,15 @@ internal sealed partial class CssSyntaxParser
             if (CouldStartDeclaration(values, index))
             {
                 end = FindBlockDeclarationBoundary(values, index);
-                var declarationEnd = end < values.Count && IsToken(values[end], CssTokenKind.Semicolon)
-                    ? values[end].Span.Start : end == values.Count ? terminalOffset
+                var declarationEnd = end < values.Length && IsToken(values[end], CssTokenKind.Semicolon)
+                    ? values[end].Span.Start : end == values.Length ? terminalOffset
                     : values[end - 1].Span.Start + values[end - 1].Span.Length;
                 declaration = TryBuildDeclaration(values, index, end, declarationEnd);
             }
             if (declaration is not null)
             {
                 declarationRun.Add(declaration);
-                index = end < values.Count ? end + 1 : end;
+                index = end < values.Length ? end + 1 : end;
                 continue;
             }
 
@@ -177,51 +167,43 @@ internal sealed partial class CssSyntaxParser
         }
     }
 
-    private CssRuleSyntax ConsumeAtRule(IReadOnlyList<CssComponentValue> values,
+    private CssRuleSyntax ConsumeAtRule(ReadOnlySpan<CssComponentValue> values,
         ref int index, int terminalOffset, bool closed = false)
     {
         var first = values[index++].Token;
-        var prelude = new List<CssComponentValue>();
-        CssComponentValue? block = null;
+        var preludeStart = index;
         var end = first.Span.Start + first.Span.Length;
-        while (index < values.Count)
+        while (index < values.Length)
         {
             PollCancellation();
-            var value = values[index];
-            if (IsToken(value, CssTokenKind.Semicolon))
+            ref readonly var value = ref values[index];
+            if (IsToken(value, CssTokenKind.Semicolon) || IsCurlyBlock(value))
             {
+                CssComponentValue? block = IsCurlyBlock(value) ? value : null;
                 end = value.Span.Start + value.Span.Length;
-                index++;
-                return NewRule(CssRuleKind.AtRule, first.Text, prelude, null, first.Span.Start, end);
-            }
-            if (IsCurlyBlock(value))
-            {
-                block = value;
-                end = value.Span.Start + value.Span.Length;
-                index++;
+                var prelude = values[preludeStart..index++];
                 return NewRule(CssRuleKind.AtRule, first.Text, prelude, block, first.Span.Start, end);
             }
-            prelude.Add(value);
             end = value.Span.Start + value.Span.Length;
             index++;
         }
         if (!closed) Report("css/unexpected-eof", terminalOffset);
-        return NewRule(CssRuleKind.AtRule, first.Text, prelude, null,
+        return NewRule(CssRuleKind.AtRule, first.Text, values[preludeStart..], null,
             first.Span.Start, Math.Max(end, terminalOffset));
     }
 
-    private CssRuleSyntax? ConsumeQualifiedRule(IReadOnlyList<CssComponentValue> values,
+    private CssRuleSyntax? ConsumeQualifiedRule(ReadOnlySpan<CssComponentValue> values,
         ref int index, int terminalOffset, bool nested)
     {
+        var preludeStart = index;
         var start = values[index].Span.Start;
-        var prelude = new List<CssComponentValue>();
-        while (index < values.Count)
+        while (index < values.Length)
         {
             PollCancellation();
-            var value = values[index];
+            ref readonly var value = ref values[index];
             if (IsCurlyBlock(value))
             {
-                index++;
+                var prelude = values[preludeStart..index++];
                 if (StartsWithCustomPropertyDeclaration(prelude))
                 {
                     Report("css/discarded-custom-property-rule", start);
@@ -245,7 +227,6 @@ internal sealed partial class CssSyntaxParser
                     return null;
                 }
             }
-            prelude.Add(value);
             index++;
         }
         Report("css/expected-rule-block", terminalOffset);
@@ -253,10 +234,10 @@ internal sealed partial class CssSyntaxParser
     }
 
     private CssRuleSyntax NewRule(CssRuleKind kind, string name,
-        List<CssComponentValue> prelude, CssComponentValue? block, int start, int end) =>
+        ReadOnlySpan<CssComponentValue> prelude, CssComponentValue? block, int start, int end) =>
         new(kind, name, List(prelude), block, new CssSourceSpan(start, end - start));
 
-    private CssDeclarationSyntax? TryBuildDeclaration(IReadOnlyList<CssComponentValue> values,
+    private CssDeclarationSyntax? TryBuildDeclaration(ReadOnlySpan<CssComponentValue> values,
         int start, int end, int terminalOffset)
     {
         while (start < end && IsWhitespace(values[start])) { PollCancellation(); start++; }
@@ -267,28 +248,30 @@ internal sealed partial class CssSyntaxParser
         var colon = values[start++].Token;
         while (start < end && IsWhitespace(values[start])) { PollCancellation(); start++; }
         var valueStart = start < end ? values[start].Span.Start : colon.Span.Start + colon.Span.Length;
-        var declarationValues = new List<CssComponentValue>();
+        var declarationValues = values[start..end];
         var spanEnd = colon.Span.Start + colon.Span.Length;
-        for (var cursor = start; cursor < end; cursor++)
+        for (var cursor = declarationValues.Length - 1; cursor >= 0; cursor--)
         {
-            PollCancellation();
-            var value = values[cursor];
-            declarationValues.Add(value);
-            if (!IsWhitespace(value)) spanEnd = value.Span.Start + value.Span.Length;
+            if (!IsWhitespace(declarationValues[cursor]))
+            {
+                spanEnd = declarationValues[cursor].Span.Start + declarationValues[cursor].Span.Length;
+                break;
+            }
         }
+        PollCancellation(declarationValues.Length);
         return FinalizeDeclaration(name, declarationValues, valueStart,
             terminalOffset, spanEnd, colon.Span.Start + colon.Span.Length);
     }
 
     private CssDeclarationSyntax? FinalizeDeclaration(CssToken name,
-        List<CssComponentValue> values, int valueStart, int valueEnd, int spanEnd, int lexicalValueStart)
+        ReadOnlySpan<CssComponentValue> values, int valueStart, int valueEnd, int spanEnd, int lexicalValueStart)
     {
-        TrimTrailingWhitespace(values);
+        values = TrimTrailingWhitespace(values);
         var important = false;
         var retokenizeEnd = valueEnd;
-        if (values.Count > 0 && IsIdent(values[^1], "important"))
+        if (values.Length > 0 && IsIdent(values[^1], "important"))
         {
-            var bang = values.Count - 2;
+            var bang = values.Length - 2;
             while (bang >= 0 && IsWhitespace(values[bang]))
             {
                 PollCancellation();
@@ -297,8 +280,7 @@ internal sealed partial class CssSyntaxParser
             if (bang >= 0 && IsDelim(values[bang], '!'))
             {
                 retokenizeEnd = values[bang].Span.Start;
-                values.RemoveRange(bang, values.Count - bang);
-                TrimTrailingWhitespace(values);
+                values = TrimTrailingWhitespace(values[..bang]);
                 important = true;
             }
         }
@@ -306,16 +288,15 @@ internal sealed partial class CssSyntaxParser
             HasMixedTopLevelBrace(values)) return null;
         if (CssAscii.EqualsIgnoreCase(name.Text, "unicode-range"))
         {
-            values = RetokenizeUnicodeRangeValue(valueStart, retokenizeEnd);
-            TrimTrailingWhitespace(values);
+            values = TrimTrailingWhitespace(RetokenizeUnicodeRangeValue(valueStart, retokenizeEnd));
         }
         var components = List(values);
+        var lexicalValue = new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart);
         return new CssDeclarationSyntax(name.Text, components, important,
             new CssSourceSpan(name.Span.Start, spanEnd - name.Span.Start),
-            new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart),
+            lexicalValue,
             TrimLexicalBoundaryWhitespace(lexicalValueStart, retokenizeEnd, components),
-            ValueTermination(components, new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart),
-                new Values.CssValueWork(_cancellationToken)));
+            ValueTermination(components, lexicalValue, new Values.CssValueWork(_cancellationToken)));
     }
 
     // Comments occupy source gaps, not tokens. Trim only whitespace tokens touching the
@@ -332,7 +313,7 @@ internal sealed partial class CssSyntaxParser
         var rightLimit = firstComponent > lastComponent ? start : components[lastComponent].Span.Start +
             components[lastComponent].Span.Length;
         var first = TokenAtOrAfter(start);
-        while (first < _tokens.Count && _tokens[first].Kind == CssTokenKind.Whitespace &&
+        while (first < _tokenCount && _tokens[first].Kind == CssTokenKind.Whitespace &&
                _tokens[first].Span.Start == start && start < leftLimit && start < end)
         {
             PollCancellation();
@@ -351,7 +332,26 @@ internal sealed partial class CssSyntaxParser
     private int TokenAtOrAfter(int offset)
     {
         var lo = 0;
-        var hi = _tokens.Count;
+        var hi = _tokenCount;
+        // Declarations are trimmed in source order, so the answer is usually just past the last one.
+        var hint = Math.Min(_tokenHint, hi);
+        if (hint < hi && _tokens[hint].Span.Start < offset)
+        {
+            lo = hint + 1;
+            var probeEnd = Math.Min(hi, lo + 8);
+            for (; lo < probeEnd; lo++)
+            {
+                if (_tokens[lo].Span.Start >= offset) return _tokenHint = lo;
+            }
+        }
+        else if (hint == 0 || _tokens[hint - 1].Span.Start < offset)
+        {
+            return hint;
+        }
+        else
+        {
+            hi = hint;
+        }
         while (lo < hi)
         {
             PollCancellation();
@@ -359,31 +359,31 @@ internal sealed partial class CssSyntaxParser
             if (_tokens[mid].Span.Start < offset) lo = mid + 1;
             else hi = mid;
         }
-        return lo;
+        return _tokenHint = lo;
     }
 
-    private bool CouldStartDeclaration(IReadOnlyList<CssComponentValue> values, int start)
+    private bool CouldStartDeclaration(ReadOnlySpan<CssComponentValue> values, int start)
     {
-        while (start < values.Count && IsToken(values[start], CssTokenKind.Whitespace))
+        while (start < values.Length && IsToken(values[start], CssTokenKind.Whitespace))
         {
             PollCancellation();
             start++;
         }
-        if (start >= values.Count || !IsToken(values[start], CssTokenKind.Ident)) return false;
+        if (start >= values.Length || !IsToken(values[start], CssTokenKind.Ident)) return false;
         start++;
-        while (start < values.Count && IsToken(values[start], CssTokenKind.Whitespace))
+        while (start < values.Length && IsToken(values[start], CssTokenKind.Whitespace))
         {
             PollCancellation();
             start++;
         }
-        return start < values.Count && IsToken(values[start], CssTokenKind.Colon);
+        return start < values.Length && IsToken(values[start], CssTokenKind.Colon);
     }
 
-    private int FindBlockDeclarationBoundary(IReadOnlyList<CssComponentValue> values, int start)
+    private int FindBlockDeclarationBoundary(ReadOnlySpan<CssComponentValue> values, int start)
     {
         var custom = values[start].Token.Text.StartsWith("--", StringComparison.Ordinal);
         var cursor = start + 1;
-        while (cursor < values.Count && IsToken(values[cursor], CssTokenKind.Whitespace))
+        while (cursor < values.Length && IsToken(values[cursor], CssTokenKind.Whitespace))
         {
             PollCancellation();
             cursor++;
@@ -392,7 +392,7 @@ internal sealed partial class CssSyntaxParser
         var nonWhitespace = 0;
         var braceSeen = false;
         var bangAfterBrace = false;
-        for (; cursor < values.Count; cursor++)
+        for (; cursor < values.Length; cursor++)
         {
             PollCancellation();
             var value = values[cursor];
@@ -416,20 +416,14 @@ internal sealed partial class CssSyntaxParser
         return cursor;
     }
 
-    private static bool IsToken(CssComponentValue value, CssTokenKind kind) =>
-        value.Kind == CssComponentKind.Token && value.Token.Kind == kind;
+    private static bool IsToken(in CssComponentValue value, CssTokenKind kind) => value.TokenKind == kind;
 
-    private static bool IsCurlyBlock(CssComponentValue value) =>
+    private static bool IsCurlyBlock(in CssComponentValue value) =>
         value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{';
 
     private T[] Copy<T>(List<T> values)
     {
-        var copy = new T[values.Count];
-        for (var index = 0; index < copy.Length; index++)
-        {
-            PollCancellation();
-            copy[index] = values[index];
-        }
-        return copy;
+        PollCancellation(values.Count);
+        return values.ToArray();
     }
 }

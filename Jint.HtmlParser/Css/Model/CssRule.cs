@@ -139,7 +139,7 @@ internal sealed class CssStyleRule : CssRule
         try
         {
             options ??= new CssParseOptions { Limits = _limits ?? ParseLimits.Unbounded };
-            var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
+            using var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
             var values = parser.ParseComponentValues();
             var selector = new SelectorCompiler.Worker(source,
                 new SelectorParseContext(limits: options.Limits, nestingParent: _nestingParent?.Selector),
@@ -157,7 +157,7 @@ internal sealed class CssStyleRule : CssRule
             {
                 work.Charge(1);
                 var childRule = item.Rule;
-                var childParser = new CssSyntaxParser(childRule._selectorText,
+                using var childParser = new CssSyntaxParser(childRule._selectorText,
                     new CssParseOptions { Limits = childRule._limits ?? ParseLimits.Unbounded },
                     cancellationToken, work.CheckCancellation);
                 var childValues = childParser.ParseComponentValues();

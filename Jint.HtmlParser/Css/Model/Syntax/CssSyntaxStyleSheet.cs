@@ -15,7 +15,8 @@ internal sealed class CssSyntaxStyleSheet
     internal static CssSyntaxStyleSheet Parse(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var parsed = new CssSyntaxParser(source, options, cancellationToken).ParseStyleSheet();
+        using var parsedParser = new CssSyntaxParser(source, options, cancellationToken);
+        var parsed = parsedParser.ParseStyleSheet();
         return FromSyntax(parsed, cancellationToken);
     }
 
@@ -45,7 +46,8 @@ internal sealed class CssSyntaxStyleSheet
         CancellationToken cancellationToken = default)
     {
         if ((uint) index > (uint) _rules.Count) throw new ArgumentOutOfRangeException(nameof(index));
-        var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseRule();
+        using var syntaxParser = new CssSyntaxParser(source, options, cancellationToken);
+        var syntax = syntaxParser.ParseRule();
         cancellationToken.ThrowIfCancellationRequested();
         _rules.Insert(index, new CssSyntaxRule(syntax, this));
         CssMutationStamp.Advance(ref _version);

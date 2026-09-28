@@ -1,9 +1,18 @@
+using System.Buffers;
+
 namespace Jint.HtmlParser.Css.Syntax;
 
 // CSS Syntax Level 3, §5.4–5.5: https://drafts.csswg.org/css-syntax/#parser-algorithms
-internal sealed partial class CssSyntaxParser
+// Token and pending-value storage is pooled; dispose the parser once its results are built.
+internal sealed partial class CssSyntaxParser : IDisposable
 {
-    private readonly List<CssToken> _tokens;
+    private CssToken[] _tokens;
+    private readonly int _tokenCount;
+    private Frame[] _frames = [];
+    private CssComponentValue[] _pending = [];
+    private int _pendingCount;
+    private int _tokenHint;
+    private int _pendingHighWater;
     private readonly string _source;
     private readonly ParseDiagnosticCollector? _diagnostics;
     private readonly int _maxTokenCharacters;
@@ -25,7 +34,7 @@ internal sealed partial class CssSyntaxParser
     {
         _source = input.Source;
         _checkpoint = checkpoint;
-        _tokens = new List<CssToken>();
+        _tokens = [];
         cancellationToken.ThrowIfCancellationRequested();
         checkpoint?.Invoke();
         var limits = options?.Limits ?? ParseLimits.Unbounded;
@@ -43,12 +52,8 @@ internal sealed partial class CssSyntaxParser
 
         var tokenizer = new CssTokenizer(input.Text, limits.MaxTokenCharacters, _diagnostics, cancellationToken,
             baseOffset: input.Span.Start, checkpoint: checkpoint);
-        while (true)
-        {
-            var token = tokenizer.Next();
-            if (token.Kind == CssTokenKind.None) break;
-            _tokens.Add(token);
-        }
+        // Most stylesheets average several characters per token; growth covers the rest.
+        (_tokens, _tokenCount) = Tokenize(tokenizer, input.Span.Length / 6);
         _eofRecoverySuffix = tokenizer.EofRecoverySuffix;
         _checkpoint?.Invoke();
     }
@@ -57,12 +62,13 @@ internal sealed partial class CssSyntaxParser
         Values.CssValueWork work) =>
         CssValueTermination.Create(components, retainedSpan, _sourceLength, _eofRecoverySuffix, work);
 
-    private CssSyntaxParser(List<CssToken> tokens, int sourceLength, int maxTokenCharacters,
+    private CssSyntaxParser(CssToken[] tokens, int tokenCount, int sourceLength, int maxTokenCharacters,
         int maxNestingDepth, ParseDiagnosticCollector? diagnostics, Action? checkpoint, CancellationToken cancellationToken)
     {
         _source = string.Empty;
         _checkpoint = checkpoint;
         _tokens = tokens;
+        _tokenCount = tokenCount;
         _sourceLength = sourceLength;
         _maxTokenCharacters = maxTokenCharacters;
         _maxNestingDepth = maxNestingDepth;
@@ -77,11 +83,23 @@ internal sealed partial class CssSyntaxParser
         return result;
     }
 
-    private List<CssComponentValue> ConsumeAllComponents()
+    // The returned span lives on the pending stack: it stays valid until the next component is consumed.
+    private ReadOnlySpan<CssComponentValue> ConsumeAllComponents(bool stopAtCloseCurly = false)
     {
         CheckCancellation();
-        var values = new List<CssComponentValue>();
-        while (Current.Kind != CssTokenKind.None) values.Add(ConsumeComponent());
+        var start = _pendingCount;
+        while (Current.Kind != CssTokenKind.None &&
+               !(stopAtCloseCurly && Current.Kind == CssTokenKind.CloseCurlyBracket))
+        {
+            AddPending(ConsumeComponent(), ref _pendingCount);
+        }
+        return PendingSince(start);
+    }
+
+    private ReadOnlySpan<CssComponentValue> PendingSince(int start)
+    {
+        var values = _pending.AsSpan(start, _pendingCount - start);
+        _pendingCount = start;
         return values;
     }
 
@@ -105,7 +123,7 @@ internal sealed partial class CssSyntaxParser
         var first = Current;
         var isAtRule = first.Kind == CssTokenKind.AtKeyword;
         if (isAtRule) _index++;
-        var prelude = new List<CssComponentValue>();
+        var preludeStart = _pendingCount;
         CssComponentValue? block = null;
         var end = isAtRule ? first.Span.Start + first.Span.Length : first.Span.Start;
         while (true)
@@ -124,7 +142,7 @@ internal sealed partial class CssSyntaxParser
                     end = token.Span.Start + token.Span.Length;
                     break;
                 case CssTokenKind.OpenCurlyBracket:
-                    if (!isAtRule && StartsWithCustomPropertyDeclaration(prelude))
+                    if (!isAtRule && StartsWithCustomPropertyDeclaration(_pending.AsSpan(preludeStart, _pendingCount - preludeStart)))
                     {
                         throw Error("css/custom-property-is-not-rule", first.Span.Start);
                     }
@@ -133,12 +151,13 @@ internal sealed partial class CssSyntaxParser
                     break;
                 default:
                     var value = ConsumeComponent();
-                    prelude.Add(value);
+                    AddPending(value, ref _pendingCount);
                     end = value.Span.Start + value.Span.Length;
                     continue;
             }
             break;
         }
+        var prelude = PendingSince(preludeStart);
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
         var result = new CssRuleSyntax(isAtRule ? CssRuleKind.AtRule : CssRuleKind.QualifiedRule,
@@ -167,15 +186,16 @@ internal sealed partial class CssSyntaxParser
         _index++;
         SkipWhitespace();
         var valueStart = Current.Kind == CssTokenKind.None ? _sourceLength : Current.Span.Start;
-        var values = new List<CssComponentValue>();
+        var valuesStart = _pendingCount;
         var end = colon.Span.Start + colon.Span.Length;
         while (Current.Kind is not (CssTokenKind.None or CssTokenKind.Semicolon))
         {
             CheckCancellation();
             var value = ConsumeComponent();
-            values.Add(value);
+            AddPending(value, ref _pendingCount);
             if (!IsWhitespace(value)) end = value.Span.Start + value.Span.Length;
         }
+        var values = PendingSince(valuesStart);
         var valueEnd = Current.Kind == CssTokenKind.None ? _sourceLength : Current.Span.Start;
         if (Current.Kind == CssTokenKind.Semicolon) _index++;
         SkipWhitespace();
@@ -199,51 +219,71 @@ internal sealed partial class CssSyntaxParser
             return CssComponentValue.FromToken(token);
         }
 
-        var stack = new List<Frame>();
-        Push(token);
+        // Open containers share one frame stack and one pending-value stack; each container
+        // owns the pending values above its frame's mark until it closes.
+        var depth = 0;
+        var pending = _pendingCount;
+        Push(token, ref depth, pending);
         _index++;
-        while (stack.Count > 0)
+        while (true)
         {
             PollCancellation();
             token = Current;
-            var top = stack[^1];
+            ref var top = ref _frames[depth - 1];
             if (token.Kind == CssTokenKind.None || token.Kind == top.ClosingKind)
             {
-                var end = token.Kind == CssTokenKind.None ? _sourceLength : token.Span.Start + token.Span.Length;
-                if (token.Kind == CssTokenKind.None) Report("css/unexpected-eof", _sourceLength);
-                else _index++;
+                var closed = token.Kind != CssTokenKind.None;
+                var end = closed ? token.Span.Start + token.Span.Length : _sourceLength;
+                if (closed) _index++;
+                else Report("css/unexpected-eof", _sourceLength);
                 var completed = CssComponentValue.FromContainer(top.Kind,
                     new CssSourceSpan(top.Start, end - top.Start), top.FunctionName,
-                    top.OpeningDelimiter, List(top.Values), token.Kind != CssTokenKind.None);
-                stack.RemoveAt(stack.Count - 1);
-                if (stack.Count == 0) return completed;
-                stack[^1].Values.Add(completed);
+                    top.OpeningDelimiter, List(_pending.AsSpan(top.Mark, pending - top.Mark)), closed);
+                pending = top.Mark;
+                top = default;
+                if (--depth == 0)
+                {
+                    return completed;
+                }
+                AddPending(completed, ref pending);
                 continue;
             }
             if (OpensContainer(token.Kind))
             {
-                Push(token);
+                Push(token, ref depth, pending);
                 _index++;
                 continue;
             }
             if (IsClosing(token.Kind)) Report("css/unmatched-closing-token", token.Span.Start);
-            top.Values.Add(CssComponentValue.FromToken(token));
+            AddPending(CssComponentValue.FromToken(token), ref pending);
             _index++;
-        }
-        throw new InvalidOperationException();
-
-        void Push(CssToken opening)
-        {
-            var depth = stack.Count + 1;
-            if (_maxNestingDepth > 0 && depth > _maxNestingDepth)
-            {
-                throw new ParseLimitException(ParseLimitKind.NestingDepth, _maxNestingDepth, depth);
-            }
-            stack.Add(new Frame(opening));
         }
     }
 
-    private CssToken Current => _index < _tokens.Count ? _tokens[_index] : default;
+    private void Push(in CssToken opening, ref int depth, int mark)
+    {
+        if (_maxNestingDepth > 0 && depth + 1 > _maxNestingDepth)
+        {
+            throw new ParseLimitException(ParseLimitKind.NestingDepth, _maxNestingDepth, depth + 1);
+        }
+        if (depth == _frames.Length)
+        {
+            Array.Resize(ref _frames, Math.Max(8, depth * 2));
+        }
+        _frames[depth++] = new Frame(opening, mark);
+    }
+
+    private void AddPending(in CssComponentValue value, ref int count)
+    {
+        if (count == _pending.Length)
+        {
+            Grow(ref _pending, count);
+        }
+        _pending[count++] = value;
+        _pendingHighWater = Math.Max(_pendingHighWater, count);
+    }
+
+    private CssToken Current => _index < _tokenCount ? _tokens[_index] : default;
 
     private void SkipWhitespace()
     {
@@ -266,46 +306,86 @@ internal sealed partial class CssSyntaxParser
         if ((++_work & 255) == 0) CheckCancellation();
     }
 
-    private List<CssComponentValue> RetokenizeUnicodeRangeValue(int start, int end)
+    // Charges bulk work with the same checkpoint cadence as one poll per unit.
+    private void PollCancellation(int units)
+    {
+        var before = _work;
+        _work += units;
+        for (var crossed = (_work >> 8) - (before >> 8); crossed > 0; crossed--)
+        {
+            CheckCancellation();
+        }
+    }
+
+    private CssComponentValue[] RetokenizeUnicodeRangeValue(int start, int end)
     {
         var tokenizer = new CssTokenizer(_source.Substring(start, end - start),
             _maxTokenCharacters, _diagnostics, _cancellationToken,
             allowUnicodeRanges: true, baseOffset: start, checkpoint: _checkpoint);
-        var tokens = new List<CssToken>();
+        var (tokens, count) = Tokenize(tokenizer, 4);
+        using var parser = new CssSyntaxParser(tokens, count, end, _maxTokenCharacters,
+            _maxNestingDepth, _diagnostics, _checkpoint, _cancellationToken);
+        return parser.ConsumeAllComponents().ToArray();
+    }
+
+    private static (CssToken[] Tokens, int Count) Tokenize(CssTokenizer tokenizer, int capacity)
+    {
+        var tokens = ArrayPool<CssToken>.Shared.Rent(Math.Max(capacity, 16));
+        var count = 0;
         while (true)
         {
             var token = tokenizer.Next();
-            if (token.Kind == CssTokenKind.None) break;
-            tokens.Add(token);
+            if (token.Kind == CssTokenKind.None) return (tokens, count);
+            if (count == tokens.Length) Grow(ref tokens, count);
+            tokens[count++] = token;
         }
-        var parser = new CssSyntaxParser(tokens, end, _maxTokenCharacters,
-            _maxNestingDepth, _diagnostics, _checkpoint, _cancellationToken);
-        return parser.ConsumeAllComponents();
     }
 
-    private void TrimTrailingWhitespace(List<CssComponentValue> values)
+    private static void Grow<T>(ref T[] array, int count)
     {
-        while (values.Count > 0 && IsWhitespace(values[^1]))
+        var grown = ArrayPool<T>.Shared.Rent(Math.Max(16, count * 2));
+        array.AsSpan(0, count).CopyTo(grown);
+        Return(array, count);
+        array = grown;
+    }
+
+    private static void Return<T>(T[] array, int used)
+    {
+        if (array.Length == 0) return;
+        array.AsSpan(0, used).Clear();
+        ArrayPool<T>.Shared.Return(array);
+    }
+
+    public void Dispose()
+    {
+        Return(_tokens, _tokenCount);
+        _tokens = [];
+        Return(_pending, _pendingHighWater);
+        _pending = [];
+    }
+
+    private ReadOnlySpan<CssComponentValue> TrimTrailingWhitespace(ReadOnlySpan<CssComponentValue> values)
+    {
+        while (!values.IsEmpty && IsWhitespace(values[^1]))
         {
             PollCancellation();
-            values.RemoveAt(values.Count - 1);
+            values = values[..^1];
         }
+        return values;
     }
 
-    private static bool IsWhitespace(CssComponentValue value) =>
-        value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace;
+    private static bool IsWhitespace(in CssComponentValue value) => value.TokenKind == CssTokenKind.Whitespace;
 
-    private static bool IsDelim(CssComponentValue value, char delimiter) =>
-        value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Delim && value.Token.Delimiter == delimiter;
+    private static bool IsDelim(in CssComponentValue value, char delimiter) =>
+        value.TokenKind == CssTokenKind.Delim && value.Token.Delimiter == delimiter;
 
-    private static bool IsIdent(CssComponentValue value, string text) =>
-        value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Ident &&
-        CssAscii.EqualsIgnoreCase(value.Token.Text, text);
+    private static bool IsIdent(in CssComponentValue value, string text) =>
+        value.TokenKind == CssTokenKind.Ident && CssAscii.EqualsIgnoreCase(value.Token.Text, text);
 
-    private bool StartsWithCustomPropertyDeclaration(List<CssComponentValue> prelude)
+    private bool StartsWithCustomPropertyDeclaration(ReadOnlySpan<CssComponentValue> prelude)
     {
         CssComponentValue? first = null;
-        foreach (var value in prelude)
+        foreach (ref readonly var value in prelude)
         {
             PollCancellation();
             if (IsWhitespace(value)) continue;
@@ -322,11 +402,11 @@ internal sealed partial class CssSyntaxParser
         return false;
     }
 
-    private bool HasMixedTopLevelBrace(List<CssComponentValue> values)
+    private bool HasMixedTopLevelBrace(ReadOnlySpan<CssComponentValue> values)
     {
         var nonWhitespace = 0;
         var hasBrace = false;
-        foreach (var value in values)
+        foreach (ref readonly var value in values)
         {
             PollCancellation();
             if (IsWhitespace(value)) continue;
@@ -343,15 +423,10 @@ internal sealed partial class CssSyntaxParser
     private static bool IsClosing(CssTokenKind kind) => kind is CssTokenKind.CloseParenthesis or
         CssTokenKind.CloseSquareBracket or CssTokenKind.CloseCurlyBracket;
 
-    private CssComponentValueList List(List<CssComponentValue> values)
+    private CssComponentValueList List(ReadOnlySpan<CssComponentValue> values)
     {
-        var copy = new CssComponentValue[values.Count];
-        for (var index = 0; index < copy.Length; index++)
-        {
-            PollCancellation();
-            copy[index] = values[index];
-        }
-        return new CssComponentValueList(copy);
+        PollCancellation(values.Length);
+        return new CssComponentValueList(values.ToArray());
     }
 
     private CssParseException Error(string code, int offset)
@@ -362,11 +437,12 @@ internal sealed partial class CssSyntaxParser
     }
     private void Report(string code, int offset) => _diagnostics?.Add(code, offset);
 
-    private sealed class Frame
+    private readonly struct Frame
     {
-        internal Frame(CssToken opening)
+        internal Frame(in CssToken opening, int mark)
         {
             Start = opening.Span.Start;
+            Mark = mark;
             Kind = opening.Kind == CssTokenKind.Function ? CssComponentKind.Function : CssComponentKind.SimpleBlock;
             FunctionName = opening.Kind == CssTokenKind.Function ? opening.Text : null;
             OpeningDelimiter = opening.Delimiter;
@@ -379,10 +455,10 @@ internal sealed partial class CssSyntaxParser
         }
 
         internal int Start { get; }
+        internal int Mark { get; }
         internal CssComponentKind Kind { get; }
         internal string? FunctionName { get; }
         internal char OpeningDelimiter { get; }
         internal CssTokenKind ClosingKind { get; }
-        internal List<CssComponentValue> Values { get; } = new();
     }
 }

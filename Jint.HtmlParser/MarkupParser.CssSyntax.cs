@@ -17,7 +17,11 @@ public static partial class MarkupParser
     internal static CssStyleSheetSyntax ParseCssCore(string source, CssParseOptions? options,
         Action? checkpoint, CancellationToken cancellationToken)
     {
-        var rules = new CssSyntaxParser(source, options, cancellationToken, checkpoint).ParseStyleSheet();
+        CssRuleSyntax[] rules;
+        using (var parser = new CssSyntaxParser(source, options, cancellationToken, checkpoint))
+        {
+            rules = parser.ParseStyleSheet();
+        }
         var result = new CssStyleSheetSyntax(source, rules);
         cancellationToken.ThrowIfCancellationRequested();
         return result;
@@ -25,17 +29,24 @@ public static partial class MarkupParser
 
     public static CssRuleSyntax ParseCssRule(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        new CssSyntaxParser(source, options, cancellationToken).ParseRule();
+        Parse(source, options, static parser => parser.ParseRule(), cancellationToken);
 
     public static CssDeclarationSyntax ParseCssDeclaration(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        new CssSyntaxParser(source, options, cancellationToken).ParseDeclaration();
+        Parse(source, options, static parser => parser.ParseDeclaration(), cancellationToken);
 
     public static CssComponentValue ParseCssComponentValue(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        new CssSyntaxParser(source, options, cancellationToken).ParseComponentValue();
+        Parse(source, options, static parser => parser.ParseComponentValue(), cancellationToken);
 
     public static CssComponentValueList ParseCssComponentValues(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default) =>
-        new CssSyntaxParser(source, options, cancellationToken).ParseComponentValues();
+        Parse(source, options, static parser => parser.ParseComponentValues(), cancellationToken);
+
+    private static T Parse<T>(string source, CssParseOptions? options, Func<CssSyntaxParser, T> parse,
+        CancellationToken cancellationToken)
+    {
+        using var parser = new CssSyntaxParser(source, options, cancellationToken);
+        return parse(parser);
+    }
 }

@@ -53,7 +53,7 @@ internal static partial class CssParser
     internal static CssRawRule[] ParseRuleList(CssRuleBody body, CssValueWork work, CssParseOptions? options = null)
     {
         var input = body.Text;
-        var parser = new CssSyntaxParser(input, options, work.Token, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(input, options, work.Token, work.CheckCancellation);
         var values = parser.ParseComponentValues();
         var block = CssComponentValue.FromContainer(CssComponentKind.SimpleBlock,
             new CssSourceSpan(input.Span.Start - 1, input.Span.Length + (body.IsClosed ? 2 : 1)),

@@ -15,7 +15,7 @@ internal static partial class CssParser
 
     internal static CssMediaList ParseMediaQueryList(CssSourceText input, CssValueWork work, CssParseOptions? options = null)
     {
-        var parser = new CssSyntaxParser(input, options, work.Token, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(input, options, work.Token, work.CheckCancellation);
         var values = parser.ParseComponentValues();
         return CssMediaList.FromComponents(input.Source, values, parser, work);
     }
@@ -26,7 +26,7 @@ internal static partial class CssParser
 
     internal static bool HasValidSelector(CssRawRule raw, CssValueWork work, CssParseOptions? options = null)
     {
-        var parser = new CssSyntaxParser(raw.Prelude, options, work.Token, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(raw.Prelude, options, work.Token, work.CheckCancellation);
         return CssStyleSheet.CompileSelector(raw.Text.Source, Header(raw, parser), options, work, work.Token) is not null;
     }
 
@@ -51,7 +51,7 @@ internal static partial class CssParser
         // A style rule's declaration-vs-nesting grammar, and descriptor rules, demand their own
         // body. A grouping rule needs only its prelude; its body stays a raw source slice.
         var full = raw.Kind == CssRuleKind.QualifiedRule || kind is CssAtRuleKind.FontFace;
-        var parser = new CssSyntaxParser(full ? raw.Text : raw.Prelude, options, work.Token, work.CheckCancellation);
+        using var parser = new CssSyntaxParser(full ? raw.Text : raw.Prelude, options, work.Token, work.CheckCancellation);
         var syntax = full ? parser.ParseRule() : Header(raw, parser);
         CssRule? rule;
         CssSourceText? media = null;

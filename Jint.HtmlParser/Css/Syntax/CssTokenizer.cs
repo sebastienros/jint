@@ -46,66 +46,43 @@ internal sealed class CssTokenizer
             return default;
         }
 
-        if (IsWhitespace(c))
+        switch (c)
         {
-            var text = new ValueStringBuilder(stackalloc char[128]);
-            try
-            {
-                do { AppendCodePoint(ref text, Consume()); } while (IsWhitespace(Peek()));
-                return Make(CssTokenKind.Whitespace, start, text: text.ToString());
-            }
-            finally { text.Dispose(); }
+            case ' ' or '\t' or '\n':
+                return Make(CssTokenKind.Whitespace, start, text: ConsumeWhitespace());
+            case '"' or '\'':
+                Consume();
+                return ConsumeString(start, c);
+            case '#':
+                Consume();
+                if (IsName(Peek()) || IsValidEscape(Peek(), Peek(1)))
+                {
+                    var isId = WouldStartIdent(0);
+                    return Make(CssTokenKind.Hash, start, text: ConsumeName(), isIdHash: isId);
+                }
+                return Make(CssTokenKind.Delim, start, delimiter: '#');
+            case '@':
+                Consume();
+                return WouldStartIdent(0)
+                    ? Make(CssTokenKind.AtKeyword, start, text: ConsumeName())
+                    : Make(CssTokenKind.Delim, start, delimiter: '@');
+            case '<' when Peek(1) == '!' && Peek(2) == '-' && Peek(3) == '-':
+                Advance(4);
+                return Make(CssTokenKind.Cdo, start);
+            case '-' when Peek(1) == '-' && Peek(2) == '>':
+                Advance(3);
+                return Make(CssTokenKind.Cdc, start);
+            case 'u' or 'U' when _allowUnicodeRanges && Peek(1) == '+' && (IsHexDigit(Peek(2)) || Peek(2) == '?'):
+                return ConsumeUnicodeRange(start);
+            case >= '0' and <= '9':
+                return ConsumeNumeric(start);
+            case '+' or '-' or '.' when WouldStartNumber(0):
+                return ConsumeNumeric(start);
+            case '-' or '\\' when WouldStartIdent(0):
+                return ConsumeIdentLike(start);
         }
 
-        if (c is '\'' or '"')
-        {
-            Consume();
-            return ConsumeString(start, c);
-        }
-
-        if (c == '#')
-        {
-            Consume();
-            if (IsName(Peek()) || IsValidEscape(Peek(), Peek(1)))
-            {
-                var isId = WouldStartIdent(0);
-                return Make(CssTokenKind.Hash, start, text: ConsumeName(), isIdHash: isId);
-            }
-            return Make(CssTokenKind.Delim, start, delimiter: '#');
-        }
-
-        if (c == '@')
-        {
-            Consume();
-            return WouldStartIdent(0)
-                ? Make(CssTokenKind.AtKeyword, start, text: ConsumeName())
-                : Make(CssTokenKind.Delim, start, delimiter: '@');
-        }
-
-        if (c == '<' && Peek(1) == '!' && Peek(2) == '-' && Peek(3) == '-')
-        {
-            Consume(); Consume(); Consume(); Consume();
-            return Make(CssTokenKind.Cdo, start);
-        }
-
-        if (c == '-' && Peek(1) == '-' && Peek(2) == '>')
-        {
-            Consume(); Consume(); Consume();
-            return Make(CssTokenKind.Cdc, start);
-        }
-
-        if (_allowUnicodeRanges && (c is 'u' or 'U') && Peek(1) == '+' &&
-            (IsHexDigit(Peek(2)) || Peek(2) == '?'))
-        {
-            return ConsumeUnicodeRange(start);
-        }
-
-        if (WouldStartNumber(0))
-        {
-            return ConsumeNumeric(start);
-        }
-
-        if (WouldStartIdent(0))
+        if (IsNameStart(c))
         {
             return ConsumeIdentLike(start);
         }
@@ -146,7 +123,7 @@ internal sealed class CssTokenizer
             if (Peek() is '+' or '-') Consume();
             while (IsDigit(Peek())) Consume();
         }
-        var number = _source.Substring(numberStart, _position - numberStart);
+        var number = CssNameCache.Get(_source.AsSpan(numberStart, _position - numberStart));
         if (WouldStartIdent(0))
         {
             return Make(CssTokenKind.Dimension, start, numberText: number,
@@ -337,9 +314,22 @@ internal sealed class CssTokenizer
 
     private string ConsumeName()
     {
+        // Fast lane: an ASCII name ending on a character that needs no decoding is a source slice.
+        var source = _source;
+        var start = _position;
+        var end = start;
+        while ((uint) end < (uint) source.Length && IsAsciiName(source[end])) end++;
+        if (end == source.Length || IsPlainTerminator(source[end]))
+        {
+            Advance(end - start);
+            return CssNameCache.Get(source.AsSpan(start, end - start));
+        }
+
         var text = new ValueStringBuilder(stackalloc char[128]);
         try
         {
+            text.Append(source.AsSpan(start, end - start));
+            Advance(end - start);
             while (true)
             {
                 if (IsName(Peek())) AppendCodePoint(ref text, Consume());
@@ -350,6 +340,29 @@ internal sealed class CssTokenizer
                 }
                 else return text.ToString();
             }
+        }
+        finally { text.Dispose(); }
+    }
+
+    private string ConsumeWhitespace()
+    {
+        var source = _source;
+        var start = _position;
+        var end = start;
+        while ((uint) end < (uint) source.Length && source[end] is ' ' or '\t' or '\n') end++;
+        if (end == source.Length || source[end] is not ('\r' or '\f'))
+        {
+            Advance(end - start);
+            return CssNameCache.Get(source.AsSpan(start, end - start));
+        }
+
+        var text = new ValueStringBuilder(stackalloc char[128]);
+        try
+        {
+            text.Append(source.AsSpan(start, end - start));
+            Advance(end - start);
+            while (IsWhitespace(Peek())) AppendCodePoint(ref text, Consume());
+            return text.ToString();
         }
         finally { text.Dispose(); }
     }
@@ -408,7 +421,18 @@ internal sealed class CssTokenizer
         new(kind, new CssSourceSpan(_baseOffset + start, _position - start), text,
             numberText, unit, delimiter, isInteger, isIdHash, unicodeStart, unicodeEnd);
 
-    private int Peek(int offset = 0)
+    private int Peek()
+    {
+        var index = _position;
+        if ((uint) index < (uint) _source.Length)
+        {
+            var c = _source[index];
+            if (IsPlain(c)) return c;
+        }
+        return PeekAt(index);
+    }
+
+    private int Peek(int offset)
     {
         var index = _position;
         while (offset-- > 0)
@@ -449,18 +473,53 @@ internal sealed class CssTokenizer
 
     private int Consume()
     {
-        var c = Peek();
-        if (c >= 0)
+        var index = _position;
+        if ((uint) index < (uint) _source.Length && IsPlain(_source[index]))
         {
-            _position += WidthAt(_position);
-            if (!_inComment && _maxTokenCharacters > 0 && _position - _scanStart > _maxTokenCharacters)
+            Advance(1, 1);
+            return _source[index];
+        }
+        var c = PeekAt(index);
+        if (c >= 0) Advance(WidthAt(index), 1);
+        return c;
+    }
+
+    private void Advance(int count) => Advance(count, count);
+
+    // Moves over code points as Consume would, one limit check and one work unit per code point.
+    private void Advance(int width, int codePoints)
+    {
+        if (!_inComment && _maxTokenCharacters > 0)
+        {
+            var room = _scanStart + _maxTokenCharacters - _position;
+            if (width > room)
             {
+                if (codePoints == 1)
+                {
+                    _position += width;
+                }
+                else
+                {
+                    // A run holds single-char code points: charge those before the one over the limit.
+                    ChargeWork(room);
+                    _position += room + 1;
+                }
                 throw new ParseLimitException(ParseLimitKind.TokenCharacters,
                     _maxTokenCharacters, _position - _scanStart);
             }
-            if ((++_work & 1023) == 0) CheckCancellation();
         }
-        return c;
+        _position += width;
+        ChargeWork(codePoints);
+    }
+
+    private void ChargeWork(int codePoints)
+    {
+        var before = _work;
+        _work += codePoints;
+        for (var crossed = (_work >> 10) - (before >> 10); crossed > 0; crossed--)
+        {
+            CheckCancellation();
+        }
     }
 
     private bool WouldStartNumber(int offset)
@@ -481,6 +540,11 @@ internal sealed class CssTokenizer
             : IsNameStart(a) || IsValidEscape(a, b);
     }
 
+    // Characters that need no preprocessing: not CR, FF or NUL, and not a surrogate.
+    private static bool IsPlain(char c) => c > '\r' && !char.IsSurrogate(c);
+    private static bool IsAsciiName(char c) => char.IsAsciiLetterOrDigit(c) || c is '_' or '-';
+    // An ASCII character that ends a name as-is; NUL, backslash and non-ASCII need the slow lane.
+    private static bool IsPlainTerminator(char c) => c < 0x80 && c is not ('\0' or '\\');
     private static bool IsWhitespace(int c) => c is ' ' or '\t' or '\n';
     private static bool IsQuote(int c) => c is '\'' or '"';
     private static bool IsDigit(int c) => c is >= '0' and <= '9';
