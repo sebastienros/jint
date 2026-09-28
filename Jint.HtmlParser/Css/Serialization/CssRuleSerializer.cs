@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Values;
 
@@ -11,8 +10,8 @@ internal static class CssRuleSerializer
     internal static string Serialize(CssRule rule, CssValueWork work)
     {
         work.CheckCancellation();
-        var builder = new StringBuilder();
-        Append(builder, [rule], null, work);
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        Append(ref builder, [rule], null, work);
         var text = builder.ToString();
         work.Charge(text.Length);
         work.CheckCancellation();
@@ -21,9 +20,9 @@ internal static class CssRuleSerializer
 
     internal static CssSerializationSnapshot SerializeSheet(CssStyleSheet sheet, CssValueWork work)
     {
-        var builder = new StringBuilder();
+        var builder = new ValueStringBuilder(stackalloc char[256]);
         var ranges = new Dictionary<CssRule, CssTextRange>(ReferenceEqualityComparer.Instance);
-        Append(builder, sheet.Rules, ranges, work);
+        Append(ref builder, sheet.Rules, ranges, work);
         work.CheckCancellation();
         var text = builder.ToString();
         work.Charge(text.Length);
@@ -39,7 +38,7 @@ internal static class CssRuleSerializer
         internal int Index;
     }
 
-    private static void Append(StringBuilder builder, IReadOnlyList<CssRule> rules,
+    private static void Append(ref ValueStringBuilder builder, IReadOnlyList<CssRule> rules,
         Dictionary<CssRule, CssTextRange>? ranges, CssValueWork work)
     {
         var frames = new Stack<Frame>();
@@ -64,10 +63,14 @@ internal static class CssRuleSerializer
             if (rule is CssImportRule import)
             {
                 builder.Append("@import url(");
-                CssSyntaxSerializer.AppendString(builder, import.Href, work);
+                CssSyntaxSerializer.AppendString(ref builder, import.Href, work);
                 builder.Append(')');
                 var mediaText = import.Media.Serialize(work);
-                if (mediaText.Length != 0) builder.Append(' ').Append(mediaText);
+                if (mediaText.Length != 0)
+                {
+                    builder.Append(' ');
+                    builder.Append(mediaText);
+                }
                 builder.Append(';');
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
@@ -86,7 +89,11 @@ internal static class CssRuleSerializer
             else if (rule is CssLayerBlockRule layer)
             {
                 builder.Append("@layer");
-                if (layer.Name.Length != 0) builder.Append(' ').Append(layer.Name);
+                if (layer.Name.Length != 0)
+                {
+                    builder.Append(' ');
+                    builder.Append(layer.Name);
+                }
                 work.Charge(layer.Name.Length + 1);
                 builder.Append(" {");
                 if (layer.Rules.Count != 0) builder.Append('\n');
@@ -96,8 +103,9 @@ internal static class CssRuleSerializer
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;
                 work.Charge(condition.Length);
-                builder.Append((conditionRule is CssMediaRule ? "@media " : "@supports "))
-                    .Append(condition).Append(" {");
+                builder.Append(conditionRule is CssMediaRule ? "@media " : "@supports ");
+                builder.Append(condition);
+                builder.Append(" {");
                 if (conditionRule.Rules.Count != 0) builder.Append('\n');
                 frames.Push(new Frame(conditionRule.Rules, conditionRule, start));
             }
@@ -110,10 +118,10 @@ internal static class CssRuleSerializer
             else if (rule is CssFontFaceRule fontFace)
             {
                 // Fonts 4 §12.1; serialize the declaration block, including font-display.
-                var declarations = fontFace.Style.Serialize(work);
-                builder.Append("@font-face { ").Append(declarations);
-                work.Charge(declarations.Length);
-                if (declarations.Length != 0) builder.Append(' ');
+                builder.Append("@font-face { ");
+                var declarations = fontFace.Style.AppendTo(ref builder, work);
+                work.Charge(declarations);
+                if (declarations != 0) builder.Append(' ');
                 builder.Append('}');
                 ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
@@ -122,12 +130,12 @@ internal static class CssRuleSerializer
                 // Finite nesting checkpoint: retain validated author text. CSS Nesting §6's
                 // absolute selector serialization (& insertion for relative branches) is deferred.
                 // https://drafts.csswg.org/css-nesting-1/#cssom
-                builder.Append(style.SelectorText).Append(" { ");
+                builder.Append(style.SelectorText);
+                builder.Append(" { ");
                 work.Charge(style.SelectorText.Length);
-                var declarations = style.Style.Serialize(work);
-                builder.Append(declarations);
-                work.Charge(declarations.Length);
-                if (declarations.Length != 0) builder.Append(' ');
+                var declarations = style.Style.AppendTo(ref builder, work);
+                work.Charge(declarations);
+                if (declarations != 0) builder.Append(' ');
                 if (style.Rules.Count != 0)
                 {
                     builder.Append('\n');

@@ -1,4 +1,6 @@
-using System.Text;
+using System.Buffers;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
 
@@ -9,8 +11,8 @@ internal static class CssSyntaxSerializer
 {
     internal static string SerializeString(string value, CssValueWork work)
     {
-        var builder = new StringBuilder();
-        AppendString(builder, value, work);
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        AppendString(ref builder, value, work);
         var result = builder.ToString();
         work.Charge(result.Length);
         work.CheckCancellation();
@@ -20,8 +22,17 @@ internal static class CssSyntaxSerializer
     internal static string SerializeIdentifier(string value, CssValueWork? work = null)
     {
         work?.CheckCancellation();
-        var builder = new StringBuilder();
-        AppendIdentifier(builder, value, work: work);
+        if (IsPlainIdentifier(value))
+        {
+            // Nothing to escape: charge the same per-character and result work as the copy.
+            work?.Charge(value.Length);
+            work?.CheckCancellation();
+            work?.Charge(value.Length);
+            work?.CheckCancellation();
+            return value;
+        }
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        AppendIdentifier(ref builder, value, work: work);
         work?.CheckCancellation();
         var result = builder.ToString();
         work?.Charge(result.Length);
@@ -32,8 +43,8 @@ internal static class CssSyntaxSerializer
     internal static string SerializeComponents(CssComponentValueList values, CssValueWork work)
     {
         work.CheckCancellation();
-        var builder = new StringBuilder();
-        AppendValues(builder, values, work);
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        AppendValues(ref builder, values, work);
         work.CheckCancellation();
         var result = builder.ToString();
         work.Charge(result.Length);
@@ -43,49 +54,49 @@ internal static class CssSyntaxSerializer
 
     internal static string SerializeStyleSheet(IReadOnlyList<CssSyntaxRule> rules)
     {
-        var builder = new StringBuilder();
+        var builder = new ValueStringBuilder(stackalloc char[256]);
         for (var index = 0; index < rules.Count; index++)
         {
             if (index != 0) builder.Append('\n');
-            AppendRule(builder, rules[index].Syntax);
+            AppendRule(ref builder, rules[index].Syntax);
         }
         return builder.ToString();
     }
 
     internal static string SerializeRule(CssRuleSyntax rule)
     {
-        var builder = new StringBuilder();
-        AppendRule(builder, rule);
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        AppendRule(ref builder, rule);
         return builder.ToString();
     }
 
     internal static string SerializeDeclarationList(IReadOnlyList<CssDeclarationSyntax> declarations)
     {
-        var builder = new StringBuilder();
+        var builder = new ValueStringBuilder(stackalloc char[256]);
         for (var index = 0; index < declarations.Count; index++)
         {
             if (index != 0) builder.Append(' ');
-            AppendIdentifier(builder, declarations[index].Name);
+            AppendIdentifier(ref builder, declarations[index].Name);
             builder.Append(':');
-            AppendValues(builder, declarations[index].Value);
+            AppendValues(ref builder, declarations[index].Value);
             if (declarations[index].IsImportant) builder.Append(" !important");
             builder.Append(';');
         }
         return builder.ToString();
     }
 
-    private static void AppendRule(StringBuilder builder, CssRuleSyntax rule)
+    private static void AppendRule(ref ValueStringBuilder builder, CssRuleSyntax rule)
     {
         if (rule.Kind == CssRuleKind.AtRule)
         {
             builder.Append('@');
-            AppendIdentifier(builder, rule.Name);
+            AppendIdentifier(ref builder, rule.Name);
             if (rule.Prelude.Count != 0) builder.Append("/**/");
         }
-        AppendValues(builder, rule.Prelude);
+        AppendValues(ref builder, rule.Prelude);
         if (rule.Block is { } block)
         {
-            AppendContainer(builder, block);
+            AppendContainer(ref builder, block);
         }
         else
         {
@@ -93,13 +104,13 @@ internal static class CssSyntaxSerializer
         }
     }
 
-    private static void AppendValues(StringBuilder builder, CssComponentValueList values, CssValueWork? work = null)
+    private static void AppendValues(ref ValueStringBuilder builder, CssComponentValueList values, CssValueWork? work = null)
     {
         var stack = new List<ValueFrame> { new(values, '\0') };
         while (stack.Count != 0)
         {
             work?.Charge(1);
-            var top = stack[^1];
+            ref var top = ref CollectionsMarshal.AsSpan(stack)[^1];
             if (top.Index == top.Values.Count)
             {
                 if (top.Closing != '\0') builder.Append(top.Closing);
@@ -114,30 +125,30 @@ internal static class CssSyntaxSerializer
             var value = top.Values[top.Index++];
             if (value.Kind == CssComponentKind.Token)
             {
-                AppendToken(builder, value.Token, work);
+                AppendToken(ref builder, value.Token, work);
                 continue;
             }
 
-            var closing = AppendContainerOpening(builder, value, work);
+            var closing = AppendContainerOpening(ref builder, value, work);
             stack.Add(new ValueFrame(value.Values, closing));
         }
     }
 
-    private static void AppendContainer(StringBuilder builder, CssComponentValue value)
+    private static void AppendContainer(ref ValueStringBuilder builder, CssComponentValue value)
     {
-        var closing = AppendContainerOpening(builder, value);
-        AppendValues(builder, value.Values);
+        var closing = AppendContainerOpening(ref builder, value);
+        AppendValues(ref builder, value.Values);
         builder.Append(closing);
     }
 
     private static bool IsWhitespace(CssComponentValue value) =>
         value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace;
 
-    private static char AppendContainerOpening(StringBuilder builder, CssComponentValue value, CssValueWork? work = null)
+    private static char AppendContainerOpening(ref ValueStringBuilder builder, CssComponentValue value, CssValueWork? work = null)
     {
         if (value.Kind == CssComponentKind.Function)
         {
-            AppendIdentifier(builder, value.FunctionName, work: work);
+            AppendIdentifier(ref builder, value.FunctionName, work: work);
             builder.Append('(');
             return ')';
         }
@@ -153,31 +164,31 @@ internal static class CssSyntaxSerializer
         };
     }
 
-    private static void AppendToken(StringBuilder builder, CssToken token, CssValueWork? work = null)
+    private static void AppendToken(ref ValueStringBuilder builder, CssToken token, CssValueWork? work = null)
     {
         work?.Charge(token.NumberText.Length);
         switch (token.Kind)
         {
             case CssTokenKind.Ident:
-                AppendIdentifier(builder, token.Text, work: work);
+                AppendIdentifier(ref builder, token.Text, work: work);
                 break;
             case CssTokenKind.AtKeyword:
                 builder.Append('@');
-                AppendIdentifier(builder, token.Text, work: work);
+                AppendIdentifier(ref builder, token.Text, work: work);
                 break;
             case CssTokenKind.Hash:
                 builder.Append('#');
-                AppendIdentifier(builder, token.Text, allowLeadingDigit: !token.IsIdHash, work: work);
+                AppendIdentifier(ref builder, token.Text, allowLeadingDigit: !token.IsIdHash, work: work);
                 break;
             case CssTokenKind.String:
-                AppendString(builder, token.Text, work);
+                AppendString(ref builder, token.Text, work);
                 break;
             case CssTokenKind.BadString:
-                builder.Append('"').Append('\n');
+                builder.Append("\"\n");
                 break;
             case CssTokenKind.Url:
                 builder.Append("url(");
-                AppendUrl(builder, token.Text, work);
+                AppendUrl(ref builder, token.Text, work);
                 builder.Append(')');
                 break;
             case CssTokenKind.BadUrl:
@@ -187,11 +198,12 @@ internal static class CssSyntaxSerializer
                 builder.Append(token.NumberText);
                 break;
             case CssTokenKind.Percentage:
-                builder.Append(token.NumberText).Append('%');
+                builder.Append(token.NumberText);
+                builder.Append('%');
                 break;
             case CssTokenKind.Dimension:
                 builder.Append(token.NumberText);
-                AppendIdentifier(builder, token.Unit, escapeFirst: true, work: work);
+                AppendIdentifier(ref builder, token.Unit, escapeFirst: true, work: work);
                 break;
             case CssTokenKind.UnicodeRange:
                 work?.Charge(token.Text.Length);
@@ -242,7 +254,26 @@ internal static class CssSyntaxSerializer
         }
     }
 
-    private static void AppendIdentifier(StringBuilder builder, string value, bool escapeFirst = false,
+    private static readonly SearchValues<char> IdentifierChars =
+        SearchValues.Create("-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
+
+    // True when AppendIdentifier would copy the value unchanged.
+    private static bool IsPlainIdentifier(string value)
+    {
+        if (value.Length == 0) return true;
+        if (value[0] is >= '0' and <= '9' || value == "-" ||
+            value.Length > 1 && value[0] == '-' && value[1] is >= '0' and <= '9') return false;
+        var index = value.AsSpan().IndexOfAnyExcept(IdentifierChars);
+        if (index < 0) return true;
+        foreach (var character in value.AsSpan(index))
+        {
+            // Surrogates take the general path, which validates their pairing.
+            if (character < '\u0080' && !IdentifierChars.Contains(character) || char.IsSurrogate(character)) return false;
+        }
+        return true;
+    }
+
+    private static void AppendIdentifier(ref ValueStringBuilder builder, string value, bool escapeFirst = false,
         bool allowLeadingDigit = false, CssValueWork? work = null)
     {
         for (var index = 0; index < value.Length; index++)
@@ -251,7 +282,8 @@ internal static class CssSyntaxSerializer
             var character = value[index];
             if (char.IsHighSurrogate(character) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]))
             {
-                builder.Append(character).Append(value[++index]);
+                builder.Append(character);
+                builder.Append(value[++index]);
                 continue;
             }
 
@@ -261,7 +293,7 @@ internal static class CssSyntaxSerializer
                 !allowLeadingDigit && index == 0 && character == '-' && value.Length == 1;
             if (mustEscape || char.IsSurrogate(character))
             {
-                AppendHexEscape(builder, char.IsSurrogate(character) ? 0xfffd : character);
+                AppendHexEscape(ref builder, char.IsSurrogate(character) ? 0xfffd : character);
             }
             else if (character is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_' or '-' or >= '\u0080')
             {
@@ -269,50 +301,59 @@ internal static class CssSyntaxSerializer
             }
             else
             {
-                builder.Append('\\').Append(character);
+                builder.Append('\\');
+                builder.Append(character);
             }
         }
     }
 
-    internal static void AppendString(StringBuilder builder, string value, CssValueWork? work = null)
+    internal static void AppendString(ref ValueStringBuilder builder, string value, CssValueWork? work = null)
     {
         builder.Append('"');
         foreach (var character in value)
         {
             work?.Charge(1);
             if (character is '\0' or '\n' or '\r' or '\f' or >= '\u0001' and <= '\u001f' or '\u007f')
-                AppendHexEscape(builder, character);
-            else if (character is '"' or '\\') builder.Append('\\').Append(character);
+                AppendHexEscape(ref builder, character);
+            else if (character is '"' or '\\')
+            {
+                builder.Append('\\');
+                builder.Append(character);
+            }
             else builder.Append(character);
         }
         builder.Append('"');
     }
 
-    private static void AppendUrl(StringBuilder builder, string value, CssValueWork? work = null)
+    private static void AppendUrl(ref ValueStringBuilder builder, string value, CssValueWork? work = null)
     {
         foreach (var character in value)
         {
             work?.Charge(1);
             if (character is '\0' or ' ' or '\t' or '\n' or '\r' or '\f' or >= '\u0001' and <= '\u001f' or '\u007f')
-                AppendHexEscape(builder, character);
-            else if (character is '"' or '\'' or '(' or ')' or '\\') builder.Append('\\').Append(character);
+                AppendHexEscape(ref builder, character);
+            else if (character is '"' or '\'' or '(' or ')' or '\\')
+            {
+                builder.Append('\\');
+                builder.Append(character);
+            }
             else builder.Append(character);
         }
     }
 
-    private static void AppendHexEscape(StringBuilder builder, int value) =>
-        builder.Append('\\').Append(value.ToString("x", System.Globalization.CultureInfo.InvariantCulture)).Append(' ');
-
-    private sealed class ValueFrame
+    private static void AppendHexEscape(ref ValueStringBuilder builder, int value)
     {
-        internal ValueFrame(CssComponentValueList values, char closing)
-        {
-            Values = values;
-            Closing = closing;
-        }
+        Span<char> digits = stackalloc char[8];
+        value.TryFormat(digits, out var written, "x", CultureInfo.InvariantCulture);
+        builder.Append('\\');
+        builder.Append(digits[..written]);
+        builder.Append(' ');
+    }
 
-        internal CssComponentValueList Values { get; }
-        internal char Closing { get; }
-        internal int Index { get; set; }
+    private struct ValueFrame(CssComponentValueList values, char closing)
+    {
+        internal readonly CssComponentValueList Values = values;
+        internal readonly char Closing = closing;
+        internal int Index;
     }
 }

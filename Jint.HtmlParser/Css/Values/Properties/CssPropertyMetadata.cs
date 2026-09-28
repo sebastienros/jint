@@ -12,20 +12,40 @@ internal static class CssPropertyRegistry
     internal static readonly CssPropertyMetadata[] Shorthands = Entries.Values.Where(static entry => entry.Longhands.Count != 0).ToArray();
     internal static IReadOnlyDictionary<string, CssPropertyMetadata> Completed => Entries;
 
+    // Shorthands in registry order, keyed by each longhand they cover.
+    private static readonly Dictionary<string, CssPropertyMetadata[]> ShorthandsByLonghand = Shorthands
+        .SelectMany(static shorthand => shorthand.Longhands, static (shorthand, longhand) => (shorthand, longhand))
+        .GroupBy(static pair => pair.longhand, StringComparer.Ordinal)
+        .ToDictionary(static group => group.Key, static group => group.Select(static pair => pair.shorthand).ToArray(),
+            StringComparer.Ordinal);
+
+    internal static ReadOnlySpan<CssPropertyMetadata> ShorthandsCovering(string longhand) =>
+        ShorthandsByLonghand.TryGetValue(longhand, out var shorthands) ? shorthands : [];
+
     internal static string NormalizeName(string name, CssValueWork? work = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         work?.CheckCancellation();
         if (name.StartsWith("--", StringComparison.Ordinal)) return name;
-        var result = string.Create(name.Length, (name, work), static (target, state) =>
+        string result;
+        if (name.AsSpan().ContainsAnyInRange('A', 'Z'))
         {
-            for (var i = 0; i < target.Length; i++)
+            // The copy is charged as it is written so cancellation can interrupt it.
+            result = string.Create(name.Length, (name, work), static (target, state) =>
             {
-                state.work?.Charge(1);
-                var c = state.name[i];
-                target[i] = c is >= 'A' and <= 'Z' ? (char) (c + 32) : c;
-            }
-        });
+                for (var i = 0; i < target.Length; i++)
+                {
+                    state.work?.Charge(1);
+                    var c = state.name[i];
+                    target[i] = c is >= 'A' and <= 'Z' ? (char) (c + 32) : c;
+                }
+            });
+        }
+        else
+        {
+            work?.Charge(name.Length);
+            result = name;
+        }
         work?.CheckCancellation();
         return result switch
         {

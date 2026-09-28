@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.HtmlParser.Css.Media;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Syntax;
@@ -25,7 +24,12 @@ internal sealed class CssMediaList
 
     internal string Serialize(CssValueWork work)
     {
-        var builder = new StringBuilder();
+        if (_queries.Length == 0)
+        {
+            work.CheckCancellation();
+            return string.Empty;
+        }
+        var builder = new ValueStringBuilder(stackalloc char[256]);
         for (var i = 0; i < _queries.Length; i++)
         {
             work.Charge(_queries[i].Text.Length);

@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.HtmlParser.Css.Values;
 
 namespace Jint.HtmlParser.Css.Syntax;
@@ -12,23 +11,32 @@ internal static class CssValueTermination
     {
         work.CheckCancellation();
         if ((long) retainedSpan.Start + retainedSpan.Length != originalSourceLength) return string.Empty;
-        var closers = new List<char>();
-        var values = components;
-        while (values.Count != 0)
+        var closers = new ValueStringBuilder(stackalloc char[16]);
+        try
         {
-            work.Charge(1);
-            var last = values[values.Count - 1];
-            if (last.Kind == CssComponentKind.Token || last.IsClosed) break;
-            closers.Add(last.Kind == CssComponentKind.Function ? ')' : last.OpeningDelimiter switch
-            { '(' => ')', '[' => ']', '{' => '}', _ => throw new InvalidOperationException() });
-            values = last.Values;
+            var values = components;
+            while (values.Count != 0)
+            {
+                work.Charge(1);
+                var last = values[values.Count - 1];
+                if (last.Kind == CssComponentKind.Token || last.IsClosed) break;
+                closers.Append(last.Kind == CssComponentKind.Function ? ')' : last.OpeningDelimiter switch
+                { '(' => ')', '[' => ']', '{' => '}', _ => throw new InvalidOperationException() });
+                values = last.Values;
+            }
+            // Innermost containers close first.
+            var closing = closers.RawChars[..closers.Length];
+            closing.Reverse();
+            work.Charge(closing.Length);
+            work.CheckCancellation();
+            var result = closing.IsEmpty ? lexicalSuffix : string.Concat(lexicalSuffix, closing);
+            work.Charge(result.Length);
+            work.CheckCancellation();
+            return result;
         }
-        var builder = new StringBuilder(lexicalSuffix);
-        for (var i = closers.Count - 1; i >= 0; i--) { work.Charge(1); builder.Append(closers[i]); }
-        work.CheckCancellation();
-        var result = builder.ToString();
-        work.Charge(result.Length);
-        work.CheckCancellation();
-        return result;
+        finally
+        {
+            closers.Dispose();
+        }
     }
 }

@@ -1,5 +1,4 @@
 using CssTextOperations = Jint.HtmlParser.Css.Values.CssText;
-using System.Text;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Syntax;
@@ -39,8 +38,11 @@ internal sealed class CssDeclarationBlock
     internal static CssDeclarationBlock FromDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
         CssDeclarationContext context, int maximumNestingDepth, CssValueWork work)
     {
-        var entries = new List<CssDeclaration>();
-        var winners = new Dictionary<string, CssDeclaration>(StringComparer.Ordinal);
+        // Superseded entries become holes so the winners keep the order of their last insertion.
+        var entries = new List<CssDeclaration?>(declarations.Count);
+        Dictionary<string, int>? winners = null;
+        var winnerCount = 0;
+        var insertedNameLength = 0L;
         foreach (var declaration in declarations)
         {
             work.Charge(1);
@@ -51,22 +53,65 @@ internal sealed class CssDeclarationBlock
             var value = string.Concat(source.AsSpan(span.Start, span.Length), declaration.ValueTermination);
             if (value.Length == 0 && name.StartsWith("--", StringComparison.Ordinal)) value = " ";
             if (value.Length == 0) continue;
+            if (context == CssDeclarationContext.FontFace || CssPropertyRegistry.Find(name) is not { Longhands.Count: > 0 })
+            {
+                Add(Longhand(name, value, declaration.IsImportant, declaration.Span, context, work), work);
+                continue;
+            }
             foreach (var entry in Expand(name, value, declaration.IsImportant, declaration.Span, context, work))
             {
-                work.Charge(entry.Name.Length);
-                if (winners.TryGetValue(entry.Name, out var previous) && previous.IsImportant && !entry.IsImportant) continue;
-                winners[entry.Name] = entry;
-                entries.Add(entry);
+                Add(entry, work);
             }
         }
-        var result = new List<CssDeclaration>();
+        while (insertedNameLength > 0)
+        {
+            var charge = (int) Math.Min(insertedNameLength, int.MaxValue);
+            work.Charge(charge);
+            insertedNameLength -= charge;
+        }
+        var result = new CssDeclaration[winnerCount];
+        var count = 0;
         foreach (var entry in entries)
         {
-            work.Charge(entry.Name.Length);
-            if (ReferenceEquals(winners[entry.Name], entry)) result.Add(entry);
+            if (entry is not null) result[count++] = entry;
         }
         work.CheckCancellation();
-        return new(context) { _entries = result.ToArray() };
+        return new(context) { _entries = result };
+
+        void Add(CssDeclaration entry, CssValueWork work)
+        {
+            work.Charge(entry.Name.Length);
+            insertedNameLength += entry.Name.Length;
+            var previous = FindWinner(entry.Name);
+            if (previous >= 0)
+            {
+                if (entries[previous]!.IsImportant && !entry.IsImportant) return;
+                entries[previous] = null;
+                winnerCount--;
+            }
+            if (winners is not null) winners[entry.Name] = entries.Count;
+            entries.Add(entry);
+            winnerCount++;
+        }
+
+        // Linear scans stay cheap for typical blocks; wide ones switch to an index.
+        int FindWinner(string name)
+        {
+            if (winners is null && entries.Count >= 16)
+            {
+                winners = new Dictionary<string, int>(StringComparer.Ordinal);
+                for (var i = 0; i < entries.Count; i++)
+                {
+                    if (entries[i] is { } winner) winners[winner.Name] = i;
+                }
+            }
+            if (winners is not null) return winners.GetValueOrDefault(name, -1);
+            for (var i = entries.Count - 1; i >= 0; i--)
+            {
+                if (entries[i]?.Name == name) return i;
+            }
+            return -1;
+        }
     }
 
     private static bool Accepts(string name, CssDeclarationContext context) =>
@@ -248,9 +293,8 @@ internal sealed class CssDeclarationBlock
     private static CssDeclaration[] Expand(string name, string text, bool important, CssSourceSpan span,
         CssDeclarationContext context, CssValueWork work)
     {
-        if (context == CssDeclarationContext.FontFace) return [new(name, text, important, span)];
-        if (CssPropertyRegistry.Find(name) is not { Longhands.Count: > 0 } metadata)
-            return [new(name, NormalizeValue(name, text, work), important, span)];
+        if (context == CssDeclarationContext.FontFace || CssPropertyRegistry.Find(name) is not { Longhands.Count: > 0 } metadata)
+            return [Longhand(name, text, important, span, context, work)];
         var parts = CssTextOperations.Split(text, work);
         if (parts.Length == 0) return [];
         string[] values;
@@ -280,6 +324,10 @@ internal sealed class CssDeclarationBlock
         }
         return result;
     }
+
+    private static CssDeclaration Longhand(string name, string text, bool important, CssSourceSpan span,
+        CssDeclarationContext context, CssValueWork work) =>
+        new(name, context == CssDeclarationContext.FontFace ? text : NormalizeValue(name, text, work), important, span);
 
     private static string NormalizeValue(string name, string text, CssValueWork work)
     {
@@ -323,38 +371,66 @@ internal sealed class CssDeclarationBlock
     internal string SerializeSource(CssValueWork work) => Serialize(work);
     internal string Serialize(CssValueWork work)
     {
+        var builder = new ValueStringBuilder(stackalloc char[256]);
+        try
+        {
+            AppendTo(ref builder, work);
+            return builder.ToString();
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    // Appends the serialization and returns the number of characters written.
+    internal int AppendTo(ref ValueStringBuilder builder, CssValueWork work)
+    {
         work = ReadWork(work);
         work.CheckCancellation();
-        var builder = new StringBuilder();
-        var written = new HashSet<string>(StringComparer.Ordinal);
+        var start = builder.Length;
+        // Declaration names are unique, so only longhands folded into a shorthand repeat.
+        HashSet<string>? folded = null;
         foreach (var entry in _entries)
         {
             work.Charge(1);
-            if (written.Contains(entry.Name)) continue;
+            if (folded?.Contains(entry.Name) == true) continue;
             var name = entry.Name;
             var value = entry.Value;
             if (_context == CssDeclarationContext.Style)
-                foreach (var metadata in CssPropertyRegistry.Shorthands)
+            {
+                foreach (var metadata in CssPropertyRegistry.ShorthandsCovering(name))
                 {
                     work.Charge(1);
-                    if (!metadata.Longhands.Contains(name) || metadata.Longhands.Any(written.Contains)) continue;
+                    if (folded is not null && AnyFolded(metadata.Longhands, folded)) continue;
                     var shorthand = ShorthandValue(_entries, metadata, work);
                     if (shorthand.Length == 0) continue;
                     name = metadata.Name;
                     value = shorthand;
-                    foreach (var longhand in metadata.Longhands) { work.Charge(1); written.Add(longhand); }
+                    folded ??= new HashSet<string>(StringComparer.Ordinal);
+                    foreach (var longhand in metadata.Longhands) { work.Charge(1); folded.Add(longhand); }
                     break;
                 }
-            written.Add(name);
-            if (builder.Length != 0) builder.Append(' ');
-            builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work)).Append(": ");
+            }
+            if (builder.Length != start) builder.Append(' ');
+            builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work));
+            builder.Append(": ");
             work.Charge(value.Length);
             if (value != " ") builder.Append(value);
             if (entry.IsImportant) builder.Append(" !important");
             builder.Append(';');
         }
         work.CheckCancellation();
-        return builder.ToString();
+        return builder.Length - start;
+
+        static bool AnyFolded(IReadOnlyList<string> longhands, HashSet<string> folded)
+        {
+            foreach (var longhand in longhands)
+            {
+                if (folded.Contains(longhand)) return true;
+            }
+            return false;
+        }
     }
 }
 

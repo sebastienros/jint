@@ -285,33 +285,43 @@ internal sealed class CssStyleSheet
     private static CssRule? BuildRule(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var root = BuildShallow(source, syntax, parser, options, work, cancellationToken);
-        if (root is null) return null;
-        var pending = new Stack<(CssRule Owner, CssComponentValue Block)>();
-        if (root is CssGroupingRule or CssStyleRule && syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
-        while (pending.TryPop(out var item))
+        var root = BuildShallow(source, syntax, parser, options, work, cancellationToken, out var rootBody);
+        if (root is not (CssGroupingRule or CssStyleRule) || syntax.Block is not { } rootBlock) return root;
+        // A style rule's body was already parsed for its declarations; grouping rules parse theirs here.
+        Stack<PendingBlock>? pending = null;
+        var item = new PendingBlock(root, rootBlock, rootBody);
+        while (true)
         {
             work.Charge(1);
-            foreach (var entry in parser.ParseBlockContents(item.Block))
+            foreach (var entry in item.Body ?? parser.ParseBlockContents(item.Block))
             {
                 work.Charge(1);
                 if (entry.Kind != CssBlockItemKind.Rule) continue;
                 if (entry.Rule.Kind == CssRuleKind.AtRule && CssAscii.EqualsIgnoreCase(entry.Rule.Name, "import")) continue;
                 var child = BuildShallow(source, entry.Rule, parser, options, work, cancellationToken,
-                    item.Owner as CssStyleRule);
+                    out var childBody, item.Owner as CssStyleRule);
                 if (child is null) continue;
                 if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
-                if (child is CssGroupingRule or CssStyleRule && entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
+                if (child is CssGroupingRule or CssStyleRule && entry.Rule.Block is { } childBlock)
+                    (pending ??= new()).Push(new(child, childBlock, childBody));
             }
+            if (pending is null || !pending.TryPop(out item)) return root;
         }
-        return root;
     }
+
+    private readonly record struct PendingBlock(CssRule Owner, CssComponentValue Block, CssBlockSyntax? Body);
 
     internal static CssRule? BuildShallow(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
         CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
-        CssStyleRule? nestingParent = null)
+        CssStyleRule? nestingParent = null) =>
+        BuildShallow(source, syntax, parser, options, work, cancellationToken, out _, nestingParent);
+
+    private static CssRule? BuildShallow(string source, CssRuleSyntax syntax, CssSyntaxParser parser,
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken,
+        out CssBlockSyntax? body, CssStyleRule? nestingParent = null)
     {
+        body = null;
         if (syntax.Kind == CssRuleKind.AtRule)
         {
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
@@ -370,7 +380,7 @@ internal sealed class CssStyleSheet
         var selector = CompileSelector(source, syntax, options, work, cancellationToken, nestingParent);
         if (selector is null) return null;
         var text = SelectorText(source, syntax.Prelude, parser, work);
-        var body = parser.ParseBlockContents(block);
+        body = parser.ParseBlockContents(block);
         var declarations = new List<CssDeclarationSyntax>();
         var afterNestedRule = false;
         foreach (var item in body)

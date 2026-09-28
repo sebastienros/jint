@@ -146,15 +146,32 @@ public readonly struct CssComponentValue
 
 public sealed class CssComponentValueList : IReadOnlyList<CssComponentValue>
 {
+    // Lists parsed out of an immutable parent list share its storage instead of copying.
     private readonly CssComponentValue[] _values;
+    private readonly int _start;
 
-    internal CssComponentValueList(CssComponentValue[] values) => _values = values;
+    internal CssComponentValueList(CssComponentValue[] values) : this(values, 0, values.Length) { }
 
-    internal ReadOnlySpan<CssComponentValue> AsSpan() => _values;
+    internal CssComponentValueList(CssComponentValue[] values, int start, int count)
+    {
+        _values = values;
+        _start = start;
+        Count = count;
+    }
 
-    public int Count => _values.Length;
-    public CssComponentValue this[int index] => _values[index];
-    public IEnumerator<CssComponentValue> GetEnumerator() => ((IEnumerable<CssComponentValue>) _values).GetEnumerator();
+    internal ReadOnlySpan<CssComponentValue> AsSpan() => new(_values, _start, Count);
+    internal CssComponentValue[] Storage => _values;
+
+    public int Count { get; }
+    public CssComponentValue this[int index] => (uint) index < (uint) Count
+        ? _values[_start + index]
+        : throw new ArgumentOutOfRangeException(nameof(index));
+
+    public IEnumerator<CssComponentValue> GetEnumerator()
+    {
+        for (var i = 0; i < Count; i++) yield return _values[_start + i];
+    }
+
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 

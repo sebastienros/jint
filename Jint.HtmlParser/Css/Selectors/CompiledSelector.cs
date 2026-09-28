@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Numerics;
 
 namespace Jint.HtmlParser.Css.Selectors;
@@ -22,8 +21,7 @@ internal sealed class CompiledSelector
     // A racing write can lose a bit, which only repeats a validation.
     internal byte ValidatedImplemented;
 
-    internal static IReadOnlyList<T> Freeze<T>(List<T> values) =>
-        new ReadOnlyCollection<T>(values.ToArray());
+    internal static IReadOnlyList<T> Freeze<T>(List<T> values) => values.Count == 0 ? [] : values.ToArray();
 
     internal enum Combinator { Descendant, Child, NextSibling, SubsequentSibling, Column }
     internal enum NamespaceMode { Any, None, Exact }

@@ -193,8 +193,7 @@ internal static class SelectorCompiler
             f.HadSpace = false;
             if (f.Compound is null)
             {
-                var compound = new CompoundBuilder(value.Span.Start);
-                f.Compound = compound;
+                var compound = f.StartCompound(value.Span.Start);
                 if (!f.PseudoElementContext && TryType(f, compound)) return null;
             }
             var current = f.Compound!;
@@ -587,6 +586,21 @@ internal static class SelectorCompiler
                 if (digits[i] is < '0' or > '9') return false;
             }
 
+            if (digits.Length <= 9)
+            {
+                // A single chunk needs none of the combining machinery below.
+                uint value = 0;
+                foreach (var digit in digits)
+                {
+                    Poll();
+                    value = value * 10 + (uint) (digit - '0');
+                }
+                afterFirstConvertedChunk?.Invoke();
+                _cancellation.ThrowIfCancellationRequested();
+                number = value;
+                return true;
+            }
+
             // Combine base-10^9 chunks as a balanced binary tree. A left fold would
             // rebuild the entire growing BigInteger for every nine input digits.
             var groups = new List<DigitGroup>();
@@ -793,12 +807,11 @@ internal static class SelectorCompiler
             return false;
         }
 
-        private static bool IsSpace(CssComponentValue v) => IsToken(v, CssTokenKind.Whitespace);
-        private static bool IsIdent(CssComponentValue v) => IsToken(v, CssTokenKind.Ident);
-        private static bool IsToken(CssComponentValue v, CssTokenKind kind) =>
-            v.Kind == CssComponentKind.Token && v.Token.Kind == kind;
-        private static bool IsDelim(CssComponentValue v, char delimiter) =>
-            IsToken(v, CssTokenKind.Delim) && v.Token.Delimiter == delimiter;
+        private static bool IsSpace(in CssComponentValue v) => v.TokenKind == CssTokenKind.Whitespace;
+        private static bool IsIdent(in CssComponentValue v) => v.TokenKind == CssTokenKind.Ident;
+        private static bool IsToken(in CssComponentValue v, CssTokenKind kind) => v.TokenKind == kind;
+        private static bool IsDelim(in CssComponentValue v, char delimiter) =>
+            v.TokenKind == CssTokenKind.Delim && v.Token.Delimiter == delimiter;
         private static bool EqualsAscii(string a, string b) => CssAscii.EqualsIgnoreCase(a, b);
 
         private string AsciiLower(string text)
@@ -845,6 +858,7 @@ internal static class SelectorCompiler
             internal int LeadingStart = -1;
             internal Combinator? PendingCombinator;
             internal CompoundBuilder? Compound;
+            private CompoundBuilder? _spareCompound;
             internal Pending? Pending;
             internal SelectorSpecificity Specificity;
             internal SelectorSpecificity MaximumSpecificity;
@@ -942,6 +956,18 @@ internal static class SelectorCompiler
                 }
                 Compound = null;
                 PendingCombinator = null;
+                builder.Reset(0);
+                _spareCompound = builder;
+            }
+
+            // A finished builder's predicates are copied out, so the next compound reuses it.
+            internal CompoundBuilder StartCompound(int start)
+            {
+                var builder = _spareCompound;
+                _spareCompound = null;
+                if (builder is null) builder = new CompoundBuilder(start);
+                else builder.Reset(start);
+                return Compound = builder;
             }
 
             internal void Recover(Worker worker)
@@ -966,6 +992,16 @@ internal static class SelectorCompiler
         private sealed class CompoundBuilder
         {
             internal CompoundBuilder(int start) { Start = start; End = start; }
+
+            internal void Reset(int start)
+            {
+                Start = End = start;
+                ExplicitType = PseudoElement = false;
+                LastPseudoElement = null;
+                NamespaceMode = NamespaceMode.Any;
+                NamespaceUri = TypeName = null;
+                Predicates.Clear();
+            }
             internal int Start;
             internal int End;
             internal bool ExplicitType;

@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Syntax;
 using Jint.HtmlParser.Css.Serialization;
@@ -59,17 +58,26 @@ internal static class CssMediaParser
                     if (Ident(values[start++], work) != "and" || start == values.Length) throw new MediaSyntaxException();
                 }
             }
-            var builder = new StringBuilder(modifier);
-            if (type is not null) builder.Append(CssSyntaxSerializer.SerializeIdentifier(type, work));
+            var builder = new ValueStringBuilder(stackalloc char[128]);
+            string text;
             var program = new List<CssMediaInstruction>();
-            if (start < values.Length)
+            try
             {
-                if (type is not null) builder.Append(" and ");
-                Condition(values[start..], type is null, source, parser, builder, program, work);
+                builder.Append(modifier);
+                if (type is not null) builder.Append(CssSyntaxSerializer.SerializeIdentifier(type, work));
+                if (start < values.Length)
+                {
+                    if (type is not null) builder.Append(" and ");
+                    Condition(values[start..], type is null, source, parser, ref builder, program, work);
+                }
+                else if (type is null) throw new MediaSyntaxException();
+                work.CheckCancellation();
+                text = builder.ToString();
             }
-            else if (type is null) throw new MediaSyntaxException();
-            work.CheckCancellation();
-            var text = builder.ToString();
+            finally
+            {
+                builder.Dispose();
+            }
             // A wholly unknown condition has no device-dependent term capable of eliminating it.
             var hasFeature = false;
             foreach (var instruction in program) { work.Charge(1); hasFeature |= instruction.Operation == CssMediaOperation.Feature; }
@@ -85,7 +93,7 @@ internal static class CssMediaParser
         bool AllowOr = true, string? Text = null, CssMediaOperation? Operation = null,
         CssComponentValue? Recovery = null, int BuilderStart = 0, int ProgramStart = 0);
 
-    private static void Condition(CssComponentValue[] values, bool allowOr, string source, CssSyntaxParser parser, StringBuilder builder,
+    private static void Condition(CssComponentValue[] values, bool allowOr, string source, CssSyntaxParser parser, ref ValueStringBuilder builder,
         List<CssMediaInstruction> program, CssValueWork work)
     {
         var tasks = new Stack<Task>();
@@ -107,7 +115,7 @@ internal static class CssMediaParser
                     {
                         // General-enclosed is syntactically valid and retains unknown truth.
                         program.Add(new CssMediaInstruction(CssMediaOperation.Unknown));
-                        AppendSource(builder, source, value.Span, work);
+                        AppendSource(ref builder, source, value.Span, work);
                         builder.Append(parser.ValueTermination(new CssComponentValueList([value]), value.Span, work));
                         continue;
                     }
@@ -115,12 +123,12 @@ internal static class CssMediaParser
                     tasks.Push(new Task(Recovery: value, BuilderStart: builder.Length, ProgramStart: program.Count));
                     builder.Append('(');
                     tasks.Push(new Task(Text: ")"));
-                    if (Feature(inside, source, parser, program, builder, work)) continue;
+                    if (Feature(inside, source, parser, program, ref builder, work)) continue;
                     if (inside.Length == 0) throw new MediaSyntaxException();
                     if (Ident(inside[0], work) is { } name && name != "not")
                     {
                         program.Add(new CssMediaInstruction(CssMediaOperation.Unknown));
-                        AppendSource(builder, source, Span(inside), work);
+                        AppendSource(ref builder, source, Span(inside), work);
                         builder.Append(parser.ValueTermination(new CssComponentValueList(inside), Span(inside), work));
                         continue;
                     }
@@ -163,7 +171,7 @@ internal static class CssMediaParser
                 builder.Length = recovery.BuilderStart;
                 program.RemoveRange(recovery.ProgramStart, program.Count - recovery.ProgramStart);
                 program.Add(new CssMediaInstruction(CssMediaOperation.Unknown));
-                AppendSource(builder, source, value.Span, work);
+                AppendSource(ref builder, source, value.Span, work);
                 builder.Append(parser.ValueTermination(new CssComponentValueList([value]), value.Span, work));
             }
         }
@@ -187,7 +195,7 @@ internal static class CssMediaParser
     }
 
     private static bool Feature(CssComponentValue[] items, string source, CssSyntaxParser parser, List<CssMediaInstruction> program,
-        StringBuilder builder, CssValueWork work)
+        ref ValueStringBuilder builder, CssValueWork work)
     {
         if (items.Length == 0) return false;
         // Boolean and colon syntax. Range syntax is handled separately below.
@@ -199,36 +207,42 @@ internal static class CssMediaParser
             if (name.StartsWith("max-", StringComparison.Ordinal)) { baseName = name[4..]; comparison = CssMediaComparison.LessEqual; }
             var discrete = CssMediaFeatureKeywordLookup.Match(baseName);
             if (comparison != CssMediaComparison.Boolean && (items.Length == 1 || discrete != CssKeywordSet.Empty || baseName == "grid"))
-                return Unknown(program, builder, source, parser, items, work);
+                return Unknown(program, ref builder, source, parser, items, work);
             if (items.Length > 1 && comparison == CssMediaComparison.Boolean) comparison = CssMediaComparison.Equal;
             var value = items.Length == 1 ? [] : items[2..];
             var feature = Validate(baseName, comparison, value, work);
-            if (feature is null) return Unknown(program, builder, source, parser, items, work);
+            if (feature is null) return Unknown(program, ref builder, source, parser, items, work);
             program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature));
             builder.Append(CssSyntaxSerializer.SerializeIdentifier(name, work));
-            if (value.Length != 0) builder.Append(": ").Append(ValueText(feature));
+            if (value.Length != 0)
+            {
+                builder.Append(": ");
+                builder.Append(ValueText(feature));
+            }
             return true;
         }
         if (CssFeatureRange.Parse(items, work) is not { } range) return false;
         var rangeName = range.Name;
         if (rangeName == "grid" || CssMediaFeatureKeywordLookup.Match(rangeName) != CssKeywordSet.Empty || rangeName.StartsWith("min-", StringComparison.Ordinal) ||
-            rangeName.StartsWith("max-", StringComparison.Ordinal)) return Unknown(program, builder, source, parser, items, work);
+            rangeName.StartsWith("max-", StringComparison.Ordinal)) return Unknown(program, ref builder, source, parser, items, work);
         var feature1 = Validate(rangeName, range.Comparison, range.FirstValue, work);
-        if (feature1 is null) return Unknown(program, builder, source, parser, items, work);
+        if (feature1 is null) return Unknown(program, ref builder, source, parser, items, work);
         CssMediaFeature? feature2 = null;
         if (range.SecondComparison is { } secondComparison)
         {
             feature2 = Validate(rangeName, secondComparison, range.SecondValue, work);
-            if (feature2 is null) return Unknown(program, builder, source, parser, items, work);
+            if (feature2 is null) return Unknown(program, ref builder, source, parser, items, work);
         }
         program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature1));
-        if (range.Reversed) builder.Append(ValueText(feature1)).Append(Operator(range.FirstComparison)).Append(rangeName);
-        else builder.Append(rangeName).Append(Operator(range.FirstComparison)).Append(ValueText(feature1));
+        builder.Append(range.Reversed ? ValueText(feature1) : rangeName);
+        builder.Append(Operator(range.FirstComparison));
+        builder.Append(range.Reversed ? rangeName : ValueText(feature1));
         if (feature2 is not null)
         {
             program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature2));
             program.Add(new CssMediaInstruction(CssMediaOperation.And));
-            builder.Append(Operator(range.SecondComparison!.Value)).Append(ValueText(feature2));
+            builder.Append(Operator(range.SecondComparison!.Value));
+            builder.Append(ValueText(feature2));
         }
         return true;
     }
@@ -328,22 +342,22 @@ internal static class CssMediaParser
         CssMediaComparison.GreaterEqual => " >= ",
         _ => throw new InvalidOperationException()
     };
-    private static bool Unknown(List<CssMediaInstruction> program, StringBuilder builder,
+    private static bool Unknown(List<CssMediaInstruction> program, ref ValueStringBuilder builder,
         string source, CssSyntaxParser parser, CssComponentValue[] items, CssValueWork work)
     {
         var span = Span(items);
         program.Add(new CssMediaInstruction(CssMediaOperation.Unknown));
-        AppendSource(builder, source, span, work);
+        AppendSource(ref builder, source, span, work);
         builder.Append(parser.ValueTermination(new CssComponentValueList(items), span, work));
         return true;
     }
     private static CssSourceSpan Span(CssComponentValue[] values) => new(values[0].Span.Start,
         values[^1].Span.Start + values[^1].Span.Length - values[0].Span.Start);
-    private static void AppendSource(StringBuilder builder, string source, CssSourceSpan span, CssValueWork work)
+    private static void AppendSource(ref ValueStringBuilder builder, string source, CssSourceSpan span, CssValueWork work)
     {
         work.Charge(span.Length);
         work.CheckCancellation();
-        builder.Append(source, span.Start, span.Length);
+        builder.Append(source.AsSpan(span.Start, span.Length));
         work.CheckCancellation();
     }
     private static bool Number(CssComponentValue value, CssValueWork work, out CssNumber number)

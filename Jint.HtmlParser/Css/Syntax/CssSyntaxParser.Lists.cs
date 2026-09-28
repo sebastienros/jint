@@ -67,25 +67,34 @@ internal sealed partial class CssSyntaxParser
         var values = block.Values.AsSpan();
         var index = 0;
         var end = block.Span.Start + block.Span.Length - (block.IsClosed ? 1 : 0);
-        while (index < values.Length)
+        var shared = _sharedValues;
+        _sharedValues = block.Values.Storage;
+        try
         {
-            PollCancellation();
-            var value = values[index];
-            if (value.Kind == CssComponentKind.Token)
+            while (index < values.Length)
             {
-                switch (value.Token.Kind)
+                PollCancellation();
+                var value = values[index];
+                if (value.Kind == CssComponentKind.Token)
                 {
-                    case CssTokenKind.Whitespace:
-                        index++;
-                        continue;
-                    case CssTokenKind.AtKeyword:
-                        // At-rules are consumed for recovery but never become keyframe children.
-                        ConsumeAtRule(values, ref index, end, block.IsClosed);
-                        continue;
+                    switch (value.Token.Kind)
+                    {
+                        case CssTokenKind.Whitespace:
+                            index++;
+                            continue;
+                        case CssTokenKind.AtKeyword:
+                            // At-rules are consumed for recovery but never become keyframe children.
+                            ConsumeAtRule(values, ref index, end, block.IsClosed);
+                            continue;
+                    }
                 }
+                var rule = ConsumeQualifiedRule(values, ref index, end, nested: false);
+                if (rule is not null) rules.Add(rule);
             }
-            var rule = ConsumeQualifiedRule(values, ref index, end, nested: false);
-            if (rule is not null) rules.Add(rule);
+        }
+        finally
+        {
+            _sharedValues = shared;
         }
         var result = Copy(rules);
         CheckCancellation();
@@ -106,7 +115,16 @@ internal sealed partial class CssSyntaxParser
         var values = block.Values.AsSpan();
         var blockEnd = block.Span.Start + block.Span.Length;
         var closed = block.IsClosed;
-        return ConsumeBlockContents(values, closed ? blockEnd - 1 : blockEnd, closed);
+        var shared = _sharedValues;
+        _sharedValues = block.Values.Storage;
+        try
+        {
+            return ConsumeBlockContents(values, closed ? blockEnd - 1 : blockEnd, closed);
+        }
+        finally
+        {
+            _sharedValues = shared;
+        }
     }
 
     private CssBlockSyntax ConsumeBlockContents(ReadOnlySpan<CssComponentValue> values,
@@ -296,7 +314,18 @@ internal sealed partial class CssSyntaxParser
             new CssSourceSpan(name.Span.Start, spanEnd - name.Span.Start),
             lexicalValue,
             TrimLexicalBoundaryWhitespace(lexicalValueStart, retokenizeEnd, components),
-            ValueTermination(components, lexicalValue, new Values.CssValueWork(_cancellationToken)));
+            DeclarationValueTermination(components, lexicalValue));
+    }
+
+    // Only a value running to the end of the input can need terminators.
+    private string DeclarationValueTermination(CssComponentValueList components, CssSourceSpan lexicalValue)
+    {
+        if ((long) lexicalValue.Start + lexicalValue.Length == _sourceLength)
+        {
+            return ValueTermination(components, lexicalValue, new Values.CssValueWork(_cancellationToken));
+        }
+        _cancellationToken.ThrowIfCancellationRequested();
+        return string.Empty;
     }
 
     // Comments occupy source gaps, not tokens. Trim only whitespace tokens touching the

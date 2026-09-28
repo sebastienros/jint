@@ -13,6 +13,8 @@ internal sealed partial class CssSyntaxParser : IDisposable
     private int _pendingCount;
     private int _tokenHint;
     private int _pendingHighWater;
+    // The immutable storage of the list being parsed, when sub-lists can share it.
+    private CssComponentValue[]? _sharedValues;
     private readonly string _source;
     private readonly ParseDiagnosticCollector? _diagnostics;
     private readonly int _maxTokenCharacters;
@@ -426,6 +428,10 @@ internal sealed partial class CssSyntaxParser : IDisposable
     private CssComponentValueList List(ReadOnlySpan<CssComponentValue> values)
     {
         PollCancellation(values.Length);
+        if (_sharedValues is { } shared && ((ReadOnlySpan<CssComponentValue>) shared).Overlaps(values, out var offset))
+        {
+            return new CssComponentValueList(shared, offset, values.Length);
+        }
         return new CssComponentValueList(values.ToArray());
     }
 

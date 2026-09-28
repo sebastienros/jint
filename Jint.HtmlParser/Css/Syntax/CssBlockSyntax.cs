@@ -45,9 +45,10 @@ internal sealed class CssBlockSyntax : IReadOnlyList<CssBlockItemSyntax>
 
     public int Count => _items.Length;
     public CssBlockItemSyntax this[int index] => _items[index];
-    public IEnumerator<CssBlockItemSyntax> GetEnumerator() =>
+    public ReadOnlySpan<CssBlockItemSyntax>.Enumerator GetEnumerator() => new ReadOnlySpan<CssBlockItemSyntax>(_items).GetEnumerator();
+    IEnumerator<CssBlockItemSyntax> IEnumerable<CssBlockItemSyntax>.GetEnumerator() =>
         ((IEnumerable<CssBlockItemSyntax>) _items).GetEnumerator();
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
 }
 
 internal sealed class CssDeclarationSyntaxList : IReadOnlyList<CssDeclarationSyntax>
@@ -58,7 +59,8 @@ internal sealed class CssDeclarationSyntaxList : IReadOnlyList<CssDeclarationSyn
 
     public int Count => _items.Length;
     public CssDeclarationSyntax this[int index] => _items[index];
-    public IEnumerator<CssDeclarationSyntax> GetEnumerator() =>
+    public ReadOnlySpan<CssDeclarationSyntax>.Enumerator GetEnumerator() => new ReadOnlySpan<CssDeclarationSyntax>(_items).GetEnumerator();
+    IEnumerator<CssDeclarationSyntax> IEnumerable<CssDeclarationSyntax>.GetEnumerator() =>
         ((IEnumerable<CssDeclarationSyntax>) _items).GetEnumerator();
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
 }
