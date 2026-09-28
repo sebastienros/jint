@@ -5,7 +5,7 @@ replacement. AngleSharp is permitted only in `Jint.Benchmark` for comparisons wi
 The [CSSOM contract](html-parser-cssom.md), [standalone contract](html-parser.md#4-native-api-contract)
 and focused serialization/XPath designs remain the acceptance definitions.
 
-The latest implemented baseline is `eddc69994` (primitive registrations and shadow host selectors).
+The latest implemented baseline is `9a43c6b8e` (typed legacy clip rectangles).
 The checkboxes below track remaining work, not a claim that writing this plan completed it.
 Historical measurements remain at the end; the older `html-parser-progress.md` is a chronological
 record, not the current backlog.
@@ -32,7 +32,8 @@ boundary to its entry or to a linked completed slice. Update the family roll-up 
 assigned names and tasks have dispositions; a standards-based rejection requires a reviewed
 specification/fixture explanation, not an unsupported-feature success fallback.
 
-**Recommended order:** implement `V7-01` and rerun `ACC-01` first; then finish the registration gaps
+**Recommended order:** implement `V1-01` (the next Scalar blocker is `border-width`) and rerun
+`ACC-01` first; then finish the registration gaps
 `R6-01` through `R6-03`. Shared-value, rule and intrinsic-selector tasks can proceed independently
 where their named dependencies permit. Public CSS promotion waits for its grammar gates.
 Byte/stream API review is a separate phase, not a reason to delay decoded-string fixes.
@@ -102,6 +103,13 @@ Byte/stream API review is a separate phase, not a reason to delay decoded-string
   URL modifiers retain named incomplete-grammar failures.
   Evidence: `CssClipPathDeclarationTests`, `CssImageDeclarationTests`,
   `NativeCssClipPathTests`, `NativeCssImageTests`, `NativeCssQueryFactoryTests`.
+- [x] **V7-01 legacy clip rectangles**: `auto` or four typed length/auto edges, comma-separated
+  or comma-free legacy syntax, canonical comma serialization, signed lengths and length-only math.
+  Named/generic declarations, stylesheet rules, substitutions, CSS-wide/all resets and live
+  computed values agree. Font/root-font dependencies stay live; auto edges remain auto.
+  Evidence: `9a43c6b8e`, `CssClipDeclarationTests` and both `NativeCssClipTests` fixtures;
+  [commands and the newly exposed Scalar boundary](#v7-01-legacy-clip-completion).
+  This is CSSOM/computation support, not a clipping renderer or clip-path shape implementation.
 - [x] **R2 cascade layer blocks/statements**: named, dotted, anonymous and nested layer identities;
   first-occurrence ordering across sheets, origin/shadow separation, conditional ordering,
   reversed important precedence and ordinary/custom-property `revert-layer` rollback.
@@ -168,7 +176,7 @@ Browser named/generic route evidence before it can close.
 | Open | V4 typography | V4-01 through V4-04 | Fonts, line-height and remaining writing/text/ruby/whitespace properties. |
 | Open | V5 motion | V5-01 through V5-04 | Timing functions, animation/transition lists, timelines and remaining transforms. |
 | Open | V6 interaction | V6-01 through V6-04 | Scroll/overscroll/snap, scrollbar/touch/selection and image cursors. |
-| Open | V7 SVG/replaced content | V7-01 through V7-05 | Legacy clip, shapes, masks/filters, remaining SVG paint and image/object grammar. |
+| Open | V7 SVG/replaced content | V7-02 through V7-05 | Shapes, masks/filters, remaining SVG paint and image/object grammar. Legacy clip is complete. |
 | Open | V8 generated/table/page | V8-01 through V8-03 | Content/counters/lists/quotes, tables and paged-media values. |
 | Open | V9/context audit | V9-01 | Descriptor-only registrations stay in their real descriptor contexts. |
 | Open | R1 prologue/imports | R1-01 through R1-03 | Namespace environments, layered/conditional imports and decoded-string charset policy. |
@@ -348,11 +356,12 @@ The names below identify bounded work packages; `INV-01` supplies the exhaustive
 
 ### V7 - SVG, clipping and replaced content
 
-- [ ] **V7-01 - Legacy `clip: rect(...)` (next Scalar blocker).** Add `clip` metadata and a typed
+- [x] **V7-01 - Legacy `clip: rect(...)`.** Add `clip` metadata and a typed
   rectangle grammar for `auto` or four length/auto edges, including the standard legacy separator
   forms. Wire named `style.clip`, generic operations, substitution and computed serialization.
   Done when `rect(0, 0, 0, 0)`, mixed auto/relative/negative lengths and malformed arity/unit cases
   have regression coverage, then rerun ACC-01. Do not implement this as clip-path or a raw string.
+  Completed in `9a43c6b8e`; [evidence and remaining boundary](#v7-01-legacy-clip-completion).
 - [ ] **V7-02 - Basic shapes and shape dependencies.** Extend clip-path beyond references/boxes
   and implement shape-outside/margin/image-threshold using the adopted inset/circle/ellipse/polygon/
   path productions. Done when fill rules, positions, reference boxes and percentages retain typed
@@ -594,9 +603,11 @@ friend access or a project reference. A separate native pack/run is required for
   through the Try-it-out control on both frameworks, with its original task and wait budgets.
 - [ ] **ACC-01 - Finish the real Scalar interaction.** Its 66 property registrations and
   document-level `:host` selectors
-  no longer stop scrollbar measurement. It now fetches and processes the captured OpenAPI document,
-  then reports `CSSStyleDeclaration.clip: Unimplemented CSS grammar: V7:clip`; navigation buttons
-  still do not appear. Implement the missing clip grammar rather than discarding the declaration.
+  no longer stop scrollbar measurement. V7-01 also removes the legacy clip failure.
+  It fetches and processes the captured OpenAPI document, then reports
+  `CSSStyleDeclaration.borderWidth: Unimplemented CSS grammar: V1:border-width` on both frameworks;
+  navigation buttons still do not appear. Implement V1-01's border-width grammar rather than
+  discarding the declaration.
   Framework-caught failures require bounded console/request/DOM diagnostics; the console snapshot
   retains both its first and last messages so later timing logs cannot hide the initial exception.
   An empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
@@ -646,6 +657,43 @@ the public API snapshots, the packed consumer and the dependency inventory. Neve
 unfinished grammar as valid raw text merely to make an acceptance run pass.
 
 ### Evidence for the completed slices
+
+#### V7-01 legacy clip completion
+
+Implementation: `9a43c6b8e`, macOS arm64, net8.0/net10.0, Release.
+The grammar and computed-value contract follows
+[CSS 2.2 section 11.1.2](https://www.w3.org/TR/CSS22/visufx.html#clipping):
+four length/auto edges, negative lengths allowed, no percentages and no mixed separators.
+`CssClipDeclarationTests` covers typed values, exact serialization, style/keyframe priority rules,
+invalid atomic writes, substitution, resets, cancellation and the rectangle's math nesting budget.
+Both `NativeCssClipTests` fixtures cover computation, source/root font changes, inheritance,
+invalid-at-computed-value fallback, rule edits/removal, native query reuse, receiver guards and
+readonly computed declarations. Missing glyph metrics retain their explicit C6 failure.
+
+Final commands and outcomes (the explicit restore source avoids an unrelated machine-local
+NuGet feed warning without changing repository or user configuration):
+
+```sh
+dotnet test -c Release --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~Jint.Tests.HtmlParser.Css|FullyQualifiedName~Parsing.PublicApiTest'
+dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj -p:RestoreSources=https://api.nuget.org/v3/index.json --filter 'FullyQualifiedName~NativeCssClipTests|FullyQualifiedName~NativeCssClipPathTests|FullyQualifiedName~NativeCssContentAlignmentAndGapTests|FullyQualifiedName~NativeCssAllTests|FullyQualifiedName~DomBindingsStalenessTests|FullyQualifiedName~ParserDependencyTests|FullyQualifiedName~SwaggerFixtureTests'
+python3 tools/html-parser-inventory/inventory.py
+python3 -m unittest discover -s tools/html-parser-inventory -p 'test_*.py'
+```
+
+All 5,604 native CSS/public-API cases, 48 Browser cases and six inventory tests passed.
+The fresh local-feed pack and unsigned net8.0/net10.0 consumers passed using the
+[documented package-consumer commands](../../tools/html-parser-package-consumer/README.md);
+no public API was promoted and no API snapshot changed.
+
+The required ACC-01 rerun used the Browser command with
+`--filter 'FullyQualifiedName~NativeCssClipTests|FullyQualifiedName~ScalarFixtureTests'`.
+Both Scalar cases reached the new `V1:border-width` failure after a successful
+`/swagger/v1/swagger.json` request. The bounded console/page diagnostics identify
+`CSSStyleDeclaration.borderWidth`; the navigation remains absent.
+The 30-second task and 60-second wait budgets were unchanged. ACC-01 remains open, with V1-01
+the next concrete action; V7-02 and C6-04 still own shapes and used-value geometry.
+
+#### Earlier completion checkpoints
 
 The public-API completion checkpoint passed 5,290 parser CSS/serialization/shadow/XPath/public-API cases and 100
 targeted Browser integration/binding/dependency cases, across net8.0 and net10.0. Both unsigned
