@@ -158,10 +158,11 @@ Re-vendoring moves the census's Documents and Tests columns and requires measuri
 The native acceptance run leaves these distinct causes:
 
 1. **The parser upgrades a custom element where HTML constructs one.** The native session hands
-   script execution to Browser, but still lacks the element-construction handoff. Attributes and children
-   can already exist when an upgrade runs. The `document.write` connection-timing case remains a failing
-   case outside the exclusion table; a smaller arbitrary tokenizer work quota is not a substitute for
-   the required construction, insertion and reaction boundaries.
+   script execution to Browser, but still lacks the element-construction handoff. Attributes already exist
+   when an upgrade runs. Native insertion now yields before children so Browser drains attribute and
+   connection reactions at the semantic boundary, independently of tokenizer quotas. The `document.write`
+   connection-timing case and the two corresponding ordinary-parser reaction checks pass without
+   exclusions. Synchronous construction and constructor-failure semantics remain debt.
 2. **Cross-document and namespace-sensitive reactions remain incomplete.** Retained exclusions name
    the exact adoption, registry and attribute callback assertions. They are not blanket exclusions for
    native attribute storage, cloning or ordinary mutation delivery.

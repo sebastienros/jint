@@ -22,6 +22,10 @@ internal static class XmlEvidence
     internal static string SecondCanonicalForm(Document document, Uri inputBase)
     {
         var result = new StringBuilder();
+        // The pinned IBM OUTPUTs emit DTD PI events before the reconstructed notation block.
+        // These are parse records, not invented DOM children or rescanned source text.
+        foreach (var instruction in document.XmlDtdProcessingInstructions)
+            result.Append("<?").Append(instruction.Target).Append(' ').Append(instruction.Data).Append("?>");
         if (document.XmlNotations.Count > 0)
         {
             var doctype = document.ChildNodes.OfType<DocumentType>().SingleOrDefault()

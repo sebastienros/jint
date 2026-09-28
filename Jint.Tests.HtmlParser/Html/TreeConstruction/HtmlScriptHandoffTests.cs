@@ -13,6 +13,76 @@ public class HtmlScriptHandoffTests
     [TestCase(1)]
     [TestCase(3)]
     [TestCase(10000)]
+    public void CustomElementInsertionsYieldBeforeChildrenRegardlessOfQuota(int quota)
+    {
+        var session = Session("<body><x-first id=first><x-second id=second>tail</x-second></x-first><button is=x-button id=button>click</button>",
+            scriptingEnabled: true);
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        var first = session.Document.GetElementById("first")!;
+        first.ChildCount.Should().Be(0);
+        session.Document.GetElementById("second").Should().BeNull();
+        first.AppendChild(session.Document.CreateTextNode("host"));
+
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        var second = session.Document.GetElementById("second")!;
+        second.ChildCount.Should().Be(0);
+        second.ParentNode.Should().BeSameAs(first);
+        session.Document.GetElementById("button").Should().BeNull();
+
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        session.Document.GetElementById("button")!.ChildCount.Should().Be(0);
+        second.TextContent().Should().Be("tail");
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.Complete);
+        first.TextContent().Should().Be("hosttail");
+        session.Document.GetElementById("button")!.TextContent().Should().Be("click");
+    }
+
+    [TestCase(1)]
+    [TestCase(10000)]
+    public void ReconstructedCustomFormattingYieldsBeforeInsertingText(int quota)
+    {
+        var session = Session("<body><p><b is=x-bold id=bold><i is=x-italic id=italic></p>tail", scriptingEnabled: true);
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        session.Document.GetElementById("bold")!.ChildCount.Should().Be(0);
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        session.Document.GetElementById("italic")!.ChildCount.Should().Be(0);
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        var reconstructed = (Element) session.Document.DocumentElement!.LastChild!.LastChild!;
+        reconstructed.LocalName.Should().Be("b");
+        reconstructed.ChildCount.Should().Be(0);
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        reconstructed.FirstChild!.ChildCount.Should().Be(0);
+        Drive(session, quota).Kind.Should().Be(HtmlParseStepKind.Complete);
+        reconstructed.TextContent().Should().Be("tail");
+    }
+
+    [TestCase((int) HtmlParserScriptingMode.Normal, false)]
+    [TestCase((int) HtmlParserScriptingMode.Disabled, true)]
+    [TestCase((int) HtmlParserScriptingMode.Inert, true)]
+    [TestCase((int) HtmlParserScriptingMode.Fragment, true)]
+    public void NonexecutingParsesDoNotRequestCustomElementReactions(int mode, bool enableScriptRequests)
+    {
+        var session = new HtmlParserSession(Document.CreateHtml(), enableScriptRequests: enableScriptRequests,
+            scriptingMode: (HtmlParserScriptingMode) mode);
+        session.AppendInput("<x-one><button is=x-button>text</button></x-one>", true);
+        Drive(session, 1).Kind.Should().Be(HtmlParseStepKind.Complete);
+    }
+
+    [Test]
+    public void CancellationAtCustomElementBoundaryInvalidatesTheSession()
+    {
+        var session = Session("<x-one id=one>unread</x-one>", scriptingEnabled: true);
+        Drive(session, 10000).Kind.Should().Be(HtmlParseStepKind.CustomElementReactions);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => session.Drive(10000, cancellation.Token));
+        session.Document.GetElementById("one")!.ChildCount.Should().Be(0);
+        Assert.Throws<InvalidOperationException>(() => session.Drive(10000, default));
+    }
+
+    [TestCase(1)]
+    [TestCase(3)]
+    [TestCase(10000)]
     public void CheckpointThenWriteQueryUsesSameTreeBeforeUnreadTail(int quota)
     {
         var session = Session("<body><script>outer</script><p id=tail>tail</p>");
@@ -479,9 +549,10 @@ public class HtmlScriptHandoffTests
         replacement.Document.GetElementById("close").Should().NotBeNull();
     }
 
-    private static HtmlParserSession Session(string text)
+    private static HtmlParserSession Session(string text, bool scriptingEnabled = false)
     {
-        var session = new HtmlParserSession(Document.CreateHtml(), enableScriptRequests: true);
+        var session = new HtmlParserSession(Document.CreateHtml(), new HtmlParseOptions { ScriptingEnabled = scriptingEnabled },
+            enableScriptRequests: true);
         session.AppendInput(text, true);
         return session;
     }

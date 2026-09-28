@@ -28,6 +28,14 @@ internal sealed partial class HtmlTreeBuilder
     internal Element? ClosedScript { get; private set; }
     internal bool ClosedScriptIsSvg { get; private set; }
     private bool _scriptCheckpointCompleted;
+    private bool _customElementReactionsBoundary;
+
+    internal bool TakeCustomElementReactionsBoundary()
+    {
+        var pending = _customElementReactionsBoundary;
+        _customElementReactionsBoundary = false;
+        return pending;
+    }
 
     internal void CompleteScriptCheckpoint()
     {
@@ -183,7 +191,7 @@ internal sealed partial class HtmlTreeBuilder
         // budget, so a long chain yields without an arbitrary pass limit.
         while (true)
         {
-            if (HasCompletedStyles) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            if (HasCompletedStyles || _customElementReactionsBoundary) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             if (_templateOperation is not null)
             {
                 if (!AdvanceTemplateOperation()) return new HtmlParseStep(HtmlParseStepKind.Yielded);

@@ -90,6 +90,7 @@ internal static class NodeCloner
                 clonedDocument.SetParserMode(original.Mode);
                 clonedDocument.CopySkippedXmlEntitiesFrom(original);
                 clonedDocument.CopyXmlNotationsFrom(original);
+                clonedDocument.CopyXmlDtdProcessingInstructionsFrom(original);
                 if (original.CustomElementRegistry is { IsScoped: true } scoped)
                 {
                     clonedDocument.InitializeCustomElementRegistry(scoped);

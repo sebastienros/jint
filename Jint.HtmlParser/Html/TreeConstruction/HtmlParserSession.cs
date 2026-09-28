@@ -14,7 +14,7 @@ internal interface IHtmlShadowHostContextProvider
 internal readonly record struct HtmlDocumentContext(bool IsSrcdoc = false, bool CannotChangeMode = false,
     bool AllowDeclarativeShadowRoots = false, IHtmlShadowHostContextProvider? ShadowHostContextProvider = null);
 
-internal enum HtmlParseStepKind { NeedInput, Yielded, Complete, MissingFeature, HostRequest, InsertionBoundary, PendingBlocker, ParserPaused }
+internal enum HtmlParseStepKind { NeedInput, Yielded, Complete, MissingFeature, HostRequest, InsertionBoundary, PendingBlocker, ParserPaused, CustomElementReactions }
 internal enum HtmlParserScriptingMode { Normal, Disabled, Inert, Fragment }
 
 internal enum HtmlMissingFeature { Tables, Select, Templates, ForeignContent }
@@ -230,6 +230,8 @@ internal sealed partial class HtmlParserSession
                     var before = _builder.WorkCount;
                     var result = _builder.Process(remaining, cancellationToken);
                     remaining -= _builder.WorkCount - before;
+                    if (_builder.TakeCustomElementReactionsBoundary())
+                        return new HtmlParseStep(HtmlParseStepKind.CustomElementReactions);
                     if (_builder.HasCompletedStyles)
                     {
                         if (result.Kind == HtmlParseStepKind.Complete) _complete = true;

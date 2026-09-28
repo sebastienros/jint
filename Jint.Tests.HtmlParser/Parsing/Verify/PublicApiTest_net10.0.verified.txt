@@ -55,6 +55,7 @@
         public Jint.HtmlParser.DocumentKind Kind { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlSkippedEntity> SkippedXmlEntities { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlDtdProcessingInstruction> XmlDtdProcessingInstructions { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlNotationDeclaration> XmlNotations { get; }
         public Jint.HtmlParser.Node AdoptNode(Jint.HtmlParser.Node node) { }
         public Jint.HtmlParser.Attr CreateAttribute(string name) { }
@@ -442,6 +443,12 @@
         public string NamespaceUri { get; }
         public Jint.HtmlParser.Element OwnerElement { get; }
         public string Prefix { get; }
+    }
+    public readonly struct XmlDtdProcessingInstruction
+    {
+        public string Data { get; }
+        public long Offset { get; }
+        public string Target { get; }
     }
     public readonly struct XmlNotationDeclaration
     {

@@ -28,6 +28,7 @@ internal sealed partial class XmlTreeParser
     private readonly Dictionary<string, XmlEntityDeclaration> _parameterEntities = new(StringComparer.Ordinal);
     private List<XmlSkippedEntity>? _skippedEntities;
     private List<XmlNotationDeclaration>? _notations;
+    private List<XmlDtdProcessingInstruction>? _dtdProcessingInstructions;
     private long _expansionCharacters;
     private bool _hasExternalSubset;
     private bool _catalogActive;
@@ -148,6 +149,8 @@ internal sealed partial class XmlTreeParser
         if (_context is null && !_seenRoot) Error("xml/invalid-document", _position);
         if (_skippedEntities is not null) _document.PublishSkippedXmlEntities(_skippedEntities);
         if (_notations is not null) _document.PublishXmlNotations(_notations, _cancellationToken);
+        if (_dtdProcessingInstructions is not null)
+            _document.PublishXmlDtdProcessingInstructions(_dtdProcessingInstructions, _cancellationToken);
         _cancellationToken.ThrowIfCancellationRequested();
     }
 

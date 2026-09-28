@@ -988,9 +988,7 @@ internal static class WptBrowserExclusions
     [
         new("custom-elements/parser/parser-constructs-custom-element-synchronously.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/parser/parser-fallsback-to-unknown-element.html", "*", WptDivergence.NeedsTriage),
-        new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser must enqueue attributeChanged reactions", WptDivergence.NeedsTriage),
         new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser must set the attributes or append children before calling constructor", WptDivergence.NeedsTriage),
-        new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser should call connectedCallback before appending child nodes.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- one [CEReactions] member per file

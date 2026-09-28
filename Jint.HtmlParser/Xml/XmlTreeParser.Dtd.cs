@@ -293,7 +293,7 @@ internal sealed partial class XmlTreeParser
             }
             if (StartsWith("<?"))
             {
-                SkipDtdPi();
+                ParseDtdPi();
                 continue;
             }
             if (StartsWith("<!ENTITY"))
@@ -767,7 +767,7 @@ internal sealed partial class XmlTreeParser
         ConsumeLiteral("-->", start);
     }
 
-    private void SkipDtdPi()
+    private void ParseDtdPi()
     {
         var start = _position;
         ConsumeLiteral("<?", start);
@@ -775,12 +775,19 @@ internal sealed partial class XmlTreeParser
         if (name.Equals("xml", StringComparison.OrdinalIgnoreCase) || name.Contains(':'))
             Error("xml/invalid-declaration", start);
         if (!StartsWith("?>") && !SkipWhitespace(_position)) Error("xml/invalid-declaration", _position);
+        var contentStart = _position;
         while (!StartsWith("?>"))
         {
             if (End) Error("xml/unexpected-eof", _position);
             ConsumeScalar();
         }
+        var content = _source.AsSpan(contentStart, _position - contentStart);
+        var data = NormalizeLines(content);
         ConsumeLiteral("?>", start);
+        (_dtdProcessingInstructions ??= []).Add(new XmlDtdProcessingInstruction(name, data,
+            _inputFrames.Count == 0 ? start : _inputFrames.Peek().OriginalOffset));
+        _onCancellationPoll?.Invoke();
+        _cancellationToken.ThrowIfCancellationRequested();
     }
 
     private void ParseElementDeclaration()

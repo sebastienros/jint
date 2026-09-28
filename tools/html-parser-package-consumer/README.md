@@ -5,6 +5,8 @@ reference, friend access, signing key, or dependency on the Jint engine or Angle
 configuration stops repository-wide MSBuild inheritance. Package source mapping restricts
 `Jint.HtmlParser` to the local feed and allows its `System.IO.Hashing` dependency from nuget.org,
 so it cannot resolve `Jint.HtmlParser` from nuget.org.
+The local-feed paths use forward slashes so NuGet retains the source's mapping identity on Unix as
+well as Windows; a restored cache must not hide a broken fresh-package resolution.
 
 From the repository root on macOS or Linux, run:
 
@@ -24,6 +26,8 @@ Each run prints `ALL PARSER PACKAGE PROBES PASSED` only after checking HTML, XML
 ownership, mutation records/drains, whole-sheet CSS syntax, all owned XPath overloads and result kinds,
 typed IDs and imports, namespace contexts and stale bindings, detached attribute axes, and all five
 serialization routes including shadow acquisition/selection, templates, output limits and cancellation.
+It also checks public DTD processing-instruction metadata, immutable snapshot/clone behavior and
+original-input offsets without relocating instructions into DOM children.
 Clearing the disposable feed and package cache before packing prevents a prior package with the
 same version from answering the test. Inspect the actual package dependency list and shipped assets:
 

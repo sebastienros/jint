@@ -45,6 +45,18 @@ and focused serialization/XPath designs remain the acceptance definitions.
   Language matching does not yet include document/HTTP language metadata fallback.
 - [x] **Stylesheet cache acceptance**: tests now require reuse when unchanged and invalidation on
   child sheet edits, import insertion, resource arrival and import removal. No timing limit was raised.
+- [x] **XML no-fetch and canonical-output acceptance**: all 101 pending reviews are resolved,
+  including the internal-parameter-entity case with no external-resource indication. Every eligible
+  canonical output is compared. DTD processing instructions now have immutable public parse metadata,
+  separate from DOM children, with exact data, order and original-input offsets.
+  Evidence: `XmlConformanceTests`, `XmlCorpusTests`, `XmlDtdProcessingInstructionTests`,
+  both public API snapshots and the unsigned packed consumer.
+- [x] **Parser insertion reactions**: native parsing yields after potentially custom element insertion,
+  before processing children, including `document.write` and reconstructed customized formatting.
+  Browser drains reactions outside the entered parser; nested writes retain the active insertion point.
+  The document-write WPT timing case and two formerly excluded attribute/connection checks now pass.
+  Synchronous construction before attributes and constructor-failure semantics remain open.
+  Evidence: `HtmlScriptHandoffTests`, `CustomElementUpgradeTests` and the pinned custom-element WPT cases.
 
 Gaps and distribution above are grammar/CSSOM/computed-value work, not grid/flex layout completion.
 Normal gap and line-width keywords remain keywords at computed-value time, per
@@ -105,18 +117,20 @@ friend access or a project reference. A separate native pack/run is required for
 
 ## Acceptance still required
 
-- [ ] Resolve the **101 remaining** XML external-resource/no-fetch review cases and the
-  **42 pending** eligible canonical-output comparisons; rerun the census rather than exclude them.
-  Twenty-six rejection cases were independently reviewed against the pinned sources and XML productions.
-  The zero-pending gate and the negative missing-review probe remain enforced.
+- [x] Resolve the XML external-resource/no-fetch reviews and all eligible canonical-output comparisons.
+  The complete 2,585-row census has 1,947 passing runnable cases, 27 verified optional policies,
+  593 outside-profile rows and 18 reviewed byte-boundary rows. All 386 eligible outputs are compared,
+  including 66 reviewed no-fetch alternatives; unresolved cases, harness failures and known
+  required-profile defects are zero. Missing-review, omission, notation, DTD PI and output corruption
+  probes remain enforced.
 - [ ] Finish the Scalar/Swagger fixtures. Scalar currently reports the missing `R2:layer` rule grammar
   while reading `clientWidth`. Swagger now gets past `fill` and reports `V7:clip-path` in its logo.
   Their frameworks catch these failures, so bounded console/request/DOM diagnostics are necessary;
   an empty `Page.Errors` list alone does not prove success. Budgets remain unchanged.
 - [ ] Remeasure the current native Browser WPT census and finish its named debt.
-  Ordinary macOS runs now leave the `document.write` custom-element connection timing case failing
-  outside the exclusion table. Obsolete exclusions were removed or narrowed; passing rows cannot
-  remain excluded. The canonical numeric cause table still needs its prescribed Windows measurement.
+  The `document.write` custom-element connection timing case is fixed. Two newly passing
+  ordinary-parser reaction exclusions were removed; passing rows cannot remain excluded.
+  The canonical numeric cause table still needs its prescribed Windows measurement.
 - [ ] Complete equivalent CSSOM comparison workloads and the separately specified paired
   benchmark acceptance. No performance claim follows from correctness tests.
 - [ ] Close all open grammar/API rows above. Targeted passing slices do not close this overall gate.
@@ -142,3 +156,18 @@ no harness failures; 344 of 386 eligible canonical outputs are compared.
 The net10.0 WPT/native-CSS/Swagger run has 623 passes, two failures (the connection timing case
 and Swagger's `clip-path` dependency), and two opt-in census skips. These figures are local evidence,
 not a refreshed Windows WPT census or a claim that the overall completion gate has closed.
+
+The subsequent XML completion checkpoint passes the complete parser suite on net8.0 and net10.0.
+The former XML pending counts above are historical: the refreshed profile compares all 386 outputs
+and has zero pending classifications or required-profile failures. Review expectations come from
+the pinned document/resource bytes and XML productions, not captured native parser results.
+The three IBM outputs containing DTD processing instructions now observe those instructions through
+the public parse inventory; they no longer disappear at the DOM boundary.
+
+The XML/insertion-reaction checkpoint passes 13,944 parser cases across net8.0/net10.0 and
+1,142 Browser custom-element, WPT, binding-staleness and dependency cases. The four skipped cases
+are the two opt-in Windows census checks on each framework; no ordinary case fails or is newly
+excluded. Both freshly packed unsigned consumers and the net10.0 osx-arm64 Native AOT consumer pass.
+The dependency inventory and its six tooling tests pass; only reviewed exclusion-source drift changed
+the lock, not its historical Windows census. This checkpoint does not close the remaining CSS,
+public API, application-fixture or benchmark obligations.

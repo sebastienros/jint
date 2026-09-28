@@ -182,6 +182,24 @@ pass an independently reviewed no-fetch expected result, or have an individually
 gap with its exact case ID and rationale. Unimplemented output adapters remain blocking harness debt.
 A passing binary outcome never counts as a passing output assertion.
 
+The completed review covers all 411 runnable rows with external-resource indications and the
+additional `eduni/errata-3e/errata3e.xml#rmt-e3e-13` internal-parameter case. Its undeclared `ent2`
+is a validity issue even without an external subset; a lexical resource scan alone cannot classify
+that omission. The 101 formerly pending cases have exact surviving projections and ordered omission
+records, with notation and DTD PI inventories where applicable. The expectations were derived from
+the pinned sources and referenced resources independently of the native parser. Japanese UTF-16
+fixtures retain their actual doubled newlines and text differences rather than borrowing the UTF-8
+or previously reviewed legacy-encoding projection.
+
+The pinned IBM P28/P29 OUTPUTs place DTD PI events before their reconstructed notation block.
+The output adapter preserves that concrete corpus convention (which is more specific than the
+draft `CanonXML2` grammar), reading only `Document.XmlDtdProcessingInstructions`; it never rescans
+input to recover lost PIs. Negative probes reject missing, changed and reordered instruction records.
+All 386 eligible outputs are now compared, including 66 independently reviewed no-fetch alternatives.
+There are 1,947 passing runnable rows, 27 verified optional policies, 593 outside-profile rows and
+18 reviewed byte-boundary exclusions; no pending classifications, harness failures or known required
+profile defects remain. The zero-debt gate remains live rather than replacing failures with exclusions.
+
 The first commit can run the internal `XmlTreeParser` milestone while the facade is pending. Switch
 the main corpus lane to public `MarkupParser.ParseXml` once implemented, and add unsigned consumer
 tests proving the real public entry points are accessible. Fragment/SVG/native-template behavior,

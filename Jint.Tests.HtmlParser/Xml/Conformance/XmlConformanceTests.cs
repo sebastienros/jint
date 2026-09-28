@@ -294,6 +294,21 @@ internal static class XmlConformanceRunner
                 }
             }
         }
+        if (reviewed.DtdProcessingInstructions is not null)
+        {
+            var actualInstructions = document.XmlDtdProcessingInstructions;
+            if (actualInstructions.Count != reviewed.DtdProcessingInstructions.Length)
+                return new(mismatchKind, $"dtd-pi-count:{actualInstructions.Count}",
+                    $"Expected {reviewed.DtdProcessingInstructions.Length} read DTD processing instructions");
+            for (var index = 0; index < actualInstructions.Count; index++)
+            {
+                var found = actualInstructions[index];
+                var expected = reviewed.DtdProcessingInstructions[index];
+                if (found.Target != expected.Target || found.Data != expected.Data || found.Offset != expected.Offset)
+                    return new(mismatchKind, $"dtd-pi-mismatch:{index}",
+                        $"Expected {expected.Target}@{expected.Offset}; actual {found.Target}@{found.Offset}");
+            }
+        }
         return null;
     }
 }

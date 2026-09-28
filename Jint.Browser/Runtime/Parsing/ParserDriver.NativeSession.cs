@@ -134,6 +134,9 @@ internal sealed partial class ParserDriver
             if (step.Kind is HtmlParseStepKind.HostRequest or HtmlParseStepKind.Complete) InstallInlineStyles(parse.Document);
             switch (step.Kind)
             {
+                case HtmlParseStepKind.CustomElementReactions:
+                    _runtime.CustomElementsIfCreated?.Drain();
+                    continue;
                 case HtmlParseStepKind.Yielded:
                     continue;
                 case HtmlParseStepKind.Complete:

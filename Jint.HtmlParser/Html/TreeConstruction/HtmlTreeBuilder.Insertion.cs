@@ -61,13 +61,24 @@ internal sealed partial class HtmlTreeBuilder
         if (location.Before is null)
         {
             location.Parent.AppendParsedChild(node);
-            return;
         }
-
-        // This node was created for the resolved destination and has never
-        // been exposed or linked. Native insertion keeps the semantic commit
-        // atomic without a repeated ancestor walk.
-        Charge(1);
-        location.Parent.InsertParsedBefore(node, location.Before, _cancellationToken);
+        else
+        {
+            // This node was created for the resolved destination and has never
+            // been exposed or linked. Native insertion keeps the semantic commit
+            // atomic without a repeated ancestor walk.
+            Charge(1);
+            location.Parent.InsertParsedBefore(node, location.Before, _cancellationToken);
+        }
+        // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-foreign-element
+        // Invoke insertion reactions before processing children.
+        // Return to the host rather than running script while the tree builder is entered.
+        if (ScriptRequestsEnabled && _scriptingMode == HtmlParserScriptingMode.Normal &&
+            node is Element { NamespaceUri: Namespaces.Html } element)
+        {
+            Charge(element.LocalName.Length);
+            if (element.IsValue is not null || element.LocalName.Contains('-'))
+                _customElementReactionsBoundary = true;
+        }
     }
 }

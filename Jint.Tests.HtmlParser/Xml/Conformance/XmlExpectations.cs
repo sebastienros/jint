@@ -15,7 +15,15 @@ internal sealed class XmlCaseExpectation
     public string? OriginalOutputSha256 { get; init; }
     public string? OutputAlternative { get; init; }
     public XmlNotationExpectation[]? Notations { get; init; }
+    public XmlDtdProcessingInstructionExpectation[]? DtdProcessingInstructions { get; init; }
     public string? Review { get; init; }
+}
+
+internal sealed class XmlDtdProcessingInstructionExpectation
+{
+    public string Target { get; init; } = "";
+    public string Data { get; init; } = "";
+    public long Offset { get; init; }
 }
 
 internal sealed class XmlNotationExpectation

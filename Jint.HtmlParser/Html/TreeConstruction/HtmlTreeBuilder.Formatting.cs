@@ -246,6 +246,7 @@ internal sealed partial class HtmlTreeBuilder
             Charge(1);
             _reconstructionNode = node.Next;
             advanced = true;
+            if (_customElementReactionsBoundary) return false;
         }
         _reconstructionNode = null;
         _reconstructionForward = false;

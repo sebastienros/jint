@@ -82,13 +82,12 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>
-    /// The parse boundary: everything the tokenizer added since the last one becomes custom here.
+    /// The fallback scan for candidates not reached through native insertion notifications.
     /// </summary>
     /// <remarks>
-    /// AngleSharp creates a parser element with no notification this package can hook, so an element written
-    /// in the markup is <i>undefined</i> until the next moment the driver owns — before each script it runs,
-    /// and once when the parse ends. It costs one tree walk, and only for a document that has defined
-    /// something.
+    /// The native parser yields after potentially custom element insertions so the driver can drain
+    /// reactions before processing children. This scan remains at script and parse-end boundaries.
+    /// Creation still upgrades an existing element rather than constructing it before attributes are set.
     /// </remarks>
     internal void UpgradeParsedElements()
     {

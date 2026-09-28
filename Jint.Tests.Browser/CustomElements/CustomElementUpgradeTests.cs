@@ -12,6 +12,82 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class CustomElementUpgradeTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ParserInsertionReactionsPrecedeChildren(bool write)
+    {
+        const string markup = "<x-thing data-value=one><x-thing data-value=two>tail</x-thing></x-thing>";
+        await using var browser = new Browser();
+        var page = await PageWith(browser, """
+            <script>
+              window.log = [];
+              class Thing extends HTMLElement {
+                static observedAttributes = ['data-value'];
+                attributeChangedCallback(name, oldValue, value) {
+                  log.push('attribute:' + value + ':' + this.childNodes.length);
+                }
+                connectedCallback() {
+                  log.push('connected:' + this.getAttribute('data-value') + ':' + this.childNodes.length);
+                }
+              }
+              customElements.define('x-thing', Thing);
+            </script>
+            """ + (write ? "<script>document.write('" + markup + "');</script>" : markup));
+        (await page.EvaluateAsync<string>("log.join('|')")).Should()
+            .Be("attribute:one:0|connected:one:0|attribute:two:0|connected:two:0");
+        (await page.EvaluateAsync<string>("document.querySelector('x-thing').textContent")).Should().Be("tail");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ConnectedCallbackCanWriteAtTheActiveParserInsertionPoint()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, """
+            <script>
+              window.log = [];
+              class Thing extends HTMLElement {
+                connectedCallback() {
+                  log.push('before:' + this.childNodes.length);
+                  document.write('<b id=nested>nested</b>');
+                  log.push('after:' + this.textContent);
+                }
+              }
+              customElements.define('x-thing', Thing);
+              document.write('<x-thing>tail</x-thing>');
+              log.push('returned:' + document.querySelector('x-thing').textContent);
+            </script>
+            """);
+        (await page.EvaluateAsync<string>("log.join('|')")).Should()
+            .Be("before:0|after:tail|returned:tail");
+        // The retained insertion point follows the input already written by the outer script.
+        (await page.EvaluateAsync<bool>("document.querySelector('x-thing').nextSibling === document.getElementById('nested')"))
+            .Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ParserConnectionBoundaryDoesNotUpgradeInertTemplateContents()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, """
+            <script>
+              window.log = [];
+              class Thing extends HTMLElement {
+                constructor() { super(); log.push('constructor'); }
+                connectedCallback() { log.push('connected:' + this.childNodes.length); }
+              }
+              customElements.define('x-thing', Thing);
+            </script>
+            <template id=template><x-thing>inert</x-thing></template>
+            <x-thing>live</x-thing>
+            """);
+        (await page.EvaluateAsync<string>("log.join('|')")).Should().Be("constructor|connected:0");
+        (await page.EvaluateAsync<bool>("document.getElementById('template').content.firstChild instanceof Thing"))
+            .Should().BeFalse();
+        page.Errors.Should().BeEmpty();
+    }
+
     private static async Task<Page> PageWith(Browser browser, string body)
     {
         var page = await browser.NewPageAsync();

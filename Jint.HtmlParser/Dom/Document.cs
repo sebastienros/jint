@@ -22,9 +22,12 @@ public sealed partial class Document : Node
         Array.AsReadOnly(Array.Empty<XmlSkippedEntity>());
     private static readonly IReadOnlyList<XmlNotationDeclaration> EmptyXmlNotations =
         Array.AsReadOnly(Array.Empty<XmlNotationDeclaration>());
+    private static readonly IReadOnlyList<XmlDtdProcessingInstruction> EmptyXmlDtdProcessingInstructions =
+        Array.AsReadOnly(Array.Empty<XmlDtdProcessingInstruction>());
 
     private IReadOnlyList<XmlSkippedEntity>? _skippedXmlEntities;
     private IReadOnlyList<XmlNotationDeclaration>? _xmlNotations;
+    private IReadOnlyList<XmlDtdProcessingInstruction>? _xmlDtdProcessingInstructions;
     private Document? _templateContentsOwnerDocument;
     private readonly bool _isTemplateContentsOwnerDocument;
     private readonly CustomElementRegistryIdentity? _creationDefaultCustomElementRegistry;
@@ -143,6 +146,10 @@ public sealed partial class Document : Node
     /// <summary>Immutable, ordered XML notation declarations read during parsing.</summary>
     public IReadOnlyList<XmlNotationDeclaration> XmlNotations => _xmlNotations ?? EmptyXmlNotations;
 
+    /// <summary>Immutable, ordered processing instructions read in the XML DTD, separate from DOM children.</summary>
+    public IReadOnlyList<XmlDtdProcessingInstruction> XmlDtdProcessingInstructions =>
+        _xmlDtdProcessingInstructions ?? EmptyXmlDtdProcessingInstructions;
+
     // Parsing owns the mutable builder. Copying into a read-only view leaves no mutable
     // reference in the document and no source or resolver attached to a record.
     internal void PublishSkippedXmlEntities(List<XmlSkippedEntity> records)
@@ -202,6 +209,40 @@ public sealed partial class Document : Node
     }
 
     internal void CopyXmlNotationsFrom(Document source) => _xmlNotations = source._xmlNotations;
+
+    internal void PublishXmlDtdProcessingInstructions(List<XmlDtdProcessingInstruction> records,
+        CancellationToken cancellationToken, Action<int>? copyCheckpoint = null)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        if (_xmlDtdProcessingInstructions is not null)
+        {
+            throw new InvalidOperationException("XML DTD processing instructions have already been published.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<XmlDtdProcessingInstruction> snapshot = EmptyXmlDtdProcessingInstructions;
+        if (records.Count != 0)
+        {
+            var copy = new XmlDtdProcessingInstruction[records.Count];
+            cancellationToken.ThrowIfCancellationRequested();
+            for (var i = 0; i < copy.Length; i++)
+            {
+                copy[i] = records[i];
+                if ((i & 255) == 255)
+                {
+                    copyCheckpoint?.Invoke(i + 1);
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            snapshot = Array.AsReadOnly(copy);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        _xmlDtdProcessingInstructions = snapshot;
+    }
+
+    internal void CopyXmlDtdProcessingInstructionsFrom(Document source) =>
+        _xmlDtdProcessingInstructions = source._xmlDtdProcessingInstructions;
 
     public Element? DocumentElement
     {

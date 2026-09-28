@@ -286,6 +286,61 @@ public class XmlCorpusTests
     }
 
     [Test]
+    public void EveryResourceIndicationHasAnExactReviewAndInternalParameterDebtIsNotLost()
+    {
+        foreach (var row in XmlCorpus.Cases.Where(row =>
+                     row.Disposition == "runnable" && row.ResourceProfile == "unreviewed-external-indication"))
+        {
+            XmlExpectations.Reviewed.Should().ContainKey(row.Key);
+        }
+
+        var internalParameter = XmlCorpus.Case("xmlconf/eduni/errata-3e/errata3e.xml#rmt-e3e-13");
+        internalParameter.ResourceProfile.Should().Be("no-external-indication");
+        XmlConformanceRunner.Run(internalParameter).Kind.Should().Be(XmlOutcomeKind.Pass);
+        XmlConformanceRunner.Run(internalParameter, ignoreReviewedExpectation: true).Signature
+            .Should().Be("unreviewed-skipped-entities");
+        var skipped = XmlExpectations.Reviewed[internalParameter.Key].Skipped.Should().ContainSingle().Which;
+        skipped.Kind.Should().Be("General");
+        skipped.Name.Should().Be("ent2");
+        skipped.SystemId.Should().BeNull();
+    }
+
+    [Test]
+    public void DtdInstructionEvidenceRejectsMissingChangedAndReorderedRecords()
+    {
+        var row = XmlCorpus.Case("xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P29-ibm29v01.xml");
+        var reviewed = XmlExpectations.Reviewed[row.Key];
+        var instruction = reviewed.DtdProcessingInstructions.Should().ContainSingle().Which;
+        XmlConformanceRunner.Run(row).Kind.Should().Be(XmlOutcomeKind.Pass);
+        XmlCaseExpectation WithInstructions(XmlDtdProcessingInstructionExpectation[] instructions) => new()
+        {
+            Key = row.Key, Outcome = "accept", Skipped = reviewed.Skipped, Projection = reviewed.Projection,
+            Notations = reviewed.Notations, DtdProcessingInstructions = instructions, Review = "negative PI probe"
+        };
+        XmlConformanceRunner.Run(row, WithInstructions([])).Signature.Should().Be("dtd-pi-count:1");
+        foreach (var changed in new[]
+                 {
+                     new XmlDtdProcessingInstructionExpectation { Target = "wrong", Data = instruction.Data, Offset = instruction.Offset },
+                     new XmlDtdProcessingInstructionExpectation { Target = instruction.Target, Data = "wrong", Offset = instruction.Offset },
+                     new XmlDtdProcessingInstructionExpectation { Target = instruction.Target, Data = instruction.Data, Offset = instruction.Offset + 1 }
+                 })
+            XmlConformanceRunner.Run(row, WithInstructions([changed])).Signature.Should().Be("dtd-pi-mismatch:0");
+        XmlConformanceRunner.Run(row, testOutput: "<animal></animal>"u8.ToArray()).Signature
+            .Should().StartWith("output-mismatch:");
+
+        var multiple = XmlCorpus.Case("xmlconf/oasis/oasis.xml#o-p29pass1");
+        var original = XmlExpectations.Reviewed[multiple.Key];
+        original.DtdProcessingInstructions.Should().HaveCount(5);
+        XmlConformanceRunner.Run(multiple, new XmlCaseExpectation
+        {
+            Key = multiple.Key, Outcome = "accept", Skipped = original.Skipped, Projection = original.Projection,
+            Notations = original.Notations,
+            DtdProcessingInstructions = original.DtdProcessingInstructions!.AsEnumerable().Reverse().ToArray(),
+            Review = "negative PI order probe"
+        }).Signature.Should().Be("dtd-pi-mismatch:0");
+    }
+
+    [Test]
     public void OptionalErrorsSeparatePolicyEvidenceFromUnreviewedAndAdapterDebt()
     {
         var verified = XmlCorpus.Case("xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004");

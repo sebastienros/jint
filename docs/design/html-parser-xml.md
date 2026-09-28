@@ -117,6 +117,18 @@ See [XML](https://www.w3.org/TR/xml/) and [Namespaces](https://www.w3.org/TR/xml
 The [notation reporting supplement](html-parser-xml-notations.md) specifies the required immutable
 inventory of read notation declarations, its native publication seam, and exact corpus OUTPUT checks.
 
+**DTD processing instructions:** XML §2.6 also requires reporting PIs read inside the DTD. They are
+available as `Document.XmlDtdProcessingInstructions`, an immutable ordered inventory of
+`XmlDtdProcessingInstruction` values (`Target`, `Data`, `Offset`). They are not document children:
+the native DOM, XPath and DOM serialization retain their existing tree semantics. Data follows
+source line normalization without expanding references; character references already constructed
+inside parameter-entity replacements are not normalized a second time. Offsets refer to the
+original UTF-16 input or the outermost invoking parameter reference, just like notation metadata.
+Repeated instructions remain distinct; unread external material contributes none. Read instructions
+after an unread parameter entity still contribute records. The inventory is published only after
+successful parsing, with bounded cancellation during collection/copying; document clones share the
+immutable snapshot, while node transfers, doctype removal and fragment parsing do not change it.
+
 **Version correction from the full corpus:** [XML §2.8](https://www.w3.org/TR/xml/#sec-prolog-dtd)
 defines `VersionNum` as ASCII `1.` followed by one or more ASCII digits. Accept `1.0`, `1.1`, `1.7`,
 `1.00` and other matching strings, processing all of them with this implementation's XML 1.0 rules.

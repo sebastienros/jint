@@ -129,8 +129,7 @@
       "category": "test",
       "owner": "G1:browser-wpt-gate",
       "references": [
-        "(\"dom/collections/domstringmap-supported-property-names.html\", \"an AngleSharp SyntaxError escapes its third test at file scope and no `error` event carries it to the harness, so the file reports three of its five and then times out\"),",
-        "new(\"8. AngleSharp.Css refuses an unparseable media query\", _8AngleSharpCssRefusesAnUnparseableMediaQuery),"
+        "(\"dom/collections/domstringmap-supported-property-names.html\", \"an AngleSharp SyntaxError escapes its third test at file scope and no `error` event carries it to the harness, so the file reports three of its five and then times out\"),"
       ]
     },
     {
@@ -11720,6 +11719,6 @@
       }
     ],
     "exclusionsSource": "Jint.Tests.Browser/Wpt/WptBrowserExclusions.cs",
-    "exclusionsSha256": "70bd2e43d1146918336d580d615a6fa1a17be2cc025007e0510fcee83f5de24a"
+    "exclusionsSha256": "dab290f8625eda2c6d63a366afa90d5a7a00ad827a31523f84085bb99019c411"
   }
 }

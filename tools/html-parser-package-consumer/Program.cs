@@ -22,6 +22,7 @@ internal static class Program
             CheckHtml();
             CheckXmlAndSvg();
             CheckNotationSurface();
+            CheckDtdProcessingInstructions();
             CheckFragmentOwnership();
             CheckMutationSubscriptions();
             CheckCssSyntax();
@@ -35,6 +36,21 @@ internal static class Program
             Console.Error.WriteLine(error);
             return 1;
         }
+    }
+
+    private static void CheckDtdProcessingInstructions()
+    {
+        const string source = "<!DOCTYPE r [<?p data?><!ENTITY % e '<?nested value?>'>%e;]><r/>";
+        var document = MarkupParser.ParseXml(source);
+        IReadOnlyList<XmlDtdProcessingInstruction> records = document.XmlDtdProcessingInstructions;
+        Require(records.Count == 2 && records[0].Target == "p" && records[0].Data == "data" &&
+            records[0].Offset == source.IndexOf("<?p", StringComparison.Ordinal) &&
+            records[1].Target == "nested" && records[1].Data == "value" &&
+            records[1].Offset == source.IndexOf("%e;", StringComparison.Ordinal),
+            "DTD processing instruction data or provenance was lost.");
+        Require(records is IList<XmlDtdProcessingInstruction> list && list.IsReadOnly &&
+            ReferenceEquals(records, ((Document) document.CloneNode(true)).XmlDtdProcessingInstructions) &&
+            document.ChildNodes.Count() == 2, "DTD processing instruction metadata is mutable or changed the DOM.");
     }
 
     private static void CheckCssSyntax()

@@ -19,6 +19,13 @@ var fragment = MarkupParser.ParseXmlFragment("<next/>", root);
 root.AppendChild(fragment);
 ```
 
+XML results expose immutable `SkippedXmlEntities`, `XmlNotations` and
+`XmlDtdProcessingInstructions` inventories. DTD instructions retain target, data and original UTF-16
+offsets in encounter order (including repeated parameter-entity invocations). They are parse metadata,
+not DOM children: DOM serialization and XPath do not relocate them into the document. Document
+clones preserve these inventories; importing/adopting nodes or parsing a fragment does not transfer
+or overwrite them. No external resolver is exposed.
+
 HTML parsing recovers malformed markup and creates implied document structure. Fragment results belong to the context owner document and leave existing children untouched. `HtmlParseOptions.ScriptingEnabled` changes grammar without executing scripts. Native HTML parsing performs no network requests.
 
 Whole-sheet CSS parsing returns immutable syntax and the exact original source:
@@ -156,7 +163,7 @@ The main gaps are above HTML tokenization and tree construction:
 | Computed and resolved values | Advanced colors, typed `attr()` and other substitution functions, some container metrics and used-value dependencies remain named completion failures. Browser also still documents incomplete stylesheet BOM/charset and MIME handling. |
 | Standalone APIs | HTML/XML serialization and owned XPath APIs are public. Selectors, mutable CSSOM/typed values and incremental HTML sessions remain internal. Public parsing accepts decoded strings, not streams or byte inputs. |
 | Selector language and direction | Internal `:lang()` matching supports inherited HTML `lang`/XML `xml:lang` and extended language ranges. HTTP/document language metadata fallback remains open. `:dir()` uses Browser's bounded directionality facts; a standalone caller must supply a directionality producer. |
-| Acceptance | XML external-resource/no-fetch review and canonical-output evidence remain outstanding. Browser fixture behavior, current WPT results and public API snapshots must be reconciled independently of package removal. |
+| Acceptance | The complete pinned XML profile has zero unresolved cases and compares all 386 eligible outputs. Browser fixture behavior, current WPT results and remaining public API gates must still be reconciled independently of package removal. |
 
 Unknown syntax and known-but-unimplemented semantics are deliberately different: raw CSS syntax can
 be retained lazily, but demanding an incomplete grammar raises a named failure rather than inventing a
