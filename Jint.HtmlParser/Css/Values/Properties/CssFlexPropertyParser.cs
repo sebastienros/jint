@@ -6,16 +6,21 @@ internal static class CssFlexPropertyParser
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts,
         int maximumDepth, CssValueWork work)
     {
-        if (grammar == CssPropertyGrammar.Flex) return Flex(parts, maximumDepth, work);
-        if (grammar == CssPropertyGrammar.FlexFlow) return Flow(parts, work);
+        switch (grammar)
+        {
+            case CssPropertyGrammar.Flex:
+                return Flex(parts, maximumDepth, work);
+            case CssPropertyGrammar.FlexFlow:
+                return Flow(parts, work);
+        }
         if (parts.Count != 1) return Invalid();
         if (grammar == CssPropertyGrammar.FlexFactor)
             return CssSizingPropertyParser.Numeric(parts[0], true, maximumDepth, work);
         var choices = grammar switch
         {
-            CssPropertyGrammar.FlexDirection => "row row-reverse column column-reverse",
-            CssPropertyGrammar.FlexWrap => "nowrap wrap wrap-reverse",
-            _ => "ltr rtl"
+            CssPropertyGrammar.FlexDirection => CssKeywordSet.RowRowReverseColumnColumnReverse,
+            CssPropertyGrammar.FlexWrap => CssKeywordSet.NowrapWrapWrapReverse,
+            _ => CssKeywordSet.LtrRtl
         };
         var keyword = CssPropertyParser.Keyword(parts[0], choices, work);
         return keyword is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, parts[0].Span));
@@ -27,9 +32,9 @@ internal static class CssFlexPropertyParser
         CssPropertyValue? direction = null, wrap = null;
         foreach (var part in parts)
         {
-            if (direction is null && CssPropertyParser.Keyword(part, "row row-reverse column column-reverse", work) is { } d)
+            if (direction is null && CssPropertyParser.Keyword(part, CssKeywordSet.RowRowReverseColumnColumnReverse, work) is { } d)
                 direction = CssPropertyValue.Keyword(d, part.Span);
-            else if (wrap is null && CssPropertyParser.Keyword(part, "nowrap wrap wrap-reverse", work) is { } w)
+            else if (wrap is null && CssPropertyParser.Keyword(part, CssKeywordSet.NowrapWrapWrapReverse, work) is { } w)
                 wrap = CssPropertyValue.Keyword(w, part.Span);
             else return Invalid();
         }
@@ -43,7 +48,7 @@ internal static class CssFlexPropertyParser
     {
         if (parts.Count is < 1 or > 3) return Invalid();
         var span = parts[0].Span;
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "none auto", work) is { } special)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.NoneAuto, work) is { } special)
         {
             var grow = DefaultNumber(special == "none" ? "0" : "1", false, work);
             var shrink = DefaultNumber(special == "none" ? "0" : "1", false, work);
@@ -67,10 +72,21 @@ internal static class CssFlexPropertyParser
                 for (var i = 0; i < factorCount; i++)
                 {
                     var factor = CssSizingPropertyParser.Numeric(parts[offset + i], true, maximumDepth, work);
-                    if (factor.Status == CssPropertyStatus.UnimplementedGrammar) pending = factor;
-                    if (factor.Status != CssPropertyStatus.Valid) { failed = true; break; }
-                    if (i == 0) grow = factor.Value;
-                    else shrink = factor.Value;
+                    switch (factor.Status)
+                    {
+                        case CssPropertyStatus.UnimplementedGrammar:
+                            pending = factor;
+                            failed = true;
+                            break;
+                        case CssPropertyStatus.Valid:
+                            if (i == 0) grow = factor.Value;
+                            else shrink = factor.Value;
+                            continue;
+                        default:
+                            failed = true;
+                            break;
+                    }
+                    break;
                 }
                 if (failed) continue;
                 // Omitted basis is zero LENGTH, not a percentage: indefinite bases differ.
@@ -81,9 +97,17 @@ internal static class CssFlexPropertyParser
                         parts[0].Token.Kind == CssTokenKind.Number) continue;
                     var value = CssSizingPropertyParser.Parse(CssPropertyGrammar.FlexBasis,
                         [parts[basisFirst == 1 ? 0 : factorCount]], maximumDepth, work);
-                    if (value.Status == CssPropertyStatus.UnimplementedGrammar) pending = value;
-                    if (value.Status != CssPropertyStatus.Valid) continue;
-                    basis = value.Value;
+                    switch (value.Status)
+                    {
+                        case CssPropertyStatus.UnimplementedGrammar:
+                            pending = value;
+                            continue;
+                        case CssPropertyStatus.Valid:
+                            basis = value.Value;
+                            break;
+                        default:
+                            continue;
+                    }
                 }
                 return CssPropertyResult.Accepted(CssPropertyValue.Shorthand(
                     grow.Serialize() + " " + shrink.Serialize() + " " + basis.Serialize(), span, grow, shrink, basis));

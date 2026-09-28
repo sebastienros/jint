@@ -50,13 +50,28 @@ The UTF-16 tokenizer uses cached `SearchValues<char>` sets to append ordinary
 text, names, attribute values and comment runs in bulk. Each run stays within
 the current input slice and work quota; CR/LF preprocessing, diagnostics,
 token limits and insertion markers retain their scalar handling. Names still
-use HTML's ASCII-only case folding. Common names use span substring search over a
-static, delimiter-separated string; the match offset indexes a sparse table of
-the original string literals, not newly allocated substrings. Length-specific
-search ranges and delimiters enforce whole-name matches. A bounded, parse-local cache reuses
-other short names before allocating strings.
+use HTML's ASCII-only case folding. Common names use generated, length-first
+decision trees with discriminating UTF-16 positions and wide integer comparisons.
+Every character is verified before returning the canonical string literal;
+no input string is materialized. A bounded, parse-local cache reuses other short
+names before allocating strings. The generator, safety model and isolated
+comparison are documented in [Known-name recognition](Html/known-name-lookup.md).
 The cache uses xxHash3 over the UTF-16 bytes without an encoding allocation.
 Long names and cache collisions remain correct without process-global interning.
+
+Generated recognition also covers fixed HTML/SVG tree-construction names, XML
+keywords and catalog identifiers, and CSS values, properties, selectors, media
+features and at-rules. CSS keyword sets return canonical literals without
+allocating a normalized string or scanning a space-delimited list. Property
+metadata uses generated indices while keeping its existing context restrictions.
+The vocabularies and regeneration commands are documented in
+[Parser-wide recognition](Html/known-name-lookup.md#parser-wide-recognition).
+
+Parser dispatch uses `switch` statements or expressions for alternatives on the
+same token-kind, mode, grammar or status enum. Guarded cases retain their original
+priority and fallback behavior. Independent checks and sequential state updates
+remain separate when more than one branch must execute; XML's character and
+prefix recognition does not introduce enums solely to replace those checks.
 
 Ordinary text and attribute values carry internal immutable source slices from
 the tokenizer into the DOM. Each slice owns a reference to its source string and

@@ -5,6 +5,26 @@ namespace Jint.HtmlParser.Css.Values.Properties;
 internal static class CssPropertyCatalog
 {
     internal static IReadOnlyDictionary<string, string> Obligations { get; } = Create();
+    private static readonly string?[] Families = Index(Obligations);
+
+    internal static string? FindFamily(string name)
+    {
+        var index = CssPropertyNameLookup.Match(name);
+        return index >= 0 ? Families[index] : null;
+    }
+
+    internal static T?[] Index<T>(IReadOnlyDictionary<string, T> values) where T : class
+    {
+        var indexed = new T?[CssPropertyNameLookup.Count];
+        foreach (var pair in values)
+        {
+            var index = CssPropertyNameLookup.Match(pair.Key);
+            if (index < 0)
+                throw new InvalidOperationException($"Regenerate parser lookups: missing property '{pair.Key}'.");
+            indexed[index] = pair.Value;
+        }
+        return indexed;
+    }
 
     private static System.Collections.ObjectModel.ReadOnlyDictionary<string, string> Create()
     {

@@ -31,8 +31,7 @@ internal sealed partial class HtmlTreeBuilder
             if (!IsParsingTemplateContents) MergeAttributes(_open[0]);
             return false;
         }
-        if (name is "base" or "basefont" or "bgsound" or "link" or "meta" or "noframes" or
-            "script" or "style" or "template" or "title")
+        if (HtmlBaseBasefontBgsoundNames.Match(name))
         {
             InHead();
             return false;
@@ -71,7 +70,7 @@ internal sealed partial class HtmlTreeBuilder
             InsertTokenElement();
             return false;
         }
-        if (name is "pre" or "listing")
+        if (HtmlPreListingNames.Match(name))
         {
             if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
             InsertTokenElement();
@@ -102,7 +101,7 @@ internal sealed partial class HtmlTreeBuilder
             InsertTokenElement();
             return false;
         }
-        if (name is "dd" or "dt")
+        if (HtmlDdDtNames.Match(name))
         {
             _framesetOk = false;
             var dd = Last("dd");
@@ -148,7 +147,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (IsFormatting(name))
         {
-            if (name is "a" or "nobr") return !TrySpecialFormattingStart(name);
+            if (HtmlANobrNames.Match(name)) return !TrySpecialFormattingStart(name);
             if (_pendingFormattingElement is null)
             {
                 if (!TryReconstructFormatting()) return true;
@@ -157,7 +156,7 @@ internal sealed partial class HtmlTreeBuilder
             if (!TryAddFormattingElement()) return true;
             return false;
         }
-        if (name is "applet" or "marquee" or "object")
+        if (HtmlAppletMarqueeObjectNames.Match(name))
         {
             if (!TryReconstructFormatting()) return true;
             InsertTokenElement();
@@ -165,7 +164,7 @@ internal sealed partial class HtmlTreeBuilder
             _framesetOk = false;
             return false;
         }
-        if (name is "area" or "br" or "embed" or "img" or "keygen" or "wbr")
+        if (HtmlAreaBrEmbedNames.Match(name))
         {
             if (!TryReconstructFormatting()) return true;
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; _framesetOk = false;
@@ -199,7 +198,7 @@ internal sealed partial class HtmlTreeBuilder
             if (!_inputTypeHidden) _framesetOk = false;
             return false;
         }
-        if (name is "param" or "source" or "track")
+        if (HtmlParamSourceTrackNames.Match(name))
         {
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; return false;
         }
@@ -247,26 +246,26 @@ internal sealed partial class HtmlTreeBuilder
             EnterText(HtmlTextMode.RawText, name);
             return false;
         }
-        if (name is "select" or "option" or "optgroup") return SelectStart(name);
-        if (name is "rb" or "rtc" or "rp" or "rt")
+        if (HtmlSelectOptionOptgroupNames.Match(name)) return SelectStart(name);
+        if (HtmlRbRtcRpNames.Match(name))
         {
             if (InScope("ruby"))
             {
-                if (!TryGenerateImpliedEndTags(name is "rp" or "rt" ? "rtc" : null)) return true;
-                if (name is "rb" or "rtc" ? !IsHtmlElement(Current, "ruby") : !IsHtmlElement(Current, "ruby") && !IsHtmlElement(Current, "rtc"))
+                if (!TryGenerateImpliedEndTags(HtmlRpRtNames.Match(name) ? "rtc" : null)) return true;
+                if (HtmlRbRtcNames.Match(name) ? !IsHtmlElement(Current, "ruby") : !IsHtmlElement(Current, "ruby") && !IsHtmlElement(Current, "rtc"))
                     Error("misnested-ruby-start-tag");
             }
             InsertTokenElement();
             return false;
         }
-        if (name is "math" or "svg")
+        if (HtmlMathSvgNames.Match(name))
         {
             if (!TryReconstructFormatting()) return true;
             if (!TryInsertForeignTokenElement(name == "math" ? Namespaces.MathMl : Namespaces.Svg)) return true;
             if (_token.SelfClosing) { Pop(); _acknowledgedSelfClosing = true; }
             return false;
         }
-        if (name is "caption" or "col" or "colgroup" or "frame" or "head" or "tbody" or "td" or "tfoot" or "th" or "thead" or "tr")
+        if (HtmlCaptionColColgroupNames.Match(name))
         {
             Error("unexpected-start-tag"); return false;
         }
@@ -284,14 +283,14 @@ internal sealed partial class HtmlTreeBuilder
             SchedulePopTo(Last("table"), reprocess: false, resetMode: true);
             return false;
         }
-        if (name is "body" or "html")
+        if (HtmlBodyHtmlNames.Match(name))
         {
             if (!InScope("body")) { Error("unexpected-end-tag"); return false; }
             if (_unexpectedOpenCount != 0) Error("misnested-body-end-tag");
             _mode = Mode.AfterBody;
             return name == "html";
         }
-        if (IsBlockEnd(name) || name is "button" or "select")
+        if (IsBlockEnd(name) || HtmlButtonSelectNames.Match(name))
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
@@ -331,7 +330,7 @@ internal sealed partial class HtmlTreeBuilder
             SchedulePopTo(Last("li"), reprocess: false);
             return false;
         }
-        if (name is "dd" or "dt")
+        if (HtmlDdDtNames.Match(name))
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags(name)) return true;
@@ -353,7 +352,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             return !TryAdoptionAgency(name);
         }
-        if (name is "applet" or "marquee" or "object")
+        if (HtmlAppletMarqueeObjectNames.Match(name))
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
@@ -395,16 +394,9 @@ internal sealed partial class HtmlTreeBuilder
         _pendingShiftIndex = index;
     }
 
-    private static bool IsFormatting(string name) => name is "a" or "b" or "big" or "code" or "em" or
-        "font" or "i" or "nobr" or "s" or "small" or "strike" or "strong" or "tt" or "u";
+    private static bool IsFormatting(string name) => HtmlFormattingElementLookup.Match(name);
 
-    private static bool IsBlockStart(string name) => name is "address" or "article" or "aside" or
-        "blockquote" or "center" or "details" or "dialog" or "dir" or "div" or "dl" or "fieldset" or
-        "figcaption" or "figure" or "footer" or "header" or "hgroup" or "main" or "menu" or "nav" or
-        "ol" or "p" or "search" or "section" or "summary" or "ul";
+    private static bool IsBlockStart(string name) => HtmlBlockStartLookup.Match(name);
 
-    private static bool IsBlockEnd(string name) => name is "address" or "article" or "aside" or
-        "blockquote" or "center" or "details" or "dialog" or "dir" or "div" or "dl" or "fieldset" or
-        "figcaption" or "figure" or "footer" or "header" or "hgroup" or "listing" or "main" or "menu" or
-        "nav" or "ol" or "pre" or "search" or "section" or "summary" or "ul";
+    private static bool IsBlockEnd(string name) => HtmlBlockEndLookup.Match(name);
 }

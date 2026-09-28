@@ -79,9 +79,7 @@ internal static class HtmlDoctypeClassifier
     internal static DocumentMode Classify(HtmlToken token)
     {
         if (token.ForceQuirks || !Equal(token.Name, "html") ||
-            Equal(token.PublicIdentifier, "-//W3O//DTD W3 HTML Strict 3.0//EN//") ||
-            Equal(token.PublicIdentifier, "-/W3C/DTD HTML 4.0 Transitional/EN") ||
-            Equal(token.PublicIdentifier, "HTML") ||
+            HtmlQuirksPublicIdLookup.Match(token.PublicIdentifier) ||
             Equal(token.SystemIdentifier, "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd") ||
             HasPrefix(token.PublicIdentifier, QuirksPublicPrefixes) ||
             (string.IsNullOrEmpty(token.SystemIdentifier) && HasPrefix(token.PublicIdentifier, Html401Prefixes)))

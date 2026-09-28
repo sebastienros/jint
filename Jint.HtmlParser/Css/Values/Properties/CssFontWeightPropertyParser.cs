@@ -18,7 +18,7 @@ internal static class CssFontWeightPropertyParser
 
     internal static CssPropertyResult ParseComponent(CssComponentValue part, int maximumDepth, CssValueWork work)
     {
-        if (CssPropertyParser.Keyword(part, "normal bold bolder lighter", work) is { } keyword)
+        if (CssPropertyParser.Keyword(part, CssKeywordSet.NormalBoldBolderLighter, work) is { } keyword)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
         var atom = CssPrimitiveParser.ParseNumericAtom(new CssComponentValueList([part]), work);
         if (atom.IsMatch)

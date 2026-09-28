@@ -22,72 +22,6 @@ internal enum CssUnit
 internal static class CssUnits
 {
     // CSS Values 4, §§ 6–7; CSS Conditional 5, § 2.2; Editor's Draft, 2026-09-23.
-    private static readonly Dictionary<string, CssUnit> Units = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["px"] = CssUnit.Px,
-        ["cm"] = CssUnit.Cm,
-        ["mm"] = CssUnit.Mm,
-        ["q"] = CssUnit.Q,
-        ["in"] = CssUnit.In,
-        ["pt"] = CssUnit.Pt,
-        ["pc"] = CssUnit.Pc,
-        ["em"] = CssUnit.Em,
-        ["rem"] = CssUnit.Rem,
-        ["ex"] = CssUnit.Ex,
-        ["rex"] = CssUnit.Rex,
-        ["cap"] = CssUnit.Cap,
-        ["rcap"] = CssUnit.Rcap,
-        ["ch"] = CssUnit.Ch,
-        ["rch"] = CssUnit.Rch,
-        ["ic"] = CssUnit.Ic,
-        ["ric"] = CssUnit.Ric,
-        ["lh"] = CssUnit.Lh,
-        ["rlh"] = CssUnit.Rlh,
-        ["vw"] = CssUnit.Vw,
-        ["vh"] = CssUnit.Vh,
-        ["vi"] = CssUnit.Vi,
-        ["vb"] = CssUnit.Vb,
-        ["vmin"] = CssUnit.Vmin,
-        ["vmax"] = CssUnit.Vmax,
-        ["svw"] = CssUnit.Svw,
-        ["svh"] = CssUnit.Svh,
-        ["svi"] = CssUnit.Svi,
-        ["svb"] = CssUnit.Svb,
-        ["svmin"] = CssUnit.Svmin,
-        ["svmax"] = CssUnit.Svmax,
-        ["lvw"] = CssUnit.Lvw,
-        ["lvh"] = CssUnit.Lvh,
-        ["lvi"] = CssUnit.Lvi,
-        ["lvb"] = CssUnit.Lvb,
-        ["lvmin"] = CssUnit.Lvmin,
-        ["lvmax"] = CssUnit.Lvmax,
-        ["dvw"] = CssUnit.Dvw,
-        ["dvh"] = CssUnit.Dvh,
-        ["dvi"] = CssUnit.Dvi,
-        ["dvb"] = CssUnit.Dvb,
-        ["dvmin"] = CssUnit.Dvmin,
-        ["dvmax"] = CssUnit.Dvmax,
-        ["cqw"] = CssUnit.Cqw,
-        ["cqh"] = CssUnit.Cqh,
-        ["cqi"] = CssUnit.Cqi,
-        ["cqb"] = CssUnit.Cqb,
-        ["cqmin"] = CssUnit.Cqmin,
-        ["cqmax"] = CssUnit.Cqmax,
-        ["deg"] = CssUnit.Deg,
-        ["grad"] = CssUnit.Grad,
-        ["rad"] = CssUnit.Rad,
-        ["turn"] = CssUnit.Turn,
-        ["s"] = CssUnit.S,
-        ["ms"] = CssUnit.Ms,
-        ["hz"] = CssUnit.Hz,
-        ["khz"] = CssUnit.Khz,
-        ["dpi"] = CssUnit.Dpi,
-        ["dpcm"] = CssUnit.Dpcm,
-        ["dppx"] = CssUnit.Dppx,
-        ["x"] = CssUnit.X,
-        ["fr"] = CssUnit.Fr,
-    };
-
     internal static CssUnit Recognize(string text, CssValueWork work)
     {
         work.CheckCancellation();
@@ -106,7 +40,7 @@ internal static class CssUnits
             }
         }
         work.Charge(text.Length);
-        var result = Units.TryGetValue(text, out var unit) ? unit : CssUnit.None;
+        var result = CssUnitLookup.Match(text);
         work.CheckCancellation();
         return result;
     }

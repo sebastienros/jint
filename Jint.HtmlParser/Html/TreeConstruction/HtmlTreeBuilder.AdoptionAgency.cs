@@ -492,8 +492,8 @@ internal sealed partial class HtmlTreeBuilder
     private static bool IsSpecialElement(Element element) => element.NamespaceUri switch
     {
         Namespaces.Html => IsSpecial(element.LocalName),
-        Namespaces.MathMl => element.LocalName is "mi" or "mo" or "mn" or "ms" or "mtext" or "annotation-xml",
-        Namespaces.Svg => element.LocalName is "foreignObject" or "desc" or "title",
+        Namespaces.MathMl => HtmlMiMoMnNames.Match(element.LocalName),
+        Namespaces.Svg => HtmlForeignObjectDescTitleNames.Match(element.LocalName),
         _ => false
     };
 
@@ -559,8 +559,8 @@ internal sealed partial class HtmlTreeBuilder
         if (IsSpecialElement(element))
         {
             Insert(_specialIndexes, index);
-            if (element.LocalName is not ("address" or "div" or "p" or "li")) Insert(_liStops, index);
-            if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) Insert(_ddDtStops, index);
+            if (!HtmlAddressDivPNames.Match(element.LocalName)) Insert(_liStops, index);
+            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) Insert(_ddDtStops, index);
         }
         if (IsScopeBoundary(element)) Insert(_scopeStops, index);
         if (IsResetModeElement(element)) Insert(_resetModeIndexes, index);
@@ -636,8 +636,8 @@ internal sealed partial class HtmlTreeBuilder
         if (IsSpecialElement(element))
         {
             Shift(_specialIndexes, oldIndex);
-            if (element.LocalName is not ("address" or "div" or "p" or "li")) Shift(_liStops, oldIndex);
-            if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) Shift(_ddDtStops, oldIndex);
+            if (!HtmlAddressDivPNames.Match(element.LocalName)) Shift(_liStops, oldIndex);
+            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) Shift(_ddDtStops, oldIndex);
         }
         if (IsScopeBoundary(element)) Shift(_scopeStops, oldIndex);
         if (IsResetModeElement(element)) Shift(_resetModeIndexes, oldIndex);

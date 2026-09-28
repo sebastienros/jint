@@ -75,12 +75,19 @@ internal sealed partial class CssSyntaxParser
         while (index < values.Count)
         {
             PollCancellation();
-            if (IsToken(values[index], CssTokenKind.Whitespace)) { index++; continue; }
-            // At-rules are consumed for recovery but never become keyframe children.
-            if (IsToken(values[index], CssTokenKind.AtKeyword))
+            var value = values[index];
+            if (value.Kind == CssComponentKind.Token)
             {
-                ConsumeAtRule(values, ref index, end, block.IsClosed);
-                continue;
+                switch (value.Token.Kind)
+                {
+                    case CssTokenKind.Whitespace:
+                        index++;
+                        continue;
+                    case CssTokenKind.AtKeyword:
+                        // At-rules are consumed for recovery but never become keyframe children.
+                        ConsumeAtRule(values, ref index, end, block.IsClosed);
+                        continue;
+                }
             }
             var rule = ConsumeQualifiedRule(values, ref index, end, nested: false);
             if (rule is not null) rules.Add(rule);
@@ -117,18 +124,20 @@ internal sealed partial class CssSyntaxParser
         while (index < values.Count)
         {
             PollCancellation();
-            if (IsToken(values[index], CssTokenKind.Whitespace) ||
-                IsToken(values[index], CssTokenKind.Semicolon))
+            var value = values[index];
+            if (value.Kind == CssComponentKind.Token)
             {
-                index++;
-                continue;
-            }
-            if (IsToken(values[index], CssTokenKind.AtKeyword))
-            {
-                FlushRun();
-                var rule = ConsumeAtRule(values, ref index, terminalOffset, closed);
-                if (rule is not null) items.Add(CssBlockItemSyntax.FromRule(rule));
-                continue;
+                switch (value.Token.Kind)
+                {
+                    case CssTokenKind.Whitespace or CssTokenKind.Semicolon:
+                        index++;
+                        continue;
+                    case CssTokenKind.AtKeyword:
+                        FlushRun();
+                        var rule = ConsumeAtRule(values, ref index, terminalOffset, closed);
+                        if (rule is not null) items.Add(CssBlockItemSyntax.FromRule(rule));
+                        continue;
+                }
             }
 
             var end = index;

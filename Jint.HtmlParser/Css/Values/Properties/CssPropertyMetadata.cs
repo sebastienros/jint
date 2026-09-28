@@ -30,6 +30,7 @@ internal static class CssPropertyRegistry
 {
     private static readonly string[] OverflowLonghands = ["overflow-x", "overflow-y"];
     private static readonly System.Collections.ObjectModel.ReadOnlyDictionary<string, CssPropertyMetadata> Entries = Build();
+    private static readonly CssPropertyMetadata?[] IndexedEntries = CssPropertyCatalog.Index(Entries);
     internal static IReadOnlyDictionary<string, CssPropertyMetadata> Completed => Entries;
 
     internal static string NormalizeName(string name, CssValueWork? work = null)
@@ -52,9 +53,13 @@ internal static class CssPropertyRegistry
 
     private readonly record struct NameNormalization(string Name, CssValueWork? Work);
 
-    internal static CssPropertyMetadata? Find(string normalizedName, CssDeclarationContext context) =>
-        context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe &&
-        Entries.TryGetValue(normalizedName, out var entry) ? entry : null;
+    internal static CssPropertyMetadata? Find(string normalizedName, CssDeclarationContext context)
+    {
+        if (context is not (CssDeclarationContext.Style or CssDeclarationContext.Keyframe)) return null;
+        ArgumentNullException.ThrowIfNull(normalizedName);
+        var index = CssPropertyNameLookup.Match(normalizedName);
+        return index >= 0 ? IndexedEntries[index] : null;
+    }
 
     private static System.Collections.ObjectModel.ReadOnlyDictionary<string, CssPropertyMetadata> Build()
     {

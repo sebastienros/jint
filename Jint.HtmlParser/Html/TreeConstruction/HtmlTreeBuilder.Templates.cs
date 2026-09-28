@@ -74,9 +74,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         var popped = false;
         while (_open.Count > 0 && Current.NamespaceUri == Namespaces.Html &&
-               Current.LocalName is "caption" or "colgroup" or "dd" or "dt" or "li" or "optgroup" or
-                   "option" or "p" or "rb" or "rp" or "rt" or "rtc" or "tbody" or "td" or "tfoot" or
-                   "th" or "thead" or "tr")
+               HtmlCaptionColgroupDdNames.Match(Current.LocalName))
         {
             if (_remaining <= 0 && popped) return false;
             Pop();
@@ -94,17 +92,16 @@ internal sealed partial class HtmlTreeBuilder
             case HtmlTokenKind.ProcessingInstruction:
             case HtmlTokenKind.Doctype:
                 return InBody();
-            case HtmlTokenKind.StartTag when name is "base" or "basefont" or "bgsound" or "link" or
-                "meta" or "noframes" or "script" or "style" or "template" or "title":
+            case HtmlTokenKind.StartTag when HtmlBaseBasefontBgsoundNames.Match(name):
             case HtmlTokenKind.EndTag when name == "template":
                 return InHead();
             case HtmlTokenKind.StartTag:
-                var next = name switch
+                var next = HtmlTemplateModeLookup.Match(name) switch
                 {
-                    "caption" or "colgroup" or "tbody" or "tfoot" or "thead" => Mode.InTable,
-                    "col" => Mode.InColumnGroup,
-                    "tr" => Mode.InTableBody,
-                    "td" or "th" => Mode.InRow,
+                    HtmlTemplateModeKind.Caption or HtmlTemplateModeKind.Colgroup or HtmlTemplateModeKind.Tbody or HtmlTemplateModeKind.Tfoot or HtmlTemplateModeKind.Thead => Mode.InTable,
+                    HtmlTemplateModeKind.Col => Mode.InColumnGroup,
+                    HtmlTemplateModeKind.Tr => Mode.InTableBody,
+                    HtmlTemplateModeKind.Td or HtmlTemplateModeKind.Th => Mode.InRow,
                     _ => Mode.InBody
                 };
                 _templateModes[^1] = next;

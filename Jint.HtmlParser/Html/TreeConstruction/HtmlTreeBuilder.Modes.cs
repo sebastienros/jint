@@ -7,20 +7,25 @@ internal sealed partial class HtmlTreeBuilder
     // HTML Standard §13.2.6.4.1–8, .17, .20 (2026-09-22).
     private bool InInitial()
     {
-        if (_token.Kind == HtmlTokenKind.Comment) { InsertComment(_document); return false; }
-        if (_token.Kind == HtmlTokenKind.ProcessingInstruction) { InsertProcessingInstruction(_document); return false; }
-        if (_token.Kind == HtmlTokenKind.Doctype)
+        switch (_token.Kind)
         {
-            if (_token.Name != "html" || _token.PublicIdentifier is not null ||
-                _token.SystemIdentifier is not null and not "about:legacy-compat")
-                Error("invalid-doctype");
-            if (_document.Doctype is null && _document.DocumentElement is null)
-                _document.AppendParsedChild(_document.CreateDocumentType(_token.Name ?? string.Empty,
-                    _token.PublicIdentifier ?? string.Empty, _token.SystemIdentifier ?? string.Empty));
-            if (!_context.IsSrcdoc && !_context.CannotChangeMode)
-                _document.SetParserMode(HtmlDoctypeClassifier.Classify(_token));
-            _mode = Mode.BeforeHtml;
-            return false;
+            case HtmlTokenKind.Comment:
+                { InsertComment(_document); return false; }
+            case HtmlTokenKind.ProcessingInstruction:
+                { InsertProcessingInstruction(_document); return false; }
+            case HtmlTokenKind.Doctype:
+                {
+                    if (_token.Name != "html" || _token.PublicIdentifier is not null ||
+                        _token.SystemIdentifier is not null and not "about:legacy-compat")
+                        Error("invalid-doctype");
+                    if (_document.Doctype is null && _document.DocumentElement is null)
+                        _document.AppendParsedChild(_document.CreateDocumentType(_token.Name ?? string.Empty,
+                            _token.PublicIdentifier ?? string.Empty, _token.SystemIdentifier ?? string.Empty));
+                    if (!_context.IsSrcdoc && !_context.CannotChangeMode)
+                        _document.SetParserMode(HtmlDoctypeClassifier.Classify(_token));
+                    _mode = Mode.BeforeHtml;
+                    return false;
+                }
         }
         if (!_context.IsSrcdoc) Error("missing-doctype");
         if (!_context.CannotChangeMode && !_context.IsSrcdoc) _document.SetParserMode(DocumentMode.Quirks);
@@ -39,7 +44,7 @@ internal sealed partial class HtmlTreeBuilder
                 InsertTokenElement(_document);
                 _mode = Mode.BeforeHead;
                 return false;
-            case HtmlTokenKind.EndTag when _token.Name is not ("head" or "body" or "html" or "br"):
+            case HtmlTokenKind.EndTag when !HtmlHeadBodyHtmlNames.Match(_token.Name):
                 Error("unexpected-end-tag"); return false;
             default:
                 InsertElement("html", parentOverride: _document);
@@ -60,7 +65,7 @@ internal sealed partial class HtmlTreeBuilder
                 _head = InsertTokenElement();
                 _mode = Mode.InHead;
                 return false;
-            case HtmlTokenKind.EndTag when _token.Name is not ("head" or "body" or "html" or "br"):
+            case HtmlTokenKind.EndTag when !HtmlHeadBodyHtmlNames.Match(_token.Name):
                 Error("unexpected-end-tag"); return false;
             default:
                 _head = InsertElement("head");
@@ -72,36 +77,44 @@ internal sealed partial class HtmlTreeBuilder
     private bool InHead()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.Comment) { InsertComment(); return false; }
-        if (_token.Kind == HtmlTokenKind.ProcessingInstruction) { InsertProcessingInstruction(); return false; }
-        if (_token.Kind == HtmlTokenKind.Doctype) { Error("unexpected-doctype"); return false; }
-        if (_token.Kind == HtmlTokenKind.StartTag)
+        switch (_token.Kind)
         {
-            if (name == "html") { InBody(); return false; }
-            if (name is "base" or "basefont" or "bgsound" or "link" or "meta")
-            {
-                InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; return false;
-            }
-            if (name == "title") { EnterText(HtmlTextMode.RcData, name); return false; }
-            if (name is "noframes" or "style" || name == "noscript" && _scriptingEnabled)
-            {
-                EnterText(HtmlTextMode.RawText, name!); return false;
-            }
-            if (name == "noscript")
-            {
-                InsertTokenElement();
-                _mode = Mode.InHeadNoscript;
-                return false;
-            }
-            if (name == "script") { EnterText(HtmlTextMode.ScriptData, name); return false; }
-            if (name == "template") { StartTemplate(); return false; }
-            if (name == "head") { Error("unexpected-head-start-tag"); return false; }
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag)
-        {
-            if (name == "head") { Pop(); _mode = Mode.AfterHead; return false; }
-            if (name == "template") return !EndTemplate();
-            if (name is not ("body" or "html" or "br")) { Error("unexpected-end-tag"); return false; }
+            case HtmlTokenKind.Comment:
+                { InsertComment(); return false; }
+            case HtmlTokenKind.ProcessingInstruction:
+                { InsertProcessingInstruction(); return false; }
+            case HtmlTokenKind.Doctype:
+                { Error("unexpected-doctype"); return false; }
+            case HtmlTokenKind.StartTag:
+                {
+                    if (name == "html") { InBody(); return false; }
+                    if (HtmlBaseBasefontBgsoundLinkNames.Match(name))
+                    {
+                        InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; return false;
+                    }
+                    if (name == "title") { EnterText(HtmlTextMode.RcData, name); return false; }
+                    if (HtmlNoframesStyleNames.Match(name) || name == "noscript" && _scriptingEnabled)
+                    {
+                        EnterText(HtmlTextMode.RawText, name!); return false;
+                    }
+                    if (name == "noscript")
+                    {
+                        InsertTokenElement();
+                        _mode = Mode.InHeadNoscript;
+                        return false;
+                    }
+                    if (name == "script") { EnterText(HtmlTextMode.ScriptData, name); return false; }
+                    if (name == "template") { StartTemplate(); return false; }
+                    if (name == "head") { Error("unexpected-head-start-tag"); return false; }
+                }
+                break;
+            case HtmlTokenKind.EndTag:
+                {
+                    if (name == "head") { Pop(); _mode = Mode.AfterHead; return false; }
+                    if (name == "template") return !EndTemplate();
+                    if (!HtmlBodyHtmlBrNames.Match(name)) { Error("unexpected-end-tag"); return false; }
+                }
+                break;
         }
         if (!IsHtmlElement(Current, "head"))
             throw new InvalidOperationException("The in-head mode lost its head element.");
@@ -113,21 +126,26 @@ internal sealed partial class HtmlTreeBuilder
     private bool InHeadNoscript()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.Doctype) { Error("unexpected-doctype"); return false; }
-        if (_token.Kind == HtmlTokenKind.StartTag && name == "html") { InBody(); return false; }
-        if (_token.Kind == HtmlTokenKind.EndTag && name == "noscript")
+        switch (_token.Kind)
         {
-            Pop(); _mode = Mode.InHead; return false;
-        }
-        if (_token.Kind is HtmlTokenKind.Comment or HtmlTokenKind.ProcessingInstruction ||
-            _token.Kind == HtmlTokenKind.StartTag && name is "basefont" or "bgsound" or "link" or "meta" or "noframes" or "style")
-        {
-            InHead(); return false;
-        }
-        if (_token.Kind == HtmlTokenKind.StartTag && name is "head" or "noscript" ||
-            _token.Kind == HtmlTokenKind.EndTag && name != "br")
-        {
-            Error("unexpected-token-in-head-noscript"); return false;
+            case HtmlTokenKind.Doctype:
+                { Error("unexpected-doctype"); return false; }
+            case HtmlTokenKind.StartTag when name == "html":
+                { InBody(); return false; }
+            case HtmlTokenKind.EndTag when name == "noscript":
+                {
+                    Pop(); _mode = Mode.InHead; return false;
+                }
+            case HtmlTokenKind.Comment or HtmlTokenKind.ProcessingInstruction:
+            case HtmlTokenKind.StartTag when HtmlBasefontBgsoundLinkNames.Match(name):
+                {
+                    InHead(); return false;
+                }
+            case HtmlTokenKind.StartTag when HtmlHeadNoscriptNames.Match(name):
+            case HtmlTokenKind.EndTag when name != "br":
+                {
+                    Error("unexpected-token-in-head-noscript"); return false;
+                }
         }
         Error("unexpected-token-in-head-noscript");
         Pop(); _mode = Mode.InHead; return true;
@@ -136,36 +154,44 @@ internal sealed partial class HtmlTreeBuilder
     private bool InAfterHead()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.Comment) { InsertComment(); return false; }
-        if (_token.Kind == HtmlTokenKind.ProcessingInstruction) { InsertProcessingInstruction(); return false; }
-        if (_token.Kind == HtmlTokenKind.Doctype) { Error("unexpected-doctype"); return false; }
-        if (_token.Kind == HtmlTokenKind.StartTag)
+        switch (_token.Kind)
         {
-            if (name == "html") { InBody(); return false; }
-            if (name == "body")
-            {
-                InsertTokenElement(); _framesetOk = false; _mode = Mode.InBody; return false;
-            }
-            if (name == "frameset")
-            {
-                InsertTokenElement(); _mode = Mode.InFrameset; return false;
-            }
-            if (name is "base" or "basefont" or "bgsound" or "link" or "meta" or "noframes" or "script" or "style" or "template" or "title")
-            {
-                Error("head-content-after-head");
-                CheckDepth(1); // The temporary head entry counts toward the open-stack bound.
-                _temporaryHeadDepth = 1;
-                _headInsertionOverride = _head ?? throw new InvalidOperationException("Missing head pointer.");
-                try { InHead(); }
-                finally { _headInsertionOverride = null; _temporaryHeadDepth = 0; }
-                return false;
-            }
-            if (name == "head") { Error("unexpected-head-start-tag"); return false; }
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag)
-        {
-            if (name == "template") return !EndTemplate();
-            if (name is not ("body" or "html" or "br")) { Error("unexpected-end-tag"); return false; }
+            case HtmlTokenKind.Comment:
+                { InsertComment(); return false; }
+            case HtmlTokenKind.ProcessingInstruction:
+                { InsertProcessingInstruction(); return false; }
+            case HtmlTokenKind.Doctype:
+                { Error("unexpected-doctype"); return false; }
+            case HtmlTokenKind.StartTag:
+                {
+                    if (name == "html") { InBody(); return false; }
+                    if (name == "body")
+                    {
+                        InsertTokenElement(); _framesetOk = false; _mode = Mode.InBody; return false;
+                    }
+                    if (name == "frameset")
+                    {
+                        InsertTokenElement(); _mode = Mode.InFrameset; return false;
+                    }
+                    if (HtmlBaseBasefontBgsoundNames.Match(name))
+                    {
+                        Error("head-content-after-head");
+                        CheckDepth(1); // The temporary head entry counts toward the open-stack bound.
+                        _temporaryHeadDepth = 1;
+                        _headInsertionOverride = _head ?? throw new InvalidOperationException("Missing head pointer.");
+                        try { InHead(); }
+                        finally { _headInsertionOverride = null; _temporaryHeadDepth = 0; }
+                        return false;
+                    }
+                    if (name == "head") { Error("unexpected-head-start-tag"); return false; }
+                }
+                break;
+            case HtmlTokenKind.EndTag:
+                {
+                    if (name == "template") return !EndTemplate();
+                    if (!HtmlBodyHtmlBrNames.Match(name)) { Error("unexpected-end-tag"); return false; }
+                }
+                break;
         }
         InsertElement("body");
         _framesetOk = true;
@@ -182,49 +208,57 @@ internal sealed partial class HtmlTreeBuilder
             if (state.ParserSourceChanges != changes && state.ParserSourceLocation is { } source)
                 state.ParserSourceLocation = source.AsMixed();
         }
-        if (_token.Kind == HtmlTokenKind.EndOfFile)
+        switch (_token.Kind)
         {
-            Error("eof-in-text");
-            if (IsHtmlElement(Current, "script")) Current.GetHtmlState()!.Script!.AlreadyStarted = true;
-            Pop();
-            _mode = _originalTextMode;
-            return true;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag)
-        {
-            if (IsHtmlElement(Current, "script") && ScriptRequestsEnabled &&
-                _scriptingMode is not (HtmlParserScriptingMode.Inert or HtmlParserScriptingMode.Fragment))
-            {
-                if (!_scriptCheckpointCompleted)
+            case HtmlTokenKind.EndOfFile:
+                Error("eof-in-text");
+                if (IsHtmlElement(Current, "script")) Current.GetHtmlState()!.Script!.AlreadyStarted = true;
+                Pop();
+                _mode = _originalTextMode;
+                return true;
+            case HtmlTokenKind.EndTag:
+                if (IsHtmlElement(Current, "script") && ScriptRequestsEnabled &&
+                    _scriptingMode is not (HtmlParserScriptingMode.Inert or HtmlParserScriptingMode.Fragment))
                 {
-                    ScriptBoundary = Current;
-                    return false;
+                    if (!_scriptCheckpointCompleted)
+                    {
+                        ScriptBoundary = Current;
+                        return false;
+                    }
+                    ClosedScript = Current;
+                    ScriptBoundary = null;
+                    _scriptCheckpointCompleted = false;
                 }
-                ClosedScript = Current;
-                ScriptBoundary = null;
-                _scriptCheckpointCompleted = false;
-            }
-            Pop();
-            _mode = _originalTextMode;
-            return false;
+                Pop();
+                _mode = _originalTextMode;
+                return false;
+            default:
+                throw new InvalidOperationException("Unexpected token in text mode.");
         }
-        throw new InvalidOperationException("Unexpected token in text mode.");
     }
 
     private bool InAfterBody()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.Comment) { InsertComment(_open[0]); return false; }
-        if (_token.Kind == HtmlTokenKind.ProcessingInstruction) { InsertProcessingInstruction(_open[0]); return false; }
-        if (_token.Kind == HtmlTokenKind.Doctype) { Error("unexpected-doctype"); return false; }
-        if (_token.Kind == HtmlTokenKind.StartTag && name == "html") { InBody(); return false; }
-        if (_token.Kind == HtmlTokenKind.EndTag && name == "html")
+        switch (_token.Kind)
         {
-            if (_fragmentContext is not null) Error("unexpected-html-end-tag");
-            else _mode = Mode.AfterAfterBody;
-            return false;
+            case HtmlTokenKind.Comment:
+                { InsertComment(_open[0]); return false; }
+            case HtmlTokenKind.ProcessingInstruction:
+                { InsertProcessingInstruction(_open[0]); return false; }
+            case HtmlTokenKind.Doctype:
+                { Error("unexpected-doctype"); return false; }
+            case HtmlTokenKind.StartTag when name == "html":
+                { InBody(); return false; }
+            case HtmlTokenKind.EndTag when name == "html":
+                {
+                    if (_fragmentContext is not null) Error("unexpected-html-end-tag");
+                    else _mode = Mode.AfterAfterBody;
+                    return false;
+                }
+            case HtmlTokenKind.EndOfFile:
+                return false;
         }
-        if (_token.Kind == HtmlTokenKind.EndOfFile) return false;
         Error("unexpected-token-after-body");
         _mode = Mode.InBody;
         return true;
@@ -232,13 +266,20 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool InAfterAfterBody()
     {
-        if (_token.Kind == HtmlTokenKind.Comment) { InsertComment(_document); return false; }
-        if (_token.Kind == HtmlTokenKind.ProcessingInstruction) { InsertProcessingInstruction(_document); return false; }
-        if (_token.Kind == HtmlTokenKind.Doctype || _token.Kind == HtmlTokenKind.StartTag && _token.Name == "html")
+        switch (_token.Kind)
         {
-            InBody(); return false;
+            case HtmlTokenKind.Comment:
+                { InsertComment(_document); return false; }
+            case HtmlTokenKind.ProcessingInstruction:
+                { InsertProcessingInstruction(_document); return false; }
+            case HtmlTokenKind.Doctype:
+            case HtmlTokenKind.StartTag when _token.Name == "html":
+                {
+                    InBody(); return false;
+                }
+            case HtmlTokenKind.EndOfFile:
+                return false;
         }
-        if (_token.Kind == HtmlTokenKind.EndOfFile) return false;
         Error("unexpected-token-after-after-body");
         _mode = Mode.InBody;
         return true;
@@ -275,31 +316,28 @@ internal sealed partial class HtmlTreeBuilder
             switch (_mode)
             {
                 case Mode.Initial:
+                    if (White(c)) { _textIndex++; Charge(1); continue; }
+                    if (!_context.IsSrcdoc) Error("missing-doctype");
+                    if (!_context.CannotChangeMode && !_context.IsSrcdoc) _document.SetParserMode(DocumentMode.Quirks);
+                    _mode = Mode.BeforeHtml;
+                    continue;
                 case Mode.BeforeHtml:
+                    if (White(c)) { _textIndex++; Charge(1); continue; }
+                    InsertElement("html", parentOverride: _document);
+                    _mode = Mode.BeforeHead;
+                    continue;
                 case Mode.BeforeHead:
                     if (White(c)) { _textIndex++; Charge(1); continue; }
-                    if (_mode == Mode.Initial)
-                    {
-                        if (!_context.IsSrcdoc) Error("missing-doctype");
-                        if (!_context.CannotChangeMode && !_context.IsSrcdoc) _document.SetParserMode(DocumentMode.Quirks);
-                        _mode = Mode.BeforeHtml;
-                    }
-                    else if (_mode == Mode.BeforeHtml)
-                    {
-                        InsertElement("html", parentOverride: _document);
-                        _mode = Mode.BeforeHead;
-                    }
-                    else
-                    {
-                        _head = InsertElement("head");
-                        _mode = Mode.InHead;
-                    }
+                    _head = InsertElement("head");
+                    _mode = Mode.InHead;
                     continue;
                 case Mode.InHead:
+                    if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
+                    Pop(); _mode = Mode.AfterHead;
+                    continue;
                 case Mode.InHeadNoscript:
                     if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
-                    if (_mode == Mode.InHeadNoscript) { Error("unexpected-token-in-head-noscript"); Pop(); _mode = Mode.InHead; }
-                    else { Pop(); _mode = Mode.AfterHead; }
+                    Error("unexpected-token-in-head-noscript"); Pop(); _mode = Mode.InHead;
                     continue;
                 case Mode.AfterHead:
                     if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
@@ -332,7 +370,7 @@ internal sealed partial class HtmlTreeBuilder
                 case Mode.InTableBody:
                 case Mode.InRow:
                     if (Current.NamespaceUri == Namespaces.Html &&
-                        Current.LocalName is "table" or "tbody" or "template" or "tfoot" or "thead" or "tr")
+                        HtmlTableTbodyTemplateNames.Match(Current.LocalName))
                     {
                         EnterTableText();
                         continue;

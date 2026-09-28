@@ -12,7 +12,7 @@ internal static class CssTransformParser
         work.CheckCancellation();
         if (grammar is not (CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale))
             throw new ArgumentOutOfRangeException(nameof(grammar));
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "none", work) is not null)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.None, work) is not null)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword("none", parts[0].Span));
         if (parts.Count == 0) return Invalid();
         var span = new CssSourceSpan(parts[0].Span.Start,
@@ -59,7 +59,7 @@ internal static class CssTransformParser
         var axisStart = angleIndex == 0 ? 1 : 0;
         if (parts.Count == 2)
         {
-            var axis = CssPropertyParser.Keyword(parts[axisStart], "x y z", work);
+            var axis = CssPropertyParser.Keyword(parts[axisStart], CssKeywordSet.XYZ, work);
             if (axis is null) return Invalid();
             x = Constant(axis == "x" ? 1 : 0, CssUnit.None, parts[axisStart].Span, work);
             y = Constant(axis == "y" ? 1 : 0, CssUnit.None, parts[axisStart].Span, work);
@@ -118,17 +118,28 @@ internal static class CssTransformParser
             if (production == CssMathProduction.NumberOrPercentage && kind == CssNumericKind.Percentage)
                 return CssPropertyResult.Accepted(Constant(finite / 100, CssUnit.None, part.Span, work));
             var text = CssMathSerializer.SerializeFiniteNumber(finite, work);
-            if (kind == CssNumericKind.Percentage) text += "%";
-            else if (kind == CssNumericKind.Dimension) text += unit.ToString().ToLowerInvariant();
+            switch (kind)
+            {
+                case CssNumericKind.Percentage:
+                    text += "%";
+                    break;
+                case CssNumericKind.Dimension:
+                    text += unit.ToString().ToLowerInvariant();
+                    break;
+            }
             work.Charge(text.Length);
             return CssPropertyResult.Accepted(CssPropertyValue.Number(new(kind, number, unit, token.IsInteger, part.Span), text));
         }
         var percentages = production == CssMathProduction.LengthPercentage ? CssMathPercentageMode.Length :
             production == CssMathProduction.NumberOrPercentage ? CssMathPercentageMode.Raw : CssMathPercentageMode.Forbidden;
         var math = CssMathParser.ParseMath(part, new(production, percentages, range, maximumNestingDepth: maximumDepth, ancestorNestingDepth: ancestorDepth), work);
-        if (math.Status == CssMathParseStatus.RequiresLaterGrammar)
-            return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "math:" + math.PendingFunction);
-        if (math.Status != CssMathParseStatus.Match) return Invalid();
+        switch (math.Status)
+        {
+            case CssMathParseStatus.RequiresLaterGrammar:
+                return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "math:" + math.PendingFunction);
+            case not CssMathParseStatus.Match:
+                return Invalid();
+        }
         var value = production == CssMathProduction.NumberOrPercentage ? ScaleMath(math.Value, work) : math.Value;
         return CssPropertyResult.Accepted(CssPropertyValue.Calculation(value, CssMathSerializer.SerializeSpecified(value, work)));
     }

@@ -41,23 +41,29 @@ internal sealed class CssKeyframeKeys(CssNumber[] values, string text)
                 continue;
             }
             CssNumber number;
-            if (token.Kind == CssTokenKind.Ident)
+            switch (token.Kind)
             {
-                if (CssAscii.EqualsIgnoreCase(token.Text, "from")) number = Zero;
-                else if (CssAscii.EqualsIgnoreCase(token.Text, "to")) number = Hundred;
-                else
-                {
-                    if (rangeName || !IsTimelineRange(token.Text)) return null;
-                    rangeName = true;
-                    continue;
-                }
+                case CssTokenKind.Ident:
+                    {
+                        if (CssAscii.EqualsIgnoreCase(token.Text, "from")) number = Zero;
+                        else if (CssAscii.EqualsIgnoreCase(token.Text, "to")) number = Hundred;
+                        else
+                        {
+                            if (rangeName || !IsTimelineRange(token.Text)) return null;
+                            rangeName = true;
+                            continue;
+                        }
+                    }
+                    break;
+                case CssTokenKind.Percentage:
+                    {
+                        number = CssNumber.FromValidatedToken(token.NumberText, work);
+                        if (number.Sign < 0 || number.CompareTo(Hundred, work) > 0) return null;
+                    }
+                    break;
+                default:
+                    return null;
             }
-            else if (token.Kind == CssTokenKind.Percentage)
-            {
-                number = CssNumber.FromValidatedToken(token.NumberText, work);
-                if (number.Sign < 0 || number.CompareTo(Hundred, work) > 0) return null;
-            }
-            else return null;
             if (rangeName) return null;
             if (numbers.Count != 0) builder.Append(", ");
             builder.Append(SerializeNumber(number, work)).Append('%');

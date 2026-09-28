@@ -72,32 +72,7 @@ internal static class HtmlInputTypes
         }
 
         // The type attribute is an ASCII case-insensitive keyword. Its value is not trimmed.
-        return value.Length switch
-        {
-            3 when EqualsAsciiIgnoreCase(value, "tel") => HtmlInputType.Tel,
-            3 when EqualsAsciiIgnoreCase(value, "url") => HtmlInputType.Url,
-            4 when EqualsAsciiIgnoreCase(value, "text") => HtmlInputType.Text,
-            4 when EqualsAsciiIgnoreCase(value, "date") => HtmlInputType.Date,
-            4 when EqualsAsciiIgnoreCase(value, "week") => HtmlInputType.Week,
-            4 when EqualsAsciiIgnoreCase(value, "time") => HtmlInputType.Time,
-            4 when EqualsAsciiIgnoreCase(value, "file") => HtmlInputType.File,
-            5 when EqualsAsciiIgnoreCase(value, "email") => HtmlInputType.Email,
-            5 when EqualsAsciiIgnoreCase(value, "month") => HtmlInputType.Month,
-            5 when EqualsAsciiIgnoreCase(value, "range") => HtmlInputType.Range,
-            5 when EqualsAsciiIgnoreCase(value, "color") => HtmlInputType.Color,
-            5 when EqualsAsciiIgnoreCase(value, "radio") => HtmlInputType.Radio,
-            5 when EqualsAsciiIgnoreCase(value, "image") => HtmlInputType.Image,
-            5 when EqualsAsciiIgnoreCase(value, "reset") => HtmlInputType.Reset,
-            6 when EqualsAsciiIgnoreCase(value, "hidden") => HtmlInputType.Hidden,
-            6 when EqualsAsciiIgnoreCase(value, "search") => HtmlInputType.Search,
-            6 when EqualsAsciiIgnoreCase(value, "number") => HtmlInputType.Number,
-            6 when EqualsAsciiIgnoreCase(value, "submit") => HtmlInputType.Submit,
-            6 when EqualsAsciiIgnoreCase(value, "button") => HtmlInputType.Button,
-            8 when EqualsAsciiIgnoreCase(value, "password") => HtmlInputType.Password,
-            8 when EqualsAsciiIgnoreCase(value, "checkbox") => HtmlInputType.Checkbox,
-            14 when EqualsAsciiIgnoreCase(value, "datetime-local") => HtmlInputType.DateTimeLocal,
-            _ => HtmlInputType.Text
-        };
+        return HtmlInputTypeLookup.Match(value);
     }
 
     internal static HtmlInputType Get(Element element)

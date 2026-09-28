@@ -6,19 +6,20 @@ namespace Jint.HtmlParser.Css.Values.Properties;
 // Text Decoration 4 §§2.1–2.6; Borders 4 <line-width>. Components are classified once.
 internal static class CssTextDecorationPropertyParser
 {
-    private const string Lines = "none underline overline line-through blink spelling-error grammar-error";
-    private const string Styles = "solid double dotted dashed wavy";
-    private const string ThicknessKeywords = "auto from-font hairline thin medium thick";
 
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts,
         int maximumDepth, CssValueWork work)
     {
         if (parts.Count == 0 || parts.Count > (grammar == CssPropertyGrammar.TextDecoration ? 7 :
                 grammar == CssPropertyGrammar.TextDecorationLine ? 4 : 1)) return Invalid();
-        if (grammar == CssPropertyGrammar.TextDecorationThickness) return Thickness(parts[0], maximumDepth, work);
-        if (grammar == CssPropertyGrammar.TextDecorationStyle)
-            return CssPropertyParser.Keyword(parts[0], Styles, work) is { } style
-                ? CssPropertyResult.Accepted(CssPropertyValue.Keyword(style, parts[0].Span)) : Invalid();
+        switch (grammar)
+        {
+            case CssPropertyGrammar.TextDecorationThickness:
+                return Thickness(parts[0], maximumDepth, work);
+            case CssPropertyGrammar.TextDecorationStyle:
+                return CssPropertyParser.Keyword(parts[0], CssKeywordSet.SolidDoubleDottedDashedEtc, work) is { } style
+                        ? CssPropertyResult.Accepted(CssPropertyValue.Keyword(style, parts[0].Span)) : Invalid();
+        }
         var index = 0;
         if (grammar == CssPropertyGrammar.TextDecorationLine)
         {
@@ -30,7 +31,7 @@ internal static class CssTextDecorationPropertyParser
         {
             work.Charge(1);
             var part = parts[index];
-            if (CssPropertyParser.Keyword(part, Lines, work) is not null)
+            if (CssPropertyParser.Keyword(part, CssKeywordSet.NoneUnderlineOverlineLineThroughEtc, work) is not null)
             {
                 if (line is not null) return Invalid(); // A nested line group cannot resume after another group.
                 var parsed = Line(parts, ref index, work);
@@ -39,12 +40,12 @@ internal static class CssTextDecorationPropertyParser
                 continue;
             }
             index++;
-            if (CssPropertyParser.Keyword(part, Styles, work) is { } style)
+            if (CssPropertyParser.Keyword(part, CssKeywordSet.SolidDoubleDottedDashedEtc, work) is { } style)
             {
                 if (decorationStyle is not null) return Invalid();
                 decorationStyle = CssPropertyValue.Keyword(style, part.Span);
             }
-            else if (CssPropertyParser.Keyword(part, ThicknessKeywords, work) is not null ||
+            else if (CssPropertyParser.Keyword(part, CssKeywordSet.AutoFromFontHairlineThinEtc, work) is not null ||
                 (part.Kind == CssComponentKind.Token && part.Token.Kind is CssTokenKind.Number or CssTokenKind.Dimension or CssTokenKind.Percentage) ||
                 (part.Kind == CssComponentKind.Function && CssMathParser.Recognize(part.FunctionName) != CssMathFunction.None))
             {
@@ -57,9 +58,13 @@ internal static class CssTextDecorationPropertyParser
             {
                 if (color is not null) return Invalid();
                 var parsed = CssColorParser.Parse(new CssComponentValueList([part]), maximumDepth, work);
-                if (parsed.Status == CssColorParseStatus.RequiresLaterGrammar)
-                    return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, parsed.Blocker);
-                if (parsed.Status != CssColorParseStatus.Match) return Invalid();
+                switch (parsed.Status)
+                {
+                    case CssColorParseStatus.RequiresLaterGrammar:
+                        return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, parsed.Blocker);
+                    case not CssColorParseStatus.Match:
+                        return Invalid();
+                }
                 color = CssPropertyValue.ColorValue(parsed.Value, CssColorSerializer.SerializeSpecified(parsed.Value, work));
             }
         }
@@ -74,7 +79,7 @@ internal static class CssTextDecorationPropertyParser
     }
 
     private static CssPropertyResult Thickness(CssComponentValue part, int maximumDepth, CssValueWork work) =>
-        CssPropertyParser.Keyword(part, ThicknessKeywords, work) is { } keyword
+        CssPropertyParser.Keyword(part, CssKeywordSet.AutoFromFontHairlineThinEtc, work) is { } keyword
             ? CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span))
             : CssSizingPropertyParser.Numeric(part, false, maximumDepth, work, nonnegative: false);
 
@@ -85,7 +90,7 @@ internal static class CssTextDecorationPropertyParser
         while (index < parts.Count)
         {
             work.Charge(1);
-            var bit = CssPropertyParser.Keyword(parts[index], Lines, work) switch
+            var bit = CssPropertyParser.Keyword(parts[index], CssKeywordSet.NoneUnderlineOverlineLineThroughEtc, work) switch
             {
                 "underline" => 1,
                 "overline" => 2,

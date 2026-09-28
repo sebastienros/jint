@@ -52,11 +52,15 @@ internal static class CssPropertyParser
             return NameFailure(name, context)!.Value;
         }
         var analysis = CssReferenceParser.Analyze(input, CssReferenceUse.PropertyValue, work);
-        if (analysis.Kind == CssReferenceAnalysisKind.InvalidSyntax) return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
-        if (analysis.Kind == CssReferenceAnalysisKind.PendingFeature)
-            return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, analysis.PendingFunction);
-        if (analysis.Kind == CssReferenceAnalysisKind.Deferred)
-            return CssPropertyResult.Accepted(CssPropertyValue.Reference(analysis.Program, ValueText(input, work), false), true);
+        switch (analysis.Kind)
+        {
+            case CssReferenceAnalysisKind.InvalidSyntax:
+                return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
+            case CssReferenceAnalysisKind.PendingFeature:
+                return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, analysis.PendingFunction);
+            case CssReferenceAnalysisKind.Deferred:
+                return CssPropertyResult.Accepted(CssPropertyValue.Reference(analysis.Program, ValueText(input, work), false), true);
+        }
         var wide = CssPrimitiveParser.ParseWideKeyword(input.Components, work);
         if (wide.IsMatch) return CssPropertyResult.Accepted(CssPropertyValue.Keyword(wide.Value.CanonicalSpelling(), wide.Span));
         if (entry.Grammar == CssPropertyGrammar.Color)
@@ -71,53 +75,51 @@ internal static class CssPropertyParser
             };
         }
         var parts = Significant(input.Components, work);
-        if (entry.Grammar == CssPropertyGrammar.InsetSide)
-            return CssInsetPropertyParser.Parse(parts, input.MaxNestingDepth, work);
-        if (entry.Grammar == CssPropertyGrammar.Cursor)
-            return CssCursorPropertyParser.Parse(parts, work);
-        if (entry.Grammar == CssPropertyGrammar.BackgroundClip)
-            return CssBackgroundClipPropertyParser.Parse(parts, work);
-        if (entry.Grammar == CssPropertyGrammar.TransformList)
-            return CssTransformListParser.Parse(parts, input.MaxNestingDepth, work);
-        if (entry.Grammar is CssPropertyGrammar.TextDecoration or CssPropertyGrammar.TextDecorationLine or
-            CssPropertyGrammar.TextDecorationStyle or CssPropertyGrammar.TextDecorationThickness)
-            return CssTextDecorationPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
-        if (entry.Grammar is CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale)
-            return CssTransformParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
-        if (entry.Grammar == CssPropertyGrammar.FontWeight)
-            return CssFontWeightPropertyParser.Parse(input, parts, work);
-        if (entry.Grammar == CssPropertyGrammar.FontSize)
-            return CssFontSizePropertyParser.Parse(parts, input.MaxNestingDepth, work);
-        if (entry.Grammar is CssPropertyGrammar.TextAlign or CssPropertyGrammar.TextAlignAll or CssPropertyGrammar.TextAlignLast)
-            return CssTextAlignPropertyParser.Parse(entry.Grammar, parts, work);
-        if (entry.Grammar is CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or
-            CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
-            return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);
-        if (entry.Grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.MarginSide or
-            CssPropertyGrammar.Padding or CssPropertyGrammar.PaddingSide)
-            return CssBoxPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
-        if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.MinSizing or CssPropertyGrammar.MaxSizing or CssPropertyGrammar.FlexBasis)
-            return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
-        if (entry.Grammar is CssPropertyGrammar.FlexFactor or CssPropertyGrammar.FlexDirection or
-            CssPropertyGrammar.FlexWrap or CssPropertyGrammar.Direction or CssPropertyGrammar.Flex or CssPropertyGrammar.FlexFlow)
-            return CssFlexPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
-        if (entry.Grammar is CssPropertyGrammar.AlignItems or CssPropertyGrammar.AlignSelf or
-            CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf)
-            return CssAlignmentPropertyParser.Parse(entry.Grammar, parts, work);
-        if (entry.Grammar is CssPropertyGrammar.ContainerName or CssPropertyGrammar.ContainerType or
-            CssPropertyGrammar.Container or CssPropertyGrammar.WritingMode)
-            return CssContainerPropertyParser.Parse(entry.Grammar, parts, work);
-        if (entry.Grammar == CssPropertyGrammar.Display) return Display(parts);
-        if (entry.Grammar is CssPropertyGrammar.Opacity or CssPropertyGrammar.ZIndex)
-            return Numeric(entry.Grammar, input, parts, work);
+        switch (entry.Grammar)
+        {
+            case CssPropertyGrammar.InsetSide:
+                return CssInsetPropertyParser.Parse(parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.Cursor:
+                return CssCursorPropertyParser.Parse(parts, work);
+            case CssPropertyGrammar.BackgroundClip:
+                return CssBackgroundClipPropertyParser.Parse(parts, work);
+            case CssPropertyGrammar.TransformList:
+                return CssTransformListParser.Parse(parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.TextDecoration or CssPropertyGrammar.TextDecorationLine or CssPropertyGrammar.TextDecorationStyle or CssPropertyGrammar.TextDecorationThickness:
+                return CssTextDecorationPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale:
+                return CssTransformParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.FontWeight:
+                return CssFontWeightPropertyParser.Parse(input, parts, work);
+            case CssPropertyGrammar.FontSize:
+                return CssFontSizePropertyParser.Parse(parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.TextAlign or CssPropertyGrammar.TextAlignAll or CssPropertyGrammar.TextAlignLast:
+                return CssTextAlignPropertyParser.Parse(entry.Grammar, parts, work);
+            case CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim:
+                return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);
+            case CssPropertyGrammar.Margin or CssPropertyGrammar.MarginSide or CssPropertyGrammar.Padding or CssPropertyGrammar.PaddingSide:
+                return CssBoxPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.Sizing or CssPropertyGrammar.MinSizing or CssPropertyGrammar.MaxSizing or CssPropertyGrammar.FlexBasis:
+                return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.FlexFactor or CssPropertyGrammar.FlexDirection or CssPropertyGrammar.FlexWrap or CssPropertyGrammar.Direction or CssPropertyGrammar.Flex or CssPropertyGrammar.FlexFlow:
+                return CssFlexPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+            case CssPropertyGrammar.AlignItems or CssPropertyGrammar.AlignSelf or CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf:
+                return CssAlignmentPropertyParser.Parse(entry.Grammar, parts, work);
+            case CssPropertyGrammar.ContainerName or CssPropertyGrammar.ContainerType or CssPropertyGrammar.Container or CssPropertyGrammar.WritingMode:
+                return CssContainerPropertyParser.Parse(entry.Grammar, parts, work);
+            case CssPropertyGrammar.Display:
+                return Display(parts);
+            case CssPropertyGrammar.Opacity or CssPropertyGrammar.ZIndex:
+                return Numeric(entry.Grammar, input, parts, work);
+        }
         var keywords = entry.Grammar switch
         {
-            CssPropertyGrammar.Visibility => "visible hidden collapse",
-            CssPropertyGrammar.Position => "static relative absolute sticky fixed",
-            CssPropertyGrammar.PointerEvents => "auto none visiblepainted visiblefill visiblestroke visible painted fill stroke all bounding-box",
-            CssPropertyGrammar.BoxSizing => "content-box border-box",
-            CssPropertyGrammar.TransformBox => "content-box border-box fill-box stroke-box view-box",
-            _ => "visible hidden clip scroll auto overlay"
+            CssPropertyGrammar.Visibility => CssKeywordSet.VisibleHiddenCollapse,
+            CssPropertyGrammar.Position => CssKeywordSet.StaticRelativeAbsoluteStickyEtc,
+            CssPropertyGrammar.PointerEvents => CssKeywordSet.AutoNoneVisiblepaintedVisiblefillEtc,
+            CssPropertyGrammar.BoxSizing => CssKeywordSet.ContentBoxBorderBox,
+            CssPropertyGrammar.TransformBox => CssKeywordSet.ContentBoxBorderBoxFillBoxStrokeBoxEtc,
+            _ => CssKeywordSet.VisibleHiddenClipScrollEtc
         };
         if (parts.Count < 1 || parts.Count > (entry.Grammar == CssPropertyGrammar.Overflow ? 2 : 1)) return Invalid();
         var first = Keyword(parts[0], keywords);
@@ -140,7 +142,7 @@ internal static class CssPropertyParser
             return ordinary ? null : CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
         if (CssPropertyRegistry.Find(normalizedName, context) is not null) return null;
         if (normalizedName == "all") return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "V0:all-reset");
-        if (CssPropertyCatalog.Obligations.TryGetValue(normalizedName, out var family))
+        if (CssPropertyCatalog.FindFamily(normalizedName) is { } family)
         {
             if (family == "V9" && ordinary) return CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty);
             return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar,
@@ -153,7 +155,7 @@ internal static class CssPropertyParser
         List<CssComponentValue> parts, CssValueWork work)
     {
         if (parts.Count != 1) return Invalid();
-        if (grammar == CssPropertyGrammar.ZIndex && Keyword(parts[0], "auto") is { } keyword)
+        if (grammar == CssPropertyGrammar.ZIndex && Keyword(parts[0], CssKeywordSet.Auto) is { } keyword)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, parts[0].Span));
         var atom = CssPrimitiveParser.ParseNumericAtom(input.Components, work);
         if (atom.IsMatch)
@@ -210,15 +212,15 @@ internal static class CssPropertyParser
     private static CssPropertyResult Display(List<CssComponentValue> parts)
     {
         if (parts.Count is < 1 or > 3) return Invalid();
-        if (parts.Count == 1 && Keyword(parts[0], "none contents table-row-group table-header-group table-footer-group table-row table-cell table-column-group table-column table-caption ruby-base ruby-text ruby-base-container ruby-text-container inline-block inline-table inline-flex inline-grid") is { } single)
+        if (parts.Count == 1 && Keyword(parts[0], CssKeywordSet.NoneContentsTableRowGroupTableHeaderGroupEtc) is { } single)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(single, parts[0].Span));
         string? outer = null, inner = null;
         var list = false;
         foreach (var part in parts)
         {
-            if (Keyword(part, "block inline run-in") is { } o && outer is null) outer = o;
-            else if (Keyword(part, "flow flow-root table flex grid ruby") is { } i && inner is null) inner = i;
-            else if (Keyword(part, "list-item") is not null && !list) list = true;
+            if (Keyword(part, CssKeywordSet.BlockInlineRunIn) is { } o && outer is null) outer = o;
+            else if (Keyword(part, CssKeywordSet.FlowFlowRootTableFlexEtc) is { } i && inner is null) inner = i;
+            else if (Keyword(part, CssKeywordSet.ListItem) is not null && !list) list = true;
             else return Invalid();
         }
         if (list && inner is not (null or "flow" or "flow-root")) return Invalid();
@@ -252,20 +254,20 @@ internal static class CssPropertyParser
         return parts;
     }
 
-    internal static string? Keyword(CssComponentValue value, string choices, CssValueWork? work = null)
+    internal static string? Keyword(CssComponentValue value, CssKeywordSet choices, CssValueWork? work = null)
     {
         if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Ident) return null;
-        var name = CssPropertyRegistry.NormalizeName(value.Token.Text, work);
-        var remaining = choices.AsSpan();
-        while (!remaining.IsEmpty)
+        var name = value.Token.Text;
+        work?.CheckCancellation();
+        if (!name.StartsWith("--", StringComparison.Ordinal))
         {
-            var space = remaining.IndexOf(' ');
-            var choice = space < 0 ? remaining : remaining[..space];
-            if (name.AsSpan().SequenceEqual(choice)) return choice.ToString();
-            if (space < 0) break;
-            remaining = remaining[(space + 1)..];
+            // Preserve NormalizeName's per-character cancellation cadence without allocating.
+            if (work is not null)
+                for (var i = 0; i < name.Length; i++) work.Charge(1);
+            work?.CheckCancellation();
+            name = CssKeywordAliasLookup.Match(name) ?? name;
         }
-        return null;
+        return CssKeywordLookup.Match(name, choices);
     }
 
     internal static string ValueText(CssReferenceInput input, CssValueWork work)

@@ -7,7 +7,6 @@ namespace Jint.HtmlParser.Html;
 internal sealed partial class HtmlTokenizer
 {
     private const int MaxCachedNameLength = 64;
-    private static readonly (string Source, string?[] ByOffset, (int Start, int Length)[] Ranges) KnownNames = CreateKnownNames();
 
     private StringSlice _textSource;
     private StringSlice _valueSource;
@@ -21,14 +20,11 @@ internal sealed partial class HtmlTokenizer
         const int Slots = 128;
         if (buffer.Length > MaxCachedNameLength) return Materialize(buffer);
         Poll();
-        Span<char> scratch = stackalloc char[MaxCachedNameLength + 2];
-        var name = scratch.Slice(1, buffer.Length);
+        Span<char> scratch = stackalloc char[MaxCachedNameLength];
+        var name = scratch[..buffer.Length];
         buffer.CopyTo(0, name, name.Length);
         ChargeCopy(name.Length);
-        scratch[0] = scratch[name.Length + 1] = '\0';
-        var range = KnownNames.Ranges[name.Length];
-        var knownOffset = KnownNames.Source.AsSpan(range.Start, range.Length).IndexOf(scratch[..(name.Length + 2)]);
-        if (knownOffset >= 0) return KnownNames.ByOffset[range.Start + knownOffset + 1]!;
+        if (HtmlKnownNames.Match(name) is { } knownName) return knownName;
         var slot = (int) (XxHash3.HashToUInt64(MemoryMarshal.AsBytes(name)) & (Slots - 1));
         ChargeCopy(name.Length);
         _names ??= new string[Slots];
@@ -45,33 +41,6 @@ internal sealed partial class HtmlTokenizer
             if (probe < 3) slot = (slot + 1) & (Slots - 1);
         }
         return _names[slot] = Materialize(buffer);
-    }
-
-    private static (string Source, string?[] ByOffset, (int Start, int Length)[] Ranges) CreateKnownNames()
-    {
-        string[] values =
-        [
-            "a", "b", "i", "p", "s", "u",
-            "br", "em", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "id", "li", "ol", "td", "th", "tr", "ul",
-            "alt", "div", "img", "rel", "src",
-            "body", "form", "head", "href", "html", "link", "meta", "name", "span", "type",
-            "class", "input", "label", "style", "table", "tbody", "tfoot", "thead", "title", "value",
-            "button", "option", "script", "select", "strong",
-            "content", "section", "template", "textarea"
-        ];
-        var source = string.Concat("\0", string.Join('\0', values), "\0");
-        var names = new string?[source.Length - values[^1].Length];
-        var ranges = new (int Start, int Length)[MaxCachedNameLength + 1];
-        var start = 1;
-        foreach (var name in values)
-        {
-            names[start] = name;
-            ref var range = ref ranges[name.Length];
-            if (range.Length == 0) range.Start = start - 1;
-            range.Length = start + name.Length - range.Start + 1;
-            start += name.Length + 1;
-        }
-        return (source, names, ranges);
     }
 
     private StringSlice TakeValue(StringBuilder buffer)

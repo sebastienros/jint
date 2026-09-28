@@ -97,15 +97,20 @@ internal static class CssSupports
                 frame.Join = join;
                 continue;
             }
-            if (item.Kind == CssComponentKind.Function)
+            switch (item.Kind)
             {
-                frame.Accept(Function(source, item, options, work));
-                continue;
-            }
-            if (item.Kind != CssComponentKind.SimpleBlock || item.OpeningDelimiter != '(')
-            {
-                frame.Accept(Result.Invalid);
-                continue;
+                case CssComponentKind.Function:
+                    {
+                        frame.Accept(Function(source, item, options, work));
+                        continue;
+                    }
+                case CssComponentKind.SimpleBlock when item.OpeningDelimiter == '(':
+                    break;
+                default:
+                    {
+                        frame.Accept(Result.Invalid);
+                        continue;
+                    }
             }
             var leaf = Operand(source, item.Values, options, work, out var nested);
             if (nested) stack.Push(new Frame(Significant(item.Values, work), generalEnclosed: true));

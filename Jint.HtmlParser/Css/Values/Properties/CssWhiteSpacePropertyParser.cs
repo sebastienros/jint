@@ -3,33 +3,34 @@ namespace Jint.HtmlParser.Css.Values.Properties;
 // CSS Text 4 §§3, 4.1–4.2, 5.1: shorthand expansion and canonical CSSOM values, no layout.
 internal static class CssWhiteSpacePropertyParser
 {
-    private const string Collapse = "collapse discard preserve preserve-breaks preserve-spaces break-spaces";
-    private const string Trimming = "discard-before discard-after discard-inner";
 
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts, CssValueWork work)
     {
         if (parts.Count == 0) return Invalid();
-        if (grammar is CssPropertyGrammar.WhiteSpaceCollapse or CssPropertyGrammar.TextWrapMode)
+        switch (grammar)
         {
-            if (parts.Count != 1) return Invalid();
-            var text = CssPropertyParser.Keyword(parts[0], grammar == CssPropertyGrammar.WhiteSpaceCollapse ? Collapse : "wrap nowrap", work);
-            return text is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(text, parts[0].Span));
-        }
-        if (grammar == CssPropertyGrammar.WhiteSpaceTrim)
-        {
-            if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "none", work) is not null)
-                return CssPropertyResult.Accepted(CssPropertyValue.Keyword("none", parts[0].Span));
-            var flags = 0;
-            foreach (var part in parts)
-                if (!AddTrim(part, work, ref flags)) return Invalid();
-            return CssPropertyResult.Accepted(CssPropertyValue.Keyword(TrimText(flags), parts[0].Span));
+            case CssPropertyGrammar.WhiteSpaceCollapse or CssPropertyGrammar.TextWrapMode:
+                {
+                    if (parts.Count != 1) return Invalid();
+                    var text = CssPropertyParser.Keyword(parts[0], grammar == CssPropertyGrammar.WhiteSpaceCollapse ? CssKeywordSet.CollapseDiscardPreservePreserveBreaksEtc : CssKeywordSet.WrapNowrap, work);
+                    return text is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(text, parts[0].Span));
+                }
+            case CssPropertyGrammar.WhiteSpaceTrim:
+                {
+                    if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.None, work) is not null)
+                        return CssPropertyResult.Accepted(CssPropertyValue.Keyword("none", parts[0].Span));
+                    var flags = 0;
+                    foreach (var part in parts)
+                        if (!AddTrim(part, work, ref flags)) return Invalid();
+                    return CssPropertyResult.Accepted(CssPropertyValue.Keyword(TrimText(flags), parts[0].Span));
+                }
         }
         string? collapse = null;
         string? wrap = null;
         var trim = 0;
         var trimNone = false;
         var trimEnded = false;
-        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], "normal pre pre-wrap pre-line", work) is { } legacy)
+        if (parts.Count == 1 && CssPropertyParser.Keyword(parts[0], CssKeywordSet.NormalPrePreWrapPreLine, work) is { } legacy)
         {
             collapse = legacy switch { "pre" or "pre-wrap" => "preserve", "pre-line" => "preserve-breaks", _ => "collapse" };
             wrap = legacy == "pre" ? "nowrap" : "wrap";
@@ -39,19 +40,19 @@ internal static class CssWhiteSpacePropertyParser
             foreach (var part in parts)
             {
                 work.Charge(1);
-                if (CssPropertyParser.Keyword(part, Collapse, work) is { } c)
+                if (CssPropertyParser.Keyword(part, CssKeywordSet.CollapseDiscardPreservePreserveBreaksEtc, work) is { } c)
                 {
                     if (collapse is not null) return Invalid();
                     if (trim != 0 || trimNone) trimEnded = true;
                     collapse = c;
                 }
-                else if (CssPropertyParser.Keyword(part, "wrap nowrap", work) is { } w)
+                else if (CssPropertyParser.Keyword(part, CssKeywordSet.WrapNowrap, work) is { } w)
                 {
                     if (wrap is not null) return Invalid();
                     if (trim != 0 || trimNone) trimEnded = true;
                     wrap = w;
                 }
-                else if (CssPropertyParser.Keyword(part, "none", work) is not null)
+                else if (CssPropertyParser.Keyword(part, CssKeywordSet.None, work) is not null)
                 {
                     if (trimEnded || trimNone || trim != 0) return Invalid();
                     trimNone = true;
@@ -69,7 +70,7 @@ internal static class CssWhiteSpacePropertyParser
 
     private static bool AddTrim(CssComponentValue part, CssValueWork work, ref int flags)
     {
-        var bit = CssPropertyParser.Keyword(part, Trimming, work) switch
+        var bit = CssPropertyParser.Keyword(part, CssKeywordSet.DiscardBeforeDiscardAfterDiscardInner, work) switch
         {
             "discard-before" => 1,
             "discard-after" => 2,

@@ -14,21 +14,22 @@ internal sealed partial class HtmlTokenizer
     {
         if (_terminal || _ended || !_canSetTextMode || !CanSetModeAfterToken())
             throw new InvalidOperationException("The text mode can only change between complete tokens.");
-        if (mode is not (HtmlTextMode.Data or HtmlTextMode.RcData or HtmlTextMode.RawText or HtmlTextMode.ScriptData or HtmlTextMode.PlainText))
-            throw new ArgumentOutOfRangeException(nameof(mode));
-        if (mode is HtmlTextMode.RcData or HtmlTextMode.RawText or HtmlTextMode.ScriptData)
+        switch (mode)
         {
-            ArgumentNullException.ThrowIfNull(appropriateEndTagName);
-            if (appropriateEndTagName.Length == 0) throw new ArgumentException("An appropriate end tag is required.", nameof(appropriateEndTagName));
-            var normalized = appropriateEndTagName.ToCharArray();
-            for (var i = 0; i < normalized.Length; i++) normalized[i] = Lower(normalized[i]);
-            _appropriateEndTagName = new string(normalized);
-        }
-        else
-        {
-            if (appropriateEndTagName is not null)
-                throw new ArgumentException("This mode has no appropriate end tag.", nameof(appropriateEndTagName));
-            _appropriateEndTagName = null;
+            case HtmlTextMode.RcData or HtmlTextMode.RawText or HtmlTextMode.ScriptData:
+                ArgumentNullException.ThrowIfNull(appropriateEndTagName);
+                if (appropriateEndTagName.Length == 0) throw new ArgumentException("An appropriate end tag is required.", nameof(appropriateEndTagName));
+                var normalized = appropriateEndTagName.ToCharArray();
+                for (var i = 0; i < normalized.Length; i++) normalized[i] = Lower(normalized[i]);
+                _appropriateEndTagName = new string(normalized);
+                break;
+            case HtmlTextMode.Data or HtmlTextMode.PlainText:
+                if (appropriateEndTagName is not null)
+                    throw new ArgumentException("This mode has no appropriate end tag.", nameof(appropriateEndTagName));
+                _appropriateEndTagName = null;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mode));
         }
         _textMode = mode;
         _state = ModeBaseState();

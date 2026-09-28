@@ -5,24 +5,16 @@ namespace Jint.HtmlParser.Css.Values.Properties;
 internal static class CssPropertyEffects
 {
     private static readonly System.Collections.ObjectModel.ReadOnlyDictionary<string, string[]> Shorthands = Create();
+    private static readonly string[]?[] IndexedShorthands = CssPropertyCatalog.Index(Shorthands);
 
-    internal static string Canonical(string name) => name switch
-    {
-        "word-wrap" => "overflow-wrap",
-        "grid-gap" => "gap",
-        "grid-row-gap" => "row-gap",
-        "grid-column-gap" => "column-gap",
-        "page-break-before" => "break-before",
-        "page-break-after" => "break-after",
-        "page-break-inside" => "break-inside",
-        _ => name
-    };
+    internal static string Canonical(string name) => CssPropertyAliasLookup.Match(name) ?? name;
 
     internal static IReadOnlyList<string> Longhands(string name)
     {
         if (CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } completed)
             return completed.Longhands;
-        return Shorthands.TryGetValue(name, out var result) ? result : Array.Empty<string>();
+        var index = CssPropertyNameLookup.Match(name);
+        return index >= 0 && IndexedShorthands[index] is { } result ? result : Array.Empty<string>();
     }
 
     internal static bool AffectsAll(string name) => name == "all";

@@ -22,12 +22,12 @@ internal static class CssFontFaceDescriptorCatalog
         return result;
     }
 
-    internal static CssPropertyResult? NameFailure(string name) => name switch
+    internal static CssPropertyResult? NameFailure(string name) => CssFontFaceDescriptorLookup.Match(name) switch
     {
-        "font-family" or "src" or "font-display" or "font-weight" or "font-style" => null,
-        "font-width" or "font-stretch" or "unicode-range" or "font-feature-settings" or
-        "font-variation-settings" or "font-named-instance" or "font-language-override" or
-        "ascent-override" or "descent-override" or "line-gap-override" or "size-adjust" or "font-variant" =>
+        CssFontFaceDescriptorKind.FontFamily or CssFontFaceDescriptorKind.Src or CssFontFaceDescriptorKind.FontDisplay or CssFontFaceDescriptorKind.FontWeight or CssFontFaceDescriptorKind.FontStyle => null,
+        CssFontFaceDescriptorKind.FontWidth or CssFontFaceDescriptorKind.FontStretch or CssFontFaceDescriptorKind.UnicodeRange or CssFontFaceDescriptorKind.FontFeatureSettings or
+        CssFontFaceDescriptorKind.FontVariationSettings or CssFontFaceDescriptorKind.FontNamedInstance or CssFontFaceDescriptorKind.FontLanguageOverride or
+        CssFontFaceDescriptorKind.AscentOverride or CssFontFaceDescriptorKind.DescentOverride or CssFontFaceDescriptorKind.LineGapOverride or CssFontFaceDescriptorKind.SizeAdjust or CssFontFaceDescriptorKind.FontVariant =>
             CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "R4:font-face:" + name),
         _ => CssPropertyResult.Rejected(CssPropertyStatus.UnsupportedProperty)
     };

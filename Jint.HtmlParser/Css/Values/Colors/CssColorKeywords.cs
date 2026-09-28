@@ -161,12 +161,5 @@ internal static class CssColorKeywords
                 ["yellowgreen"] = 0x9acd32u,
             });
 
-    internal static CssColorKind? ContextualKind(string name) => name switch
-    {
-        "transparent" => CssColorKind.Transparent,
-        "currentcolor" => CssColorKind.CurrentColor,
-        "accentcolor" or "accentcolortext" or "activetext" or "buttonborder" or "buttonface" or "buttontext" or "canvas" or "canvastext" or "field" or "fieldtext" or "graytext" or "highlight" or "highlighttext" or "linktext" or "mark" or "marktext" or "selecteditem" or "selecteditemtext" or "visitedtext" => CssColorKind.System,
-        "activeborder" or "activecaption" or "appworkspace" or "background" or "buttonhighlight" or "buttonshadow" or "captiontext" or "inactiveborder" or "inactivecaption" or "inactivecaptiontext" or "infobackground" or "infotext" or "menu" or "menutext" or "scrollbar" or "threeddarkshadow" or "threedface" or "threedhighlight" or "threedlightshadow" or "threedshadow" or "window" or "windowframe" or "windowtext" => CssColorKind.DeprecatedSystem,
-        _ => null
-    };
+    internal static CssColorKind? ContextualKind(string name) => CssContextualColorLookup.Match(name);
 }

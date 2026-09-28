@@ -107,32 +107,32 @@ internal sealed partial class CssSyntaxParser
         {
             CheckCancellation();
             var token = Current;
-            if (token.Kind == CssTokenKind.None)
+            switch (token.Kind)
             {
-                if (!isAtRule) throw Error("css/expected-rule-block", _sourceLength);
-                Report("css/unexpected-eof", _sourceLength);
-                end = _sourceLength;
-                break;
+                case CssTokenKind.None:
+                    if (!isAtRule) throw Error("css/expected-rule-block", _sourceLength);
+                    Report("css/unexpected-eof", _sourceLength);
+                    end = _sourceLength;
+                    break;
+                case CssTokenKind.Semicolon when isAtRule:
+                    _index++;
+                    end = token.Span.Start + token.Span.Length;
+                    break;
+                case CssTokenKind.OpenCurlyBracket:
+                    if (!isAtRule && StartsWithCustomPropertyDeclaration(prelude))
+                    {
+                        throw Error("css/custom-property-is-not-rule", first.Span.Start);
+                    }
+                    block = ConsumeComponent();
+                    end = block.Value.Span.Start + block.Value.Span.Length;
+                    break;
+                default:
+                    var value = ConsumeComponent();
+                    prelude.Add(value);
+                    end = value.Span.Start + value.Span.Length;
+                    continue;
             }
-            if (isAtRule && token.Kind == CssTokenKind.Semicolon)
-            {
-                _index++;
-                end = token.Span.Start + token.Span.Length;
-                break;
-            }
-            if (token.Kind == CssTokenKind.OpenCurlyBracket)
-            {
-                if (!isAtRule && StartsWithCustomPropertyDeclaration(prelude))
-                {
-                    throw Error("css/custom-property-is-not-rule", first.Span.Start);
-                }
-                block = ConsumeComponent();
-                end = block.Value.Span.Start + block.Value.Span.Length;
-                break;
-            }
-            var value = ConsumeComponent();
-            prelude.Add(value);
-            end = value.Span.Start + value.Span.Length;
+            break;
         }
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);

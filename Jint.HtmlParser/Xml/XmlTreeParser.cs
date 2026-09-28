@@ -183,14 +183,14 @@ internal sealed partial class XmlTreeParser
 
             if (!hadSpace) Error("xml/invalid-declaration", _position);
             var name = ReadName(start);
-            var order = name switch { "encoding" => 1, "standalone" => 2, _ => 0 };
+            var order = XmlDeclarationOrderLookup.Match(name);
             if (order == 0 || order <= lastOrder) Error("xml/invalid-declaration", _position);
             lastOrder = order;
             SkipWhitespace(start);
             Expect('=', "xml/invalid-declaration", start);
             SkipWhitespace(start);
             var value = ReadQuoted("xml/invalid-declaration", start);
-            if (order == 1 && !IsEncodingName(value) || order == 2 && value is not "yes" and not "no")
+            if (order == 1 && !IsEncodingName(value) || order == 2 && !XmlStandaloneValueLookup.Match(value))
                 Error("xml/invalid-declaration", start);
             if (order == 2) _standalone = value == "yes";
         }
@@ -503,15 +503,7 @@ internal sealed partial class XmlTreeParser
         Expect(';', "xml/invalid-markup", start);
         CheckToken(start);
         if (parentTokenStart >= 0) CheckToken(parentTokenStart);
-        var predefined = name switch
-        {
-            "amp" => "&",
-            "lt" => "<",
-            "gt" => ">",
-            "apos" => "'",
-            "quot" => "\"",
-            _ => null
-        };
+        var predefined = XmlPredefinedEntityLookup.Match(name);
         if (predefined is not null) return predefined;
         return ResolveGeneralEntity(name, start, inAttribute);
     }
@@ -530,7 +522,7 @@ internal sealed partial class XmlTreeParser
             if (parentTokenStart >= 0) CheckToken(parentTokenStart);
         }
         _cancellationToken.ThrowIfCancellationRequested();
-        return _source[start.._position];
+        return XmlKnownNameLookup.Match(_source.AsSpan(start, _position - start)) ?? _source[start.._position];
     }
 
     private string ReadQuoted(string code, int tokenStart)

@@ -45,6 +45,14 @@ internal sealed class HtmlEntityLookup
         }
     }
 
+    internal string? FindTerminatedName(ReadOnlySpan<char> name)
+    {
+        var state = 0;
+        foreach (var character in name)
+            if (!TryAdvance(state, character, out state, out _)) return null;
+        return TryAdvance(state, ';', out _, out var value) ? value : null;
+    }
+
     internal bool TryAdvance(int state, char character, out int next, out string? value)
     {
         var entry = _entries[state];

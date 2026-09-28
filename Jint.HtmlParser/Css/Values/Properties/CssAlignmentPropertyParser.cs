@@ -36,30 +36,28 @@ internal static class CssAlignmentPropertyParser
         var self = grammar is CssPropertyGrammar.AlignSelf or CssPropertyGrammar.JustifySelf;
         var justify = grammar is CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf;
         // Anchor Positioning 1 §4.2 adds this singleton only to self-alignment.
-        if (self && count == 1 && CssPropertyParser.Keyword(parts[start], "anchor-center", work) is not null)
+        if (self && count == 1 && CssPropertyParser.Keyword(parts[start], CssKeywordSet.AnchorCenter, work) is not null)
             return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "alignment:anchor-center");
-        var first = CssPropertyParser.Keyword(parts[start],
-            "auto normal stretch baseline first last safe unsafe center start end self-start self-end flex-start flex-end left right legacy", work);
+        var first = CssPropertyParser.Keyword(parts[start], CssKeywordSet.AutoNormalStretchBaselineEtc, work);
         if (first is null) return Invalid();
         string? text = null;
         if (count == 1)
         {
             if (first == "auto" && !self || first == "legacy" && grammar != CssPropertyGrammar.JustifyItems ||
-                first is "first" or "last" or "safe" or "unsafe" || first is "left" or "right" && !justify) return Invalid();
+                CssFirstLastSafeNames.Match(first) || CssLeftRightNames.Match(first) && !justify) return Invalid();
             text = first;
         }
         else
         {
-            var second = CssPropertyParser.Keyword(parts[start + 1],
-                "baseline normal center start end self-start self-end flex-start flex-end left right legacy", work);
-            if (first is "first" or "last" && second == "baseline")
+            var second = CssPropertyParser.Keyword(parts[start + 1], CssKeywordSet.BaselineNormalCenterStartEtc, work);
+            if (CssFirstLastNames.Match(first) && second == "baseline")
                 text = first == "first" ? "baseline" : "last baseline";
-            else if (first is "safe" or "unsafe" && second is not null &&
-                (second is "center" or "start" or "end" or "self-start" or "self-end" or "flex-start" or "flex-end" ||
-                    justify && second is "left" or "right" || self && second == "normal")) text = first + " " + second;
+            else if (CssSafeUnsafeNames.Match(first) && second is not null &&
+                (CssCenterStartEndNames.Match(second) ||
+                    justify && CssLeftRightNames.Match(second) || self && second == "normal")) text = first + " " + second;
             else if (grammar == CssPropertyGrammar.JustifyItems &&
-                (first == "legacy" && second is "left" or "right" or "center" ||
-                    second == "legacy" && first is "left" or "right" or "center"))
+                (first == "legacy" && CssLeftRightCenterNames.Match(second) ||
+                    second == "legacy" && CssLeftRightCenterNames.Match(first)))
                 text = "legacy " + (first == "legacy" ? second : first);
         }
         return text is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(text, parts[start].Span));

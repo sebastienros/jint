@@ -252,15 +252,18 @@ internal sealed partial class HtmlParserSession
                         _builder.TakeClosedScript();
                         return BeginRequest(kind, closed);
                     }
-                    if (result.Kind == HtmlParseStepKind.MissingFeature)
+                    switch (result.Kind)
                     {
-                        _terminal = true;
-                        return result;
-                    }
-                    if (result.Kind == HtmlParseStepKind.Complete)
-                    {
-                        _complete = true;
-                        return result;
+                        case HtmlParseStepKind.MissingFeature:
+                            {
+                                _terminal = true;
+                                return result;
+                            }
+                        case HtmlParseStepKind.Complete:
+                            {
+                                _complete = true;
+                                return result;
+                            }
                     }
                     if (_builder.HasToken || remaining <= 0) return new HtmlParseStep(HtmlParseStepKind.Yielded);
                     continue;

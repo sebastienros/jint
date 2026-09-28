@@ -3,7 +3,6 @@ namespace Jint.HtmlParser.Css.Values.Properties;
 // CSS Text 4 §§7.1/7.3/7.4: declaration/computed values, with no text layout claim.
 internal static class CssTextAlignPropertyParser
 {
-    private const string Common = "start end left right center justify match-parent";
 
     internal static CssPropertyResult Parse(CssPropertyGrammar grammar, List<CssComponentValue> parts, CssValueWork work)
     {
@@ -12,8 +11,8 @@ internal static class CssTextAlignPropertyParser
         if ((grammar is CssPropertyGrammar.TextAlign or CssPropertyGrammar.TextAlignAll) &&
             part.Kind == CssComponentKind.Token && part.Token.Kind == CssTokenKind.String)
             return CssPropertyResult.Rejected(CssPropertyStatus.UnimplementedGrammar, "text-align:alignment-string");
-        var keywords = grammar == CssPropertyGrammar.TextAlign ? Common + " justify-all"
-            : grammar == CssPropertyGrammar.TextAlignLast ? Common + " auto" : Common;
+        var keywords = grammar == CssPropertyGrammar.TextAlign ? CssKeywordSet.StartEndLeftRightEtc
+            : grammar == CssPropertyGrammar.TextAlignLast ? CssKeywordSet.StartEndLeftRightEtc2 : CssKeywordSet.StartEndLeftRightEtc3;
         var text = CssPropertyParser.Keyword(part, keywords, work);
         if (text is null) return CssPropertyResult.Rejected(CssPropertyStatus.Invalid);
         if (grammar != CssPropertyGrammar.TextAlign)

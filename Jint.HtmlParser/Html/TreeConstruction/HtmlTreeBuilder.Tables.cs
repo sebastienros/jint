@@ -15,46 +15,46 @@ internal sealed partial class HtmlTreeBuilder
             case HtmlTokenKind.Doctype: Error("unexpected-doctype"); return false;
             case HtmlTokenKind.EndOfFile: return InBody();
             case HtmlTokenKind.StartTag:
-                switch (name)
+                switch (HtmlTableStartLookup.Match(name))
                 {
-                    case "caption":
+                    case HtmlTableStartKind.Caption:
                         if (!TryClearToTableContext()) return true;
                         PushFormattingMarker();
                         InsertTokenElement();
                         _mode = Mode.InCaption;
                         return false;
-                    case "colgroup":
+                    case HtmlTableStartKind.Colgroup:
                         if (!TryClearToTableContext()) return true;
                         InsertTokenElement();
                         _mode = Mode.InColumnGroup;
                         return false;
-                    case "col":
+                    case HtmlTableStartKind.Col:
                         if (!TryClearToTableContext()) return true;
                         InsertElement("colgroup");
                         _mode = Mode.InColumnGroup;
                         return true;
-                    case "tbody" or "tfoot" or "thead":
+                    case HtmlTableStartKind.Tbody or HtmlTableStartKind.Tfoot or HtmlTableStartKind.Thead:
                         if (!TryClearToTableContext()) return true;
                         InsertTokenElement();
                         _mode = Mode.InTableBody;
                         return false;
-                    case "td" or "th" or "tr":
+                    case HtmlTableStartKind.Td or HtmlTableStartKind.Th or HtmlTableStartKind.Tr:
                         if (!TryClearToTableContext()) return true;
                         InsertElement("tbody");
                         _mode = Mode.InTableBody;
                         return true;
-                    case "table":
+                    case HtmlTableStartKind.Table:
                         Error("nested-table-start-tag");
                         if (InTableScope("table")) SchedulePopTo(Last("table"), reprocess: true, resetMode: true);
                         return false;
-                    case "style" or "script" or "template": return InHead();
-                    case "input":
+                    case HtmlTableStartKind.Style or HtmlTableStartKind.Script or HtmlTableStartKind.Template: return InHead();
+                    case HtmlTableStartKind.Input:
                         if (!InspectInputType()) return true;
                         if (!_inputTypeHidden) break;
                         Error("hidden-input-in-table");
                         InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true;
                         return false;
-                    case "form":
+                    case HtmlTableStartKind.Form:
                         Error("form-in-table");
                         if (_form is not null && !IsParsingTemplateContents) return false;
                         var tableForm = InsertTokenElement();
@@ -64,16 +64,16 @@ internal sealed partial class HtmlTreeBuilder
                 }
                 break;
             case HtmlTokenKind.EndTag:
-                switch (name)
+                switch (HtmlTableEndLookup.Match(name))
                 {
-                    case "table":
+                    case HtmlTableEndKind.Table:
                         if (!InTableScope("table")) { Error("unexpected-table-end-tag"); return false; }
                         SchedulePopTo(Last("table"), reprocess: false, resetMode: true);
                         return false;
-                    case "body" or "caption" or "col" or "colgroup" or "html" or "tbody" or "td" or
-                        "tfoot" or "th" or "thead" or "tr":
+                    case HtmlTableEndKind.Body or HtmlTableEndKind.Caption or HtmlTableEndKind.Col or HtmlTableEndKind.Colgroup or HtmlTableEndKind.Html or HtmlTableEndKind.Tbody or HtmlTableEndKind.Td or
+                        HtmlTableEndKind.Tfoot or HtmlTableEndKind.Th or HtmlTableEndKind.Thead or HtmlTableEndKind.Tr:
                         Error("unexpected-end-tag"); return false;
-                    case "template": return InHead();
+                    case HtmlTableEndKind.Template: return InHead();
                 }
                 break;
         }
@@ -87,20 +87,23 @@ internal sealed partial class HtmlTreeBuilder
     private bool InCaption()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.EndTag && name == "caption" ||
-            _token.Kind == HtmlTokenKind.StartTag && name is "caption" or "col" or "colgroup" or "tbody" or "td" or "tfoot" or "th" or "thead" or "tr" ||
-            _token.Kind == HtmlTokenKind.EndTag && name == "table")
+        switch (_token.Kind)
         {
-            if (!InTableScope("caption")) { Error("unexpected-caption-end-tag"); return false; }
-            if (!TryGenerateImpliedEndTags()) return true;
-            if (!IsHtmlElement(Current, "caption")) Error("misnested-caption-end-tag");
-            var reprocess = _token.Kind != HtmlTokenKind.EndTag || name != "caption";
-            SchedulePopTo(Last("caption"), reprocess, Mode.InTable, clearFormatting: true);
-            return false;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "body" or "col" or "colgroup" or "html" or "tbody" or "td" or "tfoot" or "th" or "thead" or "tr")
-        {
-            Error("unexpected-end-tag"); return false;
+            case HtmlTokenKind.EndTag when name == "caption":
+            case HtmlTokenKind.StartTag when HtmlCaptionColColgroupTbodyNames.Match(name):
+            case HtmlTokenKind.EndTag when name == "table":
+                {
+                    if (!InTableScope("caption")) { Error("unexpected-caption-end-tag"); return false; }
+                    if (!TryGenerateImpliedEndTags()) return true;
+                    if (!IsHtmlElement(Current, "caption")) Error("misnested-caption-end-tag");
+                    var reprocess = _token.Kind != HtmlTokenKind.EndTag || name != "caption";
+                    SchedulePopTo(Last("caption"), reprocess, Mode.InTable, clearFormatting: true);
+                    return false;
+                }
+            case HtmlTokenKind.EndTag when HtmlBodyColColgroupNames.Match(name):
+                {
+                    Error("unexpected-end-tag"); return false;
+                }
         }
         return InBody();
     }
@@ -132,34 +135,37 @@ internal sealed partial class HtmlTreeBuilder
     private bool InTableBody()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.StartTag && name == "tr")
+        switch (_token.Kind)
         {
-            if (!TryClearToTableBodyContext()) return true;
-            InsertTokenElement(); _mode = Mode.InRow; return false;
-        }
-        if (_token.Kind == HtmlTokenKind.StartTag && name is "td" or "th")
-        {
-            if (!TryClearToTableBodyContext()) return true;
-            Error("cell-without-row");
-            InsertElement("tr"); _mode = Mode.InRow; return true;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "tbody" or "tfoot" or "thead")
-        {
-            if (!InTableScope(name!)) { Error("unexpected-table-body-end-tag"); return false; }
-            if (!TryClearToTableBodyContext()) return true;
-            Pop(); _mode = Mode.InTable; return false;
-        }
-        if (_token.Kind == HtmlTokenKind.StartTag && name is "caption" or "col" or "colgroup" or "tbody" or "tfoot" or "thead" ||
-            _token.Kind == HtmlTokenKind.EndTag && name == "table")
-        {
-            var target = LastTableBodyInScope();
-            if (target < 0) { Error("unexpected-table-body-token"); return false; }
-            if (!TryClearToTableBodyContext()) return true;
-            Pop(); _mode = Mode.InTable; return true;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "body" or "caption" or "col" or "colgroup" or "html" or "td" or "th" or "tr")
-        {
-            Error("unexpected-end-tag"); return false;
+            case HtmlTokenKind.StartTag when name == "tr":
+                {
+                    if (!TryClearToTableBodyContext()) return true;
+                    InsertTokenElement(); _mode = Mode.InRow; return false;
+                }
+            case HtmlTokenKind.StartTag when HtmlTdThNames.Match(name):
+                {
+                    if (!TryClearToTableBodyContext()) return true;
+                    Error("cell-without-row");
+                    InsertElement("tr"); _mode = Mode.InRow; return true;
+                }
+            case HtmlTokenKind.EndTag when HtmlTbodyTfootTheadNames.Match(name):
+                {
+                    if (!InTableScope(name!)) { Error("unexpected-table-body-end-tag"); return false; }
+                    if (!TryClearToTableBodyContext()) return true;
+                    Pop(); _mode = Mode.InTable; return false;
+                }
+            case HtmlTokenKind.StartTag when HtmlCaptionColColgroupTbodyTfootNames.Match(name):
+            case HtmlTokenKind.EndTag when name == "table":
+                {
+                    var target = LastTableBodyInScope();
+                    if (target < 0) { Error("unexpected-table-body-token"); return false; }
+                    if (!TryClearToTableBodyContext()) return true;
+                    Pop(); _mode = Mode.InTable; return true;
+                }
+            case HtmlTokenKind.EndTag when HtmlBodyCaptionColNames.Match(name):
+                {
+                    Error("unexpected-end-tag"); return false;
+                }
         }
         return InTable();
     }
@@ -167,34 +173,37 @@ internal sealed partial class HtmlTreeBuilder
     private bool InRow()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.StartTag && name is "td" or "th")
+        switch (_token.Kind)
         {
-            if (!TryClearToRowContext()) return true;
-            InsertTokenElement(); _mode = Mode.InCell; PushFormattingMarker(); return false;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name == "tr")
-        {
-            if (!InTableScope("tr")) { Error("unexpected-row-end-tag"); return false; }
-            if (!TryClearToRowContext()) return true;
-            Pop(); _mode = Mode.InTableBody; return false;
-        }
-        if (_token.Kind == HtmlTokenKind.StartTag && name is "caption" or "col" or "colgroup" or "tbody" or "tfoot" or "thead" or "tr" ||
-            _token.Kind == HtmlTokenKind.EndTag && name == "table")
-        {
-            if (!InTableScope("tr")) { Error("unexpected-row-token"); return false; }
-            if (!TryClearToRowContext()) return true;
-            Pop(); _mode = Mode.InTableBody; return true;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "tbody" or "tfoot" or "thead")
-        {
-            if (!InTableScope(name!)) { Error("unexpected-table-body-end-tag"); return false; }
-            if (!InTableScope("tr")) return false;
-            if (!TryClearToRowContext()) return true;
-            Pop(); _mode = Mode.InTableBody; return true;
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "body" or "caption" or "col" or "colgroup" or "html" or "td" or "th")
-        {
-            Error("unexpected-end-tag"); return false;
+            case HtmlTokenKind.StartTag when HtmlTdThNames.Match(name):
+                {
+                    if (!TryClearToRowContext()) return true;
+                    InsertTokenElement(); _mode = Mode.InCell; PushFormattingMarker(); return false;
+                }
+            case HtmlTokenKind.EndTag when name == "tr":
+                {
+                    if (!InTableScope("tr")) { Error("unexpected-row-end-tag"); return false; }
+                    if (!TryClearToRowContext()) return true;
+                    Pop(); _mode = Mode.InTableBody; return false;
+                }
+            case HtmlTokenKind.StartTag when HtmlCaptionColColgroupTbodyTfootTheadNames.Match(name):
+            case HtmlTokenKind.EndTag when name == "table":
+                {
+                    if (!InTableScope("tr")) { Error("unexpected-row-token"); return false; }
+                    if (!TryClearToRowContext()) return true;
+                    Pop(); _mode = Mode.InTableBody; return true;
+                }
+            case HtmlTokenKind.EndTag when HtmlTbodyTfootTheadNames.Match(name):
+                {
+                    if (!InTableScope(name!)) { Error("unexpected-table-body-end-tag"); return false; }
+                    if (!InTableScope("tr")) return false;
+                    if (!TryClearToRowContext()) return true;
+                    Pop(); _mode = Mode.InTableBody; return true;
+                }
+            case HtmlTokenKind.EndTag when HtmlBodyCaptionColColgroupNames.Match(name):
+                {
+                    Error("unexpected-end-tag"); return false;
+                }
         }
         return InTable();
     }
@@ -202,25 +211,28 @@ internal sealed partial class HtmlTreeBuilder
     private bool InCell()
     {
         var name = _token.Name;
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "td" or "th")
+        switch (_token.Kind)
         {
-            if (!InTableScope(name!)) { Error("unexpected-cell-end-tag"); return false; }
-            return CloseCell(name!, reprocess: false);
-        }
-        if (_token.Kind == HtmlTokenKind.StartTag && name is "caption" or "col" or "colgroup" or "tbody" or "td" or "tfoot" or "th" or "thead" or "tr" ||
-            _token.Kind == HtmlTokenKind.EndTag && name is "table" or "tbody" or "tfoot" or "thead" or "tr")
-        {
-            if (_token.Kind == HtmlTokenKind.EndTag && !InTableScope(name!))
-            {
-                Error("unexpected-table-end-tag"); return false;
-            }
-            var cell = LastCellInTableScope();
-            if (cell < 0) throw new InvalidOperationException("In-cell mode lost its cell.");
-            return CloseCell(_open[cell].LocalName, reprocess: true);
-        }
-        if (_token.Kind == HtmlTokenKind.EndTag && name is "body" or "caption" or "col" or "colgroup" or "html")
-        {
-            Error("unexpected-end-tag"); return false;
+            case HtmlTokenKind.EndTag when HtmlTdThNames.Match(name):
+                {
+                    if (!InTableScope(name!)) { Error("unexpected-cell-end-tag"); return false; }
+                    return CloseCell(name!, reprocess: false);
+                }
+            case HtmlTokenKind.StartTag when HtmlCaptionColColgroupTbodyNames.Match(name):
+            case HtmlTokenKind.EndTag when HtmlTableTbodyTfootNames.Match(name):
+                {
+                    if (_token.Kind == HtmlTokenKind.EndTag && !InTableScope(name!))
+                    {
+                        Error("unexpected-table-end-tag"); return false;
+                    }
+                    var cell = LastCellInTableScope();
+                    if (cell < 0) throw new InvalidOperationException("In-cell mode lost its cell.");
+                    return CloseCell(_open[cell].LocalName, reprocess: true);
+                }
+            case HtmlTokenKind.EndTag when HtmlBodyCaptionColColgroupHtmlNames.Match(name):
+                {
+                    Error("unexpected-end-tag"); return false;
+                }
         }
         return InBody();
     }
@@ -289,29 +301,29 @@ internal sealed partial class HtmlTreeBuilder
         // Repeated table closures must not scan the same unchanged ancestors.
         var rootCase = _resetModeIndexes[^1] == 0 && _fragmentContext is not null;
         var element = rootCase ? _fragmentContext! : _open[_resetModeIndexes[^1]];
-        if (rootCase && (element.NamespaceUri != Namespaces.Html || element.LocalName is "td" or "th" or "head"))
+        if (rootCase && (element.NamespaceUri != Namespaces.Html || HtmlTdThHeadNames.Match(element.LocalName)))
         {
             _mode = Mode.InBody;
             Charge(1);
             return;
         }
         Charge(1);
-        switch (element.LocalName)
+        switch (HtmlResetModeLookup.Match(element.LocalName))
         {
-            case "td" or "th": _mode = Mode.InCell; break;
-            case "tr": _mode = Mode.InRow; break;
-            case "tbody" or "thead" or "tfoot": _mode = Mode.InTableBody; break;
-            case "caption": _mode = Mode.InCaption; break;
-            case "colgroup": _mode = Mode.InColumnGroup; break;
-            case "table": _mode = Mode.InTable; break;
-            case "template":
+            case HtmlResetModeKind.Td or HtmlResetModeKind.Th: _mode = Mode.InCell; break;
+            case HtmlResetModeKind.Tr: _mode = Mode.InRow; break;
+            case HtmlResetModeKind.Tbody or HtmlResetModeKind.Thead or HtmlResetModeKind.Tfoot: _mode = Mode.InTableBody; break;
+            case HtmlResetModeKind.Caption: _mode = Mode.InCaption; break;
+            case HtmlResetModeKind.Colgroup: _mode = Mode.InColumnGroup; break;
+            case HtmlResetModeKind.Table: _mode = Mode.InTable; break;
+            case HtmlResetModeKind.Template:
                 _mode = _templateModes.Count > 0 ? _templateModes[^1] :
                     throw new InvalidOperationException("Template insertion mode stack is empty.");
                 break;
-            case "head": _mode = Mode.InHead; break;
-            case "body": _mode = Mode.InBody; break;
-            case "frameset": _mode = Mode.InFrameset; break;
-            case "html": _mode = _head is null ? Mode.BeforeHead : Mode.AfterHead; break;
+            case HtmlResetModeKind.Head: _mode = Mode.InHead; break;
+            case HtmlResetModeKind.Body: _mode = Mode.InBody; break;
+            case HtmlResetModeKind.Frameset: _mode = Mode.InFrameset; break;
+            case HtmlResetModeKind.Html: _mode = _head is null ? Mode.BeforeHead : Mode.AfterHead; break;
             default:
                 if (!rootCase) throw new InvalidOperationException("Unknown HTML insertion-mode reset element.");
                 _mode = Mode.InBody;

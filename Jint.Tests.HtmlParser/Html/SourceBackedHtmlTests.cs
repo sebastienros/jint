@@ -109,20 +109,24 @@ public class SourceBackedHtmlTests
     }
 
     [Test]
-    public void KnownNameTableStoresLiteralReferencesAtSourceOffsetsWithoutTrailingSlots()
+    public void GeneratedVocabularyPreservesEveryPreviouslyKnownLiteral()
     {
-        var table = ((string Source, string?[] ByOffset, (int Start, int Length)[] Ranges))
-            typeof(HtmlTokenizer).GetField("KnownNames", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
-        table.ByOffset[^1].Should().BeSameAs("textarea");
-        for (var i = 0; i < table.ByOffset.Length; i++)
+        string[] names =
+        [
+            "a", "b", "i", "p", "s", "u",
+            "br", "em", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "id", "li", "ol", "td", "th", "tr", "ul",
+            "alt", "div", "img", "rel", "src",
+            "body", "form", "head", "href", "html", "link", "meta", "name", "span", "type",
+            "class", "input", "label", "style", "table", "tbody", "tfoot", "thead", "title", "value",
+            "button", "option", "script", "select", "strong",
+            "content", "section", "template", "textarea"
+        ];
+        HtmlKnownNames.Values.ToArray().Should().Equal(names);
+        var tokens = Scan(string.Concat(names.Select(name => "<" + name + ">")));
+        for (var i = 0; i < names.Length; i++)
         {
-            if (table.ByOffset[i] is not { } name) continue;
-            table.Source[i - 1].Should().Be('\0');
-            table.Source[i + name.Length].Should().Be('\0');
-            Assert.That(table.Source.AsSpan(i, name.Length).SequenceEqual(name), Is.True);
-            var range = table.Ranges[name.Length];
-            i.Should().BeGreaterThan(range.Start);
-            (i + name.Length).Should().BeLessThan(range.Start + range.Length);
+            HtmlKnownNames.Match(names[i]).Should().BeSameAs(names[i]);
+            tokens[i].Name.Should().BeSameAs(names[i]);
         }
     }
 
