@@ -111,7 +111,7 @@ internal static class CssMediaParser
                         builder.Append(parser.ValueTermination(new CssComponentValueList([value]), value.Span, work));
                         continue;
                     }
-                    var inside = WithoutWhitespace(value.Values, work);
+                    var inside = CssFeatureRange.WithoutWhitespace(value.Values, work);
                     tasks.Push(new Task(Recovery: value, BuilderStart: builder.Length, ProgramStart: program.Count));
                     builder.Append('(');
                     tasks.Push(new Task(Text: ")"));
@@ -209,57 +209,26 @@ internal static class CssMediaParser
             if (value.Length != 0) builder.Append(": ").Append(ValueText(feature));
             return true;
         }
-        var operators = new List<(int Index, int Length, CssMediaComparison Comparison)>();
-        for (var i = 0; i < items.Length; i++)
-        {
-            work.Charge(1);
-            if (items[i].Kind != CssComponentKind.Token || items[i].Token.Kind != CssTokenKind.Delim) continue;
-            var delimiter = items[i].Token.Delimiter;
-            if (delimiter is not ('<' or '>' or '=')) continue;
-            var equal = i + 1 < items.Length && Delim(items[i + 1], '=') && delimiter != '=';
-            var comparison = delimiter == '=' ? CssMediaComparison.Equal : delimiter == '<'
-                ? equal ? CssMediaComparison.LessEqual : CssMediaComparison.Less
-                : equal ? CssMediaComparison.GreaterEqual : CssMediaComparison.Greater;
-            operators.Add((i, equal ? 2 : 1, comparison));
-            if (equal) i++;
-        }
-        if (operators.Count == 0) return false;
-        if (operators.Count > 2) throw new MediaSyntaxException();
-        var first = operators[0];
-        var left = items[..first.Index];
-        var rightStart = first.Index + first.Length;
-        var right = items[rightStart..(operators.Count == 2 ? operators[1].Index : items.Length)];
-        string? rangeName;
-        CssComponentValue[] rangeValue;
-        var reverse = false;
-        if (left.Length == 1 && Ident(left[0], work) is { } leftName) { rangeName = leftName; rangeValue = right; }
-        else if (right.Length == 1 && Ident(right[0], work) is { } rightName) { rangeName = rightName; rangeValue = left; reverse = true; }
-        else throw new MediaSyntaxException();
-        if (operators.Count == 2 && (!reverse || first.Comparison == CssMediaComparison.Equal)) throw new MediaSyntaxException();
+        if (CssFeatureRange.Parse(items, work) is not { } range) return false;
+        var rangeName = range.Name;
         if (rangeName == "grid" || CssMediaFeatureKeywordLookup.Match(rangeName) != CssKeywordSet.Empty || rangeName.StartsWith("min-", StringComparison.Ordinal) ||
             rangeName.StartsWith("max-", StringComparison.Ordinal)) return Unknown(program, builder, source, parser, items, work);
-        var feature1 = Validate(rangeName, reverse ? Reverse(first.Comparison) : first.Comparison, rangeValue, work);
+        var feature1 = Validate(rangeName, range.Comparison, range.FirstValue, work);
         if (feature1 is null) return Unknown(program, builder, source, parser, items, work);
         CssMediaFeature? feature2 = null;
-        CssComponentValue[] last = [];
-        if (operators.Count == 2)
+        if (range.SecondComparison is { } secondComparison)
         {
-            var second = operators[1];
-            if (second.Comparison == CssMediaComparison.Equal ||
-                (first.Comparison is CssMediaComparison.Less or CssMediaComparison.LessEqual) !=
-                (second.Comparison is CssMediaComparison.Less or CssMediaComparison.LessEqual)) throw new MediaSyntaxException();
-            last = items[(second.Index + second.Length)..];
-            feature2 = Validate(rangeName, second.Comparison, last, work);
+            feature2 = Validate(rangeName, secondComparison, range.SecondValue, work);
             if (feature2 is null) return Unknown(program, builder, source, parser, items, work);
         }
         program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature1));
-        if (reverse) builder.Append(ValueText(feature1)).Append(Operator(first.Comparison)).Append(rangeName);
-        else builder.Append(rangeName).Append(Operator(first.Comparison)).Append(ValueText(feature1));
+        if (range.Reversed) builder.Append(ValueText(feature1)).Append(Operator(range.FirstComparison)).Append(rangeName);
+        else builder.Append(rangeName).Append(Operator(range.FirstComparison)).Append(ValueText(feature1));
         if (feature2 is not null)
         {
             program.Add(new CssMediaInstruction(CssMediaOperation.Feature, feature2));
             program.Add(new CssMediaInstruction(CssMediaOperation.And));
-            builder.Append(Operator(operators[1].Comparison)).Append(ValueText(feature2));
+            builder.Append(Operator(range.SecondComparison!.Value)).Append(ValueText(feature2));
         }
         return true;
     }
@@ -345,14 +314,6 @@ internal static class CssMediaParser
         CssMediaComparison.GreaterEqual => " >= ",
         _ => throw new InvalidOperationException()
     };
-    private static CssMediaComparison Reverse(CssMediaComparison comparison) => comparison switch
-    {
-        CssMediaComparison.Less => CssMediaComparison.Greater,
-        CssMediaComparison.LessEqual => CssMediaComparison.GreaterEqual,
-        CssMediaComparison.Greater => CssMediaComparison.Less,
-        CssMediaComparison.GreaterEqual => CssMediaComparison.LessEqual,
-        _ => comparison
-    };
     private static bool Unknown(List<CssMediaInstruction> program, StringBuilder builder,
         string source, CssSyntaxParser parser, CssComponentValue[] items, CssValueWork work)
     {
@@ -384,19 +345,5 @@ internal static class CssMediaParser
         ? CssPropertyRegistry.NormalizeName(value.Token.Text, work) : null;
     private static bool Token(CssComponentValue value, CssTokenKind kind) => value.Kind == CssComponentKind.Token && value.Token.Kind == kind;
     private static bool Delim(CssComponentValue value, char delimiter) => Token(value, CssTokenKind.Delim) && value.Token.Delimiter == delimiter;
-    private static CssComponentValue[] WithoutWhitespace(CssComponentValueList values, CssValueWork work)
-    {
-        var result = new List<CssComponentValue>();
-        for (var i = 0; i < values.Count; i++)
-        {
-            work.Charge(1);
-            var value = values[i];
-            // MQ5 §3 forbids a whitespace token between < or > and a following =.
-            var comparisonWhitespace = Token(value, CssTokenKind.Whitespace) && i > 0 && i + 1 < values.Count &&
-                (Delim(values[i - 1], '<') || Delim(values[i - 1], '>')) && Delim(values[i + 1], '=');
-            if (!Token(value, CssTokenKind.Whitespace) || comparisonWhitespace) result.Add(value);
-        }
-        return result.ToArray();
-    }
     private sealed class MediaSyntaxException : Exception;
 }

@@ -14,8 +14,88 @@ using Browser = global::Jint.Browser.Browser;
 
 public sealed class NativeCssContainerLayoutTests
 {
+    [Test]
+    public async Task NamedNestedRangesTrackMeasuredWidthsAndLiveCssomChanges()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <style>
+              @container panel (100px <= width < 400px) {
+                @container outer (width >= 500px) { #child { opacity:.5 } }
+              }
+            </style>
+            <div style="display:flex">
+              <div style="container:outer / inline-size;display:flex;width:600px;flex-shrink:0">
+                <div id=container style="container:panel / inline-size;width:380px;flex-shrink:0">
+                  <div id=child></div>
+                </div>
+              </div>
+            </div>
+            """);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const sheet=document.styleSheets[0], rule=sheet.cssRules[0], nested=rule.cssRules[0],
+                declaration=nested.cssRules[0].style, live=getComputedStyle(child);
+              const values=[];
+              function read() {
+                values.push(container.getBoundingClientRect().width, live.opacity,
+                  live.getPropertyValue('opacity'));
+              }
+              read();
+              container.style.width='400px'; read();
+              container.style.width='100px'; read();
+              declaration.opacity='.75'; read();
+              container.style.setProperty('container-name','other'); read();
+              container.style.setProperty('container-name','panel'); read();
+              sheet.deleteRule(0); read();
+              declaration.opacity='.25'; read();
+              return values.join('|');
+            })()
+            """)).Should().Be("380|0.5|0.5|400|1|1|100|0.5|0.5|100|0.75|0.75|100|1|1|100|0.75|0.75|100|1|1|100|1|1");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task RangeRulesExposeReadonlyMetadataBrandsAndAtomicInsertion()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style></style><div></div>");
+        (await page.EvaluateAsync<bool>("""
+            (() => {
+              'use strict';
+              const sheet=document.styleSheets[0];
+              sheet.insertRule('@container panel (100px <= width < 400px) { div { opacity:.5 } }',0);
+              const rule=sheet.cssRules[0], children=rule.cssRules;
+              if (!(rule instanceof CSSContainerRule) || !(rule instanceof CSSGroupingRule) ||
+                  Object.prototype.toString.call(rule)!=='[object CSSContainerRule]' ||
+                  rule.parentStyleSheet!==sheet || children[0].parentRule!==rule ||
+                  rule.containerName!=='panel' || rule.containerQuery!=='(100px <= width < 400px)' ||
+                  rule.conditionText!=='panel (100px <= width < 400px)' ||
+                  rule.cssText!=='@container panel (100px <= width < 400px) {\ndiv { opacity: 0.5; }\n}') return false;
+              for (const name of ['containerName','containerQuery','conditionText']) {
+                try { rule[name]='changed'; return false; } catch(e) { if (!(e instanceof TypeError)) throw e; }
+              }
+              const getter=Object.getOwnPropertyDescriptor(CSSContainerRule.prototype,'containerQuery').get;
+              try { getter.call({}); return false; } catch(e) { if (!(e instanceof TypeError)) throw e; }
+              try { rule.insertRule('@import "no.css";',0); return false; }
+              catch(e) { if (e.name!=='HierarchyRequestError') throw e; }
+              if (rule.cssRules!==children || children.length!==1) return false;
+              rule.insertRule('span { opacity:.75 }',1);
+              if (children.length!==2 || children[1].parentRule!==rule) return false;
+              rule.deleteRule(1);
+              sheet.deleteRule(0);
+              return rule.parentStyleSheet===null && rule.parentRule===null && children.length===1;
+            })()
+            """)).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("(min-width:1px)")]
     [TestCase("not (min-width:1px)")]
+    [TestCase("(width >= 1px)")]
+    [TestCase("not (width >= 1px)")]
     public async Task DisplayContentsHasNoPrincipalContainerBoxEvenUnderNot(string condition)
     {
         await using var browser = new Browser();

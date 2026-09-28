@@ -10,6 +10,73 @@ namespace Jint.Tests.Browser.Views;
 
 public sealed class NativeCssContainerQueryTests
 {
+    [TestCase("(width < 380px)", 379.5, "0.5")]
+    [TestCase("(width < 380px)", 380, "1")]
+    [TestCase("(width <= 380px)", 380, "0.5")]
+    [TestCase("(width <= 380px)", 380.5, "1")]
+    [TestCase("(width = 380px)", 380, "0.5")]
+    [TestCase("(width = 380px)", 379.5, "1")]
+    [TestCase("(width >= 380px)", 380, "0.5")]
+    [TestCase("(width >= 380px)", 379.5, "1")]
+    [TestCase("(width > 380px)", 380.5, "0.5")]
+    [TestCase("(width > 380px)", 380, "1")]
+    [TestCase("(380px > width)", 379.5, "0.5")]
+    [TestCase("(380px >= width)", 380, "0.5")]
+    [TestCase("(380px = width)", 380, "0.5")]
+    [TestCase("(380px <= width)", 380, "0.5")]
+    [TestCase("(380px < width)", 380.5, "0.5")]
+    [TestCase("(100px <= width < 400px)", 100, "0.5")]
+    [TestCase("(100px <= width < 400px)", 400, "1")]
+    [TestCase("(100px <= width < 400px)", 99.5, "1")]
+    [TestCase("(400px >= inline-size > 100px)", 400, "0.5")]
+    [TestCase("(400px >= inline-size > 100px)", 100, "1")]
+    [TestCase("(width = 1in)", 96, "0.5")]
+    [TestCase("(width > -1px)", 0, "0.5")]
+    [TestCase("not (width <= -1px)", 0, "0.5")]
+    [TestCase("(width = 0)", 0, "0.5")]
+    public void RangeQueriesCompareActualMetricsAtBothBoundaries(string condition, double width, string expected)
+    {
+        using var fixture = Create("<style>@container panel " + condition + "{#child{opacity:.5}}</style>"
+            + "<div style='container:panel / inline-size;width:1px'><span id=child></span></div>");
+        var input = Query(fixture);
+        var metrics = new Metrics { Value = width };
+        input.Query.AttachContainerMetrics(metrics);
+        input.Query.GetProperty(ContentDom.ElementById(fixture.Document, "child")!, "opacity", ref input.Matching)
+            .Text.Should().Be(expected);
+        metrics.Reads.Should().Be(1);
+    }
+
+    [TestCase("not (width < = 400px)")]
+    [TestCase("(width < 100px < 400px) or (width = 10px)")]
+    [TestCase("(width < 1s) or (width = 10px)")]
+    [TestCase("(future-width < 400px) or (width = 10px)")]
+    public void InvalidRangeDoesNotSelectAContainerOrRequestMetrics(string condition)
+    {
+        using var fixture = Create("<style>@container " + condition + "{#child{opacity:.5}}</style>"
+            + "<div style='container-type:inline-size'><span id=child></span></div>");
+        var input = Query(fixture);
+        var metrics = new Metrics { Value = 10 };
+        input.Query.AttachContainerMetrics(metrics);
+        input.Query.GetProperty(ContentDom.ElementById(fixture.Document, "child")!, "opacity", ref input.Matching)
+            .Text.Should().Be("1");
+        metrics.BoxReads.Should().Be(0);
+        metrics.Reads.Should().Be(0);
+    }
+
+    [TestCase("container-type:normal", true)]
+    [TestCase("container-type:inline-size", false)]
+    public void NegatedRangeWithoutAnEligibleBoxRemainsUnknown(string style, bool box)
+    {
+        using var fixture = Create("<style>@container not (0 < width < 400px){#child{opacity:.5}}</style>"
+            + "<div style='" + style + "'><span id=child></span></div>");
+        var input = Query(fixture);
+        var metrics = new Metrics { Box = box };
+        input.Query.AttachContainerMetrics(metrics);
+        input.Query.GetProperty(ContentDom.ElementById(fixture.Document, "child")!, "opacity", ref input.Matching)
+            .Text.Should().Be("1");
+        metrics.Reads.Should().Be(0);
+    }
+
     [Test]
     public void ActualSwaggerStylesheetRetainsAllTenVendorContainerRules()
     {
@@ -156,10 +223,11 @@ public sealed class NativeCssContainerQueryTests
         Assert.Throws<InvalidOperationException>(() => input.Query.Verify())!.Message.Should().Contain("aborted");
     }
 
-    [Test]
-    public void ProviderMutationRejectsPublicationAndAbortsTheRead()
+    [TestCase("(width:10px)")]
+    [TestCase("(0 < width <= 10px)")]
+    public void ProviderMutationRejectsPublicationAndAbortsTheRead(string condition)
     {
-        using var fixture = Create("<style>@container (width:10px){#child{opacity:.5}}</style>"
+        using var fixture = Create("<style>@container " + condition + "{#child{opacity:.5}}</style>"
             + "<div style='container-type:inline-size'><span id=child></span></div>");
         var input = Query(fixture);
         var child = ContentDom.ElementById(fixture.Document, "child")!;
@@ -169,10 +237,11 @@ public sealed class NativeCssContainerQueryTests
             .Message.Should().Contain("aborted");
     }
 
-    [Test]
-    public void ReentrantPropertyMetricCycleHasNamedDependencyAndUnwinds()
+    [TestCase("(width:10px)")]
+    [TestCase("(0 < width <= 10px)")]
+    public void ReentrantPropertyMetricCycleHasNamedDependencyAndUnwinds(string condition)
     {
-        using var fixture = Create("<style>@container (width:10px){#child{opacity:.5}}</style>"
+        using var fixture = Create("<style>@container " + condition + "{#child{opacity:.5}}</style>"
             + "<div style='container-type:inline-size'><span id=child></span></div>");
         var input = Query(fixture);
         var child = ContentDom.ElementById(fixture.Document, "child")!;
@@ -246,10 +315,11 @@ public sealed class NativeCssContainerQueryTests
         index.Should().BeLessThan(64);
     }
 
-    [Test]
-    public void CancellationDuringMetricReadAndAfterCachedReadKeepsItsOriginalException()
+    [TestCase("(width:10px)")]
+    [TestCase("(0 < width <= 10px)")]
+    public void CancellationDuringMetricReadAndAfterCachedReadKeepsItsOriginalException(string condition)
     {
-        using var fixture = Create("<style>@container (width:10px){#child{opacity:.5;font-size:12px}}</style>"
+        using var fixture = Create("<style>@container " + condition + "{#child{opacity:.5;font-size:12px}}</style>"
             + "<div style='container-type:inline-size'><span id=child></span></div>");
         var child = ContentDom.ElementById(fixture.Document, "child")!;
         using var cancellation = new CancellationTokenSource();

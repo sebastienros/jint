@@ -94,7 +94,9 @@ internal static class CssContainerParser
                 {
                     var values = CssPropertyParser.Significant(operand.Values, work);
                     if (values.Count == 0) return false;
-                    if (values[0].Kind is CssComponentKind.SimpleBlock or CssComponentKind.Function || Ident(values[0], "not"))
+                    if (values[0].Kind == CssComponentKind.SimpleBlock || Ident(values[0], "not") ||
+                        values[0].Kind == CssComponentKind.Function &&
+                        (values.Count == 1 || Ident(values[1], "and") || Ident(values[1], "or")))
                     { pending.Push(new(Parts: values)); continue; }
                 }
                 if (!Operand(operand, program, work)) return false;
@@ -146,10 +148,21 @@ internal static class CssContainerParser
         }
         var parts = CssPropertyParser.Significant(operand.Values, work);
         if (parts.Count == 0) return false;
-        if (parts[0].Kind != CssComponentKind.Token || parts[0].Token.Kind != CssTokenKind.Ident)
+        if (!Token(parts[0], CssTokenKind.Ident) || parts.Count > 1 && !Token(parts[1], CssTokenKind.Colon))
         {
-            program.Add(new(CssMediaOperation.Feature, new(CssContainerAxis.Unknown, CssMediaComparison.Boolean,
-                Dependency: "C6:container-range-syntax")));
+            var range = CssFeatureRange.Parse(CssFeatureRange.WithoutWhitespace(operand.Values, work), work);
+            if (range is null) { program.Add(new(CssMediaOperation.Unknown)); return true; }
+            var first = RangeFeature(range.Name, range.Comparison, range.FirstValue, work);
+            var second = range.SecondComparison is { } comparison2
+                ? RangeFeature(range.Name, comparison2, range.SecondValue, work) : null;
+            if (first is null || range.SecondComparison is not null && second is null)
+            { program.Add(new(CssMediaOperation.Unknown)); return true; }
+            program.Add(new(CssMediaOperation.Feature, first));
+            if (second is not null)
+            {
+                program.Add(new(CssMediaOperation.Feature, second));
+                program.Add(new(CssMediaOperation.And));
+            }
             return true;
         }
         var name = CssPropertyRegistry.NormalizeName(parts[0].Token.Text, work);
@@ -182,6 +195,31 @@ internal static class CssContainerParser
             dependency ??= "C6:container-metric:" + name;
         program.Add(new(CssMediaOperation.Feature, new(axis, comparison, pixels, dependency)));
         return true;
+    }
+
+    private static CssContainerFeature? RangeFeature(string name, CssMediaComparison comparison,
+        CssComponentValue[] values, CssValueWork work)
+    {
+        var axis = CssContainerAxisLookup.Match(name);
+        if (axis == CssContainerAxis.Unknown) return null;
+        if (axis == CssContainerAxis.Both)
+            return new(axis, comparison, Dependency: "C6:container-feature-syntax:" + name);
+        if (values.Length != 1) return null;
+        var value = values[0];
+        if (value.Kind == CssComponentKind.Function)
+            return new(axis, comparison, Dependency: "C6:container-feature-syntax:" + name);
+        if (value.Kind != CssComponentKind.Token || value.Token.Kind is not (CssTokenKind.Number or CssTokenKind.Dimension))
+            return null;
+        var token = value.Token;
+        var number = CssNumber.FromValidatedToken(token.NumberText, work);
+        if (token.Kind == CssTokenKind.Number && number.Sign != 0) return null;
+        var unit = token.Kind == CssTokenKind.Number ? CssUnit.Px : CssUnits.Recognize(token.Unit, work);
+        if (unit.Category() != CssUnitCategory.Length) return null;
+        var dependency = unit is >= CssUnit.Px and <= CssUnit.Pc ? null : "C6:container-length-unit:" + token.Unit;
+        var pixels = dependency is null ? CssMathNumbers.ParseFinite(number, unit, work) : 0;
+        if (axis is CssContainerAxis.Height or CssContainerAxis.BlockSize)
+            dependency ??= "C6:container-metric:" + name;
+        return new(axis, comparison, pixels, dependency);
     }
 
     private static bool Token(CssComponentValue part, CssTokenKind kind) => part.Kind == CssComponentKind.Token && part.Token.Kind == kind;
