@@ -1,4 +1,5 @@
-using System.Text;
+using System.Buffers;
+using System.IO.Hashing;
 using System.Runtime.InteropServices;
 
 namespace Jint.HtmlParser;
@@ -40,8 +41,24 @@ internal sealed partial class XmlTreeParser
     private int _position;
     private int _work;
     private bool _seenRoot;
-    private StringBuilder? _pendingText;
+    private CharBuffer? _pendingText;
     private int _pendingTextOffset;
+
+    // Per-start-tag scratch, reused across elements. A collection that grew past
+    // ScratchLimit is replaced rather than cleared, so one wide element cannot make
+    // every later Clear pay for its capacity.
+    private const int ScratchLimit = 64;
+    private List<RawAttribute> _rawAttributes = [];
+    private HashSet<string> _rawNames = new(StringComparer.Ordinal);
+    private Dictionary<string, string?> _localBindings = new(StringComparer.Ordinal);
+    private HashSet<(string?, string)> _expandedNames = [];
+    private List<ParserAttribute> _parsedAttributes = [];
+
+    // Parse-local, bounded name reuse: repeated element and attribute names share one
+    // string (and one prefix/local split) without interning input process-wide.
+    private const int NameSlots = 256;
+    private const int MaxCachedNameLength = 64;
+    private QualifiedName?[]? _names;
 
     private XmlTreeParser(string source, ParseLimits limits, Element? context, Document? document,
         bool requireSvgRoot, Action? onCancellationPoll, CancellationToken cancellationToken)
@@ -285,10 +302,10 @@ internal sealed partial class XmlTreeParser
         if (_limits.MaxNestingDepth != 0 && depth > _limits.MaxNestingDepth)
             throw new ParseLimitException(ParseLimitKind.NestingDepth, _limits.MaxNestingDepth, depth);
 
-        var attributes = new List<RawAttribute>();
+        var attributes = Reuse(ref _rawAttributes);
         var declaredAttributes = GetDeclaredAttributeTypes(name);
-        var rawNames = new HashSet<string>(StringComparer.Ordinal);
-        var localBindings = new Dictionary<string, string?>(StringComparer.Ordinal);
+        Reuse(ref _rawNames);
+        var localBindings = Reuse(ref _localBindings);
         bool empty;
         while (true)
         {
@@ -318,7 +335,7 @@ internal sealed partial class XmlTreeParser
                 declaredAttributes.TryGetValue(attributeName, out var declaration) && !declaration.CData)
                 value = CollapseSpaces(value);
             CheckToken(start);
-            if (!rawNames.Add(attributeName)) Error("xml/duplicate-attribute", attributeOffset);
+            if (!AddRawName(attributes, attributeName)) Error("xml/duplicate-attribute", attributeOffset);
             attributes.Add(new RawAttribute(attributeName, value, attributeOffset));
 
             if (attributeName == "xmlns" || attributeName.StartsWith("xmlns:", StringComparison.Ordinal))
@@ -329,14 +346,14 @@ internal sealed partial class XmlTreeParser
             }
         }
 
-        ApplyDtdAttributes(name, attributes, rawNames, localBindings);
+        ApplyDtdAttributes(name, attributes, localBindings);
         var split = SplitName(name);
         var namespaceUri = split.Prefix is null ? Resolve(string.Empty, localBindings) : ResolveRequired(split.Prefix, localBindings, start);
         if (namespaceUri == Namespaces.Xmlns || split.Prefix == "xmlns") Error("xml/namespace-error", start);
         if (_requireSvgRoot && _frames.Count == 0 && (split.LocalName != "svg" || namespaceUri != Namespaces.Svg))
             Error("xml/svg-root-required", start);
-        var expanded = new HashSet<(string?, string)>();
-        var parsedAttributes = new List<ParserAttribute>(attributes.Count);
+        Reuse(ref _expandedNames);
+        var parsedAttributes = Reuse(ref _parsedAttributes);
         string? isValue = null;
         foreach (var attribute in attributes)
         {
@@ -344,7 +361,7 @@ internal sealed partial class XmlTreeParser
             var attrNamespace = attribute.Name == "xmlns" || attrSplit.Prefix == "xmlns"
                 ? Namespaces.Xmlns
                 : attrSplit.Prefix is null ? null : ResolveRequired(attrSplit.Prefix, localBindings, attribute.Offset);
-            if (!expanded.Add((attrNamespace, attrSplit.LocalName))) Error("xml/duplicate-attribute", attribute.Offset);
+            if (!AddExpandedName(parsedAttributes, attrNamespace, attrSplit.LocalName)) Error("xml/duplicate-attribute", attribute.Offset);
             if (attrNamespace is null && attrSplit.LocalName == "is") isValue = attribute.Value;
             var isDtdId = declaredAttributes is not null &&
                           declaredAttributes.TryGetValue(attribute.Name, out var declaration) && declaration.IsId;
@@ -358,11 +375,12 @@ internal sealed partial class XmlTreeParser
         Parent.AppendParsedChild(element);
         if (!empty)
         {
-            var previousBindings = new Dictionary<string, BindingUndo>(localBindings.Count, StringComparer.Ordinal);
+            Dictionary<string, BindingUndo>? previousBindings = null;
+            if (localBindings.Count != 0) previousBindings = new(localBindings.Count, StringComparer.Ordinal);
             foreach (var (prefix, uri) in localBindings)
             {
                 WorkUnit();
-                previousBindings.Add(prefix, _bindings.TryGetValue(prefix, out var previous)
+                previousBindings!.Add(prefix, _bindings.TryGetValue(prefix, out var previous)
                     ? new BindingUndo(true, previous) : new BindingUndo(false, null));
                 _bindings[prefix] = uri;
             }
@@ -385,6 +403,7 @@ internal sealed partial class XmlTreeParser
             _frames.Count <= _inputFrames.Peek().ElementDepth)
             Error("xml/invalid-markup", start);
         var frame = _frames.Pop();
+        if (frame.PreviousBindings is null) return;
         foreach (var (prefix, previous) in frame.PreviousBindings)
         {
             WorkUnit();
@@ -395,13 +414,25 @@ internal sealed partial class XmlTreeParser
 
     private void ParseText()
     {
-        _pendingText ??= new StringBuilder();
+        _pendingText ??= new CharBuffer();
         if (_pendingText.Length == 0)
         {
             _pendingTextOffset = _position;
         }
         while (!End && Current != '<')
         {
+            if (CanBatch)
+            {
+                // Text has no token limit; ordinary characters cost one unit each.
+                var run = OrdinaryRun(TextStops, tokenStart: -1);
+                if (run > 0)
+                {
+                    _pendingText.Append(_source.AsSpan(_position, run));
+                    _position += run;
+                    WorkUnits(run);
+                    continue;
+                }
+            }
             if (StartsWith("]]>")) Error("xml/invalid-markup", _position);
             if (Current == '&')
             {
@@ -442,11 +473,34 @@ internal sealed partial class XmlTreeParser
         var quote = Current;
         if (quote is not ('\'' or '"')) Error("xml/invalid-markup", _position);
         Consume();
+        var valueStart = _position;
         var builder = new ValueStringBuilder(stackalloc char[128]);
         try
         {
             while (Current != quote)
             {
+                if (CanBatch)
+                {
+                    var run = OrdinaryRun(AttributeValueStops, tokenStart);
+                    if (run > 0)
+                    {
+                        if (_position == valueStart && Peek(run) == quote)
+                        {
+                            // The whole value is one ordinary run: take it straight from the source,
+                            // charging the same units the builder copy would have.
+                            Advance(run, tokenStart);
+                            Consume();
+                            WorkUnits(run);
+                            _cancellationToken.ThrowIfCancellationRequested();
+                            var value = _source.Substring(valueStart, run);
+                            _cancellationToken.ThrowIfCancellationRequested();
+                            return value;
+                        }
+                        builder.Append(_source.AsSpan(_position, run));
+                        Advance(run, tokenStart);
+                        continue;
+                    }
+                }
                 if (End) Error("xml/unexpected-eof", _position);
                 if (Current == '<') Error("xml/invalid-markup", _position);
                 if (Current == '&')
@@ -515,9 +569,14 @@ internal sealed partial class XmlTreeParser
     {
         var start = _position;
         if (!IsNameStart(PeekScalar())) Error("xml/invalid-name", _position);
-        ConsumeScalar();
-        CheckToken(tokenStart);
-        if (parentTokenStart >= 0) CheckToken(parentTokenStart);
+        var run = CanBatch ? AsciiNameRun(tokenStart, parentTokenStart) : 0;
+        if (run > 0) Advance(run, tokenStart, parentTokenStart);
+        else
+        {
+            ConsumeScalar();
+            CheckToken(tokenStart);
+            if (parentTokenStart >= 0) CheckToken(parentTokenStart);
+        }
         while (IsNameChar(PeekScalar()))
         {
             ConsumeScalar();
@@ -525,7 +584,25 @@ internal sealed partial class XmlTreeParser
             if (parentTokenStart >= 0) CheckToken(parentTokenStart);
         }
         _cancellationToken.ThrowIfCancellationRequested();
-        return XmlKnownNameLookup.Match(_source.AsSpan(start, _position - start)) ?? _source[start.._position];
+        return CachedName(_source.AsSpan(start, _position - start)).Name;
+    }
+
+    private QualifiedName CachedName(ReadOnlySpan<char> name, string? materialized = null)
+    {
+        if (name.Length > MaxCachedNameLength) return CreateQualifiedName(Materialize(name, materialized));
+        var slot = (int) (XxHash3.HashToUInt64(MemoryMarshal.AsBytes(name)) & (NameSlots - 1));
+        _names ??= new QualifiedName?[NameSlots];
+        if (_names[slot] is { } cached && name.SequenceEqual(cached.Name)) return cached;
+        return _names[slot] = CreateQualifiedName(Materialize(name, materialized));
+
+        static string Materialize(ReadOnlySpan<char> name, string? materialized)
+            => materialized ?? XmlKnownNameLookup.Match(name) ?? name.ToString();
+    }
+
+    private static QualifiedName CreateQualifiedName(string name)
+    {
+        var colon = name.IndexOf(':');
+        return colon < 0 ? new QualifiedName(name, null, name) : new QualifiedName(name, name[..colon], name[(colon + 1)..]);
     }
 
     private string ReadQuoted(string code, int tokenStart)
@@ -558,10 +635,12 @@ internal sealed partial class XmlTreeParser
             Error("xml/namespace-error", offset);
     }
 
-    private static (string? Prefix, string LocalName) SplitName(string name)
+    private (string? Prefix, string LocalName) SplitName(string name)
     {
         var colon = name.IndexOf(':');
-        return colon < 0 ? (null, name) : (name[..colon], name[(colon + 1)..]);
+        if (colon < 0) return (null, name);
+        var cached = CachedName(name, name);
+        return (cached.Prefix, cached.LocalName);
     }
 
     private void ValidateBinding(string prefix, string value, int offset)
@@ -586,9 +665,24 @@ internal sealed partial class XmlTreeParser
 
     private static string? EmptyToNull(string value) => value.Length == 0 ? null : value;
 
-    private Node Parent => _frames.Count == 0 ? (Node?) _fragment ?? _document
-        : (Node?) _frames.Peek().Element.TemplateContent ?? _frames.Peek().Element;
-    private Document CurrentDocument => Parent as Document ?? Parent.OwnerDocument!;
+    private Node Parent
+    {
+        get
+        {
+            if (_frames.Count == 0) return (Node?) _fragment ?? _document;
+            var element = _frames.Peek().Element;
+            return (Node?) element.TemplateContent ?? element;
+        }
+    }
+
+    private Document CurrentDocument
+    {
+        get
+        {
+            var parent = Parent;
+            return parent as Document ?? parent.OwnerDocument!;
+        }
+    }
     private bool End => _position >= _source.Length;
     private char Current => End ? '\0' : _source[_position];
     private char Peek(int delta) => _position + delta < _source.Length ? _source[_position + delta] : '\0';
@@ -627,6 +721,15 @@ internal sealed partial class XmlTreeParser
 
     private bool SkipWhitespace(int tokenStart)
     {
+        if (CanBatch)
+        {
+            var rest = _source.AsSpan(_position);
+            var run = rest.IndexOfAnyExcept(XmlWhitespace);
+            run = ClampToTokenLimit(run < 0 ? rest.Length : run, tokenStart, -1);
+            if (run == 0) return false;
+            Advance(run, tokenStart);
+            return true;
+        }
         var found = false;
         while (!End && IsWhitespace(Current))
         {
@@ -660,7 +763,7 @@ internal sealed partial class XmlTreeParser
         if (scalar > 0xFFFF) Consume();
     }
 
-    private void AppendNormalizedScalar(StringBuilder builder)
+    private void AppendNormalizedScalar(CharBuffer builder)
     {
         var (first, second) = ReadNormalizedScalar();
         builder.Append(first);
@@ -730,22 +833,147 @@ internal sealed partial class XmlTreeParser
         finally { builder.Dispose(); }
     }
 
+    // A secondary copy is work too, even when the BCL performs it in one call. Polls
+    // exactly where `count` WorkUnit calls would.
     private void WorkUnits(int count)
     {
-        // A secondary copy is work too, even when the BCL performs it in one call.
-        while (count-- > 0) WorkUnit();
+        while (count > 0)
+        {
+            var step = Math.Min(count, WorkPollInterval - _work);
+            _work += step;
+            count -= step;
+            if (_work >= WorkPollInterval) PollWork();
+        }
     }
 
-    private void AppendCopy(StringBuilder builder, string? value)
+    // Ordinary runs are consumed in one step only from the primary source and outside a DOCTYPE,
+    // where Consume has no per-character bookkeeping beyond the work unit.
+    private bool CanBatch => _inputFrames.Count == 0 && _doctypeTokenStart < 0;
+
+    // Length of the run of characters at the cursor that are not stops, ended early on the character
+    // that would exceed the token limit so the CheckToken after Advance throws exactly where
+    // character-by-character consumption would.
+    private int OrdinaryRun(SearchValues<char> stops, int tokenStart, int parentTokenStart = -1)
     {
-        if (value is null) return;
-        WorkUnits(value.Length);
-        _cancellationToken.ThrowIfCancellationRequested();
-        builder.Append(value);
-        _cancellationToken.ThrowIfCancellationRequested();
+        var rest = _source.AsSpan(_position);
+        var run = rest.IndexOfAny(stops);
+        return ClampToTokenLimit(run < 0 ? rest.Length : run, tokenStart, parentTokenStart);
     }
 
-    private string Materialize(StringBuilder builder)
+    // Ends a run early on the character that would exceed the token limit, so the CheckToken
+    // after Advance throws exactly where character-by-character consumption would.
+    private int ClampToTokenLimit(int run, int tokenStart, int parentTokenStart)
+    {
+        var max = _limits.MaxTokenCharacters;
+        if (max == 0 || run == 0) return run;
+        if (tokenStart >= 0) run = Math.Min(run, Math.Max(1, max + 1 - (_position - tokenStart)));
+        if (parentTokenStart >= 0) run = Math.Min(run, Math.Max(1, max + 1 - (_position - parentTokenStart)));
+        return run;
+    }
+
+    // The run of ASCII name characters at the cursor; a non-ASCII name continues scalar by scalar.
+    private int AsciiNameRun(int tokenStart, int parentTokenStart)
+    {
+        var rest = _source.AsSpan(_position);
+        var run = rest.IndexOfAnyExcept(AsciiNameChars);
+        return ClampToTokenLimit(run < 0 ? rest.Length : run, tokenStart, parentTokenStart);
+    }
+
+    private void Advance(int count, int tokenStart, int parentTokenStart = -1)
+    {
+        _position += count;
+        WorkUnits(count);
+        CheckToken(tokenStart);
+        if (parentTokenStart >= 0) CheckToken(parentTokenStart);
+    }
+
+    private static readonly SearchValues<char> XmlWhitespace = SearchValues.Create(" \t\r\n");
+
+    private static readonly SearchValues<char> AsciiNameChars =
+        SearchValues.Create("-.0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
+
+    // XML 1.0 §2.2/§2.3: controls other than TAB/LF, lone surrogates and U+FFFE/U+FFFF are errors,
+    // CR is normalized, and the markup delimiters end a run. Everything else is copied as is.
+    private static readonly SearchValues<char> TextStops = CreateStops("\r<&]", allowTab: true);
+    private static readonly SearchValues<char> AttributeValueStops = CreateStops("\t\n\r\"'<&", allowTab: false);
+
+    private static SearchValues<char> CreateStops(string delimiters, bool allowTab)
+    {
+        var stops = new List<char>(delimiters);
+        for (var c = '\0'; c < ' '; c++)
+        {
+            if (allowTab && c is '\t' or '\n') continue;
+            stops.Add(c);
+        }
+        for (var c = '\uD800'; c <= '\uDFFF'; c++) stops.Add(c);
+        stops.Add('\uFFFE');
+        stops.Add('\uFFFF');
+        return SearchValues.Create(stops.ToArray());
+    }
+
+    // Duplicate attribute detection scans the few attributes a start tag usually has, and
+    // switches to a set (seeded with those already added) once a tag is wide enough for
+    // the quadratic scan to matter. Callers add the attribute after a successful call.
+    private const int LinearDuplicateScanLimit = 8;
+
+    private bool AddRawName(List<RawAttribute> attributes, string name)
+    {
+        var added = CollectionsMarshal.AsSpan(attributes);
+        if (added.Length < LinearDuplicateScanLimit)
+        {
+            foreach (var attribute in added)
+            {
+                if (attribute.Name == name) return false;
+            }
+            return true;
+        }
+        if (_rawNames.Count == 0)
+        {
+            foreach (var attribute in added) _rawNames.Add(attribute.Name);
+        }
+        return _rawNames.Add(name);
+    }
+
+    private bool AddExpandedName(List<ParserAttribute> attributes, string? namespaceUri, string localName)
+    {
+        var added = CollectionsMarshal.AsSpan(attributes);
+        if (added.Length < LinearDuplicateScanLimit)
+        {
+            foreach (var attribute in added)
+            {
+                if (attribute.LocalName == localName && attribute.NamespaceUri == namespaceUri) return false;
+            }
+            return true;
+        }
+        if (_expandedNames.Count == 0)
+        {
+            foreach (var attribute in added) _expandedNames.Add((attribute.NamespaceUri, attribute.LocalName));
+        }
+        return _expandedNames.Add((namespaceUri, localName));
+    }
+
+    private static List<T> Reuse<T>(ref List<T> list)
+    {
+        if (list.Count > ScratchLimit) list = [];
+        else list.Clear();
+        return list;
+    }
+
+    private static HashSet<T> Reuse<T>(ref HashSet<T> set)
+    {
+        if (set.Count > ScratchLimit) set = new HashSet<T>(set.Comparer);
+        else set.Clear();
+        return set;
+    }
+
+    private static Dictionary<TKey, TValue> Reuse<TKey, TValue>(ref Dictionary<TKey, TValue> dictionary) where TKey : notnull
+    {
+        if (dictionary.Count > ScratchLimit) dictionary = new Dictionary<TKey, TValue>(dictionary.Comparer);
+        else dictionary.Clear();
+        return dictionary;
+    }
+
+    private string Materialize(CharBuffer builder)
     {
         WorkUnits(builder.Length);
         _cancellationToken.ThrowIfCancellationRequested();
@@ -772,22 +1000,27 @@ internal sealed partial class XmlTreeParser
         return value;
     }
 
+    private const int WorkPollInterval = 4096;
+
     private void WorkUnit()
     {
-        if (++_work >= 4096)
-        {
-            _work = 0;
-            _onCancellationPoll?.Invoke();
-            _cancellationToken.ThrowIfCancellationRequested();
-        }
+        if (++_work >= WorkPollInterval) PollWork();
+    }
+
+    private void PollWork()
+    {
+        _work = 0;
+        _onCancellationPoll?.Invoke();
+        _cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static bool IsWhitespace(char value) => value is ' ' or '\t' or '\r' or '\n';
     private static bool IsXmlChar(uint value)
         => value is 0x9 or 0xA or 0xD or >= 0x20 and <= 0xD7FF or >= 0xE000 and <= 0xFFFD or >= 0x10000 and <= 0x10FFFF;
     private static bool IsNameStart(int value)
-        => value is ':' or '_' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or
-            >= 0xC0 and <= 0xD6 or >= 0xD8 and <= 0xF6 or >= 0xF8 and <= 0x2FF or
+        => value < 0x80
+            ? (uint) ((value | 0x20) - 'a') <= 'z' - 'a' || value is ':' or '_'
+            : value is >= 0xC0 and <= 0xD6 or >= 0xD8 and <= 0xF6 or >= 0xF8 and <= 0x2FF or
             >= 0x370 and <= 0x37D or >= 0x37F and <= 0x1FFF or >= 0x200C and <= 0x200D or
             >= 0x2070 and <= 0x218F or >= 0x2C00 and <= 0x2FEF or >= 0x3001 and <= 0xD7FF or
             >= 0xF900 and <= 0xFDCF or >= 0xFDF0 and <= 0xFFFD or >= 0x10000 and <= 0xEFFFF;
@@ -810,7 +1043,8 @@ internal sealed partial class XmlTreeParser
         => throw new MarkupParseException(code, _inputFrames.Count == 0 ? offset : _inputFrames.Peek().OriginalOffset);
 
     private readonly record struct RawAttribute(string Name, string Value, int Offset);
-    private sealed record ElementFrame(Element Element, string QualifiedName, Dictionary<string, BindingUndo> PreviousBindings);
+    private readonly record struct ElementFrame(Element Element, string QualifiedName, Dictionary<string, BindingUndo>? PreviousBindings);
+    private sealed record QualifiedName(string Name, string? Prefix, string LocalName);
     private readonly record struct BindingUndo(bool Exists, string? Value);
     private readonly record struct InputFrame(string Source, int Position, string EntityName, int OriginalOffset, int ElementDepth, bool Parameter);
     private readonly record struct XmlEntityDeclaration(string? Value, string? PublicId, string? SystemId,

@@ -1,4 +1,3 @@
-using System.Text;
 using Jint.HtmlParser.Html;
 
 namespace Jint.HtmlParser;
@@ -64,7 +63,7 @@ internal sealed partial class XmlTreeParser
 
     private string ExpandAttributeEntity(string name, string value, int offset)
     {
-        var result = new StringBuilder();
+        var result = new ValueStringBuilder(stackalloc char[128]);
         var pending = new Stack<AttributeEntityFrame>();
         pending.Push(new AttributeEntityFrame(name, value));
         try
@@ -90,7 +89,8 @@ internal sealed partial class XmlTreeParser
                             Error("xml/invalid-character", offset);
                         var low = frame.Value[frame.Position++];
                         ChargeExpansionCharacter();
-                        result.Append(c).Append(low);
+                        result.Append(c);
+                        result.Append(low);
                         continue;
                     }
                     if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
@@ -133,7 +133,7 @@ internal sealed partial class XmlTreeParser
                         HtmlEntities.Lookup.FindTerminatedName(referenceName) is { } catalogValue)
                     {
                         var included = IncludeCatalogEntity(catalogValue, inAttribute: true);
-                        AppendCopy(result, included);
+                        AppendCopy(ref result, included);
                         continue;
                     }
                     if ((!_hasExternalSubset && !_sawParameterReference || _standalone) &&
@@ -150,17 +150,18 @@ internal sealed partial class XmlTreeParser
                 pending.Push(new AttributeEntityFrame(referenceName, nested.Value!));
                 WorkUnit();
             }
+            return Materialize(ref result);
         }
         finally
         {
             while (pending.TryPop(out var frame)) _activeGeneralEntities.Remove(frame.Name);
+            result.Dispose();
         }
-        return Materialize(result);
     }
 
     private string IncludeCatalogEntity(string value, bool inAttribute)
     {
-        StringBuilder? normalized = inAttribute ? new StringBuilder(value.Length) : null;
+        var normalized = inAttribute ? new CharBuffer(value.Length) : null;
         for (var i = 0; i < value.Length; i++)
         {
             var c = value[i];
@@ -449,7 +450,8 @@ internal sealed partial class XmlTreeParser
 
     private string ConstructEntityValue(string source, int offset, bool replacementSource)
     {
-        var result = new StringBuilder(source.Length);
+        var result = new ValueStringBuilder(stackalloc char[128]);
+        result.EnsureCapacity(source.Length);
         var frames = new Stack<AttributeEntityFrame>();
         frames.Push(new AttributeEntityFrame(string.Empty, source));
         try
@@ -491,7 +493,9 @@ internal sealed partial class XmlTreeParser
                         else
                         {
                             ValidateEntityReferenceName(reference, offset);
-                            result.Append('&').Append(reference).Append(';');
+                            result.Append('&');
+                            result.Append(reference);
+                            result.Append(';');
                         }
                         continue;
                     }
@@ -521,7 +525,8 @@ internal sealed partial class XmlTreeParser
                     var low = frame.Value[frame.Position++];
                     if (frame.Name.Length == 0) WorkUnit();
                     else ChargeExpansionCharacter();
-                    result.Append(c).Append(low);
+                    result.Append(c);
+                    result.Append(low);
                     continue;
                 }
                 if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
@@ -537,6 +542,7 @@ internal sealed partial class XmlTreeParser
                 }
                 else result.Append(c);
             }
+            return Materialize(ref result);
         }
         finally
         {
@@ -544,8 +550,8 @@ internal sealed partial class XmlTreeParser
             {
                 if (frame.Name.Length != 0) _activeParameterEntities.Remove(frame.Name);
             }
+            result.Dispose();
         }
-        return Materialize(result);
     }
 
     private void ValidateEntityReferenceName(ReadOnlySpan<char> name, int offset)
@@ -573,13 +579,13 @@ internal sealed partial class XmlTreeParser
     }
 
     private void ApplyDtdAttributes(string elementName, List<RawAttribute> attributes,
-        HashSet<string> rawNames, Dictionary<string, string?> localBindings)
+        Dictionary<string, string?> localBindings)
     {
         if (!_attributeDeclarations.TryGetValue(elementName, out var declarations)) return;
         foreach (var declaration in declarations)
         {
             WorkUnit();
-            if (declaration.DefaultValue is null || !rawNames.Add(declaration.Name)) continue;
+            if (declaration.DefaultValue is null || !AddRawName(attributes, declaration.Name)) continue;
             var value = declaration.DefaultValue;
             attributes.Add(new RawAttribute(declaration.Name, value, _position));
             if (declaration.Name == "xmlns" || declaration.Name.StartsWith("xmlns:", StringComparison.Ordinal))
@@ -905,7 +911,7 @@ internal sealed partial class XmlTreeParser
     private string NormalizeNotationPublicId(string value, int offset)
     {
         _cancellationToken.ThrowIfCancellationRequested();
-        var normalized = new StringBuilder(value.Length);
+        var normalized = new CharBuffer(value.Length);
         _cancellationToken.ThrowIfCancellationRequested();
         var pendingSpace = false;
         foreach (var c in value)
