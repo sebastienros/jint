@@ -94,6 +94,11 @@ public sealed class Element : Node
         {
             TemplateContent = new DocumentFragment(owner.GetTemplateContentsOwnerDocument(), this);
         }
+        else if (namespaceUri == Namespaces.Html)
+        {
+            if (localName == "selectedcontent") owner.RecordCreatedElementKinds(DocumentElementKinds.SelectedContent);
+            else if (localName == "base") owner.RecordCreatedElementKinds(DocumentElementKinds.Base);
+        }
     }
 
     public override NodeType NodeType => NodeType.Element;

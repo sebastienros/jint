@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 namespace Jint.HtmlParser;
 
 /// <summary>HTML §4.10.17 selectedcontent connection, cloning and primary-element rules.</summary>
@@ -65,7 +66,17 @@ internal static class HtmlSelectedContent
         token.ThrowIfCancellationRequested();
         Apply(select, prepared);
     }
+    // Every insertion and removal reaches this, so the common no-selectedcontent case must not pay
+    // the walk's frame setup: the guard stays small enough to inline and the walk lives apart.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void TreeChanged(Node root, Node? oldParent, bool insertion, HtmlSelectWorkContext? context = null)
+    {
+        if ((root as Document ?? root.OwnerDocument) is { MayHaveSelectedContent: false }) return;
+        TreeChangedCore(root, oldParent, insertion, context);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void TreeChangedCore(Node root, Node? oldParent, bool insertion, HtmlSelectWorkContext? context)
     {
         if (root.FirstChild is null &&
             root is not Element { NamespaceUri: Namespaces.Html, LocalName: "selectedcontent" } &&

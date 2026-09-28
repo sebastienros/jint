@@ -20,9 +20,20 @@ internal sealed partial class HtmlTokenizer
         const int Slots = 128;
         if (buffer.Length > MaxCachedNameLength) return Materialize(buffer);
         Poll();
-        Span<char> scratch = stackalloc char[MaxCachedNameLength];
-        var name = scratch[..buffer.Length];
-        buffer.CopyTo(0, name, name.Length);
+        // A cleared builder keeps one chunk, so the name is normally read in place.
+        scoped ReadOnlySpan<char> name = default;
+        var chunks = 0;
+        foreach (var chunk in buffer.GetChunks())
+        {
+            if (++chunks > 1) break;
+            name = chunk.Span;
+        }
+        if (chunks != 1)
+        {
+            Span<char> scratch = stackalloc char[MaxCachedNameLength];
+            buffer.CopyTo(0, scratch, buffer.Length);
+            name = scratch[..buffer.Length];
+        }
         ChargeCopy(name.Length);
         if (HtmlKnownNames.Match(name) is { } knownName) return knownName;
         var slot = (int) (XxHash3.HashToUInt64(MemoryMarshal.AsBytes(name)) & (Slots - 1));

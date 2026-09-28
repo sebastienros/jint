@@ -60,7 +60,7 @@ internal sealed partial class HtmlTreeBuilder
         if (_specialFormattingStartStage == SpecialFormattingStartStage.Idle)
         {
             _specialFormattingStartStage = SpecialFormattingStartStage.Reconstruct;
-            if (name == "a" && _formattingByName.TryGetValue((_lastFormattingMarker, Namespaces.Html, "a"), out var anchors))
+            if (name == "a" && FormattingEntriesNamed("a") is { } anchors)
             {
                 Error("nested-anchor");
                 _specialOldAnchor = anchors.Last!.Value.Element;
@@ -82,8 +82,7 @@ internal sealed partial class HtmlTreeBuilder
                 case SpecialFormattingStartStage.CleanupAnchorList:
                     if (_formattingByElement.TryGetValue(_specialOldAnchor!, out var oldEntry))
                         RemoveFormattingEntry(oldEntry);
-                    _specialOpenScan = _nameIndexes.TryGetValue((Namespaces.Html, "a"), out var anchorsOpen)
-                        ? anchorsOpen.Count - 1 : -1;
+                    _specialOpenScan = _nameIndexes.Html("a") is { } anchorsOpen ? anchorsOpen.Count - 1 : -1;
                     _specialFormattingStartStage = SpecialFormattingStartStage.CleanupAnchorOpen;
                     Charge(1);
                     advanced = true;
@@ -101,7 +100,7 @@ internal sealed partial class HtmlTreeBuilder
                         _specialFormattingStartStage = SpecialFormattingStartStage.Reconstruct;
                         break;
                     }
-                    var anchorOpenIndex = _nameIndexes[(Namespaces.Html, "a")][_specialOpenScan];
+                    var anchorOpenIndex = _nameIndexes.Html("a")![_specialOpenScan];
                     if (ReferenceEquals(_open[anchorOpenIndex], _specialOldAnchor))
                     {
                         _specialOpenScan = anchorOpenIndex;
@@ -117,8 +116,7 @@ internal sealed partial class HtmlTreeBuilder
                     _specialFormattingStartStage = name == "nobr"
                         ? SpecialFormattingStartStage.CheckNobr : SpecialFormattingStartStage.Insert;
                     if (name == "nobr")
-                        _specialOpenScan = _nameIndexes.TryGetValue((Namespaces.Html, "nobr"), out var nobrOpen)
-                            ? nobrOpen.Count - 1 : -1;
+                        _specialOpenScan = _nameIndexes.Html("nobr") is { } nobrOpen ? nobrOpen.Count - 1 : -1;
                     advanced = true;
                     break;
                 case SpecialFormattingStartStage.CheckNobr:
@@ -127,7 +125,7 @@ internal sealed partial class HtmlTreeBuilder
                         _specialFormattingStartStage = SpecialFormattingStartStage.Insert;
                         break;
                     }
-                    var examinedIndex = _nameIndexes[(Namespaces.Html, "nobr")][_specialOpenScan--];
+                    var examinedIndex = _nameIndexes.Html("nobr")![_specialOpenScan--];
                     if (examinedIndex < LastScopeStop)
                     {
                         _specialFormattingStartStage = SpecialFormattingStartStage.Insert;
@@ -192,17 +190,15 @@ internal sealed partial class HtmlTreeBuilder
                 case AdoptionStage.Outer:
                     if (_adoptionOuter == 8) { EndAdoption(); return true; }
                     _adoptionOuter++;
-                    if (!_formattingByName.TryGetValue((_lastFormattingMarker, Namespaces.Html, _adoptionSubject!), out var matches))
+                    if (FormattingEntriesNamed(_adoptionSubject!) is not { } matches)
                     {
-                        _adoptionScan = _nameIndexes.TryGetValue((Namespaces.Html, _adoptionSubject!), out var genericNames)
-                            ? genericNames.Count - 1 : -1;
+                        _adoptionScan = _nameIndexes.Html(_adoptionSubject!) is { } genericNames ? genericNames.Count - 1 : -1;
                         _adoptionStage = AdoptionStage.GenericFind;
                     }
                     else
                     {
                         _adoptionFormatting = matches.Last!.Value;
-                        _adoptionScan = _nameIndexes.TryGetValue((Namespaces.Html, _adoptionSubject!), out var names)
-                            ? names.Count - 1 : -1;
+                        _adoptionScan = _nameIndexes.Html(_adoptionSubject!) is { } names ? names.Count - 1 : -1;
                         _adoptionStage = AdoptionStage.FindOpen;
                     }
                     Charge(1);
@@ -218,7 +214,7 @@ internal sealed partial class HtmlTreeBuilder
                     }
                     if (_adoptionScan < 0)
                         throw new InvalidOperationException("Open-element identity index disagrees with the stack.");
-                    var openIndex = _nameIndexes[(Namespaces.Html, _adoptionSubject!)][_adoptionScan];
+                    var openIndex = _nameIndexes.Html(_adoptionSubject!)![_adoptionScan];
                     if (ReferenceEquals(_open[openIndex], _adoptionFormatting!.Element))
                     {
                         _adoptionFormattingIndex = openIndex;
@@ -281,7 +277,7 @@ internal sealed partial class HtmlTreeBuilder
                             // rather than shifting the same suffix per removal.
                             _adoptionCompactRead = 0;
                             _adoptionCompactWrite = 0;
-                            _nameIndexes = new Dictionary<(string? Namespace, string Name), List<int>>();
+                            _nameIndexes = new OpenNameIndex();
                             _specialIndexes = [];
                             _liStops = [];
                             _ddDtStops = [];
@@ -452,7 +448,7 @@ internal sealed partial class HtmlTreeBuilder
                         EndAdoption();
                         return true;
                     }
-                    var genericIndexes = _nameIndexes[(Namespaces.Html, _adoptionSubject!)];
+                    var genericIndexes = _nameIndexes.Html(_adoptionSubject!)!;
                     var indexedTarget = genericIndexes[_adoptionScan--];
                     if (indexedTarget < LastSpecial)
                     {
@@ -553,8 +549,7 @@ internal sealed partial class HtmlTreeBuilder
             var position = indexes.BinarySearch(value);
             indexes.Insert(position < 0 ? ~position : position, value);
         }
-        if (!_nameIndexes.TryGetValue((element.NamespaceUri, element.LocalName), out var names))
-            _nameIndexes[(element.NamespaceUri, element.LocalName)] = names = [];
+        var names = _nameIndexes.GetOrAdd(element);
         Insert(names, index);
         if (IsSpecialElement(element))
         {
@@ -632,7 +627,7 @@ internal sealed partial class HtmlTreeBuilder
             if (position < 0) throw new InvalidOperationException("HTML stack index was not found.");
             indexes[position] = index + 1;
         }
-        Shift(_nameIndexes[(element.NamespaceUri, element.LocalName)], oldIndex);
+        Shift(_nameIndexes.For(element), oldIndex);
         if (IsSpecialElement(element))
         {
             Shift(_specialIndexes, oldIndex);

@@ -170,7 +170,7 @@ another thread, so it ends a page that is *idle and not done* and not one whose 
 `MaxTaskDuration` infinite (below) there is no constraint armed either — and a walk that never re-enters the
 engine would not meet one even if it were armed. Four `dom/traversal/` documents found this: AngleSharp's
 `TreeWalker.ToPrevious` did not terminate, which is why DOM §6.1's seven traversals are `Jint.Browser`'s own
-([`Jint.Browser/Dom/Views/DomTreeWalker.cs`](../../Jint.Browser/Dom/Views/DomTreeWalker.cs), and its file
+([`Jint.HtmlParser/Dom/LiveTraversal/DomTreeWalker.cs`](../../Jint.HtmlParser/Dom/LiveTraversal/DomTreeWalker.cs), and its file
 argues each loop's termination) and why all four are cases now. **A new suite that wedges the run rather than
 failing it is that shape**, and while it is unfixed the document is a `NotVendored` row naming the defect —
 never a document deleted, and never one left in to hang the lane.

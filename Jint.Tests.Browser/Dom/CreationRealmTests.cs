@@ -25,10 +25,16 @@ public class CreationRealmTests
     [TestCase("const n = new a.ProcessingInstruction('t', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
     [TestCase("const n = new a.ProcessingInstruction('𐀀', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
     [TestCase("const p = new a.ProcessingInstruction('t'); return p.getAttributeNames() instanceof a.Array && !(p.getAttributeNames() instanceof Array);")]
+    // Parsed nodes are branded lazily; each native adoption path must capture the brand before moving.
+    [TestCase("const n = a.document.getElementById('parsed'); document.body.append(n); return n.firstChild instanceof a.Text && !(n.firstChild instanceof Text) && n.lastChild instanceof a.Comment;")]
+    [TestCase("const n = a.document.getElementById('parsed'); const r = document.createRange(); r.selectNodeContents(document.body); r.insertNode(n); return n.firstChild instanceof a.Text && n.lastChild instanceof a.Comment;")]
+    [TestCase("const n = a.document.getElementById('parsed'); document.adoptNode(n); const id = n.getAttributeNode('id'); return id instanceof a.Attr && !(id instanceof Attr) && id.ownerDocument === document;")]
+    [TestCase("const e = a.document.getElementById('parsed'); const id = e.getAttributeNode('id'); e.removeAttributeNode(id); document.body.setAttributeNode(id); return id instanceof a.Attr && !(id instanceof Attr);")]
+    [TestCase("const p = a.document.getElementById('tpl').content.firstChild; document.body.append(p); return p instanceof a.HTMLParagraphElement && !(p instanceof HTMLParagraphElement) && p.firstChild instanceof a.Text;")]
     public async Task FrameNodesAndConstructorsKeepTheirOwningRealm(string assertion)
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/child", "<!doctype html><body><div id=parsed>text<!--comment--></div>")
+            .MapHtml("/child", "<!doctype html><body><div id=parsed>text<!--comment--></div><template id=tpl><p>t</p></template>")
             .MapHtml("/", "<!doctype html><body><iframe src=/child></iframe><iframe src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
         (await loopback.Page.EvaluateAsync<bool>("(() => { const a = frames[0], b = frames[1]; " + assertion + " })()"))

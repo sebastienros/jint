@@ -21,6 +21,7 @@ internal sealed partial class ParserDriver
     private bool _scriptChangesPosted;
     private int _scriptAttachmentsUntilSweep = 64;
     private int _resourceAttachmentsUntilSweep = 64;
+    private uint _resourceRecordChecks;
 
     private sealed class ResourceWatch(Node root, Document document, MutationSubscription subscription)
     {
@@ -78,6 +79,8 @@ internal sealed partial class ParserDriver
         if (!imageSource)
         {
             subscription.CaptureHtmlMetaInsertions = true;
+            // Text runs outside style/script cannot start a fetch or change a sheet; skip their records.
+            subscription.OmitInertCharacterRecords = true;
             subscription.CreateCaptureWork = () =>
             {
                 if (!weak.TryGetTarget(out var driver) || driver._disposed) return (null, default);
@@ -294,7 +297,8 @@ internal sealed partial class ParserDriver
     private void ProcessResourceRecord(ResourceEnvelope entry, HashSet<Node> seen, HashSet<ResourceWatch> delivered)
     {
         var record = entry.Record;
-        _runtime.Engine.Constraints.Check();
+        // A parser slice delivers a record per inserted node; the drain loop's own checks bound it.
+        if ((++_resourceRecordChecks & 15) == 0) _runtime.Engine.Constraints.Check();
         if (entry.Watch.Active && delivered.Add(entry.Watch))
         {
             // Capture happens on arrival; transient observation ends at this safe delivery boundary.
@@ -312,8 +316,10 @@ internal sealed partial class ParserDriver
             if (!record.TargetWasConnected) return;
             if (record.Target is Element { NamespaceUri: Namespaces.Html, LocalName: "script" } script)
                 ProcessResourceElement(script);
-            foreach (var removed in record.RemovedNodes) DisassociateResourceSubtree(removed, entry.Watch.Document, seen);
-            foreach (var added in record.AddedNodes) ProcessResourceSubtree(added, seen);
+            var removedNodes = record.RemovedNodes;
+            for (var i = 0; i < removedNodes.Count; i++) DisassociateResourceSubtree(removedNodes[i], entry.Watch.Document, seen);
+            var addedNodes = record.AddedNodes;
+            for (var i = 0; i < addedNodes.Count; i++) ProcessResourceSubtree(addedNodes[i], seen);
             if (record.Target is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
             {
                 NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
@@ -322,15 +328,12 @@ internal sealed partial class ParserDriver
         }
         else if (record.Kind == MutationRecordKind.CharacterData)
         {
-            for (var parent = record.Target.ParentNode; parent is not null; parent = parent.ParentNode)
+            // A style block reads its child text content: only a direct child's data can change it.
+            // https://html.spec.whatwg.org/multipage/semantics.html#update-a-style-block
+            if (record.Target.ParentNode is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
             {
-                _runtime.Engine.Constraints.Check();
-                if (parent is Element { LocalName: "style", NamespaceUri: Namespaces.Html or Namespaces.Svg } style)
-                {
-                    NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
-                    ProcessResourceElement(style);
-                    break;
-                }
+                NativeCssStyleSheets.DisassociateOwner(_runtime.Dom.RealmOfDocument(entry.Watch.Document), entry.Watch.Document, style);
+                ProcessResourceElement(style);
             }
         }
         else if (record.Kind == MutationRecordKind.Attributes && record.Target is Element element &&
@@ -363,7 +366,31 @@ internal sealed partial class ParserDriver
 
     private void ProcessResourceSubtree(Node root, HashSet<Node> seen)
     {
-        var pending = new Stack<Node>();
+        if (root.FirstChild is null && root is not Element { AttachedShadowRoot: not null })
+        {
+            // Most parser records add one childless node; no traversal state is needed. Character
+            // data is never a resource and never has one below it, so it takes no seen entry.
+            if (root is Element leaf && seen.Add(root)) ProcessResourceElement(leaf);
+            return;
+        }
+        // Processing an element can load a frame and re-enter; a nested walk allocates its own stack.
+        var pending = _resourceWalk ?? new Stack<Node>();
+        _resourceWalk = null;
+        try
+        {
+            WalkResourceSubtree(root, seen, pending);
+        }
+        finally
+        {
+            pending.Clear();
+            _resourceWalk = pending;
+        }
+    }
+
+    private Stack<Node>? _resourceWalk;
+
+    private void WalkResourceSubtree(Node root, HashSet<Node> seen, Stack<Node> pending)
+    {
         pending.Push(root);
         var steps = 0;
         while (pending.TryPop(out var node))
@@ -383,7 +410,8 @@ internal sealed partial class ParserDriver
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
             {
                 if ((++steps & 255) == 0) _runtime.Engine.Constraints.Check();
-                pending.Push(child);
+                // Only elements can be resources or hold them; shadow roots are pushed above.
+                if (child is Element) pending.Push(child);
             }
         }
         _runtime.Engine.Constraints.Check();
@@ -724,7 +752,8 @@ internal sealed partial class ParserDriver
         // HTML's fragment navigation selects an indicated element from this completed
         // child document, just as FinishLoad does for the principal document.
         DomDocumentState.SelectNavigationTarget(dom, document);
-        dom.RecordSubtree(document);
+        dom.CreationRealmOf(document);
+        dom.AssociateTemplateContents(document);
         QueueResourceEvent(frame, "load", afterParse: true);
     }
 

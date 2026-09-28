@@ -12,7 +12,34 @@ internal sealed partial class HtmlTreeBuilder
     private sealed class FormattingMarker(FormattingMarker? previous) : FormattingEntry
     {
         internal FormattingMarker? Previous { get; } = previous;
+        internal LinkedList<FormattingElementEntry>?[]? NameBuckets;
     }
+
+    // HTML Standard §13.2.4.3: the formatting elements are exactly these fourteen HTML names, so the
+    // per-scope name index is a fixed array rather than a dictionary hashing a (marker, name) key.
+    private const int FormattingNameCount = 14;
+
+    private static int FormattingNameIndex(string name) => name switch
+    {
+        "a" => 0,
+        "b" => 1,
+        "big" => 2,
+        "code" => 3,
+        "em" => 4,
+        "font" => 5,
+        "i" => 6,
+        "nobr" => 7,
+        "s" => 8,
+        "small" => 9,
+        "strike" => 10,
+        "strong" => 11,
+        "tt" => 12,
+        "u" => 13,
+        _ => -1
+    };
+
+    // Entries never mutate their counts, so every attribute-less formatting element shares one map.
+    private static readonly Dictionary<FormattingAttribute, int> NoFormattingAttributes = [];
 
     private readonly record struct FormattingAttribute(string? NamespaceUri, string LocalName, string Value);
 
@@ -33,7 +60,8 @@ internal sealed partial class HtmlTreeBuilder
 
     private readonly LinkedList<FormattingEntry> _formatting = [];
     private readonly Dictionary<Element, FormattingElementEntry> _formattingByElement = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<(FormattingMarker? Marker, string? NamespaceUri, string Name), LinkedList<FormattingElementEntry>> _formattingByName = [];
+    // Name buckets of the scope before any marker; a marker's own buckets live on the marker.
+    private readonly LinkedList<FormattingElementEntry>?[] _rootFormattingNames = new LinkedList<FormattingElementEntry>?[FormattingNameCount];
     // The marker is part of the index: entries in an older scope must not
     // lengthen either lookup or removal in a younger scope.
     private readonly Dictionary<(FormattingMarker? Marker, ulong Key), List<FormattingElementEntry>> _formattingByKey = [];
@@ -97,7 +125,7 @@ internal sealed partial class HtmlTreeBuilder
         var element = _pendingFormattingElement ?? throw new InvalidOperationException("No formatting start is pending.");
         InitializeFormattingKey();
         var attributes = _preparedAttributes ?? Array.Empty<ParserAttribute>();
-        var attributeCounts = _preparedFormattingAttributeCounts ??= [];
+        var attributeCounts = _preparedFormattingAttributeCounts ?? NoFormattingAttributes;
         var bucketKey = (_lastFormattingMarker, _preparedFormattingKey);
         if (_pendingFormattingCandidates is null)
         {
@@ -184,21 +212,30 @@ internal sealed partial class HtmlTreeBuilder
         Charge(3);
     }
 
+    private LinkedList<FormattingElementEntry>?[] FormattingNameBuckets(FormattingMarker? marker)
+        => marker is null ? _rootFormattingNames : marker.NameBuckets ??= new LinkedList<FormattingElementEntry>?[FormattingNameCount];
+
+    /// <summary>The entries named <paramref name="name"/> after the last marker, oldest first, or null.</summary>
+    private LinkedList<FormattingElementEntry>? FormattingEntriesNamed(string name)
+    {
+        var index = FormattingNameIndex(name);
+        if (index < 0) return null;
+        var bucket = (_lastFormattingMarker is null ? _rootFormattingNames : _lastFormattingMarker.NameBuckets)?[index];
+        return bucket is { Count: > 0 } ? bucket : null;
+    }
+
     private void IndexFormattingName(FormattingElementEntry entry)
     {
-        var key = (entry.Marker, entry.Element.NamespaceUri, entry.Name);
-        if (!_formattingByName.TryGetValue(key, out var bucket))
-            _formattingByName[key] = bucket = [];
-        entry.NameNode = bucket.AddLast(entry);
+        var buckets = FormattingNameBuckets(entry.Marker);
+        var index = FormattingNameIndex(entry.Name);
+        entry.NameNode = (buckets[index] ??= []).AddLast(entry);
     }
 
     private void UnindexFormattingName(FormattingElementEntry entry)
     {
-        var key = (entry.Marker, entry.Element.NamespaceUri, entry.Name);
-        var bucket = _formattingByName[key];
-        bucket.Remove(entry.NameNode!);
+        // An emptied bucket stays allocated: the same name reopens in the same scope constantly.
+        FormattingNameBuckets(entry.Marker)[FormattingNameIndex(entry.Name)]!.Remove(entry.NameNode!);
         entry.NameNode = null;
-        if (bucket.Count == 0) _formattingByName.Remove(key);
     }
 
     private bool TryReconstructFormatting()

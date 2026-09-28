@@ -123,7 +123,8 @@ internal sealed class DomDocumentState
     internal static string BaseUri(Document document, Action? checkpoint = null, CancellationToken token = default)
     {
         var fallback = FallbackBaseUri(document);
-        if (document.Kind != DocumentKind.Html) return fallback;
+        // Without a base element ever created in or adopted into the document the walk finds none.
+        if (document.Kind != DocumentKind.Html || !document.MayHaveBaseElement) return fallback;
         var work = new TargetWork(checkpoint, token);
         work.Check();
         foreach (var element in NodeTraversal.DescendantElements(document, work.Check, token))

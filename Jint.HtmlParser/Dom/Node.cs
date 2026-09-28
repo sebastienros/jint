@@ -550,7 +550,7 @@ public abstract partial class Node
         var formRemoval = HtmlFormAssociation.BeforeRemoval(node, parent);
         var previousSibling = node.PreviousSibling;
         var nextSibling = node.NextSibling;
-        var matches = suppressRecord ? null : MutationTracking.Match(parent, MutationRecordKind.ChildList);
+        var matches = suppressRecord ? null : MutationTracking.Match(parent, MutationRecordKind.ChildList, changedChild: node);
         MutationTracking.CaptureTransients(parent, node);
 
         if (node.PreviousSibling is { } previous)
@@ -619,7 +619,10 @@ public abstract partial class Node
     {
         using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!);
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
-        var matches = suppressRecord || !(this as Document ?? _ownerDocument!).MayCaptureHtmlMetaInsertions
+        // A subtree that cannot contain a meta element has no default-style facts to capture,
+        // which is every freshly parsed leaf; ordinary record queuing covers it.
+        var matches = suppressRecord || !(this as Document ?? _ownerDocument!).MayCaptureHtmlMetaInsertions ||
+            !HtmlMetaInsertionCapture.MayContainMeta(node)
             ? null : MutationTracking.Match(this, MutationRecordKind.ChildList);
         HtmlMetaInsertionCapture? ownCapture = null;
         var capture = insertionCapture;
@@ -688,6 +691,8 @@ public abstract partial class Node
             if (!sameOwner)
             {
                 var oldDocument = current.Node._ownerDocument;
+                oldDocument?.AdoptionObserver?.Adopting(current.Node);
+                if (oldDocument is not null) current.Owner.RecordCreatedElementKinds(oldDocument.CreatedElementKinds);
                 current.Node._ownerDocument = current.Owner;
                 LiveTraversalTracking.Rehome(current.Node.RangeEndpoints, current.Owner);
                 IteratorTracking.Rehome(current.Node.RootIterators, current.Owner);

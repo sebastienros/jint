@@ -1,7 +1,7 @@
 # Agent instructions: the events bridge
 
 > **Read this when:** You are touching anything under `Jint.Browser/Events/`, dispatching an event a page can
-> hear, or one of the members that stand in for an AngleSharp one that does nothing — `click`, `focus`,
+> hear, or a Browser-owned member such as `click`, `focus`,
 > `blur`, `document.activeElement`, `document.hasFocus`, `document.createEvent`.
 >
 > This is one of the co-located instruction files indexed from the repository-root
@@ -13,19 +13,14 @@
 
 ### The events bridge
 
-**AngleSharp's event bus is neither observed nor driven by script** (design doc §5). Everything script-visible
-is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the algorithm points this package
-owns. `Events/` is that: the interfaces, the handler attributes, the activation behaviours, focus and the
-input dispatcher. Six things are worth knowing before changing any of it.
+**Script-visible dispatch belongs to Jint, not a second native event bus.** `DomNodeObject` supplies the
+native tree's parents, assigned slots and activation hooks to the engine's tree-aware dispatcher.
+`Events/` supplies event interfaces, handler attributes, activation, focus and input.
 
-**AngleSharp has no activation behaviour at all, so none of it can be delegated.** Measured against the pinned
-1.7.2, with and without a browsing context: `IHtmlElement.DoClick()` dispatches a `click` on AngleSharp's own
-bus and returns — a checkbox it clicks does not toggle, a radio group does not change, a `<summary>` does not
-open its `<details>`, an `<a href>` does not navigate. `DoFocus()` never assigns `IDocument.ActiveElement`, so
-that property answers `null` for the life of every document where HTML says the body element. Those two are
-why `click`, `focus`, `blur`, `document.activeElement` and `document.hasFocus` are `skip`ped in the override
-table and re-declared through `additions`, and they are recorded in
-[`../Dom/divergences.md`](../Dom/divergences.md).
+**Browser owns activation and focus; native DOM state is their input and output.** The binding contract
+routes `click`, `focus`, `blur`, `document.activeElement` and `document.hasFocus` to this layer. Checkedness,
+selectedness and attributes are native state; dispatch, rollback, navigation and user-input policy stay here.
+Do not replace those paths with raw tree writes that omit the corresponding events.
 
 **Which algorithm point raises which event.** The table is the artefact — an event fired anywhere else is a
 second bus:
@@ -55,23 +50,23 @@ the boundary points of a `Range` it took out of `getRangeAt`, and `Events/Select
 **Activation without a layout is exact where it is state and a seam where it is not.** Checkedness,
 `details.open` and selectedness are pure state, so they are implemented outright, legacy pre-activation
 rollback included. A link to follow, a form to submit and a file chooser to open leave the DOM, so they go to
-`Events/BrowserActivationHost`, whose default *records* rather than acting; the navigation layer (campaign
-item R5) replaces it through `BrowserEventRealm.ActivationHost`. A colour or date picker has nothing to pick
+`Events/BrowserActivationHost`, whose default *records* rather than acting; the page runtime replaces it
+through `BrowserEventRealm.ActivationHost`. A colour or date picker has nothing to pick
 with and is honestly nothing rather than a guessed value. Focusability is computed from the element's kind and
-its `tabindex` content attribute rather than from AngleSharp's `TabIndex`, which answers 0 for every element
-including a bare `<div>`. **Selector pseudo-classes are deliberately not wired to any of it**: `:focus`,
-`:checked` and `:hover` in a `querySelector` go to AngleSharp's own selector engine, which knows nothing about
-the focus this package tracks, so `el.matches(':focus')` is not an answer about it.
+its `tabindex` content attribute, not the reflected `tabIndex` default.
+**DOM queries and stylesheet selectors consume Browser state.** `DomSelectors` and
+`NativeCssStyleSheets.CreateQuery` pass focus, pointer-press and fragment-target identities through the
+native `SelectorEnvironment`, with `BrowserSelectorControlFacts` supplying control state. Do not introduce
+an independent focus model for selectors.
 
-**Handler content attributes need no notification from AngleSharp, and that is a decision.** The attribute's
+**Handler content attributes need no native mutation subscription.** The attribute's
 text *is* the state: a handler slot records which text it was last reconciled against, and any difference is
 what HTML's "set the content attribute" step observes. Three points reconcile — `DomHostHooks.WrapperCreated`, which
 fires once for the wrapper that won the identity cache and is what registers a markup handler ahead of any
 listener a script can add; `DomNodeObject.GetParent`, which the dispatcher calls exactly once per event path
-item and which costs one `GetAttribute`; and a read or write of the IDL attribute. The alternatives — a document-wide `MutationObserver` (R4's lane) or AngleSharp's
-`IAttributeObserver` service (a registration in the `IConfiguration` the page runtime builds, and one
-AngleSharp uses internally) — would put a notification path in a file another campaign item owns to learn
-something the attribute already says. The one case that needs more is `<body onload>`, because HTML redirects
+item and which costs one `GetAttribute`; and a read or write of the IDL attribute. Adding a document-wide
+observer would add parsing work to learn something the attribute already says.
+The one case that needs more is `<body onload>`, because HTML redirects
 it to the **window** and `load` never touches the body: `EventHandlerContentAttributes.InstallBodyHandlers`
 builds that wrapper once when the parse ends.
 
@@ -85,9 +80,8 @@ none of, the standard's construction-from-dictionary semantics are implemented i
 which state is missing. Two of them own more than an `Event`: `DragEvent` carries the real `DataTransfer`
 `Dom/Files/` already builds, and `TouchEvent` — which *is* fired, by the row the table gained — carries
 `Touch` and `TouchList`, which are
-`Events/TouchInterfaces` rather than AngleSharp's — nothing in the pinned assemblies implements
-`ITouchPoint` or `ITouchList`, so both are `excludedInterfaces` rows and
-[`../Dom/divergences.md`](../Dom/divergences.md) records it. **Detection stays a client's decision**: the four
+hand-written in `Events/TouchInterfaces`, not generated native DOM wrappers.
+**Detection stays a client's decision**: the four
 `ontouch*` handler attributes are exposed only under touch emulation
 ([`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), which is why the corpus's `TouchEvent` rows are declined on
 a page nobody configured and why neither building the interface nor dispatching one changed what a page
@@ -110,13 +104,11 @@ readonly control and a control inside a disabled fieldset — without it every `
 form would be examined.
 
 **Which controls the two halves are about is one question with one answer, and it is not `form.elements`.**
-`Dom/HtmlFormOwner` is HTML's *reset the form owner* — a connected listed element's `form` attribute outranks
-every ancestor form — and `HtmlFormOwner.ControlsOf(form)` is the inventory the entry list, the static
-validity check, the default button, implicit submission and a radio button group all walk. Reading a control's
-`Form` off AngleSharp instead inverts that priority ([#3939](https://github.com/sebastienros/jint/issues/3939)),
-and reading `form.elements` takes AngleSharp's ownership rule *and* drops every image button, so a form would
-validate one set of controls and submit another. `form.elements` itself is AngleSharp's collection and stays
-wrong; [`../Dom/divergences.md`](../Dom/divergences.md) records both halves.
+`Dom/HtmlFormOwner.Of` reads native `HtmlFormState.GetOwner`; native association/reset steps own that
+identity. `HtmlFormOwner.ControlsOf(form)` walks tree order against the same owner for submission,
+validation, default-button, implicit-submission and radio-group callers. `form.elements` intentionally
+applies the listed-controls filter and excludes image inputs; it is not the submission inventory.
+Keep both views on the same native ownership state.
 
 **An image input selects a coordinate only out of an image it really has, and the position is measured
 before any listener runs.** HTML gives an image button a *selected coordinate* and lets it be a real position
@@ -136,8 +128,8 @@ coordinate a tap could not select while a click at the same point could would be
 with the other. The result lives on the *element* — a weak table on `BrowserEventRealm`, beside the
 mouse press target — rather than on the event, because `new FormData(form, submitter)` reads it arbitrarily
 long afterwards. `Runtime/FormSubmitter` appends x then y, with a name prefix only when nonempty. Its
-inventory is submittable controls, not `form.elements`, which excludes image inputs: AngleSharp's tree
-traversal and form-owner properties supply tree order and external association. **The position is in the flat
+inventory is submittable controls, not `form.elements`, which excludes image inputs: native tree traversal
+and `HtmlFormOwner` supply tree order and external association. **The position is in the flat
 box model's geometry** and so can exceed the image's own `naturalWidth`; [`../Dom/divergences.md`](../Dom/divergences.md)
 records why clamping it to the image would be a second geometry disagreeing with the one every box, hit test
 and `offsetX` already answers from.
@@ -187,6 +179,6 @@ single-line control, which commits the value and re-arms the snapshot so a later
 **`contenteditable` is light and the boundary is one text node.** `Events/ContentEditing` splices a `Text`
 node's data; nothing splits, merges or inserts an element, so <kbd>Enter</kbd> there does nothing rather than
 something structural and wrong. The caret is the document's own `Selection`, so a page reading
-`getSelection().focusOffset` is told where typing goes. AngleSharp's `IsContentEditable` cannot be used for
-any of it — it answers `false` for `<div contenteditable>` — and the divergence table in
-[`../Accessibility/AGENTS.md`](../Accessibility/AGENTS.md) records why.
+`getSelection().focusOffset` is told where typing goes. `ContentEditing.HostOf` uses
+`BrowserHtmlSemantics.ContentEditableState` and the document's design mode, including the empty-string and
+`plaintext-only` states. Form controls keep their own editing model rather than editing an enclosing host.

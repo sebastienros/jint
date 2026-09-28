@@ -192,6 +192,38 @@ longest-match recovery and the attribute-specific semicolon rules remain part
 of the tokenizer. `Html/generate_entities.py` verifies the pinned input hash
 when regenerating the table.
 
+## Tree construction hot paths
+
+Parsing time is dominated by per-token tree-builder bookkeeping, not by the
+spec algorithms themselves, so these structures are kept flat:
+
+- Open-element lookup by name (`OpenNameIndex`) is a `Dictionary<string, List<int>>`
+  for the HTML namespace, whose default string comparer starts non-randomized and
+  switches itself on collisions. Foreign names use a lazily created tuple-keyed
+  dictionary. Tuple keys always pay Marvin hashing; do not reintroduce them for HTML.
+- The active formatting list indexes its fourteen formatting tag names in a fixed
+  bucket array per marker (`FormattingNameIndex`), not a dictionary.
+- Body-mode character tokens are appended as one run, split only at U+0000
+  (`AppendBodyCharacterRun`). Each `InsertText` call carries commit, live-range
+  and mutation bookkeeping, so splitting at whitespace boundaries is not free.
+- Named references walk the trie over the whole buffered span before falling back
+  to per-character resumption.
+- Insertion hooks that rarely apply (`HtmlSelectedContent`, `HtmlSelectMutations`,
+  `HtmlFormAssociation`) are an inlined guard plus a `NoInlining` core. A large
+  method with an early return still pays its full frame prologue on every insert.
+
+Documents record which element kinds they have ever created or adopted
+(`DocumentElementKinds`: `selectedcontent`, `base`). Consumers use the flags to
+skip document-wide walks; the flags are conservative and never cleared.
+
+Jint.Browser attaches to parsing through internal hooks that stay cheap when
+unused: `MutationSubscription.OmitInertCharacterRecords` skips records for
+parser-inserted text no observer can see, `INodeAdoptionObserver` replaces an
+eager per-node creation-realm record with one adoption-time notification, and
+`HtmlMetaInsertionCapture.MayContainMeta` gates meta scanning.
+`BrowserPageParseBenchmark` measures a full page load of the same corpus as
+`HtmlParserComparisonBenchmark`; the difference is Browser's per-page overhead.
+
 ## Temporary parsing buffers
 
 CSS token values and XML attribute/line normalization use a stack-backed

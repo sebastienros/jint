@@ -319,7 +319,7 @@ internal sealed partial class HtmlTokenizer
             if (_tokenSourceChanges != _input.SourceChanges) source = source.Value.AsMixed();
         }
         var produced = new HtmlToken(_endTag ? HtmlTokenKind.EndTag : HtmlTokenKind.StartTag,
-            name: name, attributes: Array.AsReadOnly(attributes),
+            name: name, attributes: attributes,
             selfClosing: _selfClosing, offset: _tokenStart,
             endTagHadAttributes: _endTagHadAttributes,
             endTagHadSelfClosing: _endTagHadSelfClosing,

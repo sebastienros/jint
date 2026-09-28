@@ -30,6 +30,18 @@ public sealed class MutationSubscription : IDisposable
                     (target as Document ?? target.OwnerDocument!).MarkHtmlMetaCapturePresent();
         }
     }
+    /// <summary>
+    /// Omits records a resource host provably ignores: a single character node (text, comment,
+    /// processing instruction, CDATA) inserted into or removed from, or whose data changed under, a
+    /// parent that is not an HTML or SVG <c>style</c> or <c>script</c> element.
+    /// </summary>
+    /// <remarks>
+    /// Parsing inserts or extends a text node for nearly every run of characters, and none of them
+    /// can start a fetch or change a style sheet unless their parent is one of those raw-text owners.
+    /// Not a DOM option: a script-visible observer must never set it.
+    /// </remarks>
+    internal bool OmitInertCharacterRecords { get; set; }
+
     // Trusted budget facts for one native preparation only; no author code or DOM reentry.
     internal Func<(Action<int>? Checkpoint, CancellationToken Token)>? CreateCaptureWork { get; set; }
 
@@ -133,6 +145,8 @@ public sealed class MutationSubscription : IDisposable
         if (_reservedHead is not null || _records is { Count: > 0 }) PendingRecord?.Invoke(this);
     }
 
+    private static readonly ReadOnlyCollection<MutationRecord> EmptyRecords = Array.AsReadOnly(Array.Empty<MutationRecord>());
+
     private ReadOnlyCollection<MutationRecord> Drain()
     {
         var records = _records;
@@ -154,9 +168,8 @@ public sealed class MutationSubscription : IDisposable
             if (records is not null) result.AddRange(records);
             return Array.AsReadOnly(result.ToArray());
         }
-        return records is null || records.Count == 0
-            ? Array.AsReadOnly(Array.Empty<MutationRecord>())
-            : Array.AsReadOnly(records.ToArray());
+        // The drained list is no longer reachable from this subscription; wrap it without copying.
+        return records is null || records.Count == 0 ? EmptyRecords : new ReadOnlyCollection<MutationRecord>(records);
     }
 
     private void RemoveTransients(MutationRegistration? source)

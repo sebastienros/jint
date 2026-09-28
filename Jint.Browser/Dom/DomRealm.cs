@@ -306,8 +306,37 @@ internal sealed class DomRealm
     private DomRealm EstablishCreationRealm(object value)
     {
         if (value is Document document)
+        {
             global::Jint.Browser.Styling.NativeCssStyleSheets.Associate(this, document);
+            document.AdoptionObserver ??= new AdoptionCapture(this);
+        }
         return this;
+    }
+
+    /// <summary>Records the document's template contents owner under the document's own realm.</summary>
+    internal void AssociateTemplateContents(Document document)
+    {
+        if (document.ExistingTemplateContentsOwnerDocument is { } inert && !_creationRealms.TryGetValue(inert, out _))
+            _creationRealms.GetValue(inert, RealmOfDocument(document)._creationRealmFactory);
+    }
+
+    // A node that was never asked about takes its owner document's realm, which is what a walk at
+    // creation would have recorded. The one moment that answer can change is adoption, so the brand
+    // is captured there, while the node still reports its old owner, instead of eagerly per node.
+    // Weak: a host retaining a document must not retain a disposed engine through its observer.
+    private sealed class AdoptionCapture(DomRealm realm) : INodeAdoptionObserver
+    {
+        private readonly WeakReference<DomRealm> _realm = new(realm);
+
+        public void Adopting(Node node)
+        {
+            if (_realm.TryGetTarget(out var target)) target.CreationRealmOf(node);
+        }
+
+        public void Adopting(Attr attribute)
+        {
+            if (_realm.TryGetTarget(out var target)) target.CreationRealmOf(attribute);
+        }
     }
 
     internal bool TryGetDocumentRealm(Document document, out DomRealm? realm)

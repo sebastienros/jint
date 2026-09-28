@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 namespace Jint.HtmlParser;
 
 /// <summary>Stored form ownership and synchronous HTML insertion/removal hooks.</summary>
@@ -208,16 +209,25 @@ internal static class HtmlFormAssociation
         }
     }
 
+    // Every insertion reaches this; a parsed leaf that is neither associated nor indexed returns
+    // from the inlined guard without paying the index walk's frame.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Inserted(Node node)
     {
         HtmlDisabledness.DirectChildChanged(node, node.ParentNode);
         if (!MayContainAssociated(node) &&
-            (node is not Element leaf || leaf.GetAttributeNodeNS(null, "id") is null ||
-             node.OwnerDocument?.HasFormIndex != true))
+            (node.OwnerDocument?.HasFormIndex != true || node is not Element leaf ||
+             leaf.GetAttributeNodeNS(null, "id") is null))
         {
             return;
         }
 
+        InsertedCore(node);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void InsertedCore(Node node)
+    {
         var root = OrdinaryRoot(node);
         if (!ReferenceEquals(root, node))
         {

@@ -35,8 +35,8 @@ Five rules follow, and each of them is a way to break the package silently:
   is `_loop.PostAsync(engine => …)`, never a field read that reaches into the runtime. A caller is on some
   other thread by definition.
 - **Nothing that belongs to an engine may be in the returned task.** A `JsValue` belongs to the engine that
-  made it *and* to the thread that owns it, and an AngleSharp node is safe to read only while the loop is not
-  mutating the tree. Convert inside the request — `JsValue.ToObject()`, a `string`, a `PageError` rendered by
+  made it *and* to the thread that owns it, and native DOM nodes are mutable page-loop state.
+  Convert inside the request — `JsValue.ToObject()`, a `string`, a `PageError` rendered by
   `ValueInspector` — and let the task carry the conversion. `PageTests` pins that what comes back is not from
   Jint's assembly, which is the cheapest possible check and worth keeping.
 - **Posting wakes the park.** `PostAsync` writes to the mailbox and then calls `engine.Tasks.Post` with an
@@ -177,9 +177,8 @@ the engine** (`WindowInstaller.Operation`), and only an operation that needs not
 Some members are own properties of their object rather than accessors on a shaped prototype. **`document` is no
 longer one of them**: its eight runtime-answered members are getter hooks on `Document.prototype` (and
 `Node.prototype`, for `baseURI`), so `Object.getOwnPropertyNames(document)` is empty as a browser's is. Left: the four touch handler attributes on `document` under emulation; `submit` and
-`requestSubmit` on a **form wrapper**, installed by `DomHostHooks.WrapperCreated`, because neither is generated
-and neither could be — AngleSharp's `Submit()` returns a `Task`, there is no `requestSubmit`, and its own
-submission navigates on the calling thread through its own event bus; and **`Location`**, which
+`requestSubmit` on a **form wrapper**, installed by `DomHostHooks.WrapperCreated` and routed to Browser's
+validation/event/navigation sequence rather than a native DOM submission method; and **`Location`**, which
 `Runtime/LocationInstaller` owns outright and where own properties are the *correct* answer, every member of
 `Location` being `[LegacyUnforgeable]`. **Such a member shadows the prototype and is visible to
 `Object.getOwnPropertyNames`**: the right tool for one object and the wrong one for a class, since a shaped
@@ -192,10 +191,10 @@ nowhere.
 
 ### The events bridge has a file of its own
 
-**AngleSharp's event bus is neither observed nor driven by script** (design doc §5). Everything
-script-visible is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the algorithm
+**There is one script-visible event system.** A Jint `Event` is dispatched through the engine's
+tree-aware dispatcher over native DOM identities, at the algorithm
 points this package owns. Which point raises which event, what activation without a layout can and cannot be,
-why the handler content attributes need no notification from AngleSharp, where form submission is cut in half,
+why handler content attributes need no native subscription, where form submission is cut in half,
 and the keyboard and the editor under it are [`../Events/AGENTS.md`](../Events/AGENTS.md). Two rules to carry
 across without opening it: **every listener the loop fires returns to a microtask checkpoint**, because the
 point that fires it is a turn of this loop rather than a script — `AnimationFrameLane` owes the same cleanup
@@ -233,7 +232,7 @@ pointer-press state are also checked before reuse. Construction, unclassified `R
 any `ConfigureEngine` customization, external stylesheet/frame loading, CSS imports and active CSS coverage
 keep query-local behavior. No document-wide layout mutation observer is installed. The complete contract
 and fallback rationale are in [`docs/design/layout-invalidation.md`](../../docs/design/layout-invalidation.md).
-And the DOM-side members are `overrides.json` `additions` entries with their bodies in `Layout/LayoutMembers`,
+And the DOM-side members are explicit `contract.json` bodies calling `Layout/LayoutMembers`,
 so **never hand-edit a `.g.cs`**; regenerate with `JINT_DOM_BINDINGS=update`. **The row rule and the number
 it is built from, what counts as rendered, the single-line flex rows, the cascade traversal and what it still
 needs from `Dom/Views`, the virtual scroll and the members that expose all of it are in
@@ -324,7 +323,9 @@ the first call. Everything a client is told about a page is one of its calls; no
 
 ### The parser driver has a file of its own
 
-The baton between the parser thread and the page loop, which thread runs what, the divergences that shape
-costs, and how scripts, modules, import maps and style sheets load are
-[`Parsing/AGENTS.md`](Parsing/AGENTS.md). The one rule to carry across without opening it: exactly one
-holder touches the engine and the DOM at a time, and a fetch a *script* triggered never pumps.
+Native `HtmlParserSession` runs cooperatively on the page loop, not on a second parser thread.
+Its host requests, bounded drive steps, resource watches, scripts, modules, import maps and stylesheets are
+[`Parsing/AGENTS.md`](Parsing/AGENTS.md). A parser yield checks work and continues without running unrelated
+tasks; eligible network waits use `ParserBaton.PumpUntil`, while a fetch a *script* triggered never pumps.
+Preserve the resource watch's inert-character omission and lazy document/adoption realm capture: Browser
+must not add per-node bookkeeping to parsing.

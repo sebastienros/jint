@@ -85,6 +85,8 @@ public sealed partial class Document : Node
 
     internal CustomElementRegistryIdentity? CreationDefaultCustomElementRegistry => _creationDefaultCustomElementRegistry;
 
+    internal Document? ExistingTemplateContentsOwnerDocument => _templateContentsOwnerDocument;
+
     internal Document GetTemplateContentsOwnerDocument()
         => _isTemplateContentsOwnerDocument
             ? this
@@ -116,6 +118,16 @@ public sealed partial class Document : Node
     }
     internal ulong MutationStamp => _mutationStamp;
     internal bool HasFormIndex { get; set; }
+    // HTML elements whose mere presence triggers a document-wide search. A kind is recorded when
+    // such an element is created in, or adopted into, this document and never cleared, so a false
+    // answer is exact and lets tree changes and base-URL reads skip the walk entirely.
+    internal DocumentElementKinds CreatedElementKinds { get; private set; }
+    internal bool MayHaveSelectedContent => (CreatedElementKinds & DocumentElementKinds.SelectedContent) != 0;
+    internal bool MayHaveBaseElement => (CreatedElementKinds & DocumentElementKinds.Base) != 0;
+    internal void RecordCreatedElementKinds(DocumentElementKinds kinds) => CreatedElementKinds |= kinds;
+    /// <summary>Host notification raised before a node or attribute leaves this document for another one.</summary>
+    /// <remarks>Lets a host keep per-node state lazily and capture it only at the adoption boundary.</remarks>
+    internal INodeAdoptionObserver? AdoptionObserver { get; set; }
     internal HtmlSelectWorkProbe? SelectWorkProbe { get; set; }
     internal HtmlCheckedWorkProbe? CheckedWorkProbe { get; set; }
     internal bool MayHaveMutationRegistrations => _mayHaveMutationRegistrations;

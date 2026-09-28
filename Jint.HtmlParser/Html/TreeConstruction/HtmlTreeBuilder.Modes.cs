@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 
 namespace Jint.HtmlParser.Html;
 
@@ -363,8 +364,7 @@ internal sealed partial class HtmlTreeBuilder
                 case Mode.InTemplate:
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     if (!TryReconstructFormatting()) return;
-                    AppendCharacterRun(data, whiteOnly: White(c));
-                    if (!White(c)) _framesetOk = false;
+                    if (AppendBodyCharacterRun(data)) _framesetOk = false;
                     continue;
                 case Mode.InTable:
                 case Mode.InTableBody:
@@ -385,8 +385,7 @@ internal sealed partial class HtmlTreeBuilder
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     _fosterParenting = true;
                     if (!TryReconstructFormatting()) return;
-                    AppendCharacterRun(data, whiteOnly: White(c));
-                    if (!White(c)) _framesetOk = false;
+                    if (AppendBodyCharacterRun(data)) _framesetOk = false;
                     continue;
                 case Mode.InTableText:
                     BufferTableText();
@@ -415,6 +414,25 @@ internal sealed partial class HtmlTreeBuilder
             }
         }
     }
+
+    // HTML Standard §13.2.6.4.7, "any other character token" in body: whitespace and other characters
+    // take the same steps, reconstructing formatting (a no-op once done for the run) and inserting
+    // the character; only non-whitespace clears frameset-ok. So one run spans both and stops at NUL,
+    // which keeps "a b c" one text append instead of five. Returns whether the run had non-whitespace.
+    private bool AppendBodyCharacterRun(StringSlice data)
+    {
+        var start = _textIndex;
+        var max = (int) Math.Min(data.Length, start + Math.Max(1, Math.Min(_remaining, 2048)));
+        var run = data.Span[start..max];
+        var length = run.IndexOf('\0');
+        if (length < 0) length = run.Length;
+        run = run[..length];
+        _textIndex = start + length;
+        InsertText(data.Slice(start, length));
+        return run.IndexOfAnyExcept(BodyWhitespace) >= 0;
+    }
+
+    private static readonly SearchValues<char> BodyWhitespace = SearchValues.Create("\t\n\f\r ");
 
     private void AppendCharacterRun(StringSlice data, bool whiteOnly, bool textMode = false)
     {

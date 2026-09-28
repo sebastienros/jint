@@ -65,6 +65,12 @@ internal sealed class HtmlMetaInsertionCapture
         _initialUnits = work.Count;
     }
 
+    // Template contents are not ordinary children, so a childless node other than meta
+    // (or a shadow host) cannot bring a meta element into the tree.
+    internal static bool MayContainMeta(Node node)
+        => node.FirstChild is not null ||
+            node is Element { LocalName: "meta", NamespaceUri: Namespaces.Html } or Element { AttachedShadowRoot: not null };
+
     internal static HtmlMetaInsertionCapture? Reserve(Node target, Node firstIncoming, MutationMatches? matches,
         int capacity, IReadOnlyList<Node>? removed = null, Node? previous = null, Node? next = null)
     {

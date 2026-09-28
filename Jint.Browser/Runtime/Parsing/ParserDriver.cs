@@ -119,7 +119,9 @@ internal sealed partial class ParserDriver : IDisposable
         try
         {
             Parse(document, markup);
-            _runtime.Dom.RecordSubtree(document);
+            // Parsed nodes default to the document's realm; adoption captures the brand lazily.
+            _runtime.Dom.CreationRealmOf(document);
+            _runtime.Dom.AssociateTemplateContents(document);
             if (_runtime.Options.MaxDomNodes is var maxNodes and > 0 && Exceeds(document, maxNodes))
             {
                 throw new NavigationFailedException(_url, "The document has more than the "

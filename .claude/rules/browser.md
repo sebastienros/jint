@@ -5,16 +5,26 @@ paths:
   - "tools/dom-bindings/**"
 ---
 
-You are editing the browser package — the DOM bindings, or the page runtime built on them, and they have five instruction files. `Jint.Browser/AGENTS.md` carries the founder's AngleSharp principle (an AngleSharp defect is reported upstream, never worked around silently), what is generated versus hand-written, the observers, accessibility and extraction, the page budgets and the seams promoted later. `Jint.Browser/Dom/AGENTS.md` carries the bindings: how AngleSharp's `[DomName]` attributes are read as WebIDL, the override table, the conversion table's divergences in both directions, wrapper identity, and the shape discipline every prototype is held to. `Jint.Browser/Events/AGENTS.md` carries the events bridge: which algorithm point raises which event, what activation means with no layout, why the handler content attributes need no notification from AngleSharp, and the keyboard and the editor under it. `Jint.Browser/Runtime/AGENTS.md` carries the runtime and the layout: the page loop's thread rule, the `Window` installer's unqualified-call trap, why a navigation is a fetch off the loop and a new engine on it, why the parse must stay synchronous, and the flat box model under `Jint.Browser/Layout/`, which is the one answer `getBoundingClientRect`, `elementFromPoint`, `DOM.getBoxModel` and a mouse event at a coordinate all come from — the model itself, its row rule, the flex rows, the cascade traversal and the virtual scroll are beside those classes in [`Jint.Browser/Layout/box-model.md`](../../Jint.Browser/Layout/box-model.md). `Jint.Browser/Runtime/Parsing/AGENTS.md` carries the parser baton, nested-document loading and the deliberately single-realm child-frame window model.
-You are editing the browser package — the DOM bindings, or the page runtime built on them, and they have five instruction files. `Jint.Browser/AGENTS.md` carries the founder's AngleSharp principle (an AngleSharp defect is reported upstream, never worked around silently), what is generated versus hand-written, the observers, accessibility and extraction, the page budgets and the seams promoted later. `Jint.Browser/Dom/AGENTS.md` carries the bindings: how AngleSharp's `[DomName]` attributes are read as WebIDL, the override table's two traps, the conversion table's divergences in both directions, wrapper identity, and the shape discipline every prototype is held to. `Jint.Browser/Events/AGENTS.md` carries the events bridge: which algorithm point raises which event, what activation means with no layout, why the handler content attributes need no notification from AngleSharp, and the keyboard and the editor under it. `Jint.Browser/Runtime/AGENTS.md` carries the runtime and the layout: the page loop's thread rule, the `Window` installer's unqualified-call trap, why a navigation is a fetch off the loop and a new engine on it, why the parse must stay synchronous, and the flat box model under `Jint.Browser/Layout/`, which is the one answer `getBoundingClientRect`, `elementFromPoint`, `DOM.getBoxModel` and a mouse event at a coordinate all come from. `Jint.Browser/Runtime/Parsing/AGENTS.md` carries the parser baton, nested-document loading and the deliberately single-realm child-frame window model.
+Read [`Jint.Browser/AGENTS.md`](../../Jint.Browser/AGENTS.md) before editing: it defines native-parser versus
+Browser ownership, parsing-performance hooks, the LightPanda scope, observer delivery and public seams.
+AngleSharp is for comparison benchmarks only; do not add it to Browser, tests or binding generation.
 
-**Read [`Jint.Browser/AGENTS.md`](../../Jint.Browser/AGENTS.md) before you edit; [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) too when what you are editing is a binding or the generator, [`Jint.Browser/Runtime/AGENTS.md`](../../Jint.Browser/Runtime/AGENTS.md) when it is a page, [`Jint.Browser/Runtime/Parsing/AGENTS.md`](../../Jint.Browser/Runtime/Parsing/AGENTS.md) when it is the parse, a load or `Runtime/FrameWindows`, and [`Jint.Browser/Events/AGENTS.md`](../../Jint.Browser/Events/AGENTS.md) when it is an event, activation, focus, the keyboard or the editor.** Neither is repeated here or in the repository-root
-`AGENTS.md`; that file's index says what each co-located instruction file covers.
+Read the co-located file for the area being changed:
 
-Never hand-edit a file under `Jint.Browser/Dom/Generated/`: `DomBindingsStalenessTests` runs the same emitter in memory and fails on any difference. Regenerate with `JINT_DOM_BINDINGS=update`. What every list in `tools/dom-bindings/overrides.json` is for, and what re-pointing the AngleSharp pin owes, are in [`tools/dom-bindings/README.md`](../../tools/dom-bindings/README.md#what-every-list-in-overridesjson-is-for), beside the generator that reads them.
+- [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md): explicit binding contract, conversions,
+  native identity, lazy creation-realm capture and shared shapes.
+- [`Jint.Browser/Events/AGENTS.md`](../../Jint.Browser/Events/AGENTS.md): dispatch, activation, focus and input.
+- [`Jint.Browser/Runtime/AGENTS.md`](../../Jint.Browser/Runtime/AGENTS.md): page loop, budgets, navigation and
+  the flat geometry documented in [`Layout/box-model.md`](../../Jint.Browser/Layout/box-model.md).
+- [`Jint.Browser/Runtime/Parsing/AGENTS.md`](../../Jint.Browser/Runtime/Parsing/AGENTS.md): cooperative native
+  parsing on the page loop, resource pumping and child-frame realms.
+- [`Jint.Browser/DevTools/AGENTS.md`](../../Jint.Browser/DevTools/AGENTS.md): page targets and protocol domains.
+- [`Jint.Browser/Accessibility/AGENTS.md`](../../Jint.Browser/Accessibility/AGENTS.md): accessibility and extraction.
 
-One thread owns a page's engine and its DOM. Every public `Page` member is a mailbox request, and nothing that belongs to an engine — a `JsValue`, an AngleSharp node — may be in the task it returns; convert inside the request. `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline for everything the package publishes.
+Never hand-edit `Jint.Browser/Dom/Generated/*.g.cs`. Change `contract.json`, regenerate and review the diff;
+[`tools/dom-bindings/README.md`](../../tools/dom-bindings/README.md) has the commands.
+Historical `overrides.json` and `pin.json` do not drive the emitter.
 
-When what you are editing is a page target or a page-level protocol domain under `Jint.Browser/DevTools/`, read [`Jint.Browser/DevTools/AGENTS.md`](../../Jint.Browser/DevTools/AGENTS.md) as well.
-
-When what you are editing is the accessibility tree or an extractor under `Jint.Browser/Accessibility/` or `Jint.Browser/Extraction/`, read [`Jint.Browser/Accessibility/AGENTS.md`](../../Jint.Browser/Accessibility/AGENTS.md) as well.
+One page-loop thread owns the engine and mutable DOM. Convert results inside mailbox requests; no
+`JsValue` or native DOM node may escape through a returned task.
+`Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the public API baseline.

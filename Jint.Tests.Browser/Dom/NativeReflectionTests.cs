@@ -39,6 +39,8 @@ public sealed class NativeReflectionTests
         var document = Document.CreateHtml();
         var root = document.CreateElement("html");
         document.AppendChild(root);
+        // A detached base element keeps the document's "may have a base" flag set, so URL reflection walks.
+        document.CreateElement("base");
         for (var i = 0; i < 8192; i++) root.AppendChild(document.CreateElement("div"));
         var target = document.CreateElement("img");
         target.SetAttribute("title", "ordinary");
@@ -55,6 +57,33 @@ public sealed class NativeReflectionTests
         budget.Checks.Should().Be(3);
     }
 
+    [Test]
+    public void UrlReflectionSkipsTheBaseWalkWhenTheDocumentNeverHadABaseElement()
+    {
+        var budget = new CheckCounter();
+        using var engine = new Engine(options => options.AddConstraint(budget));
+        DomBindings.Install(engine);
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        document.AppendChild(root);
+        for (var i = 0; i < 8192; i++) root.AppendChild(document.CreateElement("div"));
+        var target = document.CreateElement("img");
+        target.SetAttribute("src", "relative.png");
+        root.AppendChild(target);
+        DomDocumentState.Of(document).Url = "https://example.test/dir/";
+        var realm = DomRealm.Of(engine);
+
+        ReflectedAttribute.Url("HTMLImageElement.src", "src").Get(realm, target).AsString().Should().Be("https://example.test/dir/relative.png");
+        budget.Checks.Should().BeLessThan(3);
+
+        // Adopting a tree that holds a base element sets the flag on the new document and restores the walk.
+        var other = Document.CreateHtml();
+        var foreignBase = other.CreateElement("base");
+        foreignBase.SetAttribute("href", "https://base.test/");
+        root.InsertBefore(document.AdoptNode(foreignBase), root.FirstChild);
+        ReflectedAttribute.Url("HTMLImageElement.src", "src").Get(realm, target).AsString().Should().Be("https://base.test/relative.png");
+    }
+
     private sealed class ReadBudget : Constraint
     {
         internal int Checks { get; private set; }
@@ -65,4 +94,11 @@ public sealed class NativeReflectionTests
         public override void Reset() { }
     }
     private sealed class ReadBudgetExceededException : Exception { }
+
+    private sealed class CheckCounter : Constraint
+    {
+        internal int Checks { get; private set; }
+        public override void Check() => Checks++;
+        public override void Reset() { }
+    }
 }

@@ -48,7 +48,7 @@ internal sealed partial class HtmlTreeBuilder
         ClosedScriptIsSvg = false;
     }
     private readonly List<Element> _open = [];
-    private Dictionary<(string? Namespace, string Name), List<int>> _nameIndexes = [];
+    private OpenNameIndex _nameIndexes = new();
     private List<int> _specialIndexes = [];
     private List<int> _liStops = [];
     private List<int> _ddDtStops = [];
@@ -418,24 +418,21 @@ internal sealed partial class HtmlTreeBuilder
 
     private void AddIndexes(Element element, int index)
     {
-        if (!_nameIndexes.TryGetValue((element.NamespaceUri, element.LocalName), out var indexes))
-            _nameIndexes[(element.NamespaceUri, element.LocalName)] = indexes = [];
-        indexes.Add(index);
-        if (IsSpecialElement(element)) _specialIndexes.Add(index);
-        if (IsSpecialElement(element) && !HtmlAddressDivPNames.Match(element.LocalName))
-            _liStops.Add(index);
-        if (IsSpecialElement(element) && !HtmlAddressDivPDdNames.Match(element.LocalName))
-            _ddDtStops.Add(index);
+        _nameIndexes.GetOrAdd(element).Add(index);
+        if (IsSpecialElement(element))
+        {
+            _specialIndexes.Add(index);
+            if (!HtmlAddressDivPNames.Match(element.LocalName)) _liStops.Add(index);
+            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) _ddDtStops.Add(index);
+        }
         if (IsScopeBoundary(element)) _scopeStops.Add(index);
         if (IsResetModeElement(element)) _resetModeIndexes.Add(index);
     }
 
     private void RemoveIndexes(Element element, int index)
     {
-        _annotationXmlHtmlIntegration.Remove(element);
-        var names = _nameIndexes[(element.NamespaceUri, element.LocalName)];
-        RemoveIndex(names, index);
-        if (names.Count == 0) _nameIndexes.Remove((element.NamespaceUri, element.LocalName));
+        if (_annotationXmlHtmlIntegration.Count != 0) _annotationXmlHtmlIntegration.Remove(element);
+        RemoveIndex(_nameIndexes.For(element), index);
         if (IsSpecialElement(element))
         {
             RemoveIndex(_specialIndexes, index);
@@ -448,7 +445,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private void ShiftIndexes(Element element, int oldIndex)
     {
-        ShiftIndex(_nameIndexes[(element.NamespaceUri, element.LocalName)], oldIndex);
+        ShiftIndex(_nameIndexes.For(element), oldIndex);
         if (IsSpecialElement(element))
         {
             ShiftIndex(_specialIndexes, oldIndex);
@@ -486,10 +483,9 @@ internal sealed partial class HtmlTreeBuilder
         var element = _open[index];
         _open.RemoveAt(index);
         _openIdentity.Remove(element);
-        _annotationXmlHtmlIntegration.Remove(element);
-        var indexes = _nameIndexes[(element.NamespaceUri, element.LocalName)];
+        if (_annotationXmlHtmlIntegration.Count != 0) _annotationXmlHtmlIntegration.Remove(element);
+        var indexes = _nameIndexes.For(element);
         indexes.RemoveAt(indexes.Count - 1);
-        if (indexes.Count == 0) _nameIndexes.Remove((element.NamespaceUri, element.LocalName));
         if (_specialIndexes.Count > 0 && _specialIndexes[^1] == index) _specialIndexes.RemoveAt(_specialIndexes.Count - 1);
         if (_liStops.Count > 0 && _liStops[^1] == index) _liStops.RemoveAt(_liStops.Count - 1);
         if (_ddDtStops.Count > 0 && _ddDtStops[^1] == index) _ddDtStops.RemoveAt(_ddDtStops.Count - 1);
@@ -520,7 +516,7 @@ internal sealed partial class HtmlTreeBuilder
         _resetAfterPop = resetMode;
     }
 
-    private int Last(string name) => _nameIndexes.TryGetValue((Namespaces.Html, name), out var indexes) ? indexes[^1] : -1;
+    private int Last(string name) => _nameIndexes.Html(name) is { Count: > 0 } indexes ? indexes[^1] : -1;
     private int LastSpecial => _specialIndexes.Count == 0 ? -1 : _specialIndexes[^1];
     private int LastLiStop => _liStops.Count == 0 ? -1 : _liStops[^1];
     private int LastDdDtStop => _ddDtStops.Count == 0 ? -1 : _ddDtStops[^1];

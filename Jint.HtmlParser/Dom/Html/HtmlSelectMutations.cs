@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 namespace Jint.HtmlParser;
 
 /// <summary>HTML option insertion/removing steps and attribute selectedness transitions.</summary>
@@ -73,11 +74,19 @@ internal static class HtmlSelectMutations
         UpdateNearestWithWork(node, false, true, context, context?.Token ?? default);
         HtmlSelectedContent.TreeChanged(node, oldParent, false, context);
     }
+    // A parsed leaf reaches this on every insertion: keep the guard inlinable, the walk's frame apart.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void UpdateNearestWithWork(Node root, bool insertion, bool markDocument, HtmlSelectWorkContext? context, CancellationToken token)
     {
         if (root.FirstChild is null &&
             root is not Element { NamespaceUri: Namespaces.Html, LocalName: "option" } &&
             root is not Element { AttachedShadowRoot: not null }) return;
+        UpdateNearestCore(root, insertion, markDocument, context, token);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void UpdateNearestCore(Node root, bool insertion, bool markDocument, HtmlSelectWorkContext? context, CancellationToken token)
+    {
         var work = new HtmlSelectWork(root.OwnerDocument?.SelectWorkProbe, context, token);
         var entrants = new List<(HtmlOptionCore State, bool Selected, Element? Old, Element? Next)>();
         var affected = new HashSet<HtmlSelectCore>();

@@ -19,11 +19,17 @@ internal sealed partial class HtmlTokenizer
                     _numericBase = 10; _numericValue = 0; _numericOverflow = false; _numericDigits = false;
                     _state = State.NumericReference;
                 }
-                else if (AsciiAlpha(c) || AsciiDigit(c)) _state = State.NamedReference;
+                else if (AsciiAlpha(c) || AsciiDigit(c))
+                {
+                    // Reconsume in the named character reference state without another scanner turn.
+                    _state = State.NamedReference;
+                    goto case State.NamedReference;
+                }
                 else FinishLiteralReference();
                 return false;
 
             case State.NamedReference:
+                if (TryConsumeNamedReferenceRun()) return false;
                 if (HtmlEntities.Lookup.TryAdvance(_entityState, c, out var nextState, out var value))
                 {
                     _entityState = nextState;
@@ -85,6 +91,55 @@ internal sealed partial class HtmlTokenizer
                 return false;
         }
         throw new InvalidOperationException("Invalid character-reference state.");
+    }
+
+    // HTML Standard §13.2.5.73: the trie walk is the state's per-character step, batched over the
+    // contiguous source the same way TryConsumeRun batches ordinary appends. Trie edges are ASCII
+    // alphanumerics and ';', so no consumed unit needs input preprocessing or line tracking.
+    private bool TryConsumeNamedReferenceRun()
+    {
+        var source = _input.CurrentSpan;
+        var limit = (int) Math.Min(_remainingWork + 1, source.Length);
+        if (_maxToken > 0)
+        {
+            var start = _tokenStart >= 0 ? _tokenStart : _referenceStart;
+            if (start >= 0) limit = (int) Math.Min(limit, _maxToken - (_input.Offset - start));
+        }
+        if (limit < 2) return false;
+
+        var state = _entityState;
+        var length = 0;
+        var bestLength = -1;
+        string? bestValue = null;
+        while (length < limit && HtmlEntities.Lookup.TryAdvance(state, source[length], out var next, out var value))
+        {
+            state = next;
+            length++;
+            if (value is not null)
+            {
+                bestLength = length;
+                bestValue = value;
+            }
+        }
+        if (length < 2) return false;
+
+        Poll();
+        var existing = _reference.Length;
+        EnsureAppendCapacity(_reference, length);
+        _reference.Append(source[..length]);
+        if (bestValue is not null)
+        {
+            _bestEntityLength = existing + bestLength;
+            _bestEntityValue = bestValue;
+        }
+        _entityState = state;
+        _input.ConsumeOrdinaryRun(length);
+        // ReadCore already charged the first unit of this scanner iteration.
+        ChargeCopy(length - 1);
+        Poll();
+        // The unit that stopped the walk is already in view: finish without another scanner turn.
+        if (length < limit) FinishNamedReference(source[length]);
+        return true;
     }
 
     private static bool DecimalDigit(char c, out int digit)

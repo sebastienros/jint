@@ -81,6 +81,7 @@ public sealed class Attr
         }
 
         var previous = OwnerDocument;
+        previous.AdoptionObserver?.Adopting(this);
         OwnerDocument = document;
         LiveTraversalTracking.Rehome(RangeEndpoints, document);
         IteratorTracking.Rehome(RootIterators, document);
