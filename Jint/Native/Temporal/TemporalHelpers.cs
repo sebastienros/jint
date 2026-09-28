@@ -2704,7 +2704,7 @@ internal static class TemporalHelpers
                 if (realm != null)
                     Throw.RangeError(realm, "Invalid date after adding duration");
                 else
-                    throw new ArgumentException("Invalid date after adding duration", nameof(duration));
+                    throw new ArgumentException("Invalid date after adding duration", nameof(duration), ex);
                 return default;
             }
         }
