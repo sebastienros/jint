@@ -327,9 +327,6 @@ public partial class HtmlTreeConstructionTests
 
     private static int FormattingCount(HtmlParserSession session)
     {
-        var builder = BuilderOf(session);
-        var formatting = typeof(HtmlTreeBuilder).GetField("_formatting",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(builder)!;
-        return (int) formatting.GetType().GetProperty("Count")!.GetValue(formatting)!;
+        return ((HtmlTreeBuilder) BuilderOf(session)).FormattingEntryCount;
     }
 }

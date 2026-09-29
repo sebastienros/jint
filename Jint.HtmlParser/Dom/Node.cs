@@ -18,18 +18,66 @@ public enum NodeType
 public abstract partial class Node
 {
     private Document? _ownerDocument;
-    internal HtmlFormIndex? FormIndex;
-    internal HtmlRadioGroupIndex? RadioIndex;
-    internal HtmlFormWorkProbe? FormWorkProbe;
+    private protected NodeRareData? _rare;
+
+    private protected virtual NodeRareData CreateRareData() => new();
+    private protected NodeRareData Rare => _rare ??= CreateRareData();
+
+    internal HtmlFormIndex? FormIndex
+    {
+        get => _rare?.FormIndex;
+        set { if (value is not null || _rare is not null) Rare.FormIndex = value; }
+    }
+
+    internal HtmlRadioGroupIndex? RadioIndex
+    {
+        get => _rare?.RadioIndex;
+        set { if (value is not null || _rare is not null) Rare.RadioIndex = value; }
+    }
+
+    internal HtmlFormWorkProbe? FormWorkProbe
+    {
+        get => _rare?.FormWorkProbe;
+        set { if (value is not null || _rare is not null) Rare.FormWorkProbe = value; }
+    }
+
     // Stored distribution and manual intent are separate DOM concepts. A manual
     // link is weak so a detached slottable does not retain an otherwise dead slot.
-    internal Element? StoredAssignedSlot;
-    internal WeakReference<Element>? ManualSlot;
-    internal ShadowRoot? TreeShadowRoot;
+    internal Element? StoredAssignedSlot
+    {
+        get => _rare?.StoredAssignedSlot;
+        set { if (value is not null || _rare is not null) Rare.StoredAssignedSlot = value; }
+    }
 
-    internal EndpointBucket? RangeEndpoints;
-    internal List<WeakReference<DomNodeIterator>>? RootIterators;
-    internal int IteratorRootSweepCursor;
+    internal WeakReference<Element>? ManualSlot
+    {
+        get => _rare?.ManualSlot;
+        set { if (value is not null || _rare is not null) Rare.ManualSlot = value; }
+    }
+
+    internal ShadowRoot? TreeShadowRoot
+    {
+        get => _rare?.TreeShadowRoot;
+        set { if (value is not null || _rare is not null) Rare.TreeShadowRoot = value; }
+    }
+
+    internal EndpointBucket? RangeEndpoints
+    {
+        get => _rare?.RangeEndpoints;
+        set { if (value is not null || _rare is not null) Rare.RangeEndpoints = value; }
+    }
+
+    internal List<WeakReference<DomNodeIterator>>? RootIterators
+    {
+        get => _rare?.RootIterators;
+        set { if (value is not null || _rare is not null) Rare.RootIterators = value; }
+    }
+
+    internal int IteratorRootSweepCursor
+    {
+        get => _rare?.IteratorRootSweepCursor ?? 0;
+        set { if (value != 0 || _rare is not null) Rare.IteratorRootSweepCursor = value; }
+    }
 
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 

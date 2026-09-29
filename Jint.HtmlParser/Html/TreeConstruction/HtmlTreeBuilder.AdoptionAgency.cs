@@ -22,7 +22,7 @@ internal sealed partial class HtmlTreeBuilder
     private string? _adoptionSubject;
     private int _adoptionOuter;
     private int _adoptionInner;
-    private LinkedListNode<FormattingEntry>? _adoptionBookmarkBefore;
+    private FormattingEntry? _adoptionBookmarkBefore;
     private FormattingElementEntry? _adoptionFormatting;
     private Element? _adoptionCommonAncestor;
     private Element? _adoptionFurthestBlock;
@@ -60,10 +60,10 @@ internal sealed partial class HtmlTreeBuilder
         if (_specialFormattingStartStage == SpecialFormattingStartStage.Idle)
         {
             _specialFormattingStartStage = SpecialFormattingStartStage.Reconstruct;
-            if (name == "a" && FormattingEntriesNamed("a") is { } anchors)
+            if (name == "a" && LastFormattingEntryNamed("a") is { } anchor)
             {
                 Error("nested-anchor");
-                _specialOldAnchor = anchors.Last!.Value.Element;
+                _specialOldAnchor = anchor.Element;
                 _specialFormattingStartStage = SpecialFormattingStartStage.AdoptAnchor;
             }
             Charge(1);
@@ -190,14 +190,14 @@ internal sealed partial class HtmlTreeBuilder
                 case AdoptionStage.Outer:
                     if (_adoptionOuter == 8) { EndAdoption(); return true; }
                     _adoptionOuter++;
-                    if (FormattingEntriesNamed(_adoptionSubject!) is not { } matches)
+                    if (LastFormattingEntryNamed(_adoptionSubject!) is not { } lastMatch)
                     {
                         _adoptionScan = _nameIndexes.Html(_adoptionSubject!) is { } genericNames ? genericNames.Count - 1 : -1;
                         _adoptionStage = AdoptionStage.GenericFind;
                     }
                     else
                     {
-                        _adoptionFormatting = matches.Last!.Value;
+                        _adoptionFormatting = lastMatch;
                         _adoptionScan = _nameIndexes.Html(_adoptionSubject!) is { } names ? names.Count - 1 : -1;
                         _adoptionStage = AdoptionStage.FindOpen;
                     }
@@ -244,7 +244,7 @@ internal sealed partial class HtmlTreeBuilder
                         _adoptionFurthestIndex = _specialIndexes[position];
                         _adoptionFurthestBlock = _open[_adoptionFurthestIndex];
                         _adoptionCommonAncestor = _open[_adoptionFormattingIndex - 1];
-                        _adoptionBookmarkBefore = _adoptionFormatting!.Node!.Next;
+                        _adoptionBookmarkBefore = _adoptionFormatting!.ListNext;
                         _adoptionLastNode = _adoptionFurthestBlock;
                         _adoptionNodeIndex = _adoptionFurthestIndex;
                         _adoptionInner = 0;
@@ -316,7 +316,7 @@ internal sealed partial class HtmlTreeBuilder
                     entry.Element = recreated;
                     _formattingByElement.Add(recreated, entry);
                     if (ReferenceEquals(_adoptionLastNode, _adoptionFurthestBlock))
-                        _adoptionBookmarkBefore = entry.Node!.Next;
+                        _adoptionBookmarkBefore = entry.ListNext;
                     InvalidateRootCache();
                     recreated.AppendChild(_adoptionLastNode!);
                     _adoptionLastNode = recreated;
@@ -418,9 +418,7 @@ internal sealed partial class HtmlTreeBuilder
                     var replacement = new FormattingElementEntry(_adoptionReplacement!, original.Name,
                         original.Attributes, original.AttributeCounts, original.AttributeWork, original.Key, original.Marker);
                     RemoveFormattingEntry(original);
-                    replacement.Node = _adoptionBookmarkBefore is null
-                        ? _formatting.AddLast(replacement)
-                        : _formatting.AddBefore(_adoptionBookmarkBefore, replacement);
+                    InsertFormattingBefore(_adoptionBookmarkBefore, replacement);
                     IndexFormattingEntry(replacement);
                     // The selected entry was the last with this subject after
                     // the marker. Since the key includes the name, appending
@@ -511,10 +509,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private void IndexFormattingEntry(FormattingElementEntry entry)
     {
-        var bucketKey = (entry.Marker, entry.Key);
-        if (!_formattingByKey.TryGetValue(bucketKey, out var bucket))
-            _formattingByKey[bucketKey] = bucket = [];
-        bucket.Add(entry);
+        IndexFormattingKey(entry);
         _formattingByElement.Add(entry.Element, entry);
         IndexFormattingName(entry);
         Charge(2);
@@ -522,9 +517,9 @@ internal sealed partial class HtmlTreeBuilder
 
     private void RemoveFormattingEntry(FormattingElementEntry entry)
     {
-        if (ReferenceEquals(_adoptionBookmarkBefore, entry.Node))
-            _adoptionBookmarkBefore = entry.Node!.Next;
-        _formatting.Remove(entry.Node!);
+        if (ReferenceEquals(_adoptionBookmarkBefore, entry))
+            _adoptionBookmarkBefore = entry.ListNext;
+        UnlinkFormatting(entry);
         UnindexFormatting(entry);
         Charge(1);
     }

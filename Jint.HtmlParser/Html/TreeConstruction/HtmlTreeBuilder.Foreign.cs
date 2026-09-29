@@ -153,8 +153,8 @@ internal sealed partial class HtmlTreeBuilder
     {
         CheckDepth();
         var name = namespaceUri == Namespaces.Svg ? AdjustSvgTagName(_token.Name!) : _token.Name!;
-        var attributes = _preparedAttributes;
-        if (attributes is not null)
+        var attributes = PreparedAttributes;
+        if (!attributes.IsEmpty)
         {
             var adjusted = false;
             while (_foreignAttributeIndex < attributes.Length)
@@ -180,7 +180,7 @@ internal sealed partial class HtmlTreeBuilder
         var location = FindAdjustedInsertionLocation();
         var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
         var element = owner.CreateParsedElement(namespaceUri, name, null, _preparedIsValue);
-        if (attributes is { Length: > 0 })
+        if (!attributes.IsEmpty)
         {
             element.InitializeParsedAttributes(attributes, _cancellationToken);
             Charge(_preparedAttributeWork);

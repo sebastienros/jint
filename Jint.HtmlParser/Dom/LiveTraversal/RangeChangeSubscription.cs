@@ -38,6 +38,17 @@ internal readonly struct RangeMutationScope : IDisposable
     }
     public void Dispose()
     {
+        // Common case: one document with no range that changed inside this scope.
+        if (_second is null && _first.ChangedRanges is null && !_first.DeferRangeScheduling)
+        {
+            _first.RangeOperationDepth--;
+            return;
+        }
+        DisposeSlow();
+    }
+
+    private void DisposeSlow()
+    {
         var defer = _first.DeferRangeScheduling || _second?.DeferRangeScheduling == true;
         // Close both ownership scopes before any scheduling sink can fail.
         var first = Finish(_first);

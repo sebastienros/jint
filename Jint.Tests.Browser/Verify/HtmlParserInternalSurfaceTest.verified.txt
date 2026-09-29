@@ -498,13 +498,13 @@ public Jint.HtmlParser.DomRange
     (constructor)
     ObserveChanges
 public Jint.HtmlParser.Element
-    FormAssociationState (field)
     GetAttributeAt
     GetAttributeStructureIdentity
     GetHtmlState
     get_AttachedShadowRoot
     get_ExistingAttributeStructureIdentity
     get_ExistingCheckedState
+    get_FormAssociationState
     get_IsValue
 public Jint.HtmlParser.MutationRecord
     get_AttributeNewValue
@@ -523,7 +523,7 @@ public Jint.HtmlParser.NativeXPath
 public Jint.HtmlParser.NativeXPathExpression
     ClonePrepared
 public Jint.HtmlParser.Node
-    TreeShadowRoot (field)
+    get_TreeShadowRoot
 public Jint.HtmlParser.Text
     DataAt
     get_DataLength

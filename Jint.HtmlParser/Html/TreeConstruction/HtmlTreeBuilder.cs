@@ -85,7 +85,11 @@ internal sealed partial class HtmlTreeBuilder
     private int _inputAttributeIndex;
     private bool _inputTypeFound;
     private bool _inputTypeHidden;
-    private ParserAttribute[]? _preparedAttributes;
+    // Reused across tokens: element creation copies prepared attributes into Attr nodes, and
+    // only a formatting entry keeps its own copy (see TryAddFormattingElement).
+    private ParserAttribute[] _attributeScratch = [];
+    private int _preparedAttributeCount;
+    private Span<ParserAttribute> PreparedAttributes => _attributeScratch.AsSpan(0, _preparedAttributeCount);
     private string? _preparedIsValue;
     private int _preparedAttributeIndex;
     private long _preparedAttributeWork;
@@ -118,15 +122,30 @@ internal sealed partial class HtmlTreeBuilder
 
     internal void SetToken(HtmlToken token)
     {
-        if (_hasToken) throw new InvalidOperationException("Tree work is still pending.");
-        _token = token;
+        TokenSlot = token;
+        AcceptToken();
+    }
+
+    // The tokenizer reads the next token straight into this slot, so a token struct is copied
+    // into the builder once rather than through an intermediate local. AcceptToken publishes it.
+    internal ref HtmlToken TokenSlot
+    {
+        get
+        {
+            if (_hasToken) throw new InvalidOperationException("Tree work is still pending.");
+            return ref _token;
+        }
+    }
+
+    internal void AcceptToken()
+    {
         _hasToken = true;
         _textIndex = 0;
         _acknowledgedSelfClosing = false;
         _inputAttributeIndex = 0;
         _inputTypeFound = false;
         _inputTypeHidden = false;
-        _preparedAttributes = null;
+        _preparedAttributeCount = 0;
         _preparedIsValue = null;
         _preparedAttributeIndex = 0;
         _preparedAttributeWork = 0;
@@ -334,7 +353,7 @@ internal sealed partial class HtmlTreeBuilder
     private Element Current => _open.Count != 0 ? _open[^1] : throw new InvalidOperationException("No open element.");
     private Node CurrentParent => _open.Count == 0 ? _document : Current;
 
-    private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null,
+    private Element InsertElement(string name, ReadOnlySpan<ParserAttribute> attributes = default, Node? parentOverride = null,
         long attributeWork = 0, string? isValue = null, bool onlyAddToStack = false)
     {
         CheckDepth();
@@ -350,7 +369,7 @@ internal sealed partial class HtmlTreeBuilder
             state.ParserSourceChanges = _token.SourceChanges;
             if (_scriptingMode == HtmlParserScriptingMode.Inert) state.AlreadyStarted = true;
         }
-        if (attributes is { Length: > 0 })
+        if (!attributes.IsEmpty)
         {
             element.InitializeParsedAttributes(attributes, _cancellationToken);
             Charge(attributeWork);
@@ -361,18 +380,22 @@ internal sealed partial class HtmlTreeBuilder
     }
 
     private Element InsertTokenElement(Node? parentOverride = null) =>
-        InsertElement(_token.Name!, _preparedAttributes, parentOverride, _preparedAttributeWork, _preparedIsValue);
+        InsertElement(_token.Name!, PreparedAttributes, parentOverride, _preparedAttributeWork, _preparedIsValue);
 
     private bool PrepareTokenAttributes()
     {
         var attributes = _token.Attributes;
-        _preparedAttributes ??= new ParserAttribute[attributes.Length];
+        if (_preparedAttributeCount == 0)
+        {
+            if (_attributeScratch.Length < attributes.Length) _attributeScratch = new ParserAttribute[Math.Max(attributes.Length, 8)];
+            _preparedAttributeCount = attributes.Length;
+        }
         while (_preparedAttributeIndex < attributes.Length && _remaining > 0)
         {
             var item = attributes[_preparedAttributeIndex];
             var formatting = IsFormatting(_token.Name!);
             if (formatting) item = new HtmlAttribute(item.Name, item.Value);
-            _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.ValueSlice);
+            _attributeScratch[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.ValueSlice);
             if (item.Name == "is") _preparedIsValue = item.Value;
             if (HtmlColorFaceSizeNames.Match(item.Name)) _foreignFontBreakout = true;
             if (item.Name == "encoding")
@@ -402,8 +425,8 @@ internal sealed partial class HtmlTreeBuilder
     {
         if (_token.Attributes.Length == 0) return;
         var existing = target.AttributeCount;
-        target.AddMissingParsedAttributes(_preparedAttributes!, _cancellationToken);
-        Charge(existing + _preparedAttributes!.Length);
+        target.AddMissingParsedAttributes(PreparedAttributes, _cancellationToken);
+        Charge(existing + _preparedAttributeCount);
     }
 
     private void Push(Element element)

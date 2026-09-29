@@ -147,9 +147,7 @@ public partial class HtmlTreeConstructionTests
         body.LastChild.Should().BeOfType<Element>().Which.LocalName.Should().Be("p");
         var builder = typeof(HtmlParserSession).GetField("_builder",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(parsed.Session)!;
-        var formatting = (System.Collections.ICollection) typeof(HtmlTreeBuilder).GetField("_formatting",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(builder)!;
-        formatting.Count.Should().Be(0);
+        ((HtmlTreeBuilder) builder).FormattingEntryCount.Should().Be(0);
     }
 
     [Test]

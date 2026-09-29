@@ -71,10 +71,7 @@ public partial class HtmlTreeConstructionTests
         parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
         var builderField = typeof(HtmlParserSession).GetField("_builder",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var formattingField = typeof(HtmlTreeBuilder).GetField("_formatting",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        var formatting = (System.Collections.ICollection) formattingField.GetValue(builderField.GetValue(parsed.Session))!;
-        formatting.Count.Should().Be(0);
+        ((HtmlTreeBuilder) builderField.GetValue(parsed.Session)!).FormattingEntryCount.Should().Be(0);
     }
 
     [Test]

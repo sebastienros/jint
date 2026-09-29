@@ -274,13 +274,13 @@ internal sealed partial class HtmlParserSession
                 var scanBefore = _tokenizer.WorkCount;
                 var quota = (int) Math.Min(int.MaxValue, remaining);
                 var status = frame is null
-                    ? _tokenizer.Read(quota, _builder.AllowCData, cancellationToken, out var token)
-                    : _tokenizer.ReadUntil(frame.Point, quota, _builder.AllowCData, cancellationToken, out token);
+                    ? _tokenizer.Read(quota, _builder.AllowCData, cancellationToken, out _builder.TokenSlot)
+                    : _tokenizer.ReadUntil(frame.Point, quota, _builder.AllowCData, cancellationToken, out _builder.TokenSlot);
                 remaining -= _tokenizer.WorkCount - scanBefore;
                 switch (status)
                 {
                     case HtmlReadStatus.Token:
-                        _builder.SetToken(token);
+                        _builder.AcceptToken();
                         break;
                     case HtmlReadStatus.InsertionBoundary:
                         return new HtmlParseStep(HtmlParseStepKind.InsertionBoundary);

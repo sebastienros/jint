@@ -2,14 +2,18 @@ namespace Jint.HtmlParser;
 
 public abstract partial class Node
 {
-    private List<NodeMutationRegistration>? _mutationRegistrations;
+    private List<NodeMutationRegistration>? RegistrationList
+    {
+        get => _rare?.MutationRegistrations;
+        set { if (value is not null || _rare is not null) Rare.MutationRegistrations = value; }
+    }
 
-    internal IReadOnlyList<NodeMutationRegistration>? MutationRegistrations => _mutationRegistrations;
+    internal IReadOnlyList<NodeMutationRegistration>? MutationRegistrations => _rare?.MutationRegistrations;
 
     internal void AddMutationRegistration(MutationRegistration registration, bool transient)
     {
-        _mutationRegistrations ??= [];
-        foreach (var entry in _mutationRegistrations)
+        RegistrationList ??= [];
+        foreach (var entry in RegistrationList)
         {
             if (ReferenceEquals(entry.Registration, registration) && entry.Transient == transient)
             {
@@ -17,7 +21,7 @@ public abstract partial class Node
             }
         }
 
-        _mutationRegistrations.Add(new NodeMutationRegistration(registration, transient));
+        RegistrationList.Add(new NodeMutationRegistration(registration, transient));
         var document = this as Document ?? OwnerDocument!;
         document.MarkMutationRegistrationsPresent();
         if (registration.Subscription.CaptureHtmlMetaInsertions) document.MarkHtmlMetaCapturePresent();
@@ -29,27 +33,27 @@ public abstract partial class Node
 
     internal void RemoveMutationRegistration(MutationRegistration registration, bool transient)
     {
-        _mutationRegistrations?.RemoveAll(entry =>
+        RegistrationList?.RemoveAll(entry =>
             ReferenceEquals(entry.Registration, registration) && entry.Transient == transient);
-        if (_mutationRegistrations is { Count: 0 })
+        if (RegistrationList is { Count: 0 })
         {
-            _mutationRegistrations = null;
+            RegistrationList = null;
         }
     }
 
     internal void RemoveTransientRegistrations(MutationSubscription subscription, MutationRegistration? source)
     {
-        _mutationRegistrations?.RemoveAll(entry => entry.Transient &&
+        RegistrationList?.RemoveAll(entry => entry.Transient &&
             ReferenceEquals(entry.Registration.Subscription, subscription) &&
             (source is null || ReferenceEquals(entry.Registration, source)));
-        if (_mutationRegistrations is { Count: 0 })
+        if (RegistrationList is { Count: 0 })
         {
-            _mutationRegistrations = null;
+            RegistrationList = null;
         }
     }
 
     internal bool HasTransientRegistration(MutationSubscription subscription)
-        => _mutationRegistrations?.Exists(entry => entry.Transient &&
+        => RegistrationList?.Exists(entry => entry.Transient &&
             ReferenceEquals(entry.Registration.Subscription, subscription)) == true;
 }
 

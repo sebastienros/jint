@@ -39,7 +39,7 @@ internal sealed partial class HtmlTreeBuilder
         var fallbackTarget = _headInsertionOverride ?? CurrentParent;
         var scope = location.Parent;
         if (scope is Element { TemplateContent: { } contents }) scope = contents;
-        var template = InsertElement("template", _preparedAttributes, attributeWork: _preparedAttributeWork,
+        var template = InsertElement("template", PreparedAttributes, attributeWork: _preparedAttributeWork,
             isValue: _preparedIsValue, onlyAddToStack: true);
         _templateOperation = new TemplateOperation(template, scope, _templateForValue!, fallbackTarget);
     }

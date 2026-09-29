@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace Jint.HtmlParser.Html;
 
@@ -15,10 +16,23 @@ internal sealed partial class HtmlTokenizer
     private static readonly SearchValues<char> UnquotedStops = SearchValues.Create(" \t\n\f\r>&\0\"'<=`");
     private static readonly SearchValues<char> CommentStops = SearchValues.Create("<-\0\r\n");
 
+    private static ReadOnlySpan<bool> RunStates =>
+    [
+        true, false, false, true, false, true, false, false, true, true, true, false, false, false, // Data..MarkupDeclaration
+        false, false, false, false, false, false, false, false, true, // PiOpen..Comment
+    ];
+
+    // The states TryConsumeRun batches; every other state is scalar.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsRunState(State state) =>
+        (uint) state < (uint) RunStates.Length ? RunStates[(int) state]
+        : state is State.RcData or State.RawText or State.ScriptData or State.PlainText;
+
     // HTML Standard §13.2.5: batch only characters whose state transition is an
     // ordinary append. Delimiters, errors and input preprocessing stay scalar.
-    private bool TryConsumeRun(char current)
+    private bool TryConsumeRun(char current, out bool stopAhead)
     {
+        stopAhead = false;
         CharBuffer buffer;
         SearchValues<char> stops;
         switch (_state)
@@ -53,6 +67,8 @@ internal sealed partial class HtmlTokenizer
         var length = source.IndexOfAny(stops);
         if (length < 0) length = source.Length;
         if (length < (sliced ? 1 : 2)) return false;
+        // A stop inside the slice is the next unit, and a run leaves the state unchanged.
+        stopAhead = length < source.Length;
 
         Poll();
         if (buffer == _text && TextLength == 0) _textStart = _input.Offset;

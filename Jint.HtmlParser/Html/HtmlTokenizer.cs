@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Jint.HtmlParser.Html;
@@ -134,6 +135,9 @@ internal sealed partial class HtmlTokenizer
             _activeCancellationToken = cancellationToken;
             _remainingWork = workQuota;
             cancellationToken.ThrowIfCancellationRequested();
+            // Set when the previous iteration's run stopped on a unit of this same slice that its state
+            // cannot batch, so the scalar step takes that unit without first retrying the run.
+            var stopAhead = false;
             while (_remainingWork > 0)
             {
                 _remainingWork--;
@@ -167,11 +171,12 @@ internal sealed partial class HtmlTokenizer
                     token = new HtmlToken(HtmlTokenKind.EndOfFile, offset: _input.Offset);
                     return HtmlReadStatus.Token;
                 }
-                if (TryConsumeRun(current))
+                if (!stopAhead && IsRunState(_state) && TryConsumeRun(current, out stopAhead))
                 {
                     if (TextLength >= 4096) return FlushText(out token);
                     continue;
                 }
+                stopAhead = false;
                 // HTML input preprocessing happens before state dispatch. Take() also
                 // normalizes the consumed unit and skips a following LF, including
                 // when that LF arrives in a later input segment.
@@ -243,6 +248,7 @@ internal sealed partial class HtmlTokenizer
         Append(_text, s);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private char Take()
     {
         var c = _input.Consume();
@@ -251,8 +257,11 @@ internal sealed partial class HtmlTokenizer
             _skipLf = true;
             c = '\n';
         }
-        if (_tokenStart >= 0) CheckTokenLength(_tokenStart);
-        if (_referenceStart >= 0 && _tokenStart < 0) CheckTokenLength(_referenceStart);
+        if (_maxToken > 0)
+        {
+            if (_tokenStart >= 0) CheckTokenLength(_tokenStart);
+            else if (_referenceStart >= 0) CheckTokenLength(_referenceStart);
+        }
         return c;
     }
 
@@ -265,10 +274,15 @@ internal sealed partial class HtmlTokenizer
     private void Error(string code, long? offset = null) =>
         _diagnostics?.Add("html/" + code, offset ?? _input.Offset);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool White(char c) => c is '\t' or '\n' or '\f' or ' ';
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool AsciiAlpha(char c) => (uint) (c - 'A') <= 25 || (uint) (c - 'a') <= 25;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool AsciiDigit(char c) => (uint) (c - '0') <= 9;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static char Lower(char c) => (uint) (c - 'A') <= 25 ? (char) (c + 32) : c;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static char ReplaceNull(char c) => c == '\0' ? '\uFFFD' : c;
 
     private void BeginTag(bool endTag)
@@ -409,8 +423,10 @@ internal sealed partial class HtmlTokenizer
     // Quota is cooperative: CLR string/array allocation and copying cannot yield
     // midway. Poll around each such call, charge copied units, then yield at the
     // next safe state boundary. The scanner's authored loops yield by quota.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Poll() => _activeCancellationToken.ThrowIfCancellationRequested();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ChargeCopy(long units)
     {
         _work = _work > long.MaxValue - units ? long.MaxValue : _work + units;

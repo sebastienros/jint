@@ -3,9 +3,27 @@ namespace Jint.HtmlParser;
 /// <summary>A stable-identity attribute, attached to at most one element.</summary>
 public sealed class Attr
 {
-    internal EndpointBucket? RangeEndpoints;
-    internal List<WeakReference<DomNodeIterator>>? RootIterators;
-    internal int IteratorRootSweepCursor;
+    // Live ranges and iterators rooted at an attribute are rare; keep their state out of line.
+    private NodeRareData? _rare;
+
+    internal EndpointBucket? RangeEndpoints
+    {
+        get => _rare?.RangeEndpoints;
+        set { if (value is not null || _rare is not null) (_rare ??= new NodeRareData()).RangeEndpoints = value; }
+    }
+
+    internal List<WeakReference<DomNodeIterator>>? RootIterators
+    {
+        get => _rare?.RootIterators;
+        set { if (value is not null || _rare is not null) (_rare ??= new NodeRareData()).RootIterators = value; }
+    }
+
+    internal int IteratorRootSweepCursor
+    {
+        get => _rare?.IteratorRootSweepCursor ?? 0;
+        set { if (value != 0 || _rare is not null) (_rare ??= new NodeRareData()).IteratorRootSweepCursor = value; }
+    }
+
     private StringSlice _value;
     private string? _prefix;
 

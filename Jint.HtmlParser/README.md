@@ -141,7 +141,9 @@ script ordering and resource discovery must still happen at their specification-
 The UTF-16 tokenizer uses cached `SearchValues<char>` sets to append ordinary
 text, names, attribute values and comment runs in bulk. Each run stays within
 the current input slice and work quota; CR/LF preprocessing, diagnostics,
-token limits and insertion markers retain their scalar handling. Names still
+token limits and insertion markers retain their scalar handling. The scanner only
+attempts a run in a state that has one, and not on the unit that ended the
+previous run; both would fail, and each unit still costs one unit of work. Names still
 use HTML's ASCII-only case folding. Common names use generated, length-first
 decision trees with discriminating UTF-16 positions and wide integer comparisons.
 Every character is verified before returning the canonical string literal;
@@ -198,8 +200,16 @@ spec algorithms themselves, so these structures are kept flat:
   for the HTML namespace, whose default string comparer starts non-randomized and
   switches itself on collisions. Foreign names use a lazily created tuple-keyed
   dictionary. Tuple keys always pay Marvin hashing; do not reintroduce them for HTML.
-- The active formatting list indexes its fourteen formatting tag names in a fixed
-  bucket array per marker (`FormattingNameIndex`), not a dictionary.
+- The active formatting list is intrusive: each entry carries its own list, name
+  and Noah's Ark key links, so pushing a formatting element allocates only the
+  entry and its owned attribute copy. The fourteen formatting tag names index a
+  fixed bucket array per marker (`FormattingNameIndex`), not a dictionary. Up to
+  eight creation attributes are compared by scanning arrays; only larger sets get
+  a counted map, so hostile input still cannot make a comparison quadratic.
+- Prepared start-tag attributes reuse one builder-owned scratch array; only a
+  formatting entry, which outlives the token, copies them. The tokenizer writes
+  each token straight into the builder's slot (`TokenSlot`), because copying the
+  reference-bearing token struct through a local costs a bulk write barrier.
 - Body-mode character tokens are appended as one run, split only at U+0000
   (`AppendBodyCharacterRun`). Each `InsertText` call carries commit, live-range
   and mutation bookkeeping, so splitting at whitespace boundaries is not free.
@@ -208,6 +218,13 @@ spec algorithms themselves, so these structures are kept flat:
 - Insertion hooks that rarely apply (`HtmlSelectedContent`, `HtmlSelectMutations`,
   `HtmlFormAssociation`) are an inlined guard plus a `NoInlining` core. A large
   method with an early return still pays its full frame prologue on every insert.
+
+DOM nodes keep only tree links and identity inline. Rarely set state (form and
+radio indexes, slots, shadow roots, live ranges, iterators, mutation observers,
+and on elements custom-element, template, select/option and shadow state) lives in
+one lazily allocated `NodeRareData`/`ElementRareData`; attributes reuse the same
+type for their live-range state. An element stores its attributes in an exact
+`Attr[]` plus count rather than a `List<Attr>`.
 
 Documents record which element kinds they have ever created or adopted
 (`DocumentElementKinds`: `selectedcontent`, `base`). Consumers use the flags to
@@ -234,6 +251,11 @@ returned on success, errors and cancellation. `StringBuilder` remains only where
 a builder outlives one call (processing-instruction attribute scanning) or the
 path is cold (XPath guards, range text, option labels).
 
+The `ValueStringBuilder` implementation is copied from [.NET's pinned source](https://github.com/dotnet/dotnet/blob/9cc5eb8d49d3381ff9890b959faca397b8d537e7/src/runtime/src/libraries/Common/src/System/Text/ValueStringBuilder.cs),
+with only namespace and formatting changes. Its [MIT license](Parsing/ValueStringBuilder.LICENSE.txt)
+is included in the package. The parser does not acquire a dependency on the Jint engine
+to reuse its separate, engine-specific builder.
+
 Other allocation rules the hot paths rely on:
 
 - A string is returned unchanged when nothing needs escaping, normalizing or
@@ -246,10 +268,6 @@ Other allocation rules the hot paths rely on:
 - Work quotas are charged in bulk when nothing can observe the intermediate
   state. Keep per-character charging where a test polls cancellation during an
   allocated copy.
-The implementation is copied from [.NET's pinned source](https://github.com/dotnet/dotnet/blob/9cc5eb8d49d3381ff9890b959faca397b8d537e7/src/runtime/src/libraries/Common/src/System/Text/ValueStringBuilder.cs),
-with only namespace and formatting changes. Its [MIT license](Parsing/ValueStringBuilder.LICENSE.txt)
-is included in the package. The parser does not acquire a dependency on the Jint engine
-to reuse its separate, engine-specific builder.
 
 ## Renderless CSS boundary
 

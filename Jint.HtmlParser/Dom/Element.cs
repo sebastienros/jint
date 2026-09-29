@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 
 namespace Jint.HtmlParser;
 
@@ -11,51 +11,80 @@ internal enum ParsedAttributeMergeCheckpoint
 /// <summary>A namespace-aware element with attributes kept in insertion order.</summary>
 public sealed class Element : Node
 {
-    private List<Attr>? _attributes;
-    private object? _attributeStructureIdentity;
+    // Attributes in order; slots past _attributeCount are null.
+    private Attr[]? _attributes;
+    private int _attributeCount;
+
+    private protected override NodeRareData CreateRareData() => new ElementRareData();
+    // Element only ever creates ElementRareData, so the rare slot needs no type check.
+    private ElementRareData? ExistingRare => Unsafe.As<ElementRareData>(_rare);
+    private ElementRareData ElementRare => Unsafe.As<ElementRareData>(Rare);
+
     // Demanded only for an attribute-absence proof; parsing and mutations allocate no token.
-    internal object GetAttributeStructureIdentity() => _attributeStructureIdentity ??= new object();
-    internal object? ExistingAttributeStructureIdentity => _attributeStructureIdentity;
-    private HtmlElementState? _htmlState;
-    internal HtmlFormAssociationState? FormAssociationState;
-    internal SlotElementState? SlotState;
-    internal HtmlTemplatePatchState? TemplatePatchState;
+    internal object GetAttributeStructureIdentity() => ElementRare.AttributeStructureIdentity ??= new object();
+    internal object? ExistingAttributeStructureIdentity => ExistingRare?.AttributeStructureIdentity;
+
+    private void ResetAttributeStructureIdentity()
+    {
+        if (ExistingRare is { } rare) rare.AttributeStructureIdentity = null;
+    }
+
+    internal HtmlFormAssociationState? FormAssociationState
+    {
+        get => ExistingRare?.FormAssociationState;
+        set { if (value is not null || _rare is not null) ElementRare.FormAssociationState = value; }
+    }
+
+    internal SlotElementState? SlotState
+    {
+        get => ExistingRare?.SlotState;
+        set { if (value is not null || _rare is not null) ElementRare.SlotState = value; }
+    }
+
+    internal HtmlTemplatePatchState? TemplatePatchState
+    {
+        get => ExistingRare?.TemplatePatchState;
+        set { if (value is not null || _rare is not null) ElementRare.TemplatePatchState = value; }
+    }
+
     internal bool WasInserted { get; set; }
 
     internal HtmlElementState? GetHtmlState()
-        => NamespaceUri == Namespaces.Html ? _htmlState ??= new HtmlElementState(this) : null;
-    private HtmlOptionCore? _optionCore;
-    private HtmlSelectCore? _selectCore;
+        => NamespaceUri == Namespaces.Html ? ElementRare.HtmlState ??= new HtmlElementState(this) : null;
     internal HtmlOptionCore GetOptionCore(CancellationToken token = default)
         => GetOptionCoreWithWork((HtmlSelectWorkContext?) null, token);
     internal HtmlOptionCore GetOptionCoreWithWork(HtmlSelectWorkContext? context, CancellationToken token = default)
     {
-        var result = _optionCore ??= new HtmlOptionCore(this, context, token);
+        var result = ElementRare.OptionCore ??= new HtmlOptionCore(this, context, token);
         HtmlSelectWork.Check(context, token);
         return result;
     }
     internal HtmlOptionCore InitializeOptionCore(bool selected)
-        => _optionCore ??= new HtmlOptionCore(this, selected);
+        => ElementRare.OptionCore ??= new HtmlOptionCore(this, selected);
     internal HtmlSelectCore GetSelectCore(CancellationToken token = default)
         => GetSelectCoreWithWork((HtmlSelectWorkContext?) null, token);
     internal HtmlSelectCore GetSelectCoreWithWork(HtmlSelectWorkContext? context, CancellationToken token = default)
     {
-        var result = _selectCore ??= new HtmlSelectCore(this, context, token);
+        var result = ElementRare.SelectCore ??= new HtmlSelectCore(this, context, token);
         HtmlSelectWork.Check(context, token);
         return result;
     }
-    internal HtmlOptionCore? ExistingOptionCore => _optionCore;
-    internal HtmlSelectCore? ExistingSelectCore => _selectCore;
-    internal HtmlOptionState? ExistingOptionState => _htmlState?.ExistingOption;
-    internal HtmlSelectState? ExistingSelectState => _htmlState?.ExistingSelect;
-    internal HtmlInputCheckedState? ExistingCheckedState => _htmlState?.ExistingCheckedState;
-    internal bool HasHtmlState => _htmlState is not null;
-    internal HtmlTextAreaState? ExistingTextAreaState => _htmlState?.ExistingTextArea;
-    internal HtmlInputValueState? ExistingInputValueState => _htmlState?.ExistingInputValue;
-    internal ShadowRoot? AttachedShadowRoot { get; private set; }
+    internal HtmlOptionCore? ExistingOptionCore => ExistingRare?.OptionCore;
+    internal HtmlSelectCore? ExistingSelectCore => ExistingRare?.SelectCore;
+    internal HtmlOptionState? ExistingOptionState => ExistingRare?.HtmlState?.ExistingOption;
+    internal HtmlSelectState? ExistingSelectState => ExistingRare?.HtmlState?.ExistingSelect;
+    internal HtmlInputCheckedState? ExistingCheckedState => ExistingRare?.HtmlState?.ExistingCheckedState;
+    internal bool HasHtmlState => ExistingRare?.HtmlState is not null;
+    internal HtmlTextAreaState? ExistingTextAreaState => ExistingRare?.HtmlState?.ExistingTextArea;
+    internal HtmlInputValueState? ExistingInputValueState => ExistingRare?.HtmlState?.ExistingInputValue;
+    internal ShadowRoot? AttachedShadowRoot => ExistingRare?.AttachedShadowRoot;
     /// <summary>The attached open shadow root, or null for absent and closed roots.</summary>
     public ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
-    internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
+    internal CustomElementRegistryIdentity? CustomElementRegistry
+    {
+        get => ExistingRare?.CustomElementRegistry;
+        private set { if (value is not null || _rare is not null) ElementRare.CustomElementRegistry = value; }
+    }
 
     /// <summary>Attaches a native shadow root and returns its identity, including for closed mode.</summary>
     /// <remarks>
@@ -81,9 +110,9 @@ public sealed class Element : Node
             throw new InvalidOperationException("A shadow root cannot be retargeted or replaced.");
         }
 
-        AttachedShadowRoot = root;
+        ElementRare.AttachedShadowRoot = root;
     }
-    internal void SetTemplateContent(ShadowRoot root) => TemplateContent = root;
+    internal void SetTemplateContent(ShadowRoot root) => ElementRare.TemplateContent = root;
     internal void InitializeCustomElementRegistry(CustomElementRegistryIdentity? registry) => CustomElementRegistry = registry;
 
     internal Element(Document owner, string? namespaceUri, string localName, string? prefix, string? isValue = null) : base(owner)
@@ -91,10 +120,10 @@ public sealed class Element : Node
         NamespaceUri = namespaceUri;
         LocalName = localName;
         Prefix = prefix;
-        IsValue = isValue;
+        if (isValue is not null) ElementRare.IsValue = isValue;
         if (namespaceUri == Namespaces.Html && localName == "template")
         {
-            TemplateContent = new DocumentFragment(owner.GetTemplateContentsOwnerDocument(), this);
+            ElementRare.TemplateContent = new DocumentFragment(owner.GetTemplateContentsOwnerDocument(), this);
         }
         else if (namespaceUri == Namespaces.Html)
         {
@@ -107,25 +136,21 @@ public sealed class Element : Node
     public string? NamespaceUri { get; }
     public string LocalName { get; }
     public string? Prefix { get; }
-    internal string? IsValue { get; }
+    internal string? IsValue => ExistingRare?.IsValue;
     public string TagName => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
-    public DocumentFragment? TemplateContent { get; private set; }
-    public int AttributeCount => _attributes?.Count ?? 0;
-    internal Attr? GetAttributeAt(uint index)
-        => _attributes is { } attributes && index < (uint) attributes.Count ? attributes[(int) index] : null;
+    public DocumentFragment? TemplateContent => ExistingRare?.TemplateContent;
+    public int AttributeCount => _attributeCount;
+    internal Attr? GetAttributeAt(uint index) => index < (uint) _attributeCount ? _attributes![index] : null;
     // Internal readers iterate in place; a mutation during the read is detected by the caller's stamps.
-    internal ReadOnlySpan<Attr> AttributeSpan => CollectionsMarshal.AsSpan(_attributes);
+    internal ReadOnlySpan<Attr> AttributeSpan => new(_attributes, 0, _attributeCount);
 
     public IEnumerable<Attr> Attributes
     {
         get
         {
-            if (_attributes is not null)
+            for (var i = 0; i < _attributeCount; i++)
             {
-                foreach (var attribute in _attributes)
-                {
-                    yield return attribute;
-                }
+                yield return _attributes![i];
             }
         }
     }
@@ -136,12 +161,7 @@ public sealed class Element : Node
     {
         ArgumentNullException.ThrowIfNull(name);
         name = NormalizeAttributeName(name);
-        if (_attributes is null)
-        {
-            return null;
-        }
-
-        foreach (var attribute in _attributes)
+        foreach (var attribute in AttributeSpan)
         {
             if (attribute.Name == name)
             {
@@ -158,12 +178,7 @@ public sealed class Element : Node
     {
         ArgumentNullException.ThrowIfNull(localName);
         namespaceUri = namespaceUri is "" ? null : namespaceUri;
-        if (_attributes is null)
-        {
-            return null;
-        }
-
-        foreach (var attribute in _attributes)
+        foreach (var attribute in AttributeSpan)
         {
             if (attribute.NamespaceUri == namespaceUri && attribute.LocalName == localName)
             {
@@ -253,9 +268,8 @@ public sealed class Element : Node
             var oldValue = previous.Value;
             var matches = MutationTracking.Match(this, MutationRecordKind.Attributes,
                 attribute.LocalName, attribute.NamespaceUri);
-            _attributes ??= [];
-            _attributes[_attributes.IndexOf(previous)] = attribute;
-            _attributeStructureIdentity = null;
+            _attributes![Array.IndexOf(_attributes, previous, 0, _attributeCount)] = attribute;
+            ResetAttributeStructureIdentity();
             previous.OwnerElement = null;
             attribute.OwnerElement = this;
             attribute.Rehome(OwnerDocument!);
@@ -302,8 +316,8 @@ public sealed class Element : Node
         }
 
         HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, null);
-        _attributes!.Remove(attribute);
-        _attributeStructureIdentity = null;
+        RemoveAttributeSlot(attribute);
+        ResetAttributeStructureIdentity();
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
@@ -320,12 +334,7 @@ public sealed class Element : Node
 
     internal void AdoptAttributes(Document document)
     {
-        if (_attributes is null)
-        {
-            return;
-        }
-
-        foreach (var attribute in _attributes)
+        foreach (var attribute in AttributeSpan)
         {
             attribute.Rehome(document);
         }
@@ -342,15 +351,16 @@ public sealed class Element : Node
 
         var work = new HtmlSelectWork(document.SelectWorkProbe, context, cancellationToken);
         work.Check();
-        _attributes = new List<Attr>(source._attributes.Count);
-        _attributeStructureIdentity = null;
-        foreach (var attribute in source._attributes)
+        _attributes = new Attr[source._attributeCount];
+        _attributeCount = 0;
+        ResetAttributeStructureIdentity();
+        foreach (var attribute in source.AttributeSpan)
         {
             work.Step();
             var copy = NodeCloner.CloneAttribute(attribute, document);
             copy.OwnerElement = this;
-            _attributes.Add(copy);
-            _attributeStructureIdentity = null;
+            _attributes[_attributeCount++] = copy;
+            ResetAttributeStructureIdentity();
             ScriptAttributeAdded(copy);
         }
         work.Check();
@@ -380,7 +390,7 @@ public sealed class Element : Node
             return;
         }
 
-        var result = new List<Attr>(attributes.Length);
+        var result = new Attr[attributes.Length];
         var scriptAsyncAdded = false;
         cancellationToken.ThrowIfCancellationRequested();
         for (var i = 0; i < attributes.Length; i++)
@@ -399,7 +409,7 @@ public sealed class Element : Node
             {
                 OwnerElement = this
             };
-            result.Add(attribute);
+            result[i] = attribute;
         }
 
         var preparedInput = HtmlInputStateChanges.PrepareInitialization(this, result, cancellationToken);
@@ -407,7 +417,8 @@ public sealed class Element : Node
         var selectInitialization = HtmlSelectMutations.PrepareInitialization(this, result, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
-        _attributeStructureIdentity = null;
+        _attributeCount = result.Length;
+        ResetAttributeStructureIdentity();
         HtmlInputStateChanges.Initialize(this, preparedInput);
         HtmlSelectMutations.Initialize(this, selectInitialization);
         if (scriptAsyncAdded) GetHtmlState()!.Script!.ForceAsync = false;
@@ -422,21 +433,18 @@ public sealed class Element : Node
         Action<ParsedAttributeMergeCheckpoint, int>? workCheckpoint, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var count = _attributes?.Count ?? 0;
+        var count = _attributeCount;
         var keys = new HashSet<(string? NamespaceUri, string LocalName)>(count + attributes.Length);
         cancellationToken.ThrowIfCancellationRequested();
-        if (_attributes is { } existing)
+        for (var i = 0; i < count; i++)
         {
-            for (var i = 0; i < existing.Count; i++)
+            if ((i & 63) == 0)
             {
-                if ((i & 63) == 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-
-                var attribute = existing[i];
-                keys.Add((attribute.NamespaceUri, attribute.LocalName));
+                cancellationToken.ThrowIfCancellationRequested();
             }
+
+            var attribute = _attributes![i];
+            keys.Add((attribute.NamespaceUri, attribute.LocalName));
         }
 
         workCheckpoint?.Invoke(ParsedAttributeMergeCheckpoint.AfterIndex, count);
@@ -466,12 +474,35 @@ public sealed class Element : Node
         cancellationToken.ThrowIfCancellationRequested();
     }
 
+    private void AddAttributeSlot(Attr attribute)
+    {
+        var attributes = _attributes;
+        if (attributes is null || _attributeCount == attributes.Length)
+        {
+            Array.Resize(ref _attributes, attributes is null || attributes.Length == 0 ? 4 : attributes.Length * 2);
+        }
+
+        _attributes![_attributeCount++] = attribute;
+    }
+
+    private void RemoveAttributeSlot(Attr attribute)
+    {
+        var index = Array.IndexOf(_attributes!, attribute, 0, _attributeCount);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _attributeCount--;
+        Array.Copy(_attributes!, index + 1, _attributes!, index, _attributeCount - index);
+        _attributes![_attributeCount] = null!;
+    }
+
     private void AppendNewAttribute(Attr attribute, HtmlSelectWorkContext? context = null)
     {
         HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
-        _attributes ??= [];
-        _attributes.Add(attribute);
-        _attributeStructureIdentity = null;
+        AddAttributeSlot(attribute);
+        ResetAttributeStructureIdentity();
         attribute.OwnerElement = this;
         attribute.Rehome(OwnerDocument!);
         ScriptAttributeAdded(attribute);

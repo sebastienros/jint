@@ -198,7 +198,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         var host = _open.Count == 1 && _fragmentShadowHost is { } context ? context : AdjustedCurrent;
         var location = FindAdjustedInsertionLocation(_headInsertionOverride);
-        var template = InsertElement("template", _preparedAttributes, attributeWork: _preparedAttributeWork,
+        var template = InsertElement("template", PreparedAttributes, attributeWork: _preparedAttributeWork,
             isValue: _preparedIsValue, onlyAddToStack: true);
         if (host.AttachedShadowRoot is not null) { InsertAt(location, template); return; }
         var mode = template.GetAttribute("shadowrootmode")!;
