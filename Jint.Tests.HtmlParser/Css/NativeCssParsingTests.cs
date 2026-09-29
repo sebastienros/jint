@@ -16,6 +16,17 @@ public sealed class NativeCssParsingTests
         NativeCssParsing.ApplicableRules(sheet, new CssMediaEnvironment { Type = media }, Work()).OfType<CssStyleRule>().ToArray();
 
     [Test]
+    public void CharsetDeclarationIsNotARuleAndDoesNotCloseImportPlacement()
+    {
+        var sheet = Parse("@charset \"utf-8\"; @import 'child.css'; p {}");
+        NativeCssParsing.ImportRules(sheet, Work()).OfType<CssImportRule>().Single().Href.Should().Be("child.css");
+        var rules = Read(sheet);
+        rules.Count.Should().Be(2);
+        rules[0].Should().BeOfType<CssImportRule>();
+        rules[1].Should().BeOfType<CssStyleRule>();
+    }
+
+    [Test]
     public void ImportsDoNotDemandUnrelatedRuleGrammarsAndKeepTheirIdentity()
     {
         var sheet = Parse("@import 'child.css' (width > 100px); @scope (.unused) {}");

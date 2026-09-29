@@ -73,6 +73,11 @@ unchanged. No HTML tokenizer, DOM, XML or XPath work is part of this CSS reducti
   import paths, then implement the specified BOM/transport/@charset/environment encoding choice.
   Done when a local-server fixture checks conflicting/absent labels, malformed sequences,
   imported-sheet encoding and cancellation; decoded-string CSS parsing remains unchanged.
+  Progress: the parser owns CSS Syntax §3.2 fallback selection (`CssStyleSheetEncoding`) and drops
+  `@charset` as a rule; Browser decodes `<link>` and `@import` bytes through the engine's WHATWG
+  decoders with BOM override and parent-encoding inheritance (`CssStyleSheetDecoding`). Evidence:
+  `CssStyleSheetEncodingTests`, `StyleSheetBytesAreDecodedWith…`. Malformed-sequence and
+  cancellation fixtures remain.
 - [ ] **LOAD-02 - Stylesheet eligibility and load ordering.** Implement MIME/nosniff and relevant
   response/origin eligibility at the loader boundary. Preserve URL/base metadata and distinguish
   rejected sheets from empty valid sheets.

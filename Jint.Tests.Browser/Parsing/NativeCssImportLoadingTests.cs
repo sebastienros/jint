@@ -224,6 +224,29 @@ public sealed class NativeCssImportLoadingTests
         fixture.Page.Errors.Should().BeEmpty();
     }
 
+    // CSS Syntax §3.2: BOM, then transport charset, then @charset (utf-16 read as utf-8), then the
+    // environment encoding, which an import takes from its parent's selected encoding.
+    [Test]
+    public async Task StyleSheetBytesAreDecodedWithBomTransportCharsetDeclarationAndEnvironmentEncoding()
+    {
+        static byte[] Bytes(params byte[][] parts) => parts.SelectMany(part => part).ToArray();
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", "<meta charset=utf-8><link rel=stylesheet href=/declared.css><link rel=stylesheet href=/bom.css>" +
+                "<link rel=stylesheet href=/utf16.css><p id=café>a</p><p id=naïve>b</p><p id=señor>c</p><p id=über>d</p>")
+            .Map("/declared.css", _ => LoopbackResponse.Raw(
+                Encoding.Latin1.GetBytes("@charset \"windows-1252\";@import 'child.css';#café{color:red}"), "text/css"))
+            .Map("/child.css", _ => LoopbackResponse.Raw(Encoding.Latin1.GetBytes("#naïve{color:red}"), "text/css"))
+            .Map("/bom.css", _ => LoopbackResponse.Raw(
+                Bytes([0xEF, 0xBB, 0xBF], Encoding.UTF8.GetBytes("#señor{color:red}")), "text/css; charset=iso-8859-1"))
+            .Map("/utf16.css", _ => LoopbackResponse.Raw(
+                Encoding.UTF8.GetBytes("@charset \"utf-16\";#über{color:red}"), "text/css")));
+        await fixture.Page.NavigateAsync(fixture.Url("/"));
+        foreach (var id in new[] { "café", "naïve", "señor", "über" })
+            (await fixture.Page.EvaluateAsync<string>($"getComputedStyle(document.getElementById('{id}')).color"))
+                .Should().Be("red", id);
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task AnOpaqueFrameImportCannotBorrowTheTopDocumentsCredentials()
     {

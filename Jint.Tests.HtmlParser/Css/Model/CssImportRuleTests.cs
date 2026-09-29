@@ -30,6 +30,17 @@ public sealed class CssImportRuleTests
         sheet.Serialize().Should().Be("@import url(\"" + href + "\");");
     }
 
+    // CSS Syntax §3.2: an encoding declaration is not a rule, so it neither appears in cssRules nor
+    // closes import placement, and insertRule() rejects it.
+    [Test]
+    public void CharsetDeclarationIsNotARule()
+    {
+        var sheet = CssStyleSheet.Parse("@charset \"utf-8\"; @CHARSET 'x'; @import 'ok.css'; a {}");
+        sheet.Rules.Count.Should().Be(2);
+        Import(sheet).Href.Should().Be("ok.css");
+        Assert.Throws<DomException>(() => sheet.InsertRule("@charset \"utf-8\";", 0))!.Name.Should().Be("SyntaxError");
+    }
+
     [Test]
     public void InvalidStatementsAndInvalidSelectorsRecoverWithoutClosingImportPlacement()
     {

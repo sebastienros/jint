@@ -246,13 +246,11 @@ internal sealed partial class ParserDriver
                     if (!Current() || !ReferenceEquals(import.ParentStyleSheet, frame.Sheet) || import.StyleSheet is not null)
                         throw new CssImportSourceStaleException();
                 });
-                var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200).Text(frame.Charset);
-                // Finite checkpoint: existing decoder's response-header -> fallback -> UTF-8
-                // chain. CSS BOM/@charset selected-encoding inheritance and response MIME
-                // eligibility remain follow-up work; this is not complete CSS fetching.
+                // The parent sheet's encoding is the environment encoding. Response MIME eligibility
+                // remains follow-up work (LOAD-02); this is not complete CSS fetching.
+                var (text, childCharset) = CssStyleSheetDecoding.Decode(body.Bytes, body.ContentType, frame.Charset);
                 parsing.Charge(text.Length);
                 var child = NativeCssParsing.CreateSheet(text, parsing);
-                var childCharset = ImportCharset(body.ContentType, frame.Charset);
                 var childKeys = requestedKey == finalKey ? new[] { finalKey } : new[] { requestedKey, finalKey };
                 // Charge before the final callback, then prove every active link with token checks only.
                 work.Charge(NativeCssParsing.ImportRules(child, work).Count);
@@ -325,14 +323,6 @@ internal sealed partial class ParserDriver
         var key = UrlParser.Parse(url)?.Serialize(excludeFragment: true) ?? url;
         work.Charge(key.Length);
         return key;
-    }
-
-    private static string ImportCharset(string? contentType, string inherited)
-    {
-        var label = contentType is null ? null : MimeType.Parse(contentType)?.GetParameter("charset");
-        if (string.IsNullOrEmpty(label)) return inherited;
-        try { return Encoding.GetEncoding(label).WebName; }
-        catch (ArgumentException) { return inherited; }
     }
 
     internal void QueueCssImports(CssStyleSheet changedSheet)

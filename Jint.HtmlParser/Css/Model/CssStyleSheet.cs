@@ -373,6 +373,8 @@ internal sealed class CssStyleSheet
                         return new CssSupportsRule(condition, matches, syntax.Span);
                     }
             }
+            // CSS Syntax §3.2: an encoding declaration only looks like an at-rule; "no such rule actually exists".
+            if (name == "charset") return null;
             work.Charge(syntax.Span.Length);
             return new CssGenericRule(source.Substring(syntax.Span.Start, syntax.Span.Length), syntax.Span);
         }

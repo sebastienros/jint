@@ -55,13 +55,12 @@ public sealed class CssMediaRuleTests
     }
 
     [Test]
-    public void CharsetIsUnknownAndEofRecoveredSelectorsRoundTrip()
+    public void CharsetIsDroppedAndEofRecoveredSelectorsRoundTrip()
     {
+        // wpt css/cssom/insertRule-charset-no-index.html: a sheet holding only @charset has no rules.
         var sheet = CssStyleSheet.Parse("@charset \"utf-8\"; a {}");
-        sheet.Rules.Count.Should().Be(2);
-        sheet.Rules[0].Should().BeOfType<CssGenericRule>();
-        sheet.InsertRule("@charset \"utf-8\";", 0).Should().Be(0);
-        var rule = (CssStyleRule) sheet.Rules[2];
+        sheet.Rules.Count.Should().Be(1);
+        var rule = (CssStyleRule) sheet.Rules[0];
         rule.SetSelectorText(":is(.a");
         rule.SelectorText.Should().Be(":is(.a)");
         CssStyleSheet.Parse(rule.CssText).Rules.Count.Should().Be(1);

@@ -615,11 +615,11 @@ internal sealed partial class ParserDriver
             if (ReferenceEquals(source.StyleRequest, request)) source.Signature = null;
             return;
         }
-        var text = new FetchedSubresource(body.Bytes, body.ContentType, body.Url, null, 200)
-            .Text(DomDocumentState.Of(document).CharacterSet);
+        var (text, sheetEncoding) = CssStyleSheetDecoding.Decode(body.Bytes, body.ContentType,
+            DomDocumentState.Of(document).CharacterSet);
         NativeCssStyleSheets.Install(_runtime.Dom.RealmOfDocument(document), link, text, body.Url);
         var imports = LoadCssImports(link, Current, mayPump: !_runtime.Engine.IsEvaluationInProgress,
-            inheritedCharset: ImportCharset(body.ContentType, DomDocumentState.Of(document).CharacterSet),
+            inheritedCharset: sheetEncoding,
             ownerRequestIdentityIsCurrent: () => ReferenceEquals(source.StyleRequest, request));
         if (imports != CssImportLoadResult.Stale && Current())
         {
