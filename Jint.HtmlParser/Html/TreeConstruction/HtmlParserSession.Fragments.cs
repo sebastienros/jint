@@ -34,12 +34,13 @@ internal sealed partial class HtmlParserSession
     }
 
     internal static DocumentFragment ParseFragment(string source, Element context, HtmlParseOptions? options = null,
-        Node? target = null, HtmlParserScriptingMode? scriptingMode = null, CancellationToken cancellationToken = default)
+        Node? target = null, HtmlParserScriptingMode? scriptingMode = null, bool allowDeclarativeShadowRoots = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
-        var session = CreateFragment(context, options, target, scriptingMode);
+        var session = CreateFragment(context, options, target, scriptingMode, allowDeclarativeShadowRoots);
         session.AppendInput(source, isFinal: true);
         HtmlParseStep step;
         do { step = session.Drive(4096, cancellationToken); } while (step.Kind == HtmlParseStepKind.Yielded);

@@ -108,6 +108,30 @@ public class HtmlFragmentTreeTests
         script.GetHtmlState()!.Script!.ParserDocument.Should().NotBeNull();
     }
 
+    // DOM Parsing and Serialization setHTMLUnsafe / parseHTMLUnsafe: declarative shadow roots
+    // attach inside the fragment only when the caller opts in.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void NestedDeclarativeShadowRootsAreOptIn(bool allow)
+    {
+        var context = Document.CreateHtml().CreateElement("body");
+        var result = HtmlParserSession.ParseFragment(
+            "<div><template shadowrootmode=open shadowrootserializable><b>s</b></template>light</div>",
+            context, allowDeclarativeShadowRoots: allow);
+        var div = (Element) result.FirstChild!;
+        if (allow)
+        {
+            div.AttachedShadowRoot!.Serializable.Should().BeTrue();
+            ((Element) div.AttachedShadowRoot.FirstChild!).LocalName.Should().Be("b");
+            ((Text) div.FirstChild!).Data.Should().Be("light");
+        }
+        else
+        {
+            div.AttachedShadowRoot.Should().BeNull();
+            ((Element) div.FirstChild!).LocalName.Should().Be("template");
+        }
+    }
+
     [TestCase("Inert", true, true)]
     [TestCase("Fragment", false, false)]
     [TestCase("Disabled", false, true)]
