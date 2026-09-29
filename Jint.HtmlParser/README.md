@@ -223,11 +223,29 @@ eager per-node creation-realm record with one adoption-time notification, and
 
 ## Temporary parsing buffers
 
-CSS token values and XML attribute/line normalization use a stack-backed
-`ValueStringBuilder` with 128-character initial buffers and pooled growth.
-Only synchronous, method-local buffers use it; builders retained between HTML
-tokenizer yields or XML entity frames remain heap-backed. Completed values own
-their strings, and pooled buffers are returned on success, errors and cancellation.
+Synchronous, method-local text assembly (CSS token values, XML attribute/line
+normalization, the HTML/XML/CSS serializers, media queries) uses a stack-backed
+`ValueStringBuilder` with pooled growth; serializers thread one builder by `ref`
+instead of building and concatenating intermediate strings. Buffers retained
+between HTML tokenizer yields or XML entity frames are a reusable `CharBuffer`,
+which exposes its content as one span so names can be compared and interned
+without allocating. Completed values own their strings, and pooled buffers are
+returned on success, errors and cancellation. `StringBuilder` remains only where
+a builder outlives one call (processing-instruction attribute scanning) or the
+path is cold (XPath guards, range text, option labels).
+
+Other allocation rules the hot paths rely on:
+
+- A string is returned unchanged when nothing needs escaping, normalizing or
+  lowercasing; check with `SearchValues` before copying.
+- CSS component value lists produced while parsing a block are slices of that
+  block's storage, not copies.
+- Scratch collections (selector compound builders, XML attribute sets, the
+  declaration-block winner table) are reused, and hash sets are only created
+  once a linear scan becomes more expensive than hashing.
+- Work quotas are charged in bulk when nothing can observe the intermediate
+  state. Keep per-character charging where a test polls cancellation during an
+  allocated copy.
 The implementation is copied from [.NET's pinned source](https://github.com/dotnet/dotnet/blob/9cc5eb8d49d3381ff9890b959faca397b8d537e7/src/runtime/src/libraries/Common/src/System/Text/ValueStringBuilder.cs),
 with only namespace and formatting changes. Its [MIT license](Parsing/ValueStringBuilder.LICENSE.txt)
 is included in the package. The parser does not acquire a dependency on the Jint engine

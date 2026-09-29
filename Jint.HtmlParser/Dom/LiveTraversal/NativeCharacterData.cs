@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Jint.HtmlParser;
 
 // DOM §4.10–4.11: replace data, split a Text node, and normalize exclusive Text.
@@ -105,18 +103,24 @@ internal static class NativeCharacterData
                 continue;
             }
             var oldLength = (uint) text.DataLength;
-            var combined = new StringBuilder();
             var merged = new List<(Text Node, uint Offset)>();
             var length = oldLength;
             while (next is Text sibling)
             {
                 workCheckpoint?.Invoke(++steps);
                 merged.Add((sibling, length));
-                combined.Append(sibling.Data);
                 length += (uint) sibling.DataLength;
                 next = sibling.NextSibling;
             }
-            ReplaceData(text, oldLength, 0, combined.ToString());
+            var combined = string.Create((int) (length - oldLength), merged, static (span, siblings) =>
+            {
+                foreach (var (sibling, _) in siblings)
+                {
+                    sibling.DataSpan.CopyTo(span);
+                    span = span[sibling.DataLength..];
+                }
+            });
+            ReplaceData(text, oldLength, 0, combined);
             foreach (var (sibling, offset) in merged)
             {
                 workCheckpoint?.Invoke(++steps);

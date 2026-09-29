@@ -240,11 +240,12 @@ public sealed partial class DomRange
             {
                 var from = ReferenceEquals(node, Start.Container.Node) ? Start.Offset : 0;
                 var to = isEnd ? End.Offset : BoundaryOrder.GetLength(new(node));
-                for (var i = from; i < to; i++)
+                if (to > from)
                 {
-                    builder.Append(node is Text text ? text.DataAt((int) i) : ((CDataSection) node).Data[(int) i]);
-                    work.Step();
+                    var data = node is Text text ? text.DataSpan : ((CDataSection) node).Data.AsSpan();
+                    builder.Append(data[(int) from..(int) to]);
                 }
+                for (var i = from; i < to; i++) work.Step();
             }
             if (isEnd && IsData(node)) break;
             if (ReferenceEquals(node, stop)) break;
