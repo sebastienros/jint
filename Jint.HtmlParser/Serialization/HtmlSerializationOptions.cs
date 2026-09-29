@@ -36,4 +36,7 @@ public sealed class HtmlSerializationOptions
     public bool SerializableShadowRoots { get; }
     /// <summary>Explicitly selected roots, including closed roots; unreachable roots are not appended.</summary>
     public IReadOnlyList<ShadowRoot> ShadowRoots => _shadowRoots;
+
+    /// <summary>An optional consumer view over descendants; null serializes the tree unchanged.</summary>
+    internal Serialization.HtmlSerializationFilter? Filter { get; init; }
 }

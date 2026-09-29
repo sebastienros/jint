@@ -317,6 +317,13 @@ the public document API. The grant is a reviewed contract, not a convenience:
   the interface or delegate (`INodeAdoptionObserver`, `ISelectorControlFactsFactory`,
   `IHtmlShadowHostContextProvider`), and a hook must cost no more than an inlined guard when unused:
   no per-node work during parsing on Browser's behalf.
+- Extraction views (reader text, agent-facing markdown/HTML dumps) shape markup
+  through `HtmlSerializationOptions.Filter` (`HtmlSerializationFilter`) instead of a
+  second serializer: descendants of the operation root can be included, skipped or
+  unwrapped, attributes dropped, and markup injected after a start tag. Every callback
+  runs inside the serializer's work and mutation-stamp checks, so a filter that
+  mutates the tree invalidates the operation, and an unwrapped host never emits its
+  declarative shadow root (the template would re-attach to a different host).
 - `Jint.Tests.Browser/HtmlParserInternalSurfaceTest` snapshots every non-public
   type and member Browser's IL references into
   `Jint.Tests.Browser/Verify/HtmlParserInternalSurfaceTest.verified.txt`. A new

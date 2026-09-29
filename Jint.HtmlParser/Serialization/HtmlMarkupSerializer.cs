@@ -27,7 +27,8 @@ internal static class HtmlMarkupSerializer
 
     private sealed class Operation
     {
-        private struct Frame(Node node, Document owner, ulong ownerStamp, bool scripting, bool suppressTag, bool shadowWrapper)
+        private struct Frame(Node node, Document owner, ulong ownerStamp, bool scripting, bool suppressTag, bool shadowWrapper,
+            bool unwrapped)
         {
             internal readonly Node Node = node;
             internal readonly Document Owner = owner;
@@ -35,6 +36,8 @@ internal static class HtmlMarkupSerializer
             internal readonly bool Scripting = scripting;
             internal readonly bool SuppressTag = suppressTag;
             internal readonly bool ShadowWrapper = shadowWrapper;
+            // A filter unwrapped this element: its shadow root has no host tag to attach to on reparse.
+            internal readonly bool Unwrapped = unwrapped;
             internal bool Entered;
             internal ShadowRoot? PendingShadow;
             internal DocumentFragment? PendingContent;
@@ -47,6 +50,9 @@ internal static class HtmlMarkupSerializer
         private readonly ulong _rootStamp;
         private readonly CancellationToken _cancellationToken;
         private readonly HtmlSerializationOptions _options;
+        private readonly HtmlSerializationFilter? _filter;
+        private readonly bool _filterAttributes;
+        private readonly bool _filterInjects;
         private readonly SerializationWork _work;
         private readonly SerializationWriter _writer;
         // Every owner reached is verified again at the end; the root and active owners are also
@@ -66,6 +72,9 @@ internal static class HtmlMarkupSerializer
             _rootOwner = OwnerOf(root) ?? throw new ArgumentException("A native owner document is required.", nameof(root));
             _cancellationToken = cancellationToken;
             _options = options;
+            _filter = options.Filter;
+            _filterAttributes = _filter is { FiltersAttributes: true };
+            _filterInjects = _filter is { InjectsContent: true };
             var stamp = _rootOwner.MutationStamp;
             if (stamp == ulong.MaxValue) throw Invalidated();
             _rootStamp = stamp;
@@ -118,7 +127,14 @@ internal static class HtmlMarkupSerializer
                 if (frame.NextChild is { } child)
                 {
                     frame.NextChild = child.NextSibling;
-                    Push(child, frame.Scripting);
+                    var unwrap = false;
+                    if (_filter is not null)
+                    {
+                        var decision = Decide(child);
+                        if (decision == HtmlSerializationDecision.Skip) continue;
+                        unwrap = decision == HtmlSerializationDecision.Unwrap && child is Element;
+                    }
+                    Push(child, frame.Scripting, suppressTag: unwrap, unwrapped: unwrap);
                     continue;
                 }
 
@@ -161,14 +177,23 @@ internal static class HtmlMarkupSerializer
             _work.Poll(SerializationStage.HtmlOptions);
         }
 
-        private void Push(Node node, bool scripting, bool suppressTag = false, bool shadowWrapper = false)
+        private HtmlSerializationDecision Decide(Node child)
+        {
+            _work.Charge(1, SerializationStage.HtmlTraversal);
+            var decision = _filter!.Decide(child);
+            CheckActive();
+            return decision;
+        }
+
+        private void Push(Node node, bool scripting, bool suppressTag = false, bool shadowWrapper = false,
+            bool unwrapped = false)
         {
             _work.Poll(SerializationStage.HtmlTraversal);
             var owner = OwnerOf(node) ?? throw Invalidated();
             var stamp = Capture(owner);
             if (!ReferenceEquals(OwnerOf(node), owner)) throw Invalidated();
             if (_depth == _frames.Length) Array.Resize(ref _frames, _frames.Length * 2);
-            _frames[_depth++] = new Frame(node, owner, stamp, scripting, suppressTag, shadowWrapper);
+            _frames[_depth++] = new Frame(node, owner, stamp, scripting, suppressTag, shadowWrapper, unwrapped);
             _work.Charge(1, SerializationStage.HtmlTraversal);
         }
 
@@ -222,6 +247,12 @@ internal static class HtmlMarkupSerializer
                 WriteAttributes(element);
                 _writer.Append('>');
                 frame.ClosingName = name;
+                if (_filterInjects && !IsVoid(element))
+                {
+                    var injected = _filter!.InjectAfterStartTag(element);
+                    CheckActive();
+                    if (injected is not null) _writer.Append(injected);
+                }
             }
 
             if (IsVoid(element))
@@ -230,7 +261,7 @@ internal static class HtmlMarkupSerializer
                 return;
             }
 
-            if (element.AttachedShadowRoot is { } shadow &&
+            if (!frame.Unwrapped && element.AttachedShadowRoot is { } shadow &&
                 (_selectedRoots.Contains(shadow) || _options.SerializableShadowRoots && shadow.Serializable))
             {
                 _work.Charge(1, SerializationStage.HtmlShadow);
@@ -270,6 +301,12 @@ internal static class HtmlMarkupSerializer
             foreach (var attribute in attributes)
             {
                 _work.Charge(1, SerializationStage.HtmlTraversal);
+                if (_filterAttributes)
+                {
+                    var include = _filter!.IncludeAttribute(element, attribute);
+                    CheckActive();
+                    if (!include) continue;
+                }
                 _writer.Append(' ');
                 WriteAttributeName(attribute);
                 _writer.Append("=\"");
