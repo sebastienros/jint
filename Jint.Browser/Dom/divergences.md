@@ -12,6 +12,22 @@ a reproducible case and a verified implementation boundary.
 
 ### Current boundaries
 
+SVG 2's [element hierarchy](https://svgwg.org/svg2-draft/types.html#DOMInterfacesForSVGElements)
+is recorded in the generated contract; `SVGAElement` retains its manual shape and now inherits
+`SVGGraphicsElement`. Value interfaces use hand-written shared shapes, with live-reflection state
+in `SvgRealm`'s weak per-element table, not on native nodes. On-demand native readers cache by attribute
+string; base-value mutation serializes through the normal native mutation boundary. Animated views
+are read-only mirrors, without SMIL. SVG DOM lists retain item identity by index when source text changes,
+detach removed items, and clone already-associated items when inserting.
+
+`getBBox` derives basic shapes from attributes or falls back to synthetic layout/zero; it ignores stroke,
+clipping, markers and transforms. Outline lengths ignore rectangle corner rounding, approximate ellipses
+with 256 segments, and return zero for paths. `getPointAtLength` uses that same outline model.
+`getCTM`/`getScreenCTM` compose ancestor transform attributes without CSS transforms or viewport fitting.
+Text lengths are zero; character counts use Unicode code points. No rendering, SMIL, path parser or
+`fe*` filter primitives are claimed. `Dom/SvgDomTests` and the native `SvgParserTests` pin these boundaries;
+the [package limitations](../../docs/packages/jint-browser/limitations.md) list the deferred APIs.
+
 | Surface | Current implementation and remaining boundary |
 | --- | --- |
 | Binding generation | `contract.json` explicitly records the JavaScript projection. `BindingContract` and `Emitter` do not extract dependency assemblies. `overrides.json` / `pin.json` are historical provenance, not active inputs. |

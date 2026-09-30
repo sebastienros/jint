@@ -33,6 +33,7 @@ internal sealed class GeometryRealm
 
     /// <summary>https://drafts.fxtf.org/geometry/#dommatrix — <c>[LegacyWindowAlias=WebKitCSSMatrix]</c>.</summary>
     internal const string MatrixAlias = "WebKitCSSMatrix";
+    internal const string SvgMatrixAlias = "SVGMatrix";
 
     private (ObjectInstance Prototype, HostInterfaceObject Interface) _pointReadOnly;
     private (ObjectInstance Prototype, HostInterfaceObject Interface) _point;
@@ -76,7 +77,9 @@ internal sealed class GeometryRealm
         "DOMRect" => Rects().Mutable.Interface,
         "DOMQuad" => Quads().Interface,
         "DOMMatrixReadOnly" => Matrices().ReadOnly.Interface,
-        "DOMMatrix" or MatrixAlias => Matrices().Mutable.Interface,
+        "DOMMatrix" or MatrixAlias or SvgMatrixAlias => Matrices().Mutable.Interface,
+        "SVGPoint" => Points().Mutable.Interface,
+        "SVGRect" => Rects().Mutable.Interface,
         _ => JsValue.Undefined,
     };
 

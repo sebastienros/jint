@@ -399,8 +399,104 @@ internal static partial class DomInterfaces
     /// <summary>The <c>SVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGElement;
 
+    /// <summary>The <c>SVGGraphicsElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGGraphicsElement;
+
+    /// <summary>The <c>SVGGeometryElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGGeometryElement;
+
+    /// <summary>The <c>SVGSVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGSVGElement;
+
+    /// <summary>The <c>SVGGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGGElement;
+
+    /// <summary>The <c>SVGDefsElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGDefsElement;
+
+    /// <summary>The <c>SVGSwitchElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGSwitchElement;
+
+    /// <summary>The <c>SVGSymbolElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGSymbolElement;
+
+    /// <summary>The <c>SVGUseElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGUseElement;
+
+    /// <summary>The <c>SVGImageElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGImageElement;
+
+    /// <summary>The <c>SVGRectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGRectElement;
+
     /// <summary>The <c>SVGCircleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGCircleElement;
+
+    /// <summary>The <c>SVGEllipseElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGEllipseElement;
+
+    /// <summary>The <c>SVGLineElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGLineElement;
+
+    /// <summary>The <c>SVGPolylineElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGPolylineElement;
+
+    /// <summary>The <c>SVGPolygonElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGPolygonElement;
+
+    /// <summary>The <c>SVGPathElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGPathElement;
+
+    /// <summary>The <c>SVGTextContentElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGTextContentElement;
+
+    /// <summary>The <c>SVGTextPositioningElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGTextPositioningElement;
+
+    /// <summary>The <c>SVGTextElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGTextElement;
+
+    /// <summary>The <c>SVGTSpanElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGTSpanElement;
+
+    /// <summary>The <c>SVGTextPathElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGTextPathElement;
+
+    /// <summary>The <c>SVGGradientElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGGradientElement;
+
+    /// <summary>The <c>SVGLinearGradientElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGLinearGradientElement;
+
+    /// <summary>The <c>SVGRadialGradientElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGRadialGradientElement;
+
+    /// <summary>The <c>SVGStopElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGStopElement;
+
+    /// <summary>The <c>SVGPatternElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGPatternElement;
+
+    /// <summary>The <c>SVGClipPathElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGClipPathElement;
+
+    /// <summary>The <c>SVGMaskElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGMaskElement;
+
+    /// <summary>The <c>SVGMarkerElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGMarkerElement;
+
+    /// <summary>The <c>SVGMetadataElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGMetadataElement;
+
+    /// <summary>The <c>SVGScriptElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGScriptElement;
+
+    /// <summary>The <c>SVGStyleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGStyleElement;
+
+    /// <summary>The <c>SVGTitleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGTitleElement;
 
     /// <summary>The <c>SVGDescElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGDescElement;
@@ -408,14 +504,11 @@ internal static partial class DomInterfaces
     /// <summary>The <c>SVGForeignObjectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition SVGForeignObjectElement;
 
-    /// <summary>The <c>SVGSVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
-    internal static readonly DomInterfaceDefinition SVGSVGElement;
+    /// <summary>The <c>SVGViewElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGViewElement;
 
-    /// <summary>The <c>SVGStyleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
-    internal static readonly DomInterfaceDefinition SVGStyleElement;
-
-    /// <summary>The <c>SVGTitleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
-    internal static readonly DomInterfaceDefinition SVGTitleElement;
+    /// <summary>The <c>SVGFilterElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    internal static readonly DomInterfaceDefinition SVGFilterElement;
 
     /// <summary>The <c>ShadowRoot</c> interface, projected from <c>Jint.HtmlParser.ShadowRoot</c>.</summary>
     internal static readonly DomInterfaceDefinition ShadowRoot;
@@ -458,7 +551,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(146);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(177);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -1741,29 +1834,20 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Node));
 
-        SVGCircleElement = Add(new DomInterfaceDefinition(
-            "SVGCircleElement",
+        SVGGraphicsElement = Add(new DomInterfaceDefinition(
+            "SVGGraphicsElement",
             typeof(global::Jint.HtmlParser.Element),
-            BuildSVGCircleElement,
+            BuildSVGGraphicsElement,
             SVGElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
             DomWrapperKind.Node));
 
-        SVGDescElement = Add(new DomInterfaceDefinition(
-            "SVGDescElement",
+        SVGGeometryElement = Add(new DomInterfaceDefinition(
+            "SVGGeometryElement",
             typeof(global::Jint.HtmlParser.Element),
-            BuildSVGDescElement,
-            SVGElement,
-            rootsAtEventTarget: true,
-            hasInterfaceObject: true,
-            DomWrapperKind.Node));
-
-        SVGForeignObjectElement = Add(new DomInterfaceDefinition(
-            "SVGForeignObjectElement",
-            typeof(global::Jint.HtmlParser.Element),
-            BuildSVGForeignObjectElement,
-            SVGElement,
+            BuildSVGGeometryElement,
+            SVGGraphicsElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
             DomWrapperKind.Node));
@@ -1772,6 +1856,302 @@ internal static partial class DomInterfaces
             "SVGSVGElement",
             typeof(global::Jint.HtmlParser.Element),
             BuildSVGSVGElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGGElement = Add(new DomInterfaceDefinition(
+            "SVGGElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGGElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGDefsElement = Add(new DomInterfaceDefinition(
+            "SVGDefsElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGDefsElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGSwitchElement = Add(new DomInterfaceDefinition(
+            "SVGSwitchElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGSwitchElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGSymbolElement = Add(new DomInterfaceDefinition(
+            "SVGSymbolElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGSymbolElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGUseElement = Add(new DomInterfaceDefinition(
+            "SVGUseElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGUseElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGImageElement = Add(new DomInterfaceDefinition(
+            "SVGImageElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGImageElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGRectElement = Add(new DomInterfaceDefinition(
+            "SVGRectElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGRectElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGCircleElement = Add(new DomInterfaceDefinition(
+            "SVGCircleElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGCircleElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGEllipseElement = Add(new DomInterfaceDefinition(
+            "SVGEllipseElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGEllipseElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGLineElement = Add(new DomInterfaceDefinition(
+            "SVGLineElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGLineElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGPolylineElement = Add(new DomInterfaceDefinition(
+            "SVGPolylineElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGPolylineElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGPolygonElement = Add(new DomInterfaceDefinition(
+            "SVGPolygonElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGPolygonElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGPathElement = Add(new DomInterfaceDefinition(
+            "SVGPathElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGPathElement,
+            SVGGeometryElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGTextContentElement = Add(new DomInterfaceDefinition(
+            "SVGTextContentElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGTextContentElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("LENGTHADJUST_UNKNOWN", 0),
+                new DomConstant("LENGTHADJUST_SPACING", 1),
+                new DomConstant("LENGTHADJUST_SPACINGANDGLYPHS", 2),
+            ]));
+
+        SVGTextPositioningElement = Add(new DomInterfaceDefinition(
+            "SVGTextPositioningElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGTextPositioningElement,
+            SVGTextContentElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGTextElement = Add(new DomInterfaceDefinition(
+            "SVGTextElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGTextElement,
+            SVGTextPositioningElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGTSpanElement = Add(new DomInterfaceDefinition(
+            "SVGTSpanElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGTSpanElement,
+            SVGTextPositioningElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGTextPathElement = Add(new DomInterfaceDefinition(
+            "SVGTextPathElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGTextPathElement,
+            SVGTextContentElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGGradientElement = Add(new DomInterfaceDefinition(
+            "SVGGradientElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGGradientElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("SVG_UNIT_TYPE_UNKNOWN", 0),
+                new DomConstant("SVG_UNIT_TYPE_USERSPACEONUSE", 1),
+                new DomConstant("SVG_UNIT_TYPE_OBJECTBOUNDINGBOX", 2),
+                new DomConstant("SVG_SPREADMETHOD_UNKNOWN", 0),
+                new DomConstant("SVG_SPREADMETHOD_PAD", 1),
+                new DomConstant("SVG_SPREADMETHOD_REFLECT", 2),
+                new DomConstant("SVG_SPREADMETHOD_REPEAT", 3),
+            ]));
+
+        SVGLinearGradientElement = Add(new DomInterfaceDefinition(
+            "SVGLinearGradientElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGLinearGradientElement,
+            SVGGradientElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGRadialGradientElement = Add(new DomInterfaceDefinition(
+            "SVGRadialGradientElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGRadialGradientElement,
+            SVGGradientElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGStopElement = Add(new DomInterfaceDefinition(
+            "SVGStopElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGStopElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGPatternElement = Add(new DomInterfaceDefinition(
+            "SVGPatternElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGPatternElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("SVG_UNIT_TYPE_UNKNOWN", 0),
+                new DomConstant("SVG_UNIT_TYPE_USERSPACEONUSE", 1),
+                new DomConstant("SVG_UNIT_TYPE_OBJECTBOUNDINGBOX", 2),
+            ]));
+
+        SVGClipPathElement = Add(new DomInterfaceDefinition(
+            "SVGClipPathElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGClipPathElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("SVG_UNIT_TYPE_UNKNOWN", 0),
+                new DomConstant("SVG_UNIT_TYPE_USERSPACEONUSE", 1),
+                new DomConstant("SVG_UNIT_TYPE_OBJECTBOUNDINGBOX", 2),
+            ]));
+
+        SVGMaskElement = Add(new DomInterfaceDefinition(
+            "SVGMaskElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGMaskElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("SVG_UNIT_TYPE_UNKNOWN", 0),
+                new DomConstant("SVG_UNIT_TYPE_USERSPACEONUSE", 1),
+                new DomConstant("SVG_UNIT_TYPE_OBJECTBOUNDINGBOX", 2),
+            ]));
+
+        SVGMarkerElement = Add(new DomInterfaceDefinition(
+            "SVGMarkerElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGMarkerElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("SVG_MARKERUNITS_UNKNOWN", 0),
+                new DomConstant("SVG_MARKERUNITS_USERSPACEONUSE", 1),
+                new DomConstant("SVG_MARKERUNITS_STROKEWIDTH", 2),
+                new DomConstant("SVG_MARKER_ORIENT_UNKNOWN", 0),
+                new DomConstant("SVG_MARKER_ORIENT_AUTO", 1),
+                new DomConstant("SVG_MARKER_ORIENT_ANGLE", 2),
+                new DomConstant("SVG_MARKER_ORIENT_AUTO_START_REVERSE", 3),
+            ]));
+
+        SVGMetadataElement = Add(new DomInterfaceDefinition(
+            "SVGMetadataElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGMetadataElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGScriptElement = Add(new DomInterfaceDefinition(
+            "SVGScriptElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGScriptElement,
             SVGElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
@@ -1794,6 +2174,48 @@ internal static partial class DomInterfaces
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
             DomWrapperKind.Node));
+
+        SVGDescElement = Add(new DomInterfaceDefinition(
+            "SVGDescElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGDescElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGForeignObjectElement = Add(new DomInterfaceDefinition(
+            "SVGForeignObjectElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGForeignObjectElement,
+            SVGGraphicsElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGViewElement = Add(new DomInterfaceDefinition(
+            "SVGViewElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGViewElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node));
+
+        SVGFilterElement = Add(new DomInterfaceDefinition(
+            "SVGFilterElement",
+            typeof(global::Jint.HtmlParser.Element),
+            BuildSVGFilterElement,
+            SVGElement,
+            rootsAtEventTarget: true,
+            hasInterfaceObject: true,
+            DomWrapperKind.Node,
+            constants:
+            [
+                new DomConstant("SVG_UNIT_TYPE_UNKNOWN", 0),
+                new DomConstant("SVG_UNIT_TYPE_USERSPACEONUSE", 1),
+                new DomConstant("SVG_UNIT_TYPE_OBJECTBOUNDINGBOX", 2),
+            ]));
 
         ShadowRoot = Add(new DomInterfaceDefinition(
             "ShadowRoot",

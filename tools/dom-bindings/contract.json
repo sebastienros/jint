@@ -13765,64 +13765,192 @@
       "ShapeAdditions": null,
       "AccessorClass": null,
       "AccessorReference": null,
-      "Members": [],
+      "Members": [
+        {
+          "DomName": "className",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.className\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"class\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "ownerSVGElement",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.ownerSVGElement\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Svg.SvgElements.OwnerSvg(self.Target));",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "viewportElement",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.viewportElement\");\nreturn self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Svg.SvgElements.OwnerSvg(self.Target));",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "dataset",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.dataset\");\nreturn self.Realm.Hooks.Dataset(self.Realm, self.Target);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "IHtmlElement.Dataset (hook)"
+        },
+        {
+          "DomName": "focus",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.focus\");\nglobal::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "overrides.json"
+        },
+        {
+          "DomName": "blur",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.blur\");\nglobal::Jint.Browser.Events.FocusController.Blur(self.Realm, self.Target);\nreturn global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "overrides.json"
+        },
+        {
+          "DomName": "tabIndex",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.tabIndex\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLElementTabIndex.Get(self.Realm, self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGElement.tabIndex\");\nreturn global::Jint.Browser.Dom.DomReflected.HTMLElementTabIndex.Set(self.Realm, self.Target, args);",
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
       "Constants": [],
       "Unscopables": [],
       "TypeMapCandidate": false
     },
     {
-      "DomName": "SVGCircleElement",
+      "DomName": "SVGGraphicsElement",
       "ClrTypeName": "Jint.HtmlParser.Element",
       "ReceiverType": "global::Jint.HtmlParser.Element",
       "Parent": "SVGElement",
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
       "Kind": 1,
-      "FieldName": "SVGCircleElement",
+      "FieldName": "SVGGraphicsElement",
       "Group": "Svg",
       "ManualShape": null,
       "ShapeAdditions": null,
       "AccessorClass": null,
       "AccessorReference": null,
-      "Members": [],
+      "Members": [
+        {
+          "DomName": "transform",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGraphicsElement.transform\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"transform\", global::Jint.Browser.Dom.Svg.SvgValueKind.TransformList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "requiredExtensions",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGraphicsElement.requiredExtensions\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"requiredExtensions\", global::Jint.Browser.Dom.Svg.SvgValueKind.StringList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "systemLanguage",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGraphicsElement.systemLanguage\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"systemLanguage\", global::Jint.Browser.Dom.Svg.SvgValueKind.StringList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getBBox",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGraphicsElement.getBBox\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getBBox\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getCTM",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGraphicsElement.getCTM\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getCTM\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getScreenCTM",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGraphicsElement.getScreenCTM\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getScreenCTM\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
       "Constants": [],
       "Unscopables": [],
       "TypeMapCandidate": false
     },
     {
-      "DomName": "SVGDescElement",
+      "DomName": "SVGGeometryElement",
       "ClrTypeName": "Jint.HtmlParser.Element",
       "ReceiverType": "global::Jint.HtmlParser.Element",
-      "Parent": "SVGElement",
+      "Parent": "SVGGraphicsElement",
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
       "Kind": 1,
-      "FieldName": "SVGDescElement",
+      "FieldName": "SVGGeometryElement",
       "Group": "Svg",
       "ManualShape": null,
       "ShapeAdditions": null,
       "AccessorClass": null,
       "AccessorReference": null,
-      "Members": [],
-      "Constants": [],
-      "Unscopables": [],
-      "TypeMapCandidate": false
-    },
-    {
-      "DomName": "SVGForeignObjectElement",
-      "ClrTypeName": "Jint.HtmlParser.Element",
-      "ReceiverType": "global::Jint.HtmlParser.Element",
-      "Parent": "SVGElement",
-      "RootsAtEventTarget": true,
-      "HasInterfaceObject": true,
-      "Kind": 1,
-      "FieldName": "SVGForeignObjectElement",
-      "Group": "Svg",
-      "ManualShape": null,
-      "ShapeAdditions": null,
-      "AccessorClass": null,
-      "AccessorReference": null,
-      "Members": [],
+      "Members": [
+        {
+          "DomName": "pathLength",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGeometryElement.pathLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"pathLength\", global::Jint.Browser.Dom.Svg.SvgValueKind.Number, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getTotalLength",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGeometryElement.getTotalLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getTotalLength\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getPointAtLength",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGeometryElement.getPointAtLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getPointAtLength\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "isPointInFill",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGeometryElement.isPointInFill\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"isPointInFill\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "isPointInStroke",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGeometryElement.isPointInStroke\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"isPointInStroke\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
       "Constants": [],
       "Unscopables": [],
       "TypeMapCandidate": false
@@ -13831,7 +13959,7 @@
       "DomName": "SVGSVGElement",
       "ClrTypeName": "Jint.HtmlParser.Element",
       "ReceiverType": "global::Jint.HtmlParser.Element",
-      "Parent": "SVGElement",
+      "Parent": "SVGGraphicsElement",
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
       "Kind": 1,
@@ -13841,7 +13969,1753 @@
       "ShapeAdditions": null,
       "AccessorClass": null,
       "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"100%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"100%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "viewBox",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.viewBox\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"viewBox\", global::Jint.Browser.Dom.Svg.SvgValueKind.Rect, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "preserveAspectRatio",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.preserveAspectRatio\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"preserveAspectRatio\", global::Jint.Browser.Dom.Svg.SvgValueKind.PreserveAspectRatio, \"xMidYMid meet\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "currentScale",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.currentScale\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Current(self.Realm, self.Target, \"currentScale\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.currentScale\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.SetCurrent(self.Realm, self.Target, \"currentScale\", args);",
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "currentTranslate",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.currentTranslate\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Current(self.Realm, self.Target, \"currentTranslate\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGPoint",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGPoint\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGPoint\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGMatrix",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGMatrix\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGMatrix\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGRect",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGRect\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGRect\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGLength",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGLength\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGNumber",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGNumber\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGNumber\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGAngle",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGAngle\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGAngle\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGTransform",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGTransform\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGTransform\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "createSVGTransformFromMatrix",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.createSVGTransformFromMatrix\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"createSVGTransformFromMatrix\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getElementById",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.getElementById\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getElementById\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "suspendRedraw",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.suspendRedraw\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"suspendRedraw\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "unsuspendRedraw",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.unsuspendRedraw\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"unsuspendRedraw\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "unsuspendRedrawAll",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.unsuspendRedrawAll\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"unsuspendRedrawAll\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "forceRedraw",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.forceRedraw\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"forceRedraw\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "pauseAnimations",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.pauseAnimations\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"pauseAnimations\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "unpauseAnimations",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.unpauseAnimations\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"unpauseAnimations\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "animationsPaused",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.animationsPaused\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"animationsPaused\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getCurrentTime",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.getCurrentTime\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getCurrentTime\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "setCurrentTime",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSVGElement.setCurrentTime\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"setCurrentTime\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGGElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGGElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
       "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGDefsElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGDefsElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGSwitchElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGSwitchElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGSymbolElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGSymbolElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "viewBox",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.viewBox\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"viewBox\", global::Jint.Browser.Dom.Svg.SvgValueKind.Rect, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "preserveAspectRatio",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.preserveAspectRatio\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"preserveAspectRatio\", global::Jint.Browser.Dom.Svg.SvgValueKind.PreserveAspectRatio, \"xMidYMid meet\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "refX",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.refX\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"refX\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "refY",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGSymbolElement.refY\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"refY\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGUseElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGUseElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGUseElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGUseElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGUseElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGUseElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGUseElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGImageElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGImageElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "preserveAspectRatio",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.preserveAspectRatio\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"preserveAspectRatio\", global::Jint.Browser.Dom.Svg.SvgValueKind.PreserveAspectRatio, \"xMidYMid meet\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "crossOrigin",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.crossOrigin\");\nreturn global::Jint.Native.JsString.Create(self.Target.GetAttribute(\"crossorigin\") ?? \"\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGImageElement.crossOrigin\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.SetText(self.Realm, self.Target, \"crossorigin\", args);",
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGRectElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGRectElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRectElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRectElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRectElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRectElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "rx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRectElement.rx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"rx\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "ry",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRectElement.ry\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"ry\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGCircleElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGCircleElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "cx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGCircleElement.cx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"cx\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "cy",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGCircleElement.cy\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"cy\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "r",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGCircleElement.r\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"r\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Diagonal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGEllipseElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGEllipseElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "cx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGEllipseElement.cx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"cx\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "cy",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGEllipseElement.cy\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"cy\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "rx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGEllipseElement.rx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"rx\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "ry",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGEllipseElement.ry\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"ry\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGLineElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGLineElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "x1",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLineElement.x1\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x1\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y1",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLineElement.y1\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y1\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x2",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLineElement.x2\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x2\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y2",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLineElement.y2\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y2\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGPolylineElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGPolylineElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "points",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPolylineElement.points\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"points\", global::Jint.Browser.Dom.Svg.SvgValueKind.PointList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "animatedPoints",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPolylineElement.animatedPoints\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"points\", global::Jint.Browser.Dom.Svg.SvgValueKind.PointList, true);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGPolygonElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGPolygonElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "points",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPolygonElement.points\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"points\", global::Jint.Browser.Dom.Svg.SvgValueKind.PointList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "animatedPoints",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPolygonElement.animatedPoints\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"points\", global::Jint.Browser.Dom.Svg.SvgValueKind.PointList, true);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGPathElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGeometryElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGPathElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGTextContentElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGTextContentElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "textLength",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextContentElement.textLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"textLength\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "lengthAdjust",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextContentElement.lengthAdjust\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"lengthAdjust\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"spacing\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|spacing|spacingAndGlyphs\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getNumberOfChars",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextContentElement.getNumberOfChars\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getNumberOfChars\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getComputedTextLength",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextContentElement.getComputedTextLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getComputedTextLength\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "getSubStringLength",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextContentElement.getSubStringLength\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"getSubStringLength\", args);",
+          "SetterBody": null,
+          "Length": 2,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "LENGTHADJUST_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGTextContentElement"
+        },
+        {
+          "Name": "LENGTHADJUST_SPACING",
+          "Value": 1,
+          "Origin": "SVGTextContentElement"
+        },
+        {
+          "Name": "LENGTHADJUST_SPACINGANDGLYPHS",
+          "Value": 2,
+          "Origin": "SVGTextContentElement"
+        }
+      ],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGTextPositioningElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGTextContentElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGTextPositioningElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPositioningElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.LengthList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPositioningElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.LengthList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "dx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPositioningElement.dx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"dx\", global::Jint.Browser.Dom.Svg.SvgValueKind.LengthList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "dy",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPositioningElement.dy\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"dy\", global::Jint.Browser.Dom.Svg.SvgValueKind.LengthList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "rotate",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPositioningElement.rotate\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"rotate\", global::Jint.Browser.Dom.Svg.SvgValueKind.NumberList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGTextElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGTextPositioningElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGTextElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGTSpanElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGTextPositioningElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGTSpanElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGTextPathElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGTextContentElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGTextPathElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPathElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "startOffset",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPathElement.startOffset\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"startOffset\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "method",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPathElement.method\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"method\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"align\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|align|stretch\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "spacing",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGTextPathElement.spacing\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"spacing\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"exact\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|auto|exact\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGGradientElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGGradientElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGradientElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "gradientUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGradientElement.gradientUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"gradientUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"objectBoundingBox\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "spreadMethod",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGradientElement.spreadMethod\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"spreadMethod\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"pad\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|pad|reflect|repeat\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "gradientTransform",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGGradientElement.gradientTransform\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"gradientTransform\", global::Jint.Browser.Dom.Svg.SvgValueKind.TransformList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "SVG_UNIT_TYPE_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_USERSPACEONUSE",
+          "Value": 1,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_OBJECTBOUNDINGBOX",
+          "Value": 2,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_SPREADMETHOD_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGGradientElement"
+        },
+        {
+          "Name": "SVG_SPREADMETHOD_PAD",
+          "Value": 1,
+          "Origin": "SVGGradientElement"
+        },
+        {
+          "Name": "SVG_SPREADMETHOD_REFLECT",
+          "Value": 2,
+          "Origin": "SVGGradientElement"
+        },
+        {
+          "Name": "SVG_SPREADMETHOD_REPEAT",
+          "Value": 3,
+          "Origin": "SVGGradientElement"
+        }
+      ],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGLinearGradientElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGradientElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGLinearGradientElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "x1",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLinearGradientElement.x1\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x1\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y1",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLinearGradientElement.y1\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y1\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x2",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLinearGradientElement.x2\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x2\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"100%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y2",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGLinearGradientElement.y2\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y2\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGRadialGradientElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGradientElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGRadialGradientElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "cx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRadialGradientElement.cx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"cx\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"50%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "cy",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRadialGradientElement.cy\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"cy\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"50%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "r",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRadialGradientElement.r\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"r\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"50%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Diagonal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "fx",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRadialGradientElement.fx\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"fx\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"50%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "fy",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRadialGradientElement.fy\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"fy\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"50%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "fr",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGRadialGradientElement.fr\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"fr\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Diagonal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGStopElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGStopElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "offset",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGStopElement.offset\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"offset\", global::Jint.Browser.Dom.Svg.SvgValueKind.Number, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGPatternElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGPatternElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "viewBox",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.viewBox\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"viewBox\", global::Jint.Browser.Dom.Svg.SvgValueKind.Rect, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "preserveAspectRatio",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.preserveAspectRatio\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"preserveAspectRatio\", global::Jint.Browser.Dom.Svg.SvgValueKind.PreserveAspectRatio, \"xMidYMid meet\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "patternUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.patternUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"patternUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"objectBoundingBox\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "patternContentUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.patternContentUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"patternContentUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"userSpaceOnUse\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "patternTransform",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGPatternElement.patternTransform\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"patternTransform\", global::Jint.Browser.Dom.Svg.SvgValueKind.TransformList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "SVG_UNIT_TYPE_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_USERSPACEONUSE",
+          "Value": 1,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_OBJECTBOUNDINGBOX",
+          "Value": 2,
+          "Origin": "SVGUnitTypes"
+        }
+      ],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGClipPathElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGClipPathElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "requiredExtensions",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGClipPathElement.requiredExtensions\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"requiredExtensions\", global::Jint.Browser.Dom.Svg.SvgValueKind.StringList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "systemLanguage",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGClipPathElement.systemLanguage\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"systemLanguage\", global::Jint.Browser.Dom.Svg.SvgValueKind.StringList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "clipPathUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGClipPathElement.clipPathUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"clipPathUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"userSpaceOnUse\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "transform",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGClipPathElement.transform\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"transform\", global::Jint.Browser.Dom.Svg.SvgValueKind.TransformList, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "SVG_UNIT_TYPE_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_USERSPACEONUSE",
+          "Value": 1,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_OBJECTBOUNDINGBOX",
+          "Value": 2,
+          "Origin": "SVGUnitTypes"
+        }
+      ],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGMaskElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGMaskElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "requiredExtensions",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.requiredExtensions\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"requiredExtensions\", global::Jint.Browser.Dom.Svg.SvgValueKind.StringList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "systemLanguage",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.systemLanguage\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.List(self.Realm, self.Target, \"systemLanguage\", global::Jint.Browser.Dom.Svg.SvgValueKind.StringList, false);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "maskUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.maskUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"maskUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"objectBoundingBox\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "maskContentUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.maskContentUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"maskContentUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"userSpaceOnUse\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"-10%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"-10%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"120%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMaskElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"120%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "SVG_UNIT_TYPE_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_USERSPACEONUSE",
+          "Value": 1,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_OBJECTBOUNDINGBOX",
+          "Value": 2,
+          "Origin": "SVGUnitTypes"
+        }
+      ],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGMarkerElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGMarkerElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "viewBox",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.viewBox\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"viewBox\", global::Jint.Browser.Dom.Svg.SvgValueKind.Rect, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "preserveAspectRatio",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.preserveAspectRatio\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"preserveAspectRatio\", global::Jint.Browser.Dom.Svg.SvgValueKind.PreserveAspectRatio, \"xMidYMid meet\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "refX",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.refX\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"refX\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "refY",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.refY\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"refY\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "markerWidth",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.markerWidth\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"markerWidth\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"3\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "markerHeight",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.markerHeight\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"markerHeight\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"3\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "markerUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.markerUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"markerUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"strokeWidth\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|strokeWidth\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "orientType",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.orientType\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"orient\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|auto|angle|auto-start-reverse\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "orientAngle",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.orientAngle\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"orient\", global::Jint.Browser.Dom.Svg.SvgValueKind.Angle, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "setOrientToAuto",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.setOrientToAuto\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"setOrientToAuto\", args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "setOrientToAngle",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGMarkerElement.setOrientToAngle\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Invoke(self.Realm, self.Target, \"setOrientToAngle\", args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "SVG_MARKERUNITS_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGMarkerElement"
+        },
+        {
+          "Name": "SVG_MARKERUNITS_USERSPACEONUSE",
+          "Value": 1,
+          "Origin": "SVGMarkerElement"
+        },
+        {
+          "Name": "SVG_MARKERUNITS_STROKEWIDTH",
+          "Value": 2,
+          "Origin": "SVGMarkerElement"
+        },
+        {
+          "Name": "SVG_MARKER_ORIENT_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGMarkerElement"
+        },
+        {
+          "Name": "SVG_MARKER_ORIENT_AUTO",
+          "Value": 1,
+          "Origin": "SVGMarkerElement"
+        },
+        {
+          "Name": "SVG_MARKER_ORIENT_ANGLE",
+          "Value": 2,
+          "Origin": "SVGMarkerElement"
+        },
+        {
+          "Name": "SVG_MARKER_ORIENT_AUTO_START_REVERSE",
+          "Value": 3,
+          "Origin": "SVGMarkerElement"
+        }
+      ],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGMetadataElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGMetadataElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGScriptElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGScriptElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGScriptElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "type",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGScriptElement.type\");\nreturn global::Jint.Native.JsString.Create(self.Target.GetAttribute(\"type\") ?? \"\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGScriptElement.type\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.SetText(self.Realm, self.Target, \"type\", args);",
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "crossOrigin",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGScriptElement.crossOrigin\");\nreturn global::Jint.Native.JsString.Create(self.Target.GetAttribute(\"crossorigin\") ?? \"\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGScriptElement.crossOrigin\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.SetText(self.Realm, self.Target, \"crossorigin\", args);",
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
       "Constants": [],
       "Unscopables": [],
       "TypeMapCandidate": false
@@ -13914,6 +15788,205 @@
       "AccessorReference": null,
       "Members": [],
       "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGDescElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGDescElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGForeignObjectElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGGraphicsElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGForeignObjectElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGForeignObjectElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGForeignObjectElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGForeignObjectElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGForeignObjectElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"0\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGViewElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGViewElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "viewBox",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGViewElement.viewBox\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"viewBox\", global::Jint.Browser.Dom.Svg.SvgValueKind.Rect, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "preserveAspectRatio",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGViewElement.preserveAspectRatio\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"preserveAspectRatio\", global::Jint.Browser.Dom.Svg.SvgValueKind.PreserveAspectRatio, \"xMidYMid meet\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [],
+      "Unscopables": [],
+      "TypeMapCandidate": false
+    },
+    {
+      "DomName": "SVGFilterElement",
+      "ClrTypeName": "Jint.HtmlParser.Element",
+      "ReceiverType": "global::Jint.HtmlParser.Element",
+      "Parent": "SVGElement",
+      "RootsAtEventTarget": true,
+      "HasInterfaceObject": true,
+      "Kind": 1,
+      "FieldName": "SVGFilterElement",
+      "Group": "Svg",
+      "ManualShape": null,
+      "ShapeAdditions": null,
+      "AccessorClass": null,
+      "AccessorReference": null,
+      "Members": [
+        {
+          "DomName": "href",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.href\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"href\", global::Jint.Browser.Dom.Svg.SvgValueKind.String, \"\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "filterUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.filterUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"filterUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"objectBoundingBox\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "primitiveUnits",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.primitiveUnits\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"primitiveUnits\", global::Jint.Browser.Dom.Svg.SvgValueKind.Enumeration, \"userSpaceOnUse\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal, \"|userSpaceOnUse|objectBoundingBox\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "x",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.x\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"x\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"-10%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "y",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.y\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"y\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"-10%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "width",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.width\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"width\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"120%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Horizontal);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        },
+        {
+          "DomName": "height",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"SVGFilterElement.height\");\nreturn global::Jint.Browser.Dom.Svg.SvgElements.Animated(self.Realm, self.Target, \"height\", global::Jint.Browser.Dom.Svg.SvgValueKind.Length, \"120%\", global::Jint.Browser.Dom.Svg.SvgLengthDirection.Vertical);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "SVG 2"
+        }
+      ],
+      "Constants": [
+        {
+          "Name": "SVG_UNIT_TYPE_UNKNOWN",
+          "Value": 0,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_USERSPACEONUSE",
+          "Value": 1,
+          "Origin": "SVGUnitTypes"
+        },
+        {
+          "Name": "SVG_UNIT_TYPE_OBJECTBOUNDINGBOX",
+          "Value": 2,
+          "Origin": "SVGUnitTypes"
+        }
+      ],
       "Unscopables": [],
       "TypeMapCandidate": false
     },

@@ -17,6 +17,7 @@ internal sealed class CssTokenizer
     private int _work;
     private bool _inComment;
     private string _eofRecoverySuffix = string.Empty;
+    private Action? _numberCheckpoint;
 
     internal string EofRecoverySuffix => _eofRecoverySuffix;
 
@@ -106,23 +107,12 @@ internal sealed class CssTokenizer
     private CssToken ConsumeNumeric(int start)
     {
         var numberStart = _position;
-        var isInteger = true;
-        if (Peek() is '+' or '-') Consume();
-        while (IsDigit(Peek())) Consume();
-        if (Peek() == '.' && IsDigit(Peek(1)))
-        {
-            isInteger = false;
-            Consume();
-            while (IsDigit(Peek())) Consume();
-        }
-        if ((Peek() is 'e' or 'E') &&
-            (IsDigit(Peek(1)) || ((Peek(1) is '+' or '-') && IsDigit(Peek(2)))))
-        {
-            isInteger = false;
-            Consume();
-            if (Peek() is '+' or '-') Consume();
-            while (IsDigit(Peek())) Consume();
-        }
+        var source = _source.AsSpan(_position);
+        // Bound scanning before Advance enforces the token limit; keep enough lookahead for e+1.
+        if (_maxTokenCharacters > 0 && source.Length > (long) _maxTokenCharacters + 3)
+            source = source[..(_maxTokenCharacters + 3)];
+        var count = Parsing.NumberScanner.Scan(source, trailingPoint: false, out var isInteger, _numberCheckpoint ??= CheckCancellation);
+        Advance(count);
         var number = CssNameCache.Get(_source.AsSpan(numberStart, _position - numberStart));
         if (WouldStartIdent(0))
         {

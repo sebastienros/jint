@@ -25,6 +25,13 @@
 - Real `ImageData` with `Uint8ClampedArray` storage; canvas reads return transparent-black data and writes validate without retaining pixels.
 - Valid transparent PNG data URLs and asynchronous PNG `Blob` results from `toBlob` and offscreen `convertToBlob`. See [Limitations](./limitations) for text heuristics, encoding/allocation limits and deliberate no-rendering behavior.
 
+## SVG DOM (non-rendering)
+
+- SVG 2 element brands and prototype chains for roots, groups, basic shapes, text, gradients, patterns, clips, masks, markers, images, links, scripts, views and filters. Unknown SVG names remain `SVGElement`; names are case-sensitive.
+- Live animated attributes, lengths, angles, numbers, rectangles, aspect ratios, points and transform lists. Base-value edits serialize into content attributes; retained objects observe attribute changes. Animated values mirror the base values through read-only objects, without SMIL.
+- SVG list inspection and mutation methods, constants on both interface objects and prototypes, root value factories, and `SVGMatrix`/`SVGPoint`/`SVGRect` aliases of the Geometry interfaces.
+- Attribute-derived basic-shape bounding boxes, lengths and points along outlines, plus ancestor-transform `getCTM`/`getScreenCTM`. See [Limitations](./limitations) for the synthetic geometry and text policies.
+
 ## Runtime
 
 - Timers, promises, microtasks, animation-frame callbacks, and `postMessage`

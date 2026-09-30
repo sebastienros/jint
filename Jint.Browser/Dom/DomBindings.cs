@@ -82,6 +82,18 @@ internal static class DomBindings
         }
 
         InstallGeometry(global, realm, Geometry.GeometryRealm.MatrixAlias);
+        InstallGeometry(global, realm, Geometry.GeometryRealm.SvgMatrixAlias);
+        InstallGeometry(global, realm, "SVGPoint");
+        InstallGeometry(global, realm, "SVGRect");
+
+        foreach (var name in Svg.SvgRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Svg.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
 
         foreach (var name in Canvas.CanvasRealm.InterfaceNames)
         {

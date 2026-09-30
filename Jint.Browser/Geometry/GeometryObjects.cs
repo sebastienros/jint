@@ -21,10 +21,11 @@ internal sealed class JsDomPoint : ObjectInstance
 
     internal GeometryRealm Owner { get; }
     internal bool Mutable { get; }
-    internal double X { get; set; }
-    internal double Y { get; set; }
-    internal double Z { get; set; }
-    internal double W { get; set; }
+    internal IGeometryCoordinates? Binding { get; set; }
+    internal double X { get => Binding?.Get(0) ?? field; set { if (Binding is { } b) b.Set(0, value); else field = value; } }
+    internal double Y { get => Binding?.Get(1) ?? field; set { if (Binding is { } b) b.Set(1, value); else field = value; } }
+    internal double Z { get => Binding?.Get(2) ?? field; set { if (Binding is { } b) b.Set(2, value); else field = value; } }
+    internal double W { get => Binding?.Get(3) ?? field; set { if (Binding is { } b) b.Set(3, value); else field = value; } }
 
     public override string ToString() => Mutable ? "[object DOMPoint]" : "[object DOMPointReadOnly]";
 }
@@ -46,10 +47,11 @@ internal sealed class JsDomRect : ObjectInstance
 
     internal GeometryRealm Owner { get; }
     internal bool Mutable { get; }
-    internal double X { get; set; }
-    internal double Y { get; set; }
-    internal double Width { get; set; }
-    internal double Height { get; set; }
+    internal IGeometryCoordinates? Binding { get; init; }
+    internal double X { get => Binding?.Get(0) ?? field; set { if (Binding is { } b) b.Set(0, value); else field = value; } }
+    internal double Y { get => Binding?.Get(1) ?? field; set { if (Binding is { } b) b.Set(1, value); else field = value; } }
+    internal double Width { get => Binding?.Get(2) ?? field; set { if (Binding is { } b) b.Set(2, value); else field = value; } }
+    internal double Height { get => Binding?.Get(3) ?? field; set { if (Binding is { } b) b.Set(3, value); else field = value; } }
 
     // https://drafts.fxtf.org/geometry/#dom-domrectreadonly-top; Math.Min/Max propagate NaN as ECMAScript's do.
     internal double Top => Math.Min(Y, Y + Height);
@@ -98,10 +100,34 @@ internal sealed class JsDomMatrix : ObjectInstance
 
     internal GeometryRealm Owner { get; }
     internal bool Mutable { get; }
-    internal double[] Elements { get; }
+    internal IGeometryMatrixBinding? Binding { get; init; }
+    internal double[] Elements { get { Binding?.Refresh(field); return field; } }
     internal bool Is2D { get; set; }
 
+    internal JsDomMatrix Commit()
+    {
+        Binding?.Commit(Elements, Is2D);
+        return this;
+    }
+
     public override string ToString() => Mutable ? "[object DOMMatrix]" : "[object DOMMatrixReadOnly]";
+}
+
+/// <summary>An optional live coordinate source for SVG DOMPoints and viewBox DOMRects.</summary>
+/// <remarks>https://svgwg.org/svg2-draft/types.html#SVGDOMOverview</remarks>
+internal interface IGeometryCoordinates
+{
+    double Get(int index);
+    void Set(int index, double value);
+}
+
+/// <summary>An optional live SVGTransform matrix source; ordinary Geometry values have none.</summary>
+/// <remarks>https://svgwg.org/svg2-draft/coords.html#InterfaceSVGTransform</remarks>
+internal interface IGeometryMatrixBinding
+{
+    void Refresh(double[] elements);
+    void CheckWritable();
+    void Commit(double[] elements, bool is2D);
 }
 
 /// <summary>The receiver checks every geometry member starts with.</summary>

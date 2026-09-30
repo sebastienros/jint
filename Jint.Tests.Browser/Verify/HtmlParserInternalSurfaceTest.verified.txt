@@ -547,6 +547,42 @@ internal Jint.HtmlParser.SlotAssignment
     AssignedNodes
     FindSlot
     GetAssignedSlot
+internal Jint.HtmlParser.Svg.SvgAspectRatio
+    (constructor)
+    get_Align
+    get_MeetOrSlice
+internal Jint.HtmlParser.Svg.SvgLength
+    get_Unit
+    get_Value
+internal Jint.HtmlParser.Svg.SvgLengthUnit
+internal Jint.HtmlParser.Svg.SvgParser
+    Alignments (field)
+    ParseLength
+    ParseLengthList
+    ParseNumber
+    ParseNumberList
+    ParsePoints
+    ParsePreserveAspectRatio
+    ParseTransformList
+    ParseViewBox
+internal Jint.HtmlParser.Svg.SvgPoint
+    (constructor)
+    get_X
+    get_Y
+internal Jint.HtmlParser.Svg.SvgTransform
+    get_A
+    get_B
+    get_C
+    get_D
+    get_E
+    get_F
+    get_Kind
+internal Jint.HtmlParser.Svg.SvgTransformKind
+internal Jint.HtmlParser.Svg.SvgViewBox
+    get_Height
+    get_Width
+    get_X
+    get_Y
 internal Jint.HtmlParser.XPathWorkStage
 internal Jint.HtmlParser.XmlDocumentParser
     Parse

@@ -310,6 +310,22 @@ HTML parsing still performs no eager CSS work. Browser owns on-demand sheet and 
 parsing. Public `MarkupParser.ParseCss*` stays syntax-only; mutable CSSOM and selectors remain
 internal. See the [remaining public/integration work](../docs/design/html-parser-completeness.md).
 
+## SVG attribute readers
+
+The internal `Svg.SvgParser` raw-source APIs parse numbers, number-optional-number, scalar lengths
+(including percentages), number/length lists, points, viewBox, preserveAspectRatio and SVG transform
+lists. They are called explicitly by Browser when script asks for an SVG value or geometry, never while
+building a tree. `Parsing.NumberScanner` shares decimal/exponent recognition with CSS tokenization;
+SVG's trailing decimal point and comma-whitespace grammar remain distinct from CSS's token grammar.
+Single values and fixed-arity readers use spans; list readers allocate only their requested values.
+Invalid values return null, while an invalid transform list returns an empty list, not a valid prefix.
+Negative viewBox dimensions are invalid.
+
+Browser owns string-keyed parse caches, viewport/font-unit resolution, live DOM value identity and
+serialization back to attributes. Native elements retain no SVG parse state. These readers are internal
+integration APIs, not new public parser surface, and `Jint.Tests.HtmlParser/SvgParserTests.cs` covers
+each grammar and its rejection cases.
+
 ## HTML sanitization
 
 `Sanitization/` implements the [HTML sanitization algorithms](https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#sanitization)

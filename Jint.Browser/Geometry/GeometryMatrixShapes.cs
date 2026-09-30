@@ -40,7 +40,12 @@ internal static class GeometryMatrixShapes
 
     private static JsDomMatrix Read(JsValue t, string member) => GeometryBrand.Of<JsDomMatrix>(t, "DOMMatrixReadOnly", member);
 
-    private static JsDomMatrix Write(JsValue t, string member) => GeometryBrand.Of<JsDomMatrix>(t, "DOMMatrix", member, requireMutable: true);
+    private static JsDomMatrix Write(JsValue t, string member)
+    {
+        var matrix = GeometryBrand.Of<JsDomMatrix>(t, "DOMMatrix", member, requireMutable: true);
+        matrix.Binding?.CheckWritable();
+        return matrix;
+    }
 
     /// <summary>A mutable copy of <paramref name="source"/>, in its realm, for a read-only operation to run a Self operation on.</summary>
     private static JsDomMatrix Copy(JsDomMatrix source)
@@ -155,6 +160,7 @@ internal static class GeometryMatrixShapes
                         matrix.Is2D = false;
                     }
 
+                    matrix.Commit();
                     return JsValue.Undefined;
                 });
         }
@@ -179,7 +185,7 @@ internal static class GeometryMatrixShapes
                 var (elements, is2D) = GeometryConversion.Parse(matrix.Owner.Dom, source, "DOMMatrix.setMatrixValue");
                 Array.Copy(elements, matrix.Elements, 16);
                 matrix.Is2D = is2D;
-                return matrix;
+                return matrix.Commit();
             }, length: 1)
             .Build();
     }
@@ -194,7 +200,7 @@ internal static class GeometryMatrixShapes
             matrix.Is2D = false;
         }
 
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-scaleself
@@ -210,7 +216,7 @@ internal static class GeometryMatrixShapes
             GeometryShapes.Number(args, 3, 0),
             GeometryShapes.Number(args, 4, 0),
             GeometryShapes.Number(args, 5, 0));
-        return matrix;
+        return matrix.Commit();
     }
 
     private static void Scale(JsDomMatrix matrix, double scaleX, double scaleY, double scaleZ, double originX, double originY, double originZ)
@@ -239,7 +245,7 @@ internal static class GeometryMatrixShapes
             matrix.Is2D = false;
         }
 
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-rotateself
@@ -265,7 +271,7 @@ internal static class GeometryMatrixShapes
         GeometryMatrix.RotateAboutAxis(matrix.Elements, 2, z);
         GeometryMatrix.RotateAboutAxis(matrix.Elements, 1, y);
         GeometryMatrix.RotateAboutAxis(matrix.Elements, 0, rotX);
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-rotatefromvectorself
@@ -275,7 +281,7 @@ internal static class GeometryMatrixShapes
         var y = GeometryShapes.Number(args, 1, 0);
         var degrees = x == 0 && y == 0 ? 0 : Math.Atan2(y, x) * 180 / Math.PI;
         GeometryMatrix.RotateAboutAxis(matrix.Elements, 2, degrees);
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-rotateaxisangleself
@@ -290,7 +296,7 @@ internal static class GeometryMatrixShapes
             matrix.Is2D = false;
         }
 
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-skewxself
@@ -298,7 +304,7 @@ internal static class GeometryMatrixShapes
     {
         var angle = GeometryShapes.Number(args, 0, 0);
         GeometryMatrix.Skew(matrix.Elements, x ? angle : 0, x ? 0 : angle);
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-multiplyself
@@ -319,7 +325,7 @@ internal static class GeometryMatrixShapes
             matrix.Is2D = false;
         }
 
-        return matrix;
+        return matrix.Commit();
     }
 
     // https://drafts.fxtf.org/geometry/#dom-dommatrix-invertself
@@ -331,7 +337,7 @@ internal static class GeometryMatrixShapes
             matrix.Is2D = false;
         }
 
-        return matrix;
+        return matrix.Commit();
     }
 
     /// <summary>https://drafts.fxtf.org/geometry/#dommatrixreadonly-stringification-behavior</summary>

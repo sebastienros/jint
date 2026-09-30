@@ -159,33 +159,17 @@ internal static class DomManualInterfaces
 
     /// <summary>
     /// <a href="https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement">SVG 2 §16.2</a>'s
-    /// <c>SVGAElement</c>, declared by local name over AngleSharp's bare <c>SvgElement</c> exactly as the
-    /// five HTML interfaces above are declared over its bare <c>Element</c>.
+    /// <c>SVGAElement</c>, selected by namespace and case-sensitive local name over the native element.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Its parent is <c>SVGElement</c> and not <c>SVGGraphicsElement</c>.</b> SVG 2 puts
-    /// <c>SVGAElement</c> under <c>SVGGraphicsElement</c>, which is under <c>SVGElement</c>; the pinned
-    /// assemblies project neither of the two intermediates, so the chain here is one link shorter than the
-    /// standard's. <c>Dom/divergences.md</c> records it: the alternative is declaring two more interfaces
-    /// with no members, which would be this package modelling SVG rather than binding it.
-    /// </para>
-    /// <para>
-    /// <b>Two of the interface's members are here and the rest are not</b>, and the line is what the
-    /// content attribute can answer on its own. <c>rel</c> and <c>relList</c> are HTML §2.6.1-shaped reflection
-    /// of one content attribute. <c>href</c> is an <c>SVGAnimatedString</c> (SVG 2's
-    /// <c>SVGURIReference</c>), <c>target</c> another, and this package projects no animated value; the
-    /// remaining <c>download</c>, <c>ping</c>, <c>hreflang</c>, <c>type</c>, <c>text</c> and
-    /// <c>referrerPolicy</c> are reflection whose only asker would be a document nothing in this corpus
-    /// has. Declaring a member that could only answer a placeholder would say an animated value exists
-    /// where none does.
-    /// </para>
+    /// Its parent is SVGGraphicsElement. Animated href/target use the same weak, per-realm attribute
+    /// identities as generated SVG elements; relList retains the existing DOMTokenList implementation.
     /// </remarks>
     internal static readonly DomInterfaceDefinition SVGAElement = new(
         "SVGAElement",
         typeof(Element),
         SvgAnchorShape,
-        DomInterfaces.SVGElement,
+        DomInterfaces.SVGGraphicsElement,
         rootsAtEventTarget: true,
         hasInterfaceObject: true,
         DomWrapperKind.Node);
@@ -320,6 +304,16 @@ internal static class DomManualInterfaces
         return new JsObjectShape.Builder()
             .PerRealmSlot("constructor", enumerable: false)
             .ToStringTag("SVGAElement")
+            .Accessor("href", DomFailures.Guard("SVGAElement.href", static (thisObject, _) =>
+            {
+                var self = DomBindings.Bind<Element>(thisObject, "SVGAElement.href");
+                return Svg.SvgElements.Animated(self.Realm, self.Target, "href", Svg.SvgValueKind.String);
+            }))
+            .Accessor("target", DomFailures.Guard("SVGAElement.target", static (thisObject, _) =>
+            {
+                var self = DomBindings.Bind<Element>(thisObject, "SVGAElement.target");
+                return Svg.SvgElements.Animated(self.Realm, self.Target, "target", Svg.SvgValueKind.String);
+            }))
             .Accessor(
                 MemberNameOf(_svgAnchorMembers[0]),
                 Reflected(_svgAnchorMembers[0]),

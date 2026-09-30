@@ -613,6 +613,9 @@ internal sealed class DomRealm
     private Canvas.CanvasRealm? _canvas;
     internal Canvas.CanvasRealm Canvas => _canvas ??= new Canvas.CanvasRealm(this);
 
+    private Svg.SvgRealm? _svg;
+    internal Svg.SvgRealm Svg => _svg ??= new Svg.SvgRealm(this);
+
     private Jint.Browser.Fonts.FontRealm? _fonts;
 
     /// <summary>This realm's CSS Font Loading interfaces and document font sets, built the first time anything reaches one.</summary>

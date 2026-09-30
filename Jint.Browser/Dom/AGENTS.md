@@ -47,7 +47,9 @@ The manual surface is an explicit implementation choice, not a limitation of ext
   `HTMLFrameElement`, `HTMLFrameSetElement` and `SVGAElement`.** Their reflected members use
   `ReflectedAttribute`; do not put them on `HTMLElement` to avoid declaring the correct brand.
   SVG local-name matching is case-sensitive. `DomAttributeTokenList` backs the SVG anchor's `relList`.
-  The current SVG anchor prototype chain goes directly to `SVGElement`, without `SVGGraphicsElement`.
+  The SVG anchor inherits `SVGGraphicsElement`, like the generated graphics elements.
+  `Svg/` owns the live value objects; its per-realm weak element table caches raw attribute strings
+  and reparses only on access. Never add SVG parse state to native elements or tree construction.
 - **`XMLDocument` and `StaticRange` are manual brands.** `DocumentKind.Xml` selects the former, except that
   `new Document()` explicitly wraps its native XML document as `Document`.
 - **Constructibility is decided by `DomConstructors` and `DomInterfaceObject`.** The table includes
