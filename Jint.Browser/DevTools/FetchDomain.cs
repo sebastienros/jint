@@ -784,6 +784,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         PageRequestKind.EventSource => ProtocolNetwork.ResourceTypeValues.EventSource,
         PageRequestKind.Image => ProtocolNetwork.ResourceTypeValues.Image,
         PageRequestKind.Frame => ProtocolNetwork.ResourceTypeValues.Document,
+        PageRequestKind.Font => ProtocolNetwork.ResourceTypeValues.Font,
         _ => ProtocolNetwork.ResourceTypeValues.Other,
     };
 

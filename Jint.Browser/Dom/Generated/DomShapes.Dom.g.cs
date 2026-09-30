@@ -1049,6 +1049,12 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.firstElementChild");
                     return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
+            .Accessor("fonts",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.fonts", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.fonts");
+                    return global::Jint.Browser.Fonts.FontRealm.DocumentFonts(self.Realm, self.Target);
+                }))
             .Accessor("forms",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.forms", static (thisObj, args) =>
                 {

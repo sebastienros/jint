@@ -34,6 +34,7 @@ namespace Jint.Browser.Events;
 /// construct. <c>ToggleEvent</c> is fired, by <c>&lt;dialog&gt;</c> and <c>&lt;details&gt;</c>, and
 /// <c>TextEvent</c> has no constructor at all — UI Events keeps it only for <c>createEvent</c>'s alias table
 /// and <c>initTextEvent</c>.
+/// <c>FontFaceSetLoadEvent</c> is fired by a <c>FontFaceSet</c> (<c>Fonts/JsFontFaceSet</c>).
 /// </para>
 /// <para>
 /// <b>Deliberately absent: <c>ClipboardEvent</c></b>, because there is no clipboard model at all — not even
@@ -549,6 +550,23 @@ internal static class BrowserEventInterfaces
         },
         constructorLength: 2);
 
+    /// <summary>
+    /// https://drafts.csswg.org/css-font-loading/#fontfacesetloadevent — <c>fontfaces</c> is a
+    /// <c>sequence&lt;FontFace&gt;</c> in the dictionary and the same frozen array on every read.
+    /// </summary>
+    internal static readonly BrowserEventDefinition FontFaceSetLoadEvent = Define(
+        "FontFaceSetLoadEvent",
+        parent: null,
+        BuildFontFaceSetLoadEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var type = Type(realm, args, "FontFaceSetLoadEvent");
+            var eventInit = EventInit(realm, args, "FontFaceSetLoadEvent");
+            var faces = FontFaceSequence(realm, init);
+            return new JsFontFaceSetLoadEvent(realm.Engine, type, eventInit, realm.TimeStamp, JsFontFaceSetLoadEvent.Frozen(realm.OwningRealm, faces));
+        });
+
     /// <summary>Every interface, parents before children so a prototype chain can be built by walking up.</summary>
     internal static readonly BrowserEventDefinition[] All =
     [
@@ -577,6 +595,7 @@ internal static class BrowserEventInterfaces
         AnimationEvent,
         TransitionEvent,
         GamepadEvent,
+        FontFaceSetLoadEvent,
     ];
 
     /// <summary>
@@ -991,6 +1010,40 @@ internal static class BrowserEventInterfaces
         .Accessor("gamepad", static (t, _) => Brand<JsGamepadEvent>(t, "GamepadEvent.gamepad").Gamepad)
         .Build();
 
+    private static JsObjectShape BuildFontFaceSetLoadEvent() => Base("FontFaceSetLoadEvent")
+        .Accessor("fontfaces", static (t, _) => Brand<JsFontFaceSetLoadEvent>(t, "FontFaceSetLoadEvent.fontfaces").FontFaces)
+        .Build();
+
+    /// <summary>
+    /// A <c>sequence&lt;FontFace&gt; fontfaces = []</c> member — the iterable protocol, with anything that is
+    /// not a <c>FontFace</c> a <c>TypeError</c> after the iterator is closed.
+    /// </summary>
+    private static JsValue[] FontFaceSequence(BrowserEventRealm realm, ObjectInstance? init)
+    {
+        var value = init?.Get(Names.FontFaces);
+        if (value is null || value.IsUndefined())
+        {
+            return [];
+        }
+
+        var principal = realm.OwningRealm;
+        var iterator = value.GetIterator(principal);
+        var faces = new List<JsValue>();
+        while (iterator.TryIteratorStepValue(out var item))
+        {
+            if (item is not Fonts.JsFontFace)
+            {
+                iterator.Close(CompletionType.Throw);
+                Throw.TypeError(principal, "Failed to construct 'FontFaceSetLoadEvent': member fontfaces is not of type 'FontFace'.");
+                return [];
+            }
+
+            faces.Add(item);
+        }
+
+        return [.. faces];
+    }
+
     /// <summary>
     /// An <c>Element? source = null</c> dictionary member — HTML's <c>ToggleEventInit</c> and
     /// <c>CommandEventInit</c>. Anything but an element or null is a <c>TypeError</c>.
@@ -1280,6 +1333,7 @@ internal static class BrowserEventInterfaces
         internal static readonly JsString PseudoElement = new("pseudoElement");
         internal static readonly JsString PropertyName = new("propertyName");
         internal static readonly JsString Gamepad = new("gamepad");
+        internal static readonly JsString FontFaces = new("fontfaces");
     }
 
 }

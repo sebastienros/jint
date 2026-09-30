@@ -296,10 +296,13 @@ declared text and inherit. Variables resolve at the consuming element, not in a 
 environment; there is no deferred shorthand or token-graph substitution engine.
 Text extraction interprets white-space keywords without reviving a typed typography engine.
 
-One typed grammar is read, and only on demand: `Css/Values/CssTransformList` parses the `transform`
+Two typed grammars are read, and only on demand. `Css/Values/CssTransformList` parses the `transform`
 property's `<transform-list>` for Geometry's `DOMMatrix` string initializer, normalizing absolute lengths to
 pixels and angles to degrees and refusing relative lengths, percentages in translations and math
-functions, as that initializer requires. Declarations never call it.
+functions, as that initializer requires. `Css/Values/CssFontFaceValues` parses and serializes the
+`@font-face` descriptors, the `src` list and the `font` shorthand's family list for CSS Font Loading's
+`FontFace` and `FontFaceSet`. Declarations never call either: a style sheet's `@font-face` descriptors
+stay text.
 
 HTML parsing still performs no eager CSS work. Browser owns on-demand sheet and declaration
 parsing. Public `MarkupParser.ParseCss*` stays syntax-only; mutable CSSOM and selectors remain

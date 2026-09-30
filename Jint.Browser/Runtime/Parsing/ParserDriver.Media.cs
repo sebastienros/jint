@@ -20,8 +20,28 @@ internal sealed partial class ParserDriver
         ObjectDisposedException.ThrowIf(_disposed, this);
         operationCancellation.ThrowIfCancellationRequested();
         _cancellationToken.ThrowIfCancellationRequested();
+        return RequestResourceAsync(source.OwnerDocument!, requested, PageRequestKind.Other, out selectedUrl, operationCancellation);
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-fonts-4/#font-fetching-requirements — one <c>src</c> URL of a
+    /// <c>FontFace</c>, resolved against <paramref name="document"/>'s base URL and fetched through the same
+    /// owner and budget an explicit media load uses.
+    /// </summary>
+    internal Task<MediaResourceResponse> RequestFontAsync(Document document, string requested,
+        CancellationToken operationCancellation)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        operationCancellation.ThrowIfCancellationRequested();
+        _cancellationToken.ThrowIfCancellationRequested();
+        return RequestResourceAsync(document, requested, PageRequestKind.Font, out _, operationCancellation);
+    }
+
+    private Task<MediaResourceResponse> RequestResourceAsync(Document document, string requested, PageRequestKind kind,
+        out string selectedUrl, CancellationToken operationCancellation)
+    {
+        selectedUrl = "";
         _runtime.Engine.Constraints.Check();
-        var document = source.OwnerDocument!;
         var url = PageUrl.Resolve(requested, BaseUrlOf(document));
         var target = url is null ? null : UrlParser.Parse(url);
         _runtime.Engine.Constraints.Check();
@@ -44,7 +64,7 @@ internal sealed partial class ParserDriver
             throw new MediaSourceException("The media source has a scheme a page cannot load.");
         var documentUrl = UrlParser.Parse(DomDocumentState.Of(document).Url);
         var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects,
-            RequestInitiator.Subresource, _runtime.Emulation.EffectiveUserAgent, PageRequestKind.Other);
+            RequestInitiator.Subresource, _runtime.Emulation.EffectiveUserAgent, kind);
         return RequestMediaTransportAsync(request, operationCancellation);
     }
 

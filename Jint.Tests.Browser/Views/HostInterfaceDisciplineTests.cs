@@ -71,6 +71,9 @@ public sealed class HostInterfaceDisciplineTests
         "AnimationEvent",
         "TransitionEvent",
         "GamepadEvent",
+        "FontFace",
+        "FontFaceSet",
+        "FontFaceSetLoadEvent",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

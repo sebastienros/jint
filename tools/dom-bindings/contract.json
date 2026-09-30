@@ -4873,6 +4873,14 @@
           "Origin": "IParentNode.FirstElementChild"
         },
         {
+          "DomName": "fonts",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.fonts\");\nreturn global::Jint.Browser.Fonts.FontRealm.DocumentFonts(self.Realm, self.Target);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Font Loading FontFaceSource (hand-written)"
+        },
+        {
           "DomName": "forms",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.forms\");\nreturn global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, \"forms\");",
