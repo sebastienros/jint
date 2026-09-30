@@ -126,11 +126,12 @@ public class WebIdlPropertyAttributeTests
     /// </summary>
     private static readonly string[] UnreachableFromThePrincipalRealm =
     [
-        // A worker's global scope only exists inside a worker: neither interface object is installed on the
+        // A worker's global scope only exists inside a worker: none of these interfaces is installed on the
         // principal realm's global, and 'self' there is the ordinary global object.
         // https://html.spec.whatwg.org/multipage/workers.html#the-workerglobalscope-common-interface
         "Jint.WebApi.Workers.WorkerGlobalScopePrototype",
         "Jint.WebApi.Workers.DedicatedWorkerGlobalScopePrototype",
+        "Jint.WebApi.Workers.SharedWorkerGlobalScopePrototype",
         // Navigation requires a document; Jint.Browser installs and tests this Window-only interface.
         // https://w3c.github.io/navigation-timing/#sec-PerformanceNavigationTiming
         "Jint.WebApi.Performance.PerformanceNavigationTimingPrototype",

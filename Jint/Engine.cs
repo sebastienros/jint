@@ -2568,7 +2568,7 @@ public sealed partial class Engine : IDisposable
     /// <see cref="ScriptParsingOptions.SourceOffset"/>, which the engine's own defaults never do, so the
     /// two cases reach the parser differently. Called with the host-call scope already held.
     /// </summary>
-    private Prepared<Script> ParseForExecution(string code, string? source, ScriptParsingOptions? parsingOptions)
+    internal Prepared<Script> ParseForExecution(string code, string? source, ScriptParsingOptions? parsingOptions)
     {
         // Before the bracket below, because the string entries parse first and the default parser is one of
         // the option-derived fields taken after Options.Apply.

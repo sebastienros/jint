@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using Jint.Browser.Runtime;
+using Jint.Constraints;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 using Jint.WebApi.Fetch;
@@ -39,6 +40,8 @@ internal sealed class PageModuleLoader : ModuleLoader
     private readonly long _maxBytes;
     private readonly TimeSpan _timeout;
     private readonly string? _userAgent;
+    private readonly string _credentials;
+    private readonly Uri? _sharedWorkerUrl;
 
     internal PageModuleLoader(
         PageNetwork network,
@@ -47,7 +50,9 @@ internal sealed class PageModuleLoader : ModuleLoader
         Uri baseUrl,
         long maxBytes,
         TimeSpan timeout,
-        string? userAgent)
+        string? userAgent,
+        string credentials = "same-origin",
+        Uri? sharedWorkerUrl = null)
     {
         _userAgent = userAgent;
         _network = network;
@@ -56,6 +61,8 @@ internal sealed class PageModuleLoader : ModuleLoader
         _baseUrl = baseUrl;
         _maxBytes = maxBytes;
         _timeout = timeout;
+        _credentials = credentials;
+        _sharedWorkerUrl = sharedWorkerUrl;
     }
 
     /// <inheritdoc />
@@ -94,7 +101,18 @@ internal sealed class PageModuleLoader : ModuleLoader
             return "";
         }
 
-        if (!_network.UrlFilter(uri))
+        return LoadScript(engine, uri, _credentials);
+    }
+
+    /// <summary>Fetches classic worker source through the module loader's bounded network path.</summary>
+    /// <remarks>https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-classic-worker-script</remarks>
+    internal string LoadScript(Engine engine, Uri uri, string credentials)
+    {
+        var isMainScript = _sharedWorkerUrl is not null && uri == _sharedWorkerUrl;
+        bool Allowed(Uri target) => _network.UrlFilter(target)
+            && (!isMainScript || PageUrl.OriginOf(target.AbsoluteUri) == PageUrl.OriginOf(_sharedWorkerUrl!.AbsoluteUri));
+
+        if (!Allowed(uri))
         {
             throw new InvalidOperationException("The page's URL filter refused '" + uri + "'.");
         }
@@ -110,18 +128,18 @@ internal sealed class PageModuleLoader : ModuleLoader
             Body = null,
             BodyContent = null,
             Redirect = "follow",
-            Credentials = JsRequest.CredentialsSameOrigin,
+            Credentials = credentials,
             Referrer = Jint.WebApi.Url.Parsing.UrlParser.Parse(_baseUrl.AbsoluteUri),
             ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin,
             ResourceTiming = ResourceTiming.Start(engine, engine._mainRealm, url.Serialize(excludeFragment: true),
-                "script", engine.Options.WebApi.Fetch.Origin, JsRequest.CredentialsSameOrigin),
+                "script", engine.Options.WebApi.Fetch.Origin, credentials),
         };
 
         var origin = Jint.WebApi.Url.Parsing.UrlParser.Parse(_baseUrl.AbsoluteUri);
         var policy = new FetchPolicy
         {
             AllowedSchemes = ["https", "http"],
-            UrlFilter = _network.UrlFilter,
+            UrlFilter = Allowed,
             MaxResponseBytes = _maxBytes,
             MaxRedirects = 20,
             Origin = origin,
@@ -130,7 +148,9 @@ internal sealed class PageModuleLoader : ModuleLoader
             UserAgent = _userAgent,
         };
 
-        using var cancellation = new CancellationTokenSource(_timeout);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None);
+        cancellation.CancelAfter(_timeout);
 
         // The page's own network log sees a worker's module loads too, so Page.Requests is what the page
         // fetched rather than what its document fetched.
@@ -144,7 +164,7 @@ internal sealed class PageModuleLoader : ModuleLoader
                 .GetAwaiter()
                 .GetResult();
 
-            var bytes = exchange.Response.Content.ReadAsByteArrayAsync(cancellation.Token).GetAwaiter().GetResult();
+            var bytes = SubresourceFetch.ReadBoundedAsync(exchange.Response, _maxBytes, cancellation.Token).GetAwaiter().GetResult();
 
             // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
             observation?.FinalResponse(exchange);

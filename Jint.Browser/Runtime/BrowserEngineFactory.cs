@@ -176,6 +176,7 @@ internal static class BrowserEngineFactory
         runtime.Dom.MaxNodes = options.MaxDomNodes;
         runtime.Dom.ScriptingEnabled = runtime.ScriptingEnabled;
         WindowInstaller.Install(runtime);
+        SharedWorkerConstructor.Install(runtime, request.Workers);
         PageStorage.InstallCaches(engine, opaqueCaches);
         PageStorage.InstallIndexedDb(engine, request.Network, origin);
 

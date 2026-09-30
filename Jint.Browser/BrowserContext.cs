@@ -1,4 +1,5 @@
 using Jint.Browser.Runtime;
+using Jint.Browser.Workers;
 using Jint.WebApi.Fetch;
 
 namespace Jint.Browser;
@@ -66,6 +67,8 @@ public sealed class BrowserContext : IAsyncDisposable
     /// The client, filter, jar and storage partition every page of this context loads through.
     /// </summary>
     internal PageNetwork Network { get; }
+
+    internal SharedWorkerRegistry SharedWorkers { get; } = new();
 
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>

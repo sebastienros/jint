@@ -117,6 +117,9 @@ internal static class MessagePortBridge
 /// </remarks>
 internal sealed class MessagePortEndpoint
 {
+    /// <summary>An optional host bound that follows the queue when its port is transferred.</summary>
+    internal int? MaxQueuedMessages { get; init; }
+
     /// <summary>
     /// Guards <see cref="_queue"/>, <see cref="_boundPort"/> and the authoritative write of
     /// <see cref="_closed"/>. Never held while script runs, and never held across a call into another

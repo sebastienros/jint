@@ -448,6 +448,12 @@ internal sealed class WebApiEngineState
     /// </remarks>
     internal WorkerLink? OwningWorkerLink { get; set; }
 
+    /// <summary>The shared worker host's lifetime handle; runtime errors are never relayed to its owners.</summary>
+    internal WorkerConnection? OwningSharedWorker { get; set; }
+
+    /// <summary>Releases a browser document's shared-worker ownership when its engine is discarded.</summary>
+    internal Action? ReleaseSharedWorkerOwners { get; set; }
+
     /// <summary>
     /// The <c>self</c> descriptor <c>WebApiRegistration</c> installed on this engine's principal global
     /// object, or <see langword="null"/> — which is what an engine carries when
@@ -1233,8 +1239,12 @@ internal sealed class WebApiEngineState
     /// </remarks>
     private List<Action>? EndWorkerConnections(WorkerEndReason asParent, WorkerEndReason asWorker)
     {
+        var releaseOwners = ReleaseSharedWorkerOwners;
+        ReleaseSharedWorkerOwners = null;
+        releaseOwners?.Invoke();
+
         var registry = Workers;
-        if (registry is not { LiveCount: > 0 } && OwningWorkerLink is null)
+        if (registry is not { LiveCount: > 0 } && OwningWorkerLink is null && OwningSharedWorker is null)
         {
             return null;
         }
@@ -1252,6 +1262,7 @@ internal sealed class WebApiEngineState
         }
 
         OwningWorkerLink?.Connection.TryEnd(asWorker, error: null, deferred);
+        OwningSharedWorker?.TryEnd(asWorker, error: null, deferred);
 
         return deferred.Count == 0 ? null : deferred;
     }

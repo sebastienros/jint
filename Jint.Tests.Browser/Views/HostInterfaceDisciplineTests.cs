@@ -89,6 +89,7 @@ public sealed class HostInterfaceDisciplineTests
         "NavigationActivation",
         "NavigateEvent",
         "NavigationCurrentEntryChangeEvent",
+        "SharedWorker",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

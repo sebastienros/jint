@@ -102,6 +102,14 @@ A worker's pump takes the same bracket over its own engine's constraints, which 
 user agent are named again in `ThreadPerWorkerProvider`; a new page-sized limit needs the same second call or a worker keeps the engine
 default.
 
+`SharedWorkerRegistry` belongs to `BrowserContext`, not the first page's provider. Its lock protects
+constructor-origin/URL/name reservations, clients and live instances, including closing workers. Shared
+workers reuse that provider's engine setup and pump, but never its dedicated-worker ownership list.
+Remove only the first document's cancellation constraint: host cancellation and turn budgets must survive.
+Engine disposal/restore releases document ownership; the last owner ends the connection immediately.
+Only serialization records and port endpoints cross engines; `connect` constructs its event on the worker
+thread. Shared runtime errors stay in its global error channel, unlike dedicated-worker owner propagation.
+
 **The browser has separate task and microtask lanes; an ordinary `Engine` keeps its existing FIFO.**
 `PageBudget.For` installs the internal hook before the engine is published (also before a worker starts).
 The separate lane is necessary for accounting, not merely ordering: a command already queued behind the

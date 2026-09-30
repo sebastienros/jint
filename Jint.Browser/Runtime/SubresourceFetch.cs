@@ -225,7 +225,7 @@ internal static class SubresourceFetch
             : null;
 
     /// <summary>Reads the body, refusing one that grows past the cap rather than buffering it first.</summary>
-    private static async Task<byte[]> ReadBoundedAsync(HttpResponseMessage response, long maxBytes, CancellationToken cancellationToken)
+    internal static async Task<byte[]> ReadBoundedAsync(HttpResponseMessage response, long maxBytes, CancellationToken cancellationToken)
     {
         if (response.Content.Headers.ContentLength is { } declared && declared > maxBytes)
         {
