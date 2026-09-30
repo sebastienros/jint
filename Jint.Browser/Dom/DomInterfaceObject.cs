@@ -58,6 +58,12 @@ internal sealed class DomInterfaceObject : Constructor
                 constant.Name,
                 new PropertyDescriptor(JsNumber.Create(constant.Value), PropertyFlag.OnlyEnumerable));
         }
+
+        // The contract has no static members; Document's two are HTML's and installed by hand.
+        if (definition.Name == "Document")
+        {
+            DomMarkupApis.InstallDocumentStatics(realm, this);
+        }
     }
 
     /// <summary>https://webidl.spec.whatwg.org/#es-interface-call — an interface object is not callable.</summary>

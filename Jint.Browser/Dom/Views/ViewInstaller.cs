@@ -42,6 +42,7 @@ internal static class ViewInstaller
     private static readonly JsObjectShape _xPathExpression = BuildXPathExpressionShape();
     private static readonly JsObjectShape _xPathResult = BuildXPathResultShape();
     private static readonly JsObjectShape _cssNamespace = BuildCssNamespaceShape();
+    private static readonly JsObjectShape _sanitizer = BuildSanitizerShape();
 
     /// <summary>Installs the globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
     internal static void Install(PageRuntime runtime)
@@ -58,6 +59,7 @@ internal static class ViewInstaller
         Add(engine, "XPathExpression", static realm => realm.XPathExpressionInterface);
         Add(engine, "XPathResult", static realm => realm.XPathResultInterface);
         Add(engine, "CSS", static realm => realm.CssNamespace);
+        Add(engine, "Sanitizer", static realm => realm.Sanitizer);
     }
 
     private static void Add(Engine engine, string name, Func<ViewRealm, JsValue> factory)
@@ -87,6 +89,8 @@ internal static class ViewInstaller
 
     internal static JsObjectShape CssNamespaceShape => _cssNamespace;
 
+    internal static JsObjectShape SanitizerShape => _sanitizer;
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-domparser-interface
     /// </summary>
@@ -94,6 +98,24 @@ internal static class ViewInstaller
         .PerRealmSlot("constructor")
         .ToStringTag("DOMParser")
         .Method("parseFromString", static (t, args) => JsDomParser.Brand(t, "parseFromString").ParseFromString(args), length: 2)
+        .Build();
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-sanitizer-interface</summary>
+    private static JsObjectShape BuildSanitizerShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("Sanitizer")
+        .Method("get", static (t, _) => JsSanitizer.Brand(t, "get").Get())
+        .Method("allowElement", static (t, args) => JsSanitizer.Brand(t, "allowElement").AllowElement(args), length: 1)
+        .Method("removeElement", static (t, args) => JsSanitizer.Brand(t, "removeElement").RemoveElement(args), length: 1)
+        .Method("replaceElementWithChildren", static (t, args) => JsSanitizer.Brand(t, "replaceElementWithChildren").ReplaceElementWithChildren(args), length: 1)
+        .Method("allowProcessingInstruction", static (t, args) => JsSanitizer.Brand(t, "allowProcessingInstruction").AllowProcessingInstruction(args), length: 1)
+        .Method("removeProcessingInstruction", static (t, args) => JsSanitizer.Brand(t, "removeProcessingInstruction").RemoveProcessingInstruction(args), length: 1)
+        .Method("allowAttribute", static (t, args) => JsSanitizer.Brand(t, "allowAttribute").AllowAttribute(args), length: 1)
+        .Method("removeAttribute", static (t, args) => JsSanitizer.Brand(t, "removeAttribute").RemoveAttribute(args), length: 1)
+        .Method("setComments", static (t, args) => JsSanitizer.Brand(t, "setComments").SetComments(args), length: 1)
+        .Method("setDataAttributes", static (t, args) => JsSanitizer.Brand(t, "setDataAttributes").SetDataAttributes(args), length: 1)
+        .Method("setJavascriptURLs", static (t, args) => JsSanitizer.Brand(t, "setJavascriptURLs").SetJavascriptUrls(args), length: 1)
+        .Method("removeUnsafe", static (t, _) => JsSanitizer.Brand(t, "removeUnsafe").RemoveUnsafe())
         .Build();
 
     /// <summary>https://w3c.github.io/DOM-Parsing/#the-xmlserializer-interface</summary>

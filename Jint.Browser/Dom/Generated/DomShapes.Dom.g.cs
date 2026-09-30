@@ -2012,6 +2012,27 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.webkitMatchesSelector");
                     return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomSelectors.Matches(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.webkitMatchesSelector")));
                 }),
+                length: 1)
+            .Method("getHTML",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.getHTML", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.getHTML");
+                    return global::Jint.Browser.Dom.DomMarkupApis.GetHtml(self.Realm, self.Target, args, "Element.getHTML");
+                }),
+                length: 0)
+            .Method("setHTML",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.setHTML", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.setHTML");
+                    return global::Jint.Browser.Dom.DomMarkupApis.SetElementHtml(self.Realm, self.Target, args, safe: true, "Element.setHTML");
+                }),
+                length: 1)
+            .Method("setHTMLUnsafe",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.setHTMLUnsafe", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.setHTMLUnsafe");
+                    return global::Jint.Browser.Dom.DomMarkupApis.SetElementHtml(self.Realm, self.Target, args, safe: false, "Element.setHTMLUnsafe");
+                }),
                 length: 1);
 
         global::Jint.Browser.Dom.AriaReflection.ElementAria(builder);
@@ -2716,6 +2737,27 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.styleSheets");
                     return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.ListOf(self.Realm, self.Target));
                 }))
+            .Method("getHTML",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ShadowRoot.getHTML", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.getHTML");
+                    return global::Jint.Browser.Dom.DomMarkupApis.GetHtml(self.Realm, self.Target, args, "ShadowRoot.getHTML");
+                }),
+                length: 0)
+            .Method("setHTML",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ShadowRoot.setHTML", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.setHTML");
+                    return global::Jint.Browser.Dom.DomMarkupApis.SetShadowRootHtml(self.Realm, self.Target, args, safe: true, "ShadowRoot.setHTML");
+                }),
+                length: 1)
+            .Method("setHTMLUnsafe",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ShadowRoot.setHTMLUnsafe", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.setHTMLUnsafe");
+                    return global::Jint.Browser.Dom.DomMarkupApis.SetShadowRootHtml(self.Realm, self.Target, args, safe: false, "ShadowRoot.setHTMLUnsafe");
+                }),
+                length: 1)
             .Build();
 
     /// <summary>The members of <c>StyleSheetList</c>.</summary>

@@ -5976,6 +5976,30 @@
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
+        },
+        {
+          "DomName": "getHTML",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.getHTML\");\nreturn global::Jint.Browser.Dom.DomMarkupApis.GetHtml(self.Realm, self.Target, args, \"Element.getHTML\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "HTML getHTML (hand-written)"
+        },
+        {
+          "DomName": "setHTML",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.setHTML\");\nreturn global::Jint.Browser.Dom.DomMarkupApis.SetElementHtml(self.Realm, self.Target, args, safe: true, \"Element.setHTML\");",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML setHTML (hand-written)"
+        },
+        {
+          "DomName": "setHTMLUnsafe",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.setHTMLUnsafe\");\nreturn global::Jint.Browser.Dom.DomMarkupApis.SetElementHtml(self.Realm, self.Target, args, safe: false, \"Element.setHTMLUnsafe\");",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML setHTMLUnsafe (hand-written)"
         }
       ],
       "Constants": [],
@@ -13958,6 +13982,30 @@
           "SetterBody": null,
           "Length": 0,
           "Origin": "IShadowRoot.StyleSheets"
+        },
+        {
+          "DomName": "getHTML",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.getHTML\");\nreturn global::Jint.Browser.Dom.DomMarkupApis.GetHtml(self.Realm, self.Target, args, \"ShadowRoot.getHTML\");",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "HTML getHTML (hand-written)"
+        },
+        {
+          "DomName": "setHTML",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.setHTML\");\nreturn global::Jint.Browser.Dom.DomMarkupApis.SetShadowRootHtml(self.Realm, self.Target, args, safe: true, \"ShadowRoot.setHTML\");",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML setHTML (hand-written)"
+        },
+        {
+          "DomName": "setHTMLUnsafe",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.setHTMLUnsafe\");\nreturn global::Jint.Browser.Dom.DomMarkupApis.SetShadowRootHtml(self.Realm, self.Target, args, safe: false, \"ShadowRoot.setHTMLUnsafe\");",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTML setHTMLUnsafe (hand-written)"
         }
       ],
       "Constants": [],

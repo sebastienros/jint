@@ -119,3 +119,27 @@ normal-context functional argument. Browser cascade ordering compares encapsulat
 specificity, reversing that order for important declarations. This does not make DOM queries cross shadow
 boundaries or match hosts. `SelectorHostTests` and `NativeCssHostTests` cover these cases;
 `:host-context()` remains unsupported.
+
+### Sanitizer: sanitize after parsing, not while parsing
+
+`Sanitizer`, `setHTML`, `setHTMLUnsafe`, `getHTML` and `Document.parseHTML` / `parseHTMLUnsafe` implement the
+merged [HTML sanitization algorithm](https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#sanitize):
+the fragment is parsed completely and then `Jint.HtmlParser/Sanitization/HtmlSanitizer` walks it. The
+configuration algorithms (canonicalize, valid, modifiers, `removeUnsafe`, `get()` ordering) are native too;
+`Dom/Views/JsSanitizer.cs` is only the WebIDL conversion.
+
+The open [whatwg/html#12756](https://github.com/whatwg/html/pull/12756) ("Sanitize while parsing", backed by
+all three engines and already reflected in upstream WPT) moves sanitization into the tree builder. Until that
+lands and the native tree builder gains a sanitizer hook, these are known differences:
+
+- Text nodes separated by a removed element are **not** coalesced (`<div>a<script>b</script>c` leaves two
+  text nodes, `"a"` and `"c"`).
+- A removed `is` attribute, or a removed or replaced element, has already created its customized built-in or
+  custom element during parsing.
+- A declarative shadow root whose `<template>` or `shadowroot*` attribute is later removed has already been
+  attached, with the options the removed attributes gave it.
+- Replace-with-children around adoption-agency and foster-parenting recoveries hoists children from where
+  the unsanitized tree put them.
+
+Also outside the current boundary: `sethtml-xml-document` cases need `attachShadow` in XML documents, and the
+`sanitizer-svg-animate` / `sanitizer-inert-document` cases need SVG animation and image loading.

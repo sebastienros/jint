@@ -300,6 +300,21 @@ HTML parsing still performs no eager CSS work. Browser owns on-demand sheet and 
 parsing. Public `MarkupParser.ParseCss*` stays syntax-only; mutable CSSOM and selectors remain
 internal. See the [remaining public/integration work](../docs/design/html-parser-completeness.md).
 
+## HTML sanitization
+
+`Sanitization/` implements the [HTML sanitization algorithms](https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#sanitization)
+natively: `SanitizerConfiguration` owns canonicalization, validity, the modifier methods, `remove unsafe`
+and `get()` ordering; `SanitizerBuiltins` holds the built-in safe default and the unsafe baselines;
+`HtmlSanitizer.Sanitize` walks an already-parsed node, its template contents and its shadow roots with
+an explicit stack, checkpoint and cancellation. Browser owns only WebIDL conversion and the parse/replace
+steps of `setHTML`, `parseHTML` and friends.
+
+It runs after parsing. The tree builder has no sanitize-while-parsing hook yet
+([whatwg/html#12756](https://github.com/whatwg/html/pull/12756)); the observable differences are listed in
+[the Browser divergences](../Jint.Browser/Dom/divergences.md#sanitizer-sanitize-after-parsing-not-while-parsing).
+`SanitizerBuiltins.EventHandlerContentAttributes` must remain a superset of every handler Browser compiles;
+`SanitizerApiTests` asserts it.
+
 ## Browser integration contract
 
 Jint.Browser is the one production consumer of the parser's internals (the
