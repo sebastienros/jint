@@ -649,6 +649,36 @@ internal sealed class JsCompositionEvent : JsUiEvent
 }
 
 /// <summary>
+/// A <c>TextEvent</c> instance — the legacy predecessor of <c>beforeinput</c>, kept for
+/// <c>document.createEvent('TextEvent')</c> and <c>initTextEvent</c>.
+/// <para>
+/// https://w3c.github.io/uievents/#legacy-textevent-events
+/// </para>
+/// </summary>
+/// <remarks>
+/// Nothing here fires one: the editor raises <c>beforeinput</c> and <c>input</c>, as UI Events now directs.
+/// It has no constructor, so the one way to get one is <c>createEvent</c>, whose instance starts with the
+/// empty string for <c>data</c> as every created event starts from its defaults.
+/// </remarks>
+internal sealed class JsTextEvent : JsUiEvent
+{
+    internal JsTextEvent(Engine engine, JsString type, EventInit init, double timeStamp)
+        : base(engine, type, init, timeStamp, JsValue.Null, detail: 0)
+    {
+    }
+
+    /// <summary>https://w3c.github.io/uievents/#dom-textevent-data.</summary>
+    internal string Data { get; private set; } = "";
+
+    /// <summary>https://w3c.github.io/uievents/#dom-textevent-inittextevent.</summary>
+    internal void Initialize(JsString type, bool bubbles, bool cancelable, JsValue view, string data)
+    {
+        Initialize(type, bubbles, cancelable, view, detail: 0);
+        Data = data;
+    }
+}
+
+/// <summary>
 /// A <c>FocusEvent</c> instance.
 /// <para>
 /// https://w3c.github.io/uievents/#interface-focusevent

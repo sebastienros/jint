@@ -35,6 +35,7 @@ internal static class SystemStateShapes
         new("Screen", BuildScreenShape(), EventTarget: false),
         new("ScreenOrientation", BuildScreenOrientationShape(), EventTarget: true),
         new("VisualViewport", BuildVisualViewportShape(), EventTarget: true),
+        new("Gamepad", BuildGamepadShape(), EventTarget: false),
     ];
 
     /// <summary>
@@ -111,6 +112,24 @@ internal static class SystemStateShapes
         .Method("item", static (t, _) => Of(t, SystemInterface.Plugin, "item"), length: 1)
         .Method("namedItem", static (t, _) => Of(t, SystemInterface.Plugin, "namedItem"), length: 1)
         .PerRealmSlot(GlobalSymbolRegistry.Iterator, ArrayValues)
+        .Build();
+
+    /// <summary>
+    /// https://w3c.github.io/gamepad/#gamepad-interface — no gamepad is ever connected, so, like
+    /// <c>Plugin</c>, no instance exists and every member refuses its receiver. It is exposed because
+    /// <c>GamepadEvent</c>'s dictionary names it and because <c>'Gamepad' in window</c> is how a page asks.
+    /// </summary>
+    private static JsObjectShape BuildGamepadShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("Gamepad")
+        .Accessor("id", static (t, _) => Of(t, SystemInterface.Gamepad, "id"))
+        .Accessor("index", static (t, _) => Of(t, SystemInterface.Gamepad, "index"))
+        .Accessor("connected", static (t, _) => Of(t, SystemInterface.Gamepad, "connected"))
+        .Accessor("timestamp", static (t, _) => Of(t, SystemInterface.Gamepad, "timestamp"))
+        .Accessor("mapping", static (t, _) => Of(t, SystemInterface.Gamepad, "mapping"))
+        .Accessor("axes", static (t, _) => Of(t, SystemInterface.Gamepad, "axes"))
+        .Accessor("buttons", static (t, _) => Of(t, SystemInterface.Gamepad, "buttons"))
+        .Accessor("vibrationActuator", static (t, _) => Of(t, SystemInterface.Gamepad, "vibrationActuator"))
         .Build();
 
     /// <summary>

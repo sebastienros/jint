@@ -119,7 +119,7 @@ internal sealed class BrowserDialogState
     }
 
     private bool FireToggle(DomRealm realm, string type, string oldState, string newState, bool cancelable)
-        => realm.WrapNode(_element).DispatchEvent(BrowserDialogToggleEvent.Create(realm, type, oldState, newState, cancelable));
+        => realm.WrapNode(_element).DispatchEvent(Events.JsToggleEvent.CreateTrusted(realm, type, oldState, newState, cancelable));
 
     private void ScheduleToggle(DomRealm realm, string oldState, string newState)
     {
@@ -134,7 +134,7 @@ internal sealed class BrowserDialogState
             // position after tasks queued between this element's transitions.
             if (!ReferenceEquals(_toggle, pending)) return;
             _toggle = null;
-            wrapper.DispatchEvent(BrowserDialogToggleEvent.Create(wrapper.DomRealm, "toggle", pending.OldState, pending.NewState, cancelable: false));
+            wrapper.DispatchEvent(Events.JsToggleEvent.CreateTrusted(wrapper.DomRealm, "toggle", pending.OldState, pending.NewState, cancelable: false));
         });
     }
 

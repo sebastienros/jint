@@ -449,6 +449,20 @@ internal static class EventDispatch
     }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#retarget — <paramref name="a"/> retargeted against an event's
+    /// <c>currentTarget</c>, which is how an event attribute holding an element answers without leaking a
+    /// node from a shadow tree the listener is outside of: HTML's <c>ToggleEvent.source</c> and
+    /// <c>CommandEvent.source</c>. Outside a dispatch the current target is null, so every shadow tree is
+    /// climbed out of.
+    /// </summary>
+    internal static JsValue RetargetAgainstCurrentTarget(JsEventTarget? a, JsValue currentTarget)
+    {
+        var against = currentTarget as JsEventTarget;
+        var againstRoot = against is { IsNode: true } ? against.GetRoot() : null;
+        return Retarget(a, aRoot: null, againstRoot)?.EventTargetValue ?? JsValue.Null;
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#retarget — <i>retarget</i> <paramref name="a"/> against the target whose
     /// tree root is <paramref name="againstRoot"/>: climb out of every shadow tree that target is not
     /// inside, so that a listener never sees a node it has no business knowing about.

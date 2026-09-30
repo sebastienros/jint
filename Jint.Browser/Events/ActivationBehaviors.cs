@@ -392,23 +392,39 @@ internal static class ActivationBehaviors
         ScheduleToggle(wrapper.DomRealm, details);
     }
 
-    // HTML details notification task steps: one task per details element until delivery.
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/interactive-elements.html#queue-a-details-toggle-event-task —
+    /// called after the <c>open</c> attribute has changed, so the new state is what the attribute now says.
+    /// A task still pending keeps its old state and is superseded, so the one event delivered carries the
+    /// earliest old state and takes the position of the latest transition.
+    /// </summary>
     internal static void ScheduleToggle(DomRealm dom, Element details)
     {
-        var pending = PendingToggles.GetOrCreateValue(details);
-        if (pending.Scheduled) return;
-        pending.Scheduled = true;
+        var newState = details.GetAttributeNS(null, "open") is not null ? "open" : "closed";
+        var oldState = newState == "open" ? "closed" : "open";
+        if (PendingToggles.TryGetValue(details, out var previous))
+        {
+            oldState = previous.OldState;
+        }
+
+        var pending = new PendingToggle(oldState);
+        PendingToggles.AddOrUpdate(details, pending);
         var target = dom.WrapNode(details);
         dom.Engine.Tasks.Post(() =>
         {
-            pending.Scheduled = false;
-            Fire(target, "toggle", bubbles: false, composed: false);
+            if (!PendingToggles.TryGetValue(details, out var current) || !ReferenceEquals(current, pending))
+            {
+                return;
+            }
+
+            PendingToggles.Remove(details);
+            target.DispatchEvent(JsToggleEvent.CreateTrusted(dom, "toggle", pending.OldState, newState, cancelable: false));
         });
     }
 
-    private sealed class PendingToggle
+    private sealed class PendingToggle(string oldState)
     {
-        internal bool Scheduled;
+        internal string OldState { get; } = oldState;
     }
 
     /// <summary>

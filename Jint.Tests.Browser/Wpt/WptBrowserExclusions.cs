@@ -1022,9 +1022,8 @@ internal static class WptBrowserExclusions
         // `application/xhtml+xml` reaches the XML parser now, so the two blanket `NeedsXmlDocuments` rows
         // that stood here — 244 rows between them — are gone, and #3950's element-creation fix means
         // nothing of either file needs naming in their place. What is left of this cause really is a frame,
-        // a second global, or an interface there is none of: `createEvent('TextEvent')` builds an event and
-        // passes, and the three rows that fail look the interface up by name and find nothing.
-        new("dom/nodes/Document-createEvent.https.html", "*TextEvent.", WptDivergence.NeedsIframeScripting),
+        // a second global. The `TextEvent` rows that looked the interface up by name and found nothing went
+        // when UI Events' legacy `TextEvent` interface was built.
         new("dom/nodes/node-realm-mixed-across-adoption.html", "Custom element parsed into an adopted container uses the node-document realm and registry", WptDivergence.NeedsIframeScripting),
     ];
 

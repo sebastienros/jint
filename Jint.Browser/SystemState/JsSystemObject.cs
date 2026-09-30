@@ -20,6 +20,7 @@ internal enum SystemInterface
     Screen,
     ScreenOrientation,
     VisualViewport,
+    Gamepad,
 }
 
 /// <summary>

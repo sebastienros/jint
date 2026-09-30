@@ -64,6 +64,13 @@ public sealed class HostInterfaceDisciplineTests
         "Screen",
         "ScreenOrientation",
         "VisualViewport",
+        "Gamepad",
+        "TextEvent",
+        "ToggleEvent",
+        "CommandEvent",
+        "AnimationEvent",
+        "TransitionEvent",
+        "GamepadEvent",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

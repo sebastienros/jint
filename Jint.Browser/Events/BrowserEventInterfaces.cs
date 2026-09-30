@@ -28,6 +28,14 @@ namespace Jint.Browser.Events;
 /// taken from a dictionary.
 /// </para>
 /// <para>
+/// <c>AnimationEvent</c>, <c>TransitionEvent</c>, <c>CommandEvent</c> and <c>GamepadEvent</c> are in that
+/// position too: there is no animation timeline, no invoker-command dispatch and no gamepad, and the last
+/// cannot even be built by a page, because its required <c>gamepad</c> member names an interface nobody can
+/// construct. <c>ToggleEvent</c> is fired, by <c>&lt;dialog&gt;</c> and <c>&lt;details&gt;</c>, and
+/// <c>TextEvent</c> has no constructor at all — UI Events keeps it only for <c>createEvent</c>'s alias table
+/// and <c>initTextEvent</c>.
+/// </para>
+/// <para>
 /// <b>Deliberately absent: <c>ClipboardEvent</c></b>, because there is no clipboard model at all — not even
 /// the read side a <c>ClipboardEventInit</c>'s <c>clipboardData</c> would have to answer from — which is also
 /// why <c>document.createEvent('clipboardevent')</c> is not in DOM's alias table and needs nothing here.
@@ -425,6 +433,122 @@ internal static class BrowserEventInterfaces
                 EventInitReader.Bool(init, Names.Absolute));
         });
 
+    /// <summary>
+    /// https://w3c.github.io/uievents/#legacy-textevent-events — no constructor, only
+    /// <c>document.createEvent('TextEvent')</c> and <c>initTextEvent</c>.
+    /// </summary>
+    internal static readonly BrowserEventDefinition TextEvent = Define(
+        "TextEvent",
+        UIEvent,
+        BuildTextEvent,
+        static (realm, args) => new JsTextEvent(
+            realm.Engine,
+            Type(realm, args, "TextEvent"),
+            EventInit(realm, args, "TextEvent"),
+            realm.TimeStamp),
+        constructorLength: 0,
+        constructible: false);
+
+    /// <summary>https://html.spec.whatwg.org/multipage/interaction.html#the-toggleevent-interface.</summary>
+    internal static readonly BrowserEventDefinition ToggleEvent = Define(
+        "ToggleEvent",
+        parent: null,
+        BuildToggleEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var type = Type(realm, args, "ToggleEvent");
+            var eventInit = EventInit(realm, args, "ToggleEvent");
+
+            // Dictionary members in lexicographic order: newState, oldState, source.
+            var newState = EventInitReader.Text(init, Names.NewState);
+            var oldState = EventInitReader.Text(init, Names.OldState);
+            var source = SourceElement(realm, init, "ToggleEvent");
+            return new JsToggleEvent(realm.Engine, type, eventInit, realm.TimeStamp, oldState, newState, source);
+        });
+
+    /// <summary>https://html.spec.whatwg.org/multipage/interaction.html#the-commandevent-interface.</summary>
+    internal static readonly BrowserEventDefinition CommandEvent = Define(
+        "CommandEvent",
+        parent: null,
+        BuildCommandEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var type = Type(realm, args, "CommandEvent");
+            var eventInit = EventInit(realm, args, "CommandEvent");
+            var command = EventInitReader.Text(init, Names.Command);
+            var source = SourceElement(realm, init, "CommandEvent");
+            return new JsCommandEvent(realm.Engine, type, eventInit, realm.TimeStamp, source, command);
+        });
+
+    /// <summary>https://drafts.csswg.org/css-animations-1/#interface-animationevent.</summary>
+    internal static readonly BrowserEventDefinition AnimationEvent = Define(
+        "AnimationEvent",
+        parent: null,
+        BuildAnimationEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var type = Type(realm, args, "AnimationEvent");
+            var eventInit = EventInit(realm, args, "AnimationEvent");
+            var animationName = EventInitReader.Text(init, Names.AnimationName);
+            var elapsedTime = FiniteNumber(realm, init, Names.ElapsedTime, "AnimationEvent");
+            var pseudoElement = EventInitReader.Text(init, Names.PseudoElement);
+            return new JsAnimationEvent(realm.Engine, type, eventInit, realm.TimeStamp, animationName, elapsedTime, pseudoElement);
+        });
+
+    /// <summary>https://drafts.csswg.org/css-transitions-1/#interface-transitionevent.</summary>
+    internal static readonly BrowserEventDefinition TransitionEvent = Define(
+        "TransitionEvent",
+        parent: null,
+        BuildTransitionEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var type = Type(realm, args, "TransitionEvent");
+            var eventInit = EventInit(realm, args, "TransitionEvent");
+
+            // Lexicographic: elapsedTime, propertyName, pseudoElement.
+            var elapsedTime = FiniteNumber(realm, init, Names.ElapsedTime, "TransitionEvent");
+            var propertyName = EventInitReader.Text(init, Names.PropertyName);
+            var pseudoElement = EventInitReader.Text(init, Names.PseudoElement);
+            return new JsTransitionEvent(realm.Engine, type, eventInit, realm.TimeStamp, propertyName, elapsedTime, pseudoElement);
+        });
+
+    /// <summary>
+    /// https://w3c.github.io/gamepad/#gamepadevent-interface — <c>gamepad</c> is a required member, so the
+    /// dictionary is required with it and the interface's length is two, as <c>FormDataEvent</c>'s is.
+    /// </summary>
+    internal static readonly BrowserEventDefinition GamepadEvent = Define(
+        "GamepadEvent",
+        parent: null,
+        BuildGamepadEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var type = Type(realm, args, "GamepadEvent");
+            var eventInit = EventInit(realm, args, "GamepadEvent");
+            var gamepad = init?.Get(Names.Gamepad) ?? JsValue.Undefined;
+
+            if (gamepad.IsUndefined())
+            {
+                Throw.TypeError(
+                    realm.OwningRealm,
+                    "Failed to construct 'GamepadEvent': Failed to read the 'gamepad' property from 'GamepadEventInit': Required member is undefined.");
+            }
+
+            if (gamepad is not SystemState.JsSystemObject { Kind: SystemState.SystemInterface.Gamepad })
+            {
+                Throw.TypeError(
+                    realm.OwningRealm,
+                    "Failed to construct 'GamepadEvent': Failed to read the 'gamepad' property from 'GamepadEventInit': Failed to convert value to 'Gamepad'.");
+            }
+
+            return new JsGamepadEvent(realm.Engine, type, eventInit, realm.TimeStamp, gamepad);
+        },
+        constructorLength: 2);
+
     /// <summary>Every interface, parents before children so a prototype chain can be built by walking up.</summary>
     internal static readonly BrowserEventDefinition[] All =
     [
@@ -447,6 +571,12 @@ internal static class BrowserEventInterfaces
         StorageEvent,
         DeviceMotionEvent,
         DeviceOrientationEvent,
+        TextEvent,
+        ToggleEvent,
+        CommandEvent,
+        AnimationEvent,
+        TransitionEvent,
+        GamepadEvent,
     ];
 
     /// <summary>
@@ -468,8 +598,9 @@ internal static class BrowserEventInterfaces
         Func<JsObjectShape> shape,
         Func<BrowserEventRealm, JsValue[], JsEvent> construct,
         int constructorLength = 1,
-        (string Name, int Value)[]? constants = null)
-        => new(name, parent, constructorLength, shape, construct, constants ?? []);
+        (string Name, int Value)[]? constants = null,
+        bool constructible = true)
+        => new(name, parent, constructorLength, shape, construct, constants ?? []) { Constructible = constructible };
 
     private static JsString Type(BrowserEventRealm realm, JsValue[] args, string interfaceName)
         => EventConstructor.RequireType(realm.OwningRealm, args, interfaceName);
@@ -808,6 +939,97 @@ internal static class BrowserEventInterfaces
         .Accessor("absolute", static (t, _) => JsBoolean.Create(Brand<JsDeviceOrientationEvent>(t, "DeviceOrientationEvent.absolute").Absolute))
         .Build();
 
+    private static JsObjectShape BuildTextEvent() => Base("TextEvent")
+        .Accessor("data", static (t, _) => JsString.Create(Brand<JsTextEvent>(t, "TextEvent.data").Data))
+        .Method("initTextEvent", static (t, args) =>
+        {
+            var ev = Brand<JsTextEvent>(t, "TextEvent.initTextEvent");
+            if (Initializing(ev, args, "TextEvent.initTextEvent", out var type, out var bubbles, out var cancelable))
+            {
+                // The data argument's default is the string "undefined", which is what UI Events writes down
+                // because it is what every engine did.
+                var data = args.Length > 4 && !args[4].IsUndefined() ? TypeConverter.ToString(args[4]) : "undefined";
+                ev.Initialize(type, bubbles, cancelable, LegacyView(ev, args, 3), data);
+            }
+
+            return JsValue.Undefined;
+        }, length: 1)
+        .Build();
+
+    private static JsObjectShape BuildToggleEvent() => Base("ToggleEvent")
+        .Accessor("oldState", static (t, _) => JsString.Create(Brand<JsToggleEvent>(t, "ToggleEvent.oldState").OldState))
+        .Accessor("newState", static (t, _) => JsString.Create(Brand<JsToggleEvent>(t, "ToggleEvent.newState").NewState))
+        .Accessor("source", static (t, _) =>
+        {
+            var ev = Brand<JsToggleEvent>(t, "ToggleEvent.source");
+            return EventDispatch.RetargetAgainstCurrentTarget(ev.Source, ev.CurrentTarget);
+        })
+        .Build();
+
+    private static JsObjectShape BuildCommandEvent() => Base("CommandEvent")
+        .Accessor("source", static (t, _) =>
+        {
+            var ev = Brand<JsCommandEvent>(t, "CommandEvent.source");
+            return EventDispatch.RetargetAgainstCurrentTarget(ev.Source, ev.CurrentTarget);
+        })
+        .Accessor("command", static (t, _) => JsString.Create(Brand<JsCommandEvent>(t, "CommandEvent.command").Command))
+        .Build();
+
+    private static JsObjectShape BuildAnimationEvent() => Base("AnimationEvent")
+        .Accessor("animationName", static (t, _) => JsString.Create(Brand<JsAnimationEvent>(t, "AnimationEvent.animationName").AnimationName))
+        .Accessor("elapsedTime", static (t, _) => JsNumber.Create(Brand<JsAnimationEvent>(t, "AnimationEvent.elapsedTime").ElapsedTime))
+        .Accessor("pseudoElement", static (t, _) => JsString.Create(Brand<JsAnimationEvent>(t, "AnimationEvent.pseudoElement").PseudoElement))
+        .Build();
+
+    private static JsObjectShape BuildTransitionEvent() => Base("TransitionEvent")
+        .Accessor("propertyName", static (t, _) => JsString.Create(Brand<JsTransitionEvent>(t, "TransitionEvent.propertyName").PropertyName))
+        .Accessor("elapsedTime", static (t, _) => JsNumber.Create(Brand<JsTransitionEvent>(t, "TransitionEvent.elapsedTime").ElapsedTime))
+        .Accessor("pseudoElement", static (t, _) => JsString.Create(Brand<JsTransitionEvent>(t, "TransitionEvent.pseudoElement").PseudoElement))
+        .Build();
+
+    private static JsObjectShape BuildGamepadEvent() => Base("GamepadEvent")
+        .Accessor("gamepad", static (t, _) => Brand<JsGamepadEvent>(t, "GamepadEvent.gamepad").Gamepad)
+        .Build();
+
+    /// <summary>
+    /// An <c>Element? source = null</c> dictionary member — HTML's <c>ToggleEventInit</c> and
+    /// <c>CommandEventInit</c>. Anything but an element or null is a <c>TypeError</c>.
+    /// </summary>
+    private static Dom.DomNodeObject? SourceElement(BrowserEventRealm realm, ObjectInstance? init, string interfaceName)
+    {
+        var value = EventInitReader.Any(init, Names.Source, JsValue.Null);
+        if (value.IsNull() || value.IsUndefined())
+        {
+            return null;
+        }
+
+        if (value is not Dom.DomNodeObject { Node: Jint.HtmlParser.Element } element)
+        {
+            Throw.TypeError(realm.OwningRealm, "Failed to construct '" + interfaceName + "': member source is not of type 'Element'.");
+            return null;
+        }
+
+        return element;
+    }
+
+    /// <summary>
+    /// A <c>double</c> dictionary member — WebIDL's restricted type, so a non-finite value is a <c>TypeError</c>
+    /// rather than a value kept.
+    /// </summary>
+    private static double FiniteNumber(BrowserEventRealm realm, ObjectInstance? init, JsString name, string interfaceName)
+    {
+        var value = EventInitReader.Number(init, name);
+        if (!double.IsFinite(value))
+        {
+            Throw.TypeError(
+                realm.OwningRealm,
+                "Failed to construct '" + interfaceName + "': Failed to read the '" + name + "' property from '"
+                + interfaceName + "Init': The provided double value is non-finite.");
+        }
+
+        return value;
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dnd.html#dictdef-drageventinit — <c>DataTransfer? = null</c>, so
     /// an interface-typed member: anything that is not a <c>DataTransfer</c> and not null is a
@@ -1049,6 +1271,15 @@ internal static class BrowserEventInterfaces
         internal static readonly JsString Beta = new("beta");
         internal static readonly JsString Gamma = new("gamma");
         internal static readonly JsString Absolute = new("absolute");
+        internal static readonly JsString NewState = new("newState");
+        internal static readonly JsString OldState = new("oldState");
+        internal static readonly JsString Source = new("source");
+        internal static readonly JsString Command = new("command");
+        internal static readonly JsString AnimationName = new("animationName");
+        internal static readonly JsString ElapsedTime = new("elapsedTime");
+        internal static readonly JsString PseudoElement = new("pseudoElement");
+        internal static readonly JsString PropertyName = new("propertyName");
+        internal static readonly JsString Gamepad = new("gamepad");
     }
 
 }

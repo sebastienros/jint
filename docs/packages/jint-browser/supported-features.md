@@ -22,6 +22,7 @@
 - Forms, validation, history, location, cookies, local/session storage
 - Dedicated workers
 - Mutation, intersection, and resize observers, with documented no-layout semantics
+- Constructible event interfaces beyond UI Events: `ToggleEvent` (fired by `<dialog>` and `<details>`), `CommandEvent`, `AnimationEvent`, `TransitionEvent`, `GamepadEvent`, `DragEvent`, `StorageEvent`, `TouchEvent` and the device events, plus the legacy `TextEvent` through `document.createEvent`; `ClipboardEvent` is absent
 - The navigator's system state: HTML's compatibility constants, empty `plugins`/`mimeTypes`, `userAgentData` (UA Client Hints, following a CDP `userAgentMetadata` override), `permissions.query`, `storage.estimate`, `registerProtocolHandler` argument validation, `Notification`, `screen`/`screen.orientation` and `visualViewport` following the emulated viewport — see [Limitations](./limitations) for what they answer
 
 ## Automation and reading

@@ -70,6 +70,14 @@ internal sealed class BrowserEventDefinition
     /// </summary>
     internal (string Name, int Value)[] Constants { get; }
 
+    /// <summary>
+    /// Whether the interface declares a constructor. <c>TextEvent</c> does not: UI Events keeps it for
+    /// <c>document.createEvent('TextEvent')</c> and <c>initTextEvent</c> only, so <c>new TextEvent()</c> is
+    /// WebIDL's "Illegal constructor" while <see cref="Construct"/> still builds the instance
+    /// <c>createEvent</c> hands out.
+    /// </summary>
+    internal bool Constructible { get; init; } = true;
+
     /// <summary>Dense index into <see cref="BrowserEventRealm"/>'s per-engine arrays.</summary>
     internal int Index { get; set; } = -1;
 
@@ -125,6 +133,11 @@ internal sealed class BrowserEventInterfaceObject : Constructor
 
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
+        if (!_definition.Constructible)
+        {
+            Throw.TypeError(_realm, "Failed to construct '" + _definition.Name + "': Illegal constructor");
+        }
+
         var instance = _definition.Construct(_eventRealm, arguments);
 
         // https://tc39.es/ecma262/#sec-ordinarycreatefromconstructor: the prototype comes from newTarget, so
