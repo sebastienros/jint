@@ -137,9 +137,9 @@ descendant outside the viewport. `nearest` leaves a box spanning both viewport e
 **The DOM-side members are `overrides.json` `additions` entries**, with their bodies in `Layout/LayoutMembers`
 — `getBoundingClientRect`, `getClientRects`, the `client*`/`scroll*` metrics, `scrollIntoView`, `HTMLElement`'s
 `offset*` family, `document.elementFromPoint`/`elementsFromPoint`/`scrollingElement`. **Never hand-edit a
-`.g.cs`**; regenerate with `JINT_DOM_BINDINGS=update`. A rectangle is a plain object shaped like `DOMRect`
-rather than an instance of one (`Layout/DomRects` says why), and `IntersectionObserver` and `ResizeObserver`
-entries now carry real numbers through the same factory — which is what
+`.g.cs`**; regenerate with `JINT_DOM_BINDINGS=update`. A rectangle is a real `DOMRect` from
+`Geometry/GeometryRealm` (an observer entry's is a `DOMRectReadOnly`, as their IDL declares), and
+`IntersectionObserver` and `ResizeObserver` entries carry real numbers through the same factory — which is what
 [`../AGENTS.md`](../AGENTS.md)'s observer section promised when they were zeros. `Range.getBoundingClientRect`
 stays zeros: this model gives an *element* a row, and a range is a pair of positions inside text nothing here
 measures.

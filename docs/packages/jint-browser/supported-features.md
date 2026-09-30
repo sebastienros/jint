@@ -12,6 +12,7 @@
 - Emulated viewport, media type, and supported preferences such as colour scheme, reduced motion, contrast, and pointer capabilities in both `matchMedia` and stylesheet `@media` rules
 - `about:blank`, `data:text/html`, direct content, and HTTP(S) navigation
 - Custom elements, shadow DOM, templates, ranges, traversal, selection, DOMParser, and XMLSerializer
+- Geometry Interfaces: `DOMPoint`, `DOMRect`, `DOMQuad` and `DOMMatrix` with their read-only parents and `WebKitCSSMatrix`, including transform-list strings; layout answers such as `getBoundingClientRect` are `DOMRect` instances
 - The HTML Sanitizer API: `Sanitizer`, `setHTML`/`setHTMLUnsafe`, `getHTML` and `Document.parseHTML`/`parseHTMLUnsafe`, including declarative shadow roots (sanitizing runs after parsing, see [the DOM divergences](../../../Jint.Browser/Dom/divergences.md#sanitizer-sanitize-after-parsing-not-while-parsing))
 
 ## Runtime

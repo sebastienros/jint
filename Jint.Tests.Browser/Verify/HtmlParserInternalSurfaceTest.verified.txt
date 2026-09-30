@@ -208,6 +208,13 @@ internal Jint.HtmlParser.Css.Syntax.CssStyleSheetEncoding
 internal Jint.HtmlParser.Css.Values.CssText
     Equals
     Hash
+internal Jint.HtmlParser.Css.Values.CssTransformFunction
+    get_Arguments
+    get_Is2D
+    get_Kind
+internal Jint.HtmlParser.Css.Values.CssTransformFunctionKind
+internal Jint.HtmlParser.Css.Values.CssTransformList
+    TryParse
 internal Jint.HtmlParser.Css.Values.CssValueWork
     (constructor)
     Charge

@@ -38,7 +38,7 @@ internal static class LayoutMembers
 {
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-getboundingclientrect.</summary>
     internal static JsValue BoundingClientRect(DomRealm realm, Element element)
-        => DomRects.Of(realm.Engine, ClientBox(realm, element));
+        => DomRects.Of(realm, ClientBox(realm, element));
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-element-getclientrects — one rectangle, or none at all.
@@ -50,7 +50,7 @@ internal static class LayoutMembers
     internal static JsValue ClientRects(DomRealm realm, Element element)
     {
         return PageOf(realm, element)?.Layout.ClientBoxOf(element) is { } box
-            ? DomRects.List(realm, DomRects.Of(realm.Engine, box))
+            ? DomRects.List(realm, DomRects.Of(realm, box))
             : DomRects.List(realm);
     }
 

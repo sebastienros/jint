@@ -143,3 +143,16 @@ lands and the native tree builder gains a sanitizer hook, these are known differ
 
 Also outside the current boundary: `sethtml-xml-document` cases need `attachShadow` in XML documents, and the
 `sanitizer-svg-animate` / `sanitizer-inert-document` cases need SVG animation and image loading.
+
+### Geometry interfaces
+
+`DOMPointReadOnly`, `DOMPoint`, `DOMRectReadOnly`, `DOMRect`, `DOMQuad`, `DOMMatrixReadOnly` and `DOMMatrix`
+(`Geometry/`) follow [Geometry Interfaces Level 1](https://drafts.fxtf.org/geometry/), with these known
+differences:
+
+- `getClientRects()` answers an `Array` of `DOMRect`s rather than a `DOMRectList`: the indices and `length`
+  are there, `item()` is not.
+- A class extending one of these interfaces gets the base prototype from `super()`: hand-written interface
+  objects ignore `new.target`, as every other one in this package does.
+- A `DOMMatrix` string initializer is read by the native `CssTransformList`, which refuses `calc()` and other
+  math functions even where they would resolve to an absolute length.

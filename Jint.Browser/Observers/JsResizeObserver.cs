@@ -200,7 +200,7 @@ internal sealed class JsResizeObserverEntry : ObjectInstance
     /// https://drafts.csswg.org/resize-observer/#dom-resizeobserverentry-contentrect — the target's own
     /// size, at the origin of its own padding box, which is where a content rectangle is measured from.
     /// </summary>
-    internal JsValue Rect() => DomRects.Of(Engine, _box);
+    internal JsValue Rect() => DomRects.Of(_runtime.Dom, _box, readOnly: true);
 
     /// <summary>A fresh one-element array holding the target's own size.</summary>
     internal JsValue BoxSizes() => ObserverGeometry.BoxSizes(Engine, _box.Width, _box.Height);

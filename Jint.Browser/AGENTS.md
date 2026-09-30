@@ -154,7 +154,7 @@ to run unrelated page tasks; resource waits use the pump described in
 - **`IntersectionObserver` reports each observed target once, fully intersecting.** Never intersecting
   would leave lazy lists permanently empty. `root`, `rootMargin` and `thresholds` are parsed and reflected
   but do not change that policy. Entries use the same flat boxes as `getBoundingClientRect`, through
-  `Layout/DomRects`; the rectangles are plain objects, not `DOMRectReadOnly` instances.
+  `Layout/DomRects`; the rectangles are `DOMRectReadOnly` instances from `Geometry/GeometryRealm`.
 - **`ResizeObserver` tracks changes in the flat model**, not just initial size. `ResizeObserverLane`
   checks at page-turn boundaries and in nested pumps, shares a size-only query per check/delivery, and
   schedules a task only for changed dimensions. Queries visit observed subtrees, visibility ancestors

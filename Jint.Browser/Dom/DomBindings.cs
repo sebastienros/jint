@@ -76,6 +76,13 @@ internal static class DomBindings
                 new LazyPropertyDescriptor<DomRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
         }
 
+        foreach (var name in Geometry.GeometryRealm.InterfaceNames)
+        {
+            InstallGeometry(global, realm, name);
+        }
+
+        InstallGeometry(global, realm, Geometry.GeometryRealm.MatrixAlias);
+
         foreach (var factory in DomConstructors.LegacyFactories)
         {
             if (global.HasOwnProperty(WebApiRegistration.NameOf(factory.Name)))
@@ -88,6 +95,19 @@ internal static class DomBindings
                 factory.Name,
                 new LazyPropertyDescriptor<DomRealm>(realm, r => captured.Create(r), PropertyFlag.NonEnumerable));
         }
+    }
+
+    /// <summary>https://drafts.fxtf.org/geometry/ — the interface objects, built together on first read.</summary>
+    private static void InstallGeometry(ObjectInstance global, DomRealm realm, string name)
+    {
+        if (global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+        {
+            return;
+        }
+
+        global.SetProperty(
+            name,
+            new LazyPropertyDescriptor<DomRealm>(realm, r => r.Geometry.InterfaceObject(name), PropertyFlag.NonEnumerable));
     }
 
     /// <summary>

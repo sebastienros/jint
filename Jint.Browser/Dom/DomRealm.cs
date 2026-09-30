@@ -584,6 +584,11 @@ internal sealed class DomRealm
     internal CancellationToken CancellationToken
         => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
 
+    private Jint.Browser.Geometry.GeometryRealm? _geometry;
+
+    /// <summary>This realm's Geometry Interfaces, built the first time anything reaches one.</summary>
+    internal Jint.Browser.Geometry.GeometryRealm Geometry => _geometry ??= new Jint.Browser.Geometry.GeometryRealm(this);
+
     internal JsValue WrapIdentity(DomNodeIdentity? identity)
         => identity is not { } value ? JsValue.Null
             : value.Attribute is { } attribute ? Wrap(attribute) : WrapNodeValue(value.Node);

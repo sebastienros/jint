@@ -44,6 +44,14 @@ public sealed class HostInterfaceDisciplineTests
         "TouchList",
         "DeviceMotionEventAcceleration",
         "DeviceMotionEventRotationRate",
+        "Sanitizer",
+        "DOMPointReadOnly",
+        "DOMPoint",
+        "DOMRectReadOnly",
+        "DOMRect",
+        "DOMQuad",
+        "DOMMatrixReadOnly",
+        "DOMMatrix",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

@@ -335,7 +335,7 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
     internal JsValue Rect()
     {
         var box = Node is Element element ? _runtime.Layout.Current().ClientBoxOf(element) : null;
-        return Layout.DomRects.Of(Engine, box ?? Layout.FlatBox.Empty);
+        return Layout.DomRects.Of(_runtime.Dom, box ?? Layout.FlatBox.Empty, readOnly: true);
     }
 
     /// <summary>
@@ -348,7 +348,7 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
     internal JsValue RootBounds()
     {
         var viewport = _runtime.Viewport;
-        return Layout.DomRects.Of(Engine, new Layout.FlatBox(0, 0, viewport.Width, viewport.Height));
+        return Layout.DomRects.Of(_runtime.Dom, new Layout.FlatBox(0, 0, viewport.Width, viewport.Height), readOnly: true);
     }
 
     /// <inheritdoc />

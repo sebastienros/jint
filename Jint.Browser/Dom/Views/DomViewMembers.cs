@@ -93,7 +93,7 @@ internal static class DomViewMembers
     /// a row; a range is a pair of positions inside the text of one, and nothing here measures text. A range
     /// covering half a paragraph has no honest rectangle, so it keeps the empty one.
     /// </remarks>
-    internal static JsValue RangeRect(DomRealm realm) => Layout.DomRects.Zero(realm.Engine);
+    internal static JsValue RangeRect(DomRealm realm) => Layout.DomRects.Zero(realm);
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-range-getclientrects — empty, because a range with no layout
