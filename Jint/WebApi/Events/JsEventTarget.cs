@@ -454,8 +454,10 @@ internal class JsEventTarget : ObjectInstance
     /// <returns>False when the event was canceled, which is what <c>dispatchEvent</c> returns.</returns>
     internal bool DispatchEvent(JsEvent ev)
     {
-        return IsNode ? EventDispatch.Dispatch(this, ev) : DispatchFlat(ev);
+        return IsNode || HasEventPath ? EventDispatch.Dispatch(this, ev) : DispatchFlat(ev);
     }
+
+    internal virtual bool HasEventPath => false;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-dispatch, reduced to the single-item path a tree-less
@@ -618,6 +620,7 @@ internal class JsEventTarget : ObjectInstance
             }
             catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
             {
+                ev.ListenersThrew = true;
                 // Inner invoke step 2.10: "If this throws an exception exception: Report exception for
                 // listener's callback's ... global object." Reporting it is what lets the dispatch carry on to
                 // the next listener, which is the behaviour a page relies on and which is only honest once

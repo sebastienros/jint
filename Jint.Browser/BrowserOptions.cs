@@ -28,6 +28,7 @@ public sealed class BrowserOptions
     private long _maxSubresourceBytes = 8 * 1024 * 1024;
     private long _maxCapturedResponseBytes = 16 * 1024 * 1024;
     private long _maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes;
+    private long _maxIndexedDbBytes = 50 * 1024 * 1024;
     private TimeSpan _subresourceTimeout = TimeSpan.FromSeconds(30);
     private int _maxRedirects = 20;
     private TimeSpan? _maxTaskDuration;
@@ -91,6 +92,23 @@ public sealed class BrowserOptions
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             _maxCacheStorageBytes = value;
+        }
+    }
+
+    /// <summary>Gets or sets the IndexedDB quota per context and origin; defaults to fifty mebibytes.</summary>
+    /// <remarks>
+    /// Counts serialized values, keys, indexes and metadata across committed databases. A transaction
+    /// exceeding the quota aborts with <c>QuotaExceededError</c>; zero refuses database creation.
+    /// The in-memory partition is context-owned, including when a custom storage partition is supplied.
+    /// https://w3c.github.io/IndexedDB/#storage
+    /// </remarks>
+    public long MaxIndexedDbBytes
+    {
+        get => _maxIndexedDbBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxIndexedDbBytes = value;
         }
     }
 

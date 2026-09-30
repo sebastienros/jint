@@ -22,6 +22,7 @@
 - Timers, promises, microtasks, animation-frame callbacks, and `postMessage`
 - `fetch`, `XMLHttpRequest`, WebSocket, EventSource, blobs, and FileReader
 - Forms, validation, history, location, cookies, local/session storage
+- IndexedDB databases, transactions, indexes and cursors, shared by same-origin pages and dedicated workers within a context, including plain HTTP. In-memory data survives navigation; `BrowserOptions.MaxIndexedDbBytes` limits committed storage to 50 MiB per origin by default. See [IndexedDB](../../guide/web-apis/indexeddb.md).
 - Origin-partitioned `caches` in secure contexts (HTTPS and HTTP loopback/localhost), shared by a context's pages and dedicated workers and retained across same-origin navigations. The default in-memory partition enforces `BrowserOptions.MaxCacheStorageBytes` per origin (5 MiB); custom `StoragePartitionProvider.GetCacheStorage` implementations can persist or refuse storage.
 - Resource Timing for completed `fetch`/XHR bodies, scripts/modules, stylesheets/CSS imports, images, frame documents, and explicit font/media loads. Entries support `PerformanceObserver`, buffered replay, the 250-entry resource buffer, resizing, clearing, and `resourcetimingbufferfull`.
 - Navigation Timing for top-level documents, including fetch/body and DOM/load milestones, navigation type and same-origin redirect counts. Same-document navigations keep the existing entry.

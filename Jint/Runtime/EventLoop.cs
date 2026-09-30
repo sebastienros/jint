@@ -158,6 +158,7 @@ internal sealed record EventLoop
     private ConcurrentQueue<EventLoopJob>? _tasks;
     private IEventLoopTaskBudget? _taskBudget;
     private Action? _taskStart;
+    private Action? _taskCleanup;
     private int _taskDrainDeferralDepth;
 
     internal TaskDrainScope DeferTaskDrain()
@@ -178,32 +179,54 @@ internal sealed record EventLoop
     // the next task, even when that task was queued before the reactions.
     internal void ConfigureTaskBudget(IEventLoopTaskBudget budget)
     {
-        if (_tasks is not null)
+        if (_taskBudget is not null)
         {
             Throw.InvalidOperationException("The event loop already has a task budget.");
         }
 
-        var tasks = new ConcurrentQueue<EventLoopJob>();
-        var pending = new Queue<EventLoopJob>();
-        while (_events.TryDequeue(out var job))
-        {
-            if (job.IsTask)
-            {
-                tasks.Enqueue(job);
-            }
-            else
-            {
-                pending.Enqueue(job);
-            }
-        }
-
-        foreach (var job in pending)
-        {
-            _events.Enqueue(job);
-        }
-
         _taskBudget = budget;
-        _tasks = tasks;
+        SeparateTaskQueue();
+    }
+
+    private void SeparateTaskQueue()
+    {
+        lock (_waitersLock)
+        {
+            if (_tasks is not null) return;
+            var tasks = new ConcurrentQueue<EventLoopJob>();
+            var pending = new Queue<EventLoopJob>();
+            while (_events.TryDequeue(out var job))
+            {
+                if (job.IsTask)
+                {
+                    tasks.Enqueue(job);
+                }
+                else
+                {
+                    pending.Enqueue(job);
+                }
+            }
+
+            foreach (var job in pending)
+            {
+                _events.Enqueue(job);
+            }
+            _tasks = tasks;
+        }
+    }
+
+    // IndexedDB needs the cleanup event loop step even on engines without a browser task budget.
+    internal void ConfigureTaskCleanup(Action cleanup)
+    {
+        SeparateTaskQueue();
+        _taskCleanup = cleanup;
+    }
+
+    internal void FinishHostTask(Engine engine)
+    {
+        if (_taskCleanup is null || IsRunningJob) return;
+        RunMicrotaskCheckpoint(engine);
+        _taskCleanup();
     }
 
     // A host may reconcile pending native work only at a healthy, budgeted entry, inside the
@@ -316,25 +339,23 @@ internal sealed record EventLoop
 
     public void Enqueue(in EventLoopJob job)
     {
-        var queue = job.IsTask ? _tasks ?? _events : _events;
-        queue.Enqueue(job);
-
-        // Null means no thread has ever block-drained this engine, so there is nobody to wake. The enqueue
-        // above and WaitForWork's event-creation are both full fences, so whichever of the two raced ahead,
-        // either this read sees the event or the waiter's queue check sees the job.
-        Volatile.Read(ref _workArrived)?.Set();
-
         // Wake every registered async waiter. Each one re-checks its own promise
         // state on resume, so spurious wakes loop harmlessly back to WaitForEventAsync.
         List<TaskCompletionSource<bool>>? toSignal = null;
         lock (_waitersLock)
         {
+            // Queue selection is atomic with a late IndexedDB activation splitting the FIFO.
+            var queue = job.IsTask ? _tasks ?? _events : _events;
+            queue.Enqueue(job);
             if (_waiters is { Count: > 0 })
             {
                 toSignal = _waiters;
                 _waiters = null;
             }
         }
+
+        // The enqueue and the waiter's queue check fence creation of this lazily allocated signal.
+        Volatile.Read(ref _workArrived)?.Set();
 
         if (toSignal is not null)
         {
@@ -502,6 +523,12 @@ internal sealed record EventLoop
 
             while (true)
             {
+                if (_tasks is not null)
+                {
+                    RunTasks(engine, singleTask, allowTaskDrain);
+                    return;
+                }
+
                 // An Atomics.waitAsync timeout is the one piece of scheduled work that cannot wait for the
                 // queue to run dry: the microtask spin test262's $262.agent.setTimeout polyfill is built from
                 // keeps the queue permanently non-empty for as long as the script is polling for the wait it
@@ -573,7 +600,7 @@ internal sealed record EventLoop
         // a new budget just because that script has returned to the pump.
         if (!_events.IsEmpty || engine.HasPendingRejectionNotifications)
         {
-            var entered = _taskBudget!.BeginTask(isTask: false);
+            var entered = _taskBudget?.BeginTask(isTask: false) ?? false;
             try
             {
                 _taskStart?.Invoke();
@@ -583,10 +610,11 @@ internal sealed record EventLoop
             {
                 if (entered)
                 {
-                    _taskBudget.EndTask();
+                    _taskBudget!.EndTask();
                 }
             }
         }
+        _taskCleanup?.Invoke();
 
         while (true)
         {
@@ -608,7 +636,7 @@ internal sealed record EventLoop
 
                 // Unlike a timer, an idle callback runs directly rather than being promoted to a job.
                 // It still owns one budget together with its reactions.
-                _taskBudget!.BeginTask(isTask: true);
+                _taskBudget?.BeginTask(isTask: true);
                 try
                 {
                     _taskStart?.Invoke();
@@ -621,7 +649,8 @@ internal sealed record EventLoop
                 }
                 finally
                 {
-                    _taskBudget.EndTask();
+                    _taskCleanup?.Invoke();
+                    _taskBudget?.EndTask();
                 }
 
                 if (singleTask)
@@ -632,7 +661,7 @@ internal sealed record EventLoop
                 continue;
             }
 
-            _taskBudget!.BeginTask(isTask: true);
+            _taskBudget?.BeginTask(isTask: true);
             try
             {
                 _taskStart?.Invoke();
@@ -644,7 +673,8 @@ internal sealed record EventLoop
             }
             finally
             {
-                _taskBudget.EndTask();
+                _taskCleanup?.Invoke();
+                _taskBudget?.EndTask();
             }
 
             if (singleTask)

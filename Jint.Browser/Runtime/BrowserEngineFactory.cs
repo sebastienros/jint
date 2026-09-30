@@ -98,6 +98,7 @@ internal static class BrowserEngineFactory
                 | WebApiFeatures.Fetch
                 | WebApiFeatures.WebSocket
                 | WebApiFeatures.EventSource
+                | WebApiFeatures.IndexedDb
                 | WebApiFeatures.Workers;
 
             if (hasStorage)
@@ -176,6 +177,7 @@ internal static class BrowserEngineFactory
         runtime.Dom.ScriptingEnabled = runtime.ScriptingEnabled;
         WindowInstaller.Install(runtime);
         PageStorage.InstallCaches(engine, opaqueCaches);
+        PageStorage.InstallIndexedDb(engine, request.Network, origin);
 
         // Where an activation behaviour's default action goes now that there is a page behind it: a link
         // navigates, a form submits, a file chooser is reported. Without this the events bridge records what

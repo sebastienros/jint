@@ -13,6 +13,7 @@ using Jint.WebApi.FetchEvents;
 using Jint.WebApi.Files;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.IndexedDb;
 using Jint.WebApi.Locks;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
@@ -251,6 +252,11 @@ public sealed partial class Intrinsics
     private CacheConstructor? _cache;
     private CacheStorageConstructor? _cacheStorage;
     private JsCacheStorage? _caches;
+    private IndexedDbInterfaces? _indexedDb;
+    private DomStringListConstructor? _domStringList;
+
+    internal IndexedDbInterfaces IndexedDb => _indexedDb ??= new IndexedDbInterfaces(_engine, _realm);
+    internal DomStringListConstructor DomStringList => _domStringList ??= new DomStringListConstructor(_engine, _realm);
 
     internal CacheConstructor Cache =>
         _cache ??= new CacheConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

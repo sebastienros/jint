@@ -492,6 +492,9 @@ internal sealed class WebApiEngineState
     /// </remarks>
     internal CacheStorageProvider? CacheProvider { get; private set; }
 
+    private WebApi.IndexedDb.IndexedDbAgent? _indexedDb;
+    internal WebApi.IndexedDb.IndexedDbAgent IndexedDb => _indexedDb ??= new WebApi.IndexedDb.IndexedDbAgent(_engine);
+
     /// <summary>
     /// How many requests are in flight, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c>
     /// bounds.
@@ -1175,6 +1178,7 @@ internal sealed class WebApiEngineState
         CloseMessagePorts();
         ReleaseLocks();
         IdleCallbacks?.Clear();
+        _indexedDb?.Reset();
         _performanceObservers?.Clear();
         _fileReads?.Clear();
         _blobUrls?.Clear();
@@ -1434,6 +1438,7 @@ internal sealed class WebApiEngineState
         CloseMessagePorts();
         ReleaseLocks();
 
+        _indexedDb?.Reset();
         return endedWorkers;
     }
 }

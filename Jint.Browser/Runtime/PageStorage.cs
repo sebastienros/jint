@@ -36,6 +36,19 @@ internal static class PageStorage
         => string.Equals(origin, PageUrl.OpaqueOrigin, StringComparison.Ordinal)
             && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.IsFile;
 
+    /// <summary>https://w3c.github.io/IndexedDB/#dom-idbfactory-open: IndexedDB is not a secure-context API.</summary>
+    internal static void InstallIndexedDb(Engine engine, PageNetwork network, string origin)
+    {
+        if ((engine.WebApi.Features & WebApiFeatures.IndexedDb) == WebApiFeatures.None) return;
+        var opaque = string.Equals(origin, PageUrl.OpaqueOrigin, StringComparison.Ordinal);
+        var agent = engine._webApi!.IndexedDb;
+        agent.Configure(opaque ? new WebApi.IndexedDb.IndexedDbStore(0) : network.IndexedDb(origin), opaque);
+        var realm = engine._mainRealm;
+        realm.GlobalObject.SetProperty("indexedDB", new GetSetPropertyDescriptor(
+            new ClrFunction(engine, "get indexedDB", (_, _) => realm.Intrinsics.IndexedDb.Factory),
+            set: null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
     // https://w3c.github.io/ServiceWorker/#self-caches and
     // https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
     internal static bool ConfigureCaches(Options options, PageNetwork network, string origin)

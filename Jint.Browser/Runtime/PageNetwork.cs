@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.IndexedDb;
 
 namespace Jint.Browser.Runtime;
 
@@ -28,6 +30,8 @@ internal sealed class PageNetwork
 {
     private readonly HttpClient? _client;
     private readonly Func<Engine, HttpClient>? _clientFactory;
+    private readonly ConcurrentDictionary<string, IndexedDbStore> _indexedDb = new(StringComparer.Ordinal);
+    private readonly long _maxIndexedDbBytes;
 
     /// <summary>Composes one context's network position.</summary>
     /// <param name="options">What the context keeps to itself.</param>
@@ -38,11 +42,14 @@ internal sealed class PageNetwork
     /// property keeps its own answer, in either direction.
     /// </param>
     /// <param name="maxCacheStorageBytes">The default per-origin cache quota.</param>
+    /// <param name="maxIndexedDbBytes">The per-origin IndexedDB quota.</param>
     internal PageNetwork(BrowserContextOptions options, bool blockPrivateNetworkByDefault = false,
-        long maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes)
+        long maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes,
+        long maxIndexedDbBytes = 50 * 1024 * 1024)
     {
         _client = options.HttpClient;
         _clientFactory = options.HttpClientFactory;
+        _maxIndexedDbBytes = maxIndexedDbBytes;
 
         // A jar per context, always: a context is the unit of isolation a browser profile is, and cookies
         // are the state that makes that visible. A host supplying its own is supplying the partition.
@@ -68,6 +75,9 @@ internal sealed class PageNetwork
 
     /// <summary>Where this context's <c>localStorage</c> lives, one store per origin.</summary>
     internal StoragePartitionProvider Storage { get; }
+
+    internal IndexedDbStore IndexedDb(string origin) =>
+        _indexedDb.GetOrAdd(origin, static (_, quota) => new IndexedDbStore(quota), _maxIndexedDbBytes);
 
     /// <summary>The last word on whether a hop may be made, host filter and private-network rule combined.</summary>
     internal Func<Uri, bool> UrlFilter { get; }

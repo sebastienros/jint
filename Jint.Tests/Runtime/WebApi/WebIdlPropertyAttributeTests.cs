@@ -194,7 +194,7 @@ public class WebIdlPropertyAttributeTests
     {
         var engine = BuildEngine();
 
-        foreach (var singleton in new[] { "navigator", "scheduler", "crypto", "performance" })
+        foreach (var singleton in new[] { "navigator", "scheduler", "crypto", "performance", "indexedDB" })
         {
             engine.Evaluate($"JSON.stringify(Object.keys({singleton}))").AsString().Should().Be("[]", singleton);
             engine.Evaluate($"Reflect.ownKeys({singleton}).length").AsNumber().Should().Be(0, singleton);

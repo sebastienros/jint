@@ -784,6 +784,7 @@ namespace Jint
         Workers = 16777216,
         XmlHttpRequest = 33554432,
         WebLocks = 67108864,
+        IndexedDb = 134217728,
         Default = 74513407,
     }
     public static class WebApiOptionsExtensions

@@ -446,6 +446,13 @@ internal sealed class DomRealm
         {
             return existing;
         }
+        if (ReferenceEquals(definition, DomInterfaces.DOMStringList))
+        {
+            var shared = OwningRealm.Intrinsics.DomStringList.PrototypeObject;
+            shared.EnsureInitialized();
+            CaptureLengthAccessor(definition, shared);
+            return _prototypes[definition.Index] = shared;
+        }
 
         var parent = definition.Parent is { } p
             ? PrototypeOf(p)
@@ -534,9 +541,10 @@ internal sealed class DomRealm
     /// Routed through <see cref="PrototypeOf"/> rather than creating one here, because the two are built
     /// together and creating one from each side would produce two.
     /// </remarks>
-    internal DomInterfaceObject InterfaceObjectOf(DomInterfaceDefinition definition)
+    internal ObjectInstance InterfaceObjectOf(DomInterfaceDefinition definition)
     {
         PrototypeOf(definition);
+        if (ReferenceEquals(definition, DomInterfaces.DOMStringList)) return OwningRealm.Intrinsics.DomStringList;
         return _interfaceObjects[definition.Index]!;
     }
 
@@ -559,6 +567,12 @@ internal sealed class DomRealm
         if (_wrappers.TryGetValue(value, out var cached))
         {
             return cached;
+        }
+
+        if (value is Styling.NativeCssStyleSetList sets)
+        {
+            return Cache(sets, new WebApi.IndexedDb.JsDomStringList(Engine, OwningRealm,
+                () => sets.Read(Styling.NativeCssBindings.Work(this))));
         }
 
         if (value is Attr attribute)

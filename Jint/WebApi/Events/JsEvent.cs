@@ -121,6 +121,7 @@ internal class JsEvent : ObjectInstance
 
     /// <summary>https://dom.spec.whatwg.org/#canceled-flag.</summary>
     internal bool CanceledFlag { get; set; }
+    internal bool ListenersThrew { get; set; }
 
     /// <summary>https://dom.spec.whatwg.org/#in-passive-listener-flag.</summary>
     internal bool InPassiveListenerFlag { get; set; }

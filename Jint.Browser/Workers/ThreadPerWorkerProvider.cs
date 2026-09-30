@@ -90,7 +90,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         // a worker, and it is bounded by the same filter as everything else the page does. Messaging and
         // GlobalEvents are already on — CreateDefaultOptions adds them, because the worker global is built
         // out of them.
-        options.WebApi.Features |= WebApiFeatures.Fetch;
+        options.WebApi.Features |= WebApiFeatures.Fetch | WebApiFeatures.IndexedDb;
         if (PageStorage.ConfigureCaches(options, _network,
             request.Parent.Options.WebApi.Fetch.Origin ?? PageUrl.OriginOf(_page.Url)))
         {
@@ -143,6 +143,8 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
 
         var engine = new Engine(options);
         PageStorage.InstallCaches(engine, opaque: false);
+        PageStorage.InstallIndexedDb(engine, _network,
+            request.Parent.Options.WebApi.Fetch.Origin ?? PageUrl.OriginOf(_page.Url));
         PageBudget.For(engine, _options);
         return engine;
     }

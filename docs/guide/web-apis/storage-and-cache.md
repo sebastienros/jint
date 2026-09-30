@@ -1,5 +1,7 @@
 # Storage and Cache API
 
+For transactional structured values and indexes, see [IndexedDB](./indexeddb.md).
+
 ## Web Storage
 
 Storage is excluded from `UseWebApis()` because it gives script state that outlives an evaluation:

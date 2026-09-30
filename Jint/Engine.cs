@@ -4081,17 +4081,23 @@ public sealed partial class Engine : IDisposable
             // else happened to pump the engine. Only for an entry that completed — reporting runs script,
             // and a CLR exception is on its way out of this frame otherwise — and before the depth comes
             // down, so a listener re-entering the engine is nested and cannot re-arm the constraints.
-            if (completed && !isNested)
+            try
             {
-                NotifyAboutRejectedPromises();
+                if (completed && !isNested)
+                {
+                    NotifyAboutRejectedPromises();
+                    _eventLoop?.FinishHostTask(this);
+                }
             }
-
-            _hostEntryDepth--;
-            if (!isNested)
+            finally
             {
-                ResetConstraints();
+                _hostEntryDepth--;
+                if (!isNested)
+                {
+                    ResetConstraints();
+                }
+                _agent.ClearKeptObjects();
             }
-            _agent.ClearKeptObjects();
         }
     }
 
@@ -4142,18 +4148,24 @@ public sealed partial class Engine : IDisposable
 
             // The checkpoint the constraint-only path above argues for, inside this entry's memory segment
             // so that what a listener allocates is charged to the entry that reported to it.
-            if (completed && !isNested)
+            try
             {
-                NotifyAboutRejectedPromises();
+                if (completed && !isNested)
+                {
+                    NotifyAboutRejectedPromises();
+                    _eventLoop?.FinishHostTask(this);
+                }
             }
-
-            _hostEntryDepth--;
-            memoryLimit.EndSegment(in memorySegment);
-            if (!isNested)
+            finally
             {
-                ResetConstraints();
+                _hostEntryDepth--;
+                memoryLimit.EndSegment(in memorySegment);
+                if (!isNested)
+                {
+                    ResetConstraints();
+                }
+                _agent.ClearKeptObjects();
             }
-            _agent.ClearKeptObjects();
         }
     }
 
