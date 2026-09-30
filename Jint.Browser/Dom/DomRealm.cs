@@ -610,6 +610,9 @@ internal sealed class DomRealm
     /// <summary>This realm's Geometry Interfaces, built the first time anything reaches one.</summary>
     internal Jint.Browser.Geometry.GeometryRealm Geometry => _geometry ??= new Jint.Browser.Geometry.GeometryRealm(this);
 
+    private Canvas.CanvasRealm? _canvas;
+    internal Canvas.CanvasRealm Canvas => _canvas ??= new Canvas.CanvasRealm(this);
+
     private Jint.Browser.Fonts.FontRealm? _fonts;
 
     /// <summary>This realm's CSS Font Loading interfaces and document font sets, built the first time anything reaches one.</summary>

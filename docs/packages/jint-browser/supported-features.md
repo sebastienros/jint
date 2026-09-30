@@ -17,6 +17,14 @@
 - Web Animations: `document.timeline`, `DocumentTimeline`, `Animation`, `KeyframeEffect`, `element.animate()` and element/document `getAnimations()`, with frame-driven playback, timing and easing calculations, ready/finished promises, playback events, replacement/persistence, and discrete `commitStyles()`
 - The HTML Sanitizer API: `Sanitizer`, `setHTML`/`setHTMLUnsafe`, `getHTML` and `Document.parseHTML`/`parseHTMLUnsafe`, including declarative shadow roots (sanitizing runs after parsing, see [the DOM divergences](../../../Jint.Browser/Dom/divergences.md#sanitizer-sanitize-after-parsing-not-while-parsing))
 
+## Canvas (non-rendering)
+
+- `HTMLCanvasElement.getContext('2d')` and `OffscreenCanvas.getContext('2d')` return stable, per-canvas contexts. Other supported context modes return null; no renderer or GPU is involved.
+- Drawing state, validated colors/styles and line dashes, `save`/`restore`/`reset`, and 2D transforms with independent `DOMMatrix` results. Assigning width or height resets the drawing state and save stack, including same-value and content-attribute writes.
+- `Path2D`, gradients, patterns, the 2D path/drawing operations, and approximate `TextMetrics` let scripts prepare charts without rasterization.
+- Real `ImageData` with `Uint8ClampedArray` storage; canvas reads return transparent-black data and writes validate without retaining pixels.
+- Valid transparent PNG data URLs and asynchronous PNG `Blob` results from `toBlob` and offscreen `convertToBlob`. See [Limitations](./limitations) for text heuristics, encoding/allocation limits and deliberate no-rendering behavior.
+
 ## Runtime
 
 - Timers, promises, microtasks, animation-frame callbacks, and `postMessage`

@@ -91,15 +91,16 @@ public sealed class NativeCapabilityTests
     }
 
     [Test]
-    public void UnsupportedCanvasAndInvalidMediaCallsRefuseWithoutChangingState()
+    public void CanvasSupportsOnlyTwoDimensionsAndInvalidMediaCallsRefuseWithoutChangingState()
     {
         using var engine = new Engine(options => options.UseWebApis());
         var realm = DomRealm.Of(engine);
         var document = Document.CreateHtml();
         var canvas = document.CreateElement("canvas");
-        BrowserCanvasMembers.GetContext(realm, canvas, [JsString.Create("2d")]).Should().Be(JsValue.Null);
-        BrowserCanvasMembers.ProbablySupportsContext(realm, canvas, [JsString.Create("2d")]).Should().Be(JsBoolean.False);
-        ErrorName(() => BrowserCanvasMembers.ToDataUrl(realm, canvas, [])).Should().Be("NotSupportedError");
+        BrowserCanvasMembers.GetContext(realm, canvas, [JsString.Create("2d")]).IsObject().Should().BeTrue();
+        BrowserCanvasMembers.GetContext(realm, canvas, [JsString.Create("webgl")]).Should().Be(JsValue.Null);
+        BrowserCanvasMembers.ProbablySupportsContext(realm, canvas, [JsString.Create("2d")]).Should().Be(JsBoolean.True);
+        BrowserCanvasMembers.ToDataUrl(realm, canvas, []).AsString().Should().StartWith("data:image/png;base64,");
         ErrorName(() => BrowserCanvasMembers.SetContext(realm, canvas, [JsValue.Null])).Should().Be("NotSupportedError");
         var state = BrowserMediaState.Of(realm, document.CreateElement("audio"));
         ErrorName(() => state.SetVolume(realm, 2)).Should().Be("IndexSizeError");

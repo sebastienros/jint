@@ -87,9 +87,6 @@ internal static partial class DomInterfaces
     /// <summary>The <c>RenderingContext</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition RenderingContext;
 
-    /// <summary>The <c>CanvasRenderingContext2D</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
-    internal static readonly DomInterfaceDefinition CanvasRenderingContext2D;
-
     /// <summary>The <c>CaretPosition</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CaretPosition;
 
@@ -461,7 +458,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(147);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(146);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -738,15 +735,6 @@ internal static partial class DomInterfaces
             typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildRenderingContext,
             null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        CanvasRenderingContext2D = Add(new DomInterfaceDefinition(
-            "CanvasRenderingContext2D",
-            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
-            BuildCanvasRenderingContext2D,
-            RenderingContext,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Object));

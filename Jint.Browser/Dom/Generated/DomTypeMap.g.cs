@@ -29,7 +29,6 @@ internal static partial class DomTypeMap
         DomInterfaces.CSSLayerStatementRule,
         DomInterfaces.CSSStyleRule,
         DomInterfaces.CSSStyleSheet,
-        DomInterfaces.CanvasRenderingContext2D,
         DomInterfaces.HTMLFormControlsCollection,
         DomInterfaces.HTMLOptionsCollection,
         DomInterfaces.AudioTrackList,

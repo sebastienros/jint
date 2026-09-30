@@ -1453,6 +1453,13 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.BrowserCanvasMembers.ToDataUrl(self.Realm, self.Target, args);
                 }),
                 length: 0)
+            .Method("toBlob",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLCanvasElement.toBlob", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLCanvasElement.toBlob");
+                    return global::Jint.Browser.Dom.BrowserCanvasMembers.ToBlob(self.Realm, self.Target, args);
+                }),
+                length: 1)
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLCanvasElement.width", static (thisObj, args) =>
                 {

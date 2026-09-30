@@ -52,7 +52,7 @@ public sealed class NativeDormantMediaTests
             }
             for (var receiver of [{}, Object.create(CanvasRenderingContext2D.prototype)]) {
                 requiresTypeError(() => Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'canvas').get.call(receiver));
-                requiresTypeError(() => Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'width').set.call(receiver, argument));
+                requiresTypeError(() => Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'lineWidth').set.call(receiver, argument));
                 requiresTypeError(() => CanvasRenderingContext2D.prototype.save.call(receiver));
             }
             for (var receiver of [{}, Object.create(TextTrackCue.prototype)]) {

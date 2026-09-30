@@ -84,57 +84,6 @@ internal static partial class DomInterfaces
             .PerRealmSlot("constructor", enumerable: false)
             .Build();
 
-    /// <summary>The members of <c>CanvasRenderingContext2D</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildCanvasRenderingContext2D()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("CanvasRenderingContext2D")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Accessor("canvas",
-                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.canvas", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.canvas");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.canvas");
-                }))
-            .Accessor("height",
-                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.height", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.height");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.height");
-                }),
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.height", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.height");
-                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.height");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.height");
-                }))
-            .Method("restore",
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.restore", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.restore");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.restore");
-                }),
-                length: 0)
-            .Method("save",
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.save", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.save");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.save");
-                }),
-                length: 0)
-            .Accessor("width",
-                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.width", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.width");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.width");
-                }),
-                global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.width", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.width");
-                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.width");
-                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.width");
-                }))
-            .Build();
-
     /// <summary>The members of <c>MediaController</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildMediaController()
         => new global::Jint.Native.JsObjectShape.Builder()

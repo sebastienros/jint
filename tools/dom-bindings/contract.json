@@ -3975,65 +3975,6 @@
       "Unscopables": []
     },
     {
-      "DomName": "CanvasRenderingContext2D",
-      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
-      "Parent": "RenderingContext",
-      "RootsAtEventTarget": false,
-      "HasInterfaceObject": true,
-      "Kind": 0,
-      "FieldName": "CanvasRenderingContext2D",
-      "Group": "Media",
-      "ManualShape": null,
-      "ShapeAdditions": null,
-      "AccessorClass": null,
-      "AccessorReference": null,
-      "Members": [
-        {
-          "DomName": "canvas",
-          "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.canvas\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.canvas\");",
-          "SetterBody": null,
-          "Length": 0,
-          "Origin": "ICanvasRenderingContext2D.Canvas"
-        },
-        {
-          "DomName": "height",
-          "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.height\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.height\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.height\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CanvasRenderingContext2D.height\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.height\");",
-          "Length": 0,
-          "Origin": "ICanvasRenderingContext2D.Height"
-        },
-        {
-          "DomName": "restore",
-          "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.restore\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.restore\");",
-          "SetterBody": null,
-          "Length": 0,
-          "Origin": "ICanvasRenderingContext2D.RestoreState"
-        },
-        {
-          "DomName": "save",
-          "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.save\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.save\");",
-          "SetterBody": null,
-          "Length": 0,
-          "Origin": "ICanvasRenderingContext2D.SaveState"
-        },
-        {
-          "DomName": "width",
-          "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.width\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.width\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.width\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CanvasRenderingContext2D.width\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.width\");",
-          "Length": 0,
-          "Origin": "ICanvasRenderingContext2D.Width"
-        }
-      ],
-      "Constants": [],
-      "Unscopables": []
-    },
-    {
       "DomName": "CaretPosition",
       "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
       "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
@@ -7528,6 +7469,14 @@
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlCanvasElement.ToDataUrl"
+        },
+        {
+          "DomName": "toBlob",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLCanvasElement.toBlob\");\nreturn global::Jint.Browser.Dom.BrowserCanvasMembers.ToBlob(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "HTMLCanvasElement.toBlob"
         },
         {
           "DomName": "width",
