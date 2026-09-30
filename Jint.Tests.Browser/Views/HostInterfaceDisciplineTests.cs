@@ -82,6 +82,13 @@ public sealed class HostInterfaceDisciplineTests
         "AnimationPlaybackEvent",
         "CookieStore",
         "CookieChangeEvent",
+        "Navigation",
+        "NavigationHistoryEntry",
+        "NavigationDestination",
+        "NavigationTransition",
+        "NavigationActivation",
+        "NavigateEvent",
+        "NavigationCurrentEntryChangeEvent",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

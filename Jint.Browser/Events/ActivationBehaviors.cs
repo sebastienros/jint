@@ -139,27 +139,36 @@ internal static class ActivationBehaviors
             return;
         }
 
-        switch (element.LocalName)
+        var previousActivation = realm.ActivationIsUserInitiated;
+        realm.ActivationIsUserInitiated = ev.IsTrusted;
+        try
         {
-            case "a":
-            case "area":
-                FollowHyperlink(realm, element, Accessibility.ContentDom.Url(element, "href"), element.GetAttributeNS(null, "target"));
-                return;
-            case "button":
-                RunButton(wrapper, element);
-                return;
-            case "input":
-                RunInput(realm, wrapper, element, ev);
-                return;
-            case "label":
-                RunLabel(wrapper, element, ev);
-                return;
-            case "option":
-                SelectOption(wrapper.DomRealm, element);
-                return;
-            case "summary":
-                RunSummary(wrapper, element);
-                return;
+            switch (element.LocalName)
+            {
+                case "a":
+                case "area":
+                    FollowHyperlink(realm, element, Accessibility.ContentDom.Url(element, "href"), element.GetAttributeNS(null, "target"));
+                    return;
+                case "button":
+                    RunButton(wrapper, element);
+                    return;
+                case "input":
+                    RunInput(realm, wrapper, element, ev);
+                    return;
+                case "label":
+                    RunLabel(wrapper, element, ev);
+                    return;
+                case "option":
+                    SelectOption(wrapper.DomRealm, element);
+                    return;
+                case "summary":
+                    RunSummary(wrapper, element);
+                    return;
+            }
+        }
+        finally
+        {
+            realm.ActivationIsUserInitiated = previousActivation;
         }
     }
 

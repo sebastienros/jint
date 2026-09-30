@@ -186,6 +186,7 @@ internal static class WindowInstaller
                 }),
                 PropertyFlag.Enumerable | PropertyFlag.ConfigurableSet));
         engine.AddLazyGlobal("history", static e => HistoryInstaller.Create(e));
+        Navigation.NavigationRealm.Install(runtime.Dom);
         engine.AddLazyGlobal("screen", static e => PageRuntime.Find(e)!.SystemState.Screen);
         // Both interface objects are handed in as state rather than built by the factory, because the one the
         // global names has to be the one the prototype's `constructor` slot already holds.
@@ -220,6 +221,7 @@ internal static class WindowInstaller
     internal static void InstallFrame(PageRuntime runtime, DomRealm dom, Document document)
     {
         InstallCookieStore(dom);
+        Navigation.NavigationRealm.Install(dom);
         var engine = runtime.Engine;
         var realm = dom.OwningRealm;
         var target = engine._webApi!.GlobalEventTargetFor(realm);

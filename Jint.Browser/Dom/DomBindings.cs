@@ -92,6 +92,15 @@ internal static class DomBindings
             }
         }
 
+        foreach (var name in Navigation.NavigationRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Navigation.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
         foreach (var name in Fonts.FontRealm.InterfaceNames)
         {
             if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))

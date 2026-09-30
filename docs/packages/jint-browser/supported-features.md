@@ -22,6 +22,7 @@
 - Timers, promises, microtasks, animation-frame callbacks, and `postMessage`
 - `fetch`, `XMLHttpRequest`, WebSocket, EventSource, blobs, and FileReader
 - Forms, validation, history, location, cookies, local/session storage
+- Navigation API: lazy `window.navigation`, history entries with stable keys/IDs and independently structured-cloned state, `navigate`/`reload`/traversal result promises, SPA interception, transitions and activation. Native history/location changes, anchors, forms and CDP history traversals share the page's session history and navigation events; cross-document loads preserve same-origin contiguous entries. Host `Page.NavigateAsync`/`ReloadAsync` and CDP `Page.navigate`/`Page.reload` are browser-UI navigations: as in HTML they fire no `navigate` event and a page cannot intercept or cancel them, but a script navigation before they commit still aborts them.
 - Cookie Store: `window.cookieStore` with promise-based `get`, `getAll`, `set`, `delete`, `onchange` and `CookieChangeEvent`, sharing the context jar with `document.cookie`, network responses and CDP
 - Dedicated workers
 - Mutation, intersection, and resize observers, with documented no-layout semantics

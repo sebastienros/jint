@@ -102,6 +102,8 @@ internal sealed class BrowserEventRealm
     /// </summary>
     internal bool DocumentHasFocus { get; set; } = true;
 
+    internal bool ActivationIsUserInitiated { get; set; }
+
     /// <summary>
     /// The element the last <c>mousedown</c> was dispatched at, which is half of where a <c>click</c> goes.
     /// </summary>

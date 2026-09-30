@@ -76,6 +76,9 @@ internal sealed class PageRuntime
     /// <summary>The engine this page runs in.</summary>
     internal Engine Engine { get; }
 
+    /// <summary>https://html.spec.whatwg.org/multipage/document-lifecycle.html#unload-counter</summary>
+    internal bool IsUnloading { get; set; }
+
     /// <summary>The managed identifier of the thread that owns this engine and its document.</summary>
     /// <remarks>
     /// It is this constructor's own thread, because a page's engine is built on its loop

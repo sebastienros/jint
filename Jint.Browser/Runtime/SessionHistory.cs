@@ -1,4 +1,5 @@
 using Jint.WebApi.StructuredClone;
+using Jint.Browser.Dom;
 
 namespace Jint.Browser.Runtime;
 
@@ -39,6 +40,20 @@ internal sealed class HistoryEntry
     /// bfcache declined the page.
     /// </remarks>
     internal long DocumentId { get; set; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/browsing-the-web.html#she-navigation-api-key</summary>
+    internal string Key { get; init; } = Guid.NewGuid().ToString();
+
+    /// <summary>https://html.spec.whatwg.org/multipage/browsing-the-web.html#she-navigation-api-id</summary>
+    internal string Id { get; } = Guid.NewGuid().ToString();
+
+    /// <summary>Navigation API state is independent of the classic History API state.</summary>
+    internal SerializationRecord? NavigationState { get; set; }
+
+    internal required DomDocumentOrigin Origin { get; set; }
+
+    // DocumentFetch uses this policy for navigation requests, independently of the response policy.
+    internal string ReferrerPolicy { get; set; } = "strict-origin-when-cross-origin";
 }
 
 /// <summary>
@@ -66,6 +81,29 @@ internal sealed class SessionHistory
     /// <summary>The identifier the document currently loaded was given.</summary>
     internal long CurrentDocumentId => Current?.DocumentId ?? -1;
 
+    internal HistoryEntry? ActivationEntry { get; private set; }
+    internal HistoryEntry? ActivationFrom { get; private set; }
+    internal string ActivationType { get; private set; } = "push";
+
+    /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-activation-interface</summary>
+    internal void Activate(HistoryEntry? from, string type)
+    {
+        ActivationEntry = Current;
+        ActivationFrom = from is not null && Current is { } entry && from.Origin.IsSameOrigin(entry.Origin) ? from : null;
+        ActivationType = type;
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/browsing-the-web.html#getting-session-history-entries-for-the-navigation-api</summary>
+    internal (int First, int Last) NavigationRange()
+    {
+        if (Current is not { } current || current.Origin.IsOpaque) return (0, -1);
+        var first = _index;
+        var last = _index;
+        while (first > 0 && current.Origin.IsSameOrigin(_entries[first - 1].Origin)) first--;
+        while (last + 1 < _entries.Count && current.Origin.IsSameOrigin(_entries[last + 1].Origin)) last++;
+        return (first, last);
+    }
+
     /// <summary>Takes the next document identifier; one per document actually loaded.</summary>
     internal long NextDocumentId() => _nextDocumentId++;
 
@@ -80,7 +118,7 @@ internal sealed class SessionHistory
     internal void Push(string url, long documentId)
     {
         Truncate();
-        _entries.Add(new HistoryEntry(url, state: null, documentId));
+        _entries.Add(new HistoryEntry(url, state: null, documentId) { Origin = DomDocumentOrigin.FromUrl(url) });
         _index = _entries.Count - 1;
     }
 
@@ -93,7 +131,11 @@ internal sealed class SessionHistory
             return;
         }
 
-        _entries[_index] = new HistoryEntry(url, state: null, documentId);
+        _entries[_index] = new HistoryEntry(url, state: null, documentId)
+        {
+            Key = Current.Key,
+            Origin = DomDocumentOrigin.FromUrl(url),
+        };
     }
 
     /// <summary>
@@ -103,8 +145,10 @@ internal sealed class SessionHistory
     internal void PushState(string url, SerializationRecord? state)
     {
         var documentId = CurrentDocumentId;
+        var origin = Current?.Origin ?? DomDocumentOrigin.FromUrl(url);
+        var referrerPolicy = Current?.ReferrerPolicy ?? "strict-origin-when-cross-origin";
         Truncate();
-        _entries.Add(new HistoryEntry(url, state, documentId));
+        _entries.Add(new HistoryEntry(url, state, documentId) { Origin = origin, ReferrerPolicy = referrerPolicy });
         _index = _entries.Count - 1;
     }
 
@@ -117,8 +161,13 @@ internal sealed class SessionHistory
             return;
         }
 
-        current.Url = url;
-        current.State = state;
+        _entries[_index] = new HistoryEntry(url, state, current.DocumentId)
+        {
+            Key = current.Key,
+            Origin = current.Origin,
+            NavigationState = current.NavigationState,
+            ReferrerPolicy = current.ReferrerPolicy,
+        };
     }
 
     /// <summary>

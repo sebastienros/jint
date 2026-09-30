@@ -161,6 +161,9 @@ internal static class HistoryInstaller
             : (SerializationRecord?) new StructuredSerializer(runtime.Engine, runtime.Engine._mainRealm)
                 .Serialize(arguments.At(0), transferList: null);
 
+        if (runtime.Dom.ExistingNavigation?.Handle(target, replace ? "replace" : "push", classicState: state, classicHistory: true) == true)
+            return JsValue.Undefined;
+
         if (replace)
         {
             page.History.ReplaceState(target, state);

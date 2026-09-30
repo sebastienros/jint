@@ -124,11 +124,11 @@ internal static class FormSubmitter
 
         if (string.Equals(method, "get", StringComparison.Ordinal))
         {
-            SubmitAsGet(runtime, target, entries);
+            SubmitAsGet(runtime, target, entries, submitter ?? form);
             return;
         }
 
-        SubmitAsPost(runtime, target, entries, enctype);
+        SubmitAsPost(runtime, target, entries, enctype, submitter ?? form);
     }
 
     /// <summary>
@@ -136,16 +136,18 @@ internal static class FormSubmitter
     /// <c>GET</c>. A <c>GET</c> submission cannot carry a file, so a file entry contributes its name — which
     /// is what the URL-encoded serializer does with one.
     /// </summary>
-    private static void SubmitAsGet(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries)
+    private static void SubmitAsGet(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, Element source)
     {
         target.Query = FormUrlEncoded.Serialize(UrlEncodedPairs(entries));
         runtime.Page.RequestNavigation(
             target.Serialize(),
             replace: false,
-            reason: PageNavigationReason.FormSubmissionGet);
+            reason: PageNavigationReason.FormSubmissionGet,
+            sourceElement: runtime.Dom.ExistingNavigation is null ? null : runtime.Dom.WrapNode(source),
+            userInitiated: Events.BrowserEventRealm.Of(runtime.Engine).ActivationIsUserInitiated);
     }
 
-    private static void SubmitAsPost(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, string enctype)
+    private static void SubmitAsPost(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, string enctype, Element source)
     {
         byte[] body;
         string contentType;
@@ -167,7 +169,16 @@ internal static class FormSubmitter
             contentType = "application/x-www-form-urlencoded;charset=UTF-8";
         }
 
-        runtime.Page.RequestFormPost(target.Serialize(), body, contentType);
+        JsFormData? formData = null;
+        if (runtime.Dom.ExistingNavigation is not null)
+        {
+            formData = new JsFormData(runtime.Engine) { _prototype = runtime.Dom.OwningRealm.Intrinsics.FormData.PrototypeObject };
+            formData.Entries.AddRange(entries);
+        }
+        runtime.Page.RequestFormPost(target.Serialize(), body, contentType,
+            source: formData is null ? null : runtime.Dom.WrapNode(source),
+            formData: formData,
+            userInitiated: Events.BrowserEventRealm.Of(runtime.Engine).ActivationIsUserInitiated);
     }
 
     /// <summary>

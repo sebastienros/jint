@@ -61,7 +61,10 @@ internal sealed class PageActivationHost : BrowserActivationHost
             url,
             replace: false,
             engine: _runtime.Engine,
-            reason: PageNavigationReason.AnchorClick);
+            reason: PageNavigationReason.AnchorClick,
+            sourceElement: _runtime.Dom.ExistingNavigation is null ? null : _runtime.Dom.WrapNode(source),
+            downloadRequest: source.GetAttribute("download"),
+            userInitiated: realm.ActivationIsUserInitiated);
     }
 
     /// <summary>

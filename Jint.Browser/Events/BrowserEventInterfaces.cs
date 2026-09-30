@@ -2,6 +2,9 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.WebApi.Events;
+using Jint.Browser.Navigation;
+using Jint.WebApi.Abort;
+using Jint.WebApi.Files;
 
 namespace Jint.Browser.Events;
 
@@ -599,6 +602,66 @@ internal static class BrowserEventInterfaces
             return new JsCookieChangeEvent(realm.Engine, type, eventInit, realm.TimeStamp, changed, deleted);
         });
 
+    /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-navigateevent-interface</summary>
+    internal static readonly BrowserEventDefinition NavigateEvent = Define(
+        "NavigateEvent", parent: null, BuildNavigateEvent, static (realm, args) =>
+        {
+            var type = Type(realm, args, "NavigateEvent");
+            var eventInit = EventInit(realm, args, "NavigateEvent");
+            var init = EventInitReader.Dictionary(args);
+            var canIntercept = EventInitReader.Bool(init, Names.CanIntercept);
+            if (init?.Get(Names.Destination) is not JsNavigationDestination destination)
+            {
+                Throw.TypeError(realm.OwningRealm, "NavigateEventInit.destination must be a NavigationDestination.");
+                return null!;
+            }
+            var downloadRequest = EventInitReader.NullableText(init, Names.DownloadRequest);
+            var formData = EventInitReader.Any(init, Names.FormData, JsValue.Null);
+            if (!formData.IsNull() && formData is not JsFormData)
+                Throw.TypeError(realm.OwningRealm, "NavigateEventInit.formData must be a FormData.");
+            var hasUAVisualTransition = EventInitReader.Bool(init, Names.HasUaVisualTransition);
+            var hashChange = EventInitReader.Bool(init, Names.HashChange);
+            var info = EventInitReader.Any(init, Names.Info, JsValue.Undefined);
+            var navigationType = NavigationValues.Enum(realm.OwningRealm, init.Get(Names.NavigationType), "push", "push", "replace", "reload", "traverse");
+            if (init.Get(Names.Signal) is not JsAbortSignal signal)
+            {
+                Throw.TypeError(realm.OwningRealm, "NavigateEventInit.signal must be an AbortSignal.");
+                return null!;
+            }
+            var source = EventInitReader.Any(init, Names.SourceElement, JsValue.Null);
+            if (!source.IsNull() && source is not Dom.DomNodeObject { Node: Jint.HtmlParser.Element })
+                Throw.TypeError(realm.OwningRealm, "NavigateEventInit.sourceElement must be an Element.");
+            return new JsNavigateEvent(realm.Engine, type, eventInit, realm.TimeStamp, navigationType, destination, signal)
+            {
+                CanIntercept = canIntercept,
+                UserInitiated = EventInitReader.Bool(init, Names.UserInitiated),
+                HashChange = hashChange,
+                FormData = formData,
+                DownloadRequest = downloadRequest,
+                Info = info,
+                HasUAVisualTransition = hasUAVisualTransition,
+                SourceElement = source,
+            };
+        }, constructorLength: 2);
+
+    /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-navigationcurrententrychangeevent-interface</summary>
+    internal static readonly BrowserEventDefinition NavigationCurrentEntryChangeEvent = Define(
+        "NavigationCurrentEntryChangeEvent", parent: null, BuildNavigationCurrentEntryChangeEvent, static (realm, args) =>
+        {
+            var type = Type(realm, args, "NavigationCurrentEntryChangeEvent");
+            var eventInit = EventInit(realm, args, "NavigationCurrentEntryChangeEvent");
+            var init = EventInitReader.Dictionary(args);
+            if (init?.Get(Names.From) is not JsNavigationHistoryEntry from)
+            {
+                Throw.TypeError(realm.OwningRealm, "NavigationCurrentEntryChangeEventInit.from must be a NavigationHistoryEntry.");
+                return null!;
+            }
+            var navigationType = init.Get(Names.NavigationType);
+            return new JsNavigationCurrentEntryChangeEvent(realm.Engine, type, eventInit, realm.TimeStamp,
+                navigationType.IsNullOrUndefined() ? null
+                    : NavigationValues.Enum(realm.OwningRealm, navigationType, "", "push", "replace", "reload", "traverse"), from);
+        }, constructorLength: 2);
+
     /// <summary>Every interface, parents before children so a prototype chain can be built by walking up.</summary>
     internal static readonly BrowserEventDefinition[] All =
     [
@@ -630,6 +693,8 @@ internal static class BrowserEventInterfaces
         FontFaceSetLoadEvent,
         AnimationPlaybackEvent,
         CookieChangeEvent,
+        NavigateEvent,
+        NavigationCurrentEntryChangeEvent,
     ];
 
     /// <summary>
@@ -1053,6 +1118,28 @@ internal static class BrowserEventInterfaces
         .Accessor("deleted", static (t, _) => Brand<JsCookieChangeEvent>(t, "CookieChangeEvent.deleted").Deleted)
         .Build();
 
+    private static JsObjectShape BuildNavigateEvent() => Base("NavigateEvent")
+        .Accessor("navigationType", static (t, _) => JsString.Create(Brand<JsNavigateEvent>(t, "NavigateEvent.navigationType").NavigationType))
+        .Accessor("destination", static (t, _) => Brand<JsNavigateEvent>(t, "NavigateEvent.destination").Destination)
+        .Accessor("canIntercept", static (t, _) => JsBoolean.Create(Brand<JsNavigateEvent>(t, "NavigateEvent.canIntercept").CanIntercept))
+        .Accessor("userInitiated", static (t, _) => JsBoolean.Create(Brand<JsNavigateEvent>(t, "NavigateEvent.userInitiated").UserInitiated))
+        .Accessor("hashChange", static (t, _) => JsBoolean.Create(Brand<JsNavigateEvent>(t, "NavigateEvent.hashChange").HashChange))
+        .Accessor("signal", static (t, _) => Brand<JsNavigateEvent>(t, "NavigateEvent.signal").Signal)
+        .Accessor("formData", static (t, _) => Brand<JsNavigateEvent>(t, "NavigateEvent.formData").FormData)
+        .Accessor("downloadRequest", static (t, _) => Dom.DomConvert.NullableText(Brand<JsNavigateEvent>(t, "NavigateEvent.downloadRequest").DownloadRequest))
+        .Accessor("info", static (t, _) => Brand<JsNavigateEvent>(t, "NavigateEvent.info").Info)
+        .Accessor("hasUAVisualTransition", static (t, _) => JsBoolean.Create(Brand<JsNavigateEvent>(t, "NavigateEvent.hasUAVisualTransition").HasUAVisualTransition))
+        .Accessor("sourceElement", static (t, _) => Brand<JsNavigateEvent>(t, "NavigateEvent.sourceElement").SourceElement)
+        .Method("intercept", static (t, args) => Brand<JsNavigateEvent>(t, "NavigateEvent.intercept").Intercept(args.At(0)))
+        .Method("scroll", static (t, _) => Brand<JsNavigateEvent>(t, "NavigateEvent.scroll").Scroll())
+        .Build();
+
+    private static JsObjectShape BuildNavigationCurrentEntryChangeEvent() => Base("NavigationCurrentEntryChangeEvent")
+        .Accessor("navigationType", static (t, _) => Dom.DomConvert.NullableText(
+            Brand<JsNavigationCurrentEntryChangeEvent>(t, "NavigationCurrentEntryChangeEvent.navigationType").NavigationType))
+        .Accessor("from", static (t, _) => Brand<JsNavigationCurrentEntryChangeEvent>(t, "NavigationCurrentEntryChangeEvent.from").From)
+        .Build();
+
     private static JsObjectShape BuildAnimationPlaybackEvent() => Base("AnimationPlaybackEvent")
         .Accessor("currentTime", static (t, _) => Animations.AnimationValues.Value(Brand<JsAnimationPlaybackEvent>(t, "AnimationPlaybackEvent.currentTime").CurrentTime))
         .Accessor("timelineTime", static (t, _) => Animations.AnimationValues.Value(Brand<JsAnimationPlaybackEvent>(t, "AnimationPlaybackEvent.timelineTime").TimelineTime))
@@ -1339,6 +1426,16 @@ internal static class BrowserEventInterfaces
     /// <summary>The dictionary member names, interned once — <see cref="EventInitReader"/>'s reason.</summary>
     private static class Names
     {
+        internal static readonly JsString NavigationType = new("navigationType");
+        internal static readonly JsString Destination = new("destination");
+        internal static readonly JsString From = new("from");
+        internal static readonly JsString Signal = new("signal");
+        internal static readonly JsString CanIntercept = new("canIntercept");
+        internal static readonly JsString UserInitiated = new("userInitiated");
+        internal static readonly JsString HashChange = new("hashChange");
+        internal static readonly JsString DownloadRequest = new("downloadRequest");
+        internal static readonly JsString Info = new("info");
+        internal static readonly JsString SourceElement = new("sourceElement");
         internal static readonly JsString Changed = new("changed");
         internal static readonly JsString Deleted = new("deleted");
         internal static readonly JsString PointerId = new("pointerId");

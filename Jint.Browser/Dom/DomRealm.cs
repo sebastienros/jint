@@ -605,6 +605,10 @@ internal sealed class DomRealm
 
     internal Cookies.CookieRealm Cookies => _cookies ??= new Cookies.CookieRealm(this);
 
+    private Jint.Browser.Navigation.NavigationRealm? _navigation;
+    internal Jint.Browser.Navigation.NavigationRealm Navigation => _navigation ??= new Jint.Browser.Navigation.NavigationRealm(this);
+    internal Jint.Browser.Navigation.JsNavigation? ExistingNavigation => _navigation?.ExistingWindow;
+
     private Jint.Browser.Animations.AnimationRealm? _animations;
 
     /// <summary>This realm's Web Animations interfaces and document timelines, created only on demand.</summary>
