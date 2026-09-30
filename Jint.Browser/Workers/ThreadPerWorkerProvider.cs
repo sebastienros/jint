@@ -91,6 +91,11 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         // GlobalEvents are already on — CreateDefaultOptions adds them, because the worker global is built
         // out of them.
         options.WebApi.Features |= WebApiFeatures.Fetch;
+        if (PageStorage.ConfigureCaches(options, _network,
+            request.Parent.Options.WebApi.Fetch.Origin ?? PageUrl.OriginOf(_page.Url)))
+        {
+            options.WebApi.Features |= WebApiFeatures.CacheApi;
+        }
 
         // The three page-sized limits, again. CopySecurityPosture carries the engine's own bounds — the
         // constraint values, the parser bounds, the module-graph bounds, the result limits — but a web-API
@@ -137,6 +142,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         }
 
         var engine = new Engine(options);
+        PageStorage.InstallCaches(engine, opaque: false);
         PageBudget.For(engine, _options);
         return engine;
     }

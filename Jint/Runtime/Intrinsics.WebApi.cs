@@ -64,6 +64,8 @@ public sealed partial class Intrinsics
     private PerformanceConstructor? _performance;
     private JsPerformance? _performanceObject;
     private PerformanceEntryConstructor? _performanceEntry;
+    private PerformanceResourceTimingConstructor? _performanceResourceTiming;
+    private PerformanceNavigationTimingConstructor? _performanceNavigationTiming;
     private PerformanceMarkConstructor? _performanceMark;
     private PerformanceMeasureConstructor? _performanceMeasure;
     private PerformanceObserverConstructor? _performanceObserver;
@@ -317,6 +319,12 @@ public sealed partial class Intrinsics
 
     internal PerformanceEntryConstructor PerformanceEntry =>
         _performanceEntry ??= new PerformanceEntryConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal PerformanceResourceTimingConstructor PerformanceResourceTiming =>
+        _performanceResourceTiming ??= new PerformanceResourceTimingConstructor(_engine, _realm, PerformanceEntry);
+
+    internal PerformanceNavigationTimingConstructor PerformanceNavigationTiming =>
+        _performanceNavigationTiming ??= new PerformanceNavigationTimingConstructor(_engine, _realm, PerformanceResourceTiming);
 
     /// <summary>
     /// <c>PerformanceMark</c> inherits from <c>PerformanceEntry</c>, so reaching it builds

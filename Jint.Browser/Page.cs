@@ -708,7 +708,7 @@ public sealed partial class Page : IAsyncDisposable
         => _recorder.Add(PageErrorKind.WorkerError, exception.Message, name.Length == 0 ? "Worker" : name);
 
     /// <summary>The engine one document runs in, built with that document's URL, origin and referrer.</summary>
-    private Engine BuildEngine(string url, string referrer)
+    private Engine BuildEngine(string url, string referrer, string? origin = null)
         => BrowserEngineFactory.Create(new PageEngineRequest(
             this,
             _options,
@@ -720,7 +720,8 @@ public sealed partial class Page : IAsyncDisposable
             Emulation,
             url,
             referrer,
-            _loop.Closing));
+            _loop.Closing,
+            origin));
 
     private static void Release(PageLoad? load)
     {

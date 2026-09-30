@@ -20,9 +20,8 @@ namespace Jint.WebApi.Performance;
 /// feature detection reads before it observes anything — the specification's own example opens with it.
 /// </para>
 /// <para>
-/// The two entry types Jint produces are <c>mark</c> and <c>measure</c>; every other type
-/// https://w3c.github.io/timing-entrytypes-registry/ names belongs to a document's navigation, its
-/// subresources or its rendering, none of which an embedded interpreter has. Observing an unsupported type
+/// Jint produces marks and measures, plus resource entries when fetch or XMLHttpRequest is enabled; a Window host can additionally provide navigation
+/// entries. Rendering-related types remain unsupported. Observing an unsupported type
 /// is not an error — <c>observe()</c> filters unknown names out and, if nothing is left, registers nothing —
 /// so a script written for a browser degrades rather than throws.
 /// </para>
@@ -36,7 +35,7 @@ internal sealed partial class PerformanceObserverConstructor : Constructor
     /// https://w3c.github.io/performance-timeline/#dfn-frozen-array-of-supported-entry-types — "in
     /// alphabetical order", which <c>performance-timeline/supportedEntryTypes.any.js</c> checks pairwise.
     /// </summary>
-    private static readonly string[] _supportedEntryTypes = ["mark", "measure"];
+    private static readonly string[] _supportedEntryTypes = ["mark", "measure", "navigation", "resource"];
 
     /// <summary>
     /// The one array every read of <c>supportedEntryTypes</c> answers with. <c>[SameObject]</c> in the IDL,
@@ -106,7 +105,7 @@ internal sealed partial class PerformanceObserverConstructor : Constructor
         var values = new List<JsValue>(_supportedEntryTypes.Length);
         foreach (var type in _supportedEntryTypes)
         {
-            values.Add(JsString.Create(type));
+            if (IsSupportedEntryType(type)) values.Add(JsString.Create(type));
         }
 
         var array = _realm.Intrinsics.Array.ConstructFast(values);
@@ -119,8 +118,13 @@ internal sealed partial class PerformanceObserverConstructor : Constructor
     /// Whether <paramref name="entryType"/> is one this engine produces — the membership test both arms of
     /// <c>observe()</c> filter with.
     /// </summary>
-    internal static bool IsSupportedEntryType(string entryType)
+    internal bool IsSupportedEntryType(string entryType)
     {
+        if (string.Equals(entryType, "navigation", StringComparison.Ordinal)
+            && _engine._webApi?.GlobalEventTarget?.IsWindow != true) return false;
+        // Only fetch and XMLHttpRequest mark resource timing, so an engine with neither produces no such entry.
+        if (string.Equals(entryType, "resource", StringComparison.Ordinal)
+            && (_engine._webApiFeatures & (WebApiFeatures.Fetch | WebApiFeatures.XmlHttpRequest)) == WebApiFeatures.None) return false;
         foreach (var supported in _supportedEntryTypes)
         {
             if (string.Equals(supported, entryType, StringComparison.Ordinal))

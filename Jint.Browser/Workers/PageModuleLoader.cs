@@ -4,6 +4,7 @@ using Jint.Browser.Runtime;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Performance;
 
 namespace Jint.Browser.Workers;
 
@@ -112,6 +113,8 @@ internal sealed class PageModuleLoader : ModuleLoader
             Credentials = JsRequest.CredentialsSameOrigin,
             Referrer = Jint.WebApi.Url.Parsing.UrlParser.Parse(_baseUrl.AbsoluteUri),
             ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin,
+            ResourceTiming = ResourceTiming.Start(engine, engine._mainRealm, url.Serialize(excludeFragment: true),
+                "script", engine.Options.WebApi.Fetch.Origin, JsRequest.CredentialsSameOrigin),
         };
 
         var origin = Jint.WebApi.Url.Parsing.UrlParser.Parse(_baseUrl.AbsoluteUri);
@@ -147,6 +150,7 @@ internal sealed class PageModuleLoader : ModuleLoader
             observation?.FinalResponse(exchange);
             observation?.Data(bytes);
             observation?.Completed(bytes.Length);
+            request.ResourceTiming?.Complete(bytes.Length);
 
             if (!exchange.Response.IsSuccessStatusCode)
             {
@@ -164,6 +168,7 @@ internal sealed class PageModuleLoader : ModuleLoader
         }
         catch (Exception exception)
         {
+            request.ResourceTiming?.Complete(0, failed: true);
             observation?.Failed(exception.Message, exception);
             throw;
         }

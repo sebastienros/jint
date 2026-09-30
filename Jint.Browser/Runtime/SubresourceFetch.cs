@@ -63,6 +63,7 @@ internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, str
 /// <param name="Initiator">What the page's network log should call this request.</param>
 /// <param name="UserAgent">The user agent the page reports, which every resource it asks for carries.</param>
 /// <param name="Kind">What the resource is for, which is what a protocol client filters requests on.</param>
+/// <param name="Timing">The engine-free recorder for the requesting document's performance timeline.</param>
 internal sealed record SubresourceRequest(
     UrlRecord Url,
     UrlRecord? Referrer,
@@ -71,7 +72,8 @@ internal sealed record SubresourceRequest(
     int MaxRedirects,
     RequestInitiator Initiator,
     string UserAgent,
-    PageRequestKind Kind = PageRequestKind.Other);
+    PageRequestKind Kind = PageRequestKind.Other,
+    FetchResourceTiming? Timing = null);
 
 /// <summary>Raised when a subresource could not be obtained, with the sentence a page error should carry.</summary>
 internal sealed class SubresourceFetchException : Exception
@@ -140,6 +142,7 @@ internal static class SubresourceFetch
             Credentials = JsRequest.CredentialsSameOrigin,
             Referrer = request.Referrer,
             ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin,
+            ResourceTiming = request.Timing,
         };
 
         var policy = new FetchPolicy
@@ -179,6 +182,7 @@ internal static class SubresourceFetch
             // them to the observer.
             observation?.Data(bytes);
             observation?.Completed(bytes.Length);
+            request.Timing?.Complete(bytes.Length);
 
             var status = (int) response.StatusCode;
             var final = exchange.Url.Serialize(excludeFragment: true);
@@ -202,11 +206,13 @@ internal static class SubresourceFetch
         }
         catch (OperationCanceledException)
         {
+            request.Timing?.Complete(0, failed: true);
             observation?.Failed("The load was cancelled.", null);
             throw;
         }
         catch (Exception exception)
         {
+            request.Timing?.Complete(0, failed: true);
             observation?.Failed(exception.Message, exception);
             throw new SubresourceFetchException(url, "'" + url + "' could not be loaded: " + exception.Message, exception);
         }

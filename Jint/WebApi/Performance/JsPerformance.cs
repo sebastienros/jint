@@ -23,11 +23,7 @@ namespace Jint.WebApi.Performance;
 /// </para>
 /// <para>
 /// <b>It is an <c>EventTarget</c></b>, which https://w3c.github.io/hr-time/#sec-performance declares and
-/// which Jint used to decline while nothing here could fire an event at it. Nothing still does: the one event
-/// the specifications define on this interface is <c>resourcetimingbufferfull</c>, and there is no resource
-/// timing buffer to fill. The inheritance is claimed all the same, because it is what a script's own
-/// listeners need — <c>performance.addEventListener</c> is how a host-supplied timeline extension would
-/// deliver, and <c>performance instanceof EventTarget</c> is what a browser answers.
+/// which receives <c>resourcetimingbufferfull</c> when the resource timeline needs more space.
 /// </para>
 /// <para>
 /// <b>The time origin is per engine, not per evaluation cycle.</b> A pooled engine that a host recycles with
@@ -84,6 +80,13 @@ internal sealed class JsPerformance : JsEventTarget
     /// </summary>
     private double _droppedMarks;
     private double _droppedMeasures;
+    private double _droppedResources;
+    private int _resourceCount;
+    private int _navigationCount;
+    private uint _resourceBufferSize = 250;
+    private List<JsPerformanceEntry>? _resourceOverflow;
+    private bool _resourceBufferFullPending;
+    internal static readonly JsString ResourceBufferFullEvent = new("resourcetimingbufferfull");
 
     private JsPerformance(Engine engine, Realm realm, WebApiEngineState state) : base(engine, realm)
     {
@@ -119,10 +122,27 @@ internal sealed class JsPerformance : JsEventTarget
     /// </remarks>
     internal void QueuePerformanceEntry(JsPerformanceEntry entry)
     {
-        State.PerformanceObservers.QueuePerformanceEntry(entry);
+        entry.Performance = this;
+        if (entry is not JsPerformanceNavigationTiming)
+        {
+            State.PerformanceObservers.QueuePerformanceEntry(entry);
+        }
 
         var entries = _entries ??= new List<JsPerformanceEntry>();
-        if (entries.Count >= MaxBufferedEntries)
+        if (ReferenceEquals(entry.EntryType, JsPerformanceResourceTiming.ResourceEntryType))
+        {
+            AddResourceEntry(entry);
+            return;
+        }
+
+        if (entry is JsPerformanceNavigationTiming)
+        {
+            entries.Add(entry);
+            _navigationCount++;
+            return;
+        }
+
+        if (entries.Count - _resourceCount - _navigationCount >= MaxBufferedEntries)
         {
             if (ReferenceEquals(entry.EntryType, JsPerformanceMark.MarkEntryType))
             {
@@ -137,6 +157,68 @@ internal sealed class JsPerformance : JsEventTarget
         }
 
         entries.Add(entry);
+    }
+
+    // https://w3c.github.io/resource-timing/#extensions-performance-interface
+    private void AddResourceEntry(JsPerformanceEntry entry)
+    {
+        if (_resourceCount < _resourceBufferSize && !_resourceBufferFullPending)
+        {
+            _entries!.Add(entry);
+            _resourceCount++;
+            return;
+        }
+
+        (_resourceOverflow ??= []).Add(entry);
+        if (!_resourceBufferFullPending)
+        {
+            _resourceBufferFullPending = true;
+            State.PerformanceObservers.QueueResourceBufferFull(this);
+        }
+    }
+
+    internal void ClearResourceTimings()
+    {
+        RemoveEntries(JsPerformanceResourceTiming.ResourceEntryType, Undefined);
+        _resourceCount = 0;
+    }
+
+    internal void SetResourceTimingBufferSize(uint size) => _resourceBufferSize = size;
+
+    // https://w3c.github.io/resource-timing/#dfn-fire-a-buffer-full-event
+    internal void FireResourceBufferFull()
+    {
+        try
+        {
+            while (_resourceOverflow is { Count: > 0 } overflow)
+            {
+                var before = overflow.Count;
+                if (_resourceCount >= _resourceBufferSize)
+                {
+                    DispatchEvent(_realm.Intrinsics.Event.CreateTrustedEvent(ResourceBufferFullEvent, default));
+                }
+
+                var copied = (int) Math.Min(overflow.Count, Math.Max(0L, (long) _resourceBufferSize - _resourceCount));
+                for (var i = 0; i < copied; i++) _entries!.Add(overflow[i]);
+                _resourceCount += copied;
+                overflow.RemoveRange(0, copied);
+                if (overflow.Count >= before)
+                {
+                    _droppedResources += overflow.Count;
+                    overflow.Clear();
+                }
+            }
+        }
+        finally
+        {
+            _resourceBufferFullPending = false;
+        }
+    }
+
+    internal void ResetResourceBufferTask()
+    {
+        _resourceBufferFullPending = false;
+        _resourceOverflow?.Clear();
     }
 
     /// <summary>
@@ -169,6 +251,7 @@ internal sealed class JsPerformance : JsEventTarget
     {
         "mark" => _droppedMarks,
         "measure" => _droppedMeasures,
+        "resource" => _droppedResources,
         _ => 0,
     };
 

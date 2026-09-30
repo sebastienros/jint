@@ -150,7 +150,9 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
                 MaxRedirects,
                 RequestInitiator.Subresource,
                 _emulation.EffectiveUserAgent,
-                PageRequestKind.Script),
+                PageRequestKind.Script,
+                Jint.WebApi.Performance.ResourceTiming.Start(engine, engine._mainRealm,
+                    url.Serialize(excludeFragment: true), "script", referrer?.SerializeOrigin(), JsRequest.CredentialsSameOrigin)),
             _requests,
             cancellationToken).ConfigureAwait(false);
 

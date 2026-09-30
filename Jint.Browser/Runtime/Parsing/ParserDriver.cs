@@ -526,6 +526,14 @@ internal sealed partial class ParserDriver : IDisposable
         // shape for the same reason.
         var documentUrl = UrlParser.Parse(_runtime.DocumentUrl);
         var position = fetchSource ?? new FetchSource(documentUrl, documentUrl);
+        var timingRealm = source.OwnerDocument is { } owner && !ReferenceEquals(owner, _runtime.Document)
+            ? FrameWindows.DocumentRealm(_runtime, owner).OwningRealm : _runtime.Engine._mainRealm;
+        var timing = Jint.WebApi.Performance.ResourceTiming.Start(_runtime.Engine, timingRealm,
+            target.Serialize(excludeFragment: true),
+            what == "imported stylesheet" ? "css" : source.LocalName,
+            position.Origin?.SerializeOrigin(), JsRequest.CredentialsSameOrigin,
+            renderBlocking: _tokenizing && mayPump && (what == "stylesheet" || source.LocalName == "script"),
+            queue: false);
         var request = new SubresourceRequest(
             target,
             position.Referrer,
@@ -534,7 +542,8 @@ internal sealed partial class ParserDriver : IDisposable
             _maxRedirects,
             RequestInitiator.Subresource,
             _runtime.Emulation.EffectiveUserAgent,
-            kind);
+            kind,
+            timing);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
         timeout.CancelAfter(_timeout);
 
@@ -571,6 +580,13 @@ internal sealed partial class ParserDriver : IDisposable
         {
             Failed("The " + what + " '" + url + "' could not be loaded: " + exception.Message);
             return null;
+        }
+        finally
+        {
+            if (timing?.Result is { } info && !_cancellationToken.IsCancellationRequested)
+            {
+                Jint.WebApi.Performance.ResourceTiming.Add(_runtime.Engine, timingRealm, info);
+            }
         }
     }
 
@@ -862,12 +878,14 @@ internal sealed partial class ParserDriver : IDisposable
 
         if (wrapper is not null)
         {
+            if (_runtime.NavigationTiming is { } start) start.DomContentLoadedEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Dispatch(
                 _runtime,
                 wrapper,
                 _runtime.Engine._mainRealm.Intrinsics.Event.CreateTrustedEvent(
                     JsString.Create("DOMContentLoaded"),
                     new EventInit(Bubbles: true, Cancelable: false, Composed: false)));
+            if (_runtime.NavigationTiming is { } end) end.DomContentLoadedEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
         }
 
         onPhase?.Invoke(NavigationPhase.DomContentLoaded);
@@ -900,7 +918,13 @@ internal sealed partial class ParserDriver : IDisposable
 
         if (window is not null)
         {
+            if (_runtime.NavigationTiming is { } start) start.LoadEventStart = _runtime.Engine._webApi!.CurrentHighResolutionTime;
             PageEvents.Fire(_runtime, window, "load");
+            if (_runtime.NavigationTiming is { } end)
+            {
+                end.LoadEventEnd = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+                _runtime.Engine._webApi.PerformanceObservers.QueuePerformanceEntry(end);
+            }
 
             // https://html.spec.whatwg.org/multipage/browsing-the-web.html#history-traversal: pageshow follows
             // load, and its persisted flag is false because nothing here restores a document from a cache.
@@ -987,6 +1011,11 @@ internal sealed partial class ParserDriver : IDisposable
         }
 
         _runtime.ReadyState = state;
+        if (_runtime.NavigationTiming is { } navigation)
+        {
+            if (state == "interactive") navigation.DomInteractive = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+            else if (state == "complete") navigation.DomComplete = _runtime.Engine._webApi!.CurrentHighResolutionTime;
+        }
 
         if (_runtime.DocumentWrapper is { } wrapper)
         {

@@ -57,6 +57,8 @@ internal sealed class FetchFailureException : Exception
 /// </remarks>
 internal sealed class FetchRequestSnapshot
 {
+    internal FetchResourceTiming? ResourceTiming { get; init; }
+
     internal required string Method { get; init; }
 
     internal required UrlRecord Url { get; init; }
@@ -365,9 +367,14 @@ internal static class FetchTransport
         var handedOver = false;
         try
         {
-            var snapshot = await BeginResponseAsync(exchange, policy, observation, cancellationToken).ConfigureAwait(false);
+            var snapshot = await BeginResponseAsync(exchange, policy, observation, request.ResourceTiming, cancellationToken).ConfigureAwait(false);
             handedOver = snapshot.Body is not null;
             return snapshot;
+        }
+        catch
+        {
+            request.ResourceTiming?.Complete(0, failed: true);
+            throw;
         }
         finally
         {
@@ -396,20 +403,21 @@ internal static class FetchTransport
         CancellationToken cancellationToken,
         FetchObservation? observation = null)
     {
-        var exchange = await SendForStreamCoreAsync(client, request, policy, cancellationToken, observation).ConfigureAwait(false);
-
-        if (observation is null)
-        {
-            return exchange;
-        }
-
+        FetchExchange? exchange = null;
         try
         {
-            return await AnswerResponseAsync(exchange, observation, cancellationToken).ConfigureAwait(false);
+            exchange = await SendForStreamCoreAsync(client, request, policy, cancellationToken, observation).ConfigureAwait(false);
+            if (observation is not null)
+            {
+                exchange = await AnswerResponseAsync(exchange, observation, cancellationToken).ConfigureAwait(false);
+            }
+            request.ResourceTiming?.Response(exchange);
+            return exchange;
         }
         catch
         {
-            exchange.Dispose();
+            exchange?.Dispose();
+            request.ResourceTiming?.Complete(0, failed: true);
             throw;
         }
     }
@@ -617,6 +625,7 @@ internal static class FetchTransport
 
         while (true)
         {
+            request.ResourceTiming?.StartHop();
             // The first hop's filter has already been run on the engine thread, where the fetch was started;
             // running it again here would call host code twice for one request, which the host can see.
             Uri uri;
@@ -790,6 +799,7 @@ internal static class FetchTransport
 
                 // The redirect reaches the observer before the hop it causes does, and again on that hop's
                 // own snapshot, so a protocol layer can pair the two without holding state of its own.
+                request.ResourceTiming?.Redirect(response, url);
                 if (observation is not null)
                 {
                     redirectResponse = Observed(observation, response, uri, isRedirect: true, fromInterception: false, timing: timing);
@@ -1481,6 +1491,7 @@ internal static class FetchTransport
         FetchExchange exchange,
         FetchPolicy policy,
         FetchObservation? observation,
+        FetchResourceTiming? resourceTiming,
         CancellationToken cancellationToken)
     {
         var response = exchange.Response;
@@ -1543,13 +1554,14 @@ internal static class FetchTransport
 
             // From here the connection belongs to the body stream: the caller sees a non-null body and stops
             // disposing the message underneath it.
-            body = new FetchBodyStream(response, content, policy.MaxResponseBytes, observation);
+            body = new FetchBodyStream(response, content, policy.MaxResponseBytes, observation, resourceTiming);
         }
         else
         {
             // Nothing will ever be read, so the request is over here: a 204 and a HEAD complete with a body
             // length of zero rather than waiting for bytes that are not coming.
             observation?.Completed(0);
+            resourceTiming?.Complete(0);
         }
 
         return new FetchResponseSnapshot

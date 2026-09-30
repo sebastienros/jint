@@ -414,6 +414,7 @@ internal static class WebApiRegistration
             // The entry types are ordinary WebIDL interface objects — a script holds a mark and asks
             // `entry instanceof PerformanceMark`, which only works if the interface object is reachable.
             Install(global, realm, "PerformanceEntry", static r => r.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceResourceTiming", static r => r.Intrinsics.PerformanceResourceTiming, PropertyFlag.NonEnumerable);
             Install(global, realm, "PerformanceMark", static r => r.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
             Install(global, realm, "PerformanceMeasure", static r => r.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
 

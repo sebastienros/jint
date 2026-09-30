@@ -20,7 +20,7 @@ internal sealed partial class ParserDriver
         ObjectDisposedException.ThrowIf(_disposed, this);
         operationCancellation.ThrowIfCancellationRequested();
         _cancellationToken.ThrowIfCancellationRequested();
-        return RequestResourceAsync(source.OwnerDocument!, requested, PageRequestKind.Other, out selectedUrl, operationCancellation);
+        return RequestResourceAsync(source.OwnerDocument!, requested, PageRequestKind.Other, source.LocalName, out selectedUrl, operationCancellation);
     }
 
     /// <summary>
@@ -34,10 +34,10 @@ internal sealed partial class ParserDriver
         ObjectDisposedException.ThrowIf(_disposed, this);
         operationCancellation.ThrowIfCancellationRequested();
         _cancellationToken.ThrowIfCancellationRequested();
-        return RequestResourceAsync(document, requested, PageRequestKind.Font, out _, operationCancellation);
+        return RequestResourceAsync(document, requested, PageRequestKind.Font, "css", out _, operationCancellation);
     }
 
-    private Task<MediaResourceResponse> RequestResourceAsync(Document document, string requested, PageRequestKind kind,
+    private Task<MediaResourceResponse> RequestResourceAsync(Document document, string requested, PageRequestKind kind, string initiator,
         out string selectedUrl, CancellationToken operationCancellation)
     {
         selectedUrl = "";
@@ -63,8 +63,12 @@ internal sealed partial class ParserDriver
         if (!PageUrl.IsNetworkScheme(target))
             throw new MediaSourceException("The media source has a scheme a page cannot load.");
         var documentUrl = UrlParser.Parse(DomDocumentState.Of(document).Url);
+        var realm = ReferenceEquals(document, _runtime.Document)
+            ? _runtime.Engine._mainRealm : FrameWindows.DocumentRealm(_runtime, document).OwningRealm;
         var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects,
-            RequestInitiator.Subresource, _runtime.Emulation.EffectiveUserAgent, kind);
+            RequestInitiator.Subresource, _runtime.Emulation.EffectiveUserAgent, kind,
+            Jint.WebApi.Performance.ResourceTiming.Start(_runtime.Engine, realm, target.Serialize(excludeFragment: true),
+                initiator, DomDocumentState.Of(document).Origin.Serialized, JsRequest.CredentialsSameOrigin));
         return RequestMediaTransportAsync(request, operationCancellation);
     }
 

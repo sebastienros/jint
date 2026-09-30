@@ -233,6 +233,7 @@ internal sealed class WebApiEngineState
     /// <see cref="TimeOrigin"/> names and the one <see cref="CurrentHighResolutionTime"/> counts from.
     /// </summary>
     private readonly long _originTimestamp;
+    private double _originOffset;
 
     /// <summary>
     /// The requests this engine has in flight, in registration order. Engine-thread-only, so no lock: a
@@ -599,7 +600,16 @@ internal sealed class WebApiEngineState
     /// origin it was built with, so <c>performance.now()</c> can never go backwards across an evaluation
     /// cycle.
     /// </remarks>
-    internal double TimeOrigin { get; }
+    internal double TimeOrigin { get; private set; }
+
+    // A browser commits a new engine after fetching its document. Called before publishing that engine,
+    // never during an ordinary evaluation or snapshot restore.
+    internal void SetNavigationTimeOrigin(DateTimeOffset origin, TimeSpan elapsed)
+    {
+        _originOffset = elapsed.TotalMilliseconds
+            - _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
+        TimeOrigin = (origin - DateTimeOffset.UnixEpoch).TotalMilliseconds;
+    }
 
     /// <summary>
     /// <c>performance.now()</c>: https://w3c.github.io/hr-time/#dfn-current-high-resolution-time, the
@@ -607,7 +617,7 @@ internal sealed class WebApiEngineState
     /// timers are scheduled against and deliberately not coarsened.
     /// </summary>
     internal double CurrentHighResolutionTime =>
-        _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
+        _originOffset + _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
 
     /// <summary>
     /// The map behind <c>localStorage</c>, and behind <c>sessionStorage</c> — two separate stores, and two

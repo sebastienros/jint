@@ -6,12 +6,13 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.WebApi;
 using Jint.WebApi.Performance;
+using Jint.WebApi.Fetch;
 
 namespace Jint.Browser.Runtime;
 
 /// <summary>
 /// The document's legacy navigation information, https://www.w3.org/TR/navigation-timing/#sec-navigation-info-interface.
-/// Navigation Timing entries are not implemented; the legacy interface must not fabricate one.
+/// Also installs the document's Navigation Timing Level 2 interface.
 /// </summary>
 internal sealed class PerformanceNavigation
 {
@@ -53,6 +54,8 @@ internal sealed class PerformanceNavigation
 
         engine.AddLazyGlobal("PerformanceNavigation", static e => PageRuntime.Find(e)!.Navigation.Constructor,
             PropertyFlag.NonEnumerable);
+        engine.AddLazyGlobal("PerformanceNavigationTiming", static e => e._mainRealm.Intrinsics.PerformanceNavigationTiming,
+            PropertyFlag.NonEnumerable);
 
         // A checked define uses the shaped prototype's hybrid addition lane. An unchecked raw descriptor
         // would discard its shared shape and deoptimize the existing Performance methods.
@@ -71,6 +74,26 @@ internal sealed class PerformanceNavigation
                 }),
                 set: null,
                 PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
+    internal static void Begin(PageRuntime runtime, FetchResourceTiming? timing)
+    {
+        var engine = runtime.Engine;
+        if ((engine._webApiFeatures & WebApiFeatures.Performance) == 0) return;
+        var realm = engine._mainRealm;
+        var state = engine._webApi!;
+        if (timing is not null) state.SetNavigationTimeOrigin(timing.TimeOrigin, timing.Elapsed);
+        var info = timing?.Result ?? new ResourceTimingInfo(runtime.DocumentUrl, "navigation",
+            0, 0, 0, 0, "", 0, 0, 0, true, false, "");
+        info = info with { Name = runtime.DocumentUrl, TimingAllowed = true };
+        var entry = new JsPerformanceNavigationTiming(engine, info,
+            runtime.NavigationType switch { 1 => "reload", 2 => "back_forward", _ => "navigate" },
+            runtime.NavigationRedirectCount)
+        {
+            _prototype = realm.Intrinsics.PerformanceNavigationTiming.PrototypeObject,
+        };
+        runtime.NavigationTiming = entry;
+        realm.Intrinsics.PerformanceObject.QueuePerformanceEntry(entry);
     }
 
     private static JsObjectShape BuildShape()

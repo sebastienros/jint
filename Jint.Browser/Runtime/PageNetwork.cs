@@ -37,7 +37,9 @@ internal sealed class PageNetwork
     /// <see cref="BrowserOptions.ForUntrustedContent"/> is what turns it on. A context that assigned the
     /// property keeps its own answer, in either direction.
     /// </param>
-    internal PageNetwork(BrowserContextOptions options, bool blockPrivateNetworkByDefault = false)
+    /// <param name="maxCacheStorageBytes">The default per-origin cache quota.</param>
+    internal PageNetwork(BrowserContextOptions options, bool blockPrivateNetworkByDefault = false,
+        long maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes)
     {
         _client = options.HttpClient;
         _clientFactory = options.HttpClientFactory;
@@ -45,7 +47,8 @@ internal sealed class PageNetwork
         // A jar per context, always: a context is the unit of isolation a browser profile is, and cookies
         // are the state that makes that visible. A host supplying its own is supplying the partition.
         CookieJar = options.CookieJar ?? new CookieContainerCookieJar();
-        Storage = options.StoragePartition ?? new InMemoryStoragePartitionProvider();
+        Storage = options.StoragePartition ?? new InMemoryStoragePartitionProvider(
+            Options.StorageOptions.DefaultMaxTotalBytes, maxCacheStorageBytes);
 
         var blockPrivateNetwork = options.BlockPrivateNetworkAssignment ?? blockPrivateNetworkByDefault;
         BlockPrivateNetwork = blockPrivateNetwork;

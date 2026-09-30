@@ -131,6 +131,9 @@ public class WebIdlPropertyAttributeTests
         // https://html.spec.whatwg.org/multipage/workers.html#the-workerglobalscope-common-interface
         "Jint.WebApi.Workers.WorkerGlobalScopePrototype",
         "Jint.WebApi.Workers.DedicatedWorkerGlobalScopePrototype",
+        // Navigation requires a document; Jint.Browser installs and tests this Window-only interface.
+        // https://w3c.github.io/navigation-timing/#sec-PerformanceNavigationTiming
+        "Jint.WebApi.Performance.PerformanceNavigationTimingPrototype",
     ];
 
     [Test]

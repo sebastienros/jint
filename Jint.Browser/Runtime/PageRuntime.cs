@@ -36,6 +36,7 @@ internal sealed class PageRuntime
     private Jint.Browser.SystemState.SystemStateRealm? _systemState;
     private List<JsMediaQueryList>? _mediaQueryLists;
     private PerformanceNavigation? _navigation;
+    internal Jint.WebApi.Performance.JsPerformanceNavigationTiming? NavigationTiming { get; set; }
     private Media.PageImages? _images;
 
 

@@ -759,6 +759,7 @@ public sealed partial class Page
         string finalUrl;
         PageResponse? response = null;
         var redirectCount = 0;
+        FetchResourceTiming? resourceTiming = null;
 
         // Which of HTML's read algorithms the response asked for. Everything that is not fetched — a
         // `data:` URL, `about:blank`, a captured inline body — is markup a page synthesized and is read as
@@ -777,6 +778,7 @@ public sealed partial class Page
             response = fetched.Response;
             redirectCount = fetched.RedirectCount;
             contentType = fetched.ContentType;
+            resourceTiming = fetched.Timing;
         }
         else
         {
@@ -803,7 +805,8 @@ public sealed partial class Page
                     RedirectCount: redirectCount,
                     ContentType: contentType,
                     Creator: creator,
-                    NavigationState: request.NavigationState));
+                    NavigationState: request.NavigationState,
+                    ResourceTiming: resourceTiming));
         });
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
@@ -867,12 +870,13 @@ public sealed partial class Page
         // be called and where the engine it is handed belongs. The engine it sees is the one the outgoing
         // document ran in — the engine that will show the new one does not exist yet — which is the same
         // engine every subresource of that document already went through.
-        var client = await _loop.PostAsync(_network.ClientFor).ConfigureAwait(false);
+        var transport = await _loop.PostAsync(engine =>
+            new DocumentTransport(_network.ClientFor(engine), engine._webApi?.TimeProvider ?? TimeProvider.System)).ConfigureAwait(false);
 
         try
         {
             return await DocumentFetch
-                .LoadAsync(_network, client, documentRequest, _requests, loaderId, cancellationToken)
+                .LoadAsync(_network, transport.Client, documentRequest, _requests, loaderId, cancellationToken, transport.Clock)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
@@ -945,11 +949,13 @@ public sealed partial class Page
         }
         _history.Activate(from, request.NavigationType == 1 ? "reload" : history == HistoryMode.Traverse ? "traverse"
             : history == HistoryMode.Replace ? "replace" : "push");
-        var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer));
+        var inheritedOrigin = Dom.DomDocumentOrigin.InheritsCreator(request.Url) ? request.Creator?.Origin.Serialized : null;
+        var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer, inheritedOrigin));
         var runtime = PageRuntime.Find(engine)!;
         runtime.NavigationType = request.NavigationType;
         runtime.NavigationRedirectCount = request.RedirectCount;
-        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType, request.Creator);
+        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId,
+            request.ContentType, request.Creator, request.ResourceTiming);
 
         if (history == HistoryMode.Traverse)
         {
@@ -1013,7 +1019,8 @@ public sealed partial class Page
         Action<NavigationPhase>? onPhase,
         string loaderId,
         string contentType = Dom.DomContentType.Html,
-        DocumentCreationFacts? creator = null)
+        DocumentCreationFacts? creator = null,
+        FetchResourceTiming? resourceTiming = null)
     {
         // The previous document goes first, and the page describes nothing until the new one exists. The
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
@@ -1038,6 +1045,7 @@ public sealed partial class Page
         runtime.DocumentCreationBaseUrl = Dom.DomDocumentOrigin.InheritsCreator(url) ? creator?.BaseUrl : null;
         _loaderId = loaderId;
         CancelNetworkIdle();
+        PerformanceNavigation.Begin(runtime, resourceTiming);
 
         // The engine exists and its window is installed, and nothing of the document has been parsed. This is
         // where a protocol target replaces its engine, re-installs the bindings a client added and runs the
@@ -1347,6 +1355,7 @@ public sealed partial class Page
             : new DocumentCreationFacts(Dom.DomDocumentOrigin.Opaque(), null);
 
     private sealed record DocumentCreationFacts(Dom.DomDocumentOrigin Origin, string? BaseUrl);
+    private sealed record DocumentTransport(System.Net.Http.HttpClient Client, TimeProvider Clock);
 
     /// <summary>What the loop is handed once the document's bytes are in.</summary>
     private sealed record CommitRequest(
@@ -1362,7 +1371,8 @@ public sealed partial class Page
         int RedirectCount = 0,
         string ContentType = Dom.DomContentType.Html,
         DocumentCreationFacts? Creator = null,
-        SerializationRecord? NavigationState = null);
+        SerializationRecord? NavigationState = null,
+        FetchResourceTiming? ResourceTiming = null);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

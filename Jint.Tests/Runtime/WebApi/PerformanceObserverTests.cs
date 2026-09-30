@@ -292,6 +292,9 @@ public class PerformanceObserverTests
         var engine = ObserverEngine();
 
         engine.Evaluate("PerformanceObserver.supportedEntryTypes.join(',')").AsString().Should().Be("mark,measure");
+        new Engine(o => o.UseWebApis(WebApiFeatures.Performance | WebApiFeatures.Fetch))
+            .Evaluate("PerformanceObserver.supportedEntryTypes.join(',')").AsString()
+            .Should().Be("mark,measure,resource", "only fetch and XMLHttpRequest produce resource entries");
         engine.Evaluate("Object.isFrozen(PerformanceObserver.supportedEntryTypes)").AsBoolean().Should().BeTrue();
         engine.Evaluate("PerformanceObserver.supportedEntryTypes === PerformanceObserver.supportedEntryTypes")
             .AsBoolean().Should().BeTrue("the IDL declares it [SameObject]");

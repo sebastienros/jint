@@ -38,7 +38,8 @@ internal static class BrowserEngineFactory
         var page = request.Page;
         var options = request.Options;
         var recorder = request.Recorder;
-        var origin = PageUrl.OriginOf(request.Url);
+        var origin = request.Origin ?? PageUrl.OriginOf(request.Url);
+        var opaqueCaches = PageStorage.IsSecureOpaqueUrl(request.Url, origin);
 
         // One source per engine, cancelled when this document is left or the page closes: it is what the
         // fetch machinery reads through Constraints.Find<CancellationConstraint>(), so a navigation really
@@ -104,15 +105,11 @@ internal static class BrowserEngineFactory
                 features |= WebApiFeatures.Storage;
             }
 
-            // WebApiFeatures.CacheApi is deliberately NOT here, and the reason is a lifetime rather than a
-            // policy. The engine's default CacheStorageProvider is one per engine with no quota, and a page
-            // builds a new engine on every navigation - so a `caches` granted on the default would be
-            // emptied by every navigation and bounded by nothing, which is a scratchpad under a name that
-            // promises storage. localStorage is granted because PageStorage points it at a provider the
-            // *context* owns and partitions by origin; caches has no such partition yet, and inventing one
-            // is a public seam (StoragePartitionProvider) and a BrowserOptions budget rather than a flag.
-            // Until then a page has no `caches`, which is what it has on an insecure origin in a browser and
-            // what every feature-detecting script is already written for.
+            // Secure origins use the context's partition, never the engine's ephemeral default provider.
+            if (PageStorage.ConfigureCaches(o, request.Network, origin) || opaqueCaches)
+            {
+                features |= WebApiFeatures.CacheApi;
+            }
 
             o.UseWebApis(features);
 
@@ -178,6 +175,7 @@ internal static class BrowserEngineFactory
         runtime.Dom.MaxNodes = options.MaxDomNodes;
         runtime.Dom.ScriptingEnabled = runtime.ScriptingEnabled;
         WindowInstaller.Install(runtime);
+        PageStorage.InstallCaches(engine, opaqueCaches);
 
         // Where an activation behaviour's default action goes now that there is a page behind it: a link
         // navigates, a form submits, a file chooser is reported. Without this the events bridge records what
@@ -257,6 +255,7 @@ internal static class BrowserEngineFactory
 /// <param name="Url">The document's URL, which is its base URL and decides its origin.</param>
 /// <param name="Referrer">The document this one was reached from, or the empty string.</param>
 /// <param name="PageClosing">Cancelled when the page closes, so every engine token is linked to it.</param>
+/// <param name="Origin">A creator-inherited origin, or null to derive it from the document URL.</param>
 internal readonly record struct PageEngineRequest(
     Page Page,
     BrowserOptions Options,
@@ -268,4 +267,5 @@ internal readonly record struct PageEngineRequest(
     EmulationState Emulation,
     string Url,
     string Referrer,
-    CancellationToken PageClosing);
+    CancellationToken PageClosing,
+    string? Origin = null);

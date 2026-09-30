@@ -41,6 +41,7 @@ namespace Jint.Browser
         public System.TimeSpan FetchTimeout { get; set; }
         public bool HasTouch { get; set; }
         public int MaxActiveTimers { get; set; }
+        public long MaxCacheStorageBytes { get; set; }
         public long MaxCapturedResponseBytes { get; set; }
         public long MaxDocumentBytes { get; set; }
         public int MaxDomNodes { get; set; }
@@ -92,6 +93,8 @@ namespace Jint.Browser
     {
         public InMemoryStoragePartitionProvider() { }
         public InMemoryStoragePartitionProvider(long maxTotalBytes) { }
+        public InMemoryStoragePartitionProvider(long maxTotalBytes, long maxCacheStorageBytes) { }
+        public override Jint.WebApi.CacheStorageProvider? GetCacheStorage(string origin) { }
         public override Jint.WebApi.StorageProvider? GetLocalStorage(string origin) { }
     }
     public sealed class NavigationFailedException : System.Exception
@@ -236,6 +239,7 @@ namespace Jint.Browser
     public abstract class StoragePartitionProvider
     {
         protected StoragePartitionProvider() { }
+        public virtual Jint.WebApi.CacheStorageProvider? GetCacheStorage(string origin) { }
         public abstract Jint.WebApi.StorageProvider? GetLocalStorage(string origin);
     }
     public readonly struct Viewport : System.IEquatable<Jint.Browser.Viewport>
