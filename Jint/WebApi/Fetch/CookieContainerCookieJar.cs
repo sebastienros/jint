@@ -103,7 +103,11 @@ public sealed class CookieContainerCookieJar : CookieJar
             var result = new List<SetCookie>();
             foreach (Cookie cookie in _container.GetCookies(RetrievalUri(url)))
             {
-                if (!cookie.HttpOnly)
+                // The container hands out its live cookies, which a host may expire without this lock
+                // (Cookie.Expired = true, as CDP's clearBrowserCookies does): read the expiry once and treat a
+                // past one as the deletion it is, never as a change to a cookie that still exists.
+                var expires = cookie.Expires;
+                if (!cookie.HttpOnly && (expires == DateTime.MinValue || expires.ToUniversalTime() > DateTime.UtcNow))
                 {
                     result.Add(new SetCookie
                     {
@@ -112,7 +116,7 @@ public sealed class CookieContainerCookieJar : CookieJar
                         Domain = cookie.Domain,
                         Path = cookie.Path,
                         Secure = cookie.Secure,
-                        Expires = cookie.Expires == DateTime.MinValue ? null : new DateTimeOffset(cookie.Expires.ToUniversalTime()),
+                        Expires = expires == DateTime.MinValue ? null : new DateTimeOffset(expires.ToUniversalTime()),
                     });
                 }
             }
