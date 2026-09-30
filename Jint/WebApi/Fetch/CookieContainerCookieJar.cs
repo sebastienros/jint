@@ -69,7 +69,7 @@ public sealed class CookieContainerCookieJar : CookieJar
 
         lock (_lock)
         {
-            return _container.GetCookieHeader(url);
+            return _container.GetCookieHeader(RetrievalUri(url));
         }
     }
 
@@ -88,6 +88,87 @@ public sealed class CookieContainerCookieJar : CookieJar
                 continue;
             }
 
+            lock (_lock)
+            {
+                StoreParsed(url, parsed);
+            }
+        }
+    }
+
+    /// <summary>Copies script-visible cookie state while holding the same lock as response storage.</summary>
+    internal List<SetCookie> GetScriptCookies(Uri url)
+    {
+        lock (_lock)
+        {
+            var result = new List<SetCookie>();
+            foreach (Cookie cookie in _container.GetCookies(RetrievalUri(url)))
+            {
+                if (!cookie.HttpOnly)
+                {
+                    result.Add(new SetCookie
+                    {
+                        Name = cookie.Name,
+                        Value = cookie.Value,
+                        Domain = cookie.Domain,
+                        Path = cookie.Path,
+                        Secure = cookie.Secure,
+                        Expires = cookie.Expires == DateTime.MinValue ? null : new DateTimeOffset(cookie.Expires.ToUniversalTime()),
+                    });
+                }
+            }
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// https://cookiestore.spec.whatwg.org/#set-a-cookie - stores through the non-HTTP door atomically.
+    /// </summary>
+    internal void StoreScriptCookie(Uri url, SetCookie parsed)
+    {
+        lock (_lock)
+        {
+            if (parsed.HttpOnly)
+            {
+                return;
+            }
+
+            // Include paths not visible at the document URL: a script can write a different Path.
+            var domain = parsed.Domain ?? url.Host;
+            var path = parsed.Path ?? DefaultPath(url);
+            foreach (Cookie cookie in _container.GetAllCookies())
+            {
+                if (cookie.HttpOnly && string.Equals(cookie.Name, parsed.Name, StringComparison.Ordinal)
+                    && string.Equals(cookie.Domain.TrimStart('.'), domain.TrimStart('.'), StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(cookie.Path, path, StringComparison.Ordinal))
+                {
+                    return;
+                }
+            }
+
+            StoreParsed(url, parsed);
+        }
+    }
+
+    /// <summary>RFC 6265bis default-path, shared by the two script cookie APIs.</summary>
+    internal static string DefaultPath(Uri url)
+    {
+        var path = url.AbsolutePath;
+        var slash = path.LastIndexOf('/');
+        return slash <= 0 ? "/" : path[..slash];
+    }
+
+    /// <summary>
+    /// RFC 6265bis allows trusted localhost connections to carry Secure cookies, as browsers do.
+    /// Only the container's retrieval uses HTTPS; the request's URL and transport are unchanged.
+    /// </summary>
+    private static Uri RetrievalUri(Uri url)
+        => string.Equals(url.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal) && url.IsLoopback
+            ? new UriBuilder(url) { Scheme = Uri.UriSchemeHttps }.Uri : url;
+
+    private void StoreParsed(Uri url, SetCookie parsed)
+    {
+        try
+        {
             var cookie = new Cookie(parsed.Name, parsed.Value)
             {
                 Secure = parsed.Secure,
@@ -116,23 +197,15 @@ public sealed class CookieContainerCookieJar : CookieJar
                 cookie.Expires = expires.UtcDateTime;
             }
 
-            try
-            {
-                lock (_lock)
-                {
-                    _container.Add(url, cookie);
-                }
-            }
-            catch (CookieException)
-            {
-                // The container refuses a few values the specification says to ignore rather than to fail on
-                // — a Domain the request host does not match, a name or value outside its own grammar. The
-                // specification's answer to each of them is to drop the cookie, which is what happens here.
-            }
-            catch (ArgumentException)
-            {
-                // Same, for the shapes the container reports as an argument failure instead.
-            }
+            _container.Add(url, cookie);
+        }
+        catch (CookieException)
+        {
+            // RFC 6265bis storage refusals are silent, including the container's stricter grammar.
+        }
+        catch (ArgumentException)
+        {
+            // The container reports some storage refusals as argument failures instead.
         }
     }
 }

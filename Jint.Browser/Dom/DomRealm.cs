@@ -254,6 +254,9 @@ internal sealed class DomRealm
     /// <summary>The document associated with this realm's global, if any.</summary>
     internal Document? Document { get; private set; }
 
+    /// <summary>https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-creation-url - unaffected by history changes.</summary>
+    internal string CreationUrl { get; private set; } = "about:blank";
+
     internal Element? CurrentScript { get; set; }
 
     internal string? ReadyState { get; set; }
@@ -287,6 +290,10 @@ internal sealed class DomRealm
         }
         if (associatedGlobal)
         {
+            if (Document is null)
+            {
+                CreationUrl = DomDocumentState.Of(document).Url;
+            }
             Document = document;
         }
     }
@@ -593,6 +600,10 @@ internal sealed class DomRealm
 
     /// <summary>This realm's CSS Font Loading interfaces and document font sets, built the first time anything reaches one.</summary>
     internal Jint.Browser.Fonts.FontRealm Fonts => _fonts ??= new Jint.Browser.Fonts.FontRealm(this);
+
+    private Cookies.CookieRealm? _cookies;
+
+    internal Cookies.CookieRealm Cookies => _cookies ??= new Cookies.CookieRealm(this);
 
     private Jint.Browser.Animations.AnimationRealm? _animations;
 

@@ -83,6 +83,15 @@ internal static class DomBindings
 
         InstallGeometry(global, realm, Geometry.GeometryRealm.MatrixAlias);
 
+        foreach (var name in Cookies.CookieRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Cookies.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
         foreach (var name in Fonts.FontRealm.InterfaceNames)
         {
             if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))

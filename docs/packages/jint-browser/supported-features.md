@@ -22,6 +22,7 @@
 - Timers, promises, microtasks, animation-frame callbacks, and `postMessage`
 - `fetch`, `XMLHttpRequest`, WebSocket, EventSource, blobs, and FileReader
 - Forms, validation, history, location, cookies, local/session storage
+- Cookie Store: `window.cookieStore` with promise-based `get`, `getAll`, `set`, `delete`, `onchange` and `CookieChangeEvent`, sharing the context jar with `document.cookie`, network responses and CDP
 - Dedicated workers
 - Mutation, intersection, and resize observers, with documented no-layout semantics
 - Constructible event interfaces beyond UI Events: `ToggleEvent` (fired by `<dialog>` and `<details>`), `CommandEvent`, `AnimationEvent`, `TransitionEvent`, `GamepadEvent`, `DragEvent`, `StorageEvent`, `TouchEvent` and the device events, plus the legacy `TextEvent` through `document.createEvent`; `ClipboardEvent` is absent

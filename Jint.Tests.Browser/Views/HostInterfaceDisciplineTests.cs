@@ -80,6 +80,8 @@ public sealed class HostInterfaceDisciplineTests
         "KeyframeEffect",
         "Animation",
         "AnimationPlaybackEvent",
+        "CookieStore",
+        "CookieChangeEvent",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

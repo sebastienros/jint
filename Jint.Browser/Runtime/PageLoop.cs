@@ -540,6 +540,11 @@ internal sealed class PageLoop : IDisposable
             {
                 PageRuntime.Find(engine)?.UpdateRendering();
             }
+            else
+            {
+                // Other pages, host/CDP writes and expiry can change the shared jar while this page is idle.
+                PageRuntime.Find(engine)?.ProcessCookieChanges();
+            }
 
             _onTurnEnd?.Invoke(engine);
         }

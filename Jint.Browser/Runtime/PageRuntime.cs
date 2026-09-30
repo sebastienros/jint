@@ -211,7 +211,32 @@ internal sealed class PageRuntime
 
     internal Observers.ResizeObserverLane ResizeObservers => _resizeObservers ??= new Observers.ResizeObserverLane(this);
 
-    internal void UpdateRendering() => _resizeObservers?.CheckForChanges();
+    private List<Cookies.JsCookieStore>? _cookieObservers;
+
+    internal void ObserveCookies(Cookies.JsCookieStore store, bool observe)
+    {
+        if (observe)
+        {
+            (_cookieObservers ??= []).Add(store);
+        }
+        else if (_cookieObservers is { } observers)
+        {
+            observers.Remove(store);
+            if (observers.Count == 0) _cookieObservers = null;
+        }
+    }
+
+    internal void ProcessCookieChanges()
+    {
+        if (_cookieObservers is not { } observers) return;
+        foreach (var store in observers) store.ProcessChanges();
+    }
+
+    internal void UpdateRendering()
+    {
+        ProcessCookieChanges();
+        _resizeObservers?.CheckForChanges();
+    }
 
     /// <summary>
     /// This document's <c>CustomElementRegistry</c> — <c>window.customElements</c> — built on first use.

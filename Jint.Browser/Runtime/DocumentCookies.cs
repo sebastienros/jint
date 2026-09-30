@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text;
 using Jint.HtmlParser;
 using Jint.Browser.Dom;
@@ -75,7 +74,7 @@ internal static class DocumentCookies
     /// <summary>The same jar, scoped to a document in the page's browsing-context tree.</summary>
     internal static string Read(PageRuntime runtime, Document document)
     {
-        if (runtime.Page.Network is not { } network || DocumentUri(document) is not { } uri)
+        if (runtime.Page.Network is not { } network || ScriptCookies.DocumentUri(document) is not { } uri)
         {
             return "";
         }
@@ -84,13 +83,8 @@ internal static class DocumentCookies
         {
             var builder = new StringBuilder();
 
-            foreach (Cookie cookie in Cookies(container, uri))
+            foreach (var cookie in container.GetScriptCookies(uri))
             {
-                if (cookie.HttpOnly)
-                {
-                    continue;
-                }
-
                 if (builder.Length != 0)
                 {
                     builder.Append("; ");
@@ -110,7 +104,7 @@ internal static class DocumentCookies
     /// </summary>
     /// <remarks>
     /// Two refusals, both from RFC 6265bis §5.5: a value carrying <c>HttpOnly</c> is ignored outright, and a
-    /// value that would replace an existing <c>HttpOnly</c> cookie of the same name is ignored too. Both are
+    /// value that would replace an existing <c>HttpOnly</c> cookie of the same name, domain and path is ignored too. Both are
     /// silent, as the storage model says — a cookie the browser declines to store is not an exception.
     /// </remarks>
     internal static void Write(PageRuntime runtime, string header)
@@ -124,7 +118,7 @@ internal static class DocumentCookies
     /// <summary>The same jar, scoped to a document in the page's browsing-context tree.</summary>
     internal static void Write(PageRuntime runtime, Document document, string header)
     {
-        if (runtime.Page.Network is not { } network || DocumentUri(document) is not { } uri)
+        if (runtime.Page.Network is not { } network || ScriptCookies.DocumentUri(document) is not { } uri)
         {
             return;
         }
@@ -134,52 +128,6 @@ internal static class DocumentCookies
             return;
         }
 
-        if (network.CookieJar is CookieContainerCookieJar container)
-        {
-            // "If the cookie was received from a 'non-HTTP' API and the cookie's http-only-attribute is set,
-            // abort these steps and ignore the cookie entirely."
-            if (parsed.HttpOnly)
-            {
-                return;
-            }
-
-            // "If the newly created cookie was received from a 'non-HTTP' API and the old-cookie's
-            // http-only-attribute is set, abort these steps and ignore the newly created cookie entirely."
-            foreach (Cookie cookie in Cookies(container, uri))
-            {
-                if (cookie.HttpOnly && string.Equals(cookie.Name, parsed.Name, StringComparison.Ordinal))
-                {
-                    return;
-                }
-            }
-        }
-
-        network.CookieJar.StoreResponseCookies(uri, [header]);
-    }
-
-    private static CookieCollection Cookies(CookieContainerCookieJar jar, Uri uri)
-    {
-        lock (jar.Container)
-        {
-            return jar.Container.GetCookies(uri);
-        }
-    }
-
-    /// <summary>
-    /// The document's URL as the request URL a cookie is stored against, or <see langword="null"/> when the
-    /// document has no such URL — which is every document with an opaque origin, and which the storage
-    /// model answers with no cookies rather than with an error.
-    /// </summary>
-    private static Uri? DocumentUri(Document document)
-    {
-        var url = DomDocumentState.Of(document).Url;
-        if (string.IsNullOrEmpty(url))
-        {
-            return null;
-        }
-
-        return Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-            ? uri
-            : null;
+        ScriptCookies.Write(network.CookieJar, uri, parsed, header);
     }
 }

@@ -336,6 +336,11 @@ internal class JsEventTarget : ObjectInstance
         return false;
     }
 
+    /// <summary>Notifies a host target after its listener list changes, including once and signal removal.</summary>
+    internal virtual void ListenerChanged(string type)
+    {
+    }
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-listener-add. The <i>default passive value</i> is always
     /// false here: it is only ever true for touch and wheel events on a <c>Window</c> or a document node,
@@ -377,6 +382,8 @@ internal class JsEventTarget : ObjectInstance
             listener.AbortAlgorithm = algorithm;
             signal.AddAbortAlgorithm(algorithm);
         }
+
+        ListenerChanged(listener.Type);
     }
 
     /// <summary>
@@ -394,6 +401,8 @@ internal class JsEventTarget : ObjectInstance
             listener.Signal?.RemoveAbortAlgorithm(algorithm);
             listener.AbortAlgorithm = null;
         }
+
+        ListenerChanged(listener.Type);
     }
 
     /// <summary>

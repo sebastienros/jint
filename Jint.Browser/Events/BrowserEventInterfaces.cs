@@ -582,6 +582,23 @@ internal static class BrowserEventInterfaces
             return new JsAnimationPlaybackEvent(realm.Engine, type, eventInit, realm.TimeStamp, currentTime, timelineTime);
         });
 
+    /// <summary>https://cookiestore.spec.whatwg.org/#cookiechangeevent</summary>
+    internal static readonly BrowserEventDefinition CookieChangeEvent = Define(
+        "CookieChangeEvent",
+        parent: null,
+        BuildCookieChangeEvent,
+        static (realm, args) =>
+        {
+            var type = Type(realm, args, "CookieChangeEvent");
+            var eventInit = EventInit(realm, args, "CookieChangeEvent");
+            var init = EventInitReader.Dictionary(args);
+            var changed = Cookies.CookieValues.Sequence(realm.Engine, realm.OwningRealm,
+                init?.Get(Names.Changed) ?? JsValue.Undefined);
+            var deleted = Cookies.CookieValues.Sequence(realm.Engine, realm.OwningRealm,
+                init?.Get(Names.Deleted) ?? JsValue.Undefined);
+            return new JsCookieChangeEvent(realm.Engine, type, eventInit, realm.TimeStamp, changed, deleted);
+        });
+
     /// <summary>Every interface, parents before children so a prototype chain can be built by walking up.</summary>
     internal static readonly BrowserEventDefinition[] All =
     [
@@ -612,6 +629,7 @@ internal static class BrowserEventInterfaces
         GamepadEvent,
         FontFaceSetLoadEvent,
         AnimationPlaybackEvent,
+        CookieChangeEvent,
     ];
 
     /// <summary>
@@ -1030,6 +1048,11 @@ internal static class BrowserEventInterfaces
         .Accessor("fontfaces", static (t, _) => Brand<JsFontFaceSetLoadEvent>(t, "FontFaceSetLoadEvent.fontfaces").FontFaces)
         .Build();
 
+    private static JsObjectShape BuildCookieChangeEvent() => Base("CookieChangeEvent")
+        .Accessor("changed", static (t, _) => Brand<JsCookieChangeEvent>(t, "CookieChangeEvent.changed").Changed)
+        .Accessor("deleted", static (t, _) => Brand<JsCookieChangeEvent>(t, "CookieChangeEvent.deleted").Deleted)
+        .Build();
+
     private static JsObjectShape BuildAnimationPlaybackEvent() => Base("AnimationPlaybackEvent")
         .Accessor("currentTime", static (t, _) => Animations.AnimationValues.Value(Brand<JsAnimationPlaybackEvent>(t, "AnimationPlaybackEvent.currentTime").CurrentTime))
         .Accessor("timelineTime", static (t, _) => Animations.AnimationValues.Value(Brand<JsAnimationPlaybackEvent>(t, "AnimationPlaybackEvent.timelineTime").TimelineTime))
@@ -1316,6 +1339,8 @@ internal static class BrowserEventInterfaces
     /// <summary>The dictionary member names, interned once — <see cref="EventInitReader"/>'s reason.</summary>
     private static class Names
     {
+        internal static readonly JsString Changed = new("changed");
+        internal static readonly JsString Deleted = new("deleted");
         internal static readonly JsString PointerId = new("pointerId");
         internal static readonly JsString Width = new("width");
         internal static readonly JsString Height = new("height");

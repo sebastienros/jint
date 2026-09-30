@@ -91,6 +91,7 @@ internal static class WindowInstaller
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
+        InstallCookieStore(runtime.Dom);
         FormDataConstruction.Install(runtime);
 
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object —
@@ -218,6 +219,7 @@ internal static class WindowInstaller
     /// <summary>Installs the child global's Window brand and its independent event-handler slots.</summary>
     internal static void InstallFrame(PageRuntime runtime, DomRealm dom, Document document)
     {
+        InstallCookieStore(dom);
         var engine = runtime.Engine;
         var realm = dom.OwningRealm;
         var target = engine._webApi!.GlobalEventTargetFor(realm);
@@ -232,6 +234,21 @@ internal static class WindowInstaller
         realm.GlobalObject.SetProperty("event", new GetSetPropertyDescriptor(
             new ClrFunction(engine, realm, "get event", (_, _) => target.CurrentEvent, 0), null,
             PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
+    /// <summary>https://cookiestore.spec.whatwg.org/#dom-window-cookiestore - readonly, SameObject, not Replaceable.</summary>
+    private static void InstallCookieStore(DomRealm dom)
+    {
+        var realm = dom.OwningRealm;
+        realm.GlobalObject.SetProperty("cookieStore", new GetSetPropertyDescriptor(
+            new ClrFunction(dom.Engine, realm, "get cookieStore", (receiver, _) =>
+            {
+                if (!ReferenceEquals(receiver, realm.GlobalObject))
+                {
+                    Throw.TypeError(realm, "Illegal invocation of Window.cookieStore");
+                }
+                return dom.Cookies.Store;
+            }, 0), null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }
 
     private static JsObjectShape BuildFrameWindowShape()
