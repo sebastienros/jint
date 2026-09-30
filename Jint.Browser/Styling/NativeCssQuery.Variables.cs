@@ -6,13 +6,20 @@ namespace Jint.Browser.Styling;
 
 internal sealed partial class NativeCssQuery
 {
+    private int _contextDependentExpansions;
+
     // A bounded textual convenience for automation, not the CSS Variables token-substitution engine.
     // Custom properties themselves remain declared text, including unresolved var() calls.
     private string? Substitute(Element element, string text, ref SelectorMatchWork matching, int depth = 0,
-        HashSet<string>? active = null)
+        HashSet<string>? active = null, Dictionary<string, string?>? expanded = null)
     {
-        if (depth == 32) return null;
+        if (depth == 32)
+        {
+            _contextDependentExpansions++;
+            return null;
+        }
         active ??= new(StringComparer.Ordinal);
+        expanded ??= new(StringComparer.Ordinal);
         var output = new StringBuilder();
         char quote = '\0';
         for (var i = 0; i < text.Length; i++)
@@ -75,14 +82,27 @@ internal sealed partial class NativeCssQuery
             var name = text[start..(comma < 0 ? end : comma)].Trim();
             if (!name.StartsWith("--", StringComparison.Ordinal) || name.Length == 2) return null;
             string? replacement = null;
-            if (active.Add(name))
+            if (expanded.TryGetValue(name, out var known))
             {
+                replacement = known;
+            }
+            else if (active.Add(name))
+            {
+                // A name referenced repeatedly (var(--a)var(--a)) expands once per read; without this, a chain
+                // of such doublings costs 2^depth property reads before the output bound can reject it.
+                var dependent = _contextDependentExpansions;
                 var value = GetProperty(element, name, ref matching);
-                if (value.Text.Length != 0) replacement = Substitute(element, value.Text, ref matching, depth + 1, active);
+                if (value.Text.Length != 0) replacement = Substitute(element, value.Text, ref matching, depth + 1, active, expanded);
                 active.Remove(name);
+                // Only a result that met no cycle and no depth cut is independent of where it was reached.
+                if (dependent == _contextDependentExpansions) expanded[name] = replacement;
+            }
+            else
+            {
+                _contextDependentExpansions++;
             }
             if (replacement is null && comma >= 0)
-                replacement = Substitute(element, text[(comma + 1)..end].Trim(), ref matching, depth + 1, active);
+                replacement = Substitute(element, text[(comma + 1)..end].Trim(), ref matching, depth + 1, active, expanded);
             if (replacement is null) return null;
             _work.Charge(replacement.Length);
             // Avoid exponential expansion even with short, depth-bounded chains.

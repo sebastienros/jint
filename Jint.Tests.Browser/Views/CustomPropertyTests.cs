@@ -86,6 +86,18 @@ public sealed class CustomPropertyTests
         page.Errors.Should().BeEmpty();
     }
 
+    [Test]
+    public async Task RepeatedReferencesReuseOnlyContextFreeExpansions()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        // --a is cut by the cycle only when reached through --b; reusing that result for the later
+        // top-level --a would be wrong, while the repeated, acyclic --c may be reused.
+        await page.SetContentAsync("<span id=t style='--a:var(--b);--b:var(--a,fb);--c:1'></span>");
+        await page.EvaluateAsync("document.getElementById('t').style.opacity = 'var(--b) var(--a) var(--c)var(--c)'");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('t')).opacity")).Should().Be("fb fb 11");
+    }
+
     [TestCase("var(--missing, /* ) , */ none)", "/* ) , */ none")]
     [TestCase("'var(--x)'", "'var(--x)'")]
     [TestCase("var(--missing, var(--x))", "none")]
