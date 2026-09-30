@@ -9,6 +9,7 @@
 - Child-frame documents can be fetched and parsed, but do not have a script realm. `contentWindow` is `null`.
 - No IndexedDB, Cache Storage integration for page origins, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
 - No drag and drop, clipboard API, touch event dispatch, or native input.
+- Nothing is ever granted: every `navigator.permissions.query` answers `prompt` and `Notification.permission` is `default`, so a `Notification` fires `error` rather than showing. `registerProtocolHandler` validates its arguments and registers nothing, `screen.orientation.lock` rejects with `NotSupportedError`, and `navigator.storage` reports a 1 GiB quota with no usage and never persists. `navigator.userAgentData` names Jint.Browser only while the user agent is its own; any other user agent without metadata has no brands, and no `Sec-CH-UA` request headers are sent.
 - No file picker: clicking an `<input type=file>` records that a page asked for one. `Page.SetInputFilesAsync` and `DOM.setFileInputFiles` make the selection instead.
 - Hover dispatches movement but not mouse boundary events such as `mouseenter`.
 - `contenteditable` support is intentionally limited; structural editing such as Enter-created blocks is absent.

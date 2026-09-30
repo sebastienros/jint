@@ -52,6 +52,18 @@ public sealed class HostInterfaceDisciplineTests
         "DOMQuad",
         "DOMMatrixReadOnly",
         "DOMMatrix",
+        "Plugin",
+        "PluginArray",
+        "MimeType",
+        "MimeTypeArray",
+        "NavigatorUAData",
+        "Permissions",
+        "PermissionStatus",
+        "StorageManager",
+        "Notification",
+        "Screen",
+        "ScreenOrientation",
+        "VisualViewport",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

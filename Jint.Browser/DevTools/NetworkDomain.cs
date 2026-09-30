@@ -134,15 +134,20 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 5), which would have
     /// cost a client a reload it never needed;
     /// <c>NetworkDomainTests.TheNetworkCommandsPlatformReachesTheDocumentAlreadyLoaded</c> is what now holds
-    /// the claim to the code. <c>userAgentMetadata</c> is accepted and dropped: this browser publishes no
-    /// client hints for it to fill in.
+    /// the claim to the code. <c>userAgentMetadata</c> becomes <c>navigator.userAgentData</c>, as it does
+    /// through the <c>Emulation</c> command; it reaches no request header, because this browser sends no
+    /// client hints.
     /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetUserAgentOverrideAsync(SetUserAgentOverrideRequest parameters, CommandContext context)
     {
         // The page's EmulationState is the one place either command writes; PageNetworkPolicy reads it while
         // composing a request, and navigator reads it in script, so the two can never disagree.
-        _target.Emulation.ApplyUserAgentOverride(parameters.UserAgent, parameters.AcceptLanguage, parameters.Platform);
+        _target.Emulation.ApplyUserAgentOverride(
+            parameters.UserAgent,
+            parameters.AcceptLanguage,
+            parameters.Platform,
+            EmulationDomain.ClientHints(parameters.UserAgentMetadata));
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }

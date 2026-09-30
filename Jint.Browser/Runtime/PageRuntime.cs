@@ -34,6 +34,7 @@ internal sealed class PageRuntime
     private Observers.ResizeObserverLane? _resizeObservers;
     private CustomElements.CustomElementRegistry? _customElements;
     private Dom.Views.ViewRealm? _views;
+    private Jint.Browser.SystemState.SystemStateRealm? _systemState;
     private List<JsMediaQueryList>? _mediaQueryLists;
     private PerformanceNavigation? _navigation;
     private Media.PageImages? _images;
@@ -227,6 +228,9 @@ internal sealed class PageRuntime
     /// <summary>The DOM views of this engine — <c>DOMParser</c>, <c>XMLSerializer</c>, <c>Selection</c>.</summary>
     internal Dom.Views.ViewRealm Views => _views ??= new Dom.Views.ViewRealm(this);
     internal Dom.Views.ViewRealm? ViewsIfCreated => _views;
+
+    /// <summary>The page's navigator objects, screen, notification and visual-viewport interfaces.</summary>
+    internal Jint.Browser.SystemState.SystemStateRealm SystemState => _systemState ??= new Jint.Browser.SystemState.SystemStateRealm(this);
     // The same immutable record is assigned to the document before its parser runs.
     // It is available to new-document scripts before the document has been constructed.
     internal DomDocumentOrigin? DocumentCreationOrigin { get; set; }
@@ -393,7 +397,13 @@ internal sealed class PageRuntime
             return;
         }
 
+        var viewportChanged = Media.Viewport != media.Viewport;
         Media = media;
+
+        if (viewportChanged)
+        {
+            _systemState?.ViewportChanged();
+        }
 
         if (_mediaQueryLists is null)
         {

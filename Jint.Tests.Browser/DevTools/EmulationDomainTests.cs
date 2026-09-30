@@ -286,6 +286,36 @@ public class EmulationDomainTests
     }
 
     /// <summary>
+    /// <c>userAgentMetadata</c> is what <c>navigator.userAgentData</c> answers; an override without it leaves
+    /// no brands, as Chrome does, rather than Jint.Browser's own beside a string claiming something else.
+    /// </summary>
+    [Test]
+    public async Task TheUserAgentMetadataIsWhatUserAgentDataAnswers()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        (await Text(session, attachment, "navigator.userAgentData.brands.map(b => b.brand).join()")).Should().Be("Jint.Browser");
+
+        await session.ResultAsync(
+            "Emulation.setUserAgentOverride",
+            """
+            {"userAgent":"Pretend/1.0","userAgentMetadata":{"brands":[{"brand":"Pretend","version":"1"}],
+             "fullVersion":"1.2.3","platform":"Linux","platformVersion":"6.1","architecture":"arm","model":"","mobile":true}}
+            """,
+            attachment);
+
+        (await Text(session, attachment, "navigator.userAgentData.brands.map(b => b.brand + '/' + b.version).join()"))
+            .Should().Be("Pretend/1");
+        (await Text(session, attachment, "[navigator.userAgentData.platform, navigator.userAgentData.mobile].join('|')"))
+            .Should().Be("Linux|true");
+
+        await session.ResultAsync("Emulation.setUserAgentOverride", """{"userAgent":"Bare/1.0"}""", attachment);
+
+        (await Text(session, attachment, "String(navigator.userAgentData.brands.length)")).Should().Be("0");
+    }
+
+    /// <summary>
     /// The two commands that set the user agent set one thing, and the page and the wire read it together.
     /// </summary>
     /// <remarks>

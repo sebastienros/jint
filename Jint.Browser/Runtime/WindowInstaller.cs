@@ -81,7 +81,6 @@ internal static class WindowInstaller
 
     private static readonly JsObjectShape _frameWindowShape = BuildFrameWindowShape();
     private static readonly JsObjectShape _windowShape = BuildWindowShape();
-    private static readonly JsObjectShape _screenShape = BuildScreenShape();
     private static readonly JsObjectShape _mediaQueryListShape = BuildMediaQueryListShape();
 
 
@@ -186,7 +185,7 @@ internal static class WindowInstaller
                 }),
                 PropertyFlag.Enumerable | PropertyFlag.ConfigurableSet));
         engine.AddLazyGlobal("history", static e => HistoryInstaller.Create(e));
-        engine.AddLazyGlobal("screen", static e => _screenShape.Instantiate(e, e._mainRealm.Intrinsics.Object.PrototypeObject));
+        engine.AddLazyGlobal("screen", static e => PageRuntime.Find(e)!.SystemState.Screen);
         // Both interface objects are handed in as state rather than built by the factory, because the one the
         // global names has to be the one the prototype's `constructor` slot already holds.
         engine.AddLazyGlobal("Window", windowInterface, static (_, value) => value, PropertyFlag.NonEnumerable);
@@ -202,6 +201,7 @@ internal static class WindowInstaller
         // client set before this document existed: both are read on every access, so this is only the
         // installation and never a snapshot.
         NavigatorInstaller.Install(runtime);
+        SystemState.SystemStateRealm.Install(runtime);
         PerformanceNavigation.Install(runtime);
         TouchEmulation.Apply(runtime);
 
@@ -340,6 +340,7 @@ internal static class WindowInstaller
             .Accessor("outerWidth", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "outerWidth").Viewport.Width))
             .Accessor("outerHeight", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "outerHeight").Viewport.Height))
             .Accessor("devicePixelRatio", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "devicePixelRatio").Viewport.DeviceScaleFactor))
+            .Accessor("visualViewport", static (t, _) => PageRuntime.Of(t, "visualViewport").SystemState.VisualViewport)
             .Accessor("scrollX", static (_, _) => JsNumber.PositiveZero)
             .Accessor("scrollY", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "scrollY").Layout.ScrollY))
             .Accessor("pageXOffset", static (_, _) => JsNumber.PositiveZero)
@@ -421,18 +422,6 @@ internal static class WindowInstaller
 
         return builder.Build();
     }
-
-    private static JsObjectShape BuildScreenShape() => new JsObjectShape.Builder()
-        .ToStringTag("Screen")
-        .Accessor("width", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "width").Viewport.Width))
-        .Accessor("height", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "height").Viewport.Height))
-        .Accessor("availWidth", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "availWidth").Viewport.Width))
-        .Accessor("availHeight", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "availHeight").Viewport.Height))
-        .Accessor("availLeft", static (_, _) => JsNumber.PositiveZero)
-        .Accessor("availTop", static (_, _) => JsNumber.PositiveZero)
-        .Accessor("colorDepth", static (_, _) => JsNumber.Create(24))
-        .Accessor("pixelDepth", static (_, _) => JsNumber.Create(24))
-        .Build();
 
     /// <summary>
     /// The <c>MediaQueryList</c> interface. <c>addListener</c> and <c>removeListener</c> are the aliases a
