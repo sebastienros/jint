@@ -40,9 +40,9 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 21 |
 | `custom-elements/` | 16 | 0 | 513 | 9 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 51 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 50 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **239** |
+| **total** | **392** | **9** | **66,916** | **238** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -166,7 +166,10 @@ The native acceptance run leaves these distinct causes:
 2. **Cross-document and namespace-sensitive reactions remain incomplete.** Retained exclusions name
    the exact adoption, registry and attribute callback assertions. They are not blanket exclusions for
    native attribute storage, cloning or ordinary mutation delivery.
-3. **Some members and CSS grammars are still missing.** The animation case remains excluded.
+3. **Some CSS computation and grammars are still missing.** Web Animations now passes the unobserved-style
+   reaction case. Its two observed-style cases require interpolation from a synthetic underlying-style
+   keyframe: discrete `commitStyles()` has no value to write before the single supplied keyframe at offset 1.
+   Those two assertions are `NeedsLayout`, not missing animation APIs or a broken reaction bridge.
    `CSSStyleDeclaration` exclusions now cover only the failing float, border-width and prefixed-filter
    assertions, not the whole document.
 

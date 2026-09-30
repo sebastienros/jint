@@ -947,6 +947,11 @@ internal static class WptBrowserExclusions
         // item C4's flat renderer moves it.
         new("dom/events/mouse-event-retarget.html", "*", WptDivergence.NeedsLayout),
 
+        // The only supplied keyframe is at offset 1. Discrete commitStyles at time 0 has no earlier
+        // value to write: these need the synthetic underlying-style keyframe and interpolation.
+        new("custom-elements/reactions/Animation.html", "Animation.animate must enqueue an attributeChanged reaction when it adds the observed style attribute", WptDivergence.NeedsLayout),
+        new("custom-elements/reactions/Animation.html", "Animation.animate must enqueue an attributeChanged reaction when it mutates the observed style attribute", WptDivergence.NeedsLayout),
+
         // ================================================================ custom-elements
         // What the custom element corpus found. Every one of these is a defect somebody owes a fix for:
         // `Wpt/README.md` groups them by cause and names each, and the groups below are that list in the
@@ -994,7 +999,6 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- one [CEReactions] member per file
     private static readonly WptExclusion[] _oneCEReactionsMemberPerFile =
     [
-        new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
         // The native mutation bridge handles the other twelve rows; these need CSS grammars or aliases.
         new("custom-elements/reactions/CSSStyleDeclaration.html", "A dashed property (border-width)*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "A webkit prefixed camel case attribute (webkitFilter)*", WptDivergence.NeedsTriage),

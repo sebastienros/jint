@@ -331,7 +331,8 @@ internal sealed class Emitter
         or "substringData" or "toString" or "supports" or "webkitMatchesSelector"
         or "compareBoundaryPoints" or "comparePoint" or "intersectsNode" or "isPointInRange"
         or "getSelection" or "hasFocus" or "findRule" or "getByType" or "getTrackById" or "getCueById"
-        or "assignedNodes" or "assignedElements" or "getDistributedNodes";
+        or "assignedNodes" or "assignedElements" or "getDistributedNodes"
+        or "animate" or "getAnimations";
 
     private static void AppendGuardedBody(StringBuilder builder, string label, string body, bool mutation = false)
     {

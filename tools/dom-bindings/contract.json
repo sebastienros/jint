@@ -4889,6 +4889,14 @@
           "Origin": "IDocument.Forms"
         },
         {
+          "DomName": "getAnimations",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.getAnimations\");\nreturn global::Jint.Browser.Animations.AnimationRealm.GetAnimations(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "Web Animations (hand-written)"
+        },
+        {
           "DomName": "getElementById",
           "Kind": 0,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.getElementById\");\nreturn self.Realm.Hooks.GetElementById(self.Realm, self.Target, args);",
@@ -5201,6 +5209,14 @@
           "Origin": "IDocumentStyle.StyleSheets"
         },
         {
+          "DomName": "timeline",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.timeline\");\nreturn global::Jint.Browser.Animations.AnimationRealm.DocumentTimeline(self.Realm, self.Target);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "Web Animations (hand-written)"
+        },
+        {
           "DomName": "title",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.title\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomTitleMembers.Get(self.Realm, self.Target));",
@@ -5458,6 +5474,14 @@
           "Origin": "IChildNode.After (hook)"
         },
         {
+          "DomName": "animate",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.animate\");\nreturn global::Jint.Browser.Animations.AnimationRealm.Animate(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 1,
+          "Origin": "Web Animations (hand-written)"
+        },
+        {
           "DomName": "append",
           "Kind": 0,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.append\");\nreturn global::Jint.Browser.Dom.DomParentNodeMembers.Append(self.Realm, self.Target, args);",
@@ -5576,6 +5600,14 @@
           "SetterBody": null,
           "Length": 0,
           "Origin": "IParentNode.FirstElementChild"
+        },
+        {
+          "DomName": "getAnimations",
+          "Kind": 0,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.getAnimations\");\nreturn global::Jint.Browser.Animations.AnimationRealm.GetAnimations(self.Realm, self.Target, args);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "Web Animations (hand-written)"
         },
         {
           "DomName": "getAttribute",

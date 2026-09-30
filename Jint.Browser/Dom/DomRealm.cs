@@ -594,6 +594,11 @@ internal sealed class DomRealm
     /// <summary>This realm's CSS Font Loading interfaces and document font sets, built the first time anything reaches one.</summary>
     internal Jint.Browser.Fonts.FontRealm Fonts => _fonts ??= new Jint.Browser.Fonts.FontRealm(this);
 
+    private Jint.Browser.Animations.AnimationRealm? _animations;
+
+    /// <summary>This realm's Web Animations interfaces and document timelines, created only on demand.</summary>
+    internal Jint.Browser.Animations.AnimationRealm Animations => _animations ??= new Jint.Browser.Animations.AnimationRealm(this);
+
     internal JsValue WrapIdentity(DomNodeIdentity? identity)
         => identity is not { } value ? JsValue.Null
             : value.Attribute is { } attribute ? Wrap(attribute) : WrapNodeValue(value.Node);

@@ -1061,6 +1061,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.forms");
                     return global::Jint.Browser.Dom.Collections.DomDocumentCollections.Get(self.Realm, self.Target, "forms");
                 }))
+            .Method("getAnimations",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.getAnimations", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.getAnimations");
+                    return global::Jint.Browser.Animations.AnimationRealm.GetAnimations(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Method("getElementById",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementById", static (thisObj, args) =>
                 {
@@ -1338,6 +1345,12 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.styleSheets");
                     return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.ListOf(self.Realm, self.Target));
                 }))
+            .Accessor("timeline",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.timeline", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.timeline");
+                    return global::Jint.Browser.Animations.AnimationRealm.DocumentTimeline(self.Realm, self.Target);
+                }))
             .Accessor("title",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.title", static (thisObj, args) =>
                 {
@@ -1536,6 +1549,13 @@ internal static partial class DomInterfaces
                     self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
+            .Method("animate",
+                global::Jint.Browser.Dom.DomFailures.Guard("Element.animate", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.animate");
+                    return global::Jint.Browser.Animations.AnimationRealm.Animate(self.Realm, self.Target, args);
+                }),
+                length: 1)
             .Method("append",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.append", static (thisObj, args) =>
                 {
@@ -1640,6 +1660,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.firstElementChild");
                     return self.Realm.WrapNodeValue(global::Jint.Browser.Dom.Collections.DomChildHtmlCollection.First(self.Target, self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));
                 }))
+            .Method("getAnimations",
+                global::Jint.Browser.Dom.DomFailures.Guard("Element.getAnimations", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.getAnimations");
+                    return global::Jint.Browser.Animations.AnimationRealm.GetAnimations(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Method("getAttribute",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getAttribute", static (thisObj, args) =>
                 {

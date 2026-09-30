@@ -11,7 +11,7 @@ namespace Jint.Browser.Events;
 /// </para>
 /// </summary>
 /// <remarks>
-/// Nothing animates here, so no <c>animationstart</c> or <c>animationend</c> is ever fired; a page can still
+/// No CSS animations are created, so no <c>animationstart</c> or <c>animationend</c> is ever fired; a page can still
 /// construct and dispatch one, and a library that feature-detects the interface finds it.
 /// </remarks>
 internal sealed class JsAnimationEvent : JsEvent
@@ -128,5 +128,30 @@ internal sealed class JsFontFaceSetLoadEvent : JsEvent
 
         created._prototype = events.PrototypeOf(BrowserEventInterfaces.FontFaceSetLoadEvent);
         return created;
+    }
+}
+
+/// <summary>https://drafts.csswg.org/web-animations-1/#the-animationplaybackevent-interface</summary>
+internal sealed class JsAnimationPlaybackEvent : JsEvent
+{
+    internal JsAnimationPlaybackEvent(Engine engine, JsString type, EventInit init, double timeStamp,
+        double? currentTime, double? timelineTime) : base(engine, type, init, timeStamp)
+    {
+        CurrentTime = currentTime;
+        TimelineTime = timelineTime;
+    }
+
+    internal double? CurrentTime { get; }
+    internal double? TimelineTime { get; }
+
+    internal static JsAnimationPlaybackEvent CreateTrusted(Dom.DomRealm dom, string type, double? currentTime, double? timelineTime)
+    {
+        var events = BrowserEventRealm.Of(dom.Engine, dom.OwningRealm);
+        return new JsAnimationPlaybackEvent(dom.Engine, JsString.Create(type), new EventInit(false, false, false),
+            EventConstructor.TimeStampNow(dom.Engine), currentTime, timelineTime)
+        {
+            IsTrusted = true,
+            _prototype = events.PrototypeOf(BrowserEventInterfaces.AnimationPlaybackEvent),
+        };
     }
 }

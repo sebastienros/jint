@@ -93,6 +93,16 @@ internal static class DomBindings
             }
         }
 
+        foreach (var name in Animations.AnimationRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(
+                    name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Animations.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
         foreach (var factory in DomConstructors.LegacyFactories)
         {
             if (global.HasOwnProperty(WebApiRegistration.NameOf(factory.Name)))

@@ -28,7 +28,6 @@ internal sealed class PageRuntime
 {
     private static readonly ConditionalWeakTable<Engine, PageRuntime> _runtimes = new();
 
-    private readonly long _started;
     private Document? _document;
     private Observers.ObserverRealm? _observers;
     private Observers.ResizeObserverLane? _resizeObservers;
@@ -66,7 +65,6 @@ internal sealed class PageRuntime
         Referrer = referrer;
         MutationObservers = new Observers.MutationObserverLane(this);
         Layout = new Layout.PageLayout(this);
-        _started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         // The engine was built with this page's user agent already on it; what this adds is the *later*
         // half. `navigator.userAgent` is the engine's own accessor now, so an override a client sets on a
@@ -175,6 +173,10 @@ internal sealed class PageRuntime
 
     /// <summary>The <c>requestAnimationFrame</c> lane, run as a batch on the engine's timer queue.</summary>
     internal AnimationFrameLane AnimationFrames { get; }
+
+    private Animations.AnimationRegistry? _animations;
+    internal Animations.AnimationRegistry Animations => _animations ??= new Animations.AnimationRegistry(this);
+    internal Animations.AnimationRegistry? ExistingAnimations => _animations;
 
     /// <summary>Where mutation records wait for the microtask checkpoint that delivers them.</summary>
     internal Observers.MutationObserverLane MutationObservers { get; }
@@ -362,14 +364,12 @@ internal sealed class PageRuntime
     /// </summary>
     internal CancellationTokenSource? Cancellation { get; set; }
 
-    /// <summary>Milliseconds since the page runtime was created, for a <c>DOMHighResTimeStamp</c>.</summary>
-    /// <remarks>
-    /// Measured with <see cref="System.Diagnostics.Stopwatch"/> rather than the engine's configured
-    /// <c>TimeProvider</c>, because a host substituting a clock for its timers is not thereby asking for a
-    /// monotonic frame clock to move with it. The two are independent, and an animation frame is scheduled on
-    /// the engine's timer queue either way.
-    /// </remarks>
-    internal double Now => System.Diagnostics.Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
+    /// <summary>
+    /// Milliseconds since the document's time origin, on the same monotonic clock as
+    /// <c>performance.now()</c>, event timestamps and animation frames.
+    /// https://drafts.csswg.org/web-animations-1/#document-timelines
+    /// </summary>
+    internal double Now => Engine._webApi!.CurrentHighResolutionTime;
 
     /// <summary>
     /// Replaces the whole media environment and tells every <c>MediaQueryList</c> the page is holding.

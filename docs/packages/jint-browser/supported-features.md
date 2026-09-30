@@ -14,6 +14,7 @@
 - Custom elements, shadow DOM, templates, ranges, traversal, selection, DOMParser, and XMLSerializer
 - Geometry Interfaces: `DOMPoint`, `DOMRect`, `DOMQuad` and `DOMMatrix` with their read-only parents and `WebKitCSSMatrix`, including transform-list strings; layout answers such as `getBoundingClientRect` are `DOMRect` instances
 - CSS Font Loading: `FontFace` from a `src` string or a buffer, with its descriptors parsed and serialized, `load()` fetching `url()` sources in order, and `document.fonts` as a set-like `FontFaceSet` with `check()`, `load()`, `ready` and the `loading`/`loadingdone`/`loadingerror` events
+- Web Animations: `document.timeline`, `DocumentTimeline`, `Animation`, `KeyframeEffect`, `element.animate()` and element/document `getAnimations()`, with frame-driven playback, timing and easing calculations, ready/finished promises, playback events, replacement/persistence, and discrete `commitStyles()`
 - The HTML Sanitizer API: `Sanitizer`, `setHTML`/`setHTMLUnsafe`, `getHTML` and `Document.parseHTML`/`parseHTMLUnsafe`, including declarative shadow roots (sanitizing runs after parsing, see [the DOM divergences](../../../Jint.Browser/Dom/divergences.md#sanitizer-sanitize-after-parsing-not-while-parsing))
 
 ## Runtime

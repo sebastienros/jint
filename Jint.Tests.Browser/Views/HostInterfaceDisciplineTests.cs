@@ -74,6 +74,12 @@ public sealed class HostInterfaceDisciplineTests
         "FontFace",
         "FontFaceSet",
         "FontFaceSetLoadEvent",
+        "AnimationTimeline",
+        "DocumentTimeline",
+        "AnimationEffect",
+        "KeyframeEffect",
+        "Animation",
+        "AnimationPlaybackEvent",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>

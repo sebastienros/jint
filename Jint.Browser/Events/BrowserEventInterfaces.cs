@@ -29,7 +29,7 @@ namespace Jint.Browser.Events;
 /// </para>
 /// <para>
 /// <c>AnimationEvent</c>, <c>TransitionEvent</c>, <c>CommandEvent</c> and <c>GamepadEvent</c> are in that
-/// position too: there is no animation timeline, no invoker-command dispatch and no gamepad, and the last
+/// position too: there are no stylesheet-driven animations, no invoker-command dispatch and no gamepad, and the last
 /// cannot even be built by a page, because its required <c>gamepad</c> member names an interface nobody can
 /// construct. <c>ToggleEvent</c> is fired, by <c>&lt;dialog&gt;</c> and <c>&lt;details&gt;</c>, and
 /// <c>TextEvent</c> has no constructor at all — UI Events keeps it only for <c>createEvent</c>'s alias table
@@ -567,6 +567,21 @@ internal static class BrowserEventInterfaces
             return new JsFontFaceSetLoadEvent(realm.Engine, type, eventInit, realm.TimeStamp, JsFontFaceSetLoadEvent.Frozen(realm.OwningRealm, faces));
         });
 
+    /// <summary>https://drafts.csswg.org/web-animations-1/#the-animationplaybackevent-interface</summary>
+    internal static readonly BrowserEventDefinition AnimationPlaybackEvent = Define(
+        "AnimationPlaybackEvent",
+        parent: null,
+        BuildAnimationPlaybackEvent,
+        static (realm, args) =>
+        {
+            var type = Type(realm, args, "AnimationPlaybackEvent");
+            var eventInit = EventInit(realm, args, "AnimationPlaybackEvent");
+            var init = EventInitReader.Dictionary(args);
+            var currentTime = NullablePlaybackTime(realm, init, Names.CurrentTime);
+            var timelineTime = NullablePlaybackTime(realm, init, Names.TimelineTime);
+            return new JsAnimationPlaybackEvent(realm.Engine, type, eventInit, realm.TimeStamp, currentTime, timelineTime);
+        });
+
     /// <summary>Every interface, parents before children so a prototype chain can be built by walking up.</summary>
     internal static readonly BrowserEventDefinition[] All =
     [
@@ -596,6 +611,7 @@ internal static class BrowserEventInterfaces
         TransitionEvent,
         GamepadEvent,
         FontFaceSetLoadEvent,
+        AnimationPlaybackEvent,
     ];
 
     /// <summary>
@@ -1014,6 +1030,28 @@ internal static class BrowserEventInterfaces
         .Accessor("fontfaces", static (t, _) => Brand<JsFontFaceSetLoadEvent>(t, "FontFaceSetLoadEvent.fontfaces").FontFaces)
         .Build();
 
+    private static JsObjectShape BuildAnimationPlaybackEvent() => Base("AnimationPlaybackEvent")
+        .Accessor("currentTime", static (t, _) => Animations.AnimationValues.Value(Brand<JsAnimationPlaybackEvent>(t, "AnimationPlaybackEvent.currentTime").CurrentTime))
+        .Accessor("timelineTime", static (t, _) => Animations.AnimationValues.Value(Brand<JsAnimationPlaybackEvent>(t, "AnimationPlaybackEvent.timelineTime").TimelineTime))
+        .Build();
+
+    private static double? NullablePlaybackTime(BrowserEventRealm realm, ObjectInstance? init, JsString name)
+    {
+        var value = init?.Get(name) ?? JsValue.Undefined;
+        if (value.IsNullOrUndefined())
+        {
+            return null;
+        }
+
+        var number = TypeConverter.ToNumber(value);
+        if (!double.IsFinite(number))
+        {
+            Throw.TypeError(realm.OwningRealm, "AnimationPlaybackEvent times must be finite.");
+        }
+
+        return number;
+    }
+
     /// <summary>
     /// A <c>sequence&lt;FontFace&gt; fontfaces = []</c> member — the iterable protocol, with anything that is
     /// not a <c>FontFace</c> a <c>TypeError</c> after the iterator is closed.
@@ -1334,6 +1372,8 @@ internal static class BrowserEventInterfaces
         internal static readonly JsString PropertyName = new("propertyName");
         internal static readonly JsString Gamepad = new("gamepad");
         internal static readonly JsString FontFaces = new("fontfaces");
+        internal static readonly JsString CurrentTime = new("currentTime");
+        internal static readonly JsString TimelineTime = new("timelineTime");
     }
 
 }

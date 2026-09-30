@@ -37,9 +37,9 @@ public sealed class PageError
 
     /// <summary>When the page recorded it, on the wall clock in UTC.</summary>
     /// <remarks>
-    /// <see cref="DateTimeOffset.UtcNow"/> rather than the engine's configured <c>TimeProvider</c>, for the
-    /// reason <c>PageRuntime.Now</c> gives about its own clock: a host that substituted a clock for its
-    /// timers did not thereby ask for its diagnostics to be stamped with a time that never happened.
+    /// <see cref="DateTimeOffset.UtcNow"/> rather than the engine's configured <c>TimeProvider</c>: a host
+    /// that substituted a clock for its timers and the page's high-resolution time did not thereby ask for
+    /// its diagnostics to be stamped with a time that never happened.
     /// </remarks>
     public DateTimeOffset Timestamp { get; }
 

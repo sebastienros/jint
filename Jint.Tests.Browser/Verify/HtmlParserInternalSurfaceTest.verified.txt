@@ -205,6 +205,12 @@ internal Jint.HtmlParser.Css.Syntax.CssAscii
     EqualsIgnoreCase
 internal Jint.HtmlParser.Css.Syntax.CssStyleSheetEncoding
     DetermineFallback
+internal Jint.HtmlParser.Css.Values.CssEasing
+    Evaluate
+    Linear (field)
+    get_Serialization
+internal Jint.HtmlParser.Css.Values.CssEasingValues
+    TryParse
 internal Jint.HtmlParser.Css.Values.CssFontFaceDescriptor
 internal Jint.HtmlParser.Css.Values.CssFontFaceValues
     TryParseDescriptor
@@ -231,6 +237,8 @@ internal Jint.HtmlParser.Css.Values.CssValueWork
     Guard
     get_Token
 internal Jint.HtmlParser.Css.Values.Properties.CssDeclarationContext
+internal Jint.HtmlParser.Css.Values.Properties.CssPropertyCatalog
+    get_Names
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyMetadata
     get_Inherited
     get_InitialValue
