@@ -51,7 +51,13 @@ public sealed class NativeCssImportLoadingTests
                 // Ignore task-start recovery checks. Fail only after the actual queued
                 // RunCssImportNotification enters its charged preparation path.
                 probe.When = () => (bool) running.GetValue(notification)!;
-                Caught.Exception(engine.Tasks.ProcessTask).Should().BeSameAs(failure);
+                // Tasks the navigation queued can still be ahead of the notification on a loaded host.
+                Exception? thrown = null;
+                for (var task = 0; task < 64 && thrown is null && probe.Armed; task++)
+                {
+                    thrown = Caught.Exception(engine.Tasks.ProcessTask);
+                }
+                thrown.Should().BeSameAs(failure);
                 notifications.Count.Should().Be(1, "preparation failure must retain its durable owner");
                 driver.HasPendingNativeRecovery.Should().BeTrue();
             }
