@@ -1,5 +1,6 @@
 using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
+using Jint.Browser.Dom.Views;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Runtime;
@@ -67,10 +68,20 @@ internal sealed partial class PageLayout
         Diagnostics?.SizeQueryRequested();
         if (!CanReuse())
         {
-            return CreateSizes();
+            return CreateUnretainedSizes();
         }
 
         return _sizes ??= CreateSizes();
+    }
+
+    // Measurements that cannot be retained are walked afresh on every read. The styles they consult need not
+    // be: the document's shared traversal validates itself against every native input, exactly as
+    // getComputedStyle relies on, so consecutive reads stop re-matching every element that precedes the target.
+    private FlatLayout.SizeQuery CreateUnretainedSizes()
+    {
+        var document = _runtime.Document;
+        var traversal = document is not null && Visibility.CascadeAvailable ? CssCascade.Traversal.Current(document) : null;
+        return new(document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
     }
 
     private FlatLayout.SizeQuery CreateSizes()

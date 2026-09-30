@@ -313,6 +313,26 @@ public class ImageLoadingTests
     }
 
     [Test]
+    public async Task AnImageNamingNoSourceAndANonStylesheetLinkAreNotRequests()
+    {
+        // HTML's update-the-image-data never obtains a request for an <img> with no src, no srcset and no
+        // <picture>, and a <link rel=icon> names nothing this browser loads: neither belongs in the log.
+        await using var loopback = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/", """
+                <!doctype html><html><head><link rel="icon" href="/favicon.svg"></head><body>
+                <img id="a"><img id="b" src=""><input type="image"><picture><img id="c"></picture>
+                </body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        loopback.Page.Requests.Should().ContainSingle();
+        loopback.Page.Requests.Should().OnlyContain(request => request.Initiator == RequestInitiator.Document);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task TheCeilingCountsRequestsOverTheWholeDocumentAndRefusesTheOnePastIt()
     {
         await using var loopback = await LoopbackPage.CreateAsync(

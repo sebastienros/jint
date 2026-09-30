@@ -572,14 +572,12 @@ internal sealed partial class ParserDriver
         if (!IsResourceConnected(link)) { Disassociate(); return; }
         var href = Attribute(link, "href");
         if (string.IsNullOrEmpty(href)) { Disassociate(); return; }
-        var relations = Attribute(link, "rel") ?? "";
         var work = new CssValueWork(_cancellationToken, _runtime.Engine.Constraints.Check);
         if (!NativeCssStyleSheets.EligibleOwner(link, new DomReadWork(work.Charge, work.Token), work))
         {
+            // Every other <link> (icon, canonical, preload, manifest...) names no resource this browser would
+            // ever load, so it is not a request at all rather than a refused one.
             Disassociate();
-            var refused = PageUrl.Resolve(href, BaseUrlOf(link.OwnerDocument!)) ?? href;
-            _requests.RecordNotFetched(refused, RequestInitiator.Subresource, PageRequestKind.Other,
-                "a <link rel=\"" + relations + "\"> is not fetched: only a stylesheet is");
             return;
         }
         var url = PageUrl.Resolve(href, BaseUrlOf(document));

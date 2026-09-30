@@ -95,6 +95,51 @@ internal static class ImageSourceSet
     }
 
     /// <summary>
+    /// Whether <paramref name="element"/> names any image source at all: a non-empty <c>src</c>, a
+    /// non-empty <c>srcset</c>, or a <c>&lt;source&gt;</c> with one in its <c>&lt;picture&gt;</c> parent.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/images.html#update-the-image-data steps 4 and 9: an element
+    /// that uses neither <c>srcset</c> nor <c>&lt;picture&gt;</c> and whose <c>src</c> is absent or empty
+    /// never obtains a request, so there is nothing to fetch and nothing to record as unfetched.
+    /// </remarks>
+    internal static bool HasCandidates(PageRuntime runtime, Element element)
+    {
+        var work = new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+        if (!IsBlank(work.Attribute(element, "src"), work))
+        {
+            return true;
+        }
+
+        if (element is not { NamespaceUri: Namespaces.Html, LocalName: "img" })
+        {
+            return false;
+        }
+
+        if (!IsBlank(work.Attribute(element, "srcset"), work))
+        {
+            return true;
+        }
+
+        if (element.ParentNode is Element parent && parent is { NamespaceUri: Namespaces.Html, LocalName: "picture" })
+        {
+            for (var child = parent.FirstChild; child is not null && !ReferenceEquals(child, element); child = child.NextSibling)
+            {
+                work.Step();
+                if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "source" } source
+                    && !IsBlank(work.Attribute(source, "srcset"), work))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsBlank(string? value, DomReadWork work) => value is null || Trim(value, work).Length == 0;
+
+    /// <summary>
     /// Steps 3.4 to 3.8 for one candidate element: its <c>media</c>, its <c>type</c>, its parsed
     /// <c>srcset</c> normalised against its <c>sizes</c>, and the selection over the result.
     /// </summary>

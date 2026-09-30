@@ -392,6 +392,11 @@ internal sealed partial class ParserDriver : IDisposable
 
             if (url is null)
             {
+                if (!Media.ImageSourceSet.HasCandidates(_runtime, image))
+                {
+                    return null;
+                }
+
                 // The selection produced nothing — an empty `srcset`, or a `<picture>` whose every
                 // `<source>` was ruled out and whose `<img>` has no `src`. HTML fires `error` here and this
                 // does not: see Dom/divergences.md, which records why AngleSharp gives no notification to
