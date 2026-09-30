@@ -447,21 +447,20 @@ public sealed class ActivationBehaviorTests
     }
 
     /// <summary>
-    /// A link whose <c>target</c> names anything but <c>_self</c> still loads here, because this version opens
-    /// no second page — and the page is told rather than left to wonder.
+    /// A top-level <c>_top</c> target navigates the same page without a fallback diagnostic.
     /// </summary>
     [Test]
-    public async Task ATargetedLinkLoadsInTheSamePageAndSaysSo()
+    public async Task ATopTargetedLinkLoadsInTheSamePage()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/start.html", "<title>start</title><a id='go' href='/next.html' target='_blank'>Next</a>")
+            .MapHtml("/start.html", "<title>start</title><a id='go' href='/next.html' target='_top'>Next</a>")
             .MapHtml("/next.html", "<title>next</title>"));
 
         await fixture.Page.NavigateAsync(fixture.Url("/start.html"));
         await fixture.NavigateByScriptAsync("document.getElementById('go').click()");
 
         (await fixture.Page.TitleAsync()).Should().Be("next");
-        fixture.Page.Errors.Should().ContainSingle(error => error.Message.Contains("_blank"));
+        fixture.Page.Errors.Should().BeEmpty();
     }
 
     [Test]

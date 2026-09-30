@@ -109,26 +109,16 @@ internal static class FormSubmitter
             return;
         }
 
-        // target=_blank opens a new page in a browser; there is no page-opening seam in this version, so
-        // every target loads here and the page is told rather than left wondering.
-        var frameTarget = Attribute(submitter, "formtarget") ?? Attribute(form, "target");
-        if (!string.IsNullOrEmpty(frameTarget)
-            && !string.Equals(frameTarget, "_self", StringComparison.OrdinalIgnoreCase))
-        {
-            runtime.Recorder.Add(
-                PageErrorKind.ReportedError,
-                "A form targeting '" + frameTarget + "' was submitted into the same page: this version opens no "
-                + "second page, so _blank, a frame name and _top all load here.",
-                "form");
-        }
+        var frameTarget = WindowOpen.Target(runtime, form, Attribute(submitter, "formtarget") ?? Attribute(form, "target"));
+        var (noopener, noreferrer) = WindowOpen.Relationship(form, frameTarget);
 
         if (string.Equals(method, "get", StringComparison.Ordinal))
         {
-            SubmitAsGet(runtime, target, entries, submitter ?? form);
+            SubmitAsGet(runtime, target, entries, submitter ?? form, frameTarget, noopener, noreferrer);
             return;
         }
 
-        SubmitAsPost(runtime, target, entries, enctype, submitter ?? form);
+        SubmitAsPost(runtime, target, entries, enctype, submitter ?? form, frameTarget, noopener, noreferrer);
     }
 
     /// <summary>
@@ -136,18 +126,23 @@ internal static class FormSubmitter
     /// <c>GET</c>. A <c>GET</c> submission cannot carry a file, so a file entry contributes its name — which
     /// is what the URL-encoded serializer does with one.
     /// </summary>
-    private static void SubmitAsGet(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, Element source)
+    private static void SubmitAsGet(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, Element source,
+        string frameTarget, bool noopener, bool noreferrer)
     {
         target.Query = FormUrlEncoded.Serialize(UrlEncodedPairs(entries));
+        if (WindowOpen.NavigateTarget(runtime, frameTarget, noopener,
+            WindowOpen.Navigation(runtime, target.Serialize(), noreferrer))) return;
         runtime.Page.RequestNavigation(
             target.Serialize(),
             replace: false,
             reason: PageNavigationReason.FormSubmissionGet,
             sourceElement: runtime.Dom.ExistingNavigation is null ? null : runtime.Dom.WrapNode(source),
-            userInitiated: Events.BrowserEventRealm.Of(runtime.Engine).ActivationIsUserInitiated);
+            userInitiated: Events.BrowserEventRealm.Of(runtime.Engine).ActivationIsUserInitiated,
+            referrer: noreferrer ? "" : null);
     }
 
-    private static void SubmitAsPost(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, string enctype, Element source)
+    private static void SubmitAsPost(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, string enctype, Element source,
+        string frameTarget, bool noopener, bool noreferrer)
     {
         byte[] body;
         string contentType;
@@ -169,6 +164,9 @@ internal static class FormSubmitter
             contentType = "application/x-www-form-urlencoded;charset=UTF-8";
         }
 
+        if (WindowOpen.NavigateTarget(runtime, frameTarget, noopener,
+            WindowOpen.Navigation(runtime, target.Serialize(), noreferrer, body: body, contentType: contentType))) return;
+
         JsFormData? formData = null;
         if (runtime.Dom.ExistingNavigation is not null)
         {
@@ -178,7 +176,8 @@ internal static class FormSubmitter
         runtime.Page.RequestFormPost(target.Serialize(), body, contentType,
             source: formData is null ? null : runtime.Dom.WrapNode(source),
             formData: formData,
-            userInitiated: Events.BrowserEventRealm.Of(runtime.Engine).ActivationIsUserInitiated);
+            userInitiated: Events.BrowserEventRealm.Of(runtime.Engine).ActivationIsUserInitiated,
+            referrer: noreferrer ? "" : null);
     }
 
     /// <summary>

@@ -324,8 +324,21 @@ internal sealed class PageRuntime
     /// <summary><c>MediaQueryList.prototype</c>, shared by everything <c>matchMedia</c> answers.</summary>
     internal ObjectInstance? MediaQueryListPrototype { get; set; }
 
-    /// <summary><c>window.name</c>, which nothing but a script reads or writes in this version.</summary>
-    internal string WindowName { get; set; } = "";
+    /// <summary><c>window.name</c>, mirrored on the handle for cross-page target selection.</summary>
+    internal string WindowName { get => Page.WindowHandle.Name; set => Page.WindowHandle.Name = value; }
+
+    private Dictionary<BrowsingContextHandle, RemoteWindowProxy>? _remoteWindows;
+
+    internal JsValue WindowProxyFor(BrowsingContextHandle handle)
+    {
+        if (ReferenceEquals(handle, Page.WindowHandle)) return Engine._mainRealm.GlobalObject;
+        var windows = _remoteWindows ??= [];
+        if (!windows.TryGetValue(handle, out var proxy))
+        {
+            windows.Add(handle, proxy = new RemoteWindowProxy(this, handle));
+        }
+        return proxy;
+    }
 
     /// <summary>
     /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c>,

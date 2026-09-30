@@ -302,12 +302,12 @@ public sealed class WindowTests
     }
 
     [Test]
-    public async Task WindowOpenAnswersNull()
+    public async Task WindowDefaultsAndSelectionRemainAvailable()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        (await page.EvaluateAsync("window.open('/other')")).Should().BeNull();
+        (await page.EvaluateAsync("window.opener")).Should().BeNull();
         (await page.EvaluateAsync("window.event")).Should().BeNull();
         (await page.EvaluateAsync<bool>("window.closed")).Should().BeFalse();
 

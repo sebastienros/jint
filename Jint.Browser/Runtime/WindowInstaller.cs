@@ -380,8 +380,24 @@ internal static class WindowInstaller
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
-            .Method("close", static (_, _) => JsValue.Undefined)
-            .Method("open", static (_, _) => JsValue.Null, length: 3)
+            .Accessor("opener", static (t, _) =>
+            {
+                var runtime = PageRuntime.Of(t, "opener");
+                return runtime.Page.Opener is { } opener ? runtime.WindowProxyFor(opener.WindowHandle) : JsValue.Null;
+            }, static (t, args) =>
+            {
+                var runtime = PageRuntime.Of(t, "opener");
+                if (args.At(0).IsNull()) runtime.Page.WindowHandle.Disown();
+                else runtime.Engine._mainRealm.GlobalObject.DefineOwnPropertyUnchecked("opener",
+                    new PropertyDescriptor(args.At(0), PropertyFlag.ConfigurableEnumerableWritable));
+                return JsValue.Undefined;
+            })
+            .PerRealmSlot("close", Operation("close", 0, static (runtime, _) =>
+            {
+                runtime.Page.WindowHandle.Close(runtime.Page);
+                return JsValue.Undefined;
+            }), enumerable: true)
+            .PerRealmSlot("open", Operation("open", 0, WindowOpen.Open), enumerable: true)
             .PerRealmSlot("scrollTo", Operation("scrollTo", 0, static (runtime, args) =>
             {
                 runtime.Layout.ScrollTo(ScrollTarget(args, runtime.Layout.ScrollY, absolute: true));

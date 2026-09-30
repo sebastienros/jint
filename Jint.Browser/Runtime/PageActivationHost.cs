@@ -36,11 +36,6 @@ internal sealed class PageActivationHost : BrowserActivationHost
     /// URL differing only in its fragment is a fragment navigation, fires <c>hashchange</c> and pushes a
     /// history entry without a fetch.
     /// </summary>
-    /// <remarks>
-    /// <c>target</c> is honoured only as far as this version can: there is no seam that opens a second page,
-    /// so <c>_blank</c>, a frame name and <c>_top</c> all load here and the page is told rather than left to
-    /// wonder — the same sentence a targeted form submission gets.
-    /// </remarks>
     internal override void FollowHyperlink(BrowserEventRealm realm, Element source, string url, string target)
     {
         if (url.Length == 0)
@@ -48,14 +43,9 @@ internal sealed class PageActivationHost : BrowserActivationHost
             return;
         }
 
-        if (target.Length != 0 && !string.Equals(target, "_self", StringComparison.OrdinalIgnoreCase))
-        {
-            _runtime.Recorder.Add(
-                PageErrorKind.ReportedError,
-                "A link targeting '" + target + "' was followed in the same page: this version opens no second "
-                + "page, so _blank, a frame name and _top all load here.",
-                source.LocalName);
-        }
+        target = WindowOpen.Target(_runtime, source, source.GetAttribute("target"));
+        var (noopener, noreferrer) = WindowOpen.Relationship(source, target);
+        if (WindowOpen.NavigateTarget(_runtime, target, noopener, WindowOpen.Navigation(_runtime, url, noreferrer))) return;
 
         _runtime.Page.RequestNavigation(
             url,
@@ -64,7 +54,8 @@ internal sealed class PageActivationHost : BrowserActivationHost
             reason: PageNavigationReason.AnchorClick,
             sourceElement: _runtime.Dom.ExistingNavigation is null ? null : _runtime.Dom.WrapNode(source),
             downloadRequest: source.GetAttribute("download"),
-            userInitiated: realm.ActivationIsUserInitiated);
+            userInitiated: realm.ActivationIsUserInitiated,
+            referrer: noreferrer ? "" : null);
     }
 
     /// <summary>

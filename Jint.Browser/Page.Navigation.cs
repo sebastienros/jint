@@ -109,7 +109,8 @@ public sealed partial class Page
     /// <returns>
     /// The response the submission navigated to, or <see langword="null"/> when it produced no navigation —
     /// because no form matched, because a <c>submit</c> listener cancelled it, or because the form failed
-    /// validation.
+    /// validation. A submission targeting another page also returns null; observe <see cref="Popup"/> for
+    /// a newly opened page and await that page's navigation separately.
     /// </returns>
     /// <remarks>
     /// <para>
@@ -230,6 +231,7 @@ public sealed partial class Page
         JsValue? sourceElement = null,
         string? downloadRequest = null,
         bool userInitiated = false,
+        string? referrer = null,
         CancellationToken navigationCancellation = default)
     {
         engine ??= _loop.CurrentEngine;
@@ -257,7 +259,7 @@ public sealed partial class Page
             Body: null,
             ContentType: null,
             reload,
-            Referrer: null,
+            Referrer: referrer,
             NavigationEventDispatched: navigationEventDispatched,
             NavigationState: navigationState,
             NavigationId: navigationId,
@@ -321,7 +323,7 @@ public sealed partial class Page
 
     /// <summary>The same, for a form submission that ends in a <c>POST</c>.</summary>
     internal void RequestFormPost(string url, byte[] body, string contentType, JsValue? source = null,
-        JsValue? formData = null, bool userInitiated = false)
+        JsValue? formData = null, bool userInitiated = false, string? referrer = null)
     {
         var navigation = PageRuntime.Find(_loop.CurrentEngine!)?.Dom.ExistingNavigation;
         if (navigation?.Handle(url, "push", source: source, formData: formData, userInitiated: userInitiated) == true) return;
@@ -333,7 +335,7 @@ public sealed partial class Page
             Body: body,
             ContentType: contentType,
             Reload: true,
-            Referrer: null,
+            Referrer: referrer,
             NavigationEventDispatched: true,
             NavigationId: navigation?.OngoingId ?? 0,
             NavigationCancellation: navigation?.NavigationCancellation ?? default),
@@ -457,12 +459,12 @@ public sealed partial class Page
         }
     }
 
-    /// <summary>Starts a navigation nobody is waiting for, and turns its failure into a page error.</summary>
-    private void Start(NavigationRequest request, PageNavigationReason? reason)
+    /// <summary>Starts an observed navigation; its task lets remote requests retain their FIFO order.</summary>
+    private Task Start(NavigationRequest request, PageNavigationReason? reason)
     {
         if (_closed)
         {
-            return;
+            return Task.CompletedTask;
         }
         request = request with { SourceDocumentId = _history.CurrentDocumentId };
 
@@ -476,11 +478,11 @@ public sealed partial class Page
                     new NavigationFailedException(
                         request.Target,
                         "'" + request.Target + "' cannot be parsed as a URL."));
-                return;
+                return Task.CompletedTask;
             }
 
             // Freeze the URL at request time: this navigation may wait behind one that changes the base URL.
-            var initiatorUrl = _url;
+            var initiatorUrl = request.InitiatorUrl ?? _url;
             var href = target.Serialize();
             request = request with
             {
@@ -500,7 +502,7 @@ public sealed partial class Page
                 catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
                 {
                     RejectBeforeStart(request, exception);
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 request = request with { FirstHopAllowed = allowed };
@@ -514,7 +516,7 @@ public sealed partial class Page
                 catch (NavigationFailedException failure)
                 {
                     RejectBeforeStart(request, failure);
-                    return;
+                    return Task.CompletedTask;
                 }
             }
 
@@ -528,12 +530,12 @@ public sealed partial class Page
         {
             // SubmitFormAsync is running the algorithm and wants the navigation back rather than started.
             _capturedNavigation = request;
-            return;
+            return Task.CompletedTask;
         }
 
         // Deliberately off the loop: the caller is a script the current document is running, and the document
         // it asked for replaces the engine that script is in.
-        _ = Task.Run(async () =>
+        return Task.Run(async () =>
         {
             try
             {
@@ -726,7 +728,7 @@ public sealed partial class Page
         }
 
         var href = target.Serialize();
-        var creator = await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(href))).ConfigureAwait(false);
+        var creator = request.Creator ?? await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(href))).ConfigureAwait(false);
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL equal to the
         // current one with fragments excluded, and whose own fragment is non-null, keeps the document, the
@@ -1334,6 +1336,7 @@ public sealed partial class Page
         long NavigationId = 0,
         long SourceDocumentId = -1,
         bool BrowserUi = false,
+        DocumentCreationFacts? Creator = null,
         CancellationToken NavigationCancellation = default);
 
     private DocumentCreationFacts CreationFactsOf(Engine engine, bool includeBaseUrl)

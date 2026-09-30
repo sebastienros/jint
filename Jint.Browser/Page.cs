@@ -89,10 +89,13 @@ public sealed partial class Page : IAsyncDisposable
     private volatile PageResponse? _response;
     private volatile Frame _mainFrame;
     private volatile bool _closed;
+    private readonly object _closeGate = new();
+    private Task? _closeTask;
 
-    private Page(BrowserContext context, BrowserOptions options, PageRecorder recorder)
+    private Page(BrowserContext context, BrowserOptions options, PageRecorder recorder, BrowsingContextHandle? windowHandle)
     {
         Context = context;
+        WindowHandle = windowHandle ?? new BrowsingContextHandle();
         _options = options;
         _recorder = recorder;
         Emulation = new EmulationState(options.Viewport, options.UserAgent) { TouchEnabled = options.HasTouch };
@@ -468,7 +471,12 @@ public sealed partial class Page : IAsyncDisposable
     /// awaiting fails with <see cref="OperationCanceledException"/>; every worker thread is asked to stop and
     /// disposes its own engine.
     /// </remarks>
-    public async Task CloseAsync()
+    public Task CloseAsync()
+    {
+        lock (_closeGate) return _closeTask ??= CloseCoreAsync();
+    }
+
+    private async Task CloseCoreAsync()
     {
         _closed = true;
         Context.Remove(this);
@@ -650,9 +658,10 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     internal PageNetworkRecorder NetworkLog => _requests;
 
-    internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options)
+    internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options,
+        BrowsingContextHandle? windowHandle = null, CrossPageNavigation? creator = null)
     {
-        var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents));
+        var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents), windowHandle);
 
         try
         {
@@ -660,7 +669,9 @@ public sealed partial class Page : IAsyncDisposable
 
             // The loop built an engine on the way up, and it is already the about:blank engine this load
             // wants, so the first document reuses it rather than replacing a realm nothing has run in.
-            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null, referrer: "", onPhase: null, page.NextLoaderId())).ConfigureAwait(false);
+            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null,
+                referrer: creator?.Referrer ?? "", onPhase: null, page.NextLoaderId(),
+                creator: creator is null ? null : new DocumentCreationFacts(creator.Origin, creator.BaseUrl))).ConfigureAwait(false);
             await page._loop.PostAsync(page.RecordFirstHistoryEntry).ConfigureAwait(false);
         }
         catch

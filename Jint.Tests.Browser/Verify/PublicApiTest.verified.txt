@@ -117,11 +117,13 @@ namespace Jint.Browser
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageError> Errors { get; }
         public bool IsClosed { get; }
         public Jint.Browser.Frame MainFrame { get; }
+        public Jint.Browser.Page? Opener { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageRequest> Requests { get; }
         public Jint.Browser.PageResponse? Response { get; }
         public string Url { get; }
         public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
+        public event System.EventHandler<Jint.Browser.Page>? Popup;
         public System.Threading.Tasks.Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0, bool includeReferences = false) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }

@@ -49,13 +49,13 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
             ? (_navigationPublished ??= new(TaskCreationOptions.RunContinuationsAsynchronously)).Task
             : null;
 
-    private PageTarget(Page page, string? browserContextId, bool waitForDebuggerOnStart, Action<PageTarget>? closed)
+    private PageTarget(Page page, string? browserContextId, bool waitForDebuggerOnStart, Action<PageTarget>? closed, string? openerId)
         : base(
             type: "page",
             title: "",
             url: page.Url,
             browserContextId: browserContextId,
-            openerId: null,
+            openerId: openerId,
             describer: DomRemoteObjectDescriber.Instance,
             waitForDebuggerOnStart: waitForDebuggerOnStart)
     {
@@ -134,6 +134,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// <param name="browserContextId">Which context it belongs to, or <see langword="null"/> for the default.</param>
     /// <param name="waitForDebuggerOnStart">Whether it runs nothing until a client releases it.</param>
     /// <param name="closed">What to run when the page closes, so the server can stop publishing it.</param>
+    /// <param name="openerId">The target that opened this popup, if it has an opener.</param>
     /// <remarks>
     /// The engine is adopted and the observer registered <b>inside one loop request</b>, so a navigation
     /// cannot commit between the two and leave the target watching a document it never saw begin.
@@ -142,9 +143,10 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         Page page,
         string? browserContextId,
         bool waitForDebuggerOnStart = false,
-        Action<PageTarget>? closed = null)
+        Action<PageTarget>? closed = null,
+        string? openerId = null)
     {
-        var target = new PageTarget(page, browserContextId, waitForDebuggerOnStart, closed);
+        var target = new PageTarget(page, browserContextId, waitForDebuggerOnStart, closed, openerId);
 
         await page.RunOnLoopAsync(engine =>
         {

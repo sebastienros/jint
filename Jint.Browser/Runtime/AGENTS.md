@@ -171,7 +171,7 @@ reading `thisObject` has no engine to reach the runtime through and can only ans
 Accessors are unaffected, because a bare identifier *read* goes through the global object's `[[Get]]` with the
 global as receiver. So: **an operation that needs its page is a `PerRealmSlot` holding a `ClrFunction` bound to
 the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `stop`, `blur`,
-`open` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`, and fails
+`focus` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`, and fails
 `foo()`. `getSelection` crossed that line the moment it had a selection to answer.
 
 Some members are own properties of their object rather than accessors on a shaped prototype. **`document` is no
@@ -188,6 +188,21 @@ prototype that takes an undeclared property loses its shape and its inline cachi
 script on the page — and `location` is an accessor, because it is also `[PutForwards=href]`:
 `window.location = '/next'` is a navigation, where a writable data property replaced the global and went
 nowhere.
+
+### Popups cross pages through handles, never engines
+
+`BrowserContext.ChoosePopup` reserves a `BrowsingContextHandle` before asynchronous page creation, so
+named opens racing initialization still return one identity. Its FIFO queues engine-free operations until
+registration and the off-loop `Page.Popup` announcement; closing the context also awaits opening popups.
+Once registered, shutdown waits for the page, not its announcement callback, so a handler can close the context.
+Each `PageRuntime` caches its own `RemoteWindowProxy` per handle. **No JsValue, DOM node or source-engine
+callback enters the destination loop.** Messaging crosses as `SerializationRecord` and immutable origin
+facts, deserializes on the recipient, and creates `MessageEvent.source` using that recipient's proxy cache.
+Navigation crosses as URL/referrer/origin facts and encoded POST bytes. Names, opener and closed state are
+thread-safe handle/page mirrors, never reads of another runtime. A separate navigation FIFO awaits each
+load without blocking the handle's message/close queue. Self-close waits past the current task;
+remote close can interrupt a parked target. The intentionally cross-origin-only surface, including for same-origin
+pages, and the unsupported transfer lists are recorded in `Dom/divergences.md`.
 
 ### The events bridge has a file of its own
 
