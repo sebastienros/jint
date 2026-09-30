@@ -165,7 +165,8 @@ public sealed class WebAnimationsTests
         (await page.EvaluateAndAwaitAsync<string>(
             """
             (async () => {
-              const a = document.body.animate([], 100);
+              // Long enough that the replay from zero cannot finish again before the frame on a loaded host.
+              const a = document.body.animate([], 100000);
               const events = [];
               const finished = a.finished;
               a.ready.then(() => events.push('ready'));
@@ -179,7 +180,7 @@ public sealed class WebAnimationsTests
               a.cancel();
               return [...immediate, newPromise, events.join('/')].join(',');
             })()
-            """)).Should().Be("100,finished,false,true,ready/finished/finish:100/microtask/frame");
+            """)).Should().Be("100000,finished,false,true,ready/finished/finish:100000/microtask/frame");
     }
 
     [Test]
