@@ -177,6 +177,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         var storage = new StorageDomain(this);
         var performance = new PerformanceDomain(this);
         var audits = new AuditsDomain();
+        var inspector = new InspectorDomain();
         var accessibility = new AccessibilityDomain(this);
         var css = new CssDomain(this);
         var security = new SecurityDomain();
@@ -193,6 +194,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
             .Register(storage)
             .Register(performance)
             .Register(audits)
+            .Register(inspector)
             .Register(accessibility)
             .Register(css)
             .Register(security)
@@ -207,8 +209,8 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         // target the way the built-in five do -- is observed by `With` and unobserved again by `Detach`.
         return domains.With(
         [
-            page, dom, input, emulation, network, fetch, storage, performance, audits, accessibility, css,
-            security, overlay, jint,
+            page, dom, input, emulation, network, fetch, storage, performance, audits, inspector, accessibility,
+            css, security, overlay, jint,
         ]);
     }
 
@@ -312,8 +314,9 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         _uncommittedUrl = runtime.DocumentUrl;
         Publish(title: null, runtime.DocumentUrl);
 
-        // Before the swap, because the swap is what tells every DOM domain to announce documentUpdated and a
-        // client that acted on it must find the identifiers already gone rather than resolving one more time.
+        // Before the swap, because the swap is what makes every DOM domain forget the nodes it sent, and a
+        // client acting on one in between must find the identifier already gone rather than resolving one
+        // more time. documentUpdated itself waits for the commit below.
         Nodes.DocumentReplaced();
         Sheets.DocumentReplaced();
 
@@ -338,6 +341,9 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         {
             domain.FrameNavigated(_uncommittedUrl ?? runtime.DocumentUrl, loaderId);
         }
+
+        // After frameNavigated, which is Chrome's order and the one chromedp's frame bookkeeping depends on.
+        Nodes.AnnounceDocument();
 
         _uncommittedUrl = null;
 
@@ -374,6 +380,9 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         _uncommittedUrl = null;
         var pending = _pendingNavigations;
         _pendingNavigations = null;
+
+        // The identifiers were thrown away at the swap whether or not the document committed.
+        Nodes.AnnounceDocument();
 
         // A failed parse must not replay its history changes over the next document. Cross-document
         // requests are still queued on the page, however, and their clients must hear about them.

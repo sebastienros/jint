@@ -143,3 +143,34 @@ internal sealed class AuditsDomain : Jint.DevTools.Domains.AuditsDomainBase
         return EmptyResult.Instance;
     }
 }
+
+/// <summary>
+/// The <c>Inspector</c> domain, accepted and reporting nothing.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Its events say that a target's renderer crashed or reloaded after a crash, or that the debugging
+/// connection is about to be torn down. There is no renderer process here to lose, and a detach is already
+/// reported as <c>Target.detachedFromTarget</c>. chromedp enables the domain on every page it attaches to
+/// and abandons the attachment if it errors, so an empty stream is the truthful answer rather than a gap.
+/// </para>
+/// <para>
+/// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Inspector/"/>.
+/// </para>
+/// </remarks>
+internal sealed class InspectorDomain : Jint.DevTools.Domains.InspectorDomainBase
+{
+    /// <inheritdoc/>
+    protected override async ValueTask<EmptyResult> EnableAsync(EmptyParameters parameters, CommandContext context)
+    {
+        await MarkEnabledAsync(context).ConfigureAwait(false);
+        return EmptyResult.Instance;
+    }
+
+    /// <inheritdoc/>
+    protected override async ValueTask<EmptyResult> DisableAsync(EmptyParameters parameters, CommandContext context)
+    {
+        await MarkDisabledAsync(context).ConfigureAwait(false);
+        return EmptyResult.Instance;
+    }
+}

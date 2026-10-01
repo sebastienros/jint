@@ -116,6 +116,10 @@ console.log(await page.title());
 unauthenticated**, exactly as it is in Chrome: anything that can reach it can run script in this process, so
 `--host` defaults to `127.0.0.1` and should stay there.
 
+`--no-images` fetches no image at all, which is what a crawler that only reads the DOM wants: each `<img>`
+is still listed among the page's requests with the reason it was not fetched, but no socket is opened and
+the element fires neither `load` nor `error`, so `img.complete` stays `false`. `fetch` and `eval` take it too.
+
 ## Serving a browser to an agent
 
 ```bash

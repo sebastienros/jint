@@ -335,8 +335,9 @@ reads, and `javascriptDialogOpening` and `javascriptDialogClosed` arrive togethe
 pixels and names `Jint.getMarkdown`, `Jint.getText` and `document.documentElement.outerHTML` instead.
 
 What is accepted and not yet effective is accepted because refusing it fails an ordinary connection, and
-each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass) and
-`Audits.enable` (nothing to report).
+each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass),
+`Audits.enable` (nothing to report) and `Inspector.enable` (no renderer to crash; chromedp sends it on
+every attachment).
 
 **The network domains are real, and what is still absent is absent with a reason rather than pending.**
 `Network` reports every request the page makes, and `Fetch` pauses one at the **request** stage or the

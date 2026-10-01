@@ -88,14 +88,23 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
 
     /// <inheritdoc/>
     /// <remarks>
-    /// A navigation throws every <c>nodeId</c> away with the document that minted it, so the client is told
-    /// to start again — which is exactly what <c>documentUpdated</c> means. The tracker's own tables are
-    /// cleared by the target, once, rather than by each attachment.
+    /// A navigation throws every <c>nodeId</c> away with the document that minted it. The tracker's own
+    /// tables are cleared by the target, once, rather than by each attachment; telling the client to start
+    /// again waits for <see cref="DocumentCommitted"/>.
     /// </remarks>
-    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime)
-    {
-        Forget();
+    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime) => Forget();
 
+    /// <summary>
+    /// Tells the client to start again — which is exactly what <c>documentUpdated</c> means — once the
+    /// document has committed.
+    /// </summary>
+    /// <remarks>
+    /// After <c>Page.frameNavigated</c>, never before it, which is Chrome's order: chromedp re-reads the
+    /// document into the frame it last heard navigate, and a <c>frameNavigated</c> arriving afterwards
+    /// replaces that frame with one that has no root, so every query waits forever.
+    /// </remarks>
+    internal void DocumentCommitted()
+    {
         if (IsEnabled)
         {
             EmitDetached(DOMEvents.DocumentUpdated());

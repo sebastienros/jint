@@ -209,6 +209,14 @@ public class DomDomainTests
 
         session.EventsOf("DOM.documentUpdated", attachment).Should().NotBeEmpty("a commit throws every node identifier away");
 
+        // Chrome's order, which chromedp depends on: it reads the new document into the frame it last heard
+        // navigate, so a documentUpdated ahead of frameNavigated leaves its frame without a root for good.
+        var updates = session.EventsOf("DOM.documentUpdated", attachment).Count;
+        var navigations = session.EventsOf("Page.frameNavigated", attachment).Count;
+        session.Ordinal("DOM.documentUpdated", updates - 1).Should().BeGreaterThan(
+            session.Ordinal("Page.frameNavigated", navigations - 1),
+            "documentUpdated announces the document frameNavigated committed");
+
         var error = await session.ErrorAsync("DOM.describeNode", $$"""{"nodeId":{{stale}}}""", attachment);
         error.GetProperty("code").GetInt32().Should().Be(-32000);
         error.GetProperty("message").GetString().Should().Be("Could not find node with given id");

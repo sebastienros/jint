@@ -64,6 +64,26 @@ public sealed class EvalCommandTests
     }
 
     [Test]
+    public async Task NoImagesFetchesNoImage()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/", """<!doctype html><html><body><img src="/a.png"></body></html>""");
+        server.Map("/a.png", _ => LoopbackResponse.Raw(Jint.Tests.Browser.Parsing.ImageBytes.Png(20, 10), "image/png"));
+        const string Expression = "[document.images[0].complete, document.images[0].naturalWidth]";
+
+        var withImages = await ToolRun.RunAsync("eval", server.Url("/"), Expression);
+        withImages.ExitCode.Should().Be(0);
+        withImages.Output.Trim().Should().Be("[true,20]", "the same page loads its image without the flag");
+        server.Received.Count(request => request.Path == "/a.png").Should().Be(1);
+
+        var withoutImages = await ToolRun.RunAsync("eval", server.Url("/"), Expression, "--no-images");
+
+        withoutImages.ExitCode.Should().Be(0);
+        withoutImages.Output.Trim().Should().Be("[false,0]");
+        server.Received.Count(request => request.Path == "/a.png").Should().Be(1, "--no-images opens no socket for an image");
+    }
+
+    [Test]
     public async Task TooFewArgumentsIsExitCodeOne()
     {
         var run = await ToolRun.RunAsync("eval", "https://example.com");

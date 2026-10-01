@@ -167,6 +167,18 @@ internal sealed class DomNodeTracker : IDisposable
     }
 
     /// <summary>
+    /// Tells every attachment's domain that the identifiers <see cref="DocumentReplaced"/> threw away are
+    /// not coming back, which the target does after it has announced the commit.
+    /// </summary>
+    internal void AnnounceDocument()
+    {
+        foreach (var domain in Volatile.Read(ref _domains))
+        {
+            domain.DocumentCommitted();
+        }
+    }
+
+    /// <summary>
     /// Watches <paramref name="runtime"/>'s document for mutations, if a client wants them and it is not
     /// already watched.
     /// </summary>

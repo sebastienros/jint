@@ -30,6 +30,9 @@ internal sealed class BrowserSettings
     /// <summary>Whether loopback and private addresses are refused, or <see langword="null"/> for the posture's own answer.</summary>
     internal bool? BlockPrivateNetwork { get; private init; }
 
+    /// <summary>Whether no image is fetched at all, which is <see cref="BrowserOptions.MaxImageRequests"/> at zero.</summary>
+    internal bool NoImages { get; private init; }
+
     /// <summary>Adds the shared options to a command's syntax.</summary>
     internal static void Declare(Dictionary<string, OptionKind> syntax)
     {
@@ -39,6 +42,7 @@ internal sealed class BrowserSettings
         syntax["memory-limit"] = OptionKind.Value;
         syntax["block-private-network"] = OptionKind.Flag;
         syntax["allow-private-network"] = OptionKind.Flag;
+        syntax["no-images"] = OptionKind.Flag;
     }
 
     /// <summary>Reads the shared options off a parsed command line.</summary>
@@ -63,6 +67,7 @@ internal sealed class BrowserSettings
                 ? ValueSyntax.Size("memory-limit", memory)
                 : null,
             BlockPrivateNetwork = block ? true : allow ? false : null,
+            NoImages = line.Flag("no-images"),
         };
     }
 
@@ -98,6 +103,13 @@ internal sealed class BrowserSettings
         if (BlockPrivateNetwork is { } blocked)
         {
             options.BlockPrivateNetwork = blocked;
+        }
+
+        // The package's own opt-out: every <img> is still recorded in Page.Requests with the reason it was
+        // not fetched, but no socket is opened and no load or error event fires.
+        if (NoImages)
+        {
+            options.MaxImageRequests = 0;
         }
 
         return options;

@@ -33,6 +33,16 @@ public class FrontEndDomainTests
     }
 
     [Test]
+    public async Task InspectorIsAcceptedBecauseChromedpEnablesItOnEveryAttachment()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        await session.ResultAsync("Inspector.enable", null, attachment);
+        await session.ResultAsync("Inspector.disable", null, attachment);
+    }
+
+    [Test]
     public async Task DrawingCommandsStayAbsentBecauseThereIsNothingToDrawOn()
     {
         await using var session = await PageSession.CreateAsync();

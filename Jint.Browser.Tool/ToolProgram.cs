@@ -158,6 +158,9 @@ internal static class ToolProgram
         output.WriteLine("  --timeout <duration>      Ceiling on a navigation and on a wait; 30s");
         output.WriteLine("  --max-snapshot-length <n> Ceiling on what a snapshot returns; 40000");
         output.WriteLine();
+        output.WriteLine("serve, fetch and eval:");
+        output.WriteLine("  --no-images               Fetch no image; <img> stays incomplete and fires nothing");
+        output.WriteLine();
         output.WriteLine("Every command:");
         output.WriteLine("  --untrusted               Harden the pages for content nobody vouches for");
         output.WriteLine("  --user-agent <string>     What a page reports itself as, in script and on the wire");
