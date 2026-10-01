@@ -2,7 +2,7 @@
 
 Independently reviewed design, 2026-09-23. Supplements [the architecture](html-parser.md), task X4
 (X1 and D4 dependencies), and the B4/R4 migration assignments in
-[A1](../../tools/html-parser-inventory/README.md). No runtime implementation or performance claim.
+[A1](https://github.com/sebastienros/jint/blob/main/tools/html-parser-inventory/README.md). No runtime implementation or performance claim.
 Integration inspected at `7792a9152`; XML, ordinary traversal, template ownership and mutation stamps
 already exist. Keep the BCL XPath 1.0 engine, replace its tree adapter, and apply the bounded owned
 compilation amendment below. Do not serialize/reparse into XmlDocument, copy the tree, or introduce
@@ -20,7 +20,7 @@ See [the completion tracker](html-parser-completeness.md) for remaining standalo
 
 `Jint.Browser/Dom/Views/JsXPath.cs` compiles BCL XPathExpression, supplies an IXmlNamespaceResolver,
 clones the expression for evaluation, then materializes an XPathNodeIterator. Its node extraction
-currently depends on HtmlDocumentNavigator.CurrentNode and List<INode>. Its scalar coercions include
+currently depends on HtmlDocumentNavigator.CurrentNode and `List<INode>`. Its scalar coercions include
 reading the first selected node's TextContent. `DevTools/DomDomain.Events.cs:XPathMatches` uses the
 same navigator, materializes nodes, and treats XPath/argument errors as an unsuccessful search arm.
 Both explicitly request `ignoreNamespaces: true`. Browser also deliberately preserves materialized

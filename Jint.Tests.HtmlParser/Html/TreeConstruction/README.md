@@ -35,7 +35,7 @@ flags/registry ownership, actual fragment hosts, permission/host/existing-root f
 host-provider lookup gates and original infrastructure exceptions. This is authored native
 coverage, not an expansion of the historical WPT census. Atomic native work boundaries and the
 public HTML promotion amendment are recorded in
-[the promotion checkpoint](../../../../docs/design/html-parser-html-promotion.md).
+[the promotion checkpoint](../../../docs/design/html-parser-html-promotion.md).
 `HtmlTableStructureTests` and `HtmlTableTextTests` cover H5a/H5b
 against the 2026-09-22 HTML Standard; the historical corpus pin above is comparison
 evidence, not the rule for a changed algorithm. Table text tests cover pending runs,

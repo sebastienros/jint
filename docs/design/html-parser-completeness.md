@@ -1,6 +1,6 @@
 # Native parser public API and integration work
 
-The current CSS target is [LightPanda-style renderless text](../../Jint.HtmlParser/README.md#renderless-css-boundary).
+The current CSS target is [LightPanda-style renderless text](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/README.md#renderless-css-boundary).
 This supersedes the former full-computed-CSS plan and its V0-V9/R3-R7/C6 grammar obligations.
 Removing these features is an intentional behavior change, not deferred implementation debt.
 Historical implementation measurements in git history do not describe the current engine.
@@ -134,7 +134,7 @@ unchanged. No HTML tokenizer, DOM, XML or XPath work is part of this CSS reducti
   executes twice after a decode restart; string/incremental UTF-16 support does not close this gate.
 
 Each public slice requires intentional API snapshots on net8.0/net10.0 and execution from the
-[unsigned local-feed package consumer](../../tools/html-parser-package-consumer/README.md), without
+[unsigned local-feed package consumer](https://github.com/sebastienros/jint/blob/main/tools/html-parser-package-consumer/README.md), without
 friend access or a project reference. A separate native pack/run is required for AOT evidence.
 
 ## Acceptance still required

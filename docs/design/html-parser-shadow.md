@@ -4,7 +4,7 @@ Preparatory design for independent review, 2026-09-23; not an implementation dis
 claim. This splits the shadow-tree part of [D6](html-parser.md#11-phased-implementation-and-bounded-tasks)
 into finite native tasks. It follows [native ownership](html-parser-native-followups.md),
 [construction](html-parser-construction.md), [D5 mutation tracking](html-parser-mutations.md), and
-[H6d/H6f](html-parser-tree-construction-followups.md#7-h6dh6f-templates-inert-ownership-and-applicable-newer-branches).
+[H6d/H6f](html-parser-tree-construction-followups.md#7-h6d-h6f-templates-inert-ownership-and-applicable-newer-branches).
 D6 range/iterator fixups remain a separate required task. H6f also owes content patching; shadow support
 does not discharge that obligation. No parser feature switch, alternative DOM, or Browser dependency
 is introduced into Jint.HtmlParser.
@@ -30,7 +30,7 @@ These were checked against DOM dated 2026-08-25 and the current HTML Living Stan
 includes `shadowrootslotassignment`, `shadowrootcustomelementregistry`, and template `for` patching.
 Implement those algorithms rather than assuming older declarative-shadow examples exhaust the syntax.
 
-The [A1 lock](../../tools/html-parser-inventory/inventory.lock.json) is the binding inventory. These
+The [A1 lock](https://github.com/sebastienros/jint/blob/main/tools/html-parser-inventory/inventory.lock.json) is the binding inventory. These
 concrete consumers determine native prerequisites; its broad B1/B2 ownership labels do not mean all
 of their semantics belong in the binding generator:
 

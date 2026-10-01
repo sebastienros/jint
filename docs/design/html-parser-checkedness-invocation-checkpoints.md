@@ -1,6 +1,6 @@
 # Checkedness invocation checkpoints
 
-This source checkpoint adds invocation-owned Action<int>? overloads immediately before
+This source checkpoint adds invocation-owned `Action<int>?` overloads immediately before
 CancellationToken to the native checked-state lookup, checked/unchecked/default/indeterminate
 predicates, radio applicability/facts/same-group/snapshot/first-checked queries, checked assignments,
 reset/copy and indeterminate assignment. Existing signatures remain available. No callback or engine
@@ -27,7 +27,7 @@ The uninterruptible flag and index-handle commit loops consume already prepared 
 DOM mutation hooks, defaultChecked attribute writes and Browser/clone consumer forwarding remain
 separate work. This checkpoint does not claim every raw DOM entry is covered by the Browser budget.
 
-CheckedInvocationCheckpointTests uses real Action<int> callers without installing a document probe.
+CheckedInvocationCheckpointTests uses real `Action<int>` callers without installing a document probe.
 It covers long metadata/tree/name scans, source-count tails, unpublished cold sidecars/indexes,
 original cancellation tokens, caller exceptions, atomic peer/constant flag operations and allocation-free
 warm queries. A warm 20000-member regression asserts first-callback cancellation stays below 64 KiB

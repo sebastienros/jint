@@ -17,7 +17,7 @@ algorithm; older versions with one iterator position are insufficient.
 
 ## Consumers and ownership
 
-The [A1 inventory](../../tools/html-parser-inventory/inventory.lock.json) and actual call sites require:
+The [A1 inventory](https://github.com/sebastienros/jint/blob/main/tools/html-parser-inventory/inventory.lock.json) and actual call sites require:
 
 | Existing consumer | Required replacement and owner |
 | --- | --- |

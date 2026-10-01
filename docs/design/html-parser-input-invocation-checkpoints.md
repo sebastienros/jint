@@ -2,7 +2,7 @@
 
 This separate checkpoint supplies the per-call engine-work seam requested after N1/N2. Native
 state does not retain a callback, engine or execution context. Existing token-only overloads remain;
-callback overloads take Action<int>? immediately before CancellationToken.
+callback overloads take `Action<int>?` immediately before CancellationToken.
 
 HtmlElementState.GetInputValueState(checkpoint, token) passes the caller through cold input
 construction. One invocation-owned struct counts the constructor, actual Attr visits and family
@@ -15,7 +15,7 @@ HtmlInputValueState callback operations cover Get/SetValue, Get/SetDefaultValue,
 Get/SetValueAsNumber/Date, GetNumericFacts, StepUp/StepDown, text length, public/private selection,
 Select, both SetRangeText forms, GetEditingValue and GetFacts. Cached string/flag/offset operations
 perform a bounded invocation check. Long operations pass one native work struct by ref through
-the pure number, temporal, constraints and range helpers. Existing Action<long> pure-helper APIs
+the pure number, temporal, constraints and range helpers. Existing `Action<long>` pure-helper APIs
 remain compatible. No helper restarts the numeric counter when entering another parser phase.
 
 Text sanitization continues the same counter through its existing HtmlTextWork. Range replacement

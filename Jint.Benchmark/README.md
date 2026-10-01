@@ -361,6 +361,7 @@ AMD Ryzen 9 5950X 3.40GHz, 1 CPU, 32 logical and 16 physical cores
   DefaultJob : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
 
 ```
+
 | Method               | FileName                     | Mean             | StdDev         | Rank | Allocated     |
 |--------------------- |----------------------------- |-----------------:|---------------:|-----:|--------------:|
 | ClearScript_Compiled | array-stress                 |     2,035.717 μs |      7.6419 μs |    1 |        8.1 KB |

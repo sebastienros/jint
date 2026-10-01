@@ -159,8 +159,8 @@ Keep this lane under `Jint.Tests.HtmlParser/Xml/Conformance/`; do not change WPT
 - `XmlCorpusTests.cs`: pin/license/manifest integrity, classification census, path/resource confinement,
   decoder tests, and negative probes proving wrong result/record/output cannot report a pass.
 
-Borrow the repository's [WPT exclusion discipline](../../Jint.Tests/Wpt/AGENTS.md) and
-[Test262 content-digest discipline](../../Jint.Tests.Test262/AGENTS.md), not their production dependencies.
+Borrow the repository's [WPT exclusion discipline](https://github.com/sebastienros/jint/blob/main/Jint.Tests/Wpt/AGENTS.md) and
+[Test262 content-digest discipline](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Test262/AGENTS.md), not their production dependencies.
 Require every full-suite row to have exactly one disposition. Print counts by collection/category:
 inventoried, outside profile, runnable, passing, known failing, unresolved classification, and harness
 failures; separately count eligible/output-compared/pending-output rows and no-fetch adaptations.

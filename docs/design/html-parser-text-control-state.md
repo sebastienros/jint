@@ -484,7 +484,7 @@ Native acceptance uses freshly compiled Release net8.0 and net10.0 tests, not st
 - CR/LF/CRLF across direct text-node boundaries, nested text exclusion, CDATA, comments, parser token
   splits, initial LF suppression exactly once for HTML and never for XML, parser pop/EOF/self-closing
   reset, dirty fragment context preservation, and ordinary mutation bypass paths.
-- Nullable/uint-max selection, surrogate-half positions, end<start, per-endpoint setters, direction-only
+- Nullable/uint-max selection, surrogate-half positions, `end<start`, per-endpoint setters, direction-only
   changes, non-S getters/errors and select no-op, email internal edit versus public null selection,
   number editing through b3, all replacement modes/equality boundaries, CR/LF replacements and signed
   delta overflow avoidance. Script setters/range replacement ignore maxlength; user policy does not.

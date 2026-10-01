@@ -74,7 +74,7 @@ are not a claim that the pinned WPT corpus has been executed or passed for input
 ## User-edit work checkpoints
 
 Input and textarea retain their CancellationToken-only ApplyUserValue signatures and add an overload
-with Action<int>? checkpoint before the token. One invocation-owned counter spans native disabledness,
+with `Action<int>?` checkpoint before the token. One invocation-owned counter spans native disabledness,
 readonly checks, sanitizer scanning/copies, cold textarea child projection, string comparison and
 selection preparation. Its final tail callback runs before any observable value/dirty/origin/selection
 commit. Browser supplies NativeReadCheckpoint to check its engine constraints; exceptions propagate

@@ -1,6 +1,6 @@
 # Textarea invocation checkpoints
 
-This source checkpoint extends the existing textarea store with invocation-owned Action<int>?
+This source checkpoint extends the existing textarea store with invocation-owned `Action<int>?`
 overloads immediately before CancellationToken. It covers current/default/submission value and
 text length reads, public/private selection, Select, Reset and both SetRangeText forms. Existing
 SetValue and CopyFrom callbacks now span their actual dependent reads/comparisons and final tail.

@@ -33,9 +33,9 @@ fresh budget and a freshly armed deadline, and `Engine.Constraints.Check()` from
 close the gap. This is the remedy half. The options are not interchangeable, and three of the four
 interact with the tight-loop lane described under [Gotchas](#gotchas) below.
 
-What an embedder must do instead: bound the loop host-side (its own `Stopwatch`, checked between iterations), or move the loop into the script (`rows.forEach(predicate)`) so the whole traversal is one run and one budget. 
+What an embedder must do instead: bound the loop host-side (its own `Stopwatch`, checked between iterations), or move the loop into the script (`rows.forEach(predicate)`) so the whole traversal is one run and one budget.
 
-The in-engine option for a *budget* is a user-derived `Constraint` whose `Reset()` is a no-op and which stays *exact* (the default `IsAmortizable`, so it is checked on every statement) — which costs the tight-loop lane. 
+The in-engine option for a *budget* is a user-derived `Constraint` whose `Reset()` is a no-op and which stays *exact* (the default `IsAmortizable`, so it is checked on every statement) — which costs the tight-loop lane.
 
 For the wall-clock half of that budget case there is now an in-box class — `Jint.Constraints.OperationDeadlineConstraint`, which the host brackets with `Begin(budget, token)` / `End()` around the whole operation and whose no-op `Reset()` therefore survives every per-entry reset in between; it observes only a clock and a token, so unlike a hand-written exact budget it declares `IsAmortizable => true` and keeps the tight-loop lane armed, and it throws a real `OperationCanceledException` for the token (Jint's own `ExecutionCanceledException` is a `JintException` and is not one) and the usual `TimeoutException` for the budget. The allocation half has the same shape: `MemoryLimitConstraint.Begin` / `End` brackets one managed-allocation budget across every entry the operation makes, and unlike the deadline it stays *exact*, so it disarms the tight-loop lane for as long as a memory limit is configured at all.
 

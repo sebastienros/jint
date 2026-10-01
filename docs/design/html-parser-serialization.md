@@ -17,7 +17,7 @@ original rollout contract; remaining package work is tracked in
 
 ## Evidence and consumer decisions
 
-The [A1 inventory](../../tools/html-parser-inventory/README.md) assigns serialization to B4 and leaf
+The [A1 inventory](https://github.com/sebastienros/jint/blob/main/tools/html-parser-inventory/README.md) assigns serialization to B4 and leaf
 callers to R4. Actual calls are:
 
 | Caller | Current behavior | Migration requirement |

@@ -251,7 +251,7 @@ Use one reviewed lattice implementation for this and the step methods.
 
 Required exact examples: default attributes and empty value give 50; min=0/max=100/step=20/value=50
 gives 60; min=5.3/max=12/value=6.7 with default step gives 6.3, with step=.5 gives 6.8; min=0/max=5
-with an invalid step gives default 3 after tie rounding. Test negative midpoint ties, max<min, any,
+with an invalid step gives default 3 after tie rounding. Test negative midpoint ties, `max<min`, any,
 min=max and a value-attribute-derived base with no legal point in the interval.
 
 Range re-sanitization follows the prescribed min/max/step attribute hooks as well as ordinary value,

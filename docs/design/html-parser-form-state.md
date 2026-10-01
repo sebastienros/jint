@@ -23,7 +23,7 @@ and [HTML selector states](https://html.spec.whatwg.org/multipage/semantics-othe
 The older AngleSharp surface and Browser workarounds are evidence of required consumers, not substitute
 algorithms. Current HTML's option/optgroup rules must not be reduced to older immediate-parent rules.
 
-The [A1 manifest](../../tools/html-parser-inventory/inventory.lock.json) remains the exhaustive member
+The [A1 manifest](https://github.com/sebastienros/jint/blob/main/tools/html-parser-inventory/inventory.lock.json) remains the exhaustive member
 inventory. This dispatch groups its rows and actual handwritten consumers as follows:
 
 | Consumer | Required shared native facts; retained Browser responsibility |
