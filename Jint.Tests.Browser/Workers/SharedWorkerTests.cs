@@ -229,8 +229,10 @@ public sealed class SharedWorkerTests
             let errors = [];
             onerror = (message, file, line, column, error) => { errors.push(error.message); return true; };
             onconnect = e => {
-              e.ports[0].onmessage = () => { throw new Error('callback'); };
-              setTimeout(() => e.ports[0].postMessage(errors.join(',')), 0);
+              e.ports[0].onmessage = m => {
+                if (m.data === 'throw') throw new Error('callback');
+                e.ports[0].postMessage(errors.join(','));
+              };
             };
             throw new Error('initial');
             """);
@@ -240,7 +242,7 @@ public sealed class SharedWorkerTests
             + "onerror = () => ownerErrors++;"
             + "const w = new SharedWorker('/worker.js',{type:'" + type + "'});"
             + "w.onerror = () => ownerErrors++; w.port.onmessage = e => messages.push(e.data);"
-            + "w.port.postMessage('throw');");
+            + "w.port.postMessage('throw'); w.port.postMessage('report');");
         await fixture.Page.WaitForAsync("messages.length > 0", _wait);
         (await fixture.Page.EvaluateAsync<string>("messages[0]")).Should().Be("initial,callback");
         (await fixture.Page.EvaluateAsync<int>("ownerErrors")).Should().Be(0);
