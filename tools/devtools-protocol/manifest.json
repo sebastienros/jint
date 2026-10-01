@@ -70,6 +70,15 @@
 
     "DOM",
 
+    // enable and disable are accepted no-ops because chromedp enables the domain on every page it attaches
+    // to and fails the attachment if it errors. The four events report a debugging connection being torn
+    // down and a renderer crashing or reloading after one; a page here has no renderer process to lose, and
+    // a detach is the session's own Target.detachedFromTarget.
+    {
+      "domain": "Inspector",
+      "commands": ["disable", "enable"]
+    },
+
     // Left out: drag input, synthesized scroll and pinch gestures, and the input-driver commands. The flat
     // box model dispatches a key, a mouse event, a touch and text, which is what a client uses to drive a
     // page here.
@@ -328,6 +337,8 @@
     "Input.dispatchTouchEvent",
     "Input.imeSetComposition",
     "Input.insertText",
+    "Inspector.disable",
+    "Inspector.enable",
     "Jint.getAccessibilitySnapshot",
     "Jint.getMarkdown",
     "Jint.getText",

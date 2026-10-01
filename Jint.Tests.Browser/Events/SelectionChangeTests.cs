@@ -103,9 +103,14 @@ public sealed class SelectionChangeTests
               const t = document.getElementById('t');
               t.focus();
               t.setSelectionRange(3, 3);
-              document.addEventListener('selectionchange', e =>
-                window.seen.push([e.target.id, e.bubbles, e.target.selectionStart].join(',')));
             </script>
+            """);
+
+        // Finish the setup selection's queued notification before measuring key-driven changes.
+        await DeliveredAsync(page);
+        await page.EvaluateAsync("""
+            document.addEventListener('selectionchange', e =>
+              window.seen.push([e.target.id, e.bubbles, e.target.selectionStart].join(',')));
             """);
 
         await BrowserTestAccess.DispatchKeyAsync(page, "ArrowRight");
@@ -139,9 +144,11 @@ public sealed class SelectionChangeTests
               const t = document.getElementById('t');
               t.focus();
               t.setSelectionRange(3, 3);
-              document.addEventListener('selectionchange', () => window.seen++);
             </script>
             """);
+
+        await DeliveredAsync(page);
+        await page.EvaluateAsync("document.addEventListener('selectionchange', () => window.seen++)");
 
         // The caret is already at the end, so the clamp turns the move into no move at all. The boundary is
         // what makes that a claim rather than a coincidence: without it a zero could equally be an event

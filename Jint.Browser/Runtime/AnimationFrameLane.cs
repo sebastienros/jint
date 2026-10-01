@@ -35,18 +35,21 @@ internal sealed class AnimationFrameLane
     private int _nextId;
     private bool _scheduled;
     private bool _running;
+    private int _timerId;
 
     internal AnimationFrameLane(PageRuntime runtime)
     {
         _runtime = runtime;
     }
 
+    internal double? FrameTime { get; private set; }
+
     /// <summary>Queues <paramref name="callback"/> for the next frame and answers its cancellation handle.</summary>
     internal int Request(ICallable callback)
     {
         var id = ++_nextId;
         _pending.Add(new Entry(id, callback));
-        Schedule();
+        Refresh();
         return id;
     }
 
@@ -68,8 +71,32 @@ internal sealed class AnimationFrameLane
             if (_pending[i].Id == id)
             {
                 _pending.RemoveAt(i);
+                Refresh();
                 return;
             }
+        }
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering.
+    /// A document needs frames for either animation updates/events or rAF callbacks, never for a merely
+    /// retained paused/filling animation. Withdraw the timer immediately when its last participant leaves.
+    /// </summary>
+    internal void Refresh()
+    {
+        if (_running)
+        {
+            return;
+        }
+
+        if (_pending.Count != 0 || _runtime.ExistingAnimations?.NeedsFrames == true)
+        {
+            Schedule();
+        }
+        else if (_scheduled)
+        {
+            _runtime.Engine._webApi?.Timers?.Cancel(_timerId);
+            _scheduled = false;
         }
     }
 
@@ -91,7 +118,7 @@ internal sealed class AnimationFrameLane
 
         // After the queue accepted it, not before: a schedule that threw — a page over the active-timer
         // limit, say — would otherwise leave the lane believing a frame is coming and never ask for another.
-        timers.Schedule(new TimerEntry(
+        _timerId = timers.Schedule(new TimerEntry(
             timers,
             _runtime.Engine.Realm,
             new Batch(this),
@@ -107,24 +134,31 @@ internal sealed class AnimationFrameLane
     {
         _scheduled = false;
 
-        if (_pending.Count == 0)
+        if (_pending.Count == 0 && _runtime.ExistingAnimations?.NeedsFrames != true)
         {
             return;
         }
 
-        // A copy, because a callback requesting the next frame appends to the list it is being read from, and
-        // the frame it requested is the next one rather than this one.
-        var batch = _pending.ToArray();
-        _pending.Clear();
         _cancelledDuringFrame.Clear();
 
         var global = _runtime.Engine._mainRealm.GlobalObject;
-        JsValue[] arguments = [JsNumber.Create(_runtime.Now)];
+        var now = _runtime.Now;
+        FrameTime = now;
+        JsValue[] arguments = [JsNumber.Create(now)];
 
         _running = true;
 
         try
         {
+            if (_runtime.ExistingAnimations is { } animations)
+            {
+                animations.Update();
+            }
+
+            // Animation events precede rAF; callbacks requested by those events belong to this frame.
+            // A callback requesting another callback, however, queues it for the next frame.
+            var batch = _pending.ToArray();
+            _pending.Clear();
             foreach (var entry in batch)
             {
                 if (_cancelledDuringFrame.Contains(entry.Id))
@@ -160,8 +194,10 @@ internal sealed class AnimationFrameLane
         }
         finally
         {
+            FrameTime = null;
             _running = false;
             _cancelledDuringFrame.Clear();
+            Refresh();
         }
     }
 

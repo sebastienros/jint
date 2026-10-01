@@ -1,7 +1,3 @@
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Construction;
-using AngleSharp.Text;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
@@ -11,7 +7,7 @@ namespace Jint.Browser.Dom;
 /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocumenttype.</summary>
 internal static class DomDocumentTypeFactory
 {
-    internal static JsValue Create(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+    internal static JsValue Create(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
     {
         const string member = "DOMImplementation.createDocumentType";
         if (arguments.Length < 3)
@@ -28,19 +24,6 @@ internal static class DomDocumentTypeFactory
             DomFailures.Refuse(realm, member, DomExceptionNames.InvalidCharacter, "The doctype name is invalid.");
         }
 
-        if (name.IsXmlName() && name.IsQualifiedName())
-        {
-            return realm.WrapNodeValue(implementation.CreateDocumentType(name, publicId, systemId));
-        }
-
-        // IImplementation exposes no owner. A detached native doctype gives us its actual document,
-        // including for saved implementations and secondary documents; the realm's document may differ.
-        // Only names rejected by the ordinary factory pay for this temporary, never-wrapped node.
-        var owner = (Document) implementation.CreateDocumentType("html", "", "").Owner!;
-        var factory = owner.Context.GetFactory<IHtmlElementConstructionFactory>();
-        var node = (IDocumentType) factory.CreateDocumentType(owner, name, publicId, systemId);
-        // This is the parser's native DocumentType, built directly without tokenization, case folding
-        // or delimiter escaping. Native insertion, document.doctype, cloning and adoption all see it.
-        return realm.WrapNodeValue(node);
+        return realm.WrapNodeValue(implementation.Document.CreateDocumentType(name, publicId, systemId));
     }
 }

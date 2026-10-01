@@ -9,6 +9,7 @@ using Jint.Runtime;
 using Jint.WebApi.Abort;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Files;
+using Jint.WebApi.Performance;
 
 namespace Jint.WebApi.Fetch;
 
@@ -259,6 +260,8 @@ internal sealed class FetchOperation
             Credentials = request.Credentials,
             Referrer = referrer,
             ReferrerPolicy = request.ReferrerPolicy ?? network.ReferrerPolicy,
+            ResourceTiming = ResourceTiming.Start(engine, realm, request.Url.Serialize(excludeFragment: true),
+                "fetch", network.SameOriginReference?.SerializeOrigin(), request.Credentials),
         };
 
         // A request body given as a ReadableStream has no bytes to snapshot: it is streamed to the wire as

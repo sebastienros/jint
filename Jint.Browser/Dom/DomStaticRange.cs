@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.WebApi.DomException;
@@ -38,7 +38,7 @@ internal static class DomStaticRange
     /// The four values, which are the whole of a static range. A record so the wrapper has one immutable
     /// thing to read and nothing to keep in step with the tree.
     /// </summary>
-    internal sealed record State(INode StartContainer, uint StartOffset, INode EndContainer, uint EndOffset)
+    internal sealed record State(Node StartContainer, uint StartOffset, Node EndContainer, uint EndOffset)
     {
         /// <summary>
         /// https://dom.spec.whatwg.org/#dom-abstractrange-collapsed — derived rather than stored, because it
@@ -82,7 +82,7 @@ internal static class DomStaticRange
         return new DomObject(
             realm,
             DomManualInterfaces.StaticRange,
-            new State(startContainer, startOffset, endContainer, endOffset));
+            new State((Node) startContainer, startOffset, (Node) endContainer, endOffset));
     }
 
     /// <summary>
@@ -134,11 +134,11 @@ internal static class DomStaticRange
     /// A <c>required Node</c> member. WebIDL refuses an absent one and a value that is not a <c>Node</c>
     /// alike, and <c>null</c> with them, because the declared type is not nullable.
     /// </summary>
-    private static INode RequiredNode(DomRealm realm, ObjectInstance? members, string member)
+    private static object RequiredNode(DomRealm realm, ObjectInstance? members, string member)
     {
-        if (members?.Get(member) is IDomWrapper { DomTarget: INode node })
+        if (members?.Get(member) is IDomWrapper { DomTarget: Node or Attr } wrapper)
         {
-            return node;
+            return wrapper.DomTarget;
         }
 
         Jint.Runtime.Throw.TypeError(
@@ -168,9 +168,9 @@ internal static class DomStaticRange
     }
 
     /// <summary>Step 1's refusal, which is the only one this constructor makes.</summary>
-    private static void RefuseBoundary(DomRealm realm, INode node, string member)
+    private static void RefuseBoundary(DomRealm realm, object node, string member)
     {
-        if (node is not (IDocumentType or IAttr))
+        if (node is not (DocumentType or Attr))
         {
             return;
         }
@@ -179,6 +179,6 @@ internal static class DomStaticRange
             realm,
             "StaticRange",
             DomExceptionNames.InvalidNodeType,
-            "member " + member + " is " + (node is IAttr ? "an Attr" : "a DocumentType") + ", which cannot be a boundary point.");
+            "member " + member + " is " + (node is Attr ? "an Attr" : "a DocumentType") + ", which cannot be a boundary point.");
     }
 }

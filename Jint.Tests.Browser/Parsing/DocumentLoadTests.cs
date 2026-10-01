@@ -12,6 +12,32 @@ public class DocumentLoadTests
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     [Test]
+    public async Task ADetachedEmbedSourceIsRecordedOnlyWhenReconnected()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/",
+            "<embed id='plugin' src='/initial.dat'>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var runtime = global::Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            var element = global::Jint.Browser.Dom.DomDocumentReads.ById(runtime.Dom, runtime.Document!, "plugin")!;
+            element.ParentNode!.RemoveChild(element);
+            element.SetAttribute("src", "/changed.dat");
+            runtime.Parser!.CompleteNativeMutation(element);
+            engine.SetValue("detachedPlugin", runtime.Dom.WrapNode(element));
+            return true;
+        });
+        loopback.Page.Requests.Should().NotContain(request => request.Url == "/changed.dat");
+        await loopback.Page.EvaluateAsync("document.body.append(detachedPlugin)");
+        loopback.Page.Requests.Should().ContainSingle(request => request.Url == "/changed.dat"
+            && request.NotFetchedReason != null);
+        await loopback.Page.EvaluateAsync("document.body.append(detachedPlugin)");
+        loopback.Page.Requests.Should().ContainSingle(request => request.Url == "/changed.dat");
+        loopback.Server.Received.Should().NotContain(request => request.Path.EndsWith(".dat", StringComparison.Ordinal));
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ReadinessMovesFromLoadingToInteractiveToComplete()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

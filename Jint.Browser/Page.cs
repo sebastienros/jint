@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Browser.Workers;
 using Jint.Diagnostics;
@@ -90,10 +89,13 @@ public sealed partial class Page : IAsyncDisposable
     private volatile PageResponse? _response;
     private volatile Frame _mainFrame;
     private volatile bool _closed;
+    private readonly object _closeGate = new();
+    private Task? _closeTask;
 
-    private Page(BrowserContext context, BrowserOptions options, PageRecorder recorder)
+    private Page(BrowserContext context, BrowserOptions options, PageRecorder recorder, BrowsingContextHandle? windowHandle)
     {
         Context = context;
+        WindowHandle = windowHandle ?? new BrowsingContextHandle();
         _options = options;
         _recorder = recorder;
         Emulation = new EmulationState(options.Viewport, options.UserAgent) { TouchEnabled = options.HasTouch };
@@ -148,7 +150,7 @@ public sealed partial class Page : IAsyncDisposable
             return;
         }
 
-        ReportTitle(PageRuntime.Find(engine)?.Document?.Title ?? "");
+        ReportTitle(PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
     }
 
     /// <summary>Tells the watcher the title, if it has moved since the last time it was told.</summary>
@@ -428,12 +430,13 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>The document's serialized markup, including the doctype.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> ContentAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance) ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { Document: { } document } runtime
+            ? Dom.DomHtmlMarkupFormatter.OuterHtml(runtime.Dom, document) : "");
 
     /// <summary>The document's title.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> TitleAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.Title ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
 
     /// <summary>Runs the page until it has nothing left to do, or until <paramref name="timeout"/> runs out.</summary>
     /// <param name="timeout">The ceiling on how long to keep pumping.</param>
@@ -468,7 +471,12 @@ public sealed partial class Page : IAsyncDisposable
     /// awaiting fails with <see cref="OperationCanceledException"/>; every worker thread is asked to stop and
     /// disposes its own engine.
     /// </remarks>
-    public async Task CloseAsync()
+    public Task CloseAsync()
+    {
+        lock (_closeGate) return _closeTask ??= CloseCoreAsync();
+    }
+
+    private async Task CloseCoreAsync()
     {
         _closed = true;
         Context.Remove(this);
@@ -582,6 +590,13 @@ public sealed partial class Page : IAsyncDisposable
     });
 
     /// <summary>
+    /// Runs instrumented resource publication on the page loop under its normal task budget.
+    /// The callback must not write native tree links or attributes: resource revisions own its
+    /// invalidation, so it deliberately does not open a layout mutation scope.
+    /// </summary>
+    internal Task<T> RunResourcePublicationOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
+
+    /// <summary>
     /// Registers the one thing that hears what the page does, which is what a protocol target is.
     /// </summary>
     /// <param name="observer">The watcher, or <see langword="null"/> to stop watching.</param>
@@ -643,9 +658,10 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     internal PageNetworkRecorder NetworkLog => _requests;
 
-    internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options)
+    internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options,
+        BrowsingContextHandle? windowHandle = null, CrossPageNavigation? creator = null)
     {
-        var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents));
+        var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents), windowHandle);
 
         try
         {
@@ -653,7 +669,9 @@ public sealed partial class Page : IAsyncDisposable
 
             // The loop built an engine on the way up, and it is already the about:blank engine this load
             // wants, so the first document reuses it rather than replacing a realm nothing has run in.
-            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null, referrer: "", onPhase: null, page.NextLoaderId())).ConfigureAwait(false);
+            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null,
+                referrer: creator?.Referrer ?? "", onPhase: null, page.NextLoaderId(),
+                creator: creator is null ? null : new DocumentCreationFacts(creator.Origin, creator.BaseUrl))).ConfigureAwait(false);
             await page._loop.PostAsync(page.RecordFirstHistoryEntry).ConfigureAwait(false);
         }
         catch
@@ -690,7 +708,7 @@ public sealed partial class Page : IAsyncDisposable
         => _recorder.Add(PageErrorKind.WorkerError, exception.Message, name.Length == 0 ? "Worker" : name);
 
     /// <summary>The engine one document runs in, built with that document's URL, origin and referrer.</summary>
-    private Engine BuildEngine(string url, string referrer)
+    private Engine BuildEngine(string url, string referrer, string? origin = null)
         => BrowserEngineFactory.Create(new PageEngineRequest(
             this,
             _options,
@@ -702,7 +720,8 @@ public sealed partial class Page : IAsyncDisposable
             Emulation,
             url,
             referrer,
-            _loop.Closing));
+            _loop.Closing,
+            origin));
 
     private static void Release(PageLoad? load)
     {
@@ -713,8 +732,7 @@ public sealed partial class Page : IAsyncDisposable
 
         try
         {
-            load.Document.Dispose();
-            (load.Context as IDisposable)?.Dispose();
+            load.Context.Dispose();
         }
         catch (Exception)
         {

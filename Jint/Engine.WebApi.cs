@@ -233,6 +233,7 @@ internal sealed class WebApiEngineState
     /// <see cref="TimeOrigin"/> names and the one <see cref="CurrentHighResolutionTime"/> counts from.
     /// </summary>
     private readonly long _originTimestamp;
+    private double _originOffset;
 
     /// <summary>
     /// The requests this engine has in flight, in registration order. Engine-thread-only, so no lock: a
@@ -447,6 +448,12 @@ internal sealed class WebApiEngineState
     /// </remarks>
     internal WorkerLink? OwningWorkerLink { get; set; }
 
+    /// <summary>The shared worker host's lifetime handle; runtime errors are never relayed to its owners.</summary>
+    internal WorkerConnection? OwningSharedWorker { get; set; }
+
+    /// <summary>Releases a browser document's shared-worker ownership when its engine is discarded.</summary>
+    internal Action? ReleaseSharedWorkerOwners { get; set; }
+
     /// <summary>
     /// The <c>self</c> descriptor <c>WebApiRegistration</c> installed on this engine's principal global
     /// object, or <see langword="null"/> — which is what an engine carries when
@@ -490,6 +497,9 @@ internal sealed class WebApiEngineState
     /// registry gets from a restore.
     /// </remarks>
     internal CacheStorageProvider? CacheProvider { get; private set; }
+
+    private WebApi.IndexedDb.IndexedDbAgent? _indexedDb;
+    internal WebApi.IndexedDb.IndexedDbAgent IndexedDb => _indexedDb ??= new WebApi.IndexedDb.IndexedDbAgent(_engine);
 
     /// <summary>
     /// How many requests are in flight, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c>
@@ -599,7 +609,16 @@ internal sealed class WebApiEngineState
     /// origin it was built with, so <c>performance.now()</c> can never go backwards across an evaluation
     /// cycle.
     /// </remarks>
-    internal double TimeOrigin { get; }
+    internal double TimeOrigin { get; private set; }
+
+    // A browser commits a new engine after fetching its document. Called before publishing that engine,
+    // never during an ordinary evaluation or snapshot restore.
+    internal void SetNavigationTimeOrigin(DateTimeOffset origin, TimeSpan elapsed)
+    {
+        _originOffset = elapsed.TotalMilliseconds
+            - _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
+        TimeOrigin = (origin - DateTimeOffset.UnixEpoch).TotalMilliseconds;
+    }
 
     /// <summary>
     /// <c>performance.now()</c>: https://w3c.github.io/hr-time/#dfn-current-high-resolution-time, the
@@ -607,7 +626,7 @@ internal sealed class WebApiEngineState
     /// timers are scheduled against and deliberately not coarsened.
     /// </summary>
     internal double CurrentHighResolutionTime =>
-        _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
+        _originOffset + _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
 
     /// <summary>
     /// The map behind <c>localStorage</c>, and behind <c>sessionStorage</c> — two separate stores, and two
@@ -1167,6 +1186,7 @@ internal sealed class WebApiEngineState
         CloseMessagePorts();
         ReleaseLocks();
         IdleCallbacks?.Clear();
+        _indexedDb?.Reset();
         _performanceObservers?.Clear();
         _fileReads?.Clear();
         _blobUrls?.Clear();
@@ -1221,8 +1241,12 @@ internal sealed class WebApiEngineState
     /// </remarks>
     private List<Action>? EndWorkerConnections(WorkerEndReason asParent, WorkerEndReason asWorker)
     {
+        var releaseOwners = ReleaseSharedWorkerOwners;
+        ReleaseSharedWorkerOwners = null;
+        releaseOwners?.Invoke();
+
         var registry = Workers;
-        if (registry is not { LiveCount: > 0 } && OwningWorkerLink is null)
+        if (registry is not { LiveCount: > 0 } && OwningWorkerLink is null && OwningSharedWorker is null)
         {
             return null;
         }
@@ -1240,6 +1264,7 @@ internal sealed class WebApiEngineState
         }
 
         OwningWorkerLink?.Connection.TryEnd(asWorker, error: null, deferred);
+        OwningSharedWorker?.TryEnd(asWorker, error: null, deferred);
 
         return deferred.Count == 0 ? null : deferred;
     }
@@ -1426,6 +1451,7 @@ internal sealed class WebApiEngineState
         CloseMessagePorts();
         ReleaseLocks();
 
+        _indexedDb?.Reset();
         return endedWorkers;
     }
 }

@@ -1,6 +1,5 @@
 using System.Text;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 
@@ -31,9 +30,9 @@ internal sealed class AccessibleName
     }
 
     /// <summary>Computes the accessible name of <paramref name="element"/>, or the empty string.</summary>
-    internal string Compute(IElement element, string role)
+    internal string Compute(Element element, string role)
     {
-        var context = new Context(new HashSet<INode>());
+        var context = new Context(new HashSet<Node>());
         var name = Flatten(FromElement(element, role, context, referenced: false, descendant: false));
 
         // Step 2I: a title is the last resort, and only for the element the computation started on.
@@ -52,12 +51,12 @@ internal sealed class AccessibleName
     /// <c>aria-describedby</c> first, then the fallbacks HTML-AAM names — a <c>title</c> that the name did
     /// not consume, and for a text control a <c>placeholder</c> that the name did not consume.
     /// </remarks>
-    internal string ComputeDescription(IElement element, string name)
+    internal string ComputeDescription(Element element, string name)
     {
         var describedBy = References(element, "aria-describedby");
         if (describedBy.Count > 0)
         {
-            var context = new Context(new HashSet<INode>());
+            var context = new Context(new HashSet<Node>());
             var builder = new StringBuilder();
             foreach (var target in describedBy)
             {
@@ -87,15 +86,20 @@ internal sealed class AccessibleName
         return string.Empty;
     }
 
-    private string FromNode(INode node, Context context, bool referenced, bool descendant)
+    private string FromNode(Node node, Context context, bool referenced, bool descendant)
     {
-        if (node is IText text)
+        if (node is Text text)
         {
             // Step 2G.
             return text.Data;
         }
 
-        if (node is not IElement element)
+        if (node is CDataSection cdata)
+        {
+            return cdata.Data;
+        }
+
+        if (node is not Element element)
         {
             return string.Empty;
         }
@@ -103,7 +107,7 @@ internal sealed class AccessibleName
         return FromElement(element, ResolveRole(element), context, referenced, descendant);
     }
 
-    private string FromElement(IElement element, string role, Context context, bool referenced, bool descendant)
+    private string FromElement(Element element, string role, Context context, bool referenced, bool descendant)
     {
         if (!context.Visited.Add(element))
         {
@@ -197,12 +201,12 @@ internal sealed class AccessibleName
         }
     }
 
-    private string FromContent(IElement element, Context context)
+    private string FromContent(Element element, Context context)
     {
         var builder = new StringBuilder();
         foreach (var child in element.ChildNodes)
         {
-            if (child is IElement childElement)
+            if (child is Element childElement)
             {
                 if (ImplicitRole.IsMetadataContent(childElement))
                 {
@@ -223,18 +227,22 @@ internal sealed class AccessibleName
                     builder.Append(contribution);
                 }
             }
-            else if (child is IText text)
+            else if (child is Text text)
             {
                 builder.Append(text.Data);
+            }
+            else if (child is CDataSection cdata)
+            {
+                builder.Append(cdata.Data);
             }
         }
 
         return Flatten(builder.ToString());
     }
 
-    private string NativeLabel(IElement element, string role, Context context)
+    private string NativeLabel(Element element, string role, Context context)
     {
-        switch (element.LocalName)
+        switch (ContentDom.HtmlName(element))
         {
             case "input":
                 return InputLabel(element, role, context);
@@ -267,9 +275,9 @@ internal sealed class AccessibleName
         }
     }
 
-    private string InputLabel(IElement element, string role, Context context)
+    private string InputLabel(Element element, string role, Context context)
     {
-        var type = ((element as IHtmlInputElement)?.Type ?? element.GetAttribute("type") ?? "text").ToLowerInvariant();
+        var type = ContentDom.InputType(element);
 
         switch (type)
         {
@@ -314,15 +322,15 @@ internal sealed class AccessibleName
         }
     }
 
-    private string LabelElements(IElement element, Context context)
+    private string LabelElements(Element element, Context context)
     {
         var builder = new StringBuilder();
-        if (element is not IHtmlElement control)
+        if (element.NamespaceUri != Namespaces.Html)
         {
             return string.Empty;
         }
 
-        foreach (var label in HtmlLabelAssociation.LabelsFor(control))
+        foreach (var label in HtmlLabelAssociation.LabelsFor(element))
         {
             Append(builder, FromElement(label, AriaRoles.Generic, context, referenced: true, descendant: true));
         }
@@ -330,9 +338,9 @@ internal sealed class AccessibleName
         return Flatten(builder.ToString());
     }
 
-    private string FromFirstChild(IElement element, string localName, Context context)
+    private string FromFirstChild(Element element, string localName, Context context)
     {
-        foreach (var child in element.Children)
+        foreach (var child in ContentDom.Children(element))
         {
             if (string.Equals(child.LocalName, localName, StringComparison.Ordinal))
             {
@@ -352,15 +360,15 @@ internal sealed class AccessibleName
     /// <c>el.ariaLabelledByElements</c> writes the <b>empty string</b> to the content attribute and holds the
     /// elements by reference, precisely so that a page may name an element no id could name — so reading the
     /// attribute alone answers "no references" for exactly the case a page went out of its way to express.
-    /// <c>Dom/AriaElementReferences</c> is engine-free for this: it takes an <c>IElement</c> and nothing else,
+    /// <c>Dom/AriaElementReferences</c> is engine-free for this: it takes an <c>Element</c> and nothing else,
     /// the same standing <c>Dom/Views/CssCascade</c> has, so this file's "neither touches an engine" holds.
     /// The idref path below is untouched, and a relationship written as ids still resolves through it.
     /// </remarks>
-    private static List<INode> References(IElement element, string attribute)
+    private static List<Node> References(Element element, string attribute)
     {
         if (Dom.AriaElementReferences.Explicit(element, attribute) is { } associated)
         {
-            var explicitly = new List<INode>(associated.Length);
+            var explicitly = new List<Node>(associated.Length);
             foreach (var target in associated)
             {
                 explicitly.Add(target);
@@ -375,16 +383,16 @@ internal sealed class AccessibleName
             return [];
         }
 
-        var document = element.Owner;
+        var document = element.OwnerDocument;
         if (document is null)
         {
             return [];
         }
 
-        var targets = new List<INode>();
+        var targets = new List<Node>();
         foreach (var idref in value.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries))
         {
-            var target = document.GetElementById(idref);
+            var target = ContentDom.ElementById(document, idref);
             if (target is not null)
             {
                 targets.Add(target);
@@ -395,7 +403,7 @@ internal sealed class AccessibleName
     }
 
     /// <summary>Resolves a role the way the tree builder does, so a name computation agrees with it.</summary>
-    internal static string ResolveRole(IElement element) =>
+    internal static string ResolveRole(Element element) =>
         AriaRoles.Explicit(element.GetAttribute("role")) ?? ImplicitRole.For(element) ?? AriaRoles.Generic;
 
     private static void Append(StringBuilder builder, string text)
@@ -444,7 +452,7 @@ internal sealed class AccessibleName
         return builder.ToString();
     }
 
-    private readonly record struct Context(HashSet<INode> Visited)
+    private readonly record struct Context(HashSet<Node> Visited)
     {
         internal bool InLabelledBy { get; init; }
     }

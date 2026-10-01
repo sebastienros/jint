@@ -42,7 +42,9 @@ target/runtime split and the manifest are there and none of it is repeated here.
 - **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a
   `RemoteObject` the `DomRemoteObjectDescriber` named — `subtype: "node"`, the interface, `div#id.cls` — and
   that subtype is what makes a client library build an *element* handle out of it. `DomNodeTracker` holds the
-  two identifiers: a `nodeId` per document, thrown away and announced with `documentUpdated` on every commit,
+  two identifiers: a `nodeId` per document, thrown away at the engine swap and announced with
+  `documentUpdated` on every commit — after `Page.frameNavigated`, Chrome's order, which chromedp's frame
+  bookkeeping needs —
   and a `backendNodeId` per node for the page's life, keyed in a `ConditionalWeakTable`. Both are shared by
   every attachment, the way the remote-object table is; what is **not** shared is which nodes an attachment
   has been *sent*, and that is what decides which mutation events reach it — Chrome's own rule, and the
@@ -103,7 +105,8 @@ target/runtime split and the manifest are there and none of it is repeated here.
   own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
   every client tells a navigation apart.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
-  and `Audits.enable` are answered because a refusal fails an ordinary connection. **Authentication is here**:
+  `Audits.enable` and `Inspector.enable` (chromedp's) are answered because a refusal fails an ordinary
+  connection. **Authentication is here**:
   `handleAuthRequests` turns it on, a `401` carrying a `WWW-Authenticate` pauses as `Fetch.authRequired`, and
   `continueWithAuth` answers it over `FetchObserver.OnAuthRequiredAsync`. Only `Basic` can be answered, every
   other scheme is still *reported* — being asked is how a client tells "unsupported" from "never challenged" —

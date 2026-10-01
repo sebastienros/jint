@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 
 namespace Jint.Browser.Media;
@@ -44,13 +44,13 @@ namespace Jint.Browser.Media;
 /// </remarks>
 internal sealed class PageImages
 {
-    private readonly ConditionalWeakTable<IElement, ImageRequest> _requests = new();
+    private readonly ConditionalWeakTable<Element, ImageRequest> _requests = new();
 
     /// <summary>How many image requests this document has started, against <see cref="BrowserOptions.MaxImageRequests"/>.</summary>
     private int _started;
 
     /// <summary>The state of <paramref name="image"/>'s current request, or <see langword="null"/> if it has none.</summary>
-    internal ImageRequest? Find(IElement image)
+    internal ImageRequest? Find(Element image)
         => _requests.TryGetValue(image, out var request) ? request : null;
 
     /// <summary>
@@ -70,7 +70,7 @@ internal sealed class PageImages
     /// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-image-data">update the image
     /// data</a> step 12 puts it when a new URL is selected.
     /// </summary>
-    internal ImageRequest Begin(IElement image, string url)
+    internal ImageRequest Begin(Element image, string url)
     {
         var request = _requests.GetValue(image, static _ => new ImageRequest());
         request.State = ImageAvailability.Unavailable;
@@ -93,7 +93,7 @@ internal sealed class PageImages
     /// AngleSharp's own <c>UpdateType</c> running twice for one parsed element (see
     /// <c>Jint.Browser/Dom/divergences.md</c>).
     /// </remarks>
-    internal bool IsAlreadyAvailable(IElement image, string url)
+    internal bool IsAlreadyAvailable(Element image, string url)
         => Find(image) is { State: ImageAvailability.CompletelyAvailable } request
             && string.Equals(request.CurrentUrl, url, StringComparison.Ordinal);
 

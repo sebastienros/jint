@@ -86,6 +86,16 @@ internal sealed class MessageEventConstructor : Constructor
     internal JsMessageEvent CreateTrustedMessageEvent(JsString type, JsValue data)
         => CreateTrustedMessageEvent(type, data, JsString.Empty, JsString.Empty);
 
+    /// <summary>Creates the shared worker's connection event, including its port-valued source.</summary>
+    /// <remarks>https://html.spec.whatwg.org/multipage/workers.html#dom-sharedworker</remarks>
+    internal JsMessageEvent CreateTrustedConnectEvent(JsMessagePort port)
+        => new(_engine, new JsString("connect"), default, EventConstructor.TimeStampNow(_engine),
+            JsString.Empty, JsString.Empty, JsString.Empty, port, FreezePorts([port]))
+        {
+            IsTrusted = true,
+            _prototype = PrototypeObject,
+        };
+
     /// <summary>
     /// <see cref="CreateTrustedMessageEvent(JsString, JsValue)"/> plus the one member the message port post
     /// message steps do set beyond <c>data</c>: step 7.4's "new frozen array consisting of all

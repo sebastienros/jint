@@ -13,6 +13,7 @@ using Jint.WebApi.FetchEvents;
 using Jint.WebApi.Files;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.IndexedDb;
 using Jint.WebApi.Locks;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
@@ -64,6 +65,8 @@ public sealed partial class Intrinsics
     private PerformanceConstructor? _performance;
     private JsPerformance? _performanceObject;
     private PerformanceEntryConstructor? _performanceEntry;
+    private PerformanceResourceTimingConstructor? _performanceResourceTiming;
+    private PerformanceNavigationTimingConstructor? _performanceNavigationTiming;
     private PerformanceMarkConstructor? _performanceMark;
     private PerformanceMeasureConstructor? _performanceMeasure;
     private PerformanceObserverConstructor? _performanceObserver;
@@ -249,6 +252,11 @@ public sealed partial class Intrinsics
     private CacheConstructor? _cache;
     private CacheStorageConstructor? _cacheStorage;
     private JsCacheStorage? _caches;
+    private IndexedDbInterfaces? _indexedDb;
+    private DomStringListConstructor? _domStringList;
+
+    internal IndexedDbInterfaces IndexedDb => _indexedDb ??= new IndexedDbInterfaces(_engine, _realm);
+    internal DomStringListConstructor DomStringList => _domStringList ??= new DomStringListConstructor(_engine, _realm);
 
     internal CacheConstructor Cache =>
         _cache ??= new CacheConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -317,6 +325,12 @@ public sealed partial class Intrinsics
 
     internal PerformanceEntryConstructor PerformanceEntry =>
         _performanceEntry ??= new PerformanceEntryConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal PerformanceResourceTimingConstructor PerformanceResourceTiming =>
+        _performanceResourceTiming ??= new PerformanceResourceTimingConstructor(_engine, _realm, PerformanceEntry);
+
+    internal PerformanceNavigationTimingConstructor PerformanceNavigationTiming =>
+        _performanceNavigationTiming ??= new PerformanceNavigationTimingConstructor(_engine, _realm, PerformanceResourceTiming);
 
     /// <summary>
     /// <c>PerformanceMark</c> inherits from <c>PerformanceEntry</c>, so reaching it builds

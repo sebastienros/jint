@@ -2646,7 +2646,7 @@ public sealed partial class Engine : IDisposable
     /// <see cref="ScriptParsingOptions.SourceOffset"/>, which the engine's own defaults never do, so the
     /// two cases reach the parser differently. Called with the host-call scope already held.
     /// </summary>
-    private Prepared<Script> ParseForExecution(string code, string? source, ScriptParsingOptions? parsingOptions)
+    internal Prepared<Script> ParseForExecution(string code, string? source, ScriptParsingOptions? parsingOptions)
     {
         // Before the bracket below, because the string entries parse first and the default parser is one of
         // the option-derived fields taken after Options.Apply.
@@ -3239,10 +3239,10 @@ public sealed partial class Engine : IDisposable
         _agent.AddToKeptObjects(target);
     }
 
-    internal void RunAvailableContinuations()
+    internal void RunAvailableContinuations(bool allowTaskDrain = false)
     {
         using var ownership = EnterHostCall();
-        _eventLoop.RunAvailableContinuations(this);
+        _eventLoop.RunAvailableContinuations(this, allowTaskDrain: allowTaskDrain);
     }
 
     /// <summary>
@@ -4214,20 +4214,26 @@ public sealed partial class Engine : IDisposable
             // else happened to pump the engine. Only for an entry that completed — reporting runs script,
             // and a CLR exception is on its way out of this frame otherwise — and before the depth comes
             // down, so a listener re-entering the engine is nested and cannot re-arm the constraints.
-            if (completed && !isNested)
+            try
             {
-                NotifyAboutRejectedPromises();
+                if (completed && !isNested)
+                {
+                    NotifyAboutRejectedPromises();
+                    _eventLoop?.FinishHostTask(this);
+                }
             }
-
-            _hostEntryDepth--;
-            if (!isNested)
+            finally
             {
-                ResetConstraints();
-            }
-            _agent.ClearKeptObjects();
-            if (!isNested && IsRetired)
-            {
-                FinishRetirement();
+                _hostEntryDepth--;
+                if (!isNested)
+                {
+                    ResetConstraints();
+                }
+                _agent.ClearKeptObjects();
+                if (!isNested && IsRetired)
+                {
+                    FinishRetirement();
+                }
             }
         }
     }
@@ -4279,21 +4285,27 @@ public sealed partial class Engine : IDisposable
 
             // The checkpoint the constraint-only path above argues for, inside this entry's memory segment
             // so that what a listener allocates is charged to the entry that reported to it.
-            if (completed && !isNested)
+            try
             {
-                NotifyAboutRejectedPromises();
+                if (completed && !isNested)
+                {
+                    NotifyAboutRejectedPromises();
+                    _eventLoop?.FinishHostTask(this);
+                }
             }
-
-            _hostEntryDepth--;
-            memoryLimit.EndSegment(in memorySegment);
-            if (!isNested)
+            finally
             {
-                ResetConstraints();
-            }
-            _agent.ClearKeptObjects();
-            if (!isNested && IsRetired)
-            {
-                FinishRetirement();
+                _hostEntryDepth--;
+                memoryLimit.EndSegment(in memorySegment);
+                if (!isNested)
+                {
+                    ResetConstraints();
+                }
+                _agent.ClearKeptObjects();
+                if (!isNested && IsRetired)
+                {
+                    FinishRetirement();
+                }
             }
         }
     }

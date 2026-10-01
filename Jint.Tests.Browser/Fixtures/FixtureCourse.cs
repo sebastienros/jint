@@ -220,7 +220,15 @@ internal sealed class FixtureCourse : IAsyncDisposable
         }
 
         var seen = await Page.EvaluateAsync<string>("String(" + expression + ")").ConfigureAwait(false);
-        Assert.Fail($"'{expression}' was still '{seen}' rather than '{expected}' after {Bound}. Errors: {Errors()}");
+        var diagnostic = await Page.EvaluateAsync<string>("""
+            JSON.stringify({url: document.URL, readyState: document.readyState,
+              body: document.body?.innerHTML.slice(0, 4000)})
+            """).ConfigureAwait(false);
+        var requests = string.Join("\n", Page.Requests.TakeLast(20).Select(request =>
+            $"{request.Url} {request.Status} {request.Failed} {request.NotFetchedReason}"));
+        var console = string.Join("\n", Page.ConsoleMessages.Take(4).Concat(Page.ConsoleMessages.TakeLast(8))
+            .Distinct(StringComparer.Ordinal).Select(message => message[..Math.Min(message.Length, 2000)]));
+        Assert.Fail($"'{expression}' was still '{seen}' rather than '{expected}' after {Bound}. Errors: {Errors()}\n{diagnostic}\nRequests:\n{requests}\nConsole:\n{console}");
     }
 
     /// <summary>Pumps until a condition the <i>host</i> can see holds, failing rather than hanging.</summary>

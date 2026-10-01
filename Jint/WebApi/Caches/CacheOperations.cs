@@ -155,6 +155,15 @@ internal static class CacheOperations
     /// </remarks>
     internal static void Put(Realm realm, CacheStore store, List<JsRequest> requests, List<JsResponse> responses, List<ReadOnlyMemory<byte>?> bodies)
     {
+        // Batch Cache Operations must serialize the snapshot and its indexed write across agents.
+        lock (store.SyncRoot)
+        {
+            PutCore(realm, store, requests, responses, bodies);
+        }
+    }
+
+    private static void PutCore(Realm realm, CacheStore store, List<JsRequest> requests, List<JsResponse> responses, List<ReadOnlyMemory<byte>?> bodies)
+    {
         var snapshot = store.Entries;
         var evicted = new bool[snapshot.Count];
         var added = new List<CacheEntry>(requests.Count);
@@ -213,15 +222,18 @@ internal static class CacheOperations
     /// </remarks>
     internal static bool Delete(CacheStore store, JsRequest request, CacheQueryOptions options)
     {
-        var snapshot = store.Entries;
-        var matches = CacheQuery.Run(snapshot, request, options);
-        if (matches.Count == 0)
+        lock (store.SyncRoot)
         {
-            return false;
-        }
+            var snapshot = store.Entries;
+            var matches = CacheQuery.Run(snapshot, request, options);
+            if (matches.Count == 0)
+            {
+                return false;
+            }
 
-        store.Write(new CacheWrite(matches, []));
-        return true;
+            store.Write(new CacheWrite(matches, []));
+            return true;
+        }
     }
 
     /// <summary>

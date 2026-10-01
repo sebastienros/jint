@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 
 namespace Jint.Browser.Extraction;
@@ -15,14 +15,14 @@ namespace Jint.Browser.Extraction;
 /// </para>
 /// <para>
 /// Like the rest of <c>Extraction/</c> and <c>Accessibility/</c> this is pure C# over
-/// <see cref="IDocument"/>: it touches no engine, runs no script, and is therefore safe to call from
+/// <see cref="Document"/>: it touches no engine, runs no script, and is therefore safe to call from
 /// anywhere the document itself is safe to read — which, for a page, means the page's own loop.
 /// </para>
 /// </remarks>
 internal static class PageContent
 {
     /// <summary>Renders <paramref name="document"/> as CommonMark.</summary>
-    internal static string Markdown(IDocument document, bool mainContentOnly, int maxLength)
+    internal static string Markdown(Document document, bool mainContentOnly, int maxLength)
         => MarkdownExtractor.ToMarkdown(document, new MarkdownOptions
         {
             MainContentOnly = mainContentOnly,
@@ -30,7 +30,7 @@ internal static class PageContent
         });
 
     /// <summary>Renders <paramref name="document"/> as its rendered text.</summary>
-    internal static string Text(IDocument document, bool mainContentOnly, int maxLength)
+    internal static string Text(Document document, bool mainContentOnly, int maxLength)
     {
         var root = mainContentOnly ? MarkdownExtractor.MainContentOf(document) : null;
         var text = root is null
@@ -46,7 +46,7 @@ internal static class PageContent
     /// between its nodes — the other two presets are a protocol client's business, and a snapshot rendered
     /// from <see cref="AccessibilityOptions.Default"/> would carry no text to read at all.
     /// </remarks>
-    internal static string AccessibilitySnapshot(IDocument document, bool mainContentOnly, int maxLength, bool includeReferences = false)
+    internal static string AccessibilitySnapshot(Document document, bool mainContentOnly, int maxLength, bool includeReferences = false)
     {
         var root = mainContentOnly ? MarkdownExtractor.MainContentOf(document) : null;
         var tree = root is null

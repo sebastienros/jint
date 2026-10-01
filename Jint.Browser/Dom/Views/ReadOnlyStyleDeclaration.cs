@@ -1,193 +1,69 @@
-using System.Collections;
-using AngleSharp;
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
 using Jint.Browser.Runtime;
+using Jint.Browser.Styling;
+using Jint.HtmlParser;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom.Views;
 
-/// <summary>
-/// What <c>getComputedStyle</c> answers: the cascade's declarations over ten resolved values, with every way
-/// of writing to them refused.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <a href="https://drafts.csswg.org/cssom/#dom-window-getcomputedstyle">CSSOM</a> gives the returned
-/// declaration a <i>computed flag</i>, and a declaration carrying it throws a
-/// <c>NoModificationAllowedError</c> from <c>setProperty</c>, <c>removeProperty</c>, the <c>cssText</c> setter
-/// and every CSS property setter. AngleSharp's <c>ComputeCurrentStyle()</c> hands back an ordinary writable
-/// declaration that is also <em>detached</em> — a fresh object per call, not the element's style — so writing
-/// to it in a browser throws and here would silently change nothing anybody can read. Refusing the write is
-/// the difference between a page learning it has a bug and a page not.
-/// </para>
-/// <para>
-/// The refusal is a real <c>DOMException</c> thrown as the error value, so <c>catch (e) { e.name }</c>
-/// answers <c>"NoModificationAllowedError"</c>. That is only possible because this object is reachable from
-/// script alone: nothing inside AngleSharp ever calls it, so a JavaScript exception can never unwind through
-/// AngleSharp's own frames from here.
-/// </para>
-/// <para>
-/// A read is the cascade first: a property the stylesheets, the inline style or the user-agent defaults
-/// settled answers exactly what they settled, inheritance included. Where the cascade declared nothing,
-/// <see cref="ResolvedStyle"/> answers for the ten properties an automation client reads to decide that an
-/// element can be interacted with, and the empty string for everything else — that file argues which ten and
-/// why no more.
-/// </para>
-/// <para>
-/// Named reads keep native resolved values. The explicit-inherit compatibility cascade is deferred until
-/// an unresolved property, a shorthand or the complete declaration is requested; an unrelated inherited
-/// decoration must not make every geometry or visibility read compute all ancestor declarations.
-/// </para>
-/// <para>
-/// <b><c>length</c> and <c>item(i)</c> stay the declared set.</b> CSSOM enumerates every supported longhand
-/// there, which is some three hundred names a browser answers and this has no values for; publishing ten of
-/// them as if they were the list would be a worse answer than the honest short one. A page reads a resolved
-/// value by name.
-/// </para>
-/// <para>
-/// <b>The cascade can be absent altogether</b>, because AngleSharp.Css raises rather than answers for a
-/// relative length — <c>Runtime/WindowInstaller.Cascade</c> has the whole of it. Then every read is the
-/// resolved value or the empty string, and nothing throws.
-/// </para>
-/// </remarks>
-internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
+// CSSOM §6.6.1: a live declaration with its computed and read-only flags set.
+// Reads share the document's current traversal; no cached query crosses DOM/CSSOM writes.
+internal sealed class ReadOnlyStyleDeclaration : NativeCssDeclaration
 {
-    private readonly ICssStyleDeclaration? _computed;
-    private readonly Engine _engine;
-    private readonly IElement _element;
     private readonly PageRuntime _runtime;
-    private readonly bool _hasUnresolvedInheritance;
-    private ICssStyleDeclaration? _complete;
-    private bool _completeResolved;
+    private readonly Element _element;
 
-    internal ReadOnlyStyleDeclaration(PageRuntime runtime, IElement element, ICssStyleDeclaration? computed)
+    internal ReadOnlyStyleDeclaration(PageRuntime runtime, Element element)
     {
         _runtime = runtime;
-        _engine = runtime.Engine;
         _element = element;
-        _computed = computed;
-        _hasUnresolvedInheritance = computed?.Any(static property => property.IsInherited && !property.CanBeInherited) == true;
     }
 
-    /// <inheritdoc />
-    public string this[int index] => Complete is { } computed ? computed[index] : "";
-
-    /// <inheritdoc />
-    public string this[string name] => GetPropertyValue(name);
-
-    /// <inheritdoc />
-    public int Length => Complete?.Length ?? 0;
-
-    /// <inheritdoc />
-    public ICssRule? Parent => Complete?.Parent;
-
-    /// <inheritdoc />
-    public string CssText
+    internal override string Item(int index) => Current()[index];
+    internal override Jint.HtmlParser.Css.Model.CssRule? ParentRule => null;
+    internal override int Length => Current().Length;
+    internal override string CssText
     {
-        get => Complete?.CssText ?? "";
+        get
+        {
+            _runtime.Engine.Constraints.Check();
+            return "";
+        }
         set => Refuse("cssText");
     }
 
-    /// <inheritdoc />
-    public event Action<string>? Changed
+    internal override string GetPropertyValue(string propertyName)
     {
-        add { }
-        remove { }
+        var style = Current();
+        var document = _element.OwnerDocument;
+        var host = document is null ? null : NativeCssStyleSheets.RealmOf(document);
+        var current = host is null ? null : PageRuntime.FindBrowsingContext(host.Engine, document);
+        return ResolvedStyle.ValueOf(propertyName, style, _element, current);
     }
-
-    /// <inheritdoc />
-    /// <remarks>
-    /// The read goes through <see cref="CssCascade.ValueOf"/> rather than the declaration's own member,
-    /// which is what stops a cascade that computed but cannot be <i>read</i> reaching script as a CLR
-    /// exception. That file says which read fails and why.
-    /// </remarks>
-    public string GetPropertyValue(string propertyName)
-    {
-        var declared = _computed is null ? null : CssCascade.ValueOf(_computed, propertyName);
-        // Unrelated unresolved inheritance must not turn each visibility or size read into a
-        // complete ancestor cascade. Shorthands and the unresolved property still take that path.
-        if (_hasUnresolvedInheritance && !string.IsNullOrEmpty(declared) && _computed is { } computed)
-        {
-            var property = computed.GetProperty(propertyName);
-            if (property is null or { IsInherited: true, CanBeInherited: false })
-            {
-                declared = Complete is { } complete ? CssCascade.ValueOf(complete, propertyName) : null;
-            }
-        }
-
-        return Resolve(propertyName, declared);
-    }
-
-    /// <inheritdoc />
-    public ICssProperty GetProperty(string propertyName) => Complete?.GetProperty(propertyName)!;
-
-    /// <inheritdoc />
-    public string GetPropertyPriority(string propertyName) => Complete?.GetPropertyPriority(propertyName) ?? "";
-
-    /// <inheritdoc />
-    public void SetProperty(string propertyName, string propertyValue, string? priority = null) => Refuse("setProperty");
-
-    /// <inheritdoc />
-    public string RemoveProperty(string propertyName)
+    internal NativeCssProperty GetProperty(string propertyName) => Current().GetProperty(propertyName);
+    internal override string GetPropertyPriority(string propertyName) => Current().GetPropertyPriority(propertyName);
+    internal IReadOnlyList<NativeCssProperty> Enumerate() => Current().Enumerate();
+    internal override void SetProperty(string name, string value, string? priority = null) => Refuse("setProperty");
+    internal override string RemoveProperty(string name)
     {
         Refuse("removeProperty");
         return "";
     }
 
-    /// <inheritdoc />
-    public void SetParent(ICssRule? rule)
+    private NativeCssComputedStyle Current()
     {
+        var document = _element.OwnerDocument ?? throw new ArgumentException("Element needs a document.");
+        var realm = NativeCssStyleSheets.RealmOf(document) ?? _runtime.Dom.RealmOfDocument(document);
+        NativeCssStyleSheets.Associate(realm, document);
+        return CssCascade.Traversal.Current(document).Of(_element);
     }
-
-    /// <inheritdoc />
-    public void Update(string value) => Refuse("cssText");
-
-    /// <inheritdoc />
-    public void ToCss(TextWriter writer, IStyleFormatter formatter) => Complete?.ToCss(writer, formatter);
-
-    /// <inheritdoc />
-    public IEnumerator<ICssProperty> GetEnumerator()
-        => Complete?.GetEnumerator() ?? Enumerable.Empty<ICssProperty>().GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    private ICssStyleDeclaration? Complete
-    {
-        get
-        {
-            if (!_hasUnresolvedInheritance)
-            {
-                return _computed;
-            }
-
-            if (!_completeResolved)
-            {
-                _complete = CssCascade.Of(_element);
-                _completeResolved = true;
-            }
-
-            return _complete;
-        }
-    }
-
-    /// <summary>
-    /// The cascade's answer, or the resolved value where the cascade declared nothing.
-    /// </summary>
-    /// <param name="propertyName">The property that was read.</param>
-    /// <param name="declared">What the cascade answered, which is the empty string for an undeclared one.</param>
-    private string Resolve(string propertyName, string? declared)
-        => string.IsNullOrEmpty(declared)
-            ? ResolvedStyle.ValueOf(propertyName, _element, _runtime) ?? ""
-            : declared;
 
     private void Refuse(string member)
     {
-        var error = _engine._mainRealm.Intrinsics.DomException.CreateException(
+        var engine = _runtime.Engine;
+        var error = engine._mainRealm.Intrinsics.DomException.CreateException(
             DomExceptionNames.NoModificationAllowed,
             "Failed to execute '" + member + "' on 'CSSStyleDeclaration': These styles are computed, and therefore read-only.");
-
-        Throw.JavaScriptException(_engine, error, _engine.GetLastSyntaxElement()?.Location ?? default);
+        Throw.JavaScriptException(engine, error, engine.GetLastSyntaxElement()?.Location ?? default);
     }
 }

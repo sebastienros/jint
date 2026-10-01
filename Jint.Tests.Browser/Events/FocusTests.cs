@@ -1,3 +1,8 @@
+using Jint.Browser;
+using Jint.Browser.Dom;
+using Jint.Browser.Events;
+using Jint.HtmlParser;
+
 namespace Jint.Tests.Browser.Events;
 
 using Browser = global::Jint.Browser.Browser;
@@ -7,6 +12,302 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 public sealed class FocusTests
 {
+    [Test]
+    public void DesignModeMakesOnlyAnHtmlNamespaceDocumentElementAnEditingHostForFocus()
+    {
+        var realm = DomRealm.Of(new Engine());
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("html");
+        var child = document.CreateElement("div");
+        document.AppendChild(root);
+        root.AppendChild(child);
+        FocusController.IsFocusable(realm, root).Should().BeFalse();
+        DomDocumentState.Of(document).DesignModeEnabled = true;
+        FocusController.IsFocusable(realm, root).Should().BeTrue();
+        FocusController.IsFocusable(realm, child).Should().BeFalse();
+        var work = new DomReadWork(realm.NativeReadCheckpoint, default);
+        FocusController.IsFocusable(realm, root, work).Should().BeTrue();
+        DomDocumentState.Of(document).DesignModeEnabled = false;
+        FocusController.IsFocusable(realm, root, work).Should().BeFalse();
+
+        var xml = Document.CreateXml();
+        var xmlRoot = xml.CreateElementNS(Namespaces.Html, "html");
+        xml.AppendChild(xmlRoot);
+        DomDocumentState.Of(xml).DesignModeEnabled = true;
+        FocusController.IsFocusable(realm, xmlRoot).Should().BeTrue();
+
+        var svgDocument = Document.CreateHtml();
+        var svgRoot = svgDocument.CreateElementNS(Namespaces.Svg, "svg");
+        svgDocument.AppendChild(svgRoot);
+        DomDocumentState.Of(svgDocument).DesignModeEnabled = true;
+        FocusController.IsFocusable(realm, svgRoot).Should().BeFalse();
+    }
+
+    [TestCase("+00020")]
+    [TestCase("-2147483648")]
+    [TestCase("2147483648")]
+    [TestCase("-2147483649")]
+    [TestCase(" \t+12\u00a0")]
+    [TestCase("12\0\0")]
+    [TestCase("12x")]
+    public void BoundedFocusabilityPreservesTheExistingTabIndexClassification(string value)
+    {
+        var realm = DomRealm.Of(new Engine());
+        var element = global::Jint.Browser.Accessibility.ContentDom.ElementById(
+            global::Jint.Browser.Accessibility.ContentDom.Parse("<div id=target>"), "target")!;
+        element.SetAttribute("tabindex", value);
+        var expected = FocusController.IsFocusable(realm, element);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, CancellationToken.None);
+        FocusController.IsFocusable(realm, element, work).Should().Be(expected);
+    }
+
+    [Test]
+    public void BoundedFocusabilityPollsDuringTheActualAttributeScan()
+    {
+        var realm = DomRealm.Of(new Engine());
+        var element = global::Jint.Browser.Accessibility.ContentDom.ElementById(
+            global::Jint.Browser.Accessibility.ContentDom.Parse("<div id=target>"), "target")!;
+        for (var i = 0; i < 1024; i++) element.SetAttribute("data-" + i, "value");
+        var checks = new List<int>();
+        var work = new DomReadWork(units =>
+        {
+            checks.Add(units);
+            if (checks.Count == 2) throw new OperationCanceledException();
+        }, CancellationToken.None);
+        Action read = () => FocusController.IsFocusable(realm, element, work);
+        read.Should().ThrowExactly<OperationCanceledException>();
+        checks.Should().Equal(new[] { 0, 256 }, "the second check must occur in a bounded attribute batch rather than after the scan");
+    }
+
+    [Test]
+    public async Task ShadowActiveElementChecksCancellationDuringInitialConnectivityWalk()
+    {
+        var options = new BrowserOptions().ConfigureEngine(o => o.AddConstraint(static () => new CancelFocusRead()));
+        await using var browser = new Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=host></div>");
+        await page.EvaluateAsync(
+            """
+            window.savedRoot = document.getElementById('host').attachShadow({mode: 'closed'});
+            let parent = savedRoot;
+            for (let i = 0; i < 1024; i++) {
+              const child = document.createElement('div');
+              parent.appendChild(child);
+              parent = child;
+            }
+            window.savedInput = document.createElement('input');
+            parent.appendChild(savedInput);
+            savedInput.focus();
+            """);
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var root = (ShadowRoot) ((IDomWrapper) engine.GetValue("savedRoot")).DomTarget;
+            var input = ((IDomWrapper) engine.GetValue("savedInput")).DomTarget;
+            var realm = BrowserEventRealm.Of(engine);
+            root.Host.ParentNode!.RemoveChild(root.Host);
+            realm.FocusedElement.Should().BeSameAs(input);
+            var constraint = engine.Constraints.Find<CancelFocusRead>()!;
+            constraint.Armed = true;
+            try
+            {
+                Action read = () => FocusController.ActiveElement(realm, root);
+                read.Should().ThrowExactly<OperationCanceledException>();
+                constraint.Checks.Should().Be(2, "the initial check and the first bounded ancestor batch must both poll");
+                realm.FocusedElement.Should().BeSameAs(input, "cancellation must interrupt connectivity before stale focus is cleared");
+            }
+            finally
+            {
+                constraint.Armed = false;
+            }
+            FocusController.ActiveElement(realm, root).Should().BeNull();
+            realm.FocusedElement.Should().BeNull();
+            return true;
+        });
+    }
+
+    [Test]
+    public async Task ShallowDetachedFocusIsNotClearedWhenTheFinalReadCheckCancels()
+    {
+        var options = new BrowserOptions().ConfigureEngine(o => o.AddConstraint(static () => new CancelFocusRead()));
+        await using var browser = new Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=host></div>");
+        await page.EvaluateAsync("window.savedRoot = host.attachShadow({mode: 'closed'}); window.savedInput = document.createElement('input'); savedRoot.appendChild(savedInput); savedInput.focus();");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var root = (ShadowRoot) ((IDomWrapper) engine.GetValue("savedRoot")).DomTarget;
+            var input = ((IDomWrapper) engine.GetValue("savedInput")).DomTarget;
+            var realm = BrowserEventRealm.Of(engine);
+            root.Host.ParentNode!.RemoveChild(root.Host);
+            var constraint = engine.Constraints.Find<CancelFocusRead>()!;
+            constraint.Armed = true;
+            try
+            {
+                Action read = () => FocusController.ActiveElement(realm, root);
+                read.Should().ThrowExactly<OperationCanceledException>();
+                constraint.Checks.Should().Be(2);
+                realm.FocusedElement.Should().BeSameAs(input);
+            }
+            finally { constraint.Armed = false; }
+            FocusController.ActiveElement(realm, root).Should().BeNull();
+            realm.FocusedElement.Should().BeNull();
+            return true;
+        });
+    }
+
+    [Test]
+    public async Task ActiveElementPollsDocumentCommentPrefixWhileFindingItsFallbackBody()
+    {
+        var options = new BrowserOptions().ConfigureEngine(o => o.AddConstraint(static () => new CancelFocusRead()));
+        await using var browser = new Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>content</p>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var document = DomRealm.Of(engine).Document!;
+            var html = document.DocumentElement!;
+            for (var i = 0; i < 1024; i++) document.InsertBefore(document.CreateComment("prefix"), html);
+            var constraint = engine.Constraints.Find<CancelFocusRead>()!;
+            constraint.CancelAt = int.MaxValue;
+            constraint.Armed = true;
+            try
+            {
+                FocusController.ActiveElement(BrowserEventRealm.Of(engine), document).Should().BeSameAs(DomDocumentElements.Body(document));
+                constraint.Checks.Should().BeGreaterThanOrEqualTo(6, "the 1024 document-prefix links require four bounded checks between entry and publication");
+            }
+            finally { constraint.Armed = false; }
+            return true;
+        });
+    }
+
+    private sealed class CancelFocusRead : Constraint
+    {
+        internal bool Armed;
+        internal int Checks;
+        internal int CancelAt = 2;
+        public override void Check()
+        {
+            if (Armed && ++Checks == CancelAt) throw new OperationCanceledException();
+        }
+        public override void Reset() { }
+    }
+
+    [TestCase("open")]
+    [TestCase("closed")]
+    public async Task ShadowActiveElementRetargetsNestedFocusAndClearsAfterHostRemoval(string mode)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=outer></div><div id=unrelated></div>");
+        (await page.EvaluateAsync<string>(
+            $$"""
+            (() => {
+              const outer = document.getElementById('outer');
+              const first = outer.attachShadow({ mode: '{{mode}}' });
+              const nested = document.createElement('div');
+              first.appendChild(nested);
+              const second = nested.attachShadow({ mode: '{{mode}}' });
+              const input = document.createElement('input');
+              second.appendChild(input);
+              const unrelated = document.getElementById('unrelated').attachShadow({ mode: '{{mode}}' });
+              input.focus();
+              const result = [document.activeElement === outer, first.activeElement === nested,
+                              second.activeElement === input, unrelated.activeElement === null];
+              outer.remove();
+              result.push(first.activeElement === null, second.activeElement === null);
+              return result.join('|');
+            })()
+            """)).Should().Be("true|true|true|true|true|true");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("open")]
+    [TestCase("closed")]
+    public async Task DocumentActiveElementRetargetsShadowFocusToTheHost(string mode)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='host'></div>");
+        (await page.EvaluateAsync<string>(
+            $$"""
+            (() => {
+              const host = document.getElementById('host');
+              const shadow = host.attachShadow({ mode: '{{mode}}' });
+              const input = document.createElement('input');
+              shadow.appendChild(input);
+              input.focus();
+              const focused = document.activeElement.id;
+              input.blur();
+              return focused + ':' + document.activeElement.tagName;
+            })()
+            """)).Should().Be("host:BODY");
+    }
+
+    [TestCase("open")]
+    [TestCase("closed")]
+    public async Task KeyboardInputReachesTheFocusedShadowControl(string mode)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='host'></div>");
+        await page.EvaluateAsync(
+            $$"""
+            const shadow = document.getElementById('host').attachShadow({ mode: '{{mode}}' });
+            window.shadowInput = document.createElement('input');
+            shadow.appendChild(shadowInput);
+            shadowInput.focus();
+            """);
+        await BrowserTestAccess.DispatchKeyAsync(page, "x");
+        (await page.EvaluateAsync<string>("document.activeElement.id + ':' + shadowInput.value"))
+            .Should().Be("host:x");
+    }
+
+    [Test]
+    public async Task DetachedInputCannotTakeFocus()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='a'>");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const a = document.getElementById('a');
+              a.focus();
+              const detached = document.createElement('input');
+              let seen = 0;
+              detached.addEventListener('focus', () => seen++);
+              detached.focus();
+              return document.activeElement.id + ':' + seen;
+            })()
+            """)).Should().Be("a:0");
+    }
+
+    [Test]
+    public async Task FocusListenerRedirectsFocusWithoutFinishingTheSupersededTransition()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='a'><input id='b'><input id='c'>");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const a = document.getElementById('a');
+              const b = document.getElementById('b');
+              const c = document.getElementById('c');
+              const seen = [];
+              for (const type of ['blur', 'focusout', 'focus', 'focusin']) {
+                document.addEventListener(type, e => seen.push(type + ':' + e.target.id), true);
+              }
+              a.focus();
+              seen.length = 0;
+              b.addEventListener('focus', () => c.focus());
+              b.focus();
+              return document.activeElement.id + '|' + seen.join(',');
+            })()
+            """)).Should().Be("c|blur:a,focusout:a,focus:b,blur:b,focusout:b,focus:c,focusin:c");
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps — the old chain first, so
     /// <c>blur</c> then <c>focusout</c>, then the new chain's <c>focus</c> then <c>focusin</c>. The first two

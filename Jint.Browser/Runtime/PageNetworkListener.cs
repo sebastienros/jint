@@ -47,6 +47,9 @@ internal enum PageRequestKind
     /// <summary>A nested browsing context's document — a frame's, fetched and parsed and not scripted.</summary>
     Frame,
 
+    /// <summary>A font a script asked a <c>FontFace</c> to load.</summary>
+    Font,
+
     /// <summary>Anything else.</summary>
     Other,
 }

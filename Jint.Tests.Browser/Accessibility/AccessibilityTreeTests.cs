@@ -10,7 +10,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void TheRootIsAWebAreaNamedByTheDocumentTitle()
     {
-        using var document = PageFixture.Parse("<html><head><title>  My   page </title></head><body><h1>Hi</h1></body></html>");
+        var document = PageFixture.Parse("<html><head><title>  My   page </title></head><body><h1>Hi</h1></body></html>");
         var root = AccessibilityTree.Build(document);
 
         root.Role.Should().Be("RootWebArea");
@@ -19,9 +19,18 @@ public sealed class AccessibilityTreeTests
     }
 
     [Test]
+    public void AnEmbeddedSvgTitleDoesNotNameTheWebArea()
+    {
+        var document = PageFixture.Parse("<svg><title>Icon</title></svg>");
+        var root = AccessibilityTree.Build(document, AccessibilityOptions.Default with { UseComputedStyle = false });
+
+        root.Name.Should().BeNull();
+    }
+
+    [Test]
     public void GenericWrappersArePrunedAndReplacedByTheirChildren()
     {
-        using var document = PageFixture.Parse("<div><div><span><button>Save</button></span></div></div>");
+        var document = PageFixture.Parse("<div><div><span><button>Save</button></span></div></div>");
         var root = AccessibilityTree.Build(document);
 
         // html, body and every div and span in between are generic; only the button survives.
@@ -33,7 +42,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void IncludeGenericKeepsEveryWrapper()
     {
-        using var document = PageFixture.Parse("<div><button>Save</button></div>");
+        var document = PageFixture.Parse("<div><button>Save</button></div>");
         var root = AccessibilityTree.Build(document, AccessibilityOptions.Default with { IncludeGeneric = true });
 
         ImplicitRoleTests.FindAll(root, "generic").Should().NotBeEmpty();
@@ -42,7 +51,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void AGenericElementThatIsNamedOrFocusableSurvivesThePruning()
     {
-        using var document = PageFixture.Parse("<div aria-label='Named box'>x</div><div tabindex=0>y</div><div>z</div>");
+        var document = PageFixture.Parse("<div aria-label='Named box'>x</div><div tabindex=0>y</div><div>z</div>");
         var root = AccessibilityTree.Build(document);
 
         var generics = ImplicitRoleTests.FindAll(root, "generic");
@@ -54,7 +63,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void HiddenSubtreesAreDroppedWholesale()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<button>Visible</button>" +
             "<div hidden><button>A</button></div>" +
             "<div style='display:none'><button>B</button></div>" +
@@ -70,7 +79,7 @@ public sealed class AccessibilityTreeTests
     public void AVisibleChildOfAVisibilityHiddenParentComesBack()
     {
         // `visibility` is the one CSS inherits, so the cascade — not an ancestor walk — is what answers.
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<div style='visibility:hidden'><button style='visibility:visible'>Back</button><button>Gone</button></div>");
 
         var root = AccessibilityTree.Build(document);
@@ -81,7 +90,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void ADisplayNoneFromAStyleSheetHidesTheSubtree()
     {
-        using var document = PageFixture.Parse("<style>.gone{display:none}</style><div class=gone><button>A</button></div><button>B</button>");
+        var document = PageFixture.Parse("<style>.gone{display:none}</style><div class=gone><button>A</button></div><button>B</button>");
         var root = AccessibilityTree.Build(document);
 
         ImplicitRoleTests.FindAll(root, "button").Select(static n => n.Name).Should().Equal("B");
@@ -90,16 +99,15 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void WithoutTheCascadeTheInlineStyleAndTheHiddenAttributeStillAnswer()
     {
-        // AngleSharp.Css's ComputeCurrentStyle throws rather than answering when the CSS service is absent.
-        // The walk asks once, records that, and finishes on the inline-style path instead of failing.
-        using var document = PageFixture.ParseWithoutCss(
+        // Exercise the inline-only visibility policy independently of Browser CSS registration.
+        var document = PageFixture.Parse(
             "<style>.gone{display:none}</style>" +
             "<div class=gone><button>Sheet</button></div>" +
             "<div style='display:none'><button>Inline</button></div>" +
             "<div hidden><button>Attribute</button></div>" +
             "<button>Visible</button>");
 
-        var root = AccessibilityTree.Build(document);
+        var root = AccessibilityTree.Build(document, new AccessibilityOptions { UseComputedStyle = false });
 
         // The style sheet is beyond reach without the cascade, and this is what that costs.
         ImplicitRoleTests.FindAll(root, "button").Select(static n => n.Name).Should().Equal("Sheet", "Visible");
@@ -108,7 +116,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void HeadScriptStyleAndTemplateContentsNeverReachTheTree()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<head><title>T</title><style>button{color:red}</style></head>" +
             "<body><script>var x = 1;</script><template><button>In a template</button></template><button>Real</button></body>");
 
@@ -122,7 +130,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void IncludeIgnoredKeepsTheHiddenNodesAndSaysWhy()
     {
-        using var document = PageFixture.Parse("<div hidden><button>A</button></div><div aria-hidden=true><span><button>B</button></span></div>");
+        var document = PageFixture.Parse("<div hidden><button>A</button></div><div aria-hidden=true><span><button>B</button></span></div>");
         var root = AccessibilityTree.Build(document, AccessibilityOptions.Full);
 
         var buttons = ImplicitRoleTests.FindAll(root, "button");
@@ -135,7 +143,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void AnImageWithAnEmptyAltIsIgnoredForBeingPresentational()
     {
-        using var document = PageFixture.Parse("<img src=a.png alt=''><img src=b.png alt='A cat'>");
+        var document = PageFixture.Parse("<img src=a.png alt=''><img src=b.png alt='A cat'>");
         var full = AccessibilityTree.Build(document, AccessibilityOptions.Full);
 
         ImplicitRoleTests.Find(full, "none")!.IgnoredReason.Should().Be(AxIgnoredReason.EmptyAlt);
@@ -148,7 +156,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void TextNodesBecomeStaticTextOnlyWhenAsked()
     {
-        using var document = PageFixture.Parse("<p>Hello there</p>");
+        var document = PageFixture.Parse("<p>Hello there</p>");
 
         ImplicitRoleTests.Find(AccessibilityTree.Build(document), "StaticText").Should().BeNull();
 
@@ -159,7 +167,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void IdentifiersAreStableAcrossTwoBuildsOfTheSameDocument()
     {
-        using var document = PageFixture.Parse("<button>A</button><a href='/x'>B</a><h1>C</h1>");
+        var document = PageFixture.Parse("<button>A</button><a href='/x'>B</a><h1>C</h1>");
 
         var first = Identifiers(AccessibilityTree.Build(document));
         var second = Identifiers(AccessibilityTree.Build(document));
@@ -182,8 +190,8 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void TwoDocumentsNumberTheirOwnNodes()
     {
-        using var first = PageFixture.Parse("<button>A</button>");
-        using var second = PageFixture.Parse("<button>A</button>");
+        var first = PageFixture.Parse("<button>A</button>");
+        var second = PageFixture.Parse("<button>A</button>");
 
         var a = ImplicitRoleTests.Find(AccessibilityTree.Build(first), "button")!;
         var b = ImplicitRoleTests.Find(AccessibilityTree.Build(second), "button")!;
@@ -194,11 +202,11 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void APartialTreeStartsAtTheElementAndInheritsTheAncestorsHiddenVerdict()
     {
-        using var document = PageFixture.Parse("<div hidden><section id=s aria-label=S><button>A</button></section></div>");
+        var document = PageFixture.Parse("<div hidden><section id=s aria-label=S><button>A</button></section></div>");
 
-        AccessibilityTree.Build(document.GetElementById("s")!).Should().BeNull();
+        AccessibilityTree.Build(ContentDom.ElementById(document, "s")!).Should().BeNull();
 
-        var included = AccessibilityTree.Build(document.GetElementById("s")!, AccessibilityOptions.Full);
+        var included = AccessibilityTree.Build(ContentDom.ElementById(document, "s")!, AccessibilityOptions.Full);
         included!.Role.Should().Be("region");
         included.IgnoredReason.Should().Be(AxIgnoredReason.Hidden);
     }
@@ -206,8 +214,8 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void APartialTreeOfAPrunedElementAnswersItsSurvivingChild()
     {
-        using var document = PageFixture.Parse("<div id=d><button>A</button></div>");
-        var node = AccessibilityTree.Build(document.GetElementById("d")!);
+        var document = PageFixture.Parse("<div id=d><button>A</button></div>");
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "d")!);
 
         node!.Role.Should().Be("button");
     }
@@ -256,8 +264,8 @@ public sealed class AccessibilityTreeTests
     [TestCaseSource(nameof(Properties))]
     public void PublishesTheProperty(string html, string name, string expected)
     {
-        using var document = PageFixture.Parse(html);
-        var node = AccessibilityTree.Build(document.GetElementById("t")!, AccessibilityOptions.Full)!;
+        var document = PageFixture.Parse(html);
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "t")!, AccessibilityOptions.Full)!;
 
         var property = node.Properties.FirstOrDefault(p => string.Equals(p.ProtocolName, name, StringComparison.Ordinal));
         property.Should().NotBe(default(AxProperty), "the node should carry a {0} property", name);
@@ -267,14 +275,14 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void PublishesTheUrlOfALinkAndAnImage()
     {
-        using var document = PageFixture.Parse("<a id=a href='/page?q=1'>x</a><img id=i src='pic.png' alt=A>", "https://example.com/dir/index.html");
+        var document = PageFixture.Parse("<a id=a href='/page?q=1'>x</a><img id=i src='pic.png' alt=A>", "https://example.com/dir/index.html");
 
         Url(document, "a").Should().Be("https://example.com/page?q=1");
         Url(document, "i").Should().Be("https://example.com/dir/pic.png");
 
-        string? Url(AngleSharp.Dom.IDocument doc, string id)
+        string? Url(Jint.HtmlParser.Document doc, string id)
         {
-            var node = AccessibilityTree.Build(doc.GetElementById(id)!, AccessibilityOptions.Full)!;
+            var node = AccessibilityTree.Build(ContentDom.ElementById(doc, id)!, AccessibilityOptions.Full)!;
             return node.Properties.FirstOrDefault(p => p.Name == AxPropertyName.Url).Value.Text;
         }
     }
@@ -282,7 +290,7 @@ public sealed class AccessibilityTreeTests
     [Test]
     public void PublishesAWidgetsValue()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<input id=a value='typed'>" +
             "<textarea id=b>lines</textarea>" +
             "<select id=c><option>One</option><option selected>Two</option></select>" +
@@ -293,14 +301,14 @@ public sealed class AccessibilityTreeTests
         Value(document, "c").Should().Be("Two");
         Value(document, "d").Should().Be("4");
 
-        string? Value(AngleSharp.Dom.IDocument doc, string id) =>
-            AccessibilityTree.Build(doc.GetElementById(id)!, AccessibilityOptions.Full)!.Value;
+        string? Value(Jint.HtmlParser.Document doc, string id) =>
+            AccessibilityTree.Build(ContentDom.ElementById(doc, id)!, AccessibilityOptions.Full)!.Value;
     }
 
     [Test]
     public void ARoleThatIsPresentationalKeepsItsChildren()
     {
-        using var document = PageFixture.Parse("<ul role=presentation><li><a href='/x'>Link</a></li></ul>");
+        var document = PageFixture.Parse("<ul role=presentation><li><a href='/x'>Link</a></li></ul>");
         var root = AccessibilityTree.Build(document);
 
         ImplicitRoleTests.Find(root, "list").Should().BeNull();

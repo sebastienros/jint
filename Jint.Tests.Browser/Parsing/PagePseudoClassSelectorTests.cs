@@ -1,5 +1,6 @@
 #nullable enable
 
+using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Tests.Browser.Navigation;
@@ -617,9 +618,9 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
-    /// Selectors §10.5: <c>:closed</c> is an element which has an open and a closed state and is in the
-    /// closed one, so it is not the complement of <c>:open</c> over every element — only over the four
-    /// categories HTML §4.16.3 gives the pair. AngleSharp registers no <c>:closed</c> selector at all, so the
+    /// Jint's compatibility extension <c>:closed</c> matches an applicable element in its closed state.
+    /// Current Selectors Level 4 does not define this pseudo-class. It is not the complement of
+    /// <c>:open</c> over every element; Jint preserves the categories below. AngleSharp registers none, so the
     /// whole selector was a parse failure and every API that took one threw a <c>SyntaxError</c>.
     /// </summary>
     [Test]
@@ -721,7 +722,7 @@ public sealed class PagePseudoClassSelectorTests
                 getComputedStyle(details).color,
               ].join('|');
             })()
-            """)).Should().Be("true|true|details|details|1|details:closed|rgba(1, 2, 3, 1)");
+            """)).Should().Be("true|true|details|details|1|details:closed|rgb(1, 2, 3)");
     }
     /// <summary>
     /// HTML §4.16.3 matches <c>:in-range</c> and <c>:out-of-range</c> only against an element which is a
@@ -993,8 +994,11 @@ public sealed class PagePseudoClassSelectorTests
     /// The third category, which AngleSharp reads through its own <c>IsContentEditable</c> — the member
     /// <c>Events/ContentEditing</c> already documents as answering <see langword="false"/> for
     /// <c>contenteditable</c> written without a value, which is how nearly every page writes it. An editing
-    /// host and everything editable inside it is <c>:read-write</c>, and a document in design mode is an
-    /// editing host of its own; a control inside one is still decided by the first two categories.
+    /// host and everything editable inside it is <c>:read-write</c>. Design mode makes the document's
+    /// child HTML element an editing host; <c>contenteditable="false"</c> subtrees remain noneditable.
+    /// A control inside an editing host is still decided by the first two categories.
+    /// https://html.spec.whatwg.org/multipage/interaction.html#editing-host
+    /// https://w3c.github.io/editing/docs/execCommand/#editable
     /// </summary>
     [Test]
     public async Task AnEditingHostAndWhatIsEditableInsideItIsReadWrite()
@@ -1025,12 +1029,18 @@ public sealed class PagePseudoClassSelectorTests
               document.designMode = 'on';
               const designing = plain.matches(':read-write') + ':' + readOnly.matches(':read-write')
                 + ':' + refused.matches(':read-write');
+              window.designModeBarrierFacts = ['explicitlyFalse', 'refused'].map(id => {
+                const element = document.getElementById(id);
+                return [element.matches(':read-write'), element.matches(':read-only'), element.isContentEditable].join(':');
+              }).join('|');
               document.designMode = 'off';
               return before + '|' + designing + '|' + plain.matches(':read-write');
             })()
             """)).Should().Be(
             "host:true,inside:true,mutable:true,readOnly:false,disabled:false,area:true,readOnlyArea:false," +
-            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:true|false");
+            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:false|false");
+        (await page.EvaluateAsync<string>("window.designModeBarrierFacts"))
+            .Should().Be("false:true:false|false:true:false");
     }
 
     /// <summary>
@@ -1049,7 +1059,7 @@ public sealed class PagePseudoClassSelectorTests
               <input type="radio" name="one" id="oneA"><input type="radio" name="one" id="oneB">
               <input type="radio" name="two" id="twoA" checked><input type="radio" name="two" id="twoB">
               <input type="radio" id="nameless">
-              <input type="radio" name="ONE" id="caseless">
+              <input type="radio" name="ONE" id="differentCase">
               <form id="form"><input type="radio" name="one" id="owned" checked></form>
               <input type="checkbox" id="checkbox">
               <progress id="noValue"></progress>
@@ -1060,19 +1070,19 @@ public sealed class PagePseudoClassSelectorTests
 
         (await page.EvaluateAsync<string>("""
             (() => {
-              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'caseless', 'owned', 'checkbox',
+              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'differentCase', 'owned', 'checkbox',
                 'noValue', 'emptyValue', 'withValue'];
               const read = () => ids.map(id => id + ':' + document.getElementById(id).matches(':indeterminate')).join(',');
               const before = read();
               oneB.checked = true;
               const afterChecking = oneA.matches(':indeterminate') + ':' + oneB.matches(':indeterminate')
-                + ':' + caseless.matches(':indeterminate');
+                + ':' + differentCase.matches(':indeterminate');
               checkbox.indeterminate = true;
               return before + '|' + afterChecking + '|' + checkbox.matches(':indeterminate');
             })()
             """)).Should().Be(
-            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,caseless:true,owned:false," +
-            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:false|true");
+            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,differentCase:true,owned:false," +
+            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:true|true");
     }
 
     /// <summary>
@@ -1350,10 +1360,10 @@ public sealed class PagePseudoClassSelectorTests
 
     /// <summary>
     /// HTML §4.16.3: <c>:required</c> is an <c>input</c> which is required and a <c>select</c> or
-    /// <c>textarea</c> carrying the attribute, and <c>:optional</c> is an <c>input</c> the attribute
-    /// <i>applies</i> to which is not required and the other two without it — so §4.10.5.3.4's fifteen type
-    /// states bound both, and an input outside them is in neither class. AngleSharp reads the attribute
-    /// wherever it is written.
+    /// <c>textarea</c> carrying the attribute, so §4.10.5.3.4's fifteen type states bound it. The prose
+    /// bounds <c>:optional</c> the same way, but wpt
+    /// <c>html/semantics/selectors/pseudo-classes/required-optional-hidden.html</c> expects a required hidden
+    /// input to match it, so every input that is not required is optional.
     /// </summary>
     [Test]
     public async Task RequiredAndOptionalAskWhetherTheAttributeAppliesToTheTypeState()
@@ -1384,7 +1394,7 @@ public sealed class PagePseudoClassSelectorTests
               return before + '|' + hidden.matches(':required') + ':' + hidden.matches(':optional');
             })()
             """)).Should().Be(
-            "hidden:false:false,range:false:false,submit:false:false,checkbox:true:false,text:true:false," +
+            "hidden:false:true,range:false:true,submit:false:true,checkbox:true:false,text:true:false," +
             "plain:false:true,select:true:false,plainSelect:false:true,textarea:true:false," +
             "plainTextarea:false:true,div:false:false|true:false");
     }
@@ -1402,7 +1412,7 @@ public sealed class PagePseudoClassSelectorTests
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var element = runtime.Document!.GetElementById(id)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, id)!;
             var box = runtime.Layout.Current().ClientBoxOf(element)!.Value;
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
                 kind, box.X + (box.Width / 2), box.Y + (box.Height / 2), 0, buttons, 1, EventModifiers.None, 0, 0));

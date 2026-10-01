@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 
@@ -174,7 +175,7 @@ public sealed class LayoutInvalidationTests
     }
 
     // Page.SelectAsync reaches the option's activation behaviour from a host request rather than from a click,
-    // so the mutation scope has to be the algorithm's own rather than the click's. Selectedness is AngleSharp
+    // so the mutation scope has to be the algorithm's own rather than the click's. Selectedness is native select
     // state, not an attribute, so a DOM mutation counter would not see this write either (#4138).
     [Test]
     public async Task HostSelectionIsVisibleToThePagesOwnChangeListener()
@@ -250,7 +251,7 @@ public sealed class LayoutInvalidationTests
         (await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var target = runtime.Document!.GetElementById("target")!;
+            var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "target")!;
             var before = runtime.Layout.ClientBoxOf(target)!.Value.Height;
             target.SetAttribute("hidden", "");
             return before > 0 && runtime.Layout.ClientBoxOf(target) is null;
@@ -307,13 +308,32 @@ public sealed class LayoutInvalidationTests
 
     [TestCase("<style>@import url('data:text/css,button%7Bdisplay:block%7D');</style>")]
     [TestCase("<link rel='stylesheet' href='data:text/css,button%7Bdisplay:block%7D'>")]
-    public async Task NativeResourceAttachmentUsesTheUncachedFallback(string styles)
+    public async Task NativeResourceAttachmentReusesUntilTheAttachedSheetChanges(string styles)
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync(styles + "<button id='target'>Save</button>");
         await InstallDiagnostics(page);
-        (await page.EvaluateAsync<bool>("queryStamp() !== queryStamp()")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const target = document.getElementById('target');
+              const root = document.styleSheets[0];
+              const sheet = root.cssRules[0].styleSheet || root;
+              const before = target.getBoundingClientRect().height;
+              const first = queryStamp();
+              const reused = first === queryStamp();
+              sheet.cssRules[0].style.display = 'none';
+              const hidden = target.getBoundingClientRect().height;
+              const changed = queryStamp() > first;
+              const hiddenStamp = queryStamp();
+              const hiddenReused = hiddenStamp === queryStamp();
+              sheet.cssRules[0].style.display = 'block';
+              const restored = target.getBoundingClientRect().height;
+              return [before, reused, hidden, changed, hiddenReused, restored,
+                queryStamp() > hiddenStamp, queryStamp() === queryStamp()].join(',');
+            })()
+            """)).Should().Be("16,true,0,true,true,16,true,true");
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -345,7 +365,7 @@ public sealed class LayoutInvalidationTests
     }
 
     [Test]
-    public async Task InsertingAnImportStopsReuseOfAPreviouslyCachedSheet()
+    public async Task InsertingAnImportInvalidatesBeforeAndAfterItsSheetArrives()
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
@@ -353,11 +373,31 @@ public sealed class LayoutInvalidationTests
         await InstallDiagnostics(page);
         (await page.EvaluateAsync<string>("""
             (() => {
-              const before = queryStamp() === queryStamp();
-              document.styleSheets[0].insertRule("@import url('data:text/css,button%7Bdisplay:block%7D');", 0);
-              return before + ',' + (queryStamp() === queryStamp());
+              const target = document.getElementById('target');
+              const before = target.getBoundingClientRect().height;
+              const first = queryStamp();
+              document.styleSheets[0].insertRule("@import url('data:text/css,button%7Bdisplay:none%7D');", 0);
+              const changed = queryStamp() > first;
+              const pending = document.styleSheets[0].cssRules[0].styleSheet === null;
+              window.pendingImportStamp = queryStamp();
+              return [before, changed, pending, queryStamp() === queryStamp()].join(',');
             })()
-            """)).Should().Be("true,false");
+            """)).Should().Be("16,true,true,true");
+        (await page.WaitForAsync("document.styleSheets[0].cssRules[0].styleSheet !== null", TestBudgets.WedgeCeiling))
+            .Should().BeTrue();
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const target = document.getElementById('target');
+              const hidden = target.getBoundingClientRect().height;
+              const changed = queryStamp() > window.pendingImportStamp;
+              const first = queryStamp();
+              const reused = first === queryStamp();
+              document.styleSheets[0].deleteRule(0);
+              return [hidden, changed, reused, target.getBoundingClientRect().height,
+                queryStamp() > first, queryStamp() === queryStamp()].join(',');
+            })()
+            """)).Should().Be("0,true,true,16,true,true");
+        page.Errors.Should().BeEmpty();
     }
 
     // Read-only diagnostic callbacks installed by the test on the page loop. No Browser option or native

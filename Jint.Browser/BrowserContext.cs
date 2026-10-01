@@ -1,4 +1,5 @@
 using Jint.Browser.Runtime;
+using Jint.Browser.Workers;
 using Jint.WebApi.Fetch;
 
 namespace Jint.Browser;
@@ -22,13 +23,15 @@ namespace Jint.Browser;
 public sealed class BrowserContext : IAsyncDisposable
 {
     private readonly List<Page> _pages = [];
+    private readonly List<BrowsingContextHandle> _openingPopups = [];
     private readonly object _gate = new();
     private volatile bool _closed;
 
     internal BrowserContext(Browser browser, BrowserContextOptions options)
     {
         Browser = browser;
-        Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault);
+        Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
+            browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes);
     }
 
     /// <summary>The browser this context belongs to.</summary>
@@ -65,6 +68,8 @@ public sealed class BrowserContext : IAsyncDisposable
     /// </summary>
     internal PageNetwork Network { get; }
 
+    internal SharedWorkerRegistry SharedWorkers { get; } = new();
+
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>
     /// <exception cref="ObjectDisposedException">The context or its browser has been closed.</exception>
@@ -96,8 +101,84 @@ public sealed class BrowserContext : IAsyncDisposable
             ObjectDisposedException.ThrowIf(true, this);
         }
 
+        page.WindowHandle.Complete(page);
         Browser.OnPageOpened(this, page);
         return page;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/document-sequences.html#the-rules-for-choosing-a-navigable
+    /// Reserve names under the context lock, including pages whose loops have not started yet.
+    /// </summary>
+    internal BrowsingContextHandle? ChoosePopup(Page source, string name, bool noopener, CrossPageNavigation navigation)
+    {
+        lock (_gate)
+        {
+            if (_closed) return null;
+            var named = name.Length != 0 && !name.Equals("_blank", StringComparison.OrdinalIgnoreCase);
+            if (named && !noopener)
+            {
+                foreach (var page in _pages)
+                {
+                    if (!page.IsClosed && page.WindowHandle.Name == name)
+                    {
+                        if (navigation.Url.Length != 0) page.WindowHandle.Navigate(source, navigation);
+                        return page.WindowHandle;
+                    }
+                }
+                foreach (var pending in _openingPopups)
+                {
+                    if (!pending.Closed && pending.Name == name)
+                    {
+                        if (navigation.Url.Length != 0) pending.Navigate(source, navigation);
+                        return pending;
+                    }
+                }
+            }
+
+            var handle = new BrowsingContextHandle(named ? name : "", noopener ? null : source, scriptClosable: true);
+            _openingPopups.Add(handle);
+            if (navigation.Url.Length != 0 && navigation.Url != PageUrl.Blank) handle.Navigate(source, navigation);
+            handle.Opening = Task.Run(() => OpenPopupAsync(source, handle, navigation));
+            return handle;
+        }
+    }
+
+    private async Task OpenPopupAsync(Page source, BrowsingContextHandle handle, CrossPageNavigation creator)
+    {
+        Page? page = null;
+        try
+        {
+            page = await Page.CreateAsync(this, Browser.Options, handle, creator).ConfigureAwait(false);
+            handle.Register(page);
+            bool closed;
+            lock (_gate)
+            {
+                closed = _closed;
+                if (!closed)
+                {
+                    _pages.Add(page);
+                    // From here context shutdown waits for the page, not its announcement callback.
+                    _openingPopups.Remove(handle);
+                }
+            }
+            if (closed)
+            {
+                await page.CloseAsync().ConfigureAwait(false);
+                return;
+            }
+            Browser.OnPageOpened(this, page);
+            source.AnnouncePopup(page);
+        }
+        catch (Exception exception)
+        {
+            source.RecordPopupError(exception);
+        }
+        finally
+        {
+            handle.Complete(page);
+            lock (_gate) _openingPopups.Remove(handle);
+        }
     }
 
     /// <summary>Closes the context and every page in it.</summary>
@@ -105,18 +186,21 @@ public sealed class BrowserContext : IAsyncDisposable
     public async Task CloseAsync()
     {
         Page[] pages;
+        Task[] opening;
 
         lock (_gate)
         {
             _closed = true;
             pages = _pages.ToArray();
             _pages.Clear();
+            opening = _openingPopups.Select(handle => handle.Opening).ToArray();
         }
 
         foreach (var page in pages)
         {
             await page.CloseAsync().ConfigureAwait(false);
         }
+        await Task.WhenAll(opening).ConfigureAwait(false);
 
         Browser.Remove(this);
     }

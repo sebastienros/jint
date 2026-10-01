@@ -64,6 +64,13 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
     private bool _taskQueued;
 
     private Action? _deliverJob;
+    private List<JsPerformance>? _fullResourceBuffers;
+
+    internal void QueueResourceBufferFull(JsPerformance performance)
+    {
+        (_fullResourceBuffers ??= []).Add(performance);
+        QueueTask();
+    }
 
     /// <summary>
     /// The registration for <paramref name="observer"/>, or <see langword="null"/> when it has none — which is
@@ -121,6 +128,7 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
         for (var i = 0; i < _observers.Count; i++)
         {
             var registration = _observers[i];
+            if (!ReferenceEquals(registration.Observer.Performance, entry.Performance)) continue;
             var options = registration.Options;
             for (var j = 0; j < options.Count; j++)
             {
@@ -162,6 +170,11 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
     internal void Clear()
     {
         _observers.Clear();
+        if (_fullResourceBuffers is { } buffers)
+        {
+            foreach (var performance in buffers) performance.ResetResourceBufferTask();
+            buffers.Clear();
+        }
 
         // The delivery job still on the event loop belongs to the ended cycle and is dropped at dequeue by
         // the generation fence; clearing the flag is what lets the next cycle queue a fresh one.
@@ -181,6 +194,13 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
         {
             QueueTask();
             return;
+        }
+
+        if (_fullResourceBuffers is { Count: > 0 } buffers)
+        {
+            var pending = buffers.ToArray();
+            buffers.Clear();
+            foreach (var performance in pending) performance.FireResourceBufferFull();
         }
 
         if (_observers.Count == 0)

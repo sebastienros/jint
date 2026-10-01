@@ -17,7 +17,7 @@ public sealed class ExtractionGoldenTests
     [TestCase("nav")]
     public void RendersThePageAsMarkdown(string page)
     {
-        using var document = PageFixture.Parse(GoldenFiles.Page(page), "https://jint.test/" + page + ".html");
+        var document = PageFixture.Parse(GoldenFiles.Page(page), "https://jint.test/" + page + ".html");
 
         GoldenFiles.Approve(page + ".md", MarkdownExtractor.ToMarkdown(document));
     }
@@ -26,7 +26,7 @@ public sealed class ExtractionGoldenTests
     [TestCase("todomvc")]
     public void RendersThePageAsText(string page)
     {
-        using var document = PageFixture.Parse(GoldenFiles.Page(page), "https://jint.test/" + page + ".html");
+        var document = PageFixture.Parse(GoldenFiles.Page(page), "https://jint.test/" + page + ".html");
 
         GoldenFiles.Approve(page + ".text.txt", TextExtractor.InnerText(document));
     }
@@ -34,7 +34,7 @@ public sealed class ExtractionGoldenTests
     [Test]
     public void MainContentOnlyDropsTheChromeOfARealPage()
     {
-        using var document = PageFixture.Parse(GoldenFiles.Page("article"), "https://jint.test/article.html");
+        var document = PageFixture.Parse(GoldenFiles.Page("article"), "https://jint.test/article.html");
 
         var whole = MarkdownExtractor.ToMarkdown(document);
         var main = MarkdownExtractor.ToMarkdown(document, MarkdownOptions.Default with { MainContentOnly = true });
@@ -49,7 +49,7 @@ public sealed class ExtractionGoldenTests
     {
         // aria-hidden removes a node from the accessibility tree and changes nothing about the rendering, so
         // innerText and the markdown both keep it while the accessibility snapshot does not.
-        using var document = PageFixture.Parse("<p>Kept</p><p aria-hidden=true>Decoration</p><p hidden>Gone</p>");
+        var document = PageFixture.Parse("<p>Kept</p><p aria-hidden=true>Decoration</p><p hidden>Gone</p>");
 
         var expected = "Kept" + Environment.NewLine + Environment.NewLine + "Decoration";
 

@@ -7,10 +7,56 @@ namespace Jint.Tests.Browser.Observers;
 using Browser = global::Jint.Browser.Browser;
 
 /// <summary>
-/// <c>MutationObserver</c>: the records AngleSharp produces, delivered at Jint's microtask checkpoint.
+/// <c>MutationObserver</c>: native records delivered at Jint's microtask checkpoint.
 /// </summary>
 public sealed class MutationObserverTests
 {
+    [Test]
+    public async Task TakingAllRecordsStillClearsDetachedSubtreeRegistrationsAtTheCheckpoint()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <div id=host><span id=child></span></div>
+            <script>
+              globalThis.calls = 0;
+              const host = document.getElementById('host');
+              const child = document.getElementById('child');
+              const observer = new MutationObserver(() => calls++);
+              observer.observe(host, { childList: true, attributes: true, subtree: true });
+              host.removeChild(child);
+              globalThis.taken = observer.takeRecords().length;
+              Promise.resolve().then(() => child.setAttribute('after', 'checkpoint'));
+            </script>
+            """);
+        (await page.EvaluateAsync<int>("taken")).Should().Be(1);
+        (await page.EvaluateAsync<int>("calls")).Should().Be(0);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task TakingRecordsPreservesDetachedSubtreeMatchingUntilDelivery()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <div id=host><span id=child></span></div>
+            <script>
+              globalThis.log = [];
+              const host = document.getElementById('host');
+              const child = document.getElementById('child');
+              const observer = new MutationObserver(records => log.push(...records.map(record => record.attributeName)));
+              observer.observe(host, { childList: true, attributes: true, subtree: true });
+              host.removeChild(child);
+              observer.takeRecords();
+              child.setAttribute('before', 'checkpoint');
+              Promise.resolve().then(() => child.setAttribute('after', 'checkpoint'));
+            </script>
+            """);
+        (await page.EvaluateAsync<string>("log.join('|')")).Should().Be("before");
+        page.Errors.Should().BeEmpty();
+    }
+
     private static async Task<Page> PageWith(Browser browser, string body)
     {
         var page = await browser.NewPageAsync();

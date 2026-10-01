@@ -57,7 +57,7 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
 
 | v1 delivers | Out of v1 (absent, so feature detection is honest) |
 | --- | --- |
-| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, IndexedDB, `caches` (the engine has it; a page has no origin-partitioned provider to grant it on), WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
+| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, in-memory IndexedDB, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, `caches` (the engine has it; a page has no origin-partitioned provider to grant it on), WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
 
 `Page.captureScreenshot` answers a CDP error with a sentence, the way Lightpanda does.
 
@@ -335,8 +335,9 @@ reads, and `javascriptDialogOpening` and `javascriptDialogClosed` arrive togethe
 pixels and names `Jint.getMarkdown`, `Jint.getText` and `document.documentElement.outerHTML` instead.
 
 What is accepted and not yet effective is accepted because refusing it fails an ordinary connection, and
-each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass) and
-`Audits.enable` (nothing to report).
+each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass),
+`Audits.enable` (nothing to report) and `Inspector.enable` (no renderer to crash; chromedp sends it on
+every attachment).
 
 **The network domains are real, and what is still absent is absent with a reason rather than pending.**
 `Network` reports every request the page makes, and `Fetch` pauses one at the **request** stage or the

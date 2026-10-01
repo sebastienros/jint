@@ -5,6 +5,87 @@ namespace Jint.Tests.Browser.Parsing;
 
 public class FrameScriptTests
 {
+    [TestCase("/side.html")]
+    [TestCase("http://[bad")]
+    public async Task AnUnresolvableSourceKeepsARealInitialBlankNavigable(string source)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<iframe id=f src='" + source + "'></iframe>");
+        (await page.EvaluateAsync<bool>("""
+            window.length === 1 && frames[0] === f.contentWindow &&
+            f.contentDocument === frames[0].document &&
+            frames[0].document.URL === 'about:blank' && frames[0].document.body !== null &&
+            frames[0].parent === window && frames[0].document.defaultView === frames[0]
+            """)).Should().BeTrue();
+        (await page.EvaluateAsync<string>("f.getAttribute('src')")).Should().Be(source);
+        page.MainFrame.Frames.Single().Url.Should().Be(source);
+        page.MainFrame.Frames.Single().IsScripted.Should().BeFalse();
+        page.Requests.Should().BeEmpty();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task GrandchildResourcesFinishBeforeItsScriptAndTheParentScript()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/grandchild.css", _ => LoopbackResponse.Css("body { font-size: 33px; }"))
+            .MapHtml("/grandchild", "<link rel=stylesheet href=/grandchild.css><body><script>window.sawStyle = document.querySelector('link').sheet.cssRules.length === 1;</script>")
+            .MapHtml("/child", "<iframe src=/grandchild></iframe><script>window.sawGrandchild = frames[0].sawStyle;</script>")
+            .MapHtml("/", "<iframe src=/child></iframe><script>window.sawChild = frames[0].sawGrandchild;</script>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("sawChild && frames[0].sawGrandchild && frames[0].frames[0].sawStyle")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChildResourcesPrepareAtTheirOwnParserBoundary()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/child.css", _ => LoopbackResponse.Css("body { font-size: 33px; }"))
+            .MapHtml("/child", "<link rel=stylesheet href=/child.css><body><script>window.sawChildStyle = document.querySelector('link').sheet.cssRules.length === 1;</script>")
+            .MapHtml("/", "<iframe src=/child></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("frames[0].sawChildStyle")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChildImportMapDoesNotReplaceThePrincipalMap()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/right.js", _ => LoopbackResponse.Script("export const value = 42;"))
+            .MapHtml("/child", "<script type=importmap>{\"imports\":{\"dep\":\"/wrong.js\"}}</script>")
+            .MapHtml("/", """
+                <iframe src=/child></iframe>
+                <script type=importmap>{"imports":{"dep":"/right.js"}}</script>
+                <script type=module>import { value } from 'dep'; window.importedValue = value;</script>
+                """));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<int>("importedValue")).Should().Be(42);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChildModuleScriptsDoNotExecuteInThePrincipalRealm()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child", "<script type=module>parent.childModuleRan = true;</script>")
+            .MapHtml("/", "<iframe src=/child></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            var child = frames[0].document;
+            var script = child.createElement('script');
+            script.type = 'module';
+            script.textContent = 'parent.dynamicChildModuleRan = true';
+            child.body.append(script);
+            """);
+        (await loopback.Page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>(
+            "typeof childModuleRan === 'undefined' && typeof dynamicChildModuleRan === 'undefined'"))
+            .Should().BeTrue();
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task AFrameCreatedAfterPageLoadRunsItsScriptAndLoadsOnce(bool srcdoc)
@@ -37,7 +118,16 @@ public class FrameScriptTests
                 ? "<!doctype html><iframe sandbox srcdoc=\"" + child + "\"></iframe>"
                 : "<!doctype html><iframe sandbox src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
-        await loopback.Page.EvaluateAsync("document.querySelector('iframe').contentDocument.querySelector('button').dispatchEvent(new Event('click'))");
+        (await loopback.Page.EvaluateAsync<bool>("document.querySelector('iframe').contentDocument === null")).Should().BeTrue();
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var runtime = global::Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            var frame = global::Jint.Browser.Dom.DomSelectors.QuerySelector(runtime.Dom, runtime.Document!, "iframe")!;
+            var childDocument = global::Jint.Browser.Dom.DomBrowsingContext.OfFrame(frame)!.Active!;
+            engine.SetValue("sandboxChildForHostTest", runtime.Dom.WrapNodeValue(childDocument));
+            engine.Evaluate("sandboxChildForHostTest.querySelector('button').dispatchEvent(new Event('click'))");
+            return true;
+        });
         (await loopback.Page.EvaluateAsync<bool>("typeof leaked === 'undefined'")).Should().BeTrue();
         loopback.Page.Errors.Should().BeEmpty();
     }

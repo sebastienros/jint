@@ -1,6 +1,8 @@
 using System.Globalization;
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.Browser.Styling;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Values;
 using Jint.Browser.Runtime;
 
 namespace Jint.Browser.DevTools;
@@ -19,9 +21,8 @@ namespace Jint.Browser.DevTools;
 /// replaced it.
 /// </para>
 /// <para>
-/// <b>Sheets are announced when the domain is asked, not watched.</b> AngleSharp raises no notification
-/// when a sheet is added to or removed from a document — <c>IStyleSheetList</c> is a live view over the
-/// tree with no event on it — so there is nothing to subscribe to. <see cref="CssDomain"/> reconciles the
+/// <b>Sheets are announced when the domain is asked, not watched.</b> The native resource registry is read on demand
+/// rather than watched by this domain. <see cref="CssDomain"/> reconciles the
 /// document's sheets against this table at the four moments a client can tell the difference: when it
 /// enables the domain, when a document commits, when it reads a sheet's text, and before it is handed
 /// coverage. <c>styleSheetRemoved</c> and <c>styleSheetChanged</c> are absent for the same reason and are
@@ -35,8 +36,8 @@ internal sealed class CssStyleSheetTracker
 {
     private static int _serial;
 
-    private readonly Dictionary<ICssStyleSheet, string> _ids = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<string, ICssStyleSheet> _byId = new(StringComparer.Ordinal);
+    private readonly Dictionary<CssStyleSheet, string> _ids = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, CssStyleSheet> _byId = new(StringComparer.Ordinal);
 
     private readonly object _domainGate = new();
     private CssDomain[] _domains = [];
@@ -76,7 +77,7 @@ internal sealed class CssStyleSheetTracker
     }
 
     /// <summary>The identifier <paramref name="sheet"/> is addressed by in this document, minting one.</summary>
-    internal string IdOf(ICssStyleSheet sheet)
+    internal string IdOf(CssStyleSheet sheet)
     {
         if (_ids.TryGetValue(sheet, out var existing))
         {
@@ -90,54 +91,32 @@ internal sealed class CssStyleSheetTracker
     }
 
     /// <summary>Whether <paramref name="sheet"/> has been given an identifier already.</summary>
-    internal bool Knows(ICssStyleSheet sheet) => _ids.ContainsKey(sheet);
+    internal bool Knows(CssStyleSheet sheet) => _ids.ContainsKey(sheet);
 
     /// <summary>The sheet an identifier names, or none.</summary>
-    internal ICssStyleSheet? ById(string id) => _byId.GetValueOrDefault(id);
+    internal CssStyleSheet? ById(string id) => _byId.GetValueOrDefault(id);
 
     /// <summary>The identifier <paramref name="sheet"/> already has, or none.</summary>
-    internal string? KnownIdOf(ICssStyleSheet sheet) => _ids.GetValueOrDefault(sheet);
+    internal string? KnownIdOf(CssStyleSheet sheet) => _ids.GetValueOrDefault(sheet);
 
     /// <summary>
     /// Every sheet of <paramref name="document"/> a rule can be attributed to, outermost first.
     /// </summary>
     /// <remarks>
-    /// The document's own sheets and everything they <c>@import</c>, which is what CSSOM calls the
-    /// document's style sheet set plus the sheets hanging off it. The user-agent sheet is not among them and
+    /// The document's installed and native inline author sheets. Import rule grammar is explicitly
+    /// incomplete in the native CSS model, so no imported sheet is silently omitted. The user-agent sheet is not among them and
     /// deliberately gets no identifier: the protocol says a <c>RuleUsage</c>'s style sheet identifier is
     /// absent for user-agent rules, and a client that was handed one would ask for text this cannot give.
     /// </remarks>
-    internal static List<ICssStyleSheet> SheetsOf(IDocument document)
+    internal static List<CssStyleSheet> SheetsOf(Document document, CssValueWork work)
     {
-        var sheets = new List<ICssStyleSheet>();
-        var seen = new HashSet<ICssStyleSheet>(ReferenceEqualityComparer.Instance);
-
-        for (var i = 0; i < document.StyleSheets.Length; i++)
+        var result = new List<CssStyleSheet>();
+        foreach (var sheet in NativeCssStyleSheets.Get(document, work, includeShadow: true))
         {
-            if (document.StyleSheets[i] is ICssStyleSheet sheet)
-            {
-                Collect(sheet, sheets, seen);
-            }
+            work.Charge(1);
+            if (sheet.Origin == NativeCssOrigin.Author) result.Add(sheet.Sheet);
         }
-
-        return sheets;
-    }
-
-    private static void Collect(ICssStyleSheet sheet, List<ICssStyleSheet> sheets, HashSet<ICssStyleSheet> seen)
-    {
-        if (!seen.Add(sheet))
-        {
-            return;
-        }
-
-        sheets.Add(sheet);
-
-        for (var i = 0; i < sheet.Rules.Length; i++)
-        {
-            if (sheet.Rules[i] is ICssImportRule { Sheet: { } imported })
-            {
-                Collect(imported, sheets, seen);
-            }
-        }
+        work.CheckCancellation();
+        return result;
     }
 }

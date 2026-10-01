@@ -35,6 +35,16 @@ internal sealed class WebSocketServerTransport : IAsyncDisposable
     /// <summary>How much request head is read before a client is assumed to be sending something else.</summary>
     private const int MaxRequestHeadBytes = 16 * 1024;
 
+    /// <summary>
+    /// No keep-alive: the server never sends a frame the client did not ask for, which is Chrome's behaviour.
+    /// </summary>
+    /// <remarks>
+    /// .NET's keep-alive on a server socket is an unsolicited <c>Pong</c> frame, and chromedp handles only
+    /// <c>Ping</c>, <c>Close</c> and text frames; it treats anything else as an invalid message and drops
+    /// the connection, so a 30-second interval cancelled every chromedp session 30 seconds in.
+    /// </remarks>
+    internal static readonly TimeSpan KeepAliveInterval = Timeout.InfiniteTimeSpan;
+
     private readonly DevToolsServer _server;
     private readonly CancellationTokenSource _stopping = new();
     private readonly List<Task> _connections = [];
@@ -268,7 +278,7 @@ internal sealed class WebSocketServerTransport : IAsyncDisposable
         await stream.WriteAsync(Encoding.ASCII.GetBytes(head), cancellationToken).ConfigureAwait(false);
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-        var socket = WebSocket.CreateFromStream(stream, isServer: true, subProtocol: null, TimeSpan.FromSeconds(30));
+        var socket = WebSocket.CreateFromStream(stream, isServer: true, subProtocol: null, KeepAliveInterval);
         var connection = new WebSocketConnection(socket, _server.Options.MaxMessageBytes);
 
         await using (connection.ConfigureAwait(false))

@@ -62,7 +62,8 @@ public sealed class DomIndexedNodeTests
         // The obligation Jint/Native/Object/AGENTS.md states: a name GetOwnProperty answers has to be a name
         // GetOwnPropertyKeys lists, or hasOwnProperty and getOwnPropertyNames disagree about one object.
         fixture.Text("JSON.stringify(Object.getOwnPropertyNames(document.getElementById('f')))")
-            .Should().Be("[\"0\",\"1\",\"username\",\"u\",\"password\"]");
+            // HTML supported property names visit each element's id before its name.
+            .Should().Be("[\"0\",\"1\",\"u\",\"username\",\"password\"]");
         fixture.Bool("document.getElementById('f').hasOwnProperty('username')").Should().BeTrue();
         fixture.Bool("'username' in document.getElementById('f')").Should().BeTrue();
         fixture.Bool("'nope' in document.getElementById('f')").Should().BeFalse();
@@ -76,7 +77,7 @@ public sealed class DomIndexedNodeTests
 
         // An expando is still an ordinary own property, and it enumerates after the projection.
         fixture.Execute("document.getElementById('f').expando = 1;");
-        fixture.Text("Object.keys(document.getElementById('f')).join(',')").Should().Be("0,1,username,u,password,expando");
+        fixture.Text("Object.keys(document.getElementById('f')).join(',')").Should().Be("0,1,u,username,password,expando");
     }
 
     [Test]

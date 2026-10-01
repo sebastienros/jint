@@ -1,0 +1,3 @@
+<Project>
+  <!-- Stop inheritance of repository targets in this standalone consumer. -->
+</Project>

@@ -86,22 +86,21 @@ internal sealed partial class BlobPrototype : Prototype
     private JsBlob Slice(JsValue thisObject, JsValue start, JsValue end, JsValue contentType)
     {
         var blob = Brand(thisObject);
+        // Explicit undefined means the optional argument is absent. Retain conversion order before
+        // delegating to the same immutable byte-range operation used by converted binding arguments.
+        var convertedStart = start.IsUndefined() ? (long?) null : FileApi.ToClampedLongLong(start);
+        var convertedEnd = end.IsUndefined() ? (long?) null : FileApi.ToClampedLongLong(end);
+        var convertedType = contentType.IsUndefined() ? null : TypeConverter.ToString(contentType);
+        return Slice(blob, convertedStart, convertedEnd, convertedType);
+    }
+
+    /// <summary>File API's slice blob algorithm after the caller's WebIDL conversions.</summary>
+    internal JsBlob Slice(JsBlob blob, long? start, long? end, string? contentType)
+    {
         var originalSize = blob.Data.Length;
-
-        // Every optional argument here has no default value, so an explicitly passed `undefined` means the
-        // argument is missing — `blob.slice(0, undefined)` slices to the end, it does not slice to zero.
-        var relativeStart = start.IsUndefined()
-            ? 0
-            : Relative(FileApi.ToClampedLongLong(start), originalSize);
-
-        var relativeEnd = end.IsUndefined()
-            ? originalSize
-            : Relative(FileApi.ToClampedLongLong(end), originalSize);
-
-        var relativeContentType = contentType.IsUndefined()
-            ? string.Empty
-            : FileApi.NormalizeMediaType(TypeConverter.ToString(contentType));
-
+        var relativeStart = start is { } first ? Relative(first, originalSize) : 0;
+        var relativeEnd = end is { } last ? Relative(last, originalSize) : originalSize;
+        var relativeContentType = FileApi.NormalizeMediaType(contentType ?? string.Empty);
         var span = System.Math.Max(relativeEnd - relativeStart, 0);
 
         return new JsBlob(_engine, blob.Data.Slice(relativeStart, span), relativeContentType)

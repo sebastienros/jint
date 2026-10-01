@@ -27,6 +27,8 @@ public sealed class BrowserOptions
     private long _maxDocumentBytes = 32 * 1024 * 1024;
     private long _maxSubresourceBytes = 8 * 1024 * 1024;
     private long _maxCapturedResponseBytes = 16 * 1024 * 1024;
+    private long _maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes;
+    private long _maxIndexedDbBytes = 50 * 1024 * 1024;
     private TimeSpan _subresourceTimeout = TimeSpan.FromSeconds(30);
     private int _maxRedirects = 20;
     private TimeSpan? _maxTaskDuration;
@@ -77,6 +79,38 @@ public sealed class BrowserOptions
     /// </para>
     /// </remarks>
     public bool HasTouch { get; set; }
+
+    /// <summary>Gets or sets the default Cache Storage quota per context and origin; defaults to five mebibytes.</summary>
+    /// <remarks>
+    /// Counts cached bodies, UTF-16 metadata and fixed entry overhead across all live caches.
+    /// Applies when a context is created without a custom storage partition; zero refuses cache creation.
+    /// </remarks>
+    public long MaxCacheStorageBytes
+    {
+        get => _maxCacheStorageBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxCacheStorageBytes = value;
+        }
+    }
+
+    /// <summary>Gets or sets the IndexedDB quota per context and origin; defaults to fifty mebibytes.</summary>
+    /// <remarks>
+    /// Counts serialized values, keys, indexes and metadata across committed databases. A transaction
+    /// exceeding the quota aborts with <c>QuotaExceededError</c>; zero refuses database creation.
+    /// The in-memory partition is context-owned, including when a custom storage partition is supplied.
+    /// https://w3c.github.io/IndexedDB/#storage
+    /// </remarks>
+    public long MaxIndexedDbBytes
+    {
+        get => _maxIndexedDbBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxIndexedDbBytes = value;
+        }
+    }
 
     /// <summary>Whether every context of this browser refuses loopback and private addresses.</summary>
     /// <remarks>

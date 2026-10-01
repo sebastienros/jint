@@ -566,6 +566,12 @@ internal enum WptDivergence
     NeedsLayout,
 
     /// <summary>
+    /// Requires typed CSS computed-value conversion. Browser intentionally retains declaration text
+    /// at its LightPanda-style renderless boundary, including colors rather than sRGB serialization.
+    /// </summary>
+    NeedsComputedCssValues,
+
+    /// <summary>
     /// <para>
     /// <b>The browser lane's.</b> The test needs a nested browsing context that <i>runs script</i> — an
     /// <c>&lt;iframe&gt;</c>, an <c>&lt;object&gt;</c>, a <c>&lt;frameset&gt;</c>, or a window it opened. A

@@ -14,7 +14,7 @@ anything, then fixing the engine — never the tests.
 
 - **Never edit or "fix" a test262 test.** If a test is wrong, the answer is an engine fix or, as a last
   resort, an `ExcludedFiles` entry.
-- **test262 at the pinned SHA outranks the published prose.** See [Normative changes](#3-normative-changes-the-part-that-actually-costs-time).
+- **test262 at the pinned SHA outranks the published prose.** See [Normative changes](#3-normative-changes--the-part-that-actually-costs-time).
 - Exclusions outside `intl402/` must be temporary and carry a comment naming what removes them. Today every
   `ExcludedFiles` entry is intl402 — keep that invariant.
 - A feature that arrives unimplemented parks in `ExcludedFeatures`; the PR that implements it removes the entry.

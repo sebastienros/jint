@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom;
 
@@ -12,7 +11,7 @@ namespace Jint.Browser.Dom;
 /// <para>
 /// <b>Both are gated on the same sentence</b>: "The html element of a document is its document element, if it
 /// is an <c>html</c> element, and null otherwise", an <c>html</c> element being one in the HTML namespace with
-/// that local name. AngleSharp's <c>IDocument.Body</c> walks <c>DocumentElement.ChildNodes</c> without asking
+/// that local name. AngleSharp's <c>Document.Body</c> walks <c>DocumentElement.ChildNodes</c> without asking
 /// what the document element is, so a document rooted at an XHTML <c>div</c> answers a nested <c>body</c> —
 /// the standard's own counter-example. <c>Dom/divergences.md</c> records it.
 /// </para>
@@ -30,24 +29,67 @@ internal static class DomDocumentElements
     /// https://html.spec.whatwg.org/multipage/dom.html#the-html-element-2 — the document element when it is an
     /// <c>html</c> element in the HTML namespace, and <see langword="null"/> otherwise.
     /// </summary>
-    internal static IElement? Html(IDocument document)
+    internal static Element? Html(Document document)
     {
         var root = document.DocumentElement;
 
         return root is not null
             && string.Equals(root.LocalName, "html", StringComparison.Ordinal)
-            && string.Equals(DomNamespaces.Of(root), NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            && string.Equals(root.NamespaceUri, Namespaces.Html, StringComparison.Ordinal)
             ? root
             : null;
     }
 
+    internal static Element? Html(Document document, DomReadWork work)
+    {
+        for (var child = document.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is not Element element) continue;
+            return element is { NamespaceUri: Namespaces.Html, LocalName: "html" } ? element : null;
+        }
+        return null;
+    }
+
+    /// <summary>HTML §3.1: the first HTML head child of the html element.</summary>
+    internal static Element? Head(Document document)
+    {
+        if (Html(document) is not { } html) return null;
+        for (var child = html.FirstChild; child is not null; child = child.NextSibling)
+        {
+            if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "head" } head) return head;
+        }
+        return null;
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
-    /// <c>frameset</c> child of <see cref="Html"/>, and <see langword="null"/> when there is no html element.
+    /// <c>frameset</c> child of <see cref="Html(Document)"/>, and <see langword="null"/> when there is no html element.
     /// </summary>
     /// <remarks>
     /// Past the gate the search is AngleSharp's, because that half already matches the standard: it takes the
     /// first child that is a body or a frameset and looks no deeper.
     /// </remarks>
-    internal static IHtmlElement? Body(IDocument document) => Html(document) is null ? null : document.Body;
+    internal static Element? Body(Document document)
+    {
+        if (Html(document) is not { } html) return null;
+        for (var child = html.FirstChild; child is not null; child = child.NextSibling)
+        {
+            if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } element)
+                return element;
+        }
+        return null;
+    }
+
+    internal static Element? Body(Document document, DomReadWork work)
+    {
+        if (Html(document, work) is not { } html) return null;
+        for (var child = html.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } element)
+                return element;
+        }
+        return null;
+    }
 }

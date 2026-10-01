@@ -1,0 +1,50 @@
+using System.Reflection;
+using Jint.HtmlParser;
+
+static void Check(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+Check((Assembly.GetExecutingAssembly().GetName().GetPublicKeyToken()?.Length ?? 0) == 0, "consumer must be unsigned");
+Check(typeof(Document).Assembly.GetName().GetPublicKeyToken()!.Length > 0, "parser package must remain signed");
+var doc = Document.CreateHtml(); var parent = doc.CreateElement("div"); doc.AppendChild(parent);
+var a = doc.CreateTextNode("abc"); var b = doc.CreateTextNode("def"); parent.AppendChild(a); parent.AppendChild(b);
+var identity = new DomNodeIdentity(a);
+Check(identity == new DomNodeIdentity(a) && identity != new DomNodeIdentity(b), "reference identity operators");
+Check(identity.IsValid && identity.Node == a && identity.Attribute is null, "node identity projection");
+var range = doc.CreateRange(); range.SelectNodeContents(new(b)); parent.Normalize();
+Check(range.Start == new BoundaryPoint(new(a), 3) && range.End.Offset == 6, "normalize endpoint transfer");
+var tail = a.SplitText(4); Check(range.End == new BoundaryPoint(new(tail), 2), "split transfer");
+Check(a.Length == 4 && a.SubstringData(1, uint.MaxValue) == "bcd", "character data public reads");
+a.ReplaceData(1, 1, "B"); Check(range.GetText() == "def", "live UTF-16 replacement");
+var clone = range.CloneRange(); Check(range.CompareBoundaryPoints(0, clone) == 0, "clone points");
+foreach (ushort selector in new ushort[] { 0, 1, 2, 3 }) range.CompareBoundaryPoints(selector, clone);
+Check(range.ComparePoint(new(a), 0) == -1 && range.IsPointInRange(new(a), 3), "point queries");
+Check(range.IntersectsNode(new(a)) && range.GetCommonAncestor().Node == parent, "ordinary intersection and common ancestor");
+Check(range.CloneContents().ChildCount == 2, "partial content clone");
+var staticRange = new DomStaticRange(range.Start, range.End); Check(staticRange.IsValid(), "static range validity");
+var invalidStatic = new DomStaticRange(new(new(a), uint.MaxValue), new(new(doc), 0)); Check(!invalidStatic.IsValid(), "unsigned static offsets");
+range.SetStartBefore(new(a)); range.SetEndAfter(new(tail)); range.SetStartAfter(new(a)); range.SetEndBefore(new(tail)); Check(range.Collapsed, "boundary setters");
+range.SelectNode(new(tail)); var extracted = range.ExtractContents(); Check(extracted.FirstChild == tail && tail.ParentNode == extracted, "move identity");
+parent.AppendChild(tail); range.SelectNodeContents(new(a)); range.Collapse(true);
+range.InsertNode(new(doc.CreateElement("i"))); Check(!range.Collapsed, "collapsed insertion expansion");
+var wrapper = doc.CreateElement("span"); range.SelectNodeContents(new(tail)); range.SurroundContents(new(wrapper));
+Check(wrapper.FirstChild is Text && range.Start.Container.Node == parent, "surround native contents");
+range.DeleteContents(); range.Detach(); Check(range.Collapsed, "delete and detach");
+var iterator = new DomNodeIterator(new(parent), uint.MaxValue); TraversalFilter filter = _ => 1;
+Check(iterator.Root.Node == parent && iterator.WhatToShow == uint.MaxValue && iterator.PointerBeforeReference, "iterator initial state");
+Check(iterator.Next(filter)!.Value.Node == parent && iterator.Reference.Node == parent, "iterator reference identity");
+iterator.Next(null); iterator.Previous(null); iterator.Detach();
+var walker = new DomTreeWalker(new(parent), uint.MaxValue); Check(walker.Root.Node == parent && walker.WhatToShow == uint.MaxValue, "walker initial state");
+walker.FirstChild(null); walker.Parent(null); walker.LastChild(null); walker.PreviousSibling(null); walker.NextSibling(null); walker.Previous(null); walker.Next(null);
+walker.Current = new(doc.CreateTextNode("outside")); Check(walker.Next(null) is null, "out-of-root current");
+var attribute = doc.CreateAttribute("x"); var attrIdentity = new DomNodeIdentity(attribute); range.SetStart(attrIdentity, 0);
+Check(range.Collapsed && range.Start.Container.Attribute == attribute, "attribute boundary identity");
+var attrIterator = new DomNodeIterator(attrIdentity, 2); Check(attrIterator.Next(null) == attrIdentity && attrIterator.Next(null) is null, "attribute singleton traversal");
+var other = Document.CreateHtml(); var detached = doc.CreateTextNode("abcd"); range.SelectNodeContents(new(detached)); other.AdoptNode(detached); detached.Data = "abcd"; Check(range.Collapsed, "adopted endpoint repair");
+try { range.SetEnd(new(detached), uint.MaxValue); throw new InvalidOperationException("uint overflow accepted"); }
+catch (DomException error) when (error.Name == "IndexSizeError") { }
+var xml = Document.CreateXml(); var cdata = xml.CreateCDataSection("abcd"); Check(cdata.SplitText(2).Data == "cd", "public CDATA split");
+var pi = xml.CreateProcessingInstruction("x", "abc"); pi.ReplaceData(1, 1, "z"); Check(pi.SubstringData(0, pi.Length) == "azc", "public PI replace");
+var comment = xml.CreateComment("abc"); comment.ReplaceData(1, 1, "z"); Check(comment.SubstringData(0, comment.Length) == "azc", "public comment replace");
+Console.WriteLine("Unsigned packed consumer: identity, mutation, complete Range and traversal probes passed.");

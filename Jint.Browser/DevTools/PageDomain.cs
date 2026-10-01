@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Net.Sockets;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
@@ -388,7 +389,11 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     };
 
     /// <summary>The document's title, read straight off it because this is the loop thread.</summary>
-    private string Title() => PageRuntime.Find(_target.Runtime.Engine)?.Document?.Title ?? "";
+    private string Title()
+    {
+        var runtime = PageRuntime.Find(_target.Runtime.Engine);
+        return runtime is null ? "" : DomDocumentReads.Title(runtime.Dom, runtime.Document);
+    }
 
     private Viewport Viewport()
         => PageRuntime.Find(_target.Runtime.Engine)?.Viewport ?? _target.Emulation.DefaultViewport;

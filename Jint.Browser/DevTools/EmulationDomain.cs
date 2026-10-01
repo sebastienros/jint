@@ -156,17 +156,57 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// <summary>Sets the user agent every request carries and <c>navigator.userAgent</c> answers.</summary>
     /// <remarks>
     /// <c>acceptLanguage</c> becomes <c>navigator.language</c> and <c>navigator.languages</c>;
-    /// <c>platform</c> becomes <c>navigator.platform</c>. <c>userAgentMetadata</c> is accepted and dropped,
-    /// because there is no <c>navigator.userAgentData</c> to put it in.
+    /// <c>platform</c> becomes <c>navigator.platform</c>, and <c>userAgentMetadata</c> becomes
+    /// <c>navigator.userAgentData</c>. The metadata reaches script only; no <c>Sec-CH-UA</c> request header
+    /// carries it, because this browser sends no client hints at all.
     /// </remarks>
     protected override ValueTask<EmptyResult> SetUserAgentOverrideAsync(SetUserAgentOverrideRequest parameters, CommandContext context)
     {
         // One override for two commands: Chrome treats Emulation.setUserAgentOverride and
         // Network.setUserAgentOverride as the same setting, and the page's EmulationState is the one place
         // both write — what navigator.userAgent answers and what PageNetworkPolicy puts on every request.
-        State.ApplyUserAgentOverride(parameters.UserAgent, parameters.AcceptLanguage, parameters.Platform);
+        State.ApplyUserAgentOverride(
+            parameters.UserAgent,
+            parameters.AcceptLanguage,
+            parameters.Platform,
+            ClientHints(parameters.UserAgentMetadata));
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <summary>
+    /// The protocol's <c>UserAgentMetadata</c> as the hints <c>navigator.userAgentData</c> answers from.
+    /// </summary>
+    /// <remarks>
+    /// A missing <c>fullVersionList</c> is the brands, and a missing deprecated <c>fullVersion</c> is the
+    /// first entry of that list, which is how Chrome fills the two in.
+    /// </remarks>
+    internal static UserAgentClientHints? ClientHints(UserAgentMetadata? metadata)
+    {
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        (string, string)[] brands = [.. (metadata.Brands ?? []).Select(static b => (b.Brand, b.Version))];
+        (string, string)[] fullVersions = metadata.FullVersionList is { } list
+            ? [.. list.Select(static b => (b.Brand, b.Version))]
+            : brands;
+
+        return new UserAgentClientHints(
+            brands,
+            fullVersions,
+            metadata.Platform,
+            metadata.PlatformVersion,
+            metadata.Architecture,
+            metadata.Model,
+            metadata.Mobile,
+            metadata.Bitness ?? "",
+            metadata.Wow64 ?? false,
+            metadata.FormFactors ?? [])
+        {
+            FullVersion = metadata.FullVersion ?? (fullVersions.Length > 0 ? fullVersions[0].Item2 : ""),
+        };
     }
 
     /// <summary>Puts the <b>next</b> document's engine in a time zone, and says so.</summary>

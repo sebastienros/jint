@@ -1,43 +1,17 @@
-using System.Collections;
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
-/// <summary>The live <c>NodeList</c> returned by a labelable element's <c>labels</c> attribute.</summary>
-internal sealed class DomLabelNodeList : INodeList
+/// <summary>The live NodeList returned by a labelable element's labels attribute.</summary>
+internal sealed class DomLabelNodeList(Element control) : DomNodeList
 {
-    private readonly IHtmlElement _control;
-
-    internal DomLabelNodeList(IHtmlElement control) => _control = control;
-
-    public int Length => HtmlLabelAssociation.LabelsFor(_control).Count;
-
-    public INode this[int index]
+    internal override int Length => ReadLength(null, default);
+    internal override int ReadLength(Action<int>? checkpoint, CancellationToken token)
+        => HtmlLabelAssociation.LabelsFor(control, checkpoint, token).Count;
+    internal override Node? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
     {
-        get
-        {
-            var labels = HtmlLabelAssociation.LabelsFor(_control);
-            return (uint) index < (uint) labels.Count ? labels[index] : null!;
-        }
+        var labels = HtmlLabelAssociation.LabelsFor(control, checkpoint, token);
+        return index >= (uint) labels.Count ? null : labels[(int) index];
     }
-
-    public IEnumerator<INode> GetEnumerator()
-    {
-        foreach (var label in HtmlLabelAssociation.LabelsFor(_control))
-        {
-            yield return label;
-        }
-    }
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    public void ToHtml(TextWriter writer, IMarkupFormatter formatter)
-    {
-        foreach (var label in HtmlLabelAssociation.LabelsFor(_control))
-        {
-            label.ToHtml(writer, formatter);
-        }
-    }
+    internal override Node this[int index] => HtmlLabelAssociation.LabelsFor(control)[index];
 }

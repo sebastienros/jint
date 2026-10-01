@@ -132,25 +132,14 @@ public sealed class PageSocketTests
         stream.Header("Accept").Should().Contain("text/event-stream");
     }
 
-    /// <summary>
-    /// <c>caches</c> is deliberately absent, and this pins the decision rather than the omission.
-    /// </summary>
-    /// <remarks>
-    /// See <c>BrowserEngineFactory</c>, where the feature set is computed: the engine's default
-    /// <c>CacheStorageProvider</c> is one per engine, and a page builds a new engine on every navigation, so
-    /// a <c>caches</c> granted on the default would be emptied by every navigation — a scratchpad under a
-    /// name that promises otherwise. Granting it needs a provider the browsing context owns and partitions
-    /// by origin, the way <c>localStorage</c> already is, plus a quota; until that exists, absent is the
-    /// honest answer and a page feature-detects its way past it exactly as it does on an insecure origin.
-    /// </remarks>
     [Test]
-    public async Task APageHasNoCacheStorage()
+    public async Task ATrustworthyPageHasCacheStorage()
     {
         await using var fixture = await LoopbackPage.CreateAsync(
             server => server.MapHtml("/page", "<html><body>ok</body></html>"));
 
         await fixture.Page.NavigateAsync(fixture.Url("/page"));
 
-        (await fixture.Page.EvaluateAsync<string>("typeof caches")).Should().Be("undefined");
+        (await fixture.Page.EvaluateAsync<bool>("caches instanceof CacheStorage")).Should().BeTrue();
     }
 }

@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup><Compile Remove="BindingComparison/**/*.cs" /></ItemGroup>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
@@ -25,10 +24,12 @@
   <ItemGroup>
     <None Include=".\Scripts\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include=".\Scripts\template-rendering\**\*.*" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\template-rendering" />
+    <None Include=".\ParserCorpus\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Jint.Tests.CommonScripts\Scripts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" />
     <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
     <!-- The same script-free nested form drives the CDP regression and the layout benchmark. -->
     <Compile Include="..\Jint.Tests.Browser\Layout\AdminSettingsDocument.cs" Link="AdminSettingsDocument.cs" />
@@ -38,6 +39,11 @@
     <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Explicit controls for native parser comparisons in this nonpackable project. Their compile
+         assets must reach BenchmarkDotNet's generated child, which calls typed workload methods. -->
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="AngleSharp.Css" />
+    <PackageReference Include="AngleSharp.Xml" />
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Microsoft.ClearScript.V8" />
     <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x64" />

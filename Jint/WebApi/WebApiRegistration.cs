@@ -414,6 +414,7 @@ internal static class WebApiRegistration
             // The entry types are ordinary WebIDL interface objects — a script holds a mark and asks
             // `entry instanceof PerformanceMark`, which only works if the interface object is reachable.
             Install(global, realm, "PerformanceEntry", static r => r.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceResourceTiming", static r => r.Intrinsics.PerformanceResourceTiming, PropertyFlag.NonEnumerable);
             Install(global, realm, "PerformanceMark", static r => r.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
             Install(global, realm, "PerformanceMeasure", static r => r.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
 
@@ -622,6 +623,16 @@ internal static class WebApiRegistration
             Install(global, realm, "caches", static r => r.Intrinsics.Caches, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
+        if ((features & WebApiFeatures.IndexedDb) != WebApiFeatures.None)
+        {
+            foreach (var name in IndexedDb.IndexedDbInterfaces.Names)
+            {
+                Install(global, realm, name, r => r.Intrinsics.IndexedDb.Get(name), PropertyFlag.NonEnumerable);
+            }
+            Install(global, realm, "DOMStringList", static r => r.Intrinsics.DomStringList, PropertyFlag.NonEnumerable);
+            Install(global, realm, "indexedDB", static r => r.Intrinsics.IndexedDb.Factory, PropertyFlag.ConfigurableEnumerableWritable);
+        }
+
         if ((features & WebApiFeatures.IdleCallback) != WebApiFeatures.None)
         {
             Install(global, realm, "requestIdleCallback", static r => r.Intrinsics.IdleCallbacks.RequestIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
@@ -772,6 +783,11 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.CacheApi) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
+        if ((features & WebApiFeatures.IndexedDb) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events | WebApiFeatures.StructuredClone;
         }
 
         // FileReader is an EventTarget that fires ProgressEvents, so the File API cannot be had without the

@@ -1,5 +1,5 @@
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
@@ -33,7 +33,7 @@ namespace Jint.Browser.DevTools;
 /// <para>
 /// <b>The offsets index the text this domain hands out and no other string.</b>
 /// <see cref="CssStyleSheetText"/> serializes a sheet and measures the same serialization, because
-/// AngleSharp keeps no source position on a rule; what that costs a client is stated on that type.
+/// the native serializer supplies identity-keyed ranges in exactly that returned text.
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-startRuleUsageTracking"/>,
@@ -104,9 +104,9 @@ internal sealed partial class CssDomain : IDetachableDomain, ITargetObserver
         await AnnounceAsync(context).ConfigureAwait(false);
 
         var sheet = Sheets.ById(parameters.StyleSheetId)
-            ?? Throw.ServerError<ICssStyleSheet>("No style sheet with given id found");
+            ?? Throw.ServerError<CssStyleSheet>("No style sheet with given id found");
 
-        return new ProtocolCss.GetStyleSheetTextResponse { Text = CssStyleSheetText.Of(sheet).Text };
+        return new ProtocolCss.GetStyleSheetTextResponse { Text = CssStyleSheetText.Of(sheet, Work()).Text };
     }
 
     /// <summary>
@@ -197,26 +197,26 @@ internal sealed partial class CssDomain : IDetachableDomain, ITargetObserver
     /// of its own. Everything reported is reported <c>used: true</c>: the protocol's own description of
     /// both commands is "the rules that were used", and a window only ever records a rule when it matched.
     /// </remarks>
-    private ProtocolCss.RuleUsage[] Report(ICssStyleRule[] rules)
+    private ProtocolCss.RuleUsage[] Report(CssStyleRule[] rules)
     {
         if (rules.Length == 0)
         {
             return [];
         }
 
-        var texts = new Dictionary<ICssStyleSheet, CssStyleSheetText>(ReferenceEqualityComparer.Instance);
+        var texts = new Dictionary<CssStyleSheet, CssStyleSheetText>(ReferenceEqualityComparer.Instance);
         var usage = new List<ProtocolCss.RuleUsage>(rules.Length);
 
         foreach (var rule in rules)
         {
-            if (rule.Owner is not { } sheet || Sheets.KnownIdOf(sheet) is not { } id)
+            if (rule.ParentStyleSheet is not { } sheet || Sheets.KnownIdOf(sheet) is not { } id)
             {
                 continue;
             }
 
             if (!texts.TryGetValue(sheet, out var text))
             {
-                text = CssStyleSheetText.Of(sheet);
+                text = CssStyleSheetText.Of(sheet, Work());
                 texts[sheet] = text;
             }
 
@@ -262,7 +262,7 @@ internal sealed partial class CssDomain : IDetachableDomain, ITargetObserver
             return headers;
         }
 
-        foreach (var sheet in CssStyleSheetTracker.SheetsOf(document))
+        foreach (var sheet in CssStyleSheetTracker.SheetsOf(document, Work()))
         {
             var id = Sheets.IdOf(sheet);
             if (_announced.Add(id))
@@ -286,17 +286,19 @@ internal sealed partial class CssDomain : IDetachableDomain, ITargetObserver
     /// <b>The position fields describe this domain's text rather than the document's.</b> A sheet's text
     /// here is its own serialization, so it starts at line zero, column zero; Chrome reports where a
     /// <c>&lt;style&gt;</c> element's content sits inside the page's markup, which is a source position
-    /// nothing in AngleSharp records. <c>isMutable</c> and <c>isConstructed</c> are false because there is
+    /// this protocol does not publish. <c>isMutable</c> and <c>isConstructed</c> are false because there is
     /// no editing command and no <c>new CSSStyleSheet()</c> in this binding.
     /// </para>
     /// </remarks>
-    private ProtocolCss.CSSStyleSheetHeader Header(ICssStyleSheet sheet, string id, string documentUrl)
+    private ProtocolCss.CSSStyleSheetHeader Header(CssStyleSheet sheet, string id, string documentUrl)
     {
-        var text = CssStyleSheetText.Of(sheet).Text;
+        var work = Work();
+        var text = CssStyleSheetText.Of(sheet, work).Text;
         var lines = 0;
         var lastBreak = -1;
         for (var i = 0; i < text.Length; i++)
         {
+            work.Charge(1);
             if (text[i] == '\n')
             {
                 lines++;
@@ -308,12 +310,12 @@ internal sealed partial class CssDomain : IDetachableDomain, ITargetObserver
         {
             StyleSheetId = id,
             FrameId = _target.FrameId,
-            SourceURL = string.IsNullOrEmpty(sheet.Href) ? documentUrl : sheet.Href,
+            SourceURL = sheet.Attachment.SourceUrl?.AbsoluteUri ?? documentUrl,
             Origin = ProtocolCss.StyleSheetOriginValues.Regular,
-            Title = sheet.Title ?? "",
-            OwnerNode = sheet.OwnerNode is { } owner ? _target.Nodes.BackendIdOf(owner) : null,
-            Disabled = sheet.IsDisabled,
-            IsInline = string.IsNullOrEmpty(sheet.Href),
+            Title = (sheet.Attachment.OwnerNode as Element)?.GetAttribute("title") ?? "",
+            OwnerNode = sheet.Attachment.OwnerNode is { } owner ? _target.Nodes.BackendIdOf(owner) : null,
+            Disabled = sheet.Disabled,
+            IsInline = sheet.Attachment.OwnerNode is Element { LocalName: "style" },
             IsMutable = false,
             IsConstructed = false,
             StartLine = 0,
@@ -325,7 +327,7 @@ internal sealed partial class CssDomain : IDetachableDomain, ITargetObserver
     }
 
     /// <summary>The document a window is about, or Chrome's own refusal when there is none yet.</summary>
-    private IDocument Document()
+    private Document Document()
         => PageRuntime.Find(_target.Runtime.Engine)?.Document
-        ?? Throw.ServerError<IDocument>("Document is not available");
+        ?? Throw.ServerError<Document>("Document is not available");
 }

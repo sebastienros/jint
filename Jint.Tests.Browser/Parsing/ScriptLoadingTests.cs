@@ -16,6 +16,116 @@ public class ScriptLoadingTests
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     [Test]
+    public async Task DynamicInlinePreparationFinishesBeforeTheMutatorReturns()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", "<body></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<string>("""
+            var order = [];
+            var first = document.createElement('script');
+            first.textContent = "order.push('first')";
+            document.body.appendChild(first);
+            order.push('after-first');
+            var empty = document.createElement('script');
+            document.body.appendChild(empty);
+            empty.append("order.push('children-changed')");
+            order.push('after-children');
+            var edited = document.createElement('script');
+            var text = document.createTextNode('');
+            edited.append(text);
+            document.body.appendChild(edited);
+            text.data = "order.push('character-data')";
+            order.push('after-character');
+            order.join(',');
+            """)).Should().Be("first,after-first,children-changed,after-children,character-data,after-character");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ScriptPreparationReadsOnlyItsDirectTextChildren()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", "<body></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("""
+            var script = document.createElement('script');
+            var span = document.createElement('span');
+            span.textContent = 'window.descendantRan = true';
+            script.append(span);
+            document.body.append(script);
+            typeof descendantRan === 'undefined';
+            """)).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task NativeAttributeMapPreparesConnectedScriptBeforeTheCallerCanRemoveIt()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", "<body></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<int>("""
+            window.mapRuns = 0;
+            var script = document.createElement('script');
+            document.body.append(script);
+            var src = document.createAttribute('src');
+            src.value = 'data:text/javascript,window.mapRuns++';
+            script.attributes.setNamedItem(src);
+            script.remove();
+            mapRuns;
+            """)).Should().Be(1);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChangingDataScriptTypeAloneDoesNotPrepareIt()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", "<body></body>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>("""
+            var script = document.createElement('script');
+            script.type = 'application/json';
+            script.textContent = 'window.typeChangeRan = true';
+            document.body.append(script);
+            script.type = 'text/javascript';
+            typeof typeChangeRan === 'undefined';
+            """)).Should().BeTrue();
+        (await loopback.Page.WaitForIdleAsync(TestBudgets.WedgeCeiling)).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("typeof typeChangeRan === 'undefined'")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("defer")]
+    [TestCase("async")]
+    public async Task DeferredResourceWaitDoesNotConsumeTheNativeParseCpuTurn(string attribute)
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/delayed.js", _ =>
+            {
+                entered.TrySetResult();
+                release.Task.GetAwaiter().GetResult();
+                return LoopbackResponse.Script("window.delayedRan = true;");
+            })
+            .MapHtml("/", "<script " + attribute + " src=/delayed.js></script>"),
+            configureBrowser: options =>
+            {
+                options.MaxTaskDuration = TimeSpan.FromMilliseconds(200);
+                options.SubresourceTimeout = TestBudgets.WedgeCeiling;
+            });
+        var navigation = loopback.Page.NavigateAsync(loopback.Url("/"));
+        try
+        {
+            await entered.Task.WaitAsync(TestBudgets.WedgeCeiling);
+            // This delay is the stimulus: resource waiting exceeds the declared CPU budget.
+            await Task.Delay(TimeSpan.FromMilliseconds(600));
+        }
+        finally { release.TrySetResult(); }
+        await navigation;
+        (await loopback.Page.EvaluateAsync<bool>("delayedRan")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ExternalScriptsRunInDocumentOrderAndBlockTheParser()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

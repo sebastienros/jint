@@ -4,7 +4,8 @@ The MCP server inherits `Jint.Browser` limitations:
 
 - No rendering, screenshots, PDFs, pixels, native window, canvas, WebGL, or media.
 - No real visual layout; scrolling and action geometry are synthetic.
-- No iframe scripting, IndexedDB, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
+- No iframe scripting, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
+- IndexedDB is in memory only, with the [browser's storage limits](../jint-browser/limitations.md).
 - No drag and drop or clipboard tools.
 - Images are fetched, but only their container headers are read: there is a size and no picture.
 - Hover dispatches movement, not `mouseenter` or other pointer-boundary events.

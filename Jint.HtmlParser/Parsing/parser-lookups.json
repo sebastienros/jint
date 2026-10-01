@@ -1,0 +1,1764 @@
+[
+  {
+    "name": "XmlDeclarationOrderLookup",
+    "type": "int",
+    "default": "0",
+    "entries": {
+      "encoding": "1",
+      "standalone": "2"
+    }
+  },
+  {
+    "name": "XmlStandaloneValueLookup",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "yes": "true",
+      "no": "true"
+    }
+  },
+  {
+    "name": "CssUnitLookup",
+    "type": "CssUnit",
+    "default": "CssUnit.None",
+    "ignoreCase": true,
+    "entries": {
+      "px": "CssUnit.Px",
+      "cm": "CssUnit.Cm",
+      "mm": "CssUnit.Mm",
+      "q": "CssUnit.Q",
+      "in": "CssUnit.In",
+      "pt": "CssUnit.Pt",
+      "pc": "CssUnit.Pc",
+      "em": "CssUnit.Em",
+      "rem": "CssUnit.Rem",
+      "ex": "CssUnit.Ex",
+      "rex": "CssUnit.Rex",
+      "cap": "CssUnit.Cap",
+      "rcap": "CssUnit.Rcap",
+      "ch": "CssUnit.Ch",
+      "rch": "CssUnit.Rch",
+      "ic": "CssUnit.Ic",
+      "ric": "CssUnit.Ric",
+      "lh": "CssUnit.Lh",
+      "rlh": "CssUnit.Rlh",
+      "vw": "CssUnit.Vw",
+      "vh": "CssUnit.Vh",
+      "vi": "CssUnit.Vi",
+      "vb": "CssUnit.Vb",
+      "vmin": "CssUnit.Vmin",
+      "vmax": "CssUnit.Vmax",
+      "svw": "CssUnit.Svw",
+      "svh": "CssUnit.Svh",
+      "svi": "CssUnit.Svi",
+      "svb": "CssUnit.Svb",
+      "svmin": "CssUnit.Svmin",
+      "svmax": "CssUnit.Svmax",
+      "lvw": "CssUnit.Lvw",
+      "lvh": "CssUnit.Lvh",
+      "lvi": "CssUnit.Lvi",
+      "lvb": "CssUnit.Lvb",
+      "lvmin": "CssUnit.Lvmin",
+      "lvmax": "CssUnit.Lvmax",
+      "dvw": "CssUnit.Dvw",
+      "dvh": "CssUnit.Dvh",
+      "dvi": "CssUnit.Dvi",
+      "dvb": "CssUnit.Dvb",
+      "dvmin": "CssUnit.Dvmin",
+      "dvmax": "CssUnit.Dvmax",
+      "cqw": "CssUnit.Cqw",
+      "cqh": "CssUnit.Cqh",
+      "cqi": "CssUnit.Cqi",
+      "cqb": "CssUnit.Cqb",
+      "cqmin": "CssUnit.Cqmin",
+      "cqmax": "CssUnit.Cqmax",
+      "deg": "CssUnit.Deg",
+      "grad": "CssUnit.Grad",
+      "rad": "CssUnit.Rad",
+      "turn": "CssUnit.Turn",
+      "s": "CssUnit.S",
+      "ms": "CssUnit.Ms",
+      "hz": "CssUnit.Hz",
+      "khz": "CssUnit.Khz",
+      "dpi": "CssUnit.Dpi",
+      "dpcm": "CssUnit.Dpcm",
+      "dppx": "CssUnit.Dppx",
+      "x": "CssUnit.X",
+      "fr": "CssUnit.Fr"
+    }
+  },
+  {
+    "name": "CssWideKeywordLookup",
+    "type": "CssWideKeyword",
+    "default": "CssWideKeyword.None",
+    "ignoreCase": true,
+    "entries": {
+      "unset": "CssWideKeyword.Unset",
+      "revert": "CssWideKeyword.Revert",
+      "initial": "CssWideKeyword.Initial",
+      "inherit": "CssWideKeyword.Inherit",
+      "revert-rule": "CssWideKeyword.RevertRule",
+      "revert-layer": "CssWideKeyword.RevertLayer"
+    }
+  },
+  {
+    "name": "HtmlInputTypeLookup",
+    "type": "HtmlInputType",
+    "default": "HtmlInputType.Text",
+    "ignoreCase": true,
+    "entries": {
+      "tel": "HtmlInputType.Tel",
+      "url": "HtmlInputType.Url",
+      "text": "HtmlInputType.Text",
+      "date": "HtmlInputType.Date",
+      "week": "HtmlInputType.Week",
+      "time": "HtmlInputType.Time",
+      "file": "HtmlInputType.File",
+      "email": "HtmlInputType.Email",
+      "month": "HtmlInputType.Month",
+      "range": "HtmlInputType.Range",
+      "color": "HtmlInputType.Color",
+      "radio": "HtmlInputType.Radio",
+      "image": "HtmlInputType.Image",
+      "reset": "HtmlInputType.Reset",
+      "hidden": "HtmlInputType.Hidden",
+      "search": "HtmlInputType.Search",
+      "number": "HtmlInputType.Number",
+      "submit": "HtmlInputType.Submit",
+      "button": "HtmlInputType.Button",
+      "password": "HtmlInputType.Password",
+      "checkbox": "HtmlInputType.Checkbox",
+      "datetime-local": "HtmlInputType.DateTimeLocal"
+    }
+  },
+  {
+    "name": "SvgTagNameLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "altglyph": "\"altGlyph\"",
+      "altglyphdef": "\"altGlyphDef\"",
+      "altglyphitem": "\"altGlyphItem\"",
+      "animatecolor": "\"animateColor\"",
+      "animatemotion": "\"animateMotion\"",
+      "animatetransform": "\"animateTransform\"",
+      "clippath": "\"clipPath\"",
+      "feblend": "\"feBlend\"",
+      "fecolormatrix": "\"feColorMatrix\"",
+      "fecomponenttransfer": "\"feComponentTransfer\"",
+      "fecomposite": "\"feComposite\"",
+      "feconvolvematrix": "\"feConvolveMatrix\"",
+      "fediffuselighting": "\"feDiffuseLighting\"",
+      "fedisplacementmap": "\"feDisplacementMap\"",
+      "fedistantlight": "\"feDistantLight\"",
+      "fedropshadow": "\"feDropShadow\"",
+      "feflood": "\"feFlood\"",
+      "fefunca": "\"feFuncA\"",
+      "fefuncb": "\"feFuncB\"",
+      "fefuncg": "\"feFuncG\"",
+      "fefuncr": "\"feFuncR\"",
+      "fegaussianblur": "\"feGaussianBlur\"",
+      "feimage": "\"feImage\"",
+      "femerge": "\"feMerge\"",
+      "femergenode": "\"feMergeNode\"",
+      "femorphology": "\"feMorphology\"",
+      "feoffset": "\"feOffset\"",
+      "fepointlight": "\"fePointLight\"",
+      "fespecularlighting": "\"feSpecularLighting\"",
+      "fespotlight": "\"feSpotLight\"",
+      "fetile": "\"feTile\"",
+      "feturbulence": "\"feTurbulence\"",
+      "foreignobject": "\"foreignObject\"",
+      "glyphref": "\"glyphRef\"",
+      "lineargradient": "\"linearGradient\"",
+      "radialgradient": "\"radialGradient\"",
+      "textpath": "\"textPath\""
+    }
+  },
+  {
+    "name": "SvgAttributeNameLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "attributename": "\"attributeName\"",
+      "attributetype": "\"attributeType\"",
+      "basefrequency": "\"baseFrequency\"",
+      "baseprofile": "\"baseProfile\"",
+      "calcmode": "\"calcMode\"",
+      "clippathunits": "\"clipPathUnits\"",
+      "diffuseconstant": "\"diffuseConstant\"",
+      "edgemode": "\"edgeMode\"",
+      "filterunits": "\"filterUnits\"",
+      "glyphref": "\"glyphRef\"",
+      "gradienttransform": "\"gradientTransform\"",
+      "gradientunits": "\"gradientUnits\"",
+      "kernelmatrix": "\"kernelMatrix\"",
+      "kernelunitlength": "\"kernelUnitLength\"",
+      "keypoints": "\"keyPoints\"",
+      "keysplines": "\"keySplines\"",
+      "keytimes": "\"keyTimes\"",
+      "lengthadjust": "\"lengthAdjust\"",
+      "limitingconeangle": "\"limitingConeAngle\"",
+      "markerheight": "\"markerHeight\"",
+      "markerunits": "\"markerUnits\"",
+      "markerwidth": "\"markerWidth\"",
+      "maskcontentunits": "\"maskContentUnits\"",
+      "maskunits": "\"maskUnits\"",
+      "numoctaves": "\"numOctaves\"",
+      "pathlength": "\"pathLength\"",
+      "patterncontentunits": "\"patternContentUnits\"",
+      "patterntransform": "\"patternTransform\"",
+      "patternunits": "\"patternUnits\"",
+      "pointsatx": "\"pointsAtX\"",
+      "pointsaty": "\"pointsAtY\"",
+      "pointsatz": "\"pointsAtZ\"",
+      "preservealpha": "\"preserveAlpha\"",
+      "preserveaspectratio": "\"preserveAspectRatio\"",
+      "primitiveunits": "\"primitiveUnits\"",
+      "refx": "\"refX\"",
+      "refy": "\"refY\"",
+      "repeatcount": "\"repeatCount\"",
+      "repeatdur": "\"repeatDur\"",
+      "requiredextensions": "\"requiredExtensions\"",
+      "requiredfeatures": "\"requiredFeatures\"",
+      "specularconstant": "\"specularConstant\"",
+      "specularexponent": "\"specularExponent\"",
+      "spreadmethod": "\"spreadMethod\"",
+      "startoffset": "\"startOffset\"",
+      "stddeviation": "\"stdDeviation\"",
+      "stitchtiles": "\"stitchTiles\"",
+      "surfacescale": "\"surfaceScale\"",
+      "systemlanguage": "\"systemLanguage\"",
+      "tablevalues": "\"tableValues\"",
+      "targetx": "\"targetX\"",
+      "targety": "\"targetY\"",
+      "textlength": "\"textLength\"",
+      "viewbox": "\"viewBox\"",
+      "viewtarget": "\"viewTarget\"",
+      "xchannelselector": "\"xChannelSelector\"",
+      "ychannelselector": "\"yChannelSelector\"",
+      "zoomandpan": "\"zoomAndPan\""
+    }
+  },
+  {
+    "name": "SelectorElementFunctionLookup",
+    "type": "PredicateKind?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "picker": "PredicateKind.Picker",
+      "slotted": "PredicateKind.Slotted"
+    }
+  },
+  {
+    "name": "SelectorElementLookup",
+    "type": "PredicateKind?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "before": "PredicateKind.PseudoElement",
+      "after": "PredicateKind.PseudoElement",
+      "selection": "PredicateKind.PseudoElement",
+      "footnote-call": "PredicateKind.PseudoElement",
+      "footnote-marker": "PredicateKind.PseudoElement",
+      "first-line": "PredicateKind.PseudoElement",
+      "first-letter": "PredicateKind.PseudoElement",
+      "content": "PredicateKind.PseudoElement",
+      "checkmark": "PredicateKind.PseudoElement",
+      "picker-icon": "PredicateKind.PseudoElement"
+    }
+  },
+  {
+    "name": "SelectorPseudoClassLookup",
+    "type": "PredicateKind?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "before": "PredicateKind.PseudoElement",
+      "after": "PredicateKind.PseudoElement",
+      "first-line": "PredicateKind.PseudoElement",
+      "first-letter": "PredicateKind.PseudoElement",
+      "scope": "PredicateKind.Scope",
+      "root": "PredicateKind.Root",
+      "empty": "PredicateKind.Empty",
+      "first-child": "PredicateKind.FirstChild",
+      "last-child": "PredicateKind.LastChild",
+      "only-child": "PredicateKind.OnlyChild",
+      "first-of-type": "PredicateKind.FirstOfType",
+      "last-of-type": "PredicateKind.LastOfType",
+      "only-of-type": "PredicateKind.OnlyOfType",
+      "any-link": "PredicateKind.AnyLink",
+      "link": "PredicateKind.Link",
+      "visited": "PredicateKind.Visited",
+      "checked": "PredicateKind.Checked",
+      "unchecked": "PredicateKind.Unchecked",
+      "indeterminate": "PredicateKind.Indeterminate",
+      "default": "PredicateKind.Default",
+      "enabled": "PredicateKind.Enabled",
+      "disabled": "PredicateKind.Disabled",
+      "required": "PredicateKind.Required",
+      "optional": "PredicateKind.Optional",
+      "valid": "PredicateKind.Valid",
+      "invalid": "PredicateKind.Invalid",
+      "in-range": "PredicateKind.InRange",
+      "out-of-range": "PredicateKind.OutOfRange",
+      "read-only": "PredicateKind.ReadOnly",
+      "read-write": "PredicateKind.ReadWrite",
+      "placeholder-shown": "PredicateKind.PlaceholderShown",
+      "open": "PredicateKind.Open",
+      "closed": "PredicateKind.Closed",
+      "hover": "PredicateKind.Hover",
+      "active": "PredicateKind.Active",
+      "focus": "PredicateKind.Focus",
+      "focus-within": "PredicateKind.FocusWithin",
+      "focus-visible": "PredicateKind.FocusVisible",
+      "target": "PredicateKind.Target",
+      "autofill": "PredicateKind.Autofill",
+      "-webkit-autofill": "PredicateKind.Autofill",
+      "host": "PredicateKind.Host"
+    }
+  },
+  {
+    "name": "SelectorPseudoFunctionLookup",
+    "type": "PredicateKind?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "is": "PredicateKind.Is",
+      "matches": "PredicateKind.Is",
+      "where": "PredicateKind.Where",
+      "not": "PredicateKind.Not",
+      "has": "PredicateKind.Has",
+      "nth-child": "PredicateKind.NthChild",
+      "nth-last-child": "PredicateKind.NthLastChild",
+      "nth-of-type": "PredicateKind.NthOfType",
+      "nth-last-of-type": "PredicateKind.NthLastOfType",
+      "nth-col": "PredicateKind.NthCol",
+      "nth-last-col": "PredicateKind.NthLastCol",
+      "lang": "PredicateKind.Lang",
+      "dir": "PredicateKind.Dir",
+      "host": "PredicateKind.Host",
+      "host-context": "PredicateKind.HostContext"
+    }
+  },
+  {
+    "name": "XmlPredefinedEntityLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "amp": "\"&\"",
+      "lt": "\"<\"",
+      "gt": "\">\"",
+      "apos": "\"'\"",
+      "quot": "\"\\\"\""
+    }
+  },
+  {
+    "name": "XmlCatalogIdentifierLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "-//W3C//DTD XHTML 1.0 Transitional//EN": "true",
+      "-//W3C//DTD XHTML 1.1//EN": "true",
+      "-//W3C//DTD XHTML 1.0 Strict//EN": "true",
+      "-//W3C//DTD XHTML 1.0 Frameset//EN": "true",
+      "-//W3C//DTD XHTML Basic 1.0//EN": "true",
+      "-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN": "true",
+      "-//W3C//DTD XHTML 1.1 plus MathML 2.0 plus SVG 1.1//EN": "true",
+      "-//W3C//DTD MathML 2.0//EN": "true",
+      "-//WAPFORUM//DTD XHTML Mobile 1.0//EN": "true",
+      "-//WAPFORUM//DTD XHTML Mobile 1.1//EN": "true",
+      "-//WAPFORUM//DTD XHTML Mobile 1.2//EN": "true"
+    }
+  },
+  {
+    "name": "XmlAttributeTypeLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "CDATA": "true",
+      "ID": "true",
+      "IDREF": "true",
+      "IDREFS": "true",
+      "ENTITY": "true",
+      "ENTITIES": "true",
+      "NMTOKEN": "true",
+      "NMTOKENS": "true"
+    }
+  },
+  {
+    "name": "HtmlHeadingLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "h1": "true",
+      "h2": "true",
+      "h3": "true",
+      "h4": "true",
+      "h5": "true",
+      "h6": "true"
+    }
+  },
+  {
+    "name": "HtmlImpliedEndLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "dd": "true",
+      "dt": "true",
+      "li": "true",
+      "optgroup": "true",
+      "option": "true",
+      "p": "true",
+      "rb": "true",
+      "rp": "true",
+      "rt": "true",
+      "rtc": "true"
+    }
+  },
+  {
+    "name": "HtmlSpecialElementLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "address": "true",
+      "applet": "true",
+      "area": "true",
+      "article": "true",
+      "aside": "true",
+      "base": "true",
+      "basefont": "true",
+      "bgsound": "true",
+      "blockquote": "true",
+      "body": "true",
+      "br": "true",
+      "button": "true",
+      "caption": "true",
+      "center": "true",
+      "col": "true",
+      "colgroup": "true",
+      "dd": "true",
+      "details": "true",
+      "dialog": "true",
+      "dir": "true",
+      "div": "true",
+      "dl": "true",
+      "dt": "true",
+      "embed": "true",
+      "fieldset": "true",
+      "figcaption": "true",
+      "figure": "true",
+      "footer": "true",
+      "form": "true",
+      "frame": "true",
+      "frameset": "true",
+      "h1": "true",
+      "h2": "true",
+      "h3": "true",
+      "h4": "true",
+      "h5": "true",
+      "h6": "true",
+      "head": "true",
+      "header": "true",
+      "hgroup": "true",
+      "hr": "true",
+      "html": "true",
+      "iframe": "true",
+      "img": "true",
+      "input": "true",
+      "keygen": "true",
+      "li": "true",
+      "link": "true",
+      "listing": "true",
+      "main": "true",
+      "marquee": "true",
+      "menu": "true",
+      "meta": "true",
+      "nav": "true",
+      "noembed": "true",
+      "noframes": "true",
+      "noscript": "true",
+      "object": "true",
+      "ol": "true",
+      "p": "true",
+      "param": "true",
+      "plaintext": "true",
+      "pre": "true",
+      "script": "true",
+      "search": "true",
+      "section": "true",
+      "select": "true",
+      "source": "true",
+      "style": "true",
+      "summary": "true",
+      "table": "true",
+      "tbody": "true",
+      "td": "true",
+      "template": "true",
+      "textarea": "true",
+      "tfoot": "true",
+      "th": "true",
+      "thead": "true",
+      "title": "true",
+      "tr": "true",
+      "track": "true",
+      "ul": "true",
+      "wbr": "true",
+      "xmp": "true"
+    }
+  },
+  {
+    "name": "HtmlFormattingElementLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "a": "true",
+      "b": "true",
+      "big": "true",
+      "code": "true",
+      "em": "true",
+      "font": "true",
+      "i": "true",
+      "nobr": "true",
+      "s": "true",
+      "small": "true",
+      "strike": "true",
+      "strong": "true",
+      "tt": "true",
+      "u": "true"
+    }
+  },
+  {
+    "name": "HtmlBlockStartLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "address": "true",
+      "article": "true",
+      "aside": "true",
+      "blockquote": "true",
+      "center": "true",
+      "details": "true",
+      "dialog": "true",
+      "dir": "true",
+      "div": "true",
+      "dl": "true",
+      "fieldset": "true",
+      "figcaption": "true",
+      "figure": "true",
+      "footer": "true",
+      "header": "true",
+      "hgroup": "true",
+      "main": "true",
+      "menu": "true",
+      "nav": "true",
+      "ol": "true",
+      "p": "true",
+      "search": "true",
+      "section": "true",
+      "summary": "true",
+      "ul": "true"
+    }
+  },
+  {
+    "name": "HtmlBlockEndLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": false,
+    "entries": {
+      "address": "true",
+      "article": "true",
+      "aside": "true",
+      "blockquote": "true",
+      "center": "true",
+      "details": "true",
+      "dialog": "true",
+      "dir": "true",
+      "div": "true",
+      "dl": "true",
+      "fieldset": "true",
+      "figcaption": "true",
+      "figure": "true",
+      "footer": "true",
+      "header": "true",
+      "hgroup": "true",
+      "listing": "true",
+      "main": "true",
+      "menu": "true",
+      "nav": "true",
+      "ol": "true",
+      "pre": "true",
+      "search": "true",
+      "section": "true",
+      "summary": "true",
+      "ul": "true"
+    }
+  },
+  {
+    "name": "HtmlTableStartLookup",
+    "type": "HtmlTableStartKind",
+    "default": "HtmlTableStartKind.Unknown",
+    "enum": [
+      "Caption",
+      "Colgroup",
+      "Col",
+      "Tbody",
+      "Tfoot",
+      "Thead",
+      "Td",
+      "Th",
+      "Tr",
+      "Table",
+      "Style",
+      "Script",
+      "Template",
+      "Input",
+      "Form"
+    ],
+    "entries": {
+      "caption": "HtmlTableStartKind.Caption",
+      "colgroup": "HtmlTableStartKind.Colgroup",
+      "col": "HtmlTableStartKind.Col",
+      "tbody": "HtmlTableStartKind.Tbody",
+      "tfoot": "HtmlTableStartKind.Tfoot",
+      "thead": "HtmlTableStartKind.Thead",
+      "td": "HtmlTableStartKind.Td",
+      "th": "HtmlTableStartKind.Th",
+      "tr": "HtmlTableStartKind.Tr",
+      "table": "HtmlTableStartKind.Table",
+      "style": "HtmlTableStartKind.Style",
+      "script": "HtmlTableStartKind.Script",
+      "template": "HtmlTableStartKind.Template",
+      "input": "HtmlTableStartKind.Input",
+      "form": "HtmlTableStartKind.Form"
+    }
+  },
+  {
+    "name": "HtmlTableEndLookup",
+    "type": "HtmlTableEndKind",
+    "default": "HtmlTableEndKind.Unknown",
+    "enum": [
+      "Table",
+      "Body",
+      "Caption",
+      "Col",
+      "Colgroup",
+      "Html",
+      "Tbody",
+      "Td",
+      "Tfoot",
+      "Th",
+      "Thead",
+      "Tr",
+      "Template"
+    ],
+    "entries": {
+      "table": "HtmlTableEndKind.Table",
+      "body": "HtmlTableEndKind.Body",
+      "caption": "HtmlTableEndKind.Caption",
+      "col": "HtmlTableEndKind.Col",
+      "colgroup": "HtmlTableEndKind.Colgroup",
+      "html": "HtmlTableEndKind.Html",
+      "tbody": "HtmlTableEndKind.Tbody",
+      "td": "HtmlTableEndKind.Td",
+      "tfoot": "HtmlTableEndKind.Tfoot",
+      "th": "HtmlTableEndKind.Th",
+      "thead": "HtmlTableEndKind.Thead",
+      "tr": "HtmlTableEndKind.Tr",
+      "template": "HtmlTableEndKind.Template"
+    }
+  },
+  {
+    "name": "HtmlResetModeLookup",
+    "type": "HtmlResetModeKind",
+    "default": "HtmlResetModeKind.Unknown",
+    "enum": [
+      "Td",
+      "Th",
+      "Tr",
+      "Tbody",
+      "Thead",
+      "Tfoot",
+      "Caption",
+      "Colgroup",
+      "Table",
+      "Template",
+      "Head",
+      "Body",
+      "Frameset",
+      "Html"
+    ],
+    "entries": {
+      "td": "HtmlResetModeKind.Td",
+      "th": "HtmlResetModeKind.Th",
+      "tr": "HtmlResetModeKind.Tr",
+      "tbody": "HtmlResetModeKind.Tbody",
+      "thead": "HtmlResetModeKind.Thead",
+      "tfoot": "HtmlResetModeKind.Tfoot",
+      "caption": "HtmlResetModeKind.Caption",
+      "colgroup": "HtmlResetModeKind.Colgroup",
+      "table": "HtmlResetModeKind.Table",
+      "template": "HtmlResetModeKind.Template",
+      "head": "HtmlResetModeKind.Head",
+      "body": "HtmlResetModeKind.Body",
+      "frameset": "HtmlResetModeKind.Frameset",
+      "html": "HtmlResetModeKind.Html"
+    }
+  },
+  {
+    "name": "HtmlTemplateModeLookup",
+    "type": "HtmlTemplateModeKind",
+    "default": "HtmlTemplateModeKind.Unknown",
+    "enum": [
+      "Caption",
+      "Colgroup",
+      "Tbody",
+      "Tfoot",
+      "Thead",
+      "Col",
+      "Tr",
+      "Td",
+      "Th"
+    ],
+    "entries": {
+      "caption": "HtmlTemplateModeKind.Caption",
+      "colgroup": "HtmlTemplateModeKind.Colgroup",
+      "tbody": "HtmlTemplateModeKind.Tbody",
+      "tfoot": "HtmlTemplateModeKind.Tfoot",
+      "thead": "HtmlTemplateModeKind.Thead",
+      "col": "HtmlTemplateModeKind.Col",
+      "tr": "HtmlTemplateModeKind.Tr",
+      "td": "HtmlTemplateModeKind.Td",
+      "th": "HtmlTemplateModeKind.Th"
+    }
+  },
+  {
+    "name": "HtmlFragmentTextModeLookup",
+    "type": "HtmlFragmentTextModeKind",
+    "default": "HtmlFragmentTextModeKind.Unknown",
+    "enum": [
+      "Title",
+      "Textarea",
+      "Style",
+      "Xmp",
+      "Iframe",
+      "Noembed",
+      "Noframes",
+      "Script",
+      "Noscript",
+      "Plaintext"
+    ],
+    "entries": {
+      "title": "HtmlFragmentTextModeKind.Title",
+      "textarea": "HtmlFragmentTextModeKind.Textarea",
+      "style": "HtmlFragmentTextModeKind.Style",
+      "xmp": "HtmlFragmentTextModeKind.Xmp",
+      "iframe": "HtmlFragmentTextModeKind.Iframe",
+      "noembed": "HtmlFragmentTextModeKind.Noembed",
+      "noframes": "HtmlFragmentTextModeKind.Noframes",
+      "script": "HtmlFragmentTextModeKind.Script",
+      "noscript": "HtmlFragmentTextModeKind.Noscript",
+      "plaintext": "HtmlFragmentTextModeKind.Plaintext"
+    }
+  },
+  {
+    "name": "HtmlForeignAttributeLookup",
+    "type": "HtmlForeignAttributeKind",
+    "default": "HtmlForeignAttributeKind.Unknown",
+    "enum": [
+      "XlinkActuate",
+      "XlinkArcrole",
+      "XlinkHref",
+      "XlinkRole",
+      "XlinkShow",
+      "XlinkTitle",
+      "XlinkType",
+      "XmlLang",
+      "XmlSpace",
+      "Xmlns",
+      "XmlnsXlink"
+    ],
+    "entries": {
+      "xlink:actuate": "HtmlForeignAttributeKind.XlinkActuate",
+      "xlink:arcrole": "HtmlForeignAttributeKind.XlinkArcrole",
+      "xlink:href": "HtmlForeignAttributeKind.XlinkHref",
+      "xlink:role": "HtmlForeignAttributeKind.XlinkRole",
+      "xlink:show": "HtmlForeignAttributeKind.XlinkShow",
+      "xlink:title": "HtmlForeignAttributeKind.XlinkTitle",
+      "xlink:type": "HtmlForeignAttributeKind.XlinkType",
+      "xml:lang": "HtmlForeignAttributeKind.XmlLang",
+      "xml:space": "HtmlForeignAttributeKind.XmlSpace",
+      "xmlns": "HtmlForeignAttributeKind.Xmlns",
+      "xmlns:xlink": "HtmlForeignAttributeKind.XmlnsXlink"
+    }
+  },
+  {
+    "name": "CssNotOnlyNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "not": "true",
+      "only": "true"
+    }
+  },
+  {
+    "name": "CssNotOnlyAndNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "not": "true",
+      "only": "true",
+      "and": "true",
+      "or": "true",
+      "layer": "true"
+    }
+  },
+  {
+    "name": "CssAndOrNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "and": "true",
+      "or": "true"
+    }
+  },
+  {
+    "name": "CssWidthHeightAspectRatioNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "width": "true",
+      "height": "true",
+      "aspect-ratio": "true",
+      "resolution": "true",
+      "color": "true",
+      "color-index": "true",
+      "monochrome": "true",
+      "grid": "true"
+    }
+  },
+  {
+    "name": "CssWidthHeightNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "width": "true",
+      "height": "true"
+    }
+  },
+  {
+    "name": "CssDeviceWidthDeviceHeightDeviceAspectRatioNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "device-width": "true",
+      "device-height": "true",
+      "device-aspect-ratio": "true",
+      "overflow-block": "true",
+      "overflow-inline": "true",
+      "horizontal-viewport-segments": "true",
+      "vertical-viewport-segments": "true",
+      "scan": "true",
+      "update": "true",
+      "environment-blending": "true",
+      "color-gamut": "true",
+      "dynamic-range": "true",
+      "inverted-colors": "true",
+      "nav-controls": "true",
+      "video-color-gamut": "true",
+      "video-dynamic-range": "true",
+      "ua-color-scheme": "true"
+    }
+  },
+  {
+    "name": "HtmlMiMoMnNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "mi": "true",
+      "mo": "true",
+      "mn": "true",
+      "ms": "true",
+      "mtext": "true",
+      "annotation-xml": "true"
+    }
+  },
+  {
+    "name": "HtmlForeignObjectDescTitleNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "foreignObject": "true",
+      "desc": "true",
+      "title": "true"
+    }
+  },
+  {
+    "name": "HtmlAddressDivPNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "address": "true",
+      "div": "true",
+      "p": "true",
+      "li": "true"
+    }
+  },
+  {
+    "name": "HtmlAddressDivPDdNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "address": "true",
+      "div": "true",
+      "p": "true",
+      "dd": "true",
+      "dt": "true"
+    }
+  },
+  {
+    "name": "HtmlBaseBasefontBgsoundNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "base": "true",
+      "basefont": "true",
+      "bgsound": "true",
+      "link": "true",
+      "meta": "true",
+      "noframes": "true",
+      "script": "true",
+      "style": "true",
+      "template": "true",
+      "title": "true"
+    }
+  },
+  {
+    "name": "HtmlPreListingNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "pre": "true",
+      "listing": "true"
+    }
+  },
+  {
+    "name": "HtmlDdDtNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "dd": "true",
+      "dt": "true"
+    }
+  },
+  {
+    "name": "HtmlANobrNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "a": "true",
+      "nobr": "true"
+    }
+  },
+  {
+    "name": "HtmlAppletMarqueeObjectNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "applet": "true",
+      "marquee": "true",
+      "object": "true"
+    }
+  },
+  {
+    "name": "HtmlAreaBrEmbedNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "area": "true",
+      "br": "true",
+      "embed": "true",
+      "img": "true",
+      "keygen": "true",
+      "wbr": "true"
+    }
+  },
+  {
+    "name": "HtmlParamSourceTrackNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "param": "true",
+      "source": "true",
+      "track": "true"
+    }
+  },
+  {
+    "name": "HtmlSelectOptionOptgroupNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "select": "true",
+      "option": "true",
+      "optgroup": "true"
+    }
+  },
+  {
+    "name": "HtmlRbRtcRpNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "rb": "true",
+      "rtc": "true",
+      "rp": "true",
+      "rt": "true"
+    }
+  },
+  {
+    "name": "HtmlRpRtNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "rp": "true",
+      "rt": "true"
+    }
+  },
+  {
+    "name": "HtmlRbRtcNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "rb": "true",
+      "rtc": "true"
+    }
+  },
+  {
+    "name": "HtmlMathSvgNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "math": "true",
+      "svg": "true"
+    }
+  },
+  {
+    "name": "HtmlCaptionColColgroupNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "frame": "true",
+      "head": "true",
+      "tbody": "true",
+      "td": "true",
+      "tfoot": "true",
+      "th": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlBodyHtmlNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "body": "true",
+      "html": "true"
+    }
+  },
+  {
+    "name": "HtmlButtonSelectNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "button": "true",
+      "select": "true"
+    }
+  },
+  {
+    "name": "HtmlMiMoMnMsNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "mi": "true",
+      "mo": "true",
+      "mn": "true",
+      "ms": "true",
+      "mtext": "true"
+    }
+  },
+  {
+    "name": "HtmlMglyphMalignmarkNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "mglyph": "true",
+      "malignmark": "true"
+    }
+  },
+  {
+    "name": "HtmlBrPNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "br": "true",
+      "p": "true"
+    }
+  },
+  {
+    "name": "HtmlBBigBlockquoteNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "b": "true",
+      "big": "true",
+      "blockquote": "true",
+      "body": "true",
+      "br": "true",
+      "center": "true",
+      "code": "true",
+      "dd": "true",
+      "div": "true",
+      "dl": "true",
+      "dt": "true",
+      "em": "true",
+      "embed": "true",
+      "h1": "true",
+      "h2": "true",
+      "h3": "true",
+      "h4": "true",
+      "h5": "true",
+      "h6": "true",
+      "head": "true",
+      "hr": "true",
+      "i": "true",
+      "img": "true",
+      "li": "true",
+      "listing": "true",
+      "menu": "true",
+      "meta": "true",
+      "nobr": "true",
+      "ol": "true",
+      "p": "true",
+      "pre": "true",
+      "ruby": "true",
+      "s": "true",
+      "small": "true",
+      "span": "true",
+      "strong": "true",
+      "strike": "true",
+      "sub": "true",
+      "sup": "true",
+      "table": "true",
+      "tt": "true",
+      "u": "true",
+      "ul": "true",
+      "var": "true"
+    }
+  },
+  {
+    "name": "HtmlTableTbodyTfootNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "table": "true",
+      "tbody": "true",
+      "tfoot": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlHeadBodyHtmlNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "head": "true",
+      "body": "true",
+      "html": "true",
+      "br": "true"
+    }
+  },
+  {
+    "name": "HtmlBaseBasefontBgsoundLinkNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "base": "true",
+      "basefont": "true",
+      "bgsound": "true",
+      "link": "true",
+      "meta": "true"
+    }
+  },
+  {
+    "name": "HtmlNoframesStyleNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "noframes": "true",
+      "style": "true"
+    }
+  },
+  {
+    "name": "HtmlBodyHtmlBrNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "body": "true",
+      "html": "true",
+      "br": "true"
+    }
+  },
+  {
+    "name": "HtmlBasefontBgsoundLinkNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "basefont": "true",
+      "bgsound": "true",
+      "link": "true",
+      "meta": "true",
+      "noframes": "true",
+      "style": "true"
+    }
+  },
+  {
+    "name": "HtmlHeadNoscriptNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "head": "true",
+      "noscript": "true"
+    }
+  },
+  {
+    "name": "HtmlTableTbodyTemplateNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "table": "true",
+      "tbody": "true",
+      "template": "true",
+      "tfoot": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlCaptionColColgroupTbodyNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "tbody": "true",
+      "td": "true",
+      "tfoot": "true",
+      "th": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlBodyColColgroupNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "body": "true",
+      "col": "true",
+      "colgroup": "true",
+      "html": "true",
+      "tbody": "true",
+      "td": "true",
+      "tfoot": "true",
+      "th": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlTdThNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "td": "true",
+      "th": "true"
+    }
+  },
+  {
+    "name": "HtmlTbodyTfootTheadNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "tbody": "true",
+      "tfoot": "true",
+      "thead": "true"
+    }
+  },
+  {
+    "name": "HtmlCaptionColColgroupTbodyTfootNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "tbody": "true",
+      "tfoot": "true",
+      "thead": "true"
+    }
+  },
+  {
+    "name": "HtmlBodyCaptionColNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "body": "true",
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "html": "true",
+      "td": "true",
+      "th": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlCaptionColColgroupTbodyTfootTheadNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "tbody": "true",
+      "tfoot": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlBodyCaptionColColgroupNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "body": "true",
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "html": "true",
+      "td": "true",
+      "th": "true"
+    }
+  },
+  {
+    "name": "HtmlBodyCaptionColColgroupHtmlNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "body": "true",
+      "caption": "true",
+      "col": "true",
+      "colgroup": "true",
+      "html": "true"
+    }
+  },
+  {
+    "name": "HtmlTdThHeadNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "td": "true",
+      "th": "true",
+      "head": "true"
+    }
+  },
+  {
+    "name": "HtmlCaptionColgroupDdNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "caption": "true",
+      "colgroup": "true",
+      "dd": "true",
+      "dt": "true",
+      "li": "true",
+      "optgroup": "true",
+      "option": "true",
+      "p": "true",
+      "rb": "true",
+      "rp": "true",
+      "rt": "true",
+      "rtc": "true",
+      "tbody": "true",
+      "td": "true",
+      "tfoot": "true",
+      "th": "true",
+      "thead": "true",
+      "tr": "true"
+    }
+  },
+  {
+    "name": "HtmlColorFaceSizeNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "color": "true",
+      "face": "true",
+      "size": "true"
+    }
+  },
+  {
+    "name": "HtmlAppletCaptionHtmlNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "applet": "true",
+      "caption": "true",
+      "html": "true",
+      "table": "true",
+      "td": "true",
+      "th": "true",
+      "marquee": "true",
+      "object": "true",
+      "select": "true",
+      "template": "true"
+    }
+  },
+  {
+    "name": "HtmlTdThTrNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "td": "true",
+      "th": "true",
+      "tr": "true",
+      "tbody": "true",
+      "thead": "true",
+      "tfoot": "true",
+      "caption": "true",
+      "colgroup": "true",
+      "table": "true",
+      "template": "true",
+      "head": "true",
+      "body": "true",
+      "frameset": "true",
+      "html": "true"
+    }
+  },
+  {
+    "name": "HtmlDdDtLiNames",
+    "type": "bool",
+    "default": "false",
+    "entries": {
+      "dd": "true",
+      "dt": "true",
+      "li": "true",
+      "optgroup": "true",
+      "option": "true",
+      "p": "true",
+      "rb": "true",
+      "rp": "true",
+      "rt": "true",
+      "rtc": "true",
+      "tbody": "true",
+      "td": "true",
+      "tfoot": "true",
+      "th": "true",
+      "thead": "true",
+      "tr": "true",
+      "body": "true",
+      "html": "true"
+    }
+  },
+  {
+    "name": "CssMediaFeatureKeywordLookup",
+    "type": "CssKeywordSet",
+    "default": "CssKeywordSet.Empty",
+    "ignoreCase": false,
+    "entries": {
+      "orientation": "CssKeywordSet.MediaOrientation",
+      "pointer": "CssKeywordSet.MediaPointer",
+      "any-pointer": "CssKeywordSet.MediaPointer",
+      "hover": "CssKeywordSet.MediaHover",
+      "any-hover": "CssKeywordSet.MediaHover",
+      "display-mode": "CssKeywordSet.MediaDisplayMode",
+      "prefers-color-scheme": "CssKeywordSet.MediaPrefersColorScheme",
+      "prefers-reduced-motion": "CssKeywordSet.MediaPrefersReducedMotion",
+      "prefers-reduced-transparency": "CssKeywordSet.MediaPrefersReducedMotion",
+      "prefers-reduced-data": "CssKeywordSet.MediaPrefersReducedMotion",
+      "prefers-contrast": "CssKeywordSet.MediaPrefersContrast",
+      "forced-colors": "CssKeywordSet.MediaForcedColors",
+      "scripting": "CssKeywordSet.MediaScripting"
+    }
+  },
+  {
+    "name": "CssAtRuleLookup",
+    "type": "CssAtRuleKind",
+    "default": "CssAtRuleKind.Unknown",
+    "ignoreCase": false,
+    "entries": {
+      "import": "CssAtRuleKind.Import",
+      "font-face": "CssAtRuleKind.FontFace",
+      "media": "CssAtRuleKind.Media",
+      "keyframes": "CssAtRuleKind.Keyframes",
+      "container": "CssAtRuleKind.Container",
+      "supports": "CssAtRuleKind.Supports",
+      "namespace": "CssAtRuleKind.Namespace",
+      "scope": "CssAtRuleKind.Scope",
+      "starting-style": "CssAtRuleKind.StartingStyle",
+      "layer": "CssAtRuleKind.Layer",
+      "font-feature-values": "CssAtRuleKind.FontFeatureValues",
+      "font-palette-values": "CssAtRuleKind.FontPaletteValues",
+      "page": "CssAtRuleKind.Page",
+      "counter-style": "CssAtRuleKind.CounterStyle",
+      "property": "CssAtRuleKind.Property",
+      "view-transition": "CssAtRuleKind.ViewTransition",
+      "position-try": "CssAtRuleKind.PositionTry",
+      "color-profile": "CssAtRuleKind.ColorProfile",
+      "document": "CssAtRuleKind.Document",
+      "viewport": "CssAtRuleKind.Viewport"
+    },
+    "enum": [
+      "Import",
+      "FontFace",
+      "Media",
+      "Keyframes",
+      "Container",
+      "Supports",
+      "Namespace",
+      "Scope",
+      "StartingStyle",
+      "Layer",
+      "FontFeatureValues",
+      "FontPaletteValues",
+      "Page",
+      "CounterStyle",
+      "Property",
+      "ViewTransition",
+      "PositionTry",
+      "ColorProfile",
+      "Document",
+      "Viewport"
+    ]
+  },
+  {
+    "name": "HtmlQuirksPublicIdLookup",
+    "type": "bool",
+    "default": "false",
+    "ignoreCase": true,
+    "entries": {
+      "-//W3O//DTD W3 HTML Strict 3.0//EN//": "true",
+      "-/W3C/DTD HTML 4.0 Transitional/EN": "true",
+      "HTML": "true"
+    }
+  },
+  {
+    "name": "XmlKnownNameLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "amp": "\"amp\"",
+      "lt": "\"lt\"",
+      "gt": "\"gt\"",
+      "apos": "\"apos\"",
+      "quot": "\"quot\"",
+      "xml": "\"xml\"",
+      "xmlns": "\"xmlns\"",
+      "xml:lang": "\"xml:lang\"",
+      "xml:space": "\"xml:space\"",
+      "xml:base": "\"xml:base\"",
+      "version": "\"version\"",
+      "encoding": "\"encoding\"",
+      "standalone": "\"standalone\"",
+      "CDATA": "\"CDATA\"",
+      "ID": "\"ID\"",
+      "IDREF": "\"IDREF\"",
+      "IDREFS": "\"IDREFS\"",
+      "ENTITY": "\"ENTITY\"",
+      "ENTITIES": "\"ENTITIES\"",
+      "NMTOKEN": "\"NMTOKEN\"",
+      "NMTOKENS": "\"NMTOKENS\"",
+      "NOTATION": "\"NOTATION\""
+    }
+  },
+  {
+    "name": "CssMediaOrientationKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "portrait": "\"portrait\"",
+      "landscape": "\"landscape\""
+    },
+    "keywordSet": "MediaOrientation"
+  },
+  {
+    "name": "CssMediaPointerKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "coarse": "\"coarse\"",
+      "fine": "\"fine\""
+    },
+    "keywordSet": "MediaPointer"
+  },
+  {
+    "name": "CssMediaHoverKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "hover": "\"hover\""
+    },
+    "keywordSet": "MediaHover"
+  },
+  {
+    "name": "CssMediaDisplayModeKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "fullscreen": "\"fullscreen\"",
+      "standalone": "\"standalone\"",
+      "minimal-ui": "\"minimal-ui\"",
+      "browser": "\"browser\"",
+      "picture-in-picture": "\"picture-in-picture\""
+    },
+    "keywordSet": "MediaDisplayMode"
+  },
+  {
+    "name": "CssMediaPrefersColorSchemeKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "light": "\"light\"",
+      "dark": "\"dark\""
+    },
+    "keywordSet": "MediaPrefersColorScheme"
+  },
+  {
+    "name": "CssMediaPrefersReducedMotionKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "no-preference": "\"no-preference\"",
+      "reduce": "\"reduce\""
+    },
+    "keywordSet": "MediaPrefersReducedMotion"
+  },
+  {
+    "name": "CssMediaPrefersContrastKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "no-preference": "\"no-preference\"",
+      "more": "\"more\"",
+      "less": "\"less\"",
+      "custom": "\"custom\""
+    },
+    "keywordSet": "MediaPrefersContrast"
+  },
+  {
+    "name": "CssMediaForcedColorsKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "active": "\"active\""
+    },
+    "keywordSet": "MediaForcedColors"
+  },
+  {
+    "name": "CssMediaScriptingKeywords",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": false,
+    "entries": {
+      "none": "\"none\"",
+      "initial-only": "\"initial-only\"",
+      "enabled": "\"enabled\""
+    },
+    "keywordSet": "MediaScripting"
+  },
+  {
+    "name": "SvgAlignLookup",
+    "type": "ushort",
+    "default": "0",
+    "ignoreCase": false,
+    "entries": {
+      "none": "1",
+      "xMinYMin": "2",
+      "xMidYMin": "3",
+      "xMaxYMin": "4",
+      "xMinYMid": "5",
+      "xMidYMid": "6",
+      "xMaxYMid": "7",
+      "xMinYMax": "8",
+      "xMidYMax": "9",
+      "xMaxYMax": "10"
+    }
+  },
+  {
+    "name": "CssEasingKeywordLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "linear": "\"linear\"",
+      "ease": "\"ease\"",
+      "ease-in": "\"ease-in\"",
+      "ease-out": "\"ease-out\"",
+      "ease-in-out": "\"ease-in-out\"",
+      "step-start": "\"step-start\"",
+      "step-end": "\"step-end\""
+    }
+  },
+  {
+    "name": "CssEasingFunctionLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "cubic-bezier": "\"cubic-bezier\"",
+      "steps": "\"steps\"",
+      "linear": "\"linear\""
+    }
+  },
+  {
+    "name": "CssStepPositionLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "start": "\"start\"",
+      "end": "\"end\"",
+      "jump-start": "\"jump-start\"",
+      "jump-end": "\"jump-end\"",
+      "jump-none": "\"jump-none\"",
+      "jump-both": "\"jump-both\""
+    }
+  }
+]

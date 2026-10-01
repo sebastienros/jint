@@ -491,7 +491,7 @@ raises it). **Withholding a grant and dropping a restriction are opposites**, an
 outside `Options.Constraints` is inherited" treated them as one rule. Corrected:
 
 - **Grants never travel by implication.** `WebApiFeatures` inherits *minus*
-  `Fetch | EventSource | WebSocket | Storage | CacheApi | FetchEvents` — the flags documented as granted only by
+  `Fetch | EventSource | WebSocket | Storage | CacheApi | IndexedDb | FetchEvents` — the flags documented as granted only by
   name — **and minus `Workers`: nesting is off by default** (§7.4). `Strict`, `Interop` and the module loader
   are the provider's to decide. A provider that deliberately grants the worker more (assigning `Features`,
   enabling interop) is host code exercising the same authority it has when it builds any engine; that door stays
@@ -573,7 +573,7 @@ have it and can never fire, for the reason `JsMessagePort` already records — p
 
 ```
 parent.WebApi.Features
-  & ~(Fetch | EventSource | WebSocket | Storage | CacheApi | FetchEvents | Workers)
+  & ~(Fetch | EventSource | WebSocket | Storage | CacheApi | IndexedDb | FetchEvents | Workers)
   | Messaging | GlobalEvents
 ```
 

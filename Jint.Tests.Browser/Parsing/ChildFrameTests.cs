@@ -271,10 +271,17 @@ public class ChildFrameTests
     public async Task AFramesLocationReadsItsOwnUrlAndRefusesAWriteOutLoud()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/child.html", "<!doctype html><html><body>child</body></html>")
+            .MapHtml("/child.html", """
+                <!doctype html><html><body><p id="h">child</p>
+                <script>window.addEventListener('load', () => window.targetAtLoad = document.querySelector(':target'));</script>
+                </body></html>
+                """)
             .MapHtml("/", "<!doctype html><html><body><iframe id=f src=\"/child.html?q=1#h\"></iframe></body></html>"));
 
         await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow.targetAtLoad === document.getElementById('f').contentDocument.getElementById('h')"))
+            .Should().BeTrue();
 
         // The frame's URL, not the page's — the reason `location` is shadowed rather than inherited.
         (await loopback.Page.EvaluateAsync<bool>(
@@ -294,7 +301,7 @@ public class ChildFrameTests
         // not make extra targets merely because each candidate has the same owner document and ID.
         (await loopback.Page.EvaluateAsync<bool>(
             "var d = document.getElementById('f').contentDocument; "
-            + "var target = d.createElement('p'); target.id = 'h'; d.body.appendChild(target); "
+            + "var target = d.getElementById('h'); "
             + "var duplicate = d.body.appendChild(target.cloneNode()); "
             + "var host = d.body.appendChild(d.createElement('div')); "
             + "var shadowTarget = host.attachShadow({ mode: 'open' }).appendChild(target.cloneNode()); "

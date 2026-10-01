@@ -1,8 +1,8 @@
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.Events;
 
@@ -21,7 +21,7 @@ namespace Jint.Browser.Dom.Views;
 /// (<see cref="XPathEvaluation"/> says why). Everything else in this folder is a <em>view</em> onto the DOM
 /// that AngleSharp does have and that the generator already emits: <c>Range</c>, <c>TreeWalker</c> and
 /// <c>NodeIterator</c> are generated, and only the members whose signatures the conversion table could not
-/// cross arrive from <c>overrides.json</c>'s additions. <see cref="DomTreeWalker"/> is the one exception in
+/// cross arrive from <c>overrides.json</c>'s additions. <see cref="Jint.HtmlParser.DomTreeWalker"/> is the one exception in
 /// the other direction — the <em>shape</em> is still generated, and only the walk behind it is this
 /// package's, because AngleSharp's does not terminate.
 /// </para>
@@ -42,12 +42,7 @@ internal static class ViewInstaller
     private static readonly JsObjectShape _xPathExpression = BuildXPathExpressionShape();
     private static readonly JsObjectShape _xPathResult = BuildXPathResultShape();
     private static readonly JsObjectShape _cssNamespace = BuildCssNamespaceShape();
-
-    /// <summary>
-    /// The configuration a <c>DOMParser</c> document is parsed with: the CSS services, so that
-    /// <c>element.style</c> answers on the result, and nothing else — no requester, no scripting.
-    /// </summary>
-    internal static IConfiguration ParserConfiguration { get; } = CaseSensitiveSvgFactory.Configure(Configuration.Default.WithCss());
+    private static readonly JsObjectShape _sanitizer = BuildSanitizerShape();
 
     /// <summary>Installs the globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
     internal static void Install(PageRuntime runtime)
@@ -64,6 +59,7 @@ internal static class ViewInstaller
         Add(engine, "XPathExpression", static realm => realm.XPathExpressionInterface);
         Add(engine, "XPathResult", static realm => realm.XPathResultInterface);
         Add(engine, "CSS", static realm => realm.CssNamespace);
+        Add(engine, "Sanitizer", static realm => realm.Sanitizer);
     }
 
     private static void Add(Engine engine, string name, Func<ViewRealm, JsValue> factory)
@@ -93,6 +89,8 @@ internal static class ViewInstaller
 
     internal static JsObjectShape CssNamespaceShape => _cssNamespace;
 
+    internal static JsObjectShape SanitizerShape => _sanitizer;
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-domparser-interface
     /// </summary>
@@ -100,6 +98,24 @@ internal static class ViewInstaller
         .PerRealmSlot("constructor")
         .ToStringTag("DOMParser")
         .Method("parseFromString", static (t, args) => JsDomParser.Brand(t, "parseFromString").ParseFromString(args), length: 2)
+        .Build();
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-sanitizer-interface</summary>
+    private static JsObjectShape BuildSanitizerShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("Sanitizer")
+        .Method("get", static (t, _) => JsSanitizer.Brand(t, "get").Get())
+        .Method("allowElement", static (t, args) => JsSanitizer.Brand(t, "allowElement").AllowElement(args), length: 1)
+        .Method("removeElement", static (t, args) => JsSanitizer.Brand(t, "removeElement").RemoveElement(args), length: 1)
+        .Method("replaceElementWithChildren", static (t, args) => JsSanitizer.Brand(t, "replaceElementWithChildren").ReplaceElementWithChildren(args), length: 1)
+        .Method("allowProcessingInstruction", static (t, args) => JsSanitizer.Brand(t, "allowProcessingInstruction").AllowProcessingInstruction(args), length: 1)
+        .Method("removeProcessingInstruction", static (t, args) => JsSanitizer.Brand(t, "removeProcessingInstruction").RemoveProcessingInstruction(args), length: 1)
+        .Method("allowAttribute", static (t, args) => JsSanitizer.Brand(t, "allowAttribute").AllowAttribute(args), length: 1)
+        .Method("removeAttribute", static (t, args) => JsSanitizer.Brand(t, "removeAttribute").RemoveAttribute(args), length: 1)
+        .Method("setComments", static (t, args) => JsSanitizer.Brand(t, "setComments").SetComments(args), length: 1)
+        .Method("setDataAttributes", static (t, args) => JsSanitizer.Brand(t, "setDataAttributes").SetDataAttributes(args), length: 1)
+        .Method("setJavascriptURLs", static (t, args) => JsSanitizer.Brand(t, "setJavascriptURLs").SetJavascriptUrls(args), length: 1)
+        .Method("removeUnsafe", static (t, _) => JsSanitizer.Brand(t, "removeUnsafe").RemoveUnsafe())
         .Build();
 
     /// <summary>https://w3c.github.io/DOM-Parsing/#the-xmlserializer-interface</summary>
@@ -182,7 +198,12 @@ internal static class ViewInstaller
     private static JsObjectShape BuildCssNamespaceShape() => new JsObjectShape.Builder()
         .ToStringTag("CSS")
         .Method("escape", static (_, args) => JsCssNamespace.Escape(args), length: 1)
-        .Method("supports", static (_, args) => JsCssNamespace.Supports(args), length: 1)
+        .PerRealmSlot("supports", static owner =>
+        {
+            var realm = DomRealm.Of(owner.Engine, owner.CreationRealm);
+            return new ClrFunction(owner.Engine, realm.OwningRealm, "supports",
+                (_, args) => JsCssNamespace.Supports(realm, args), 1);
+        }, enumerable: true)
         .Build();
 
     /// <summary>https://w3c.github.io/geolocation/#geolocation_interface</summary>

@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Accessibility;
 
@@ -21,7 +20,7 @@ internal static class ImplicitRole
     /// <c>&lt;script&gt;</c>'s text, and neither should a snapshot. <c>&lt;template&gt;</c> is here for a
     /// second reason: its contents live in a separate document fragment, so a child walk never reaches them.
     /// </remarks>
-    internal static bool IsMetadataContent(IElement element) => element.LocalName switch
+    internal static bool IsMetadataContent(Element element) => element.LocalName switch
     {
         "head" or "meta" or "link" or "style" or "script" or "template" or "title" or "base" or "noscript"
             or "param" or "source" or "track" or "col" or "colgroup" or "slot" => true,
@@ -31,9 +30,9 @@ internal static class ImplicitRole
     /// <summary>
     /// Returns the element's implicit role, or <see langword="null"/> when HTML-AAM maps it to no role at all.
     /// </summary>
-    internal static string? For(IElement element)
+    internal static string? For(Element element)
     {
-        if (!string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        if (!string.Equals(element.NamespaceUri, Namespaces.Html, StringComparison.Ordinal))
         {
             return element.LocalName switch
             {
@@ -110,19 +109,19 @@ internal static class ImplicitRole
     /// relationship whose content attribute is the empty string by construction — which is why the second is
     /// asked for separately rather than read off the attribute.
     /// </remarks>
-    internal static bool HasNamingAttribute(IElement element) =>
+    internal static bool HasNamingAttribute(Element element) =>
         !string.IsNullOrWhiteSpace(element.GetAttribute("aria-label"))
         || !string.IsNullOrWhiteSpace(element.GetAttribute("aria-labelledby"))
         || Dom.AriaElementReferences.Explicit(element, "aria-labelledby") is { Length: > 0 }
         || !string.IsNullOrWhiteSpace(element.GetAttribute("title"));
 
-    private static string Complementary(IElement element) =>
+    private static string Complementary(Element element) =>
         IsScopedToBody(element, mainIsRoot: true) || HasNamingAttribute(element) ? "complementary" : AriaRoles.Generic;
 
-    private static string Image(IElement element) =>
+    private static string Image(Element element) =>
         element.HasAttribute("alt") && element.GetAttribute("alt")!.Length == 0 ? AriaRoles.None : "image";
 
-    private static string Header(IElement element)
+    private static string Header(Element element)
     {
         var scope = element.GetAttribute("scope");
         if (string.Equals(scope, "row", StringComparison.OrdinalIgnoreCase) || string.Equals(scope, "rowgroup", StringComparison.OrdinalIgnoreCase))
@@ -133,9 +132,9 @@ internal static class ImplicitRole
         return "columnheader";
     }
 
-    private static string? Input(IElement element)
+    private static string? Input(Element element)
     {
-        var type = (element as IHtmlInputElement)?.Type ?? element.GetAttribute("type") ?? "text";
+        var type = ContentDom.InputType(element);
         var hasList = element.HasAttribute("list");
 
         return type.ToLowerInvariant() switch
@@ -155,33 +154,29 @@ internal static class ImplicitRole
         };
     }
 
-    private static bool IsListItem(IElement element) => element.ParentElement?.LocalName switch
+    private static bool IsListItem(Element element) => (element.ParentNode as Element)?.LocalName switch
     {
         "ul" or "ol" or "menu" or "dir" => true,
         _ => false,
     };
 
-    private static bool IsListBox(IElement element)
+    private static bool IsListBox(Element element)
     {
-        if (element is not IHtmlSelectElement select)
-        {
-            return element.HasAttribute("multiple");
-        }
-
-        // AngleSharp answers 0 for an absent size where HTML's reflected default is 0 too; the rendered
-        // default a browser applies is 1, so anything above 1 is what makes a select a list box.
-        return select.IsMultiple || select.Size > 1;
+        // HTML's reflected size defaults to zero; only a size above one changes this role.
+        return element.HasAttribute("multiple")
+            || element.GetAttribute("size") is { } raw
+                && Dom.ReflectedAttribute.TryParseNonNegative(raw, out var size) && size is > 1 and <= int.MaxValue;
     }
 
-    private static bool IsDetailsSummary(IElement element)
+    private static bool IsDetailsSummary(Element element)
     {
-        var parent = element.ParentElement;
+        var parent = (element.ParentNode as Element);
         if (parent is null || !string.Equals(parent.LocalName, "details", StringComparison.Ordinal))
         {
             return false;
         }
 
-        foreach (var child in parent.Children)
+        foreach (var child in ContentDom.Children(parent))
         {
             if (string.Equals(child.LocalName, "summary", StringComparison.Ordinal))
             {
@@ -192,9 +187,9 @@ internal static class ImplicitRole
         return false;
     }
 
-    private static bool IsScopedToBody(IElement element, bool mainIsRoot = false)
+    private static bool IsScopedToBody(Element element, bool mainIsRoot = false)
     {
-        for (var ancestor = element.ParentElement; ancestor is not null; ancestor = ancestor.ParentElement)
+        for (var ancestor = (element.ParentNode as Element); ancestor is not null; ancestor = (ancestor.ParentNode as Element))
         {
             switch (ancestor.LocalName)
             {

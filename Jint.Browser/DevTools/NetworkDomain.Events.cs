@@ -375,6 +375,7 @@ internal sealed partial class NetworkDomain
         PageRequestKind.EventSource => ResourceTypeValues.EventSource,
         PageRequestKind.Image => ResourceTypeValues.Image,
         PageRequestKind.Frame => ResourceTypeValues.Document,
+        PageRequestKind.Font => ResourceTypeValues.Font,
         _ => ResourceTypeValues.Other,
     };
 

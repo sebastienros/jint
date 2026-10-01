@@ -1,4 +1,4 @@
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -38,7 +38,7 @@ namespace Jint.Browser.Media;
 internal static class ImageDecode
 {
     /// <summary>The body of <c>HTMLImageElement.decode</c>.</summary>
-    internal static JsValue Decode(DomRealm realm, IHtmlImageElement image)
+    internal static JsValue Decode(DomRealm realm, Element image)
     {
         var engine = realm.Engine;
         var (promise, resolve, reject) = engine.RegisterPromise();
@@ -65,7 +65,7 @@ internal static class ImageDecode
     }
 
     /// <summary>Whether the element's current request is completely available right now.</summary>
-    private static bool Available(DomRealm realm, IHtmlImageElement image)
-        => PageRuntime.Find(realm.Engine, image.Owner)?.ImagesIfLoaded?.Find(image)
+    private static bool Available(DomRealm realm, Element image)
+        => PageRuntime.Find(realm.Engine, image.OwnerDocument)?.ImagesIfLoaded?.Find(image)
             is { State: ImageAvailability.CompletelyAvailable };
 }

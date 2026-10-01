@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -102,7 +102,7 @@ internal static partial class InputDispatcher
     /// <summary>Every contact the client sent that is not already down, one <c>touchstart</c> each.</summary>
     private static void Press(
         PageRuntime runtime,
-        IDocument document,
+        Document document,
         BrowserEventRealm realm,
         TouchSequence sequence,
         in TouchInput input)
@@ -287,7 +287,7 @@ internal static partial class InputDispatcher
             Mouse(target, "mousemove", options, cancelable: true);
 
             if (Mouse(target, "mousedown", options with { Buttons = 1 }, cancelable: true)
-                && NearestFocusable(hit) is { } focusTarget)
+                && NearestFocusable(dom, hit) is { } focusTarget)
             {
                 // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — a tap focuses what
                 // it lands on unless the page cancelled the mousedown, which is the rule a press follows too.
@@ -374,7 +374,7 @@ internal static partial class InputDispatcher
 /// </remarks>
 internal sealed class ActiveTouch
 {
-    internal ActiveTouch(double identifier, IElement target, in TouchPointInput point)
+    internal ActiveTouch(double identifier, Element target, in TouchPointInput point)
     {
         Identifier = identifier;
         Target = target;
@@ -395,7 +395,7 @@ internal sealed class ActiveTouch
     internal double Identifier { get; }
 
     /// <summary>The element the contact went down on, fixed for its life.</summary>
-    internal IElement Target { get; }
+    internal Element Target { get; }
 
     /// <summary>Whether the contact has already moved once, which is what §8's first-move rule turns on.</summary>
     internal bool HasMoved { get; private set; }

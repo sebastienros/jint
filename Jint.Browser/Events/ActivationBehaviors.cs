@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.WebApi.Events;
@@ -44,20 +43,15 @@ internal static class ActivationBehaviors
     /// own <c>click</c> listener clicks the same element again, which is unbounded recursion either way.
     /// </remarks>
     private static readonly ConditionalWeakTable<DomNodeObject, PreActivationSnapshot> _snapshots = new();
+    private static readonly ConditionalWeakTable<Element, PendingToggle> PendingToggles = new();
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#eventtarget-activation-behavior — whether this node has one at all, which
     /// is what lets the dispatcher choose it as the activation target.
     /// </summary>
-    internal static bool Has(INode node) => node switch
-    {
-        IHtmlAnchorElement or IHtmlAreaElement => true,
-        IHtmlButtonElement or IHtmlInputElement => true,
-        IHtmlLabelElement => true,
-        IHtmlOptionElement => true,
-        IHtmlElement element => element.LocalName is "summary",
-        _ => false,
-    };
+    internal static bool Has(Node node)
+        => node is Element { NamespaceUri: Namespaces.Html } element
+            && element.LocalName is "a" or "area" or "button" or "input" or "label" or "option" or "summary";
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#eventtarget-legacy-pre-activation-behavior, run before any listener so a
@@ -71,26 +65,31 @@ internal static class ActivationBehaviors
         // nothing either — otherwise the toggle would happen with no activation behaviour left to roll it
         // back. HTML reaches the same place by never letting a click at a disabled control be dispatched at
         // all; the events here are still dispatched, and this is what keeps the state right.
-        if (wrapper.Node is not IHtmlInputElement { IsDisabled: false } input)
+        if (wrapper.Node is not Element input || !EventDom.IsHtml(input, "input") || EventDom.Disabled(wrapper.DomRealm, input))
         {
             return;
         }
 
         // https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox) and
         // #radio-button-state-(type=radio) — the two input types with a legacy-pre-activation behaviour.
-        if (IsType(input, "checkbox"))
+        var work = new DomReadWork(wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
+        work.Check();
+        var inputType = HtmlInputTypes.Parse(work.Attribute(input, "type"));
+        work.Check();
+        if (inputType == HtmlInputType.Checkbox)
         {
-            _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForCheckbox(input.IsChecked, input.IsIndeterminate));
-            input.IsIndeterminate = false;
-            input.IsChecked = !input.IsChecked;
+            var state = HtmlCheckableState.Get(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!;
+            _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForCheckbox(state.Checked, state.Indeterminate));
+            HtmlCheckednessAlgorithms.Set(input, !state.Checked, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
+            state.SetIndeterminate(false, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
             return;
         }
 
-        if (IsType(input, "radio"))
+        if (inputType == HtmlInputType.Radio)
         {
-            var previously = CheckedInGroup(input);
+            var previously = HtmlCheckableState.FirstCheckedRadio(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
             _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForRadio(previously));
-            SelectRadio(input);
+            HtmlCheckednessAlgorithms.Set(input, true, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
         }
     }
 
@@ -101,7 +100,7 @@ internal static class ActivationBehaviors
     internal static void LegacyCanceledActivationBehavior(DomNodeObject wrapper)
     {
         using var mutation = wrapper.DomRealm.MutateLayout();
-        if (wrapper.Node is not IHtmlInputElement input || !_snapshots.TryGetValue(wrapper, out var snapshot))
+        if (wrapper.Node is not Element input || !EventDom.IsHtml(input, "input") || !_snapshots.TryGetValue(wrapper, out var snapshot))
         {
             return;
         }
@@ -110,18 +109,19 @@ internal static class ActivationBehaviors
 
         if (snapshot.IsCheckbox)
         {
-            input.IsChecked = snapshot.WasChecked;
-            input.IsIndeterminate = snapshot.WasIndeterminate;
+            HtmlCheckednessAlgorithms.Set(input, snapshot.WasChecked, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
+            HtmlCheckableState.Get(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!.SetIndeterminate(snapshot.WasIndeterminate, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
             return;
         }
 
         // A radio group's rollback is not "uncheck this one": HTML says to restore the element that was
         // checked before, and a group with nothing checked stays with nothing checked.
-        input.IsChecked = false;
+        HtmlCheckednessAlgorithms.Set(input, false, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
 
-        if (snapshot.PreviouslyChecked is { } previous)
+        if (snapshot.PreviouslyChecked is { } previous
+            && HtmlCheckableState.SameRadioGroup(previous, input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken))
         {
-            previous.IsChecked = true;
+            HtmlCheckednessAlgorithms.Set(previous, true, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
         }
     }
 
@@ -134,35 +134,41 @@ internal static class ActivationBehaviors
         using var mutation = wrapper.DomRealm.MutateLayout();
         var realm = BrowserEventRealm.Of(wrapper.DomRealm.Engine);
 
-        switch (wrapper.Node)
+        if (wrapper.Node is not Element { NamespaceUri: Namespaces.Html } element)
         {
-            case IHtmlAnchorElement anchor:
-                FollowHyperlink(realm, anchor, anchor.Href, anchor.Target);
-                return;
+            return;
+        }
 
-            case IHtmlAreaElement area:
-                FollowHyperlink(realm, area, area.Href, area.Target);
-                return;
-
-            case IHtmlButtonElement button:
-                RunButton(wrapper, button);
-                return;
-
-            case IHtmlInputElement input:
-                RunInput(realm, wrapper, input, ev);
-                return;
-
-            case IHtmlLabelElement label:
-                RunLabel(wrapper, label, ev);
-                return;
-
-            case IHtmlOptionElement option:
-                SelectOption(wrapper.DomRealm, option);
-                return;
-
-            case IHtmlElement element when element.LocalName is "summary":
-                RunSummary(wrapper, element);
-                return;
+        var previousActivation = realm.ActivationIsUserInitiated;
+        realm.ActivationIsUserInitiated = ev.IsTrusted;
+        try
+        {
+            switch (element.LocalName)
+            {
+                case "a":
+                case "area":
+                    FollowHyperlink(realm, element, Accessibility.ContentDom.Url(element, "href"), element.GetAttributeNS(null, "target"));
+                    return;
+                case "button":
+                    RunButton(wrapper, element);
+                    return;
+                case "input":
+                    RunInput(realm, wrapper, element, ev);
+                    return;
+                case "label":
+                    RunLabel(wrapper, element, ev);
+                    return;
+                case "option":
+                    SelectOption(wrapper.DomRealm, element);
+                    return;
+                case "summary":
+                    RunSummary(wrapper, element);
+                    return;
+            }
+        }
+        finally
+        {
+            realm.ActivationIsUserInitiated = previousActivation;
         }
     }
 
@@ -173,9 +179,9 @@ internal static class ActivationBehaviors
     /// <c>&lt;area&gt;</c> with no <c>href</c> has no activation behaviour at all, which is what makes
     /// <c>&lt;a&gt;</c> a plain inline element.
     /// </summary>
-    private static void FollowHyperlink(BrowserEventRealm realm, IHtmlElement source, string? url, string? target)
+    private static void FollowHyperlink(BrowserEventRealm realm, Element source, string? url, string? target)
     {
-        if (!source.HasAttribute("href"))
+        if (!source.HasContentAttribute("href"))
         {
             return;
         }
@@ -184,16 +190,16 @@ internal static class ActivationBehaviors
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/form-elements.html#the-button-element.</summary>
-    private static void RunButton(DomNodeObject wrapper, IHtmlButtonElement button)
+    private static void RunButton(DomNodeObject wrapper, Element button)
     {
-        if (button.IsDisabled)
+        if (EventDom.Disabled(wrapper.DomRealm, button))
         {
             return;
         }
 
-        switch (button.Type)
+        switch (EventDom.ButtonType(button))
         {
-            case "submit":
+            case "submit" when FormSubmission.IsSubmitButton(button):
                 FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(button), button);
                 break;
             case "reset":
@@ -203,14 +209,14 @@ internal static class ActivationBehaviors
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/input.html#input-activation-behavior.</summary>
-    private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, IHtmlInputElement input, JsEvent ev)
+    private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, Element input, JsEvent ev)
     {
-        if (input.IsDisabled)
+        if (EventDom.Disabled(wrapper.DomRealm, input))
         {
             return;
         }
 
-        switch (input.Type)
+        switch (EventDom.InputType(input))
         {
             case "submit":
                 FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(input), input);
@@ -225,7 +231,7 @@ internal static class ActivationBehaviors
                 }
 
                 var page = Runtime.PageRuntime.Find(wrapper.Engine);
-                if (page is not null && !ReferenceEquals(input.Owner, page.Document))
+                if (page is not null && !ReferenceEquals(input.OwnerDocument, page.Document))
                 {
                     return;
                 }
@@ -289,7 +295,7 @@ internal static class ActivationBehaviors
     private static void SelectCoordinate(
         BrowserEventRealm realm,
         Runtime.PageRuntime? page,
-        IHtmlInputElement input,
+        Element input,
         JsEvent ev)
     {
         if (ev.IsTrusted
@@ -313,14 +319,14 @@ internal static class ActivationBehaviors
     /// up through this very label, whose activation behaviour then sees a target that <i>is</i> an interactive
     /// content descendant and does nothing. It is HTML's own loop guard, not one added here.
     /// </remarks>
-    private static void RunLabel(DomNodeObject wrapper, IHtmlLabelElement label, JsEvent ev)
+    private static void RunLabel(DomNodeObject wrapper, Element label, JsEvent ev)
     {
-        if (HtmlLabelAssociation.ControlFor(label) is not { } control)
+        if (HtmlLabelAssociation.ControlFor(label, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken) is not { } control)
         {
             return;
         }
 
-        if (ev.Target is DomNodeObject target && IsInsideInteractiveContent(label, target.Node))
+        if (ev.Target is DomNodeObject { Node: { } target } && IsInsideInteractiveContent(label, target))
         {
             return;
         }
@@ -342,29 +348,28 @@ internal static class ActivationBehaviors
     /// events, or a page could tell the two apart. That caller has no activation scope around it, so the
     /// layout mutation scope is this algorithm's own; inside <see cref="Run"/> it only nests (#4138).
     /// </remarks>
-    internal static void SelectOption(DomRealm dom, IHtmlOptionElement option)
+    internal static void SelectOption(DomRealm dom, Element option)
     {
         using var mutation = dom.MutateLayout();
-        if (option.IsDisabled || Ancestor<IHtmlSelectElement>(option) is not { } select || select.IsDisabled)
+        if (!EventDom.IsHtml(option, "option")
+            || HtmlSelectAncestry.GetNearestSelect(option, dom.NativeReadCheckpoint, dom.CancellationToken) is not { } select)
         {
             return;
         }
 
-        if (option.IsSelected)
+        var state = select.GetHtmlState()!.GetSelectState(dom.NativeReadCheckpoint, dom.CancellationToken)!;
+        if (!state.ApplyUserSelection(option, selected: true, dom.NativeReadCheckpoint, dom.CancellationToken))
         {
             return;
         }
 
-        if (!select.IsMultiple)
+        var target = dom.WrapNode(select);
+        dom.Engine.Tasks.Post(() =>
         {
-            foreach (var other in select.Options)
-            {
-                other.IsSelected = false;
-            }
-        }
-
-        option.IsSelected = true;
-        FireInputAndChange(dom.WrapNode(select));
+            using var update = dom.MutateLayout();
+            state.CompleteUserSelection(dom.NativeReadCheckpoint, dom.CancellationToken);
+            FireInputAndChange(target);
+        });
     }
 
     /// <summary>
@@ -378,29 +383,69 @@ internal static class ActivationBehaviors
     /// the events after its own code returns. It is queued on the engine's own task queue, so a page loop's
     /// <c>ProcessTasks</c> delivers it.
     /// </remarks>
-    private static void RunSummary(DomNodeObject wrapper, IHtmlElement summary)
+    private static void RunSummary(DomNodeObject wrapper, Element summary)
     {
-        if (summary.ParentElement is not IHtmlDetailsElement details || !ReferenceEquals(FirstSummaryOf(details), summary))
+        if (summary.ParentNode is not Element details || !EventDom.IsHtml(details, "details") || !ReferenceEquals(FirstSummaryOf(details), summary))
         {
             return;
         }
 
-        details.IsOpen = !details.IsOpen;
+        if (details.HasContentAttribute("open"))
+        {
+            details.RemoveAttribute("open");
+        }
+        else
+        {
+            details.SetAttribute("open", "");
+        }
 
-        var target = wrapper.DomRealm.WrapNode(details);
-        var engine = wrapper.DomRealm.Engine;
-        engine.Tasks.Post(() => Fire(target, "toggle", bubbles: false, composed: false));
+        ScheduleToggle(wrapper.DomRealm, details);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/interactive-elements.html#queue-a-details-toggle-event-task —
+    /// called after the <c>open</c> attribute has changed, so the new state is what the attribute now says.
+    /// A task still pending keeps its old state and is superseded, so the one event delivered carries the
+    /// earliest old state and takes the position of the latest transition.
+    /// </summary>
+    internal static void ScheduleToggle(DomRealm dom, Element details)
+    {
+        var newState = details.GetAttributeNS(null, "open") is not null ? "open" : "closed";
+        var oldState = newState == "open" ? "closed" : "open";
+        if (PendingToggles.TryGetValue(details, out var previous))
+        {
+            oldState = previous.OldState;
+        }
+
+        var pending = new PendingToggle(oldState);
+        PendingToggles.AddOrUpdate(details, pending);
+        var target = dom.WrapNode(details);
+        dom.Engine.Tasks.Post(() =>
+        {
+            if (!PendingToggles.TryGetValue(details, out var current) || !ReferenceEquals(current, pending))
+            {
+                return;
+            }
+
+            PendingToggles.Remove(details);
+            target.DispatchEvent(JsToggleEvent.CreateTrusted(dom, "toggle", pending.OldState, newState, cancelable: false));
+        });
+    }
+
+    private sealed class PendingToggle(string oldState)
+    {
+        internal string OldState { get; } = oldState;
     }
 
     /// <summary>
     /// The first <c>&lt;summary&gt;</c> child, which is the only one that is "the summary for" a details —
     /// https://html.spec.whatwg.org/multipage/interactive-elements.html#the-summary-element.
     /// </summary>
-    private static IElement? FirstSummaryOf(IHtmlDetailsElement details)
+    private static Element? FirstSummaryOf(Element details)
     {
-        foreach (var child in details.Children)
+        for (var node = details.FirstChild; node is not null; node = node.NextSibling)
         {
-            if (string.Equals(child.LocalName, "summary", StringComparison.Ordinal))
+            if (node is Element child && EventDom.IsHtml(child, "summary"))
             {
                 return child;
             }
@@ -410,82 +455,14 @@ internal static class ActivationBehaviors
     }
 
     /// <summary>
-    /// https://html.spec.whatwg.org/multipage/input.html#radio-button-state-(type=radio) — the radio button
-    /// group: same form owner, same <c>name</c>, same tree.
-    /// </summary>
-    private static IHtmlInputElement? CheckedInGroup(IHtmlInputElement radio)
-    {
-        foreach (var member in Group(radio))
-        {
-            if (member.IsChecked)
-            {
-                return member;
-            }
-        }
-
-        return null;
-    }
-
-    private static void SelectRadio(IHtmlInputElement radio)
-    {
-        foreach (var member in Group(radio))
-        {
-            member.IsChecked = ReferenceEquals(member, radio);
-        }
-
-        radio.IsChecked = true;
-    }
-
-    private static IEnumerable<IHtmlInputElement> Group(IHtmlInputElement radio)
-    {
-        var name = radio.Name;
-
-        if (string.IsNullOrEmpty(name))
-        {
-            yield return radio;
-            yield break;
-        }
-
-        // The group is "the same tree", not the same form subtree: a radio the `form` attribute associated
-        // into this form is a member however far outside the form element it sits, and one associated away
-        // from it is not a member however deep inside. Scanning the form's own descendants would decide the
-        // second correctly and the first not at all.
-        var owner = HtmlFormOwner.Of(radio);
-
-        foreach (var candidate in Descendants(radio.GetRoot()))
-        {
-            if (candidate is IHtmlInputElement input
-                && IsType(input, "radio")
-                && string.Equals(input.Name, name, StringComparison.Ordinal)
-                && ReferenceEquals(HtmlFormOwner.Of(input), owner))
-            {
-                yield return input;
-            }
-        }
-    }
-
-    private static IEnumerable<INode> Descendants(INode root)
-    {
-        foreach (var child in root.ChildNodes)
-        {
-            yield return child;
-
-            foreach (var descendant in Descendants(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
-
-    /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#interactive-content — whether the click landed on
     /// interactive content inside the label, which is what suppresses the label's forward.
     /// </summary>
-    private static bool IsInsideInteractiveContent(IHtmlLabelElement label, INode target)
+    private static bool IsInsideInteractiveContent(Element label, Node target)
     {
-        for (var node = target; node is not null && !ReferenceEquals(node, label); node = node.Parent)
+        for (var node = target; node is not null && !ReferenceEquals(node, label); node = node.ParentNode)
         {
-            if (node is IElement element && IsInteractiveContent(element))
+            if (node is Element element && IsInteractiveContent(element))
             {
                 return true;
             }
@@ -494,12 +471,13 @@ internal static class ActivationBehaviors
         return false;
     }
 
-    private static bool IsInteractiveContent(IElement element) => element.LocalName switch
+    private static bool IsInteractiveContent(Element element) => element.NamespaceUri == Namespaces.Html && element.LocalName switch
     {
-        "a" or "button" or "details" or "embed" or "iframe" or "label" or "select" or "textarea" => true,
-        "input" => !string.Equals(element.GetAttribute("type"), "hidden", StringComparison.OrdinalIgnoreCase),
-        "audio" or "video" => element.HasAttribute("controls"),
-        "img" or "object" => element.HasAttribute("usemap"),
+        "button" or "details" or "embed" or "iframe" or "label" or "select" or "textarea" => true,
+        "a" => element.HasContentAttribute("href"),
+        "input" => HtmlInputTypes.Get(element) != HtmlInputType.Hidden,
+        "audio" or "video" => element.HasContentAttribute("controls"),
+        "img" or "object" => element.HasContentAttribute("usemap"),
         _ => false,
     };
 
@@ -512,41 +490,28 @@ internal static class ActivationBehaviors
     /// The walk crosses a shadow boundary through the root's host, so a control inside an open or closed
     /// shadow tree of a connected host is connected — the eight shadow cases of
     /// <c>Event-dispatch-detached-input-and-change.html</c> are what say so. AngleSharp has no member that
-    /// answers this: <c>INode.Owner</c> is the node document whether or not the node is in it.
+    /// answers this: <c>Node.OwnerDocument</c> is the node document whether or not the node is in it.
     /// </remarks>
-    private static bool IsConnected(INode node)
+    private static bool IsConnected(Node node)
     {
         var current = node;
 
         while (true)
         {
-            if (current.Parent is { } parent)
+            if (current.ParentNode is { } parent)
             {
                 current = parent;
                 continue;
             }
 
-            if (current is IShadowRoot { Host: { } host })
+            if (current is ShadowRoot { Host: { } host })
             {
                 current = host;
                 continue;
             }
 
-            return current is IDocument;
+            return current is Document;
         }
-    }
-
-    private static T? Ancestor<T>(INode node) where T : class
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            if (current is T match)
-            {
-                return match;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>
@@ -554,8 +519,8 @@ internal static class ActivationBehaviors
     /// ASCII-case-insensitively. AngleSharp's <c>Type</c> property already answers the lower-case keyword and
     /// the missing-value default, so this is a plain ordinal compare on top of it.
     /// </summary>
-    internal static bool IsType(IHtmlInputElement input, string type)
-        => string.Equals(input.Type, type, StringComparison.Ordinal);
+    internal static bool IsType(Element input, string type)
+        => EventDom.IsHtml(input, "input") && string.Equals(EventDom.InputType(input), type, StringComparison.Ordinal);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#the-input-element — "fire an event named input …
@@ -580,7 +545,7 @@ internal static class ActivationBehaviors
     /// <summary>What a legacy pre-activation behaviour changed, so a canceled activation can undo it.</summary>
     private sealed class PreActivationSnapshot
     {
-        private PreActivationSnapshot(bool isCheckbox, bool wasChecked, bool wasIndeterminate, IHtmlInputElement? previouslyChecked)
+        private PreActivationSnapshot(bool isCheckbox, bool wasChecked, bool wasIndeterminate, Element? previouslyChecked)
         {
             IsCheckbox = isCheckbox;
             WasChecked = wasChecked;
@@ -594,12 +559,12 @@ internal static class ActivationBehaviors
 
         internal bool WasIndeterminate { get; }
 
-        internal IHtmlInputElement? PreviouslyChecked { get; }
+        internal Element? PreviouslyChecked { get; }
 
         internal static PreActivationSnapshot ForCheckbox(bool wasChecked, bool wasIndeterminate)
             => new(isCheckbox: true, wasChecked, wasIndeterminate, previouslyChecked: null);
 
-        internal static PreActivationSnapshot ForRadio(IHtmlInputElement? previouslyChecked)
+        internal static PreActivationSnapshot ForRadio(Element? previouslyChecked)
             => new(isCheckbox: false, wasChecked: false, wasIndeterminate: false, previouslyChecked);
     }
 }

@@ -1,7 +1,8 @@
 using System.Buffers;
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using AdjacentPosition = Jint.Browser.Dom.DomAdjacentPosition;
+using Element = Jint.HtmlParser.Element;
+using Document = Jint.HtmlParser.Document;
+using Namespaces = Jint.HtmlParser.Namespaces;
 using Jint.Browser.Dom.Collections;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -76,11 +77,11 @@ internal class DomHostHooks
         }
     }
 
-    internal virtual JsValue GetInnerHtml(DomRealm realm, INode node)
-        => JsString.Create(DomHtmlMarkupFormatter.InnerHtml(node));
+    internal virtual JsValue GetInnerHtml(DomRealm realm, Jint.HtmlParser.Node node)
+        => JsString.Create(DomHtmlMarkupFormatter.InnerHtml(realm, node));
 
-    internal virtual JsValue GetOuterHtml(DomRealm realm, IElement element)
-        => JsString.Create(element.ToHtml(DomHtmlMarkupFormatter.BrowserInstance));
+    internal virtual JsValue GetOuterHtml(DomRealm realm, Jint.HtmlParser.Element element)
+        => JsString.Create(DomHtmlMarkupFormatter.OuterHtml(realm, element));
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-innerhtml</summary>
     /// <remarks>
@@ -89,32 +90,41 @@ internal class DomHostHooks
     /// parsed before AngleSharp's own call returned. A detached one produces no record, and HTML
     /// upgrades there too. See <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
     /// </remarks>
-    internal virtual void SetInnerHtml(DomRealm realm, IElement element, string markup)
+    internal virtual void SetInnerHtml(DomRealm realm, Element element, string markup)
     {
-        element.InnerHtml = markup;
-        CustomElements.CustomElementRegistry.SubtreeCreated(realm, element);
+        Jint.HtmlParser.Node target = element.TemplateContent ?? (Jint.HtmlParser.Node) element;
+        SetInnerHtml(realm, element, target, markup);
     }
 
-    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml</summary>
+    internal virtual void SetInnerHtml(DomRealm realm, Jint.HtmlParser.ShadowRoot shadow, string markup)
+        => SetInnerHtml(realm, shadow.Host, shadow, markup);
+
+    private static void SetInnerHtml(DomRealm realm, Element context, Jint.HtmlParser.Node target, string markup)
+    {
+        var fragment = DomFragmentParser.Parse(realm, markup, context, target);
+        realm.RecordSubtree(fragment);
+        target.ReplaceChildren(fragment);
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, target);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml.</summary>
     /// <remarks>
-    /// <para>
-    /// The markup replaces the element, so what is walked afterwards is the parent it was in — the
-    /// element itself is no longer in the tree the new content went into.
-    /// </para>
-    /// <para>
     /// The layout mutation scope is this algorithm's own because <c>DOM.setOuterHTML</c> reaches it without
     /// the generated setter's guard; inside that guard it only nests (#4138).
-    /// </para>
     /// </remarks>
-    internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup)
+    internal virtual void SetOuterHtml(DomRealm realm, Element element, string markup)
     {
         using var mutation = realm.MutateLayout();
-        var parent = element.Parent;
-        var previous = element.PreviousSibling;
-        var next = element.NextSibling;
-        element.OuterHtml = markup;
-        RecordInsertedNodes(realm, parent, previous, next);
-        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent ?? element);
+        if (element.ParentNode is not { } parent) return;
+        if (parent is Document)
+        {
+            DomFailures.Refuse(realm, "Element.outerHTML", DomExceptionNames.NoModificationAllowed,
+                "the element's parent is a Document.");
+        }
+        var fragment = DomFragmentParser.Parse(realm, markup, DomFragmentParser.ContextFor(parent), parent);
+        realm.RecordSubtree(fragment);
+        parent.ReplaceChild(fragment, element);
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent);
     }
 
     /// <summary>
@@ -123,54 +133,36 @@ internal class DomHostHooks
     /// element's listener list. See <c>Events.EventHandlerContentAttributes.AttributeChanged</c>.
     /// </summary>
     /// <remarks>
-    /// Step 2's fold is gated on the element's own namespace (<see cref="DomNamespaces"/>), which is the one
+    /// Step 2's fold is gated on the element's own namespace (<c>Element.NamespaceUri</c>), which is the one
     /// AngleSharp's <c>GetAttribute</c>, <c>HasAttribute</c> and <c>RemoveAttribute</c> already read: the
     /// computed namespace made this setter lower-case a name for a null-namespace element that every one of
     /// those readers then looked up unfolded.
     /// </remarks>
-    internal virtual void SetAttribute(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void SetAttribute(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.setAttribute");
         var value = DomConvert.RequiredText(arguments, 1, "Element.setAttribute");
-        if (element.Owner is IHtmlDocument && DomNamespaces.Of(element) == NamespaceNames.HtmlUri)
-        {
+        var wasOpen = DetailsOpen(element);
+        element.SetAttribute(name, value);
+        NotifyDetailsOpenChanged(realm, element, wasOpen);
+        if (element.NamespaceUri == Jint.HtmlParser.Namespaces.Html && element.OwnerDocument?.Kind == Jint.HtmlParser.DocumentKind.Html)
             name = AsciiLowercase(name);
-        }
-        var attribute = element.Attributes.GetNamedItem(name);
-        if (attribute is null)
-        {
-            element.Attributes.SetNamedItem(new Attr(name, value));
-        }
-        else
-        {
-            attribute.Value = value;
-        }
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-element-setattributens</summary>
-    internal virtual void SetAttributeNS(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void SetAttributeNS(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         var name = DomConvert.RequiredText(arguments, 1, "Element.setAttributeNS");
         var value = DomConvert.RequiredText(arguments, 2, "Element.setAttributeNS");
-        namespaceUri = string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri;
-        var colon = name.IndexOf(':', StringComparison.Ordinal);
-        var localName = colon < 0 ? name : name[(colon + 1)..];
-        var attribute = element.Attributes.GetNamedItem(namespaceUri, localName);
-        if (attribute is null)
+        var wasOpen = DetailsOpen(element);
+        element.SetAttributeNS(namespaceUri, name, value);
+        NotifyDetailsOpenChanged(realm, element, wasOpen);
+        if (string.IsNullOrEmpty(namespaceUri))
         {
-            element.Attributes.SetNamedItemWithNamespaceUri(new Attr(
-                colon < 0 ? null : name[..colon], localName, value, namespaceUri));
-        }
-        else
-        {
-            // Set-an-attribute-value preserves the existing node and its prefix.
-            attribute.Value = value;
-        }
-        if (namespaceUri is null)
-        {
-            Events.EventHandlerContentAttributes.AttributeChanged(realm, element, localName);
+            var colon = name.IndexOf(':', StringComparison.Ordinal);
+            Events.EventHandlerContentAttributes.AttributeChanged(realm, element, colon < 0 ? name : name[(colon + 1)..]);
         }
     }
 
@@ -178,20 +170,31 @@ internal class DomHostHooks
     /// https://dom.spec.whatwg.org/#dom-element-removeattribute, the other half: removing the attribute
     /// deactivates the handler, and the listener goes with it.
     /// </summary>
-    internal virtual void RemoveAttribute(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void RemoveAttribute(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.removeAttribute");
+        var wasOpen = DetailsOpen(element);
         element.RemoveAttribute(name);
+        NotifyDetailsOpenChanged(realm, element, wasOpen);
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
     }
 
+    internal static bool DetailsOpen(Element element)
+        => element is { NamespaceUri: Namespaces.Html, LocalName: "details" } && element.GetAttributeNS(null, "open") is not null;
+
+    internal static void NotifyDetailsOpenChanged(DomRealm realm, Element element, bool wasOpen)
+    {
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "details" } && wasOpen != (element.GetAttributeNS(null, "open") is not null))
+            Events.ActivationBehaviors.ScheduleToggle(realm, element);
+    }
+
     /// <summary>HTML's <c>DOMStringMap</c> view over an element's <c>data-*</c> attributes.</summary>
-    internal virtual JsValue Dataset(DomRealm realm, IHtmlElement element)
-        => realm.WrapStringMap(element, element.Dataset);
+    internal virtual JsValue Dataset(DomRealm realm, Element element)
+        => realm.WrapStringMap(element);
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
-    internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
-        => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
+    internal virtual JsValue Labels(DomRealm realm, Element element)
+        => HtmlLabelAssociation.IsLabelable(element, realm.NativeReadCheckpoint, realm.CancellationToken) ? realm.WrapLabels(element) : JsValue.Null;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-fae-form — the
@@ -203,8 +206,8 @@ internal class DomHostHooks
     /// <c>Form</c> separately on each and answers all of them from an ancestor-first walk that inverts the
     /// standard's priority.
     /// </remarks>
-    internal virtual JsValue FormOwner(DomRealm realm, IHtmlElement element)
-        => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element));
+    internal virtual JsValue FormOwner(DomRealm realm, Element element)
+        => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element, realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected — the setter's three
@@ -216,26 +219,27 @@ internal class DomHostHooks
     /// third step is the one that keeps a one-choice <c>select</c> to one choice; without it every option of
     /// one could be selected at once and <c>selectedIndex</c> stayed where it was.
     /// </remarks>
-    internal virtual void SetOptionSelected(DomRealm realm, IHtmlOptionElement option, bool selected)
+    internal virtual void SetOptionSelected(DomRealm realm, Element option, bool selected)
     {
-        option.IsSelected = selected;
-        HtmlSelectState.AskForAReset(option);
+        realm.Engine.Constraints.Check();
+        option.GetHtmlState()!.GetOptionState(realm.CancellationToken)!.SetSelected(selected, realm.CancellationToken);
+        realm.Engine.Constraints.Check();
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
-    internal virtual JsValue ComparePoint(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue ComparePoint(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.ComparePoint(realm, range, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-ispointinrange</summary>
-    internal virtual JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue IsPointInRange(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.IsPointInRange(realm, range, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-clonecontents</summary>
-    internal virtual JsValue CloneContents(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue CloneContents(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.CloneContents(realm, range);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-extractcontents</summary>
-    internal virtual JsValue ExtractContents(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue ExtractContents(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.ExtractContents(realm, range);
 
     /// <summary>
@@ -248,31 +252,31 @@ internal class DomHostHooks
     /// compares the attribute's value instead, and answers the first element it walks for
     /// <c>getElementById("")</c> - the document element of an ordinary page. See Dom/divergences.md.
     /// </remarks>
-    internal virtual JsValue GetElementById(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementById(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var elementId = DomConvert.RequiredText(arguments, 0, Member(root, "getElementById"));
+        var elementId = DomConvert.RequiredText(arguments, 0, NativeMember(root, "getElementById"));
 
         if (elementId.Length == 0)
         {
             return JsValue.Null;
         }
 
-        return realm.WrapNodeValue(root is INonElementParentNode parent ? parent.GetElementById(elementId) : null);
+        return realm.WrapNodeValue(DomDocumentReads.ById(realm, root, elementId));
     }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-childnode-before, whose viable-sibling step runs before the argument
     /// conversion that can move the receiver out of its own parent. See <see cref="DomChildNodeMembers"/>.
     /// </summary>
-    internal virtual void Before(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual void Before(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => DomChildNodeMembers.Before(realm, node, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-after</summary>
-    internal virtual void After(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual void After(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => DomChildNodeMembers.After(realm, node, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-childnode-replacewith</summary>
-    internal virtual void ReplaceWith(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual void ReplaceWith(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => DomChildNodeMembers.ReplaceWith(realm, node, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbyclassname</summary>
@@ -292,70 +296,105 @@ internal class DomHostHooks
     /// the whole of Unicode's simple case mapping and would make <c>class="ı"</c> match <c>"I"</c>.
     /// </para>
     /// </remarks>
-    internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementsByClassName(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var classes = AsciiWhitespaceSplit(DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName")));
+        var classes = AsciiWhitespaceSplit(DomConvert.RequiredText(arguments, 0, NativeMember(root, "getElementsByClassName")));
 
         if (classes.Length == 0)
         {
             // "If classes is the empty set, return an empty HTMLCollection" - and an empty one that is still
             // a collection, because a page holds it and reads its length.
-            return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, DomElementFilter.None));
+            return realm.WrapCollection<Jint.HtmlParser.Element>(new DomLiveHtmlCollection(root, DomElementFilter.None));
         }
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, new ClassNameFilter(root, classes)));
+        return realm.WrapCollection<Jint.HtmlParser.Element>(new DomLiveHtmlCollection(root, new ClassNameFilter(root, classes)));
     }
 
     /// <summary>
     /// The filter of https://dom.spec.whatwg.org/#concept-getelementsbyclassname. A <see cref="DomElementFilter"/>
     /// rather than a lambda so that a read allocates neither a closure nor an iterator; see that type.
     /// </summary>
-    private sealed class ClassNameFilter(INode root, string[] classes) : DomElementFilter
+    private sealed class ClassNameFilter(Jint.HtmlParser.Node root, string[] classes) : DomElementFilter
     {
         private bool _quirks;
 
         internal override void BeginRead()
-            => _quirks = string.Equals((root as IDocument ?? root.Owner)?.CompatMode, "BackCompat", StringComparison.Ordinal);
+            => _quirks = string.Equals((root as Jint.HtmlParser.Document ?? root.OwnerDocument)?.Mode.ToString(), "Quirks", StringComparison.Ordinal);
 
-        internal override bool Matches(IElement element) => HasEveryClass(element, classes, _quirks);
+        internal override bool Matches(Jint.HtmlParser.Element element) => HasEveryClass(element, classes, _quirks);
+
+        internal override bool Matches(Element element, DomReadWork work)
+        {
+            var declared = work.Attribute(element, "class");
+            if (string.IsNullOrEmpty(declared)) return false;
+            foreach (var expected in classes)
+            {
+                var matched = false;
+                var offset = 0;
+                while (offset < declared.Length)
+                {
+                    while (offset < declared.Length && IsAsciiWhitespace(declared[offset])) { work.Step(); offset++; }
+                    var start = offset;
+                    while (offset < declared.Length && !IsAsciiWhitespace(declared[offset])) { work.Step(); offset++; }
+                    if (offset - start != expected.Length) continue;
+                    matched = true;
+                    for (var i = 0; i < expected.Length; i++)
+                    {
+                        work.Step();
+                        var left = declared[start + i];
+                        var right = expected[i];
+                        if (_quirks) { left = AsciiLowercase(left); right = AsciiLowercase(right); }
+                        if (left == right) continue;
+                        matched = false;
+                        break;
+                    }
+                    if (matched) break;
+                }
+                if (!matched) return false;
+            }
+            return true;
+        }
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
-    internal virtual JsValue GetElementsByTagName(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementsByTagName(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var qualifiedName = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByTagName"));
-        var htmlDocument = (root as IDocument ?? root.Owner) is IHtmlDocument;
+        var qualifiedName = DomConvert.RequiredText(arguments, 0, NativeMember(root, "getElementsByTagName"));
+        var htmlDocument = (root as Jint.HtmlParser.Document ?? root.OwnerDocument)?.Kind == Jint.HtmlParser.DocumentKind.Html;
 
-        return realm.WrapCollection<IElement>(
+        return realm.WrapCollection<Jint.HtmlParser.Element>(
             new DomLiveHtmlCollection(root, new TagNameFilter(qualifiedName, AsciiLowercase(qualifiedName), htmlDocument)));
     }
 
     /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbytagname.</summary>
     /// <remarks>
-    /// "Whose namespace is the HTML namespace" is the element's own namespace — <see cref="DomNamespaces"/> —
+    /// "Whose namespace is the HTML namespace" is the element's own namespace — <c>Element.NamespaceUri</c> —
     /// and not AngleSharp's ancestor-computed one, which folded the case of a null-namespace element merely
     /// because it had been appended to an HTML parent.
     /// </remarks>
     private sealed class TagNameFilter(string qualifiedName, string htmlName, bool htmlDocument) : DomElementFilter
     {
-        internal override bool Matches(IElement element)
+        internal override bool Matches(Jint.HtmlParser.Element element)
         {
             if (qualifiedName == "*")
             {
                 return true;
             }
 
-            var candidate = QualifiedName(element);
-            return htmlDocument && string.Equals(DomNamespaces.Of(element), NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            var candidate = element.TagName;
+            return htmlDocument && string.Equals(element.NamespaceUri, Namespaces.Html, StringComparison.Ordinal)
                 ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
                 : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
         }
+        internal override bool Matches(Element element, DomReadWork work)
+            => qualifiedName == "*" || work.Equal(element.TagName,
+                htmlDocument && element.NamespaceUri == Namespaces.Html ? htmlName : qualifiedName);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbynamespacename</summary>
-    internal virtual JsValue GetElementsByTagNameNS(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementsByTagNameNS(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var member = Member(root, "getElementsByTagNameNS");
+        var member = NativeMember(root, "getElementsByTagNameNS");
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         if (namespaceUri is { Length: 0 })
         {
@@ -364,21 +403,25 @@ internal class DomHostHooks
 
         var localName = DomConvert.RequiredText(arguments, 1, member);
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, new TagNameNSFilter(namespaceUri, localName)));
+        return realm.WrapCollection<Jint.HtmlParser.Element>(new DomLiveHtmlCollection(root, new TagNameNSFilter(namespaceUri, localName)));
     }
 
     /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbynamespacename.</summary>
     /// <remarks>
     /// AngleSharp 1.8.1 preserves HTML local-name case, so the same DOM comparison now works in every
     /// namespace. Its native HTML namespace query still folds case. The namespace compared is the element's
-    /// own (<see cref="DomNamespaces"/>), which is what makes <c>getElementsByTagNameNS("", "*")</c> find an
+    /// own (<c>Element.NamespaceUri</c>), which is what makes <c>getElementsByTagNameNS("", "*")</c> find an
     /// element created in no namespace instead of one its parent lent the XHTML namespace to.
     /// </remarks>
     private sealed class TagNameNSFilter(string? namespaceUri, string localName) : DomElementFilter
     {
-        internal override bool Matches(IElement element)
-            => (namespaceUri == "*" || string.Equals(DomNamespaces.Of(element), namespaceUri, StringComparison.Ordinal))
+        internal override bool Matches(Jint.HtmlParser.Element element)
+            => (namespaceUri == "*" || string.Equals(element.NamespaceUri, namespaceUri, StringComparison.Ordinal))
                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal));
+
+        internal override bool Matches(Element element, DomReadWork work)
+            => (namespaceUri == "*" || (namespaceUri is null ? element.NamespaceUri is null : work.Equal(element.NamespaceUri, namespaceUri)))
+                && (localName == "*" || work.Equal(element.LocalName, localName));
     }
 
     /// <summary>
@@ -393,28 +436,24 @@ internal class DomHostHooks
     /// wrapper keep one element wrapper per index. Every other <c>NodeList</c> in the surface
     /// (<c>childNodes</c>, <c>labels</c>) is live and keeps the ordinary accessor-driven wrapper.
     /// </remarks>
-    internal virtual JsValue QuerySelectorAll(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue QuerySelectorAll(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var selectors = DomSelectorText.Required(arguments, Member(root, "querySelectorAll"));
-        return realm.WrapStaticNodeList(DomSelectors.QuerySelectorAll(root, selectors));
+        var selectors = DomConvert.RequiredText(arguments, 0, NativeMember(root, "querySelectorAll"));
+        return realm.WrapStaticNodeList(DomSelectors.QuerySelectorAll(realm, root, selectors));
     }
 
-    internal virtual JsValue QuerySelector(DomRealm realm, INode root, JsValue[] arguments)
-        => realm.WrapNodeValue(DomSelectors.QuerySelector(root, DomSelectorText.Required(arguments, Member(root, "querySelector"))));
+    internal virtual JsValue QuerySelector(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
+        => realm.WrapNodeValue(DomSelectors.QuerySelector(realm, root, DomConvert.RequiredText(arguments, 0, NativeMember(root, "querySelector"))));
 
-    internal virtual JsValue Matches(DomRealm realm, IElement element, JsValue[] arguments)
-        => DomConvert.Bool(DomSelectors.Matches(element, DomSelectorText.Required(arguments, "Element.matches")));
+    internal virtual JsValue Matches(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
+        => DomConvert.Bool(DomSelectors.Matches(realm, element, DomConvert.RequiredText(arguments, 0, "Element.matches")));
 
-    internal virtual JsValue Closest(DomRealm realm, IElement element, JsValue[] arguments)
-        => realm.WrapNodeValue(DomSelectors.Closest(element, DomSelectorText.Required(arguments, "Element.closest")));
+    internal virtual JsValue Closest(DomRealm realm, Jint.HtmlParser.Element element, JsValue[] arguments)
+        => realm.WrapNodeValue(DomSelectors.Closest(realm, element, DomConvert.RequiredText(arguments, 0, "Element.closest")));
 
-    private static string Member(INode root, string operation)
-        => root switch
-        {
-            IDocument => "Document.",
-            IDocumentFragment => "DocumentFragment.",
-            _ => "Element.",
-        } + operation;
+    private static string NativeMember(Jint.HtmlParser.Node root, string operation)
+        => (root is Jint.HtmlParser.Document ? "Document." : root is Jint.HtmlParser.DocumentFragment ? "DocumentFragment." : "Element.") + operation;
+
 
     /// <summary>https://infra.spec.whatwg.org/#ascii-whitespace: TAB, LF, FF, CR and SPACE, and nothing else.</summary>
     private static readonly char[] AsciiWhitespace = ['\t', '\n', '\f', '\r', ' '];
@@ -451,9 +490,9 @@ internal class DomHostHooks
     /// every call for an element in the HTML namespace.
     /// </para>
     /// </remarks>
-    private static bool HasEveryClass(IElement element, string[] classes, bool quirks)
+    private static bool HasEveryClass(Jint.HtmlParser.Element element, string[] classes, bool quirks)
     {
-        var declared = element.GetAttribute(null, AttributeNames.Class);
+        var declared = element.GetAttributeNS(null, "class");
 
         if (string.IsNullOrEmpty(declared))
         {
@@ -601,8 +640,6 @@ internal class DomHostHooks
     private static char AsciiLowercase(char character)
         => character is >= 'A' and <= 'Z' ? (char) (character | 0x20) : character;
 
-    private static string QualifiedName(IElement element)
-        => string.IsNullOrEmpty(element.Prefix) ? element.LocalName : element.Prefix + ":" + element.LocalName;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-element-tagname — the element's
@@ -615,33 +652,19 @@ internal class DomHostHooks
     /// an XML document went on answering <c>DIV</c> where DOM says <c>div</c>: the name is not a property of
     /// the element, it is a question about the document the element is in at the moment it is asked. The
     /// divergence table records it. The namespace half is the element's own
-    /// (<see cref="DomNamespaces"/>) and the same one <see cref="TagNameFilter"/> compares, so an element and
+    /// (<c>Element.NamespaceUri</c>) and the same one <see cref="TagNameFilter"/> compares, so an element and
     /// a query for it cannot disagree about whether its name folds.
     /// </remarks>
-    internal virtual JsValue TagName(DomRealm realm, IElement element)
+    internal virtual JsValue TagName(DomRealm realm, Jint.HtmlParser.Element element)
     {
-        var qualified = QualifiedName(element);
-        return string.Equals(DomNamespaces.Of(element), NamespaceNames.HtmlUri, StringComparison.Ordinal)
-            && element.Owner is IHtmlDocument
+        var qualified = element.TagName;
+        return element.NamespaceUri == Jint.HtmlParser.Namespaces.Html
+            && element.OwnerDocument?.Kind == Jint.HtmlParser.DocumentKind.Html
                 // Memoized per realm: the transform is a pure function of the qualified name, and this is
                 // the branch every repeated read of an HTML element's tagName/nodeName takes.
                 ? realm.HtmlUppercasedTagName(qualified)
                 : JsString.Create(qualified);
     }
-
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-node-nodename — for an element, the same
-    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
-    /// qualified name</a> <see cref="TagName"/> answers, and AngleSharp's own answer for everything else.
-    /// </summary>
-    /// <remarks>
-    /// DOM defines the two in terms of one name, so they cannot disagree; AngleSharp decides both on the
-    /// namespace alone, so hooking only <c>tagName</c> would have left an element in an XML document
-    /// answering <c>div</c> from one member and <c>DIV</c> from the other. It delegates rather than repeats,
-    /// which is what keeps a host that overrides <see cref="TagName"/> answering one name from both.
-    /// </remarks>
-    internal virtual JsValue NodeName(DomRealm realm, INode node)
-        => node is IElement element ? TagName(realm, element) : JsString.Create(node.NodeName);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-element-namespaceuri — "this's namespace", the namespace the element
@@ -652,11 +675,11 @@ internal class DomHostHooks
     /// move it. AngleSharp's <c>IElement.NamespaceUri</c> falls back to an ancestor walk when nothing was
     /// stored, so a <c>createElementNS(null, 'body')</c> read as XHTML the moment it was appended to an HTML
     /// element, disagreeing with the query that had just declined to find it
-    /// (<a href="https://github.com/sebastienros/jint/issues/3949">#3949</a>). <see cref="DomNamespaces"/> is
+    /// (<a href="https://github.com/sebastienros/jint/issues/3949">#3949</a>). <c>Element.NamespaceUri</c> is
     /// the one answer every namespace-sensitive member in the binding reads.
     /// </remarks>
-    internal virtual JsValue NamespaceUri(DomRealm realm, IElement element)
-        => DomConvert.NullableText(DomNamespaces.Of(element));
+    internal virtual JsValue NamespaceUri(DomRealm realm, Jint.HtmlParser.Element element)
+        => DomConvert.NullableText(element.NamespaceUri);
 
     /// <summary>
     /// ASCII-uppercases <paramref name="value"/>: only the bytes <c>a</c>-<c>z</c> move, deliberately not
@@ -702,14 +725,14 @@ internal class DomHostHooks
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-label-control</summary>
-    internal virtual JsValue LabelControl(DomRealm realm, IHtmlLabelElement label)
-        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label));
+    internal virtual JsValue LabelControl(DomRealm realm, Element label)
+        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label, realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>
     /// <para>
     /// Two of the four positions insert into the element's parent, so that is what is walked when there
-    /// is one; see <see cref="SetInnerHtml"/> for why the walk is here at all.
+    /// is one; see <see cref="SetInnerHtml(DomRealm, Element, string)"/> for why the walk is here at all.
     /// </para>
     /// <para>
     /// Step 2's refusal is made here rather than left to AngleSharp, which is the one place in the pinned
@@ -718,31 +741,20 @@ internal class DomHostHooks
     /// standard's is <c>NoModificationAllowedError</c>. Recorded in <c>AGENTS.md</c>'s divergence table.
     /// </para>
     /// </remarks>
-    internal virtual void InsertAdjacentHtml(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void InsertAdjacentHtml(DomRealm realm, Element element, JsValue[] arguments)
     {
         var position = DomEnums.ToAdjacentPosition(DomConvert.At(arguments, 0), "Element.insertAdjacentHTML");
-
-        // "If position is 'beforebegin' or 'afterend' … If context is null or a Document, throw a
-        // NoModificationAllowedError DOMException." A parent that is the document is not an IElement, so the
-        // one test covers both halves — and it is the very test AngleSharp's own `Parent as Element` makes.
-        if (position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd && element.Parent is not IElement)
-        {
-            DomFailures.Refuse(
-                realm,
-                "Element.insertAdjacentHTML",
-                DomExceptionNames.NoModificationAllowed,
-                "the element has no parent element to insert " + (position == AdjacentPosition.BeforeBegin ? "before" : "after") + ".");
-        }
-
         var markup = DomConvert.RequiredText(arguments, 1, "Element.insertAdjacentHTML");
-        var parent = position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd ? element.Parent : element;
-        var previous = position switch
+        var outside = position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd;
+        var parent = outside ? element.ParentNode : element;
+        if (parent is null or Document)
         {
-            AdjacentPosition.BeforeBegin => element.PreviousSibling,
-            AdjacentPosition.AfterEnd => element,
-            AdjacentPosition.BeforeEnd => element.LastChild,
-            _ => null,
-        };
+            DomFailures.Refuse(realm, "Element.insertAdjacentHTML", DomExceptionNames.NoModificationAllowed,
+                "the element has no insertion parent, or its parent is a Document.");
+        }
+        var context = DomFragmentParser.ContextFor(parent!);
+        var fragment = DomFragmentParser.Parse(realm, markup, context, parent!);
+        realm.RecordSubtree(fragment);
         var next = position switch
         {
             AdjacentPosition.BeforeBegin => element,
@@ -750,19 +762,8 @@ internal class DomHostHooks
             AdjacentPosition.AfterBegin => element.FirstChild,
             _ => null,
         };
-        element.Insert(position, markup);
-        RecordInsertedNodes(realm, parent, previous, next);
-        CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
-    }
-
-    private static void RecordInsertedNodes(DomRealm realm, INode? parent, INode? previous, INode? next)
-    {
-        for (var node = previous is null ? parent?.FirstChild : previous.NextSibling;
-             node is not null && !ReferenceEquals(node, next);
-             node = node.NextSibling)
-        {
-            realm.RecordSubtree(node);
-        }
+        parent!.InsertBefore(fragment, next);
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent);
     }
 
     /// <summary>
@@ -777,23 +778,29 @@ internal class DomHostHooks
     /// read before the call. What that leaves — the adoption DOM's pre-insert performs on the way into a
     /// parent in another document — is argued in <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
     /// </remarks>
-    internal virtual JsValue AdoptNode(DomRealm realm, IDocument document, JsValue[] arguments)
-        => realm.WrapNodeValue(
-            CustomElements.CustomElementRegistry.Adopt(
-                realm,
-                document,
-                DomBindings.Argument<INode>(arguments, 0, "Document.adoptNode")));
+    internal virtual JsValue AdoptNode(DomRealm realm, Document document, JsValue[] arguments)
+    {
+        var source = DomBindings.NodeArgument(arguments, 0, "Document.adoptNode");
+        if (source.Node is { } nativeSource) realm.RecordSubtree(nativeSource);
+        if (source.Attribute is { } attribute)
+        {
+            attribute.OwnerElement?.RemoveAttributeNode(attribute);
+            attribute.Rehome(document);
+            return realm.Wrap(attribute);
+        }
+        return realm.WrapNodeValue(CustomElements.CustomElementRegistry.Adopt(realm, document, source.Node!));
+    }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>
-    internal virtual void Write(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual void Write(DomRealm realm, Document document, JsValue[] arguments)
     {
         switch (TargetOf(realm, document, "write"))
         {
             case MarkupInsertion.Parser:
-                document.Write(Join(arguments));
+                Runtime.Parsing.ParserDriver.Write(document, Join(arguments));
                 break;
             case MarkupInsertion.Local:
-                DynamicMarkupInsertion.Write(realm, (IHtmlDocument) document, Join(arguments));
+                DynamicMarkupInsertion.Write(realm, document, Join(arguments));
                 break;
             default:
                 RecordDisplayedRefusal(realm, document, "write");
@@ -802,17 +809,17 @@ internal class DomHostHooks
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-writeln</summary>
-    internal virtual void WriteLine(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual void WriteLine(DomRealm realm, Document document, JsValue[] arguments)
     {
         switch (TargetOf(realm, document, "writeln"))
         {
             case MarkupInsertion.Parser:
-                document.WriteLine(Join(arguments));
+                Runtime.Parsing.ParserDriver.Write(document, Join(arguments) + "\n");
                 break;
             case MarkupInsertion.Local:
                 // "The document writeln steps ... are to run the document write steps with the concatenation
                 // of the strings and a newline" — which is what AngleSharp's own WriteLine does too.
-                DynamicMarkupInsertion.Write(realm, (IHtmlDocument) document, Join(arguments) + "\n");
+                DynamicMarkupInsertion.Write(realm, document, Join(arguments) + "\n");
                 break;
             default:
                 RecordDisplayedRefusal(realm, document, "writeln");
@@ -825,7 +832,7 @@ internal class DomHostHooks
     /// two-argument form, whose arguments HTML ignores (it names them "unused1" and "unused2"), answering
     /// the document it was called on.
     /// </summary>
-    internal virtual JsValue Open(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue Open(DomRealm realm, Document document, JsValue[] arguments)
     {
         switch (TargetOf(realm, document, "open"))
         {
@@ -848,7 +855,7 @@ internal class DomHostHooks
                         "the three-argument form is window.open(), and this document has no browsing context.");
                 }
 
-                DynamicMarkupInsertion.Open((IHtmlDocument) document);
+                DynamicMarkupInsertion.Open(realm, document);
                 break;
             default:
                 RecordDisplayedRefusal(realm, document, "open");
@@ -864,16 +871,16 @@ internal class DomHostHooks
     /// return", and the parser reading a page is never script-created — so a page's <c>close()</c> is the
     /// standard's own no-op rather than a refusal, and nothing is recorded against it.
     /// </remarks>
-    internal virtual void Close(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual void Close(DomRealm realm, Document document, JsValue[] arguments)
     {
         if (TargetOf(realm, document, "close") == MarkupInsertion.Local)
         {
-            DynamicMarkupInsertion.Close(document);
+            DynamicMarkupInsertion.Close(realm, document);
         }
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocumenttype.</summary>
-    internal virtual JsValue CreateDocumentType(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+    internal virtual JsValue CreateDocumentType(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
         => DomDocumentTypeFactory.Create(realm, implementation, arguments);
 
     /// <summary>
@@ -892,11 +899,11 @@ internal class DomHostHooks
     /// there was a registry, which is what keeps the binding usable on its own.
     /// </para>
     /// </remarks>
-    internal virtual JsValue CreateElement(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue CreateElement(DomRealm realm, Document document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElement(realm, document, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createprocessinginstruction.</summary>
-    internal virtual JsValue CreateProcessingInstruction(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue CreateProcessingInstruction(DomRealm realm, Document document, JsValue[] arguments)
     {
         var target = DomConvert.RequiredText(arguments, 0, "Document.createProcessingInstruction");
         var data = DomConvert.RequiredText(arguments, 1, "Document.createProcessingInstruction");
@@ -904,34 +911,23 @@ internal class DomHostHooks
     }
 
     /// <inheritdoc cref="CreateElement" />
-    internal virtual JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue CreateElementNS(DomRealm realm, Document document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElementNS(realm, document, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createattribute</summary>
-    internal virtual JsValue CreateAttribute(DomRealm realm, IDocument document, JsValue[] arguments)
-    {
-        // DomNames has already checked the modern attribute-local-name predicate. The native document
-        // factory instead applies XML's older Name production; Attr itself has no such restriction.
-        var name = DomConvert.RequiredText(arguments, 0, "Document.createAttribute");
-        return realm.WrapNodeValue(new Attr(document is IHtmlDocument ? AsciiLowercase(name) : name));
-    }
+    internal virtual JsValue CreateAttribute(DomRealm realm, Document document, JsValue[] arguments)
+        => realm.Wrap(document.CreateAttribute(DomConvert.RequiredText(arguments, 0, "Document.createAttribute")));
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-document-createattributens</summary>
-    internal virtual JsValue CreateAttributeNS(DomRealm realm, IDocument document, JsValue[] arguments)
+    /// <summary>https://dom.spec.whatwg.org/#dom-document-createattributens.</summary>
+    internal virtual JsValue CreateAttributeNS(DomRealm realm, Document document, JsValue[] arguments)
     {
-        // The generated guard performs validate-and-extract's validation before this construction.
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         var name = DomConvert.RequiredText(arguments, 1, "Document.createAttributeNS");
-        var colon = name.IndexOf(':', StringComparison.Ordinal);
-        return realm.WrapNodeValue(new Attr(
-            colon < 0 ? null : name[..colon],
-            colon < 0 ? name : name[(colon + 1)..],
-            "",
-            string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri));
+        return realm.Wrap(document.CreateAttributeNS(namespaceUri, name));
     }
 
     /// <inheritdoc cref="CreateElement" />
-    internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual JsValue CloneNode(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
     /// <summary>
@@ -939,9 +935,9 @@ internal class DomHostHooks
     /// <see cref="DomNodeEquality"/> states over the same tree because AngleSharp's <c>Node.Equals</c>
     /// compares a base URL the standard never mentions and leaves out data the standard requires.
     /// </summary>
-    internal virtual JsValue IsEqualNode(DomRealm realm, INode node, JsValue[] arguments)
-        => DomConvert.Bool(
-            DomNodeEquality.AreEqual(node, DomBindings.NullableArgument<INode>(arguments, 0, "Node.isEqualNode")));
+    internal virtual JsValue IsEqualNode(DomRealm realm, object node, JsValue[] arguments)
+        => DomConvert.Bool(DomNodeEquality.AreEqual(node, arguments.At(0).IsNullOrUndefined()
+            ? null : DomBindings.NodeArgument(arguments, 0, "Node.isEqualNode").DomTarget));
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-importnode — "return the result of cloning a node given
@@ -973,25 +969,17 @@ internal class DomHostHooks
     /// DOM gives for a member that clones rather than moves.
     /// </para>
     /// </remarks>
-    internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue ImportNode(DomRealm realm, Document document, JsValue[] arguments)
     {
-        var source = DomBindings.Argument<INode>(arguments, 0, "Document.importNode");
+        var source = DomBindings.NodeArgument(arguments, 0, "Document.importNode");
         var deep = DomConvert.OptionalBool(arguments, 1, false);
-        var imported = document.Import(source, deep);
-        if (!deep)
+        if (source.Attribute is { } attribute)
         {
-            DomTemplateCloning.ClearShallowContent(imported);
+            return realm.Wrap(document.ImportAttribute(attribute));
         }
-        if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
-        {
-            document.Adopt(imported);
-        }
-
-        // The source metadata remains available after adopting the detached copy. Repair native PI
-        // data on its destination owner, before file-state reset and custom-element reactions.
-        DomCloneSteps.Copy(source, imported);
-        Files.FileTransferRealm.ResetCopiedInputs(imported);
-        CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
+        var imported = document.ImportNode(source.Node!, deep);
+        realm.RecordSubtree(imported);
+        CustomElements.CustomElementRegistry.Cloned(realm, source.Node!, imported);
         return realm.WrapNodeValue(imported);
     }
 
@@ -1012,17 +1000,6 @@ internal class DomHostHooks
     /// this engine stands for; any other browsing context is <c>null</c>, which is what a browser answers for
     /// a frame that has none yet. A binding with no page runtime has no window at all.
     /// </remarks>
-    internal virtual JsValue Window(DomRealm realm, IWindow window)
-    {
-        if (PageRuntime.Find(realm.Engine) is not { } runtime || runtime.Document is not { } document)
-        {
-            return JsValue.Null;
-        }
-
-        return ReferenceEquals(window, document.DefaultView)
-            ? realm.Engine._mainRealm.GlobalObject
-            : JsValue.Null;
-    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
@@ -1039,7 +1016,7 @@ internal class DomHostHooks
     /// <c>DocumentElement.ChildNodes</c> without asking what the document element is, which is the standard's
     /// own counter-example (a body inserted beneath an SVG document element) answered wrongly.
     /// </remarks>
-    internal virtual JsValue Body(DomRealm realm, IDocument document)
+    internal virtual JsValue Body(DomRealm realm, Document document)
         => realm.WrapNodeValue(DomDocumentElements.Body(document));
 
     /// <summary>
@@ -1047,11 +1024,11 @@ internal class DomHostHooks
     /// running. AngleSharp 1.7.3 tracks its own execution path, but the page's parser driver also schedules
     /// and executes scripts itself, so its current-script scope remains authoritative for a page.
     /// </summary>
-    internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
+    internal virtual JsValue CurrentScript(DomRealm realm, Document document)
     {
         if (PageRuntime.FindBrowsingContext(realm.Engine, document) is null)
         {
-            return realm.WrapNodeValue(document.CurrentScript);
+            return JsValue.Null;
         }
         var owner = realm.RealmOfDocument(document);
         return ReferenceEquals(owner.Document, document) && owner.CurrentScript is { } script
@@ -1063,33 +1040,29 @@ internal class DomHostHooks
     /// readiness on its own schedule and <c>Document.ReadyState</c>'s setter is <c>protected</c>, so nothing
     /// outside its assembly can move it; the three transitions a page observes are the parser driver's.
     /// </summary>
-    internal virtual JsValue ReadyState(DomRealm realm, IDocument document)
+    internal virtual JsValue ReadyState(DomRealm realm, Document document)
         => JsString.Create(PageRuntime.Find(realm.Engine, document) is { } runtime
             ? runtime.ReadyState
             : realm.TryGetDocumentRealm(document, out var owner) && ReferenceEquals(owner!.Document, document) && owner.ReadyState is { } state
-                ? state : document.ReadyState.ToString().ToLowerInvariant());
+                ? state : DomDocumentState.Of(document).ReadyState);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-url and its <c>documentURI</c> twin. The page's URL, not
     /// AngleSharp's document address: <c>pushState</c> and a fragment navigation move the URL without
     /// reloading, and AngleSharp's address cannot follow without raising a navigation of its own.
     /// </summary>
-    internal virtual JsValue DocumentUrl(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.DocumentUrl ?? document.Url ?? "");
+    internal virtual JsValue DocumentUrl(DomRealm realm, Document document)
+        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.DocumentUrl ?? DomDocumentState.Of(document).Url);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-node-baseuri — the node document's base URL, which
     /// <c>&lt;base href&gt;</c> moves. The displayed document resolves against the page URL; a secondary HTML
     /// document is recomputed here so removing its first base element cannot leave AngleSharp's cached value.
     /// </summary>
-    internal virtual JsValue BaseUri(DomRealm realm, INode node)
+    internal virtual JsValue BaseUri(DomRealm realm, Jint.HtmlParser.Node node)
     {
-        if (PageRuntime.Find(realm.Engine, node) is not { } runtime)
-        {
-            return JsString.Create(CurrentBaseUri(node));
-        }
-
-        return JsString.Create(runtime.BaseUri);
+        var document = node as Document ?? node.OwnerDocument!;
+        return JsString.Create(DomDocumentState.BaseUri(document, realm.Engine.Constraints.Check, realm.CancellationToken));
     }
 
     /// <summary>
@@ -1107,8 +1080,14 @@ internal class DomHostHooks
     /// need a page runtime — a binding installed on its own still tells a parsed document from a
     /// manufactured one.
     /// </remarks>
-    internal virtual JsValue Location(DomRealm realm, IDocument document)
-        => HasBrowsingContext(document) ? realm.Wrap(document.Location) : JsValue.Null;
+    internal virtual JsValue Location(DomRealm realm, Document document)
+    {
+        if (DomBrowsingContext.Of(document) is null || PageRuntime.FindBrowsingContext(realm.Engine, document) is not { } runtime)
+            return JsValue.Null;
+        return ReferenceEquals(document, runtime.Document)
+            ? runtime.Location
+            : FrameWindows.ForDocument(runtime, document).Get("location");
+    }
 
     /// <summary>
     /// The <c>[PutForwards=href]</c> half of the same attribute. WebIDL's setter steps read the attribute
@@ -1116,15 +1095,15 @@ internal class DomHostHooks
     /// <see langword="null"/> — is a <c>TypeError</c> and never a silent navigation of a document nobody
     /// can see. https://webidl.spec.whatwg.org/#PutForwards
     /// </summary>
-    internal virtual void SetLocation(DomRealm realm, IDocument document, string href)
+    internal virtual void SetLocation(DomRealm realm, Document document, string href)
     {
-        if (!HasBrowsingContext(document) || document.Location is not { } location)
+        var location = Location(realm, document);
+        if (location is not ObjectInstance instance)
         {
             Throw.TypeError(realm.OwningRealm, "Cannot set property 'href' of null");
             return;
         }
-
-        location.Href = href;
+        instance.Set("href", JsString.Create(href), throwOnError: true);
     }
 
     /// <summary>
@@ -1138,25 +1117,15 @@ internal class DomHostHooks
     /// A label the Encoding Standard does not know is answered as AngleSharp gave it, rather than as UTF-8:
     /// there is no name for it, and inventing one would hide the encoding a document really carries.
     /// </remarks>
-    internal virtual JsValue CharacterSet(DomRealm realm, IDocument document)
-    {
-        var label = document.CharacterSet;
-
-        if (string.IsNullOrEmpty(label))
-        {
-            return JsString.Create(Jint.WebApi.Encoding.EncodingLabels.Utf8Name);
-        }
-
-        return JsString.Create(
-            Jint.WebApi.Encoding.EncodingLabels.TryLookup(label, out var encoding) ? encoding.Name : label);
-    }
+    internal virtual JsValue CharacterSet(DomRealm realm, Document document)
+        => JsString.Create(DomDocumentState.Of(document).CharacterSet);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-contenttype — the content type the algorithm that created
     /// the document gave it. <see cref="DomContentType"/> says why it cannot be set on the document itself.
     /// </summary>
-    internal virtual JsValue ContentType(DomRealm realm, IDocument document)
-        => JsString.Create(DomContentType.Of(document) ?? document.ContentType ?? "");
+    internal virtual JsValue ContentType(DomRealm realm, Document document)
+        => JsString.Create(document.ContentType);
 
     /// <summary>
     /// Whether <paramref name="document"/> is the active document of a browsing context, which is what HTML
@@ -1167,7 +1136,7 @@ internal class DomHostHooks
     /// <see cref="DomBrowsingContext"/> is the one definition of it, because HTML §4.13.4's
     /// look-up-a-custom-element-definition asks the same question of the same documents.
     /// </remarks>
-    private static bool HasBrowsingContext(IDocument document) => DomBrowsingContext.Of(document) is not null;
+    private static bool HasBrowsingContext(Document document) => DomBrowsingContext.Of(document) is not null;
 
     // ---------------------------------------------------------------------------------------------------
     // HTML §4.8.4's image members. Every one of them answers from the page's own image lane rather than
@@ -1188,18 +1157,18 @@ internal class DomHostHooks
     /// answered <see langword="false"/> before, and both are what a lazy-loading library tests to decide
     /// whether to wait for a <c>load</c> event that is never coming.
     /// </remarks>
-    internal virtual JsValue ImageComplete(DomRealm realm, IHtmlImageElement image)
+    internal virtual JsValue ImageComplete(DomRealm realm, Element image)
     {
-        var source = image.GetAttribute(null, "src");
+        var source = image.GetAttributeNS(null, "src");
 
-        if (!image.HasAttribute("srcset") && string.IsNullOrEmpty(source))
+        if (image.GetAttributeNS(null, "srcset") is null && string.IsNullOrEmpty(source))
         {
             return JsBoolean.True;
         }
 
-        if (PageRuntime.Find(realm.Engine, image.Owner) is not { } runtime)
+        if (PageRuntime.Find(realm.Engine, image.OwnerDocument) is not { } runtime)
         {
-            return DomConvert.Bool(image.IsCompleted);
+            return JsBoolean.False;
         }
 
         // There is no pending request here (Media/PageImages says why), so "and its pending request is
@@ -1214,28 +1183,28 @@ internal class DomHostHooks
     /// ended up. It answers for a broken request too, which is what makes it usable for saying <i>which</i>
     /// candidate of a source set a page settled on.
     /// </summary>
-    internal virtual JsValue ImageCurrentSrc(DomRealm realm, IHtmlImageElement image)
-        => JsString.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+    internal virtual JsValue ImageCurrentSrc(DomRealm realm, Element image)
+        => JsString.Create(PageRuntime.Find(realm.Engine, image.OwnerDocument) is { } runtime
             ? runtime.ImagesIfLoaded?.Find(image)?.CurrentSrc ?? ""
-            : image.ActualSource ?? "");
+            : "");
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-naturalwidth — the intrinsic
     /// width of an available image, and 0 for one that is not available or states no size.
     /// </summary>
-    internal virtual JsValue ImageNaturalWidth(DomRealm realm, IHtmlImageElement image)
-        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+    internal virtual JsValue ImageNaturalWidth(DomRealm realm, Element image)
+        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.OwnerDocument) is { } runtime
             ? Available(runtime, image)?.NaturalWidth ?? 0
-            : image.OriginalWidth);
+            : 0);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-naturalheight — the intrinsic
     /// height, on the same terms.
     /// </summary>
-    internal virtual JsValue ImageNaturalHeight(DomRealm realm, IHtmlImageElement image)
-        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+    internal virtual JsValue ImageNaturalHeight(DomRealm realm, Element image)
+        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.OwnerDocument) is { } runtime
             ? Available(runtime, image)?.NaturalHeight ?? 0
-            : image.OriginalHeight);
+            : 0);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-dim-width — the <c>width</c>
@@ -1258,30 +1227,30 @@ internal class DomHostHooks
     /// select within.
     /// </para>
     /// </remarks>
-    internal virtual JsValue ImageWidth(DomRealm realm, IHtmlImageElement image)
+    internal virtual JsValue ImageWidth(DomRealm realm, Element image)
         => Dimension(realm, image, "width", DomReflected.HTMLImageElementWidth, intrinsicWidth: true);
 
     /// <inheritdoc cref="ImageWidth" />
-    internal virtual JsValue ImageHeight(DomRealm realm, IHtmlImageElement image)
+    internal virtual JsValue ImageHeight(DomRealm realm, Element image)
         => Dimension(realm, image, "height", DomReflected.HTMLImageElementHeight, intrinsicWidth: false);
 
-    private static JsValue Dimension(
+    private static JsNumber Dimension(
         DomRealm realm,
-        IHtmlImageElement image,
+        Element image,
         string attribute,
         ReflectedAttribute reflected,
         bool intrinsicWidth)
     {
         // The content attribute is what the presentational hint maps to, so where it is present it is the
         // box, and HTML's own parsing rules for it are the reflected entry's.
-        if (image.HasAttribute(attribute))
+        if (image.GetAttributeNS(null, attribute) is not null)
         {
-            return reflected.Get(image);
+            return (JsNumber) reflected.Get(image);
         }
 
-        if (PageRuntime.Find(realm.Engine, image.Owner) is not { } runtime)
+        if (PageRuntime.Find(realm.Engine, image.OwnerDocument) is not { } runtime)
         {
-            return JsNumber.Create(intrinsicWidth ? image.OriginalWidth : image.OriginalHeight);
+            return JsNumber.Create(intrinsicWidth ? 0 : 0);
         }
 
         var request = Available(runtime, image);
@@ -1292,26 +1261,26 @@ internal class DomHostHooks
     /// <paramref name="image"/>'s current request when it is completely available, and <see langword="null"/>
     /// otherwise — which is the one condition every dimension member above is guarded by.
     /// </summary>
-    private static Media.ImageRequest? Available(PageRuntime runtime, IElement image)
+    private static Media.ImageRequest? Available(PageRuntime runtime, Element image)
         => runtime.ImagesIfLoaded?.Find(image) is { State: Media.ImageAvailability.CompletelyAvailable } request
             ? request
             : null;
 
     /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
-    internal virtual JsValue Referrer(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? document.Referrer ?? "");
+    internal virtual JsValue Referrer(DomRealm realm, Document document)
+        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? DomDocumentState.Of(document).Referrer);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-cookie, over the same jar every request of
     /// the browsing context reads and writes — which is a jar AngleSharp's own document has no idea about.
     /// </summary>
-    internal virtual JsValue Cookie(DomRealm realm, IDocument document)
+    internal virtual JsValue Cookie(DomRealm realm, Document document)
         => JsString.Create(PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime
             ? DocumentCookies.Read(runtime, document)
-            : document.Cookie ?? "");
+            : "");
 
     /// <inheritdoc cref="Cookie" />
-    internal virtual void SetCookie(DomRealm realm, IDocument document, string value)
+    internal virtual void SetCookie(DomRealm realm, Document document, string value)
     {
         if (PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime)
         {
@@ -1319,28 +1288,7 @@ internal class DomHostHooks
             return;
         }
 
-        document.Cookie = value;
-    }
-
-    /// <summary>
-    /// The node document's current base URL, derived without AngleSharp's cached <see cref="INode.BaseUri"/>.
-    /// </summary>
-    private static string CurrentBaseUri(INode node)
-    {
-        var document = node as IDocument ?? node.Owner;
-        if (document is null)
-        {
-            return node.BaseUri ?? "";
-        }
-
-        var documentUrl = document.Url ?? "";
-        if (document is not IHtmlDocument)
-        {
-            return node.BaseUri ?? documentUrl;
-        }
-
-        var href = document.QuerySelector("base[href]")?.GetAttribute("href");
-        return string.IsNullOrEmpty(href) ? documentUrl : PageUrl.Resolve(href, documentUrl) ?? documentUrl;
+        // A manufactured document without a browsing context is cookie-averse.
     }
 
     /// <summary>Who performs a dynamic-markup-insertion call, once the document it targets is known.</summary>
@@ -1393,14 +1341,14 @@ internal class DomHostHooks
     /// <see cref="DynamicMarkupInsertion"/> performs HTML's steps in place.
     /// </para>
     /// </remarks>
-    private static MarkupInsertion TargetOf(DomRealm realm, IDocument document, string member)
+    private static MarkupInsertion TargetOf(DomRealm realm, Document document, string member)
     {
         // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-write-steps step 1,
         // before anything else and whatever the document's readiness — and the same first step the open and
         // close steps take. AngleSharp raises the same error from inside Document.Open, which is reached only
         // once the document is ready, so every XML document still parsing wrote into a text source nothing
         // reads and the call answered success.
-        if (document is not IHtmlDocument)
+        if (document.Kind != Jint.HtmlParser.DocumentKind.Html)
         {
             DomFailures.Refuse(
                 realm,
@@ -1414,13 +1362,13 @@ internal class DomHostHooks
             return MarkupInsertion.Local;
         }
 
-        return document.ReadyState == DocumentReadyState.Loading
+        return Runtime.Parsing.ParserDriver.HasInsertionPoint(document)
             ? MarkupInsertion.Parser
             : MarkupInsertion.Displayed;
     }
 
     /// <summary>The page error the one unimplemented case records, and the no-op that goes with it.</summary>
-    private static void RecordDisplayedRefusal(DomRealm realm, IDocument document, string member)
+    private static void RecordDisplayedRefusal(DomRealm realm, Document document, string member)
     {
         var lead = string.Equals(member, "open", StringComparison.Ordinal)
             ? "document.open() on the document the page is showing would replace it"
@@ -1431,7 +1379,7 @@ internal class DomHostHooks
             PageErrorKind.ReportedError,
             lead + "; Jint.Browser does not implement replacing the displayed document, so the call did "
             + "nothing. Build the markup with the DOM, or set the page's content again.",
-            document.Url);
+            DomDocumentState.Of(document).Url);
     }
 
     /// <summary>

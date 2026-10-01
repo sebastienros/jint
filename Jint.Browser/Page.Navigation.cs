@@ -1,10 +1,10 @@
 ﻿using System.Net.Http;
 using System.Runtime.ExceptionServices;
 using System.Text;
-using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser;
@@ -39,6 +39,10 @@ public sealed partial class Page
     /// navigation replaces rather than pushes past. Loop thread only.
     /// </summary>
     private bool _isInitialAboutBlank = true;
+
+    /// <summary>The uncommitted host navigation a script navigation may still abort, if any.</summary>
+    private CancellationTokenSource? _browserUiNavigation;
+    internal bool IsInitialAboutBlank => _isInitialAboutBlank;
 
     /// <summary>Loads <paramref name="url"/>, replacing the document and the engine behind it.</summary>
     /// <param name="url">The URL to load: <c>http</c>, <c>https</c>, <c>about:</c> or <c>data:</c>.</param>
@@ -90,7 +94,11 @@ public sealed partial class Page
             Body: null,
             ContentType: null,
             Reload: false,
-            Referrer: settings.Referrer));
+            Referrer: settings.Referrer,
+            // The host is this browser's address bar: HTML's navigate and reload fire no navigate event for a
+            // "browser UI" navigation, so a page can neither intercept nor cancel it.
+            // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate
+            BrowserUi: true));
     }
 
     /// <summary>
@@ -101,7 +109,8 @@ public sealed partial class Page
     /// <returns>
     /// The response the submission navigated to, or <see langword="null"/> when it produced no navigation —
     /// because no form matched, because a <c>submit</c> listener cancelled it, or because the form failed
-    /// validation.
+    /// validation. A submission targeting another page also returns null; observe <see cref="Popup"/> for
+    /// a newly opened page and await that page's navigation separately.
     /// </returns>
     /// <remarks>
     /// <para>
@@ -125,7 +134,7 @@ public sealed partial class Page
         var captured = await _loop.PostAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine);
-            if (runtime?.Document?.QuerySelector(selector) is not IHtmlFormElement form)
+            if (runtime?.Document is not { } document || Dom.DomSelectors.QuerySelector(runtime.Dom, document, selector) is not Jint.HtmlParser.Element { NamespaceUri: Jint.HtmlParser.Namespaces.Html, LocalName: "form" } form)
             {
                 return null;
             }
@@ -215,8 +224,28 @@ public sealed partial class Page
         bool replace,
         bool reload = false,
         Engine? engine = null,
-        PageNavigationReason? reason = PageNavigationReason.ScriptInitiated)
+        PageNavigationReason? reason = PageNavigationReason.ScriptInitiated,
+        bool navigationEventDispatched = false,
+        SerializationRecord? navigationState = null,
+        long navigationId = 0,
+        JsValue? sourceElement = null,
+        string? downloadRequest = null,
+        bool userInitiated = false,
+        string? referrer = null,
+        CancellationToken navigationCancellation = default)
     {
+        engine ??= _loop.CurrentEngine;
+        if (!navigationEventDispatched && engine is not null
+            && PageRuntime.Find(engine)?.Dom.ExistingNavigation is { } navigation
+            && PageUrl.Resolve(url, _url) is { } resolved)
+        {
+            if (navigation.Handle(resolved, reload ? "reload" : replace || _isInitialAboutBlank ? "replace" : "push",
+                source: sourceElement, download: downloadRequest, userInitiated: userInitiated)) return;
+            navigationEventDispatched = true;
+            navigationId = navigation.OngoingId;
+            navigationCancellation = navigation.NavigationCancellation;
+        }
+
         if (engine is not null && !reload && TryFragmentNavigation(engine, url, replace))
         {
             return;
@@ -230,7 +259,11 @@ public sealed partial class Page
             Body: null,
             ContentType: null,
             reload,
-            Referrer: null),
+            Referrer: referrer,
+            NavigationEventDispatched: navigationEventDispatched,
+            NavigationState: navigationState,
+            NavigationId: navigationId,
+            NavigationCancellation: navigationCancellation),
             reload && reason is not null ? PageNavigationReason.Reload : reason);
     }
 
@@ -289,8 +322,12 @@ public sealed partial class Page
     }
 
     /// <summary>The same, for a form submission that ends in a <c>POST</c>.</summary>
-    internal void RequestFormPost(string url, byte[] body, string contentType)
-        => Start(new NavigationRequest(
+    internal void RequestFormPost(string url, byte[] body, string contentType, JsValue? source = null,
+        JsValue? formData = null, bool userInitiated = false, string? referrer = null)
+    {
+        var navigation = PageRuntime.Find(_loop.CurrentEngine!)?.Dom.ExistingNavigation;
+        if (navigation?.Handle(url, "push", source: source, formData: formData, userInitiated: userInitiated) == true) return;
+        Start(new NavigationRequest(
             url,
             NavigationOptions.Default,
             HistoryMode.Push,
@@ -298,8 +335,12 @@ public sealed partial class Page
             Body: body,
             ContentType: contentType,
             Reload: true,
-            Referrer: null),
+            Referrer: referrer,
+            NavigationEventDispatched: true,
+            NavigationId: navigation?.OngoingId ?? 0,
+            NavigationCancellation: navigation?.NavigationCancellation ?? default),
             PageNavigationReason.FormSubmissionPost);
+    }
 
     /// <summary>
     /// <c>history.back()</c>, <c>forward()</c> and <c>go()</c>: queue a traversal, on the page loop.
@@ -333,28 +374,37 @@ public sealed partial class Page
             return;
         }
 
-        if (entry.DocumentId == _history.CurrentDocumentId)
+        var runtime = PageRuntime.Find(_loop.CurrentEngine!);
+        if (runtime is null) return;
+        runtime.Engine.Tasks.Post(() =>
         {
-            var runtime = PageRuntime.Find(_loop.CurrentEngine!);
-            if (runtime is null)
+            if (!ReferenceEquals(_history.At(index), entry))
             {
+                runtime.Dom.ExistingNavigation?.TraversalUnavailable(entry.Key);
+                return;
+            }
+            var navigation = runtime.Dom.ExistingNavigation;
+            if (navigation?.Handle(entry.Url, "traverse", traversal: entry) == true) return;
+            if (entry.DocumentId == _history.CurrentDocumentId)
+            {
+                TraverseSameDocument(runtime, index);
                 return;
             }
 
-            runtime.Engine.Tasks.Post(() => TraverseSameDocument(runtime, index));
-            return;
-        }
-
-        Start(new NavigationRequest(
-            entry.Url,
-            NavigationOptions.Default,
-            HistoryMode.Traverse,
-            index,
-            Body: null,
-            ContentType: null,
-            Reload: true,
-            Referrer: null),
-            rendererInitiated ? PageNavigationReason.ScriptInitiated : null);
+            Start(new NavigationRequest(
+                entry.Url,
+                NavigationOptions.Default,
+                HistoryMode.Traverse,
+                index,
+                Body: null,
+                ContentType: null,
+                Reload: true,
+                Referrer: null,
+                NavigationEventDispatched: true,
+                NavigationId: navigation?.OngoingId ?? 0,
+                NavigationCancellation: navigation?.NavigationCancellation ?? default),
+                rendererInitiated ? PageNavigationReason.ScriptInitiated : null);
+        });
     }
 
     /// <summary>
@@ -369,13 +419,54 @@ public sealed partial class Page
         _observer?.SameDocumentNavigated(url, _loaderId);
     }
 
-    /// <summary>Starts a navigation nobody is waiting for, and turns its failure into a page error.</summary>
-    private void Start(NavigationRequest request, PageNavigationReason? reason)
+    /// <summary>https://html.spec.whatwg.org/multipage/nav-history-apis.html#commit-a-navigate-event</summary>
+    internal void CommitNavigationApi(PageRuntime runtime, string url, string type, HistoryEntry? traversal,
+        SerializationRecord? classicState, SerializationRecord? navigationState)
+    {
+        switch (type)
+        {
+            case "traverse":
+                for (var i = 0; i < _history.Length; i++)
+                {
+                    if (ReferenceEquals(_history.At(i), traversal)) { _history.MoveTo(i); break; }
+                }
+                break;
+            case "reload":
+                break;
+            case "replace":
+                _history.ReplaceState(url, classicState);
+                break;
+            default:
+                _history.PushState(url, classicState);
+                break;
+        }
+        if (type != "traverse" && navigationState is not null) _history.Current!.NavigationState = navigationState;
+        CommitSameDocumentUrl(runtime, url);
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
+    }
+
+    internal static void FireNavigationApiEvents(PageRuntime runtime, string oldUrl, string newUrl, string type,
+        bool classicHistory, bool intercepted, SerializationRecord? traversalState)
+    {
+        if (type == "traverse")
+        {
+            FirePopState(runtime.Engine, traversalState);
+            FireHashChange(runtime, oldUrl, newUrl);
+        }
+        else if (!classicHistory && !intercepted && PageUrl.FragmentOf(oldUrl) != PageUrl.FragmentOf(newUrl))
+        {
+            runtime.Engine.Tasks.Post(() => FireHashChange(runtime, oldUrl, newUrl));
+        }
+    }
+
+    /// <summary>Starts an observed navigation; its task lets remote requests retain their FIFO order.</summary>
+    private Task Start(NavigationRequest request, PageNavigationReason? reason)
     {
         if (_closed)
         {
-            return;
+            return Task.CompletedTask;
         }
+        request = request with { SourceDocumentId = _history.CurrentDocumentId };
 
         if (reason is { } requestedReason)
         {
@@ -387,11 +478,11 @@ public sealed partial class Page
                     new NavigationFailedException(
                         request.Target,
                         "'" + request.Target + "' cannot be parsed as a URL."));
-                return;
+                return Task.CompletedTask;
             }
 
             // Freeze the URL at request time: this navigation may wait behind one that changes the base URL.
-            var initiatorUrl = _url;
+            var initiatorUrl = request.InitiatorUrl ?? _url;
             var href = target.Serialize();
             request = request with
             {
@@ -411,7 +502,7 @@ public sealed partial class Page
                 catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
                 {
                     RejectBeforeStart(request, exception);
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 request = request with { FirstHopAllowed = allowed };
@@ -425,7 +516,7 @@ public sealed partial class Page
                 catch (NavigationFailedException failure)
                 {
                     RejectBeforeStart(request, failure);
-                    return;
+                    return Task.CompletedTask;
                 }
             }
 
@@ -439,12 +530,12 @@ public sealed partial class Page
         {
             // SubmitFormAsync is running the algorithm and wants the navigation back rather than started.
             _capturedNavigation = request;
-            return;
+            return Task.CompletedTask;
         }
 
         // Deliberately off the loop: the caller is a script the current document is running, and the document
         // it asked for replaces the engine that script is in.
-        _ = Task.Run(async () =>
+        return Task.Run(async () =>
         {
             try
             {
@@ -452,7 +543,7 @@ public sealed partial class Page
             }
             catch (NavigationFailedException failure)
             {
-                _recorder.Add(PageErrorKind.ReportedError, failure.Message, "Navigation");
+                await ReportNavigationFailureAsync(request, failure.Message).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -463,13 +554,15 @@ public sealed partial class Page
             }
             catch (Exception exception)
             {
-                _recorder.Add(PageErrorKind.ReportedError, exception.Message, "Navigation");
+                await ReportNavigationFailureAsync(request, exception.Message).ConfigureAwait(false);
             }
         });
     }
 
     private void RejectBeforeStart(NavigationRequest request, Exception failure)
     {
+        if (request.NavigationId != 0)
+            PageRuntime.Find(_loop.CurrentEngine!)?.Dom.ExistingNavigation?.Failed(request.NavigationId, failure.Message);
         if (_capturingNavigation)
         {
             _capturedNavigation = request with { PreflightFailure = failure };
@@ -479,6 +572,28 @@ public sealed partial class Page
         _recorder.Add(PageErrorKind.ReportedError, failure.Message, "Navigation");
     }
 
+    private async Task ReportNavigationFailureAsync(NavigationRequest request, string message)
+    {
+        if (request.NavigationId == 0)
+        {
+            _recorder.Add(PageErrorKind.ReportedError, message, "Navigation");
+            return;
+        }
+        try
+        {
+            await _loop.PostAsync(engine =>
+            {
+                if (_history.CurrentDocumentId == request.SourceDocumentId)
+                    PageRuntime.Find(engine)?.Dom.ExistingNavigation?.Failed(request.NavigationId, message);
+                return true;
+            }).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Closing discards the outgoing document and its pending navigation promises.
+        }
+    }
+
     /// <summary>The commit half of <see cref="SetContentAsync"/>, under the navigation gate.</summary>
     private async Task SetContentCoreAsync(string url, string html)
     {
@@ -486,6 +601,7 @@ public sealed partial class Page
 
         try
         {
+            var creator = await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(url))).ConfigureAwait(false);
             var loaderId = NextLoaderId();
             _observer?.NavigationStarted(url, loaderId);
 
@@ -498,7 +614,7 @@ public sealed partial class Page
 
             await _loop.PostAsync(engine => Commit(
                 engine,
-                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId))).ConfigureAwait(false);
+                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId, Creator: creator))).ConfigureAwait(false);
         }
         finally
         {
@@ -513,9 +629,42 @@ public sealed partial class Page
             ExceptionDispatchInfo.Capture(failure).Throw();
         }
 
+        CancellationTokenSource? browserUi = null;
+        if (request.BrowserUi)
+        {
+            // No navigate event, but still the navigable's ongoing navigation: a later cross-document script
+            // navigation supersedes it until it commits (AbortBrowserUiNavigation).
+            browserUi = new CancellationTokenSource();
+            Volatile.Write(ref _browserUiNavigation, browserUi);
+            request = request with { NavigationCancellation = browserUi.Token };
+        }
+        else if (!request.NavigationEventDispatched)
+        {
+            var prepared = await _loop.PostAsync(engine =>
+            {
+                var navigation = PageRuntime.Find(engine)?.Dom.ExistingNavigation;
+                if (navigation is null || PageUrl.Resolve(request.Target, _url) is not { } href)
+                    return (Consumed: false, Request: request);
+                var consumed = navigation.Handle(
+                    href, request.History == HistoryMode.Traverse ? "traverse" : request.Reload && request.Body is null ? "reload"
+                        : request.History == HistoryMode.Replace || _isInitialAboutBlank ? "replace" : "push",
+                    traversal: request.History == HistoryMode.Traverse ? _history.At(request.TraversalIndex) : null);
+                return (Consumed: consumed, Request: request with
+                {
+                    Target = href,
+                    NavigationEventDispatched = true,
+                    NavigationId = navigation.OngoingId,
+                    SourceDocumentId = _history.CurrentDocumentId,
+                    NavigationCancellation = navigation.NavigationCancellation,
+                });
+            }).ConfigureAwait(false);
+            if (prepared.Consumed) return _response;
+            request = prepared.Request;
+        }
+
         using var timeout = new CancellationTokenSource(request.Options.Timeout);
         var closing = _loop.Closing;
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, closing);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, closing, request.NavigationCancellation);
 
         try
         {
@@ -533,6 +682,11 @@ public sealed partial class Page
         {
             return await RunAsync(request, timeout, linked.Token).ConfigureAwait(false);
         }
+        catch (NavigationFailedException exception) when (request.NavigationId != 0)
+        {
+            await ReportNavigationFailureAsync(request, exception.Message).ConfigureAwait(false);
+            throw;
+        }
         catch (ObjectDisposedException) when (closing.IsCancellationRequested)
         {
             // A navigation runs off the page's thread and comes back to it several times - to fire
@@ -548,8 +702,19 @@ public sealed partial class Page
         finally
         {
             _navigationGate.Release();
+            if (browserUi is not null)
+            {
+                Interlocked.CompareExchange(ref _browserUiNavigation, null, browserUi);
+            }
         }
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/browsing-the-web.html#set-the-ongoing-navigation — a
+    /// cross-document script navigation replaces the navigable's ongoing navigation, which aborts an
+    /// uncommitted host (browser UI) navigation. Loop thread only.
+    /// </summary>
+    internal void AbortBrowserUiNavigation() => Interlocked.Exchange(ref _browserUiNavigation, null)?.Cancel();
 
     private async Task<PageResponse?> RunAsync(NavigationRequest request, CancellationTokenSource timeout, CancellationToken cancellationToken)
     {
@@ -563,6 +728,7 @@ public sealed partial class Page
         }
 
         var href = target.Serialize();
+        var creator = request.Creator ?? await _loop.PostAsync(engine => CreationFactsOf(engine, Dom.DomDocumentOrigin.InheritsCreator(href))).ConfigureAwait(false);
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL equal to the
         // current one with fragments excluded, and whose own fragment is non-null, keeps the document, the
@@ -593,6 +759,7 @@ public sealed partial class Page
         string finalUrl;
         PageResponse? response = null;
         var redirectCount = 0;
+        FetchResourceTiming? resourceTiming = null;
 
         // Which of HTML's read algorithms the response asked for. Everything that is not fetched — a
         // `data:` URL, `about:blank`, a captured inline body — is markup a page synthesized and is read as
@@ -611,6 +778,7 @@ public sealed partial class Page
             response = fetched.Response;
             redirectCount = fetched.RedirectCount;
             contentType = fetched.ContentType;
+            resourceTiming = fetched.Timing;
         }
         else
         {
@@ -621,13 +789,25 @@ public sealed partial class Page
         var signals = new NavigationSignals();
         var referrer = request.Referrer ?? ReferrerFor(initiatorUrl);
 
-        var commit = _loop.PostAsync(engine => Commit(
-            engine,
-            new CommitRequest(finalUrl, markup, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId,
-                // Reload also forces a new document for POST and history traversal; those retain their own navigation types.
-                NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
-                RedirectCount: redirectCount,
-                ContentType: contentType)));
+        var commit = _loop.PostAsync(engine =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_browserUiNavigation is { } ui && ui.Token == request.NavigationCancellation)
+            {
+                // Committed: from here a script navigation starts after this one rather than cancelling it.
+                _browserUiNavigation = null;
+            }
+
+            return Commit(engine,
+                new CommitRequest(finalUrl, markup, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId,
+                    // Reload also forces a new document for POST and history traversal; those retain their own navigation types.
+                    NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
+                    RedirectCount: redirectCount,
+                    ContentType: contentType,
+                    Creator: creator,
+                    NavigationState: request.NavigationState,
+                    ResourceTiming: resourceTiming));
+        });
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -690,12 +870,13 @@ public sealed partial class Page
         // be called and where the engine it is handed belongs. The engine it sees is the one the outgoing
         // document ran in — the engine that will show the new one does not exist yet — which is the same
         // engine every subresource of that document already went through.
-        var client = await _loop.PostAsync(_network.ClientFor).ConfigureAwait(false);
+        var transport = await _loop.PostAsync(engine =>
+            new DocumentTransport(_network.ClientFor(engine), engine._webApi?.TimeProvider ?? TimeProvider.System)).ConfigureAwait(false);
 
         try
         {
             return await DocumentFetch
-                .LoadAsync(_network, client, documentRequest, _requests, loaderId, cancellationToken)
+                .LoadAsync(_network, transport.Client, documentRequest, _requests, loaderId, cancellationToken, transport.Clock)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
@@ -716,6 +897,7 @@ public sealed partial class Page
 
         var documentId = _history.NextDocumentId();
         var history = request.History;
+        var from = _isInitialAboutBlank ? null : _history.Current;
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 20: navigating away from
         // the initial about:blank replaces its entry rather than pushing one. Without it every page would
@@ -728,34 +910,52 @@ public sealed partial class Page
 
         _isInitialAboutBlank = false;
 
-        switch (history)
+        if (request.NavigationType == 1 && _history.Current is { } reloaded)
         {
-            case HistoryMode.Replace:
-                _history.Replace(request.Url, documentId);
-                break;
+            _history.Rebind(reloaded.DocumentId, documentId);
+            _history.UpdateCurrentUrl(request.Url);
+        }
+        else
+        {
+            switch (history)
+            {
+                case HistoryMode.Replace:
+                    _history.Replace(request.Url, documentId);
+                    break;
 
-            case HistoryMode.Traverse:
-                // The whole cluster of entries that shared the target's document — its pushState siblings —
-                // moves to the document this load produced, so travelling among them afterwards is still a
-                // same-document traversal rather than a chain of reloads.
-                if (_history.At(request.TraversalIndex) is { } entry)
-                {
-                    _history.Rebind(entry.DocumentId, documentId);
-                }
+                case HistoryMode.Traverse:
+                    // The whole cluster of entries that shared the target's document — its pushState siblings —
+                    // moves to the document this load produced, so travelling among them afterwards is still a
+                    // same-document traversal rather than a chain of reloads.
+                    if (_history.At(request.TraversalIndex) is { } entry)
+                    {
+                        _history.Rebind(entry.DocumentId, documentId);
+                    }
 
-                _history.MoveTo(request.TraversalIndex);
-                break;
+                    _history.MoveTo(request.TraversalIndex);
+                    break;
 
-            default:
-                _history.Push(request.Url, documentId);
-                break;
+                default:
+                    _history.Push(request.Url, documentId);
+                    break;
+            }
         }
 
-        var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer));
+        if (_history.Current is { } currentEntry)
+        {
+            currentEntry.Origin = Dom.DomDocumentOrigin.InheritsCreator(request.Url)
+                ? request.Creator?.Origin ?? Dom.DomDocumentOrigin.Opaque() : Dom.DomDocumentOrigin.FromUrl(request.Url);
+            if (request.NavigationState is not null) currentEntry.NavigationState = request.NavigationState;
+        }
+        _history.Activate(from, request.NavigationType == 1 ? "reload" : history == HistoryMode.Traverse ? "traverse"
+            : history == HistoryMode.Replace ? "replace" : "push");
+        var inheritedOrigin = Dom.DomDocumentOrigin.InheritsCreator(request.Url) ? request.Creator?.Origin.Serialized : null;
+        var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer, inheritedOrigin));
         var runtime = PageRuntime.Find(engine)!;
         runtime.NavigationType = request.NavigationType;
         runtime.NavigationRedirectCount = request.RedirectCount;
-        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType);
+        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId,
+            request.ContentType, request.Creator, request.ResourceTiming);
 
         if (history == HistoryMode.Traverse)
         {
@@ -787,7 +987,7 @@ public sealed partial class Page
         {
             return;
         }
-
+        runtime.IsUnloading = true;
         if (_load is not null && engine._webApi?.GlobalEventTarget is { } window)
         {
             var pageHide = PageEvents.Create(runtime, "pagehide");
@@ -796,6 +996,7 @@ public sealed partial class Page
 
             PageEvents.Fire(runtime, window, "unload");
         }
+        runtime.Dom.ExistingNavigation?.Unload();
 
         // After the events, because a pagehide listener sending a beacon should reach the network, and before
         // the engine is disposed, because this is what abandons whatever it still had in flight.
@@ -817,12 +1018,19 @@ public sealed partial class Page
         string referrer,
         Action<NavigationPhase>? onPhase,
         string loaderId,
-        string contentType = Dom.DomContentType.Html)
+        string contentType = Dom.DomContentType.Html,
+        DocumentCreationFacts? creator = null,
+        FetchResourceTiming? resourceTiming = null)
     {
         // The previous document goes first, and the page describes nothing until the new one exists. The
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
         // that throws leaves a page with no document rather than one describing a document that is gone.
         var previous = _load;
+        // Header order matters. This preference belongs only to the response's new document.
+        var defaultStyle = response?.Headers.LastOrDefault(header =>
+            string.Equals(header.Name, "default-style", StringComparison.OrdinalIgnoreCase)).Value;
+        var creationOrigin = Dom.DomDocumentOrigin.InheritsCreator(url)
+            ? creator?.Origin ?? Dom.DomDocumentOrigin.Opaque() : Dom.DomDocumentOrigin.FromUrl(url);
         _load = null;
         _url = url;
         _referrer = referrer;
@@ -833,8 +1041,11 @@ public sealed partial class Page
         var runtime = PageRuntime.Find(engine)!;
         runtime.DocumentUrl = url;
         runtime.Referrer = referrer;
+        runtime.DocumentCreationOrigin = creationOrigin;
+        runtime.DocumentCreationBaseUrl = Dom.DomDocumentOrigin.InheritsCreator(url) ? creator?.BaseUrl : null;
         _loaderId = loaderId;
         CancelNetworkIdle();
+        PerformanceNavigation.Begin(runtime, resourceTiming);
 
         // The engine exists and its window is installed, and nothing of the document has been parsed. This is
         // where a protocol target replaces its engine, re-installs the bindings a client added and runs the
@@ -856,14 +1067,16 @@ public sealed partial class Page
             {
                 Reached(runtime, phase, loaderId);
                 onPhase?.Invoke(phase);
-            });
+            }, Dom.DomDocumentMetadata.ParseLastModified(response?.Header("last-modified")), defaultStyle);
 
             _load = load;
-            _mainFrame = Frame.Build(this, load.Document, url);
+            _mainFrame = Frame.Build(this, runtime, load.Document, url);
             return null;
         }
         finally
         {
+            runtime.DocumentCreationOrigin = null;
+            runtime.DocumentCreationBaseUrl = null;
             _observer?.DocumentLoadFinished();
         }
     }
@@ -893,7 +1106,7 @@ public sealed partial class Page
         }
 
         observer.Phase(phase, loaderId);
-        ReportTitle(runtime.Document?.Title ?? "");
+        ReportTitle(Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document));
 
         if (phase == NavigationPhase.Loaded)
         {
@@ -931,6 +1144,7 @@ public sealed partial class Page
 
         _url = url;
         runtime.DocumentUrl = url;
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
         SignalNavigation();
         _observer?.SameDocumentNavigated(url, _loaderId);
 
@@ -952,6 +1166,7 @@ public sealed partial class Page
         var url = _history.Current?.Url ?? previous;
         _url = url;
         runtime.DocumentUrl = url;
+        if (runtime.Document is { } document) Dom.DomDocumentState.SelectNavigationTarget(runtime.Dom, document);
         SignalNavigation();
         _observer?.SameDocumentNavigated(url, _loaderId);
 
@@ -960,13 +1175,16 @@ public sealed partial class Page
     }
 
     private void FirePopState(Engine engine)
+        => FirePopState(engine, _history.Current?.State);
+
+    private static void FirePopState(Engine engine, SerializationRecord? serializedState)
     {
         if (PageRuntime.Find(engine) is not { } runtime || engine._webApi?.GlobalEventTarget is not { } window)
         {
             return;
         }
 
-        var state = _history.Current?.State is { } record
+        var state = serializedState is { } record
             ? new Jint.WebApi.StructuredClone.StructuredDeserializer(engine, engine._mainRealm, sharedRecord: true).Deserialize(record)
             : JsValue.Null;
 
@@ -1120,7 +1338,24 @@ public sealed partial class Page
         string? InitiatorUrl = null,
         bool? FirstHopAllowed = null,
         string? InlineContent = null,
-        Exception? PreflightFailure = null);
+        Exception? PreflightFailure = null,
+        bool NavigationEventDispatched = false,
+        SerializationRecord? NavigationState = null,
+        long NavigationId = 0,
+        long SourceDocumentId = -1,
+        bool BrowserUi = false,
+        DocumentCreationFacts? Creator = null,
+        CancellationToken NavigationCancellation = default);
+
+    private DocumentCreationFacts CreationFactsOf(Engine engine, bool includeBaseUrl)
+        => _load is { } load
+            ? new DocumentCreationFacts(Dom.DomDocumentState.Of(load.Document).Origin,
+                includeBaseUrl ? Dom.DomDocumentState.BaseUri(load.Document, engine.Constraints.Check,
+                    PageRuntime.Find(engine)!.Cancellation?.Token ?? CancellationToken.None) : null)
+            : new DocumentCreationFacts(Dom.DomDocumentOrigin.Opaque(), null);
+
+    private sealed record DocumentCreationFacts(Dom.DomDocumentOrigin Origin, string? BaseUrl);
+    private sealed record DocumentTransport(System.Net.Http.HttpClient Client, TimeProvider Clock);
 
     /// <summary>What the loop is handed once the document's bytes are in.</summary>
     private sealed record CommitRequest(
@@ -1134,7 +1369,10 @@ public sealed partial class Page
         string LoaderId,
         int NavigationType = 0,
         int RedirectCount = 0,
-        string ContentType = Dom.DomContentType.Html);
+        string ContentType = Dom.DomContentType.Html,
+        DocumentCreationFacts? Creator = null,
+        SerializationRecord? NavigationState = null,
+        FetchResourceTiming? ResourceTiming = null);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

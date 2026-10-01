@@ -5879,6 +5879,7 @@ none of it changes an engine that does not.
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](advanced-hosting.md) |
 | A synchronous, bounded callback in a host-created realm | `engine.Advanced.WithRealm(realm, action)` | [§5.33](#5-33-a-host-can-run-a-bounded-callback-in-one-of-its-realms-3917) |
 | Web Locks — `navigator.locks`, in a lock space several engines can share | in `UseWebApis()` already; `options.UseWebLocks(manager)` names the shared space | [§5.37](#5-37-several-engines-can-share-one-lock-space-navigator-locks) |
+| IndexedDB databases, transactions, indexes and cursors (.NET 8+) | `WebApiFeatures.IndexedDb` (`1 << 27`), opt-in; automatic in `Jint.Browser` with `BrowserOptions.MaxIndexedDbBytes` (50 MiB per origin) | [IndexedDB](web-apis/indexeddb.md) |
 | Buffer-view construction mode | `value.IsLengthTrackingArrayBufferView()` | [§5.38](#5-38-reading-a-buffer-view-s-length-tracking-mode) |
 
 The `LazyJsString` row is the only one that replaces an existing spelling rather than adding a capability, so it is

@@ -19,8 +19,8 @@ namespace Jint.WebApi.Performance;
 /// </para>
 /// <para>
 /// The class is abstract because the specification never creates a bare <c>PerformanceEntry</c>: the
-/// interface has no constructor operation and every entry is of some registered entry type. The two Jint
-/// implements are <see cref="JsPerformanceMark"/> and <see cref="JsPerformanceMeasure"/>, and each is a CLR
+/// interface has no constructor operation and every entry is of some registered entry type.
+/// <see cref="JsPerformanceMark"/> and <see cref="JsPerformanceMeasure"/> each have a CLR
 /// type of its own precisely so the <c>detail</c> getter on either prototype can brand-check for its own
 /// interface rather than for "an entry that happens to carry a detail".
 /// </para>
@@ -45,9 +45,7 @@ internal abstract class JsPerformanceEntry : ObjectInstance
     internal JsString EntryName { get; }
 
     /// <summary>
-    /// https://w3c.github.io/performance-timeline/#dom-performanceentry-entrytype — <c>"mark"</c> or
-    /// <c>"measure"</c>, the two entry types https://w3c.github.io/timing-entrytypes-registry/ defines for a
-    /// runtime with no document to navigate.
+    /// https://w3c.github.io/performance-timeline/#dom-performanceentry-entrytype.
     /// </summary>
     internal abstract JsString EntryType { get; }
 
@@ -55,7 +53,7 @@ internal abstract class JsPerformanceEntry : ObjectInstance
     internal double StartTime { get; }
 
     /// <summary>https://w3c.github.io/performance-timeline/#dom-performanceentry-duration.</summary>
-    internal double Duration { get; }
+    internal virtual double Duration { get; }
 
     /// <summary>
     /// The already-cloned <c>detail</c>, or <c>null</c>. It is an attribute of <c>PerformanceMark</c> and
@@ -63,6 +61,7 @@ internal abstract class JsPerformanceEntry : ObjectInstance
     /// identical, so it lives here and the brand check that guards it lives on each prototype.
     /// </summary>
     internal JsValue Detail { get; }
+    internal JsPerformance? Performance { get; set; }
 }
 
 /// <summary>

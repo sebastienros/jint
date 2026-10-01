@@ -1,20 +1,20 @@
 using System.Collections;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
 /// Adapts an element's <c>data-*</c> attributes to HTML's <c>DOMStringMap</c> naming algorithms.
 /// </summary>
-internal sealed class DomStringMapAdapter : IStringMap
+internal sealed class DomStringMapAdapter : IEnumerable<KeyValuePair<string, string>>
 {
     private const string Prefix = "data-";
     private const string Member = "DOMStringMap";
 
     private readonly DomRealm _realm;
-    private readonly IElement _element;
+    private readonly Element _element;
 
-    internal DomStringMapAdapter(DomRealm realm, IElement element)
+    internal DomStringMapAdapter(DomRealm realm, Element element)
     {
         _realm = realm;
         _element = element;
@@ -56,14 +56,19 @@ internal sealed class DomStringMapAdapter : IStringMap
                     "the property name '" + name + "' does not produce a valid attribute name.");
             }
 
+            DomFailures.PrepareMutation(_realm, _element);
             _element.SetAttribute(attributeName, value ?? "");
+            DomFailures.CompleteMutation(_realm, _element);
         }
     }
 
     public void Remove(string name)
     {
         // https://html.spec.whatwg.org/multipage/dom.html#dom-domstringmap-removeitem
-        _element.RemoveAttribute(ToAttributeName(name));
+        var attributeName = ToAttributeName(name);
+        DomFailures.PrepareMutation(_realm, _element);
+        _element.RemoveAttribute(attributeName);
+        DomFailures.CompleteMutation(_realm, _element);
     }
 
     public IEnumerator<KeyValuePair<string, string>> GetEnumerator()

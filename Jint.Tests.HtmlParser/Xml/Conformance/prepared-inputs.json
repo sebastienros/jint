@@ -1,0 +1,62 @@
+[
+  {
+    "key": "xmlconf/japanese/japanese.xml#pr-xml-euc-jp",
+    "inputPath": "xmlconf/japanese/pr-xml-euc-jp.xml",
+    "rawSha256": "7b5b7cc9ce672e901c08daa9eadd5e4ff59191980c91f1db6acabab72b6dc655",
+    "codec": "euc_jp",
+    "decodedUtf8Sha256": "14c452dc9e91d1ba7ef9b55e76a71a8ce75fd725142b105a895267ee44979742",
+    "utf16Length": 156577,
+    "declared": "euc-jp",
+    "decision": "prepared-euc-jp"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#pr-xml-iso-2022-jp",
+    "inputPath": "xmlconf/japanese/pr-xml-iso-2022-jp.xml",
+    "rawSha256": "34b947550cf03967736493469e1c7a4ef9ae286fccbc73e1df564069198069ab",
+    "codec": "iso2022_jp",
+    "decodedUtf8Sha256": "0a9030423eaca147b62b6776030d1720851650f28fb06220b9df9670976706c2",
+    "utf16Length": 156582,
+    "declared": "iso-2022-jp",
+    "decision": "prepared-iso-2022-jp"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#pr-xml-shift_jis",
+    "inputPath": "xmlconf/japanese/pr-xml-shift_jis.xml",
+    "rawSha256": "96aa401656333ed6d7d6a3439b9e456ccc57c1f7722d53065eae5fe0fc6b7dee",
+    "codec": "shift_jis",
+    "decodedUtf8Sha256": "a71d13642192cafb8d2d23c1520b2716d7da27deaf7b1ff4465584c9195d9263",
+    "utf16Length": 156580,
+    "declared": "shift_jis",
+    "decision": "prepared-shift-jis"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#weekly-euc-jp",
+    "inputPath": "xmlconf/japanese/weekly-euc-jp.xml",
+    "rawSha256": "44080d84744259ba1410b23b9cd70e83e02f6251a1ca37682e2a40c41d546537",
+    "codec": "euc_jp",
+    "decodedUtf8Sha256": "7a5daf882eafc098a90542f82e4508e52f23d954dde2d24bd97b68504daad0f7",
+    "utf16Length": 1610,
+    "declared": "euc-jp",
+    "decision": "prepared-euc-jp"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#weekly-iso-2022-jp",
+    "inputPath": "xmlconf/japanese/weekly-iso-2022-jp.xml",
+    "rawSha256": "834e76f4f57ff2d3c77ad69284091551e3fbf64f869e994652dfed7cebddac45",
+    "codec": "iso2022_jp",
+    "decodedUtf8Sha256": "91c5d67693e7ab7ad244d91236219552298cccaf176bf28456d3f15f89f09a9a",
+    "utf16Length": 1620,
+    "declared": "iso-2022-jp",
+    "decision": "prepared-iso-2022-jp"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#weekly-shift_jis",
+    "inputPath": "xmlconf/japanese/weekly-shift_jis.xml",
+    "rawSha256": "f16cf8b16b8fe53705964a06bd82ca4cc8d8612890f0f3e6fd7040be8d3bbb19",
+    "codec": "shift_jis",
+    "decodedUtf8Sha256": "93b8781d0c9bc7624bec37f44c71ef791c641451afcff4569a51eaea8163ba86",
+    "utf16Length": 1616,
+    "declared": "Shift_JIS",
+    "decision": "prepared-shift-jis"
+  }
+]

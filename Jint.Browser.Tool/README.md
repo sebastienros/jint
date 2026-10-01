@@ -1,12 +1,12 @@
 # jint-browser
 
 A headless browser on the command line, from [Jint](https://github.com/sebastienros/jint) and
-[AngleSharp](https://anglesharp.github.io/). It parses HTML, runs a page's scripts against a real DOM,
+[Jint.HtmlParser](../Jint.HtmlParser/README.md). It parses HTML, runs a page's scripts against a real DOM,
 follows its network, and answers what the page turned out to be — as markdown, as text, as its accessibility
 tree, or over the Chrome DevTools Protocol so that Puppeteer and Playwright can drive it.
 
-**It renders nothing.** There is no layout, no pixels, no screenshots and no PDFs, and there is no browser to
-download: it runs in one process. What it costs is a
+**It renders nothing.** Geometry comes from a synthetic flat box model; there are no painted pixels,
+screenshots or PDFs, and there is no browser to download: it runs in one process. What it costs is a
 fraction of Chromium's memory and CPU per page; what it costs you back is wall-clock time, because the
 JavaScript is interpreted.
 
@@ -115,6 +115,10 @@ console.log(await page.title());
 `--port 0` asks the operating system for a port and the banner says which. **The endpoint is
 unauthenticated**, exactly as it is in Chrome: anything that can reach it can run script in this process, so
 `--host` defaults to `127.0.0.1` and should stay there.
+
+`--no-images` fetches no image at all, which is what a crawler that only reads the DOM wants: each `<img>`
+is still listed among the page's requests with the reason it was not fetched, but no socket is opened and
+the element fires neither `load` nor `error`, so `img.complete` stays `false`. `fetch` and `eval` take it too.
 
 ## Serving a browser to an agent
 

@@ -280,3 +280,82 @@ internal sealed class JsStorageEvent : JsEvent
         StorageArea = storageArea;
     }
 }
+
+/// <summary>
+/// A <c>ToggleEvent</c> instance — a popover's or a dialog's <c>beforetoggle</c> and <c>toggle</c>, and a
+/// <c>details</c> element's <c>toggle</c>.
+/// <para>
+/// https://html.spec.whatwg.org/multipage/interaction.html#the-toggleevent-interface
+/// </para>
+/// </summary>
+internal sealed class JsToggleEvent : JsEvent
+{
+    internal JsToggleEvent(Engine engine, JsString type, EventInit init, double timeStamp, string oldState, string newState, JsEventTarget? source)
+        : base(engine, type, init, timeStamp)
+    {
+        OldState = oldState;
+        NewState = newState;
+        Source = source;
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/interaction.html#dom-toggleevent-oldstate.</summary>
+    internal string OldState { get; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/interaction.html#dom-toggleevent-newstate.</summary>
+    internal string NewState { get; }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/interaction.html#dom-toggleevent-source — the element that
+    /// caused the toggle, which the getter retargets against the current target.
+    /// </summary>
+    internal JsEventTarget? Source { get; }
+
+    /// <summary>
+    /// A trusted <c>ToggleEvent</c> in <paramref name="dom"/>'s realm, which is what HTML's "fire an event
+    /// named <i>e</i> using <c>ToggleEvent</c>" builds for a dialog or a details element.
+    /// </summary>
+    internal static JsToggleEvent CreateTrusted(Dom.DomRealm dom, string type, string oldState, string newState, bool cancelable)
+    {
+        var events = BrowserEventRealm.Of(dom.Engine, dom.OwningRealm);
+        var created = new JsToggleEvent(
+            dom.Engine,
+            JsString.Create(type),
+            new EventInit(Bubbles: false, Cancelable: cancelable, Composed: false),
+            EventConstructor.TimeStampNow(dom.Engine),
+            oldState,
+            newState,
+            source: null)
+        {
+            IsTrusted = true,
+        };
+
+        created._prototype = events.PrototypeOf(BrowserEventInterfaces.ToggleEvent);
+        return created;
+    }
+}
+
+/// <summary>
+/// A <c>CommandEvent</c> instance.
+/// <para>
+/// https://html.spec.whatwg.org/multipage/interaction.html#the-commandevent-interface
+/// </para>
+/// </summary>
+/// <remarks>
+/// A page can construct and dispatch one; the runtime fires none, because a <c>commandfor</c> button runs no
+/// command here (see <c>BrowserFormDefaults</c>, which only stops such a button submitting its form).
+/// </remarks>
+internal sealed class JsCommandEvent : JsEvent
+{
+    internal JsCommandEvent(Engine engine, JsString type, EventInit init, double timeStamp, JsEventTarget? source, string command)
+        : base(engine, type, init, timeStamp)
+    {
+        Source = source;
+        Command = command;
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/interaction.html#dom-commandevent-source.</summary>
+    internal JsEventTarget? Source { get; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/interaction.html#dom-commandevent-command.</summary>
+    internal string Command { get; }
+}

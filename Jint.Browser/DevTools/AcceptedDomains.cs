@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Session;
@@ -71,13 +73,14 @@ internal sealed class PerformanceDomain : Jint.DevTools.Domains.PerformanceDomai
         EmptyParameters parameters,
         CommandContext context)
     {
-        var document = PageRuntime.Find(_target.Runtime.Engine)?.Document;
+        var runtime = PageRuntime.Find(_target.Runtime.Engine);
+        var document = runtime?.Document;
 
         Jint.DevTools.Protocol.Performance.Metric[] metrics =
         [
             Metric("Timestamp", Stopwatch.GetTimestamp() / (double) Stopwatch.Frequency),
             Metric("Documents", document is null ? 0 : 1),
-            Metric("Nodes", document is null ? 0 : Count(document)),
+            Metric("Nodes", document is null ? 0 : Count(runtime!.Dom, document)),
         ];
 
         return new ValueTask<Jint.DevTools.Protocol.Performance.GetMetricsResponse>(
@@ -87,24 +90,30 @@ internal sealed class PerformanceDomain : Jint.DevTools.Domains.PerformanceDomai
     private static Jint.DevTools.Protocol.Performance.Metric Metric(string name, double value)
         => new() { Name = name, Value = value };
 
-    /// <summary>Every node of the document, counted with an explicit stack because the depth is a stranger's.</summary>
-    private static int Count(AngleSharp.Dom.INode root)
+    /// <summary>Every ordinary node of the document, counted through bounded native links without recursion.</summary>
+    private static int Count(DomRealm realm, Node root)
     {
-        var pending = new Stack<AngleSharp.Dom.INode>();
-        pending.Push(root);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
         var seen = 0;
-
-        while (pending.Count > 0)
+        Node? current = root;
+        while (current is not null)
         {
-            var current = pending.Pop();
+            work.Step();
             seen++;
-
-            foreach (var child in current.ChildNodes)
+            if (current.FirstChild is { } child)
             {
-                pending.Push(child);
+                current = child;
+                continue;
             }
+            while (!ReferenceEquals(current, root) && current.NextSibling is null)
+            {
+                work.Step();
+                current = current.ParentNode!;
+            }
+            current = ReferenceEquals(current, root) ? null : current.NextSibling;
         }
-
+        work.Check();
         return seen;
     }
 }
@@ -119,6 +128,37 @@ internal sealed class PerformanceDomain : Jint.DevTools.Domains.PerformanceDomai
 /// it errors; it then waits for nothing, so an empty stream is the truthful answer rather than a gap.
 /// </remarks>
 internal sealed class AuditsDomain : Jint.DevTools.Domains.AuditsDomainBase
+{
+    /// <inheritdoc/>
+    protected override async ValueTask<EmptyResult> EnableAsync(EmptyParameters parameters, CommandContext context)
+    {
+        await MarkEnabledAsync(context).ConfigureAwait(false);
+        return EmptyResult.Instance;
+    }
+
+    /// <inheritdoc/>
+    protected override async ValueTask<EmptyResult> DisableAsync(EmptyParameters parameters, CommandContext context)
+    {
+        await MarkDisabledAsync(context).ConfigureAwait(false);
+        return EmptyResult.Instance;
+    }
+}
+
+/// <summary>
+/// The <c>Inspector</c> domain, accepted and reporting nothing.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Its events say that a target's renderer crashed or reloaded after a crash, or that the debugging
+/// connection is about to be torn down. There is no renderer process here to lose, and a detach is already
+/// reported as <c>Target.detachedFromTarget</c>. chromedp enables the domain on every page it attaches to
+/// and abandons the attachment if it errors, so an empty stream is the truthful answer rather than a gap.
+/// </para>
+/// <para>
+/// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Inspector/"/>.
+/// </para>
+/// </remarks>
+internal sealed class InspectorDomain : Jint.DevTools.Domains.InspectorDomainBase
 {
     /// <inheritdoc/>
     protected override async ValueTask<EmptyResult> EnableAsync(EmptyParameters parameters, CommandContext context)

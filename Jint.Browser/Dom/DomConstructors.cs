@@ -1,7 +1,5 @@
 using System.Globalization;
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Xml.Parser;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 
@@ -52,10 +50,10 @@ internal static class DomConstructors
     private static readonly Func<JsValue, JsValue[], JsValue> _processingInstruction =
         DomFailures.Guard("ProcessingInstruction", static (receiver, arguments) =>
         {
-            var self = DomBindings.Bind<IDocument>(receiver, "ProcessingInstruction");
+            var self = DomBindings.Bind<Document>(receiver, "ProcessingInstruction");
             var target = DomConvert.RequiredText(arguments, 0, "ProcessingInstruction");
             var data = DomConvert.OptionalText(arguments, 1, string.Empty)!;
-            return self.Realm.WrapNode(DomProcessingInstructions.Create(self.Target, target, data));
+            return self.Realm.WrapNode(self.Target.CreateProcessingInstruction(target, data));
         });
 
     /// <summary>Required constructor arguments absent from AngleSharp's interface metadata.</summary>
@@ -76,7 +74,9 @@ internal static class DomConstructors
     {
         if (ReferenceEquals(definition, DomInterfaces.Document))
         {
-            instance = (ObjectInstance) realm.Wrap(NewXmlDocument(), DomInterfaces.Document);
+            var document = NewXmlDocument();
+            DomDocumentMetadata.Initialize(document, DomDocumentMetadata.CreatorOrigin(realm));
+            instance = (ObjectInstance) realm.Wrap(document, DomInterfaces.Document);
             return true;
         }
 
@@ -112,7 +112,7 @@ internal static class DomConstructors
         {
             // The new range's start and end are (that document, 0), which is what AngleSharp's own
             // CreateRange answers.
-            instance = (ObjectInstance) realm.Wrap(NodeDocument(realm).CreateRange());
+            instance = (ObjectInstance) realm.Wrap(new DomRange(NodeDocument(realm)));
             return true;
         }
 
@@ -131,7 +131,7 @@ internal static class DomConstructors
     /// <summary>https://html.spec.whatwg.org/multipage/embedded-content.html#dom-image.</summary>
     private static DomNodeObject ConstructImage(DomRealm realm, JsValue[] arguments)
     {
-        var image = NodeDocument(realm).CreateElement(NamespaceNames.HtmlUri, "img");
+        var image = NodeDocument(realm).CreateElementNS(Namespaces.Html, "img");
 
         if (arguments.Length > 0)
         {
@@ -151,8 +151,13 @@ internal static class DomConstructors
     }
 
     /// <summary>The current global object's associated <c>Document</c>, or an empty one when there is none.</summary>
-    private static IDocument NodeDocument(DomRealm realm)
-        => realm.Document ?? Runtime.PageRuntime.Find(realm.Engine)?.Document ?? NewXmlDocument();
+    private static Document NodeDocument(DomRealm realm)
+    {
+        if (realm.Document is { } document) return document;
+        document = NewXmlDocument();
+        DomDocumentMetadata.Initialize(document, DomDocumentMetadata.CreatorOrigin(realm));
+        return document;
+    }
 
     private static string Data(JsValue[] arguments)
         => DomConvert.OptionalText(arguments, 0, string.Empty)!;
@@ -168,9 +173,6 @@ internal static class DomConstructors
     /// own "content type: application/xml"; <c>createDocument</c> derives one from the namespace. See
     /// <see cref="DomContentType"/> for why it cannot simply be set on the document.
     /// </param>
-    internal static IDocument NewXmlDocument(string contentType = DomContentType.Xml)
-        => new XmlParser(
-                new XmlParserOptions { IsSuppressingErrors = true },
-                BrowsingContext.New(DomContentType.Declaring(Views.ViewInstaller.ParserConfiguration, contentType)))
-            .ParseDocument(string.Empty);
+    internal static Document NewXmlDocument(string contentType = DomContentType.Xml)
+        => Document.CreateXml(contentType);
 }

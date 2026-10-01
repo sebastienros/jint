@@ -43,7 +43,7 @@ internal sealed class DomNamedMapObject : NamedPropertyObject, IDomWrapper
     {
         get
         {
-            _names = _accessor.SupportedNames(DomTarget);
+            _names = _accessor.SupportedNames(DomRealm, DomTarget);
             return _names.Count;
         }
     }

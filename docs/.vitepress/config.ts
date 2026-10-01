@@ -39,6 +39,7 @@ const jintSidebar = [
           { text: "Encoding, Files, and Streams", link: "/guide/web-apis/encoding-files-and-streams" },
           { text: "Fetch and Networking", link: "/guide/web-apis/fetch-and-networking" },
           { text: "Storage and Cache", link: "/guide/web-apis/storage-and-cache" },
+          { text: "IndexedDB", link: "/guide/web-apis/indexeddb" },
           { text: "Crypto and Performance", link: "/guide/web-apis/crypto-and-performance" },
           { text: "Web Locks", link: "/guide/web-apis/locks" },
           { text: "Workers", link: "/guide/web-apis/workers" }

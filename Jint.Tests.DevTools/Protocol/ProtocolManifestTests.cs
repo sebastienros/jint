@@ -67,7 +67,7 @@ public class ProtocolManifestTests
     /// </remarks>
     private static readonly string[] PageDomains =
     [
-        "Page", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "DOM", "Input",
+        "Page", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "Inspector", "DOM", "Input",
         "Accessibility", "CSS", "Security", "Overlay", "Jint",
     ];
 

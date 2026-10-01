@@ -241,15 +241,16 @@ public sealed class WindowTests
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<iframe id='f'></iframe>");
 
-        // The conversion table used to drop every IWindow-returning member, so `contentWindow` did not exist
-        // at all and a page testing it read `undefined`. Web IDL types it `WindowProxy?`, and this browser
-        // does not script frames, so the honest answer is null — which is also what a browser answers for a
-        // frame with no browsing context yet.
+        // HTML's iframe insertion creates an initial blank child navigable. The WindowProxy? getter
+        // answers that child's window, while a never-connected iframe has no child navigable.
+        // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#dom-iframe-contentwindow
         (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow') !== undefined")).Should().BeTrue();
-        (await page.EvaluateAsync<string>("String(document.getElementById('f').contentWindow)")).Should().Be("null");
+        (await page.EvaluateAsync<string>("String(document.getElementById('f').contentWindow)")).Should().Be("[object Window]");
+        (await page.EvaluateAsync<bool>("document.getElementById('f').contentWindow === document.getElementById('f').contentDocument.defaultView")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.getElementById('f').contentWindow !== parent")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.createElement('iframe').contentWindow === null")).Should().BeTrue();
 
-        // The one window this engine can answer with is its own, and it is the global object itself rather
-        // than a second object claiming to be a window.
+        // The principal document's defaultView remains its own global object.
         (await page.EvaluateAsync<bool>("document.defaultView === window")).Should().BeTrue();
         (await page.EvaluateAsync<bool>("document.defaultView === globalThis")).Should().BeTrue();
     }
@@ -266,6 +267,7 @@ public sealed class WindowTests
             "getComputedStyle(document.getElementById('p')).getPropertyValue('font-weight')");
 
         weight.Should().Be("bold");
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[0].style.fontWeight")).Should().Be("bold");
     }
 
     [Test]
@@ -300,12 +302,12 @@ public sealed class WindowTests
     }
 
     [Test]
-    public async Task WindowOpenAnswersNull()
+    public async Task WindowDefaultsAndSelectionRemainAvailable()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        (await page.EvaluateAsync("window.open('/other')")).Should().BeNull();
+        (await page.EvaluateAsync("window.opener")).Should().BeNull();
         (await page.EvaluateAsync("window.event")).Should().BeNull();
         (await page.EvaluateAsync<bool>("window.closed")).Should().BeFalse();
 
@@ -402,7 +404,7 @@ public sealed class WindowTests
               byId.tagName,
               window.byId === document.getElementById('byId'),
               byName.tagName,
-              frame.tagName,
+              frame === document.querySelector('iframe').contentWindow,
               typeof window.notAKind,
               'byId' in window,
               Object.getOwnPropertyNames(window).includes('byId')
@@ -410,7 +412,7 @@ public sealed class WindowTests
             """))
             // `name` is a supported property name only for the element kinds HTML lists, so a `<p name>` is
             // not one; and the names live on the prototype chain, not on the window itself.
-            .Should().Be("DIV,true,FORM,IFRAME,undefined,true,false");
+            .Should().Be("DIV,true,FORM,true,undefined,true,false");
     }
 
     /// <summary>

@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -23,7 +23,7 @@ namespace Jint.Browser.Dom;
 /// </para>
 /// <para>
 /// <b>What is translated, and what is deliberately left alone.</b> An <c>AngleSharp.Dom.DomException</c>
-/// becomes the <c>DOMException</c> its <see cref="DomError"/> names; an <see cref="ArgumentException"/> — a
+/// becomes the <c>DOMException</c> its <c>DomError</c> names; an <see cref="ArgumentException"/> — a
 /// WebIDL conversion the CLR signature refused — becomes a <c>TypeError</c>; a
 /// <see cref="NotSupportedException"/> or <see cref="NotImplementedException"/> becomes
 /// <c>NotSupportedError</c>. <b>Everything else keeps the engine's own interop behaviour</b>, which is a
@@ -46,38 +46,49 @@ internal static class DomFailures
         Func<JsValue, JsValue[], JsValue> implementation)
     {
         var guarded = Guard(member, implementation);
-        if (member is "CharacterData.data" or "Node.nodeValue" or "Node.textContent"
-            or "CharacterData.appendData" or "CharacterData.insertData" or "CharacterData.deleteData" or "CharacterData.replaceData")
-        {
-            return (receiver, arguments) =>
-            {
-                using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-                var result = guarded(receiver, arguments);
-                if (receiver is IDomWrapper { DomTarget: IProcessingInstruction instruction })
-                {
-                    DomProcessingInstructionAttributes.DataChanged(instruction);
-                }
-                return result;
-            };
-        }
-
-        if (member is "Range.deleteContents")
-        {
-            return (receiver, arguments) =>
-            {
-                using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-                var replacement = new DomProcessingInstructionAttributes.RangeDataReplacement((receiver as IDomWrapper)?.DomTarget as IRange);
-                var result = guarded(receiver, arguments);
-                replacement.Complete();
-                return result;
-            };
-        }
 
         return (receiver, arguments) =>
         {
-            using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-            return guarded(receiver, arguments);
+            var wrapper = receiver as IDomWrapper;
+            if (wrapper is not null) PrepareMutation(wrapper.DomRealm, MutationNode(wrapper));
+            using var mutation = wrapper?.DomRealm.MutateLayout() ?? default;
+            var result = guarded(receiver, arguments);
+            if (wrapper is not null) CompleteMutation(wrapper.DomRealm, MutationNode(wrapper));
+            return result;
         };
+    }
+
+    private static Node? MutationNode(IDomWrapper wrapper) => wrapper.DomTarget switch
+    {
+        Node target => target,
+        Attr attribute => attribute.OwnerElement,
+        Collections.DomNamedNodeMap attributes => attributes.Owner,
+        DomRange range => range.Start.Container.Node,
+        _ => null,
+    };
+
+    internal static void CompleteMutation(DomRealm realm, Node? node)
+    {
+        var document = node as Document ?? node?.OwnerDocument;
+        if (node is not null && document is not null)
+        {
+            var parser = Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document)?.Parser
+                ?? Runtime.PageRuntime.Find(realm.Engine)?.Parser;
+            parser?.CompleteNativeMutation(node);
+        }
+        CustomElements.CustomElementRegistry.Of(realm.Engine)?.Drain();
+        Files.FileTransferRealm.IfCreated(realm.Engine)?.FlushChanges();
+    }
+
+    internal static void PrepareMutation(DomRealm realm, Node? node)
+    {
+        Runtime.PageRuntime.Find(realm.Engine)?.Parser?.RecoverNativeMutationNotifications();
+        if (node is not null)
+        {
+            CustomElements.CustomElementRegistry.Of(realm.Engine)?.EnsureWatchingNode(node);
+            if ((node as Document ?? node.OwnerDocument) is { } document)
+                Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document)?.Parser?.EnsureWatchingNode(node);
+        }
     }
 
     /// <summary>
@@ -101,13 +112,12 @@ internal static class DomFailures
         // DOM pre-insert/adopt can move descendants before they have wrappers. Select this
         // boundary once while building the shape; ordinary reads pay no traversal or name test.
         var operation = member[(member.LastIndexOf('.') + 1)..];
-        if (operation is "appendChild" or "insertBefore" or "replaceChild"
-            or "adoptNode" or "insertAdjacentElement" or "insertNode" or "surroundContents")
+        if (operation is "adoptNode" or "insertAdjacentElement" or "insertNode" or "surroundContents")
         {
             var body = implementation;
             implementation = (receiver, args) =>
             {
-                if (receiver is IDomWrapper wrapper && wrapper.DomTarget is INode or IRange)
+                if (receiver is IDomWrapper wrapper && wrapper.DomTarget is Node or DomRange)
                 {
                     if (operation == "insertAdjacentElement" && args.Length > 0 && args[0].IsObject())
                     {
@@ -116,14 +126,14 @@ internal static class DomFailures
                         converted[0] = JsString.Create(TypeConverter.ToString(args[0]));
                         args = converted;
                     }
-                    var targetDocument = wrapper.DomTarget is AngleSharp.Dom.INode target
-                        ? target as AngleSharp.Dom.IDocument ?? target.Owner
+                    var targetDocument = wrapper.DomTarget is Node target
+                        ? target as Document ?? target.OwnerDocument
                         : null;
                     foreach (var argument in args)
                     {
-                        if (argument is DomNodeObject node && !ReferenceEquals(node.Node.Owner, targetDocument))
+                        if (argument is DomNodeObject { Node: { } source } && !ReferenceEquals(source.OwnerDocument, targetDocument))
                         {
-                            wrapper.DomRealm.RecordSubtree(node.Node);
+                            wrapper.DomRealm.RecordSubtree(source);
                         }
                     }
                 }
@@ -137,9 +147,9 @@ internal static class DomFailures
             implementation = (receiver, args) =>
             {
                 var result = body(receiver, args);
-                if (args.Length > 0 && receiver is DomNodeObject node)
+                if (args.Length > 0 && receiver is DomNodeObject { Node: { } treeNode } node)
                 {
-                    node.DomRealm.RecordSubtree(node.Node);
+                    node.DomRealm.RecordSubtree(treeNode);
                 }
                 return result;
             };
@@ -185,7 +195,7 @@ internal static class DomFailures
 
     /// <summary>
     /// The <a href="https://webidl.spec.whatwg.org/#idl-DOMException-error-names">error name</a> AngleSharp's
-    /// <see cref="DomError"/> stands for.
+    /// <c>DomError</c> stands for.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -200,44 +210,7 @@ internal static class DomFailures
     /// distinguished. It is recorded in <c>Dom/AGENTS.md</c>'s divergence table.
     /// </para>
     /// </remarks>
-    internal static string NameOf(DomException exception) => (DomError) exception.Code switch
-    {
-        DomError.IndexSizeError => DomExceptionNames.IndexSize,
-
-        // The two legacy-only names, spelled here rather than in DomExceptionNames because no web API in the
-        // engine raises either and AngleSharp is the only thing that does.
-        DomError.DomStringSize => "DOMStringSizeError",
-        DomError.NoDataAllowed => "NoDataAllowedError",
-
-        DomError.HierarchyRequest => DomExceptionNames.HierarchyRequest,
-        DomError.WrongDocument => DomExceptionNames.WrongDocument,
-        DomError.InvalidCharacter => DomExceptionNames.InvalidCharacter,
-        DomError.NoModificationAllowed => DomExceptionNames.NoModificationAllowed,
-        DomError.NotFound => DomExceptionNames.NotFound,
-        DomError.NotSupported => DomExceptionNames.NotSupported,
-        DomError.InUse => DomExceptionNames.InUseAttribute,
-        DomError.InvalidState => DomExceptionNames.InvalidState,
-        DomError.Syntax => DomExceptionNames.Syntax,
-        DomError.InvalidModification => DomExceptionNames.InvalidModification,
-        DomError.Namespace => DomExceptionNames.Namespace,
-        DomError.InvalidAccess => DomExceptionNames.InvalidAccess,
-        DomError.TypeMismatch => DomExceptionNames.TypeMismatch,
-        DomError.Security => DomExceptionNames.Security,
-        DomError.Network => DomExceptionNames.Network,
-        DomError.Abort => DomExceptionNames.Abort,
-        DomError.UrlMismatch => DomExceptionNames.UrlMismatch,
-        DomError.QuotaExceeded => DomExceptionNames.QuotaExceeded,
-        DomError.Timeout => DomExceptionNames.Timeout,
-        DomError.InvalidNodeType => DomExceptionNames.InvalidNodeType,
-        DomError.DataClone => DomExceptionNames.DataClone,
-
-        // AngleSharp's other constructor leaves the code 0 and puts its argument in `Name`, and its one use
-        // in the pinned assembly puts a *sentence* there ("The element has no parent."), so the name cannot
-        // be forwarded. DOM's general-purpose refusal is what such an exception becomes instead, with the
-        // sentence as the message. That one site is answered by hand — see DomHostHooks.InsertAdjacentHtml —
-        // so nothing in the pinned AngleSharp reaches this arm; it is here for the next version that does.
-        _ => DomExceptionNames.InvalidState,
-    };
+    internal static string NameOf(DomException exception) => exception.Name;
 
     /// <summary>
     /// Whether an exception is one of the four this file converts, on a receiver there is an engine to build
@@ -289,6 +262,7 @@ internal static class DomFailures
         var engine = receiver.Engine;
         var realm = (receiver as IDomWrapper)?.DomRealm ?? DomRealm.Of(engine);
 
+
         if (exception is TypeErrorException)
         {
             Throw.TypeError(realm.OwningRealm, exception.Message);
@@ -306,7 +280,7 @@ internal static class DomFailures
         // A DomException built from a string carries no message of its own — Exception.Message is then the
         // CLR's "Exception of type … was thrown." — and the string it was given is in Name instead.
         return exception is DomException dom
-            ? Refuse(realm, member, NameOf(dom), dom.Code == 0 ? dom.Name : dom.Message)
+            ? Refuse(realm, member, NameOf(dom), dom.Message)
             : Refuse(realm, member, DomExceptionNames.NotSupported, exception.Message);
     }
 }

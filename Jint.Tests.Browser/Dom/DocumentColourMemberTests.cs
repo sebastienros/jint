@@ -106,7 +106,7 @@ public sealed class DocumentColourMemberTests
                 made.documentElement.outerHTML,
               ].join('|');
             })()
-            """)).Should().Be("|||false|false|false|false|<div><body></body></div>");
+            """)).Should().Be("|||false|false|false|false|<div xmlns=\"http://www.w3.org/1999/xhtml\"><body></body></div>");
 
         page.Errors.Should().BeEmpty();
     }

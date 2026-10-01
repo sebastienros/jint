@@ -1,5 +1,6 @@
 using System.Net.Http;
 using Jint.Browser.Runtime;
+using Jint.Constraints;
 using Jint.WebApi;
 
 namespace Jint.Browser.Workers;
@@ -22,14 +23,15 @@ namespace Jint.Browser.Workers;
 /// What is added back here is exactly what a <c>DedicatedWorkerGlobalScope</c> is expected to have:
 /// <c>fetch</c> over the same client, filter and jar the page uses, and a module loader against the page's
 /// document URL. Storage is deliberately <b>not</b> given: <c>localStorage</c> is not available in a worker
-/// in any browser either. A page with no document URL to resolve against — <c>about:blank</c>, a
-/// <c>data:</c> URL — gets no module loader at all, which leaves the engine's own
-/// <c>FailFastModuleLoader</c>: such a worker fails at its first import rather than reading the file system.
+/// in any browser either. Dedicated workers from a non-network document get no module loader, leaving
+/// the engine's own <c>FailFastModuleLoader</c>. Shared workers use their already-resolved script URL,
+/// including when their first owner is an origin-inheriting <c>about:blank</c> popup.
 /// </para>
 /// <para>
-/// <b>Threads are counted and bounded by the engine, not here.</b> <c>Options.WebApi.Workers.MaxWorkers</c>
-/// is the per-engine backstop; this provider refuses nothing of its own, and it stops every thread it
-/// started when the page closes.
+/// <b>Dedicated threads are counted and bounded by the engine, not here.</b>
+/// <c>Options.WebApi.Workers.MaxWorkers</c> is the per-engine backstop; closing the page ends its dedicated
+/// connections. Shared workers reuse this pump but are counted and owned by the context's registry, so
+/// closing one page does not stop a worker still owned by another document.
 /// </para>
 /// <para>
 /// <b>A worker's turns are bounded the way a page's are.</b> <c>CreateDefaultOptions</c> replays the
@@ -76,6 +78,12 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
 
     /// <inheritdoc />
     public override Engine? CreateWorkerEngine(WorkerRequest request)
+        => CreateEngine(request, sharedUrl: null, credentials: "same-origin");
+
+    internal Engine? CreateSharedWorkerEngine(WorkerRequest request, Uri url, string credentials)
+        => CreateEngine(request, url, credentials);
+
+    private Engine? CreateEngine(WorkerRequest request, Uri? sharedUrl, string credentials)
     {
         if (_closed)
         {
@@ -85,12 +93,24 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         }
 
         var options = request.CreateDefaultOptions();
+        if (sharedUrl is not null && PageRuntime.Find(request.Parent)?.Cancellation is { } ownerCancellation)
+        {
+            // One owner's navigation must not cancel an engine still owned by another document.
+            // Other host cancellation registrations and every budget factory remain inherited.
+            options.RemoveConstraints(constraint => constraint is CancellationConstraint cancellation
+                && cancellation.Token == ownerCancellation.Token);
+        }
 
         // The grants, one at a time and each with a reason. Fetch: a worker that cannot fetch is not much of
         // a worker, and it is bounded by the same filter as everything else the page does. Messaging and
         // GlobalEvents are already on — CreateDefaultOptions adds them, because the worker global is built
         // out of them.
-        options.WebApi.Features |= WebApiFeatures.Fetch;
+        options.WebApi.Features |= WebApiFeatures.Fetch | WebApiFeatures.IndexedDb;
+        if (PageStorage.ConfigureCaches(options, _network,
+            request.Parent.Options.WebApi.Fetch.Origin ?? PageUrl.OriginOf(_page.Url)))
+        {
+            options.WebApi.Features |= WebApiFeatures.CacheApi;
+        }
 
         // The three page-sized limits, again. CopySecurityPosture carries the engine's own bounds — the
         // constraint values, the parser bounds, the module-graph bounds, the result limits — but a web-API
@@ -119,11 +139,12 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         options.WebApi.Fetch.Observer = _requests;
 #pragma warning restore JINT0002
 
-        if (Uri.TryCreate(_page.Url, UriKind.Absolute, out var baseUrl)
-            && (baseUrl.Scheme == Uri.UriSchemeHttp || baseUrl.Scheme == Uri.UriSchemeHttps))
+        Uri.TryCreate(_page.Url, UriKind.Absolute, out var documentUrl);
+        var baseUrl = sharedUrl ?? documentUrl;
+        if (baseUrl is not null && (baseUrl.Scheme == Uri.UriSchemeHttp || baseUrl.Scheme == Uri.UriSchemeHttps))
         {
             options.WebApi.Fetch.BaseUrl = baseUrl;
-            options.WebApi.Fetch.Referrer = baseUrl;
+            options.WebApi.Fetch.Referrer = documentUrl;
             options.WebApi.Fetch.Origin = baseUrl.GetLeftPart(UriPartial.Authority);
 
             options.Modules.ModuleLoader = new PageModuleLoader(
@@ -133,10 +154,15 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                 baseUrl,
                 options.WebApi.Fetch.MaxResponseBytes,
                 options.WebApi.Fetch.Timeout,
-                options.WebApi.Fetch.UserAgent);
+                options.WebApi.Fetch.UserAgent,
+                credentials,
+                sharedUrl);
         }
 
         var engine = new Engine(options);
+        PageStorage.InstallCaches(engine, opaque: false);
+        PageStorage.InstallIndexedDb(engine, _network,
+            request.Parent.Options.WebApi.Fetch.Origin ?? PageUrl.OriginOf(_page.Url));
         PageBudget.For(engine, _options);
         return engine;
     }
@@ -152,6 +178,12 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
             _live.Add(connection);
         }
 
+        StartPump(connection);
+    }
+
+    /// <summary>Uses the same pump for a context-owned worker, without enrolling it in page-wide termination.</summary>
+    internal void StartPump(WorkerConnection connection)
+    {
         var thread = new Thread(() => Pump(connection))
         {
             IsBackground = true,

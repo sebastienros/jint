@@ -1,6 +1,6 @@
 using System.Globalization;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 
 namespace Jint.Browser.Media;
@@ -54,30 +54,34 @@ internal static class ImageSourceSet
     /// <param name="runtime">The page whose viewport and media environment the selection is made against.</param>
     /// <param name="element">An <c>&lt;img&gt;</c>, or an <c>&lt;input type=image&gt;</c>, which has neither
     /// a <c>srcset</c> nor a <c>&lt;picture&gt;</c> parent and is therefore always its own <c>src</c>.</param>
-    internal static string? Select(PageRuntime runtime, IElement element)
+    internal static string? Select(PageRuntime runtime, Element element)
     {
-        if (element is not IHtmlImageElement image)
+        var work = new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+        work.Check();
+        if (element is not { NamespaceUri: Namespaces.Html, LocalName: "img" })
         {
-            return Resolve(element, element.GetAttribute(null, "src"));
+            return Resolve(runtime, element, work.Attribute(element, "src"), work);
         }
 
+        var image = element;
         var density = Density(runtime);
 
         // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set step 2: the <source>
         // elements of a <picture> **parent**, in tree order, up to the img itself. A <picture> further up is
         // not one -- `img-picture-ancestor.html` is the upstream document about exactly that -- and neither
         // is a <source> after the img, which is why this stops rather than skipping.
-        if (image.ParentElement is { } parent && parent.LocalName.Equals("picture", StringComparison.Ordinal))
+        if (image.ParentNode is Element parent && parent is { NamespaceUri: Namespaces.Html, LocalName: "picture" })
         {
-            foreach (var child in parent.Children)
+            for (var child = parent.FirstChild; child is not null; child = child.NextSibling)
             {
+                work.Step();
                 if (ReferenceEquals(child, image))
                 {
                     break;
                 }
 
-                if (child is IHtmlSourceElement source
-                    && Selected(runtime, source, source.GetAttribute(null, "srcset"), density) is { } chosen)
+                if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "source" } source
+                    && Selected(runtime, source, work.Attribute(source, "srcset"), density, work) is { } chosen)
                 {
                     return chosen;
                 }
@@ -86,23 +90,68 @@ internal static class ImageSourceSet
 
         // Step 3.1: the element's own srcset, which is consulted before its src and instead of it, and the
         // src as the last candidate of all.
-        return Selected(runtime, image, image.GetAttribute(null, "srcset"), density)
-            ?? Resolve(image, image.GetAttribute(null, "src"));
+        return Selected(runtime, image, work.Attribute(image, "srcset"), density, work)
+            ?? Resolve(runtime, image, work.Attribute(image, "src"), work);
     }
+
+    /// <summary>
+    /// Whether <paramref name="element"/> names any image source at all: a non-empty <c>src</c>, a
+    /// non-empty <c>srcset</c>, or a <c>&lt;source&gt;</c> with one in its <c>&lt;picture&gt;</c> parent.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/images.html#update-the-image-data steps 4 and 9: an element
+    /// that uses neither <c>srcset</c> nor <c>&lt;picture&gt;</c> and whose <c>src</c> is absent or empty
+    /// never obtains a request, so there is nothing to fetch and nothing to record as unfetched.
+    /// </remarks>
+    internal static bool HasCandidates(PageRuntime runtime, Element element)
+    {
+        var work = new DomReadWork(runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+        if (!IsBlank(work.Attribute(element, "src"), work))
+        {
+            return true;
+        }
+
+        if (element is not { NamespaceUri: Namespaces.Html, LocalName: "img" })
+        {
+            return false;
+        }
+
+        if (!IsBlank(work.Attribute(element, "srcset"), work))
+        {
+            return true;
+        }
+
+        if (element.ParentNode is Element parent && parent is { NamespaceUri: Namespaces.Html, LocalName: "picture" })
+        {
+            for (var child = parent.FirstChild; child is not null && !ReferenceEquals(child, element); child = child.NextSibling)
+            {
+                work.Step();
+                if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "source" } source
+                    && !IsBlank(work.Attribute(source, "srcset"), work))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsBlank(string? value, DomReadWork work) => value is null || Trim(value, work).Length == 0;
 
     /// <summary>
     /// Steps 3.4 to 3.8 for one candidate element: its <c>media</c>, its <c>type</c>, its parsed
     /// <c>srcset</c> normalised against its <c>sizes</c>, and the selection over the result.
     /// </summary>
-    private static string? Selected(PageRuntime runtime, IElement element, string? srcset, double density)
+    private static string? Selected(PageRuntime runtime, Element element, string? srcset, double density, DomReadWork work)
     {
-        if (string.IsNullOrWhiteSpace(srcset))
+        if (srcset is null || Trim(srcset, work).Length == 0)
         {
             return null;
         }
 
         // Step 3.4: a media attribute that does not match the environment takes the element out.
-        if (element.GetAttribute(null, "media") is { Length: > 0 } media
+        if (work.Attribute(element, "media") is { Length: > 0 } media
             && !MediaQuery.Matches(media, runtime.Media))
         {
             return null;
@@ -111,22 +160,22 @@ internal static class ImageSourceSet
         // Step 3.7: and so does a type this browser could not read a size out of. It is the same question
         // ImageHeader answers about the bytes, asked of the declaration instead. An attribute that is absent
         // or holds only white space states nothing and takes nothing out.
-        if (element.GetAttribute(null, "type")?.Trim() is { Length: > 0 } type && !ImageHeader.SupportsType(type))
+        if (Trim(work.Attribute(element, "type") ?? "", work) is { Length: > 0 } type && !ImageHeader.SupportsType(type))
         {
             return null;
         }
 
-        var candidates = Parse(srcset!);
+        var candidates = Parse(srcset!, work);
 
         if (candidates.Count == 0)
         {
             return null;
         }
 
-        var sourceSize = SourceSize(runtime, element.GetAttribute(null, "sizes"));
-        Normalise(candidates, sourceSize);
+        var sourceSize = SourceSize(runtime, work.Attribute(element, "sizes"), work);
+        Normalise(candidates, sourceSize, work);
 
-        return Resolve(element, Best(candidates, density));
+        return Resolve(runtime, element, Best(candidates, density, work), work);
     }
 
     /// <summary>
@@ -138,7 +187,7 @@ internal static class ImageSourceSet
     /// that one candidate invalid rather than the whole attribute, which is the forgiving direction and the
     /// one that keeps a page's other candidates usable.
     /// </remarks>
-    private static List<Candidate> Parse(string srcset)
+    private static List<Candidate> Parse(string srcset, DomReadWork work)
     {
         var candidates = new List<Candidate>();
         var position = 0;
@@ -148,6 +197,7 @@ internal static class ImageSourceSet
             // Splitting loop step 1: leading white space and commas are separators, however many there are.
             while (position < srcset.Length && (IsWhiteSpace(srcset[position]) || srcset[position] == ','))
             {
+                work.Step();
                 position++;
             }
 
@@ -164,6 +214,7 @@ internal static class ImageSourceSet
 
             while (position < srcset.Length && !IsWhiteSpace(srcset[position]))
             {
+                work.Step();
                 position++;
             }
 
@@ -178,7 +229,7 @@ internal static class ImageSourceSet
             }
             else
             {
-                descriptor = Descriptor(srcset, ref position);
+                descriptor = Descriptor(srcset, ref position, work);
             }
 
             if (url.Length == 0)
@@ -186,7 +237,7 @@ internal static class ImageSourceSet
                 continue;
             }
 
-            if (Describe(url, descriptor) is { } candidate)
+            if (Describe(url, descriptor, work) is { } candidate)
             {
                 candidates.Add(candidate);
             }
@@ -204,7 +255,7 @@ internal static class ImageSourceSet
     /// the descriptor tokenizer allows it anyway so that a future descriptor taking a function does not
     /// silently split every candidate that uses it.
     /// </remarks>
-    private static string Descriptor(string srcset, ref int position)
+    private static string Descriptor(string srcset, ref int position, DomReadWork work)
     {
         var start = position;
         var nested = false;
@@ -223,6 +274,7 @@ internal static class ImageSourceSet
             else if (character == ',')
             {
                 var text = srcset.Substring(start, position - start);
+                work.Step();
                 position++;
                 return text;
             }
@@ -231,6 +283,7 @@ internal static class ImageSourceSet
                 nested = true;
             }
 
+            work.Step();
             position++;
         }
 
@@ -246,10 +299,12 @@ internal static class ImageSourceSet
     /// and therefore selects nothing at all — it does not fall back to the first token — which is what makes
     /// a <c>&lt;source&gt;</c> carrying it drop through to the next one.
     /// </remarks>
-    private static Candidate? Describe(string url, string descriptor)
+    private static Candidate? Describe(string url, string descriptor, DomReadWork work)
     {
+        work.Check();
         var tokens = descriptor.Split([' ', '\t', '\n', '\r', '\f'], StringSplitOptions.RemoveEmptyEntries);
 
+        work.Check();
         if (tokens.Length == 0)
         {
             return new Candidate(url, Width: 0, Density: 0);
@@ -289,10 +344,11 @@ internal static class ImageSourceSet
     /// the source densities</a>: a width descriptor becomes a density against the source size, and a
     /// candidate with no descriptor at all is 1.
     /// </summary>
-    private static void Normalise(List<Candidate> candidates, double sourceSize)
+    private static void Normalise(List<Candidate> candidates, double sourceSize, DomReadWork work)
     {
         for (var i = 0; i < candidates.Count; i++)
         {
+            work.Step();
             var candidate = candidates[i];
 
             if (candidate.Density > 0)
@@ -321,13 +377,14 @@ internal static class ImageSourceSet
     /// <c>small.png</c>, which is the one outcome responsive images exist to avoid, and an automation client
     /// comparing <c>currentSrc</c> against a real browser's would read a different URL.
     /// </remarks>
-    private static string Best(List<Candidate> candidates, double density)
+    private static string Best(List<Candidate> candidates, double density, DomReadWork work)
     {
         var best = candidates[0];
         var found = false;
 
         foreach (var candidate in candidates)
         {
+            work.Step();
             // Strictly less than, so an earlier candidate wins a tie: HTML's step 1 removes the *later* of
             // two entries with the same density before anything is chosen.
             if (candidate.Density >= density && (!found || candidate.Density < best.Density))
@@ -344,6 +401,7 @@ internal static class ImageSourceSet
 
         foreach (var candidate in candidates)
         {
+            work.Step();
             if (candidate.Density > best.Density)
             {
                 best = candidate;
@@ -358,15 +416,15 @@ internal static class ImageSourceSet
     /// attribute</a>: the first entry whose media condition matches gives the source size, and the default is
     /// <c>100vw</c>.
     /// </summary>
-    private static double SourceSize(PageRuntime runtime, string? sizes)
+    private static double SourceSize(PageRuntime runtime, string? sizes, DomReadWork work)
     {
         var viewport = runtime.Media.Viewport;
 
         if (sizes is { Length: > 0 })
         {
-            foreach (var entry in sizes.Split(','))
+            foreach (var entry in SizeEntries(sizes, work))
             {
-                var trimmed = entry.Trim();
+                var trimmed = Trim(entry, work);
 
                 if (trimmed.Length == 0)
                 {
@@ -378,7 +436,7 @@ internal static class ImageSourceSet
 
                 if (trimmed.StartsWith('('))
                 {
-                    var close = MatchingParenthesis(trimmed);
+                    var close = MatchingParenthesis(trimmed, work);
 
                     if (close < 0)
                     {
@@ -386,7 +444,7 @@ internal static class ImageSourceSet
                     }
 
                     condition = trimmed.Substring(0, close + 1);
-                    length = trimmed.Substring(close + 1).Trim();
+                    length = Trim(trimmed.Substring(close + 1), work);
                 }
 
                 if (condition.Length > 0 && !MediaQuery.Matches(condition, runtime.Media))
@@ -394,7 +452,7 @@ internal static class ImageSourceSet
                     continue;
                 }
 
-                if (Length(length, viewport) is { } resolved)
+                if (Length(length, viewport, work) is { } resolved)
                 {
                     return resolved;
                 }
@@ -409,12 +467,13 @@ internal static class ImageSourceSet
     /// A media condition nests — <c>(min-width: 10px) and (max-width: 20px)</c> is one entry — so the split
     /// between the condition and the length cannot be the first <c>)</c>.
     /// </remarks>
-    private static int MatchingParenthesis(string text)
+    private static int MatchingParenthesis(string text, DomReadWork work)
     {
         var depth = 0;
 
         for (var i = 0; i < text.Length; i++)
         {
+            work.Step();
             if (text[i] == '(')
             {
                 depth++;
@@ -423,7 +482,7 @@ internal static class ImageSourceSet
             {
                 // A condition may be a conjunction of parenthesised terms; the length is what follows the
                 // last of them, which is the last ')' before a token that is not `and`/`or`/`not`/`(`.
-                var rest = text.Substring(i + 1).TrimStart();
+                var rest = Trim(text.Substring(i + 1), work);
 
                 if (rest.StartsWith("and ", StringComparison.OrdinalIgnoreCase)
                     || rest.StartsWith("or ", StringComparison.OrdinalIgnoreCase)
@@ -444,9 +503,9 @@ internal static class ImageSourceSet
     /// A <c>&lt;source-size-value&gt;</c> in CSS pixels, or <see langword="null"/> for one that needs a
     /// layout this browser has none of.
     /// </summary>
-    private static double? Length(string text, Viewport viewport)
+    private static double? Length(string text, Viewport viewport, DomReadWork work)
     {
-        text = text.Trim();
+        text = Trim(text, work);
 
         if (text.Length == 0)
         {
@@ -471,7 +530,7 @@ internal static class ImageSourceSet
                 continue;
             }
 
-            var value = text.Substring(0, text.Length - unit.Length).Trim();
+            var value = Trim(text.Substring(0, text.Length - unit.Length), work);
 
             return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && number > 0
                 ? number * scale
@@ -494,16 +553,46 @@ internal static class ImageSourceSet
     /// <c>&lt;base href&gt;</c> inside a <c>&lt;picture&gt;</c> would move; nothing else in the selection
     /// depends on which element a candidate came from.
     /// </remarks>
-    private static string? Resolve(IElement element, string? url)
+    private static string? Resolve(PageRuntime runtime, Element element, string? url, DomReadWork work)
     {
         if (string.IsNullOrEmpty(url))
         {
             return null;
         }
 
-        var baseUrl = element.BaseUri;
+        var baseUrl = DomDocumentState.BaseUri(element.OwnerDocument!, runtime.Engine.Constraints.Check, work.Token);
 
-        return string.IsNullOrEmpty(baseUrl) ? url : PageUrl.Resolve(url!, baseUrl!) ?? url;
+        work.Check();
+        var resolved = string.IsNullOrEmpty(baseUrl) ? url : PageUrl.Resolve(url!, baseUrl!) ?? url;
+        work.Check();
+        return resolved;
+    }
+
+    private static string Trim(string text, DomReadWork work)
+    {
+        var start = 0;
+        var end = text.Length;
+        while (start < end && char.IsWhiteSpace(text[start])) { work.Step(); start++; }
+        while (end > start && char.IsWhiteSpace(text[end - 1])) { work.Step(); end--; }
+        work.Check();
+        var value = text.Substring(start, end - start);
+        work.Check();
+        return value;
+    }
+
+    private static IEnumerable<string> SizeEntries(string sizes, DomReadWork work)
+    {
+        var start = 0;
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            work.Step();
+            if (sizes[i] != ',') continue;
+            yield return sizes.Substring(start, i - start);
+            start = i + 1;
+        }
+        work.Check();
+        yield return sizes.Substring(start);
+        work.Check();
     }
 
     /// <summary>One entry of a parsed <c>srcset</c>, before and after normalisation.</summary>

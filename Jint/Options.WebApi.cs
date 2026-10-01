@@ -1580,6 +1580,17 @@ public enum WebApiFeatures
     WebLocks = 1 << 26,
 
     /// <summary>
+    /// IndexedDB databases, transactions, indexes and cursors, backed by private in-memory storage.
+    /// https://w3c.github.io/IndexedDB/
+    /// </summary>
+    /// <remarks>
+    /// Opt-in, and not part of <see cref="Default"/>. Also enables <see cref="Events"/> and
+    /// <see cref="StructuredClone"/>. Requests complete as tasks on the owning engine's event loop;
+    /// hosts must pump it. Data survives a global snapshot restore but not engine disposal.
+    /// </remarks>
+    IndexedDb = 1 << 27,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,

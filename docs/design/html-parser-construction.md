@@ -1,0 +1,179 @@
+# Trusted parser construction seam
+
+Immediate native-owner prerequisite for XML core integration, shared with later HTML construction.
+This supplements [native follow-ups](html-parser-native-followups.md) and
+[D5 mutation tracking](html-parser-mutations.md). Keep public DOM factories/mutation methods unchanged.
+No parser feature flag, generic `skipValidation` argument or public unchecked API is added.
+
+## Exact internal surface
+
+Namespace `Jint.HtmlParser`. Native owner edits Document/Element/Node and adds `Dom/ParserAttribute.cs`;
+XML/HTML owners consume these members without editing their implementation:
+
+```csharp
+// Document: receiver is the actual destination node document.
+internal Element CreateParsedElement(string? namespaceUri, string localName, string? prefix);
+internal CDataSection CreateParsedCDataSection(string data);
+
+internal readonly struct ParserAttribute
+{
+    internal ParserAttribute(string? namespaceUri, string localName, string? prefix, string value);
+    internal string? NamespaceUri { get; }
+    internal string LocalName { get; }
+    internal string? Prefix { get; }
+    internal string Value { get; }
+}
+
+// Element: one initial batch, before publication; receiver has no attributes.
+internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attributes,
+    CancellationToken cancellationToken);
+// Node: resolved destination; append one newly created node, never a fragment/subtree.
+internal void AppendParsedChild(Node child);
+// H5b prerequisite: insert one newly created node before a child; null means append.
+internal void InsertParsedBefore(Node child, Node? referenceChild,
+    CancellationToken cancellationToken);
+```
+
+Names and values are owned immutable strings. Namespace absence is null, never an empty string;
+Prefix is null or nonempty. The parser supplies format-validated/resolved name components and decoded
+values, including format-specific folding/foreign adjustments already completed. It proves duplicate
+expanded attribute names absent and source attribute order final before calling the batch method.
+Native methods do not concatenate/split a qualified name, fold it again, rescan a name against the
+public factory grammar, resolve namespaces or apply another duplicate policy. Do not manufacture
+`QualifiedName.Parse` calls inside this lane.
+
+This distinction is semantic as well as performance-related. XML `<xmlns/>` is a legal no-namespace
+element; the validated element factory must preserve it even though the existing public
+`CreateElementNS(null, "xmlns")` path rejects it. XML fragments may be parsed with an HTML-owned
+context; CreateParsedCDataSection retains that actual owner without applying the public
+CreateCDataSection HTML-document prohibition. Scanner well-formedness checks, including CDATA
+termination, remain mandatory. Neither case changes the public DOM factory behavior. Include both
+regressions in native and XML integration tests.
+
+## Preconditions and effect boundaries
+
+CreateParsedElement uses the same intrinsic element initialization as other native creation paths,
+including the correct TemplateContent identity/owner for an HTML-namespace lowercase template. It
+returns a fresh detached empty element, with no user/host code invoked. A name containing a prefix is
+stored with that prefix unchanged; element and attribute NamespaceUri/LocalName/Prefix remain exact.
+
+InitializeParsedAttributes requires a fresh, unpublished element with no attributes, registrations or
+host exposure. Allocate attribute storage once for the batch, create each Attr with the receiver's
+OwnerDocument and OwnerElement, and append in supplied order. No lookup for each insertion. Perform
+required native per-attribute initialization/semantic updates in order with old value absent; do not
+leave id/class/control/style state stale merely because no observer can yet exist. Keep the operation
+linear in attributes plus their data/required intrinsic work. Never retain the caller's span/array.
+The cancellation token is required, with no default. Poll at entry, at bounded initialization intervals,
+immediately before successful return and before/after unavoidable storage allocation/copy. Any long
+intrinsic initialization loop uses the same token and bounded polling. Runtime allocation/copy itself
+is not interruptible. Cancellation may leave this fresh unpublished element partially initialized:
+the parser discards it and propagates OperationCanceledException; no rollback transaction is promised.
+
+AppendParsedChild requires a fresh, unpublished, detached node with no ordinary children, previous/
+next siblings or registration, and the same node document as the receiver. Attributes already
+initialized on a fresh Element and its empty intrinsic TemplateContent are allowed. The receiver is
+Document, Element or DocumentFragment. Child is neither Document nor DocumentFragment. Parser has
+already proved destination kind/document shape, host-inclusive acyclicity by freshness, and limits.
+The destination may already be observable (incremental parsing/document.write); freshness applies to
+the child, not the entire document. Use constant-time precondition guards/assertions for directly
+inspectable links, node kind and owner identity; do not reintroduce ancestor/document scans to verify
+the trusted proof. Misuse is an internal programming error, not a repaired/recovered DOM operation.
+
+Link at the end without CollectIncoming, ancestor walks, document-order reconstruction, detach or
+adoption. Then execute the same insertion semantic bookkeeping, invalidation and appropriate D5
+record production as ordinary insertion. Do not call the clone-only AppendClonedChild lane, suppress
+observers, or bypass future intrinsic/range/host bookkeeping. Share the post-validation insertion core
+so adding D5 consumers cannot accidentally update only the public method. The no-observer/no-host
+structural path is constant work; required observer matching or intrinsic algorithms retain their own
+costs. This contract does not promise constant cost for an observed or semantically complex insertion.
+
+Before creation, the tree builder chooses the actual insertion destination (including TemplateContent)
+and derives its node document. Create children/attributes with that owner from the outset. Neither
+parsed insertion method redirects into template contents or silently adopts a wrong-owner child.
+Fresh insertion before a table uses the H5b extension below. Existing public methods remain necessary
+for fragment drainage, reparenting, adoption-agency/foster-parent moves of existing nodes, or any child
+that was exposed, observed, previously linked or supplied by a host/custom-element constructor. Do
+not infer eligibility merely from ParentNode being null. No global freshness registry is required:
+this is a narrow internal caller proof, backed by operation-specific tests and call-site review.
+
+## Implementation and verification
+
+Native owner lands this as a separate immediate commit after coordinating current Document edits;
+metadata/template work need not finish first, but their implementation must use this same creation
+core when it lands. XML owner then replaces fresh-node public append/attribute loops and name factories
+with these calls, retaining its own namespace-map, duplicate-name, document-shape and limit checks.
+HTML consumes the same seam only where its creation algorithm establishes the preconditions.
+
+Review establishes why public append's repeated ancestor walks and repeated linear attribute lookup
+would be quadratic, and confirms those loops are absent here. Test deep fresh construction, wide
+attribute batches, links/counts/order, names/namespaces/spelling, both special XML cases above, ownership
+precondition failures before mutation, and input-array reuse after initialization. Once D5/templates
+land, test observable-parent insertion records, native invalidation and template destinations through
+the fast lane too. Add deterministic cancellation tests at entry and during a long attribute batch,
+using an internal controlled test seam/work checkpoint instead of a timer: cancellation propagates,
+no element is published/linked, and a partially initialized abandoned element is not reused. Include
+intrinsic initialization in that cancellation coverage. Reparenting/fragment tests continue through
+validated public algorithms. Do not add stopwatch thresholds or claim measured speedups;
+Release net8.0/net10.0 functional tests and direct
+complexity review suffice for this prerequisite.
+
+## H5b prerequisite: fresh insertion before a reference child
+
+The native owner implements `InsertParsedBefore` in a separate prerequisite before H5b consumes it.
+This extends the append-only construction lane and refines the instruction in
+[H5b insertion placement](html-parser-tree-construction-followups.md#4-h5b-pending-table-text-and-one-insertion-location-algorithm)
+to use ordinary insertion before a table: that requirement continues to apply to existing or exposed
+nodes, while fresh nodes satisfying this contract use this seam. No public API changes.
+
+Charging the destination depth and then calling public `InsertBefore` is insufficient. That path's
+host-inclusive ancestor validation still executes an authored, uncancellable walk, repeating the
+unchanged ancestor prefix for each fresh fostered node. Charging work does not interrupt that walk or
+remove its quadratic amplification. The parser's proved fresh-node case does not need that validation.
+
+The receiver, child and freshness requirements are those of `AppendParsedChild` above. In addition,
+`referenceChild` is null or its `ParentNode` is exactly the receiver. Resolve both destination and
+reference before creating the child; derive the child's node document from that actual destination.
+The caller proves allowed child kind, document shape, limits and host-inclusive acyclicity. In
+particular, detached links alone do not prove freshness or permit inserting a newly created template
+into its own intrinsic content. Initialized attributes and an empty intrinsic template content remain
+allowed; a fragment, subtree, previously linked/exposed node, wrong-owner node or host-supplied node
+does not become eligible because its current `ParentNode` is null.
+
+Use constant-time guards for directly inspectable receiver/child kinds, self-insertion, child links,
+registrations, owner identity and the reference's parent. Reject failed guards before changing links,
+ownership, stamps or records. Do not scan ancestors or reconstruct document order to repeat the
+trusted proof. Do not collect incoming nodes, detach, adopt, drain a fragment or silently repair a
+wrong destination/reference. No freshness registry or generic validation-suppression flag is needed.
+
+After validation, use the same `InsertValidated(child, referenceChild)` semantic core as ordinary
+insertion, with ordinary record production. It captures the previous sibling before linking, updates
+both neighboring links and first/last/count, advances native invalidation, and queues the correct D5
+addition record. The child is the actual inserted identity; there is no source-removal record because
+it is fresh. Do not call `AppendClonedChild`, link directly around semantic bookkeeping, or add an
+observer-suppression option. Shared intrinsic insertion consumers must run through this core as they
+are implemented. The receiver may already be observed or exposed.
+
+The cancellation token is required, with no default. Check it at entry and immediately before the
+semantic commit. Once linking starts, complete all required bookkeeping and record production before
+checking cancellation again, then check immediately before returning. Cancellation therefore leaves
+either no insertion, or one complete insertion with consistent links, stamps and records; it cannot
+escape between linking and bookkeeping. A completed insertion is not rolled back. This is distinct
+from the discardable, unpublished attribute-initialization batch above.
+
+The unobserved structural path is constant work. H5b charges that work once and retains its own
+resumable, cancellation-aware placement search and text preparation. Required observer matching,
+record queueing and intrinsic semantic work retain the existing atomic-native-mutation cooperative
+overshoot policy: neither this seam nor its caller promises bounded cancellation inside that existing
+semantic core or a hard latency bound. Do not disguise a new validation/traversal loop as semantic
+commit work. Do not expand this prerequisite into a redesign of public moves or observer delivery.
+
+Native tests cover insertion before the first and a middle child, null-reference append, sibling and
+first/last/count links, exact child/owner identity, and all inspectable invalid preconditions leaving
+the tree, stamps and records unchanged. Observe the destination and assert one addition record with
+the correct previous/next siblings and no removal; include an observed template-content destination
+created with its actual owner. Pre-cancelled insertion leaves no changes. A deterministic internal
+per-invocation checkpoint after the semantic commit verifies that cancellation then throws only with
+the complete insertion, stamp and record already visible; no public or retained callback is added.
+Deep repeated fresh insertion before a table must establish by structural/code review and deterministic
+work checks that no ancestor-prefix scan was reintroduced. Existing node moves and fragment insertion
+continue to exercise the ordinary validated mutation paths. No stopwatch assertions or timing claims.

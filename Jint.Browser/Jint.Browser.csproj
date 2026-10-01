@@ -5,7 +5,7 @@
 
     <!-- The whole package is net8.0+, the same floor Jint/WebApi/ and Jint.DevTools sit on and for the same
          reason: this is host surface built on the modern BCL, not engine surface a netstandard consumer
-         resolves. AngleSharp itself still ships netstandard2.0, so the floor is ours, not its. -->
+         resolves. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
@@ -13,8 +13,8 @@
 
     <IsPackable>true</IsPackable>
     <PackageId>Jint.Browser</PackageId>
-    <Description>A headless browser on Jint and AngleSharp</Description>
-    <PackageTags>javascript, interpreter, jint, anglesharp, dom, html, headless, browser</PackageTags>
+    <Description>A headless browser powered by Jint and its native HTML and CSS model</Description>
+    <PackageTags>javascript, interpreter, jint, dom, html, headless, browser</PackageTags>
 
     <Nullable>enable</Nullable>
 
@@ -26,18 +26,9 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
 
-    <!--
-      Trim and AOT analysis is OFF, deliberately, and the reason is a dependency rather than this code.
-
-      AngleSharp is not trim-annotated: it resolves services, element factories and attribute handlers by
-      reflection over its own assembly, and none of that carries a DynamicallyAccessedMembers claim. Setting
-      IsAotCompatible here would turn on IL2xxx/IL3xxx analysis for THIS compilation only — where the bindings
-      themselves are clean, because every generated member is a static lambda over an interface call and no
-      protocol type is reached by reflection — while saying nothing at all about what a published native
-      binary would do with a different host's reflection requirements. The closed Jint.Browser.Tool program
-      is now published and exercised natively by browser-tool.yml, without rooting these assemblies; that
-      evidence supports the executable, not a general trimming contract for every library consumer.
-    -->
+    <!-- The closed browser tool's native publication does not establish a general trimming contract
+         for every library embedding. Keep the existing package claim until the coordinated consumer
+         verification establishes that contract. -->
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
 
@@ -49,23 +40,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" />
     <!--
       The page-level protocol domains derive from the generated dispatch bases in Jint.DevTools, and a page
       target is one of its targets. The dependency is one way and stays that way: Jint.DevTools works for a
       host with no pages at all, and nothing in it knows what a document is.
     -->
     <ProjectReference Include="..\Jint.DevTools\Jint.DevTools.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Pinned centrally in Directory.Packages.props, which is also the binding generator's pin. -->
-    <PackageReference Include="AngleSharp" />
-    <PackageReference Include="AngleSharp.Css" />
-    <!-- AngleSharp's XML parser, for DOMParser's four XML content types, and its XPath navigator, for DOM
-         §7's XPath. Neither is a generator input: no interface is projected from either, so the pin stays
-         two assemblies. -->
-    <PackageReference Include="AngleSharp.Xml" />
-    <PackageReference Include="AngleSharp.XPath" />
   </ItemGroup>
 
   <ItemGroup>

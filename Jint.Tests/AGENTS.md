@@ -31,8 +31,8 @@ NUnit run mean what the xUnit run before it meant:
   fixtures depend on.
 
 That file is `<Compile Include>`-linked into **`Jint.Tests.Browser`, `Jint.Tests.DevTools`,
-`Jint.Tests.PublicInterface`, `Jint.Tests.SourceGenerators` and `tools/browser-comparison.Tests`**
-as well, so it is one contract for six assemblies and editing it edits all six.
+`Jint.Tests.HtmlParser`, `Jint.Tests.PublicInterface`, `Jint.Tests.SourceGenerators` and
+`tools/browser-comparison.Tests`** as well, so it is one contract for seven assemblies and editing it edits all seven.
 Widening it is not a local decision, and the failure it buys is not local either: a fixture that
 starts sharing an engine fails somewhere else, intermittently, in a test nobody touched.
 
@@ -146,7 +146,7 @@ Scripts a test loads are embedded resources under `Runtime/Scripts/` and `Parser
 project file; adding a script is adding a file to one of those directories, not a new `EmbeddedResource`
 entry.
 
-## The seven test projects, and which one a test belongs in
+## The eight test projects, and which one a test belongs in
 
 The repository-root [`AGENTS.md`](../AGENTS.md#build--test) states the trap — the project a change needs is
 often not the one it edits. This is the roster it points at.
@@ -158,6 +158,7 @@ often not the one it edits. This is the roster it points at.
 - **`Jint.Tests.DevTools`** — In-process protocol tests for `Jint.DevTools`, and the generated-protocol currency check (NUnit).
 - **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
 - **`Jint.Tests.Browser`** — The browser package and everything built on it, plus the browser lane of the web-platform-tests (NUnit).
+- **`Jint.Tests.HtmlParser`** — Standalone native document tree and parser package tests (NUnit).
 
 Before a test exists, `Jint.Repl` is the quick manual run:
 

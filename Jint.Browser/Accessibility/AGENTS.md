@@ -7,6 +7,14 @@
 > Read that first, then [`Jint.Browser/AGENTS.md`](../AGENTS.md) for the package's principle. Nothing below is
 > repeated in either.
 
+### Renderless CSS input
+
+The CSS engine intentionally stores text, not typed computed values. Extraction reads explicit
+white-space-collapse text or interprets white-space keywords for pre/pre-wrap/pre-line behavior;
+do not rebuild the removed typography grammar. Visibility still uses the shared text cascade.
+The AngleSharp discussion below is historical: the current DOM and cascade are native, as described
+in [the Browser instructions](../AGENTS.md#where-the-cascade-diverges-from-cssom).
+
 ### Accessibility and extraction have no layout
 
 `Accessibility/` computes an accessibility tree over AngleSharp's DOM and `Extraction/` renders the same

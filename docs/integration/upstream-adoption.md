@@ -63,8 +63,8 @@ page runtime and `Jint.DevTools` dependency; there is no supported binding-only 
 
 Use the existing suites as executable examples, not as a claim that they validate an extracted package:
 
-- [DomBindingsPinTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomBindingsPinTests.cs) and
-  [DomBindingsStalenessTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomBindingsStalenessTests.cs): input versions agree;
+- [ParserDependencyTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/ParserDependencyTests.cs) and
+  [DomBindingsStalenessTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomBindingsStalenessTests.cs): upstream packages remain benchmark-only;
   regeneration has no unexplained changes or diagnostics.
 - [DomCollectionTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomCollectionTests.cs): collection brands, indexed/named
   reads, prototype descriptors and liveness survive the boundary.
@@ -79,10 +79,14 @@ Use the existing suites as executable examples, not as a claim that they validat
   excluded and untriaged results.
 
 The experiment must compile and pass behavior checks through public APIs before calling it adoptable.
-Measure cold installation, warmed access and allocations separately using #3898's isolated harness before
+Measure cold installation, warmed access and allocations separately before
 making performance claims. Generated interface calls avoid reflection in the member body, but that does
 not establish a general AOT contract: [Jint.Browser's project](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Jint.Browser.csproj) explicitly
 sets `IsAotCompatible` to false, and a native tool smoke test covers only that closed executable.
+
+The old #3898 AngleSharp.Js binding harness and its workflows have been retired; its
+[historical report and revision-pinned reproduction instructions](../benchmarks/binding-comparison-2026-09/README.md)
+remain available. Current AngleSharp dependencies are exclusively native parser benchmark controls.
 
 The maintainer review should resolve the desired ownership location, minimum target frameworks, selected
 interface scope, versioning policy, and who maintains overrides when AngleSharp metadata changes. Delivery

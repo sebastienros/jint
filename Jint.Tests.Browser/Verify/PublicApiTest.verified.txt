@@ -41,11 +41,13 @@ namespace Jint.Browser
         public System.TimeSpan FetchTimeout { get; set; }
         public bool HasTouch { get; set; }
         public int MaxActiveTimers { get; set; }
+        public long MaxCacheStorageBytes { get; set; }
         public long MaxCapturedResponseBytes { get; set; }
         public long MaxDocumentBytes { get; set; }
         public int MaxDomNodes { get; set; }
         public int MaxFrameDocuments { get; set; }
         public int MaxImageRequests { get; set; }
+        public long MaxIndexedDbBytes { get; set; }
         public int MaxRecordedEvents { get; set; }
         public int MaxRedirects { get; set; }
         public long MaxResponseBytes { get; set; }
@@ -92,6 +94,8 @@ namespace Jint.Browser
     {
         public InMemoryStoragePartitionProvider() { }
         public InMemoryStoragePartitionProvider(long maxTotalBytes) { }
+        public InMemoryStoragePartitionProvider(long maxTotalBytes, long maxCacheStorageBytes) { }
+        public override Jint.WebApi.CacheStorageProvider? GetCacheStorage(string origin) { }
         public override Jint.WebApi.StorageProvider? GetLocalStorage(string origin) { }
     }
     public sealed class NavigationFailedException : System.Exception
@@ -117,11 +121,13 @@ namespace Jint.Browser
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageError> Errors { get; }
         public bool IsClosed { get; }
         public Jint.Browser.Frame MainFrame { get; }
+        public Jint.Browser.Page? Opener { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageRequest> Requests { get; }
         public Jint.Browser.PageResponse? Response { get; }
         public string Url { get; }
         public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
+        public event System.EventHandler<Jint.Browser.Page>? Popup;
         public System.Threading.Tasks.Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0, bool includeReferences = false) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
@@ -234,6 +240,7 @@ namespace Jint.Browser
     public abstract class StoragePartitionProvider
     {
         protected StoragePartitionProvider() { }
+        public virtual Jint.WebApi.CacheStorageProvider? GetCacheStorage(string origin) { }
         public abstract Jint.WebApi.StorageProvider? GetLocalStorage(string origin);
     }
     public readonly struct Viewport : System.IEquatable<Jint.Browser.Viewport>

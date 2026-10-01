@@ -1,4 +1,4 @@
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Events;
 
 namespace Jint.Browser.Runtime;
@@ -36,39 +36,33 @@ internal sealed class PageActivationHost : BrowserActivationHost
     /// URL differing only in its fragment is a fragment navigation, fires <c>hashchange</c> and pushes a
     /// history entry without a fetch.
     /// </summary>
-    /// <remarks>
-    /// <c>target</c> is honoured only as far as this version can: there is no seam that opens a second page,
-    /// so <c>_blank</c>, a frame name and <c>_top</c> all load here and the page is told rather than left to
-    /// wonder — the same sentence a targeted form submission gets.
-    /// </remarks>
-    internal override void FollowHyperlink(BrowserEventRealm realm, IHtmlElement source, string url, string target)
+    internal override void FollowHyperlink(BrowserEventRealm realm, Element source, string url, string target)
     {
         if (url.Length == 0)
         {
             return;
         }
 
-        if (target.Length != 0 && !string.Equals(target, "_self", StringComparison.OrdinalIgnoreCase))
-        {
-            _runtime.Recorder.Add(
-                PageErrorKind.ReportedError,
-                "A link targeting '" + target + "' was followed in the same page: this version opens no second "
-                + "page, so _blank, a frame name and _top all load here.",
-                source.LocalName);
-        }
+        target = WindowOpen.Target(_runtime, source, source.GetAttribute("target"));
+        var (noopener, noreferrer) = WindowOpen.Relationship(source, target);
+        if (WindowOpen.NavigateTarget(_runtime, target, noopener, WindowOpen.Navigation(_runtime, url, noreferrer))) return;
 
         _runtime.Page.RequestNavigation(
             url,
             replace: false,
             engine: _runtime.Engine,
-            reason: PageNavigationReason.AnchorClick);
+            reason: PageNavigationReason.AnchorClick,
+            sourceElement: _runtime.Dom.ExistingNavigation is null ? null : _runtime.Dom.WrapNode(source),
+            downloadRequest: source.GetAttribute("download"),
+            userInitiated: realm.ActivationIsUserInitiated,
+            referrer: noreferrer ? "" : null);
     }
 
     /// <summary>
     /// The submission's lower half — https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#form-submission-algorithm
     /// from the entry list on. The <c>submit</c> event has already fired and survived by the time this runs.
     /// </summary>
-    internal override void SubmitForm(BrowserEventRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
+    internal override void SubmitForm(BrowserEventRealm realm, Element form, Element? submitter)
         => FormSubmitter.Submit(_runtime, form, submitter);
 
     /// <summary>
@@ -77,10 +71,10 @@ internal sealed class PageActivationHost : BrowserActivationHost
     /// page asked for and nobody answered; the protocol's own file-chooser interception (campaign item C5)
     /// replaces the body without moving the seam.
     /// </summary>
-    internal override void OpenFileChooser(BrowserEventRealm realm, IHtmlInputElement input)
+    internal override void OpenFileChooser(BrowserEventRealm realm, Element input)
         => _runtime.Recorder.Add(
             PageErrorKind.ReportedError,
             "A file chooser was opened by clicking an <input type=file>, and this version has no file chooser "
             + "to open; the file list is unchanged.",
-            input.Id is { Length: > 0 } id ? id : input.Name ?? "input");
+            input.GetAttribute("id") is { Length: > 0 } id ? id : input.GetAttribute("name") ?? "input");
 }

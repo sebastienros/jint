@@ -78,6 +78,27 @@ public sealed class DomParserTests
     }
 
     [Test]
+    public async Task CDataSectionsKeepTheirOwnBrandAndInheritTextOperations()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const doc = new DOMParser().parseFromString('<root><![CDATA[hello]]></root>', 'application/xml');
+              const parsed = doc.documentElement.firstChild;
+              const created = doc.createCDATASection('world');
+              const clone = created.cloneNode();
+              created.appendData('!');
+              return [parsed instanceof CDATASection, parsed instanceof Text,
+                created instanceof CDATASection, clone instanceof CDATASection,
+                Object.getPrototypeOf(CDATASection.prototype) === Text.prototype,
+                Object.prototype.toString.call(parsed), parsed.data, created.data, clone.data].join('|');
+            })()
+            """)).Should().Be("true|true|true|true|true|[object CDATASection]|hello|world!|world");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task MalformedXmlAnswersAParsererrorDocument()
     {
         await using var browser = new Browser();
@@ -152,9 +173,10 @@ public sealed class DomParserTests
 
         await page.SetContentAsync("<div id='d'><br></div>");
 
-        // XML serialization closes every element, so a void element comes out self-closed rather than bare.
+        // Native XML serialization preserves the XHTML namespace and self-closes HTML void elements.
+        // This intentionally corrects the legacy formatter's missing namespace declaration.
         (await page.EvaluateAsync<string>("new XMLSerializer().serializeToString(document.getElementById('d'))"))
-            .Should().Be("<div id=\"d\"><br /></div>");
+            .Should().Be("<div xmlns=\"http://www.w3.org/1999/xhtml\" id=\"d\"><br /></div>");
     }
 
     [Test]

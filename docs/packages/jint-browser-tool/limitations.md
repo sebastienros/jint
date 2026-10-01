@@ -4,7 +4,8 @@ The tool exposes the limits of `Jint.Browser`:
 
 - No rendering, screenshots, PDFs, pixels, browser window, canvas, WebGL, or media.
 - No visual layout; geometry used by automation is synthetic.
-- No iframe scripting, IndexedDB, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
+- No iframe scripting, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
+- IndexedDB is in memory only, with the [browser's storage limits](../jint-browser/limitations.md).
 - No drag and drop, clipboard integration, or native input.
 - Images are downloaded, but only their container headers are read: there is a size and no picture.
 - JavaScript is interpreted, so wall-clock execution can be slower than a native browser engine.

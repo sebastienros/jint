@@ -28,10 +28,15 @@ internal sealed class ViewRealm
     private HostInterfaceObject? _mediaQueryListEvent;
     private ObjectInstance? _nodeFilter;
     private ObjectInstance? _cssNamespace;
+    private ObjectInstance? _sanitizerPrototype;
+    private HostInterfaceObject? _sanitizer;
     private ObjectInstance? _geolocationPrototype;
     private HostInterfaceObject? _geolocationInterface;
     private JsGeolocation? _geolocation;
     private JsSelection? _selection;
+    internal void DisconnectSelection() => _selection?.Disconnect();
+    internal JsSelection? ExistingSelection => _selection;
+
     private ObjectInstance? _xPathEvaluatorPrototype;
     private HostInterfaceObject? _xPathEvaluator;
     private ObjectInstance? _xPathExpressionPrototype;
@@ -65,6 +70,40 @@ internal sealed class ViewRealm
             }
 
             return _domParser;
+        }
+    }
+
+    /// <summary>The global <c>Sanitizer</c>.</summary>
+    internal HostInterfaceObject Sanitizer
+    {
+        get
+        {
+            if (_sanitizer is null)
+            {
+                _sanitizerPrototype = ViewInstaller.Instantiate(
+                    _runtime.Engine,
+                    ViewInstaller.SanitizerShape,
+                    "Sanitizer",
+                    length: 0,
+                    args => JsSanitizer.Construct(_runtime, _sanitizerPrototype!, args),
+                    parentPrototype: null,
+                    parentInterface: null,
+                    out var interfaceObject);
+
+                _sanitizer = interfaceObject;
+            }
+
+            return _sanitizer;
+        }
+    }
+
+    /// <summary><c>Sanitizer.prototype</c>, built with the interface on first use.</summary>
+    internal ObjectInstance SanitizerPrototype
+    {
+        get
+        {
+            _ = Sanitizer;
+            return _sanitizerPrototype!;
         }
     }
 

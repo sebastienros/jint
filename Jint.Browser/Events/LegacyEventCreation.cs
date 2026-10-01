@@ -68,7 +68,7 @@ internal static class LegacyEventCreation
         ["mouseevents"] = BrowserEventInterfaces.MouseEvent,
         ["storageevent"] = BrowserEventInterfaces.StorageEvent,
         ["svgevents"] = null,
-        ["textevent"] = BrowserEventInterfaces.CompositionEvent,
+        ["textevent"] = BrowserEventInterfaces.TextEvent,
         ["touchevent"] = BrowserEventInterfaces.TouchEvent,
         ["uievent"] = BrowserEventInterfaces.UIEvent,
         ["uievents"] = BrowserEventInterfaces.UIEvent,

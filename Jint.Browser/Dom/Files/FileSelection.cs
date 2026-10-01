@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.WebApi.Files;
@@ -52,8 +51,13 @@ internal static class FileSelection
     internal const string DefaultType = "application/octet-stream";
 
     /// <summary>Whether <paramref name="node"/> is an <c>input</c> element in the File Upload state.</summary>
-    internal static bool IsFileInput(INode? node)
-        => node is IHtmlInputElement input && ActivationBehaviors.IsType(input, "file");
+    internal static bool IsFileInput(Node? node, Action<int>? checkpoint = null, CancellationToken cancellationToken = default)
+    {
+        if (node is not Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input) return false;
+        var work = new DomReadWork(checkpoint, cancellationToken);
+        work.Check();
+        return HtmlInputTypes.Parse(work.Attribute(input, "type")) == HtmlInputType.File;
+    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#update-the-file-selection — replace the element's
@@ -77,13 +81,14 @@ internal static class FileSelection
     /// Puppeteer's <c>uploadFile</c> works around by not sending the command at all for an empty list.
     /// </para>
     /// </remarks>
-    internal static void Update(PageRuntime runtime, IHtmlInputElement input, IReadOnlyList<SelectedFile> files)
+    internal static void Update(PageRuntime runtime, Element input, IReadOnlyList<SelectedFile> files)
     {
         var realm = FileTransferRealm.Of(runtime.Engine);
         var list = realm.NewFileList();
 
-        foreach (var file in Allowed(input, files))
+        foreach (var file in Allowed(input, files, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
         {
+            runtime.Engine.Constraints.Check();
             list.Add(ToFile(runtime.Engine, file));
         }
 
@@ -106,8 +111,13 @@ internal static class FileSelection
     /// rather than the call refused: Blink's <c>FileInputType::SetFilesFromPaths</c> keeps the first path
     /// the same way, and Playwright refuses the call in its own client before one is ever sent.
     /// </remarks>
-    internal static IReadOnlyList<T> Allowed<T>(IHtmlInputElement input, IReadOnlyList<T> files)
-        => input.IsMultiple || files.Count <= 1 ? files : [files[0]];
+    internal static IReadOnlyList<T> Allowed<T>(Element input, IReadOnlyList<T> files,
+        Action<int>? checkpoint = null, CancellationToken cancellationToken = default)
+    {
+        var work = new DomReadWork(checkpoint, cancellationToken);
+        work.Check();
+        return work.Attribute(input, "multiple") is not null || files.Count <= 1 ? files : [files[0]];
+    }
 
     /// <summary>Reads one host file into a selection, in the shape the File API gives it.</summary>
     /// <param name="path">A path on the machine the browser is running on.</param>
@@ -118,7 +128,7 @@ internal static class FileSelection
     /// over memory the engine owns — there is no lazily opened host handle behind it, and there must not be
     /// one, because the page may read it long after the file has changed or gone. The type comes from the
     /// extension, which is the only source a headless browser has; the timestamp is the file system's,
-    /// clamped at the epoch the way <see cref="AngleSharpFileAdapter"/> clamps the other end.
+    /// clamped at the epoch the way the File API clamps the other end.
     /// </remarks>
     internal static SelectedFile Read(string path)
     {
@@ -141,7 +151,7 @@ internal static class FileSelection
     /// <remarks>
     /// <b>AngleSharp's table, plus three registrations it predates.</b> There is no standard mapping from an
     /// extension to a type — a browser asks the platform, which answers differently on each of them — so a
-    /// fixed table is what makes this answer the same everywhere, and <c>AngleSharp.Io.MimeTypeNames</c> is
+    /// fixed table is what makes this answer the same everywhere, and <c>FileMimeTypes</c> is
     /// the one already in the dependency set. It answers <see cref="DefaultType"/> for
     /// <c>.json</c>, <c>.csv</c> and <c>.md</c>, which are three of the commonest things a form uploads, so
     /// their IANA registrations are supplied here: RFC 8259, RFC 4180 and RFC 7763. This is a gap in a
@@ -169,7 +179,7 @@ internal static class FileSelection
             return supplement;
         }
 
-        var mime = AngleSharp.Io.MimeTypeNames.FromExtension(extension);
+        var mime = FileMimeTypes.FromExtension(extension);
         return string.IsNullOrEmpty(mime) ? DefaultType : mime;
     }
 
