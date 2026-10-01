@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
+using Jint.Browser.Styling;
 
 namespace Jint.Browser.Extraction;
 
@@ -26,7 +27,8 @@ internal static class MarkdownExtractor
     internal const string TruncationMarker = "\n\n[truncated]";
 
     /// <summary>Renders <paramref name="document"/> as CommonMark.</summary>
-    internal static string ToMarkdown(Document document, MarkdownOptions? options = null)
+    internal static string ToMarkdown(Document document, MarkdownOptions? options = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -34,16 +36,21 @@ internal static class MarkdownExtractor
         var root = options.MainContentOnly ? MainContentOf(document) : null;
         root ??= Dom.DomDocumentElements.Body(document) ?? document.DocumentElement;
 
-        return root is null ? string.Empty : ToMarkdown(root, options);
+        return root is null ? string.Empty : ToMarkdown(root, options, diagnostics);
     }
 
     /// <summary>Renders <paramref name="element"/> and its descendants as CommonMark.</summary>
-    internal static string ToMarkdown(Element element, MarkdownOptions? options = null)
+    internal static string ToMarkdown(Element element, MarkdownOptions? options = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(element);
 
         options ??= MarkdownOptions.Default;
-        var writer = new Writer(options, new ElementVisibility(options.UseComputedStyle));
+        var visibility = new ElementVisibility(options.UseComputedStyle, diagnostics: diagnostics);
+
+        // One cascade for the whole rendering, as TextExtractor shares one: without it every Skip and IsBlock
+        // built its own, collecting every sheet and indexing every rule, so a page cost a document walk per element.
+        var writer = new Writer(options, visibility, visibility.CreateTraversal(element.OwnerDocument));
         var body = writer.Blocks(element);
         return Truncate(Normalize(body), options.MaxLength);
     }
@@ -123,11 +130,13 @@ internal static class MarkdownExtractor
     {
         private readonly MarkdownOptions _options;
         private readonly ElementVisibility _visibility;
+        private readonly Dom.Views.CssCascade.Traversal? _cascade;
 
-        internal Writer(MarkdownOptions options, ElementVisibility visibility)
+        internal Writer(MarkdownOptions options, ElementVisibility visibility, Dom.Views.CssCascade.Traversal? cascade)
         {
             _options = options;
             _visibility = visibility;
+            _cascade = cascade;
         }
 
         /// <summary>Renders an element's children as a sequence of blocks separated by a blank line.</summary>
@@ -613,10 +622,10 @@ internal static class MarkdownExtractor
         private bool Skip(Element element) =>
             ImplicitRole.IsMetadataContent(element)
             || string.Equals(element.LocalName, "noscript", StringComparison.Ordinal)
-            || _visibility.RenderingReasonFor(element) != AxIgnoredReason.None;
+            || _visibility.RenderingReasonFor(element, _cascade) != AxIgnoredReason.None;
 
         private bool IsBlock(Element element) =>
-            HtmlDisplay.IsBlockLevel(HtmlDisplay.Resolve(element, _visibility.Style(element).Display))
+            HtmlDisplay.IsBlockLevel(HtmlDisplay.Resolve(element, _visibility.Style(element, _cascade).Display))
             || element.LocalName is "table" or "dl" or "details";
 
         private static string Wrap(string content, string marker)

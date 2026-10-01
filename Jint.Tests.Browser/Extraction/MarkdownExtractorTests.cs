@@ -1,4 +1,5 @@
 using Jint.Browser.Extraction;
+using Jint.Browser.Styling;
 using Jint.Tests.Browser.Accessibility;
 
 namespace Jint.Tests.Browser.Extraction;
@@ -167,6 +168,21 @@ public sealed class MarkdownExtractorTests
 
         markdown.Split('\n').Should().HaveCount(3, "the outer table has one header row, one separator and one body row");
         markdown.Should().Contain("outer").And.Contain("inner");
+    }
+
+    [Test]
+    public void ARenderingBuildsOneCascadeQuery()
+    {
+        // A query per element made rendering quadratic: 1,000 cards took 8 s, 5,000 took over three minutes.
+        var cards = string.Concat(Enumerable.Range(0, 50).Select(i =>
+            $"<div class=card><h2>Card {i}</h2><p>Body <em>{i}</em></p><span class=hidden>secret</span></div>"));
+        var document = PageFixture.Parse("<style>.hidden { display: none }</style>" + cards);
+        var diagnostics = new NativeCssQueryDiagnostics();
+
+        var markdown = MarkdownExtractor.ToMarkdown(document, diagnostics: diagnostics);
+
+        diagnostics.Queries.Count.Should().Be(1);
+        markdown.Should().Contain("## Card 49").And.NotContain("secret");
     }
 
     [Test]
