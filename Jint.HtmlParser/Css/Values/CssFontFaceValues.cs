@@ -663,7 +663,7 @@ internal static class CssFontFaceValues
             parts.Add(item.Token.Text);
         }
 
-        if (parts.Count == 1 && (CssText.IsWide(parts[0].ToLowerInvariant()) || IsAscii(parts[0], "default")))
+        if (parts.Count == 1 && (CssWideKeywords.Recognize(parts[0]) != CssWideKeyword.None || IsAscii(parts[0], "default")))
         {
             return false;
         }
@@ -696,7 +696,7 @@ internal static class CssFontFaceValues
 
     private static bool IsWideKeyword(List<CssComponentValue> items)
         => items.Count == 1 && items[0].Kind == CssComponentKind.Token && items[0].Token.Kind == CssTokenKind.Ident
-           && CssText.IsWide(items[0].Token.Text.ToLowerInvariant());
+           && CssWideKeywords.Recognize(items[0].Token.Text) != CssWideKeyword.None;
 
     /// <summary>The component values of <paramref name="source"/>, whitespace dropped; any bad token fails.</summary>
     private static bool TryItems(string source, CssValueWork work, out List<CssComponentValue> items)

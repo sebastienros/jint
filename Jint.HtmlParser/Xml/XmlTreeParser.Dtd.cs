@@ -287,35 +287,36 @@ internal sealed partial class XmlTreeParser
                 ReadParameterReference();
                 continue;
             }
-            if (StartsWith("<!--"))
+            if (Current == '<')
             {
-                SkipDtdComment();
-                continue;
-            }
-            if (StartsWith("<?"))
-            {
-                ParseDtdPi();
-                continue;
-            }
-            if (StartsWith("<!ENTITY"))
-            {
-                ParseEntityDeclaration();
-                continue;
-            }
-            if (StartsWith("<!ATTLIST"))
-            {
-                ParseAttlistDeclaration();
-                continue;
-            }
-            if (StartsWith("<!ELEMENT"))
-            {
-                ParseElementDeclaration();
-                continue;
-            }
-            if (StartsWith("<!NOTATION"))
-            {
-                ParseNotationDeclaration();
-                continue;
+                // Declarations are mutually exclusive on the units after "<!", so each is verified once
+                // instead of probing every literal in turn.
+                switch (Peek(1))
+                {
+                    case '?':
+                        ParseDtdPi();
+                        continue;
+                    case '!':
+                        switch (Peek(2))
+                        {
+                            case '-' when StartsWith("<!--"):
+                                SkipDtdComment();
+                                continue;
+                            case 'E' when StartsWith("<!ENTITY"):
+                                ParseEntityDeclaration();
+                                continue;
+                            case 'E' when StartsWith("<!ELEMENT"):
+                                ParseElementDeclaration();
+                                continue;
+                            case 'A' when StartsWith("<!ATTLIST"):
+                                ParseAttlistDeclaration();
+                                continue;
+                            case 'N' when StartsWith("<!NOTATION"):
+                                ParseNotationDeclaration();
+                                continue;
+                        }
+                        break;
+                }
             }
             Error("xml/invalid-declaration", _position);
         }

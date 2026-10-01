@@ -80,6 +80,9 @@ public sealed class SvgParserTests
         SvgParser.ParsePreserveAspectRatio("xmidymid").Should().BeNull();
         SvgParser.ParsePreserveAspectRatio("xMidYMid,slice").Should().BeNull();
         SvgParser.ParsePreserveAspectRatio("xMidYMid slice junk").Should().BeNull();
+        // Serialization indexes Alignments by the parsed value, so the two must round-trip.
+        for (var align = 1; align < SvgParser.Alignments.Length; align++)
+            SvgParser.ParsePreserveAspectRatio(SvgParser.Alignments[align]).Should().Be(new SvgAspectRatio((ushort) align, 1));
     }
 
     [Test]

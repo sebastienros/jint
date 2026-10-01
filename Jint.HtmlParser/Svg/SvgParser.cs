@@ -13,6 +13,7 @@ namespace Jint.HtmlParser.Svg;
 /// </remarks>
 internal static class SvgParser
 {
+    /// <summary>Serialized align keywords, indexed by the value <see cref="SvgAlignLookup"/> parses them to.</summary>
     internal static readonly string[] Alignments =
         ["", "none", "xMinYMin", "xMidYMin", "xMaxYMin", "xMinYMid", "xMidYMid", "xMaxYMid", "xMinYMax", "xMidYMax", "xMaxYMax"];
 
@@ -94,12 +95,7 @@ internal static class SvgParser
     internal static SvgAspectRatio? ParsePreserveAspectRatio(string source, Action? checkpoint = null)
     {
         var reader = new Reader(source, checkpoint);
-        var word = reader.Word();
-        ushort align = 0;
-        for (ushort i = 1; i < Alignments.Length; i++)
-        {
-            if (word.SequenceEqual(Alignments[i])) { align = i; break; }
-        }
+        var align = SvgAlignLookup.Match(reader.Word());
         if (align == 0) return null;
         if (reader.End) return new SvgAspectRatio(align, 1);
         if (!reader.Whitespace()) return null;

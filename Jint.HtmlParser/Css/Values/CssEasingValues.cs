@@ -167,7 +167,7 @@ internal static class CssEasingValues
         var item = items[0];
         if (item.Kind == CssComponentKind.Token && item.Token.Kind == CssTokenKind.Ident)
         {
-            var keyword = item.Token.Text.ToLowerInvariant();
+            var keyword = CssEasingKeywordLookup.Match(item.Token.Text);
             var parsed = keyword switch
             {
                 "linear" => CssEasing.Linear,
@@ -189,7 +189,7 @@ internal static class CssEasingValues
         else if (item.Kind == CssComponentKind.Function)
         {
             var arguments = Significant(item.Values, work);
-            switch (item.FunctionName.ToLowerInvariant())
+            switch (CssEasingFunctionLookup.Match(item.FunctionName))
             {
                 case "cubic-bezier":
                     if (arguments.Count != 7
@@ -212,7 +212,7 @@ internal static class CssEasingValues
                         return false;
                     }
 
-                    var position = "end";
+                    string? position = "end";
                     if (arguments.Count == 3)
                     {
                         if (!Comma(arguments[1]) || arguments[2].Kind != CssComponentKind.Token
@@ -221,11 +221,10 @@ internal static class CssEasingValues
                             return false;
                         }
 
-                        position = arguments[2].Token.Text.ToLowerInvariant();
+                        position = CssStepPositionLookup.Match(arguments[2].Token.Text);
                     }
 
-                    if (position is not ("start" or "end" or "jump-start" or "jump-end" or "jump-none" or "jump-both")
-                        || position == "jump-none" && count < 2)
+                    if (position is null || position == "jump-none" && count < 2)
                     {
                         return false;
                     }

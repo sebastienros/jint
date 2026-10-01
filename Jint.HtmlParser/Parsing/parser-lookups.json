@@ -1702,5 +1702,63 @@
       "enabled": "\"enabled\""
     },
     "keywordSet": "MediaScripting"
+  },
+  {
+    "name": "SvgAlignLookup",
+    "type": "ushort",
+    "default": "0",
+    "ignoreCase": false,
+    "entries": {
+      "none": "1",
+      "xMinYMin": "2",
+      "xMidYMin": "3",
+      "xMaxYMin": "4",
+      "xMinYMid": "5",
+      "xMidYMid": "6",
+      "xMaxYMid": "7",
+      "xMinYMax": "8",
+      "xMidYMax": "9",
+      "xMaxYMax": "10"
+    }
+  },
+  {
+    "name": "CssEasingKeywordLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "linear": "\"linear\"",
+      "ease": "\"ease\"",
+      "ease-in": "\"ease-in\"",
+      "ease-out": "\"ease-out\"",
+      "ease-in-out": "\"ease-in-out\"",
+      "step-start": "\"step-start\"",
+      "step-end": "\"step-end\""
+    }
+  },
+  {
+    "name": "CssEasingFunctionLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "cubic-bezier": "\"cubic-bezier\"",
+      "steps": "\"steps\"",
+      "linear": "\"linear\""
+    }
+  },
+  {
+    "name": "CssStepPositionLookup",
+    "type": "string?",
+    "default": "null",
+    "ignoreCase": true,
+    "entries": {
+      "start": "\"start\"",
+      "end": "\"end\"",
+      "jump-start": "\"jump-start\"",
+      "jump-end": "\"jump-end\"",
+      "jump-none": "\"jump-none\"",
+      "jump-both": "\"jump-both\""
+    }
   }
 ]

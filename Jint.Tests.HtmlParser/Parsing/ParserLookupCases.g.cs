@@ -1394,5 +1394,51 @@ internal static class ParserLookupCases
                 ["initial-only"] = (string?) ("initial-only"),
                 ["enabled"] = (string?) ("enabled"),
             }),
+        new("SvgAlignLookup", static input => SvgAlignLookup.Match(input),
+            (ushort) (0), false,
+            new Dictionary<string, object?>
+            {
+                ["none"] = (ushort) (1),
+                ["xMinYMin"] = (ushort) (2),
+                ["xMidYMin"] = (ushort) (3),
+                ["xMaxYMin"] = (ushort) (4),
+                ["xMinYMid"] = (ushort) (5),
+                ["xMidYMid"] = (ushort) (6),
+                ["xMaxYMid"] = (ushort) (7),
+                ["xMinYMax"] = (ushort) (8),
+                ["xMidYMax"] = (ushort) (9),
+                ["xMaxYMax"] = (ushort) (10),
+            }),
+        new("CssEasingKeywordLookup", static input => CssEasingKeywordLookup.Match(input),
+            (string?) (null), true,
+            new Dictionary<string, object?>
+            {
+                ["linear"] = (string?) ("linear"),
+                ["ease"] = (string?) ("ease"),
+                ["ease-in"] = (string?) ("ease-in"),
+                ["ease-out"] = (string?) ("ease-out"),
+                ["ease-in-out"] = (string?) ("ease-in-out"),
+                ["step-start"] = (string?) ("step-start"),
+                ["step-end"] = (string?) ("step-end"),
+            }),
+        new("CssEasingFunctionLookup", static input => CssEasingFunctionLookup.Match(input),
+            (string?) (null), true,
+            new Dictionary<string, object?>
+            {
+                ["cubic-bezier"] = (string?) ("cubic-bezier"),
+                ["steps"] = (string?) ("steps"),
+                ["linear"] = (string?) ("linear"),
+            }),
+        new("CssStepPositionLookup", static input => CssStepPositionLookup.Match(input),
+            (string?) (null), true,
+            new Dictionary<string, object?>
+            {
+                ["start"] = (string?) ("start"),
+                ["end"] = (string?) ("end"),
+                ["jump-start"] = (string?) ("jump-start"),
+                ["jump-end"] = (string?) ("jump-end"),
+                ["jump-none"] = (string?) ("jump-none"),
+                ["jump-both"] = (string?) ("jump-both"),
+            }),
     ];
 }

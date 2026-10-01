@@ -8496,6 +8496,300 @@ internal static class CssMediaScriptingKeywords
     }
 }
 
+internal static class SvgAlignLookup
+{
+    internal const int Count = 10;
+
+    internal static ushort Match(ReadOnlySpan<char> input)
+    {
+        switch (input.Length)
+        {
+            case 4:
+            {
+                if (Read4(input, 0) == 0x0065006E006F006EUL) return 1;
+                break;
+            }
+            case 8:
+            {
+                var chunk0 = Read4(input, 3);
+                switch (chunk0)
+                {
+                    case 0x0061004D00590064UL:
+                    {
+                        if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0069U && (uint) input[7] == 0x0078U) return 9;
+                        break;
+                    }
+                    case 0x0061004D0059006EUL:
+                    {
+                        if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0069U && (uint) input[7] == 0x0078U) return 8;
+                        break;
+                    }
+                    case 0x0061004D00590078UL:
+                    {
+                        if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0061U && (uint) input[7] == 0x0078U) return 10;
+                        break;
+                    }
+                    case 0x0069004D00590064UL:
+                    {
+                        var chunk1 = (uint) input[7];
+                        switch (chunk1)
+                        {
+                            case 0x0064U:
+                            {
+                                if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0069U) return 6;
+                                break;
+                            }
+                            case 0x006EU:
+                            {
+                                if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0069U) return 3;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    case 0x0069004D0059006EUL:
+                    {
+                        var chunk2 = (uint) input[7];
+                        switch (chunk2)
+                        {
+                            case 0x0064U:
+                            {
+                                if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0069U) return 5;
+                                break;
+                            }
+                            case 0x006EU:
+                            {
+                                if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0069U) return 2;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    case 0x0069004D00590078UL:
+                    {
+                        var chunk3 = (uint) input[7];
+                        switch (chunk3)
+                        {
+                            case 0x0064U:
+                            {
+                                if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0061U) return 7;
+                                break;
+                            }
+                            case 0x006EU:
+                            {
+                                if (Read2(input, 0) == 0x004D0078U && (uint) input[2] == 0x0061U) return 4;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<uint>(MemoryMarshal.AsBytes(input.Slice(offset, 2)));
+        return BitConverter.IsLittleEndian ? value : (value << 16) | (value >> 16);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong Read4(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<ulong>(MemoryMarshal.AsBytes(input.Slice(offset, 4)));
+        return BitConverter.IsLittleEndian ? value
+            : (value << 48) | ((value & 0xFFFF0000UL) << 16) |
+              ((value >> 16) & 0xFFFF0000UL) | (value >> 48);
+    }
+}
+
+internal static class CssEasingKeywordLookup
+{
+    internal const int Count = 7;
+
+    internal static string? Match(ReadOnlySpan<char> input)
+    {
+        switch (input.Length)
+        {
+            case 4:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045005300410045UL) return "ease";
+                break;
+            }
+            case 6:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004E0049004CUL && (Read2(input, 4) & 0xFFDFFFDFU) == 0x00520041U) return "linear";
+                break;
+            }
+            case 7:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045005300410045UL && (Read2(input, 4) & 0xFFDFFFFFU) == 0x0049002DU && ((uint) input[6] & 0xFFDFU) == 0x004EU) return "ease-in";
+                break;
+            }
+            case 8:
+            {
+                var chunk0 = Read4(input, 0);
+                switch (chunk0 & 0xFFDFFFDFFFDFFFDFUL)
+                {
+                    case 0x0045005300410045UL:
+                    {
+                        if ((Read4(input, 4) & 0xFFDFFFDFFFDFFFFFUL) == 0x00540055004F002DUL) return "ease-out";
+                        break;
+                    }
+                    case 0x0050004500540053UL:
+                    {
+                        if ((Read4(input, 4) & 0xFFDFFFDFFFDFFFFFUL) == 0x0044004E0045002DUL) return "step-end";
+                        break;
+                    }
+                }
+                break;
+            }
+            case 10:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004500540053UL && (Read4(input, 4) & 0xFFDFFFDFFFDFFFFFUL) == 0x004100540053002DUL && (Read2(input, 8) & 0xFFDFFFDFU) == 0x00540052U) return "step-start";
+                break;
+            }
+            case 11:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045005300410045UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFFFUL) == 0x002D004E0049002DUL && (Read2(input, 8) & 0xFFDFFFDFU) == 0x0055004FU && ((uint) input[10] & 0xFFDFU) == 0x0054U) return "ease-in-out";
+                break;
+            }
+        }
+        return null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<uint>(MemoryMarshal.AsBytes(input.Slice(offset, 2)));
+        return BitConverter.IsLittleEndian ? value : (value << 16) | (value >> 16);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong Read4(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<ulong>(MemoryMarshal.AsBytes(input.Slice(offset, 4)));
+        return BitConverter.IsLittleEndian ? value
+            : (value << 48) | ((value & 0xFFFF0000UL) << 16) |
+              ((value >> 16) & 0xFFFF0000UL) | (value >> 48);
+    }
+}
+
+internal static class CssEasingFunctionLookup
+{
+    internal const int Count = 3;
+
+    internal static string? Match(ReadOnlySpan<char> input)
+    {
+        switch (input.Length)
+        {
+            case 5:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004500540053UL && ((uint) input[4] & 0xFFDFU) == 0x0053U) return "steps";
+                break;
+            }
+            case 6:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004E0049004CUL && (Read2(input, 4) & 0xFFDFFFDFU) == 0x00520041U) return "linear";
+                break;
+            }
+            case 12:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004200550043UL && (Read4(input, 4) & 0xFFDFFFDFFFFFFFDFUL) == 0x00450042002D0043UL && (Read4(input, 8) & 0xFFDFFFDFFFDFFFDFUL) == 0x005200450049005AUL) return "cubic-bezier";
+                break;
+            }
+        }
+        return null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<uint>(MemoryMarshal.AsBytes(input.Slice(offset, 2)));
+        return BitConverter.IsLittleEndian ? value : (value << 16) | (value >> 16);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong Read4(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<ulong>(MemoryMarshal.AsBytes(input.Slice(offset, 4)));
+        return BitConverter.IsLittleEndian ? value
+            : (value << 48) | ((value & 0xFFFF0000UL) << 16) |
+              ((value >> 16) & 0xFFFF0000UL) | (value >> 48);
+    }
+}
+
+internal static class CssStepPositionLookup
+{
+    internal const int Count = 6;
+
+    internal static string? Match(ReadOnlySpan<char> input)
+    {
+        switch (input.Length)
+        {
+            case 3:
+            {
+                if ((Read2(input, 0) & 0xFFDFFFDFU) == 0x004E0045U && ((uint) input[2] & 0xFFDFU) == 0x0044U) return "end";
+                break;
+            }
+            case 5:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0052004100540053UL && ((uint) input[4] & 0xFFDFU) == 0x0054U) return "start";
+                break;
+            }
+            case 8:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004D0055004AUL && (Read4(input, 4) & 0xFFDFFFDFFFDFFFFFUL) == 0x0044004E0045002DUL) return "jump-end";
+                break;
+            }
+            case 9:
+            {
+                var chunk0 = Read4(input, 4);
+                switch (chunk0 & 0xFFDFFFDFFFDFFFFFUL)
+                {
+                    case 0x004E004F004E002DUL:
+                    {
+                        if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004D0055004AUL && ((uint) input[8] & 0xFFDFU) == 0x0045U) return "jump-none";
+                        break;
+                    }
+                    case 0x0054004F0042002DUL:
+                    {
+                        if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004D0055004AUL && ((uint) input[8] & 0xFFDFU) == 0x0048U) return "jump-both";
+                        break;
+                    }
+                }
+                break;
+            }
+            case 10:
+            {
+                if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004D0055004AUL && (Read4(input, 4) & 0xFFDFFFDFFFDFFFFFUL) == 0x004100540053002DUL && (Read2(input, 8) & 0xFFDFFFDFU) == 0x00540052U) return "jump-start";
+                break;
+            }
+        }
+        return null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<uint>(MemoryMarshal.AsBytes(input.Slice(offset, 2)));
+        return BitConverter.IsLittleEndian ? value : (value << 16) | (value >> 16);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong Read4(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<ulong>(MemoryMarshal.AsBytes(input.Slice(offset, 4)));
+        return BitConverter.IsLittleEndian ? value
+            : (value << 48) | ((value & 0xFFFF0000UL) << 16) |
+              ((value >> 16) & 0xFFFF0000UL) | (value >> 48);
+    }
+}
+
 internal enum CssKeywordSet
 {
     Empty,

@@ -150,13 +150,37 @@ internal sealed partial class XmlTreeParser
             if (Current == '<')
             {
                 FlushText();
-                if (StartsWith("<!--")) ParseComment();
-                else if (StartsWith("<![CDATA[")) ParseCData();
-                else if (StartsWith("<?")) ParseProcessingInstruction();
-                else if (StartsWith("</")) ParseEndTag();
-                else if (StartsWith("<!DOCTYPE")) ParseDoctype();
-                else if (StartsWith("<!")) Error("xml/invalid-markup", _position);
-                else ParseStartTag();
+                // The markup openers are mutually exclusive on the units after '<', so one switch replaces
+                // a chain of literal probes that every start tag (the common case) used to fail in turn.
+                switch (Peek(1))
+                {
+                    case '/':
+                        ParseEndTag();
+                        break;
+                    case '?':
+                        ParseProcessingInstruction();
+                        break;
+                    case '!':
+                        switch (Peek(2))
+                        {
+                            case '-' when StartsWith("<!--"):
+                                ParseComment();
+                                break;
+                            case '[' when StartsWith("<![CDATA["):
+                                ParseCData();
+                                break;
+                            case 'D' when StartsWith("<!DOCTYPE"):
+                                ParseDoctype();
+                                break;
+                            default:
+                                Error("xml/invalid-markup", _position);
+                                break;
+                        }
+                        break;
+                    default:
+                        ParseStartTag();
+                        break;
+                }
             }
             else ParseText();
         }
