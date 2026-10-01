@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import functools
 import itertools
 import json
+import operator
 from pathlib import Path
 
 
@@ -28,6 +30,14 @@ SHARED_PREFIXES = [
     "shared-prefix-" + suffix + "-shared-suffix"
     for suffix in ("red-a", "red-b", "red-c", "blu-a", "blu-b", "blu-c")
 ]
+# Under an ASCII-insensitive mask '@' and '`' (and '[' and '{') read as the letter 'a' (and 'b') does, and
+# '-' leaves bit 0x20 unproven, so these exercise a masked switch case that re-checks its stricter bits.
+PUNCTUATION_COLLISIONS = ["x@", "x`", "xa", "x-", "y[", "y{", "yb", "y-"]
+
+
+# Comparisons one Match method may hold before its heaviest lengths move into their own methods; see
+# known-name-lookup.md for the measurement it comes from.
+INLINE_BUDGET = 64
 
 
 @dataclass(frozen=True)
@@ -156,27 +166,39 @@ def emit_class(names: list[str], class_name: str, kind: str = "char",
             return [indent + result], True
         variable = f"chunk{next(serial)}"
         lines = [f"{indent}var {variable} = {load(node.offset, node.width)};"]
-        full_mask = (1 << (node.width * bits)) - 1
-        use_switch = all(check.mask == full_mask for check, _ in node.children)
-        if use_switch:
-            lines.extend([f"{indent}switch ({variable})", indent + "{"])
-        for index, (check, child) in enumerate(node.children):
-            if use_switch:
-                edge_indent = indent + "    "
-                lines.append(f"{edge_indent}case {constant(check.expected, check.width)}:")
-            else:
-                edge_indent = indent
-                keyword = "if" if index == 0 else "else if"
-                lines.append(f"{indent}{keyword} ({condition(check, variable)})")
-            lines.append(edge_indent + "{")
-            child_lines, returns = emit(child, edge_indent + "    ")
-            lines.extend(child_lines)
-            if use_switch and not returns:
-                lines.append(edge_indent + "    break;")
-            lines.append(edge_indent + "}")
-        if use_switch:
-            lines.append(indent + "}")
+        # Switch on the bits every edge compares, so an ASCII-insensitive node still compiles to a jump
+        # table or binary search rather than a chain of masked comparisons. An edge whose own mask is
+        # stricter (it holds punctuation where a sibling holds a letter) re-checks those bits in its case;
+        # only edges whose punctuation differs from a sibling's letter by exactly 0x20 can share a case.
+        common = functools.reduce(operator.and_, (check.mask for check, _ in node.children))
+        cases: dict[int, list[tuple[Check, Node]]] = {}
+        for check, child in node.children:
+            cases.setdefault(check.expected & common, []).append((check, child))
+        scrutinee = variable if common == (1 << (node.width * bits)) - 1 \
+            else f"{variable} & {constant(common, node.width)}"
+        lines.extend([f"{indent}switch ({scrutinee})", indent + "{"])
+        for key, edges in sorted(cases.items()):
+            case_indent = indent + "    "
+            lines.extend([f"{case_indent}case {constant(key, node.width)}:", case_indent + "{"])
+            for check, child in edges:
+                if check.mask == common:
+                    child_lines, returns = emit(child, case_indent + "    ")
+                else:
+                    lines.extend([f"{case_indent}    if ({condition(check, variable)})", case_indent + "    {"])
+                    child_lines, _ = emit(child, case_indent + "        ")
+                    child_lines.append(case_indent + "    }")
+                    returns = False
+                lines.extend(child_lines)
+            if not returns:
+                lines.append(case_indent + "    break;")
+            lines.append(case_indent + "}")
+        lines.append(indent + "}")
         return lines, False
+
+    def weight(node: Node) -> int:
+        if node.name is not None:
+            return len(node.checks)
+        return 1 + sum(weight(child) for _, child in node.children)
 
     lines = [f"internal static class {class_name}", "{"]
     if include_values:
@@ -191,7 +213,30 @@ def emit_class(names: list[str], class_name: str, kind: str = "char",
         f"    internal static {return_type} Match(ReadOnlySpan<{kind}> input)", "    {",
         "        switch (input.Length)", "        {",
     ])
+    # One method holding every length's tree defeats the JIT once the vocabulary is large: past its
+    # inlining budget the ReadN helpers become real calls, and the extra span temporaries push it into
+    # zeroing the frame in the prolog of every call, hit or miss. A heavy length therefore gets its own
+    # method, so Match stays a jump table on the length and each tree is compiled in a small frame.
+    weights = {length: weight(root) for length, root in roots.items()}
+    split: set[int] = set()
+    for length in sorted(weights, key=lambda length: (-weights[length], length)):
+        if sum(weight for length, weight in weights.items() if length not in split) <= INLINE_BUDGET:
+            break
+        split.add(length)
+    bodies: list[str] = []
     for length, root in roots.items():
+        if length in split:
+            lines.append(f"            case {length}: return Match{length}(input);")
+            bodies.extend(["", f"    private static {return_type} Match{length}(ReadOnlySpan<{kind}> input)",
+                           "    {",
+                           # Restates what the caller's switch proved, so the JIT drops the bounds checks.
+                           f"        if (input.Length != {length}) return {default_result};"])
+            body, returns = emit(root, "        ")
+            bodies.extend(body)
+            if not returns:
+                bodies.append(f"        return {default_result};")
+            bodies.append("    }")
+            continue
         lines.extend([f"            case {length}:", "            {"])
         body, returns = emit(root, "                ")
         lines.extend(body)
@@ -199,6 +244,7 @@ def emit_class(names: list[str], class_name: str, kind: str = "char",
             lines.append("                break;")
         lines.append("            }")
     lines.extend(["        }", f"        return {default_result};", "    }"])
+    lines.extend(bodies)
     for width in sorted(used_widths):
         integer = "ulong" if width * bits == 64 else "uint"
         lines.extend(["", "    [MethodImpl(MethodImplOptions.AggressiveInlining)]",
@@ -249,6 +295,8 @@ def outputs() -> dict[Path, str]:
                 (HEADERS, "HeaderCharNames", "char", True),
                 (KEYWORDS, "KeywordByteNames", "byte", False),
                 (SHARED_PREFIXES, "SharedPrefixNames", "char", False),
+                (PUNCTUATION_COLLISIONS, "PunctuationCharNames", "char", True),
+                (PUNCTUATION_COLLISIONS, "PunctuationByteNames", "byte", True),
             ]),
     }
 

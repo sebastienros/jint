@@ -101,6 +101,29 @@ public class GeneratedNameLookupTests
     }
 
     [Test]
+    public void MaskedSwitchCasesRecheckPunctuationThatCollidesWithALetter()
+    {
+        Span<char> text = stackalloc char[2];
+        Span<byte> bytes = stackalloc byte[2];
+        for (var first = 0; first < 0x200; first++)
+        {
+            for (var second = 0; second < 0x200; second++)
+            {
+                text[0] = (char) first;
+                text[1] = (char) second;
+                var expected = Reference(text, PunctuationCharNames.Values, ignoreCase: true);
+                if (!ReferenceEquals(PunctuationCharNames.Match(text), expected))
+                    Assert.Fail($"Char lookup disagrees with the reference for U+{first:X4} U+{second:X4}");
+                if (first > 0xFF || second > 0xFF) continue;
+                bytes[0] = (byte) first;
+                bytes[1] = (byte) second;
+                if (!ReferenceEquals(PunctuationByteNames.Match(bytes), expected))
+                    Assert.Fail($"Byte lookup disagrees with the reference for {first:X2} {second:X2}");
+            }
+        }
+    }
+
+    [Test]
     public void GeneratedExamplesAndRandomByteInputsAgreeWithTheirReference()
     {
         foreach (var name in SharedPrefixNames.Values)

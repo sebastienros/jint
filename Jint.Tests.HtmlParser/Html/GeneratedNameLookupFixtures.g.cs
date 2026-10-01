@@ -56,17 +56,23 @@ internal static class HeaderByteNames
             case 16:
             {
                 var chunk0 = Read8(input, 8);
-                if ((chunk0 & 0xDFDFDFDFDFDFDFDFUL) == 0x45474155474E414CUL)
+                switch (chunk0 & 0xDFDFDFDFDFDFDFDFUL)
                 {
-                    if ((Read8(input, 0) & 0xFFDFDFDFDFDFDFDFUL) == 0x2D544E45544E4F43UL) return "Content-Language";
-                }
-                else if ((chunk0 & 0xDFDFDFDFDFDFDFDFUL) == 0x474E49444F434E45UL)
-                {
-                    if ((Read8(input, 0) & 0xFFDFDFDFDFDFDFDFUL) == 0x2D544E45544E4F43UL) return "Content-Encoding";
-                }
-                else if ((chunk0 & 0xDFDFDFDFDFDFDFDFUL) == 0x4E4F495441434F4CUL)
-                {
-                    if ((Read8(input, 0) & 0xFFDFDFDFDFDFDFDFUL) == 0x2D544E45544E4F43UL) return "Content-Location";
+                    case 0x45474155474E414CUL:
+                    {
+                        if ((Read8(input, 0) & 0xFFDFDFDFDFDFDFDFUL) == 0x2D544E45544E4F43UL) return "Content-Language";
+                        break;
+                    }
+                    case 0x474E49444F434E45UL:
+                    {
+                        if ((Read8(input, 0) & 0xFFDFDFDFDFDFDFDFUL) == 0x2D544E45544E4F43UL) return "Content-Encoding";
+                        break;
+                    }
+                    case 0x4E4F495441434F4CUL:
+                    {
+                        if ((Read8(input, 0) & 0xFFDFDFDFDFDFDFDFUL) == 0x2D544E45544E4F43UL) return "Content-Location";
+                        break;
+                    }
                 }
                 break;
             }
@@ -135,17 +141,23 @@ internal static class HeaderCharNames
             case 16:
             {
                 var chunk0 = Read4(input, 8);
-                if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x00410043004F004CUL)
+                switch (chunk0 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F0043UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFDFUL) == 0x002D0054004E0045UL && (Read4(input, 12) & 0xFFDFFFDFFFDFFFDFUL) == 0x004E004F00490054UL) return "Content-Location";
-                }
-                else if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x0047004E0041004CUL)
-                {
-                    if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F0043UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFDFUL) == 0x002D0054004E0045UL && (Read4(input, 12) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004700410055UL) return "Content-Language";
-                }
-                else if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x004F0043004E0045UL)
-                {
-                    if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F0043UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFDFUL) == 0x002D0054004E0045UL && (Read4(input, 12) & 0xFFDFFFDFFFDFFFDFUL) == 0x0047004E00490044UL) return "Content-Encoding";
+                    case 0x00410043004F004CUL:
+                    {
+                        if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F0043UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFDFUL) == 0x002D0054004E0045UL && (Read4(input, 12) & 0xFFDFFFDFFFDFFFDFUL) == 0x004E004F00490054UL) return "Content-Location";
+                        break;
+                    }
+                    case 0x0047004E0041004CUL:
+                    {
+                        if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F0043UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFDFUL) == 0x002D0054004E0045UL && (Read4(input, 12) & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004700410055UL) return "Content-Language";
+                        break;
+                    }
+                    case 0x004F0043004E0045UL:
+                    {
+                        if ((Read4(input, 0) & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F0043UL && (Read4(input, 4) & 0xFFFFFFDFFFDFFFDFUL) == 0x002D0054004E0045UL && (Read4(input, 12) & 0xFFDFFFDFFFDFFFDFUL) == 0x0047004E00490044UL) return "Content-Encoding";
+                        break;
+                    }
                 }
                 break;
             }
@@ -351,4 +363,177 @@ internal static class SharedPrefixNames
             : (value << 48) | ((value & 0xFFFF0000UL) << 16) |
               ((value >> 16) & 0xFFFF0000UL) | (value >> 48);
     }
+}
+
+internal static class PunctuationCharNames
+{
+    private static readonly string[] Names =
+    [
+        "x-",
+        "x@",
+        "x`",
+        "xa",
+        "y-",
+        "y[",
+        "yb",
+        "y{",
+    ];
+
+    internal static ReadOnlySpan<string> Values => Names;
+
+    internal static string? Match(ReadOnlySpan<char> input)
+    {
+        switch (input.Length)
+        {
+            case 2:
+            {
+                var chunk0 = Read2(input, 0);
+                switch (chunk0 & 0xFFDFFFDFU)
+                {
+                    case 0x000D0058U:
+                    {
+                        if ((chunk0 & 0xFFFFFFDFU) == 0x002D0058U)
+                        {
+                            return "x-";
+                        }
+                        break;
+                    }
+                    case 0x000D0059U:
+                    {
+                        if ((chunk0 & 0xFFFFFFDFU) == 0x002D0059U)
+                        {
+                            return "y-";
+                        }
+                        break;
+                    }
+                    case 0x00400058U:
+                    {
+                        if ((chunk0 & 0xFFFFFFDFU) == 0x00400058U)
+                        {
+                            return "x@";
+                        }
+                        if ((chunk0 & 0xFFFFFFDFU) == 0x00600058U)
+                        {
+                            return "x`";
+                        }
+                        break;
+                    }
+                    case 0x00410058U:
+                    {
+                        return "xa";
+                    }
+                    case 0x00420059U:
+                    {
+                        return "yb";
+                    }
+                    case 0x005B0059U:
+                    {
+                        if ((chunk0 & 0xFFFFFFDFU) == 0x005B0059U)
+                        {
+                            return "y[";
+                        }
+                        if ((chunk0 & 0xFFFFFFDFU) == 0x007B0059U)
+                        {
+                            return "y{";
+                        }
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<char> input, int offset)
+    {
+        var value = MemoryMarshal.Read<uint>(MemoryMarshal.AsBytes(input.Slice(offset, 2)));
+        return BitConverter.IsLittleEndian ? value : (value << 16) | (value >> 16);
+    }
+}
+
+internal static class PunctuationByteNames
+{
+    private static readonly string[] Names =
+    [
+        "x-",
+        "x@",
+        "x`",
+        "xa",
+        "y-",
+        "y[",
+        "yb",
+        "y{",
+    ];
+
+    internal static ReadOnlySpan<string> Values => Names;
+
+    internal static string? Match(ReadOnlySpan<byte> input)
+    {
+        switch (input.Length)
+        {
+            case 2:
+            {
+                var chunk0 = Read2(input, 0);
+                switch (chunk0 & 0xDFDFU)
+                {
+                    case 0x0D58U:
+                    {
+                        if ((chunk0 & 0xFFDFU) == 0x2D58U)
+                        {
+                            return "x-";
+                        }
+                        break;
+                    }
+                    case 0x0D59U:
+                    {
+                        if ((chunk0 & 0xFFDFU) == 0x2D59U)
+                        {
+                            return "y-";
+                        }
+                        break;
+                    }
+                    case 0x4058U:
+                    {
+                        if ((chunk0 & 0xFFDFU) == 0x4058U)
+                        {
+                            return "x@";
+                        }
+                        if ((chunk0 & 0xFFDFU) == 0x6058U)
+                        {
+                            return "x`";
+                        }
+                        break;
+                    }
+                    case 0x4158U:
+                    {
+                        return "xa";
+                    }
+                    case 0x4259U:
+                    {
+                        return "yb";
+                    }
+                    case 0x5B59U:
+                    {
+                        if ((chunk0 & 0xFFDFU) == 0x5B59U)
+                        {
+                            return "y[";
+                        }
+                        if ((chunk0 & 0xFFDFU) == 0x7B59U)
+                        {
+                            return "y{";
+                        }
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read2(ReadOnlySpan<byte> input, int offset)
+        => BinaryPrimitives.ReadUInt16LittleEndian(input.Slice(offset, 2));
 }

@@ -93,289 +93,342 @@ internal static class CssUnitLookup
             case 1:
             {
                 var chunk0 = (uint) input[0];
-                if ((chunk0 & 0xFFDFU) == 0x0051U)
+                switch (chunk0 & 0xFFDFU)
                 {
-                    return CssUnit.Q;
-                }
-                else if ((chunk0 & 0xFFDFU) == 0x0053U)
-                {
-                    return CssUnit.S;
-                }
-                else if ((chunk0 & 0xFFDFU) == 0x0058U)
-                {
-                    return CssUnit.X;
+                    case 0x0051U:
+                    {
+                        return CssUnit.Q;
+                    }
+                    case 0x0053U:
+                    {
+                        return CssUnit.S;
+                    }
+                    case 0x0058U:
+                    {
+                        return CssUnit.X;
+                    }
                 }
                 break;
             }
             case 2:
             {
                 var chunk1 = Read2(input, 0);
-                if ((chunk1 & 0xFFDFFFDFU) == 0x00420056U)
+                switch (chunk1 & 0xFFDFFFDFU)
                 {
-                    return CssUnit.Vb;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00430049U)
-                {
-                    return CssUnit.Ic;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00430050U)
-                {
-                    return CssUnit.Pc;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00480043U)
-                {
-                    return CssUnit.Ch;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x0048004CU)
-                {
-                    return CssUnit.Lh;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00480056U)
-                {
-                    return CssUnit.Vh;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00490056U)
-                {
-                    return CssUnit.Vi;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x004D0043U)
-                {
-                    return CssUnit.Cm;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x004D0045U)
-                {
-                    return CssUnit.Em;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x004D004DU)
-                {
-                    return CssUnit.Mm;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x004E0049U)
-                {
-                    return CssUnit.In;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00520046U)
-                {
-                    return CssUnit.Fr;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x0053004DU)
-                {
-                    return CssUnit.Ms;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00540050U)
-                {
-                    return CssUnit.Pt;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00570056U)
-                {
-                    return CssUnit.Vw;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00580045U)
-                {
-                    return CssUnit.Ex;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x00580050U)
-                {
-                    return CssUnit.Px;
-                }
-                else if ((chunk1 & 0xFFDFFFDFU) == 0x005A0048U)
-                {
-                    return CssUnit.Hz;
+                    case 0x00420056U:
+                    {
+                        return CssUnit.Vb;
+                    }
+                    case 0x00430049U:
+                    {
+                        return CssUnit.Ic;
+                    }
+                    case 0x00430050U:
+                    {
+                        return CssUnit.Pc;
+                    }
+                    case 0x00480043U:
+                    {
+                        return CssUnit.Ch;
+                    }
+                    case 0x0048004CU:
+                    {
+                        return CssUnit.Lh;
+                    }
+                    case 0x00480056U:
+                    {
+                        return CssUnit.Vh;
+                    }
+                    case 0x00490056U:
+                    {
+                        return CssUnit.Vi;
+                    }
+                    case 0x004D0043U:
+                    {
+                        return CssUnit.Cm;
+                    }
+                    case 0x004D0045U:
+                    {
+                        return CssUnit.Em;
+                    }
+                    case 0x004D004DU:
+                    {
+                        return CssUnit.Mm;
+                    }
+                    case 0x004E0049U:
+                    {
+                        return CssUnit.In;
+                    }
+                    case 0x00520046U:
+                    {
+                        return CssUnit.Fr;
+                    }
+                    case 0x0053004DU:
+                    {
+                        return CssUnit.Ms;
+                    }
+                    case 0x00540050U:
+                    {
+                        return CssUnit.Pt;
+                    }
+                    case 0x00570056U:
+                    {
+                        return CssUnit.Vw;
+                    }
+                    case 0x00580045U:
+                    {
+                        return CssUnit.Ex;
+                    }
+                    case 0x00580050U:
+                    {
+                        return CssUnit.Px;
+                    }
+                    case 0x005A0048U:
+                    {
+                        return CssUnit.Hz;
+                    }
                 }
                 break;
             }
             case 3:
             {
                 var chunk2 = Read2(input, 1);
-                if ((chunk2 & 0xFFDFFFDFU) == 0x00420051U)
+                switch (chunk2 & 0xFFDFFFDFU)
                 {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqb;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00420056U)
-                {
-                    var chunk3 = (uint) input[0];
-                    if ((chunk3 & 0xFFDFU) == 0x0044U)
+                    case 0x00420051U:
                     {
-                        return CssUnit.Dvb;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqb;
+                        break;
                     }
-                    else if ((chunk3 & 0xFFDFU) == 0x004CU)
+                    case 0x00420056U:
                     {
-                        return CssUnit.Lvb;
+                        var chunk3 = (uint) input[0];
+                        switch (chunk3 & 0xFFDFU)
+                        {
+                            case 0x0044U:
+                            {
+                                return CssUnit.Dvb;
+                            }
+                            case 0x004CU:
+                            {
+                                return CssUnit.Lvb;
+                            }
+                            case 0x0053U:
+                            {
+                                return CssUnit.Svb;
+                            }
+                        }
+                        break;
                     }
-                    else if ((chunk3 & 0xFFDFU) == 0x0053U)
+                    case 0x00430049U:
                     {
-                        return CssUnit.Svb;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Ric;
+                        break;
                     }
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00430049U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Ric;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00440041U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rad;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00470045U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0044U) return CssUnit.Deg;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00480043U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rch;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x0048004CU)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rlh;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00480051U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqh;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00480056U)
-                {
-                    var chunk4 = (uint) input[0];
-                    if ((chunk4 & 0xFFDFU) == 0x0044U)
+                    case 0x00440041U:
                     {
-                        return CssUnit.Dvh;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rad;
+                        break;
                     }
-                    else if ((chunk4 & 0xFFDFU) == 0x004CU)
+                    case 0x00470045U:
                     {
-                        return CssUnit.Lvh;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0044U) return CssUnit.Deg;
+                        break;
                     }
-                    else if ((chunk4 & 0xFFDFU) == 0x0053U)
+                    case 0x00480043U:
                     {
-                        return CssUnit.Svh;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rch;
+                        break;
                     }
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00490050U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0044U) return CssUnit.Dpi;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00490051U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqi;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00490056U)
-                {
-                    var chunk5 = (uint) input[0];
-                    if ((chunk5 & 0xFFDFU) == 0x0044U)
+                    case 0x0048004CU:
                     {
-                        return CssUnit.Dvi;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rlh;
+                        break;
                     }
-                    else if ((chunk5 & 0xFFDFU) == 0x004CU)
+                    case 0x00480051U:
                     {
-                        return CssUnit.Lvi;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqh;
+                        break;
                     }
-                    else if ((chunk5 & 0xFFDFU) == 0x0053U)
+                    case 0x00480056U:
                     {
-                        return CssUnit.Svi;
+                        var chunk4 = (uint) input[0];
+                        switch (chunk4 & 0xFFDFU)
+                        {
+                            case 0x0044U:
+                            {
+                                return CssUnit.Dvh;
+                            }
+                            case 0x004CU:
+                            {
+                                return CssUnit.Lvh;
+                            }
+                            case 0x0053U:
+                            {
+                                return CssUnit.Svh;
+                            }
+                        }
+                        break;
                     }
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x004D0045U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rem;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00500041U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cap;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00570051U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqw;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00570056U)
-                {
-                    var chunk6 = (uint) input[0];
-                    if ((chunk6 & 0xFFDFU) == 0x0044U)
+                    case 0x00490050U:
                     {
-                        return CssUnit.Dvw;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0044U) return CssUnit.Dpi;
+                        break;
                     }
-                    else if ((chunk6 & 0xFFDFU) == 0x004CU)
+                    case 0x00490051U:
                     {
-                        return CssUnit.Lvw;
+                        if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqi;
+                        break;
                     }
-                    else if ((chunk6 & 0xFFDFU) == 0x0053U)
+                    case 0x00490056U:
                     {
-                        return CssUnit.Svw;
+                        var chunk5 = (uint) input[0];
+                        switch (chunk5 & 0xFFDFU)
+                        {
+                            case 0x0044U:
+                            {
+                                return CssUnit.Dvi;
+                            }
+                            case 0x004CU:
+                            {
+                                return CssUnit.Lvi;
+                            }
+                            case 0x0053U:
+                            {
+                                return CssUnit.Svi;
+                            }
+                        }
+                        break;
                     }
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x00580045U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rex;
-                }
-                else if ((chunk2 & 0xFFDFFFDFU) == 0x005A0048U)
-                {
-                    if (((uint) input[0] & 0xFFDFU) == 0x004BU) return CssUnit.Khz;
+                    case 0x004D0045U:
+                    {
+                        if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rem;
+                        break;
+                    }
+                    case 0x00500041U:
+                    {
+                        if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cap;
+                        break;
+                    }
+                    case 0x00570051U:
+                    {
+                        if (((uint) input[0] & 0xFFDFU) == 0x0043U) return CssUnit.Cqw;
+                        break;
+                    }
+                    case 0x00570056U:
+                    {
+                        var chunk6 = (uint) input[0];
+                        switch (chunk6 & 0xFFDFU)
+                        {
+                            case 0x0044U:
+                            {
+                                return CssUnit.Dvw;
+                            }
+                            case 0x004CU:
+                            {
+                                return CssUnit.Lvw;
+                            }
+                            case 0x0053U:
+                            {
+                                return CssUnit.Svw;
+                            }
+                        }
+                        break;
+                    }
+                    case 0x00580045U:
+                    {
+                        if (((uint) input[0] & 0xFFDFU) == 0x0052U) return CssUnit.Rex;
+                        break;
+                    }
+                    case 0x005A0048U:
+                    {
+                        if (((uint) input[0] & 0xFFDFU) == 0x004BU) return CssUnit.Khz;
+                        break;
+                    }
                 }
                 break;
             }
             case 4:
             {
                 var chunk7 = Read4(input, 0);
-                if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x0044004100520047UL)
+                switch (chunk7 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    return CssUnit.Grad;
-                }
-                else if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x004D004300500044UL)
-                {
-                    return CssUnit.Dpcm;
-                }
-                else if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x004E0049004D0056UL)
-                {
-                    return CssUnit.Vmin;
-                }
-                else if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x004E005200550054UL)
-                {
-                    return CssUnit.Turn;
-                }
-                else if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x0050004100430052UL)
-                {
-                    return CssUnit.Rcap;
-                }
-                else if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x00580041004D0056UL)
-                {
-                    return CssUnit.Vmax;
-                }
-                else if ((chunk7 & 0xFFDFFFDFFFDFFFDFUL) == 0x0058005000500044UL)
-                {
-                    return CssUnit.Dppx;
+                    case 0x0044004100520047UL:
+                    {
+                        return CssUnit.Grad;
+                    }
+                    case 0x004D004300500044UL:
+                    {
+                        return CssUnit.Dpcm;
+                    }
+                    case 0x004E0049004D0056UL:
+                    {
+                        return CssUnit.Vmin;
+                    }
+                    case 0x004E005200550054UL:
+                    {
+                        return CssUnit.Turn;
+                    }
+                    case 0x0050004100430052UL:
+                    {
+                        return CssUnit.Rcap;
+                    }
+                    case 0x00580041004D0056UL:
+                    {
+                        return CssUnit.Vmax;
+                    }
+                    case 0x0058005000500044UL:
+                    {
+                        return CssUnit.Dppx;
+                    }
                 }
                 break;
             }
             case 5:
             {
                 var chunk8 = Read4(input, 0);
-                if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0041004D00510043UL)
+                switch (chunk8 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Cqmax;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0041004D00560044UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Dvmax;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0041004D0056004CUL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Lvmax;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0041004D00560053UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Svmax;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004D00510043UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Cqmin;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004D00560044UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Dvmin;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004D0056004CUL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Lvmin;
-                }
-                else if ((chunk8 & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004D00560053UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Svmin;
+                    case 0x0041004D00510043UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Cqmax;
+                        break;
+                    }
+                    case 0x0041004D00560044UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Dvmax;
+                        break;
+                    }
+                    case 0x0041004D0056004CUL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Lvmax;
+                        break;
+                    }
+                    case 0x0041004D00560053UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0058U) return CssUnit.Svmax;
+                        break;
+                    }
+                    case 0x0049004D00510043UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Cqmin;
+                        break;
+                    }
+                    case 0x0049004D00560044UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Dvmin;
+                        break;
+                    }
+                    case 0x0049004D0056004CUL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Lvmin;
+                        break;
+                    }
+                    case 0x0049004D00560053UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x004EU) return CssUnit.Svmin;
+                        break;
+                    }
                 }
                 break;
             }
@@ -421,13 +474,18 @@ internal static class CssWideKeywordLookup
             case 7:
             {
                 var chunk0 = Read4(input, 0);
-                if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x00450048004E0049UL)
+                switch (chunk0 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00490052U && ((uint) input[6] & 0xFFDFU) == 0x0054U) return CssWideKeyword.Inherit;
-                }
-                else if ((chunk0 & 0xFFDFFFDFFFDFFFDFUL) == 0x00540049004E0049UL)
-                {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00410049U && ((uint) input[6] & 0xFFDFU) == 0x004CU) return CssWideKeyword.Initial;
+                    case 0x00450048004E0049UL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00490052U && ((uint) input[6] & 0xFFDFU) == 0x0054U) return CssWideKeyword.Inherit;
+                        break;
+                    }
+                    case 0x00540049004E0049UL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00410049U && ((uint) input[6] & 0xFFDFU) == 0x004CU) return CssWideKeyword.Initial;
+                        break;
+                    }
                 }
                 break;
             }
@@ -473,109 +531,140 @@ internal static class HtmlInputTypeLookup
             case 3:
             {
                 var chunk0 = Read2(input, 0);
-                if ((chunk0 & 0xFFDFFFDFU) == 0x00450054U)
+                switch (chunk0 & 0xFFDFFFDFU)
                 {
-                    if (((uint) input[2] & 0xFFDFU) == 0x004CU) return HtmlInputType.Tel;
-                }
-                else if ((chunk0 & 0xFFDFFFDFU) == 0x00520055U)
-                {
-                    if (((uint) input[2] & 0xFFDFU) == 0x004CU) return HtmlInputType.Url;
+                    case 0x00450054U:
+                    {
+                        if (((uint) input[2] & 0xFFDFU) == 0x004CU) return HtmlInputType.Tel;
+                        break;
+                    }
+                    case 0x00520055U:
+                    {
+                        if (((uint) input[2] & 0xFFDFU) == 0x004CU) return HtmlInputType.Url;
+                        break;
+                    }
                 }
                 break;
             }
             case 4:
             {
                 var chunk1 = Read4(input, 0);
-                if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004C00490046UL)
+                switch (chunk1 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    return HtmlInputType.File;
-                }
-                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x0045004D00490054UL)
-                {
-                    return HtmlInputType.Time;
-                }
-                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x0045005400410044UL)
-                {
-                    return HtmlInputType.Date;
-                }
-                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x004B004500450057UL)
-                {
-                    return HtmlInputType.Week;
-                }
-                else if ((chunk1 & 0xFFDFFFDFFFDFFFDFUL) == 0x0054005800450054UL)
-                {
-                    return HtmlInputType.Text;
+                    case 0x0045004C00490046UL:
+                    {
+                        return HtmlInputType.File;
+                    }
+                    case 0x0045004D00490054UL:
+                    {
+                        return HtmlInputType.Time;
+                    }
+                    case 0x0045005400410044UL:
+                    {
+                        return HtmlInputType.Date;
+                    }
+                    case 0x004B004500450057UL:
+                    {
+                        return HtmlInputType.Week;
+                    }
+                    case 0x0054005800450054UL:
+                    {
+                        return HtmlInputType.Text;
+                    }
                 }
                 break;
             }
             case 5:
             {
                 var chunk2 = Read4(input, 0);
-                if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x0045005300450052UL)
+                switch (chunk2 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0054U) return HtmlInputType.Reset;
-                }
-                else if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x00470041004D0049UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0045U) return HtmlInputType.Image;
-                }
-                else if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x0047004E00410052UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0045U) return HtmlInputType.Range;
-                }
-                else if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x00490041004D0045UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x004CU) return HtmlInputType.Email;
-                }
-                else if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x0049004400410052UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x004FU) return HtmlInputType.Radio;
-                }
-                else if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x004F004C004F0043UL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0052U) return HtmlInputType.Color;
-                }
-                else if ((chunk2 & 0xFFDFFFDFFFDFFFDFUL) == 0x0054004E004F004DUL)
-                {
-                    if (((uint) input[4] & 0xFFDFU) == 0x0048U) return HtmlInputType.Month;
+                    case 0x0045005300450052UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0054U) return HtmlInputType.Reset;
+                        break;
+                    }
+                    case 0x00470041004D0049UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0045U) return HtmlInputType.Image;
+                        break;
+                    }
+                    case 0x0047004E00410052UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0045U) return HtmlInputType.Range;
+                        break;
+                    }
+                    case 0x00490041004D0045UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x004CU) return HtmlInputType.Email;
+                        break;
+                    }
+                    case 0x0049004400410052UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x004FU) return HtmlInputType.Radio;
+                        break;
+                    }
+                    case 0x004F004C004F0043UL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0052U) return HtmlInputType.Color;
+                        break;
+                    }
+                    case 0x0054004E004F004DUL:
+                    {
+                        if (((uint) input[4] & 0xFFDFU) == 0x0048U) return HtmlInputType.Month;
+                        break;
+                    }
                 }
                 break;
             }
             case 6:
             {
                 var chunk3 = Read4(input, 0);
-                if ((chunk3 & 0xFFDFFFDFFFDFFFDFUL) == 0x0042004D0055004EUL)
+                switch (chunk3 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00520045U) return HtmlInputType.Number;
-                }
-                else if ((chunk3 & 0xFFDFFFDFFFDFFFDFUL) == 0x0044004400490048UL)
-                {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x004E0045U) return HtmlInputType.Hidden;
-                }
-                else if ((chunk3 & 0xFFDFFFDFFFDFFFDFUL) == 0x004D004200550053UL)
-                {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00540049U) return HtmlInputType.Submit;
-                }
-                else if ((chunk3 & 0xFFDFFFDFFFDFFFDFUL) == 0x0052004100450053UL)
-                {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00480043U) return HtmlInputType.Search;
-                }
-                else if ((chunk3 & 0xFFDFFFDFFFDFFFDFUL) == 0x0054005400550042UL)
-                {
-                    if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x004E004FU) return HtmlInputType.Button;
+                    case 0x0042004D0055004EUL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00520045U) return HtmlInputType.Number;
+                        break;
+                    }
+                    case 0x0044004400490048UL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x004E0045U) return HtmlInputType.Hidden;
+                        break;
+                    }
+                    case 0x004D004200550053UL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00540049U) return HtmlInputType.Submit;
+                        break;
+                    }
+                    case 0x0052004100450053UL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x00480043U) return HtmlInputType.Search;
+                        break;
+                    }
+                    case 0x0054005400550042UL:
+                    {
+                        if ((Read2(input, 4) & 0xFFDFFFDFU) == 0x004E004FU) return HtmlInputType.Button;
+                        break;
+                    }
                 }
                 break;
             }
             case 8:
             {
                 var chunk4 = Read4(input, 0);
-                if ((chunk4 & 0xFFDFFFDFFFDFFFDFUL) == 0x0043004500480043UL)
+                switch (chunk4 & 0xFFDFFFDFFFDFFFDFUL)
                 {
-                    if ((Read4(input, 4) & 0xFFDFFFDFFFDFFFDFUL) == 0x0058004F0042004BUL) return HtmlInputType.Checkbox;
-                }
-                else if ((chunk4 & 0xFFDFFFDFFFDFFFDFUL) == 0x0053005300410050UL)
-                {
-                    if ((Read4(input, 4) & 0xFFDFFFDFFFDFFFDFUL) == 0x00440052004F0057UL) return HtmlInputType.Password;
+                    case 0x0043004500480043UL:
+                    {
+                        if ((Read4(input, 4) & 0xFFDFFFDFFFDFFFDFUL) == 0x0058004F0042004BUL) return HtmlInputType.Checkbox;
+                        break;
+                    }
+                    case 0x0053005300410050UL:
+                    {
+                        if ((Read4(input, 4) & 0xFFDFFFDFFFDFFFDFUL) == 0x00440052004F0057UL) return HtmlInputType.Password;
+                        break;
+                    }
                 }
                 break;
             }
@@ -618,54 +707,7 @@ internal static class SvgTagNameLookup
                 if (Read4(input, 0) == 0x0069007400650066UL && Read2(input, 4) == 0x0065006CU) return "feTile";
                 break;
             }
-            case 7:
-            {
-                var chunk0 = Read4(input, 3);
-                switch (chunk0)
-                {
-                    case 0x00610063006E0075UL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncA";
-                        break;
-                    }
-                    case 0x00620063006E0075UL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncB";
-                        break;
-                    }
-                    case 0x0064006E0065006CUL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0062U) return "feBlend";
-                        break;
-                    }
-                    case 0x0064006F006F006CUL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFlood";
-                        break;
-                    }
-                    case 0x006500670061006DUL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0069U) return "feImage";
-                        break;
-                    }
-                    case 0x0065006700720065UL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x006DU) return "feMerge";
-                        break;
-                    }
-                    case 0x00670063006E0075UL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncG";
-                        break;
-                    }
-                    case 0x00720063006E0075UL:
-                    {
-                        if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncR";
-                        break;
-                    }
-                }
-                break;
-            }
+            case 7: return Match7(input);
             case 8:
             {
                 var chunk1 = Read4(input, 0);
@@ -699,72 +741,8 @@ internal static class SvgTagNameLookup
                 }
                 break;
             }
-            case 11:
-            {
-                var chunk2 = Read4(input, 0);
-                switch (chunk2)
-                {
-                    case 0x0065006D00650066UL:
-                    {
-                        if (Read4(input, 4) == 0x006E006500670072UL && Read2(input, 8) == 0x0064006FU && (uint) input[10] == 0x0065U) return "feMergeNode";
-                        break;
-                    }
-                    case 0x00670074006C0061UL:
-                    {
-                        if (Read4(input, 4) == 0x006800700079006CUL && Read2(input, 8) == 0x00650064U && (uint) input[10] == 0x0066U) return "altGlyphDef";
-                        break;
-                    }
-                    case 0x006F006300650066UL:
-                    {
-                        if (Read4(input, 4) == 0x0073006F0070006DUL && Read2(input, 8) == 0x00740069U && (uint) input[10] == 0x0065U) return "feComposite";
-                        break;
-                    }
-                    case 0x0070007300650066UL:
-                    {
-                        if (Read4(input, 4) == 0x0069006C0074006FUL && Read2(input, 8) == 0x00680067U && (uint) input[10] == 0x0074U) return "feSpotLight";
-                        break;
-                    }
-                }
-                break;
-            }
-            case 12:
-            {
-                var chunk3 = Read4(input, 0);
-                switch (chunk3)
-                {
-                    case 0x00670074006C0061UL:
-                    {
-                        if (Read4(input, 4) == 0x006800700079006CUL && Read4(input, 8) == 0x006D006500740069UL) return "altGlyphItem";
-                        break;
-                    }
-                    case 0x006D0069006E0061UL:
-                    {
-                        if (Read4(input, 4) == 0x0063006500740061UL && Read4(input, 8) == 0x0072006F006C006FUL) return "animateColor";
-                        break;
-                    }
-                    case 0x006F006D00650066UL:
-                    {
-                        if (Read4(input, 4) == 0x006F006800700072UL && Read4(input, 8) == 0x00790067006F006CUL) return "feMorphology";
-                        break;
-                    }
-                    case 0x006F007000650066UL:
-                    {
-                        if (Read4(input, 4) == 0x006C0074006E0069UL && Read4(input, 8) == 0x0074006800670069UL) return "fePointLight";
-                        break;
-                    }
-                    case 0x0072006400650066UL:
-                    {
-                        if (Read4(input, 4) == 0x006800730070006FUL && Read4(input, 8) == 0x0077006F00640061UL) return "feDropShadow";
-                        break;
-                    }
-                    case 0x0075007400650066UL:
-                    {
-                        if (Read4(input, 4) == 0x006C007500620072UL && Read4(input, 8) == 0x00650063006E0065UL) return "feTurbulence";
-                        break;
-                    }
-                }
-                break;
-            }
+            case 11: return Match11(input);
+            case 12: return Match12(input);
             case 13:
             {
                 var chunk4 = Read4(input, 0);
@@ -866,6 +844,126 @@ internal static class SvgTagNameLookup
         return null;
     }
 
+    private static string? Match7(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 7) return null;
+        var chunk0 = Read4(input, 3);
+        switch (chunk0)
+        {
+            case 0x00610063006E0075UL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncA";
+                break;
+            }
+            case 0x00620063006E0075UL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncB";
+                break;
+            }
+            case 0x0064006E0065006CUL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0062U) return "feBlend";
+                break;
+            }
+            case 0x0064006F006F006CUL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFlood";
+                break;
+            }
+            case 0x006500670061006DUL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0069U) return "feImage";
+                break;
+            }
+            case 0x0065006700720065UL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x006DU) return "feMerge";
+                break;
+            }
+            case 0x00670063006E0075UL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncG";
+                break;
+            }
+            case 0x00720063006E0075UL:
+            {
+                if (Read2(input, 0) == 0x00650066U && (uint) input[2] == 0x0066U) return "feFuncR";
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match11(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 11) return null;
+        var chunk2 = Read4(input, 0);
+        switch (chunk2)
+        {
+            case 0x0065006D00650066UL:
+            {
+                if (Read4(input, 4) == 0x006E006500670072UL && Read2(input, 8) == 0x0064006FU && (uint) input[10] == 0x0065U) return "feMergeNode";
+                break;
+            }
+            case 0x00670074006C0061UL:
+            {
+                if (Read4(input, 4) == 0x006800700079006CUL && Read2(input, 8) == 0x00650064U && (uint) input[10] == 0x0066U) return "altGlyphDef";
+                break;
+            }
+            case 0x006F006300650066UL:
+            {
+                if (Read4(input, 4) == 0x0073006F0070006DUL && Read2(input, 8) == 0x00740069U && (uint) input[10] == 0x0065U) return "feComposite";
+                break;
+            }
+            case 0x0070007300650066UL:
+            {
+                if (Read4(input, 4) == 0x0069006C0074006FUL && Read2(input, 8) == 0x00680067U && (uint) input[10] == 0x0074U) return "feSpotLight";
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match12(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 12) return null;
+        var chunk3 = Read4(input, 0);
+        switch (chunk3)
+        {
+            case 0x00670074006C0061UL:
+            {
+                if (Read4(input, 4) == 0x006800700079006CUL && Read4(input, 8) == 0x006D006500740069UL) return "altGlyphItem";
+                break;
+            }
+            case 0x006D0069006E0061UL:
+            {
+                if (Read4(input, 4) == 0x0063006500740061UL && Read4(input, 8) == 0x0072006F006C006FUL) return "animateColor";
+                break;
+            }
+            case 0x006F006D00650066UL:
+            {
+                if (Read4(input, 4) == 0x006F006800700072UL && Read4(input, 8) == 0x00790067006F006CUL) return "feMorphology";
+                break;
+            }
+            case 0x006F007000650066UL:
+            {
+                if (Read4(input, 4) == 0x006C0074006E0069UL && Read4(input, 8) == 0x0074006800670069UL) return "fePointLight";
+                break;
+            }
+            case 0x0072006400650066UL:
+            {
+                if (Read4(input, 4) == 0x006800730070006FUL && Read4(input, 8) == 0x0077006F00640061UL) return "feDropShadow";
+                break;
+            }
+            case 0x0075007400650066UL:
+            {
+                if (Read4(input, 4) == 0x006C007500620072UL && Read4(input, 8) == 0x00650063006E0065UL) return "feTurbulence";
+                break;
+            }
+        }
+        return null;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint Read2(ReadOnlySpan<char> input, int offset)
     {
@@ -958,44 +1056,7 @@ internal static class SvgAttributeNameLookup
                 }
                 break;
             }
-            case 9:
-            {
-                var chunk3 = Read4(input, 5);
-                switch (chunk3)
-                {
-                    case 0x0072007500640074UL:
-                    {
-                        if (Read4(input, 0) == 0x0065007000650072UL && (uint) input[4] == 0x0061U) return "repeatDur";
-                        break;
-                    }
-                    case 0x007300740069006EUL:
-                    {
-                        if (Read4(input, 0) == 0x006B00730061006DUL && (uint) input[4] == 0x0075U) return "maskUnits";
-                        break;
-                    }
-                    case 0x00730074006E0069UL:
-                    {
-                        if (Read4(input, 0) == 0x007000790065006BUL && (uint) input[4] == 0x006FU) return "keyPoints";
-                        break;
-                    }
-                    case 0x0078007400610073UL:
-                    {
-                        if (Read4(input, 0) == 0x006E0069006F0070UL && (uint) input[4] == 0x0074U) return "pointsAtX";
-                        break;
-                    }
-                    case 0x0079007400610073UL:
-                    {
-                        if (Read4(input, 0) == 0x006E0069006F0070UL && (uint) input[4] == 0x0074U) return "pointsAtY";
-                        break;
-                    }
-                    case 0x007A007400610073UL:
-                    {
-                        if (Read4(input, 0) == 0x006E0069006F0070UL && (uint) input[4] == 0x0074U) return "pointsAtZ";
-                        break;
-                    }
-                }
-                break;
-            }
+            case 9: return Match9(input);
             case 10:
             {
                 var chunk4 = Read4(input, 0);
@@ -1034,135 +1095,9 @@ internal static class SvgAttributeNameLookup
                 }
                 break;
             }
-            case 11:
-            {
-                var chunk5 = Read4(input, 3);
-                switch (chunk5)
-                {
-                    case 0x006100760065006CUL:
-                    {
-                        if (Read2(input, 0) == 0x00610074U && (uint) input[2] == 0x0062U && Read4(input, 7) == 0x007300650075006CUL) return "tableValues";
-                        break;
-                    }
-                    case 0x0063007400610065UL:
-                    {
-                        if (Read2(input, 0) == 0x00650072U && (uint) input[2] == 0x0070U && Read4(input, 7) == 0x0074006E0075006FUL) return "repeatCount";
-                        break;
-                    }
-                    case 0x0066006F00740072UL:
-                    {
-                        if (Read2(input, 0) == 0x00740073U && (uint) input[2] == 0x0061U && Read4(input, 7) == 0x0074006500730066UL) return "startOffset";
-                        break;
-                    }
-                    case 0x006F007200700065UL:
-                    {
-                        if (Read2(input, 0) == 0x00610062U && (uint) input[2] == 0x0073U && Read4(input, 7) == 0x0065006C00690066UL) return "baseProfile";
-                        break;
-                    }
-                    case 0x0074006800630074UL:
-                    {
-                        if (Read2(input, 0) == 0x00740073U && (uint) input[2] == 0x0069U && Read4(input, 7) == 0x00730065006C0069UL) return "stitchTiles";
-                        break;
-                    }
-                    case 0x007500720065006BUL:
-                    {
-                        if (Read2(input, 0) == 0x0061006DU && (uint) input[2] == 0x0072U && Read4(input, 7) == 0x007300740069006EUL) return "markerUnits";
-                        break;
-                    }
-                    case 0x0075007200650074UL:
-                    {
-                        if (Read2(input, 0) == 0x00690066U && (uint) input[2] == 0x006CU && Read4(input, 7) == 0x007300740069006EUL) return "filterUnits";
-                        break;
-                    }
-                    case 0x007700720065006BUL:
-                    {
-                        if (Read2(input, 0) == 0x0061006DU && (uint) input[2] == 0x0072U && Read4(input, 7) == 0x0068007400640069UL) return "markerWidth";
-                        break;
-                    }
-                }
-                break;
-            }
-            case 12:
-            {
-                var chunk6 = Read4(input, 0);
-                switch (chunk6)
-                {
-                    case 0x0064006400740073UL:
-                    {
-                        if (Read4(input, 4) == 0x0061006900760065UL && Read4(input, 8) == 0x006E006F00690074UL) return "stdDeviation";
-                        break;
-                    }
-                    case 0x0065007200700073UL:
-                    {
-                        if (Read4(input, 4) == 0x0065006D00640061UL && Read4(input, 8) == 0x0064006F00680074UL) return "spreadMethod";
-                        break;
-                    }
-                    case 0x0066007200750073UL:
-                    {
-                        if (Read4(input, 4) == 0x0073006500630061UL && Read4(input, 8) == 0x0065006C00610063UL) return "surfaceScale";
-                        break;
-                    }
-                    case 0x0067006E0065006CUL:
-                    {
-                        if (Read4(input, 4) == 0x0064006100680074UL && Read4(input, 8) == 0x007400730075006AUL) return "lengthAdjust";
-                        break;
-                    }
-                    case 0x006B00720061006DUL:
-                    {
-                        if (Read4(input, 4) == 0x0065006800720065UL && Read4(input, 8) == 0x0074006800670069UL) return "markerHeight";
-                        break;
-                    }
-                    case 0x006E00720065006BUL:
-                    {
-                        if (Read4(input, 4) == 0x0061006D006C0065UL && Read4(input, 8) == 0x0078006900720074UL) return "kernelMatrix";
-                        break;
-                    }
-                    case 0x0074007400610070UL:
-                    {
-                        if (Read4(input, 4) == 0x0075006E00720065UL && Read4(input, 8) == 0x007300740069006EUL) return "patternUnits";
-                        break;
-                    }
-                }
-                break;
-            }
-            case 13:
-            {
-                var chunk7 = Read4(input, 6);
-                switch (chunk7)
-                {
-                    case 0x0065007500710065UL:
-                    {
-                        if (Read4(input, 0) == 0x0065007300610062UL && Read2(input, 4) == 0x00720066U && Read2(input, 10) == 0x0063006EU && (uint) input[12] == 0x0079U) return "baseFrequency";
-                        break;
-                    }
-                    case 0x006C006100650076UL:
-                    {
-                        if (Read4(input, 0) == 0x0073006500720070UL && Read2(input, 4) == 0x00720065U && Read2(input, 10) == 0x00680070U && (uint) input[12] == 0x0061U) return "preserveAlpha";
-                        break;
-                    }
-                    case 0x006E006500740075UL:
-                    {
-                        if (Read4(input, 0) == 0x0072007400740061UL && Read2(input, 4) == 0x00620069U && Read2(input, 10) == 0x006D0061U && (uint) input[12] == 0x0065U) return "attributeName";
-                        break;
-                    }
-                    case 0x006E007500680074UL:
-                    {
-                        if (Read4(input, 0) == 0x00700069006C0063UL && Read2(input, 4) == 0x00610070U && Read2(input, 10) == 0x00740069U && (uint) input[12] == 0x0073U) return "clipPathUnits";
-                        break;
-                    }
-                    case 0x006E00750074006EUL:
-                    {
-                        if (Read4(input, 0) == 0x0064006100720067UL && Read2(input, 4) == 0x00650069U && Read2(input, 10) == 0x00740069U && (uint) input[12] == 0x0073U) return "gradientUnits";
-                        break;
-                    }
-                    case 0x0074006500740075UL:
-                    {
-                        if (Read4(input, 0) == 0x0072007400740061UL && Read2(input, 4) == 0x00620069U && Read2(input, 10) == 0x00700079U && (uint) input[12] == 0x0065U) return "attributeType";
-                        break;
-                    }
-                }
-                break;
-            }
+            case 11: return Match11(input);
+            case 12: return Match12(input);
+            case 13: return Match13(input);
             case 14:
             {
                 var chunk8 = Read4(input, 0);
@@ -1186,62 +1121,7 @@ internal static class SvgAttributeNameLookup
                 if (Read4(input, 0) == 0x0066006600690064UL && Read4(input, 4) == 0x0063006500730075UL && Read4(input, 8) == 0x00740073006E006FUL && Read2(input, 12) == 0x006E0061U && (uint) input[14] == 0x0074U) return "diffuseConstant";
                 break;
             }
-            case 16:
-            {
-                var chunk9 = Read4(input, 0);
-                switch (chunk9)
-                {
-                    case 0x0061006800630078UL:
-                    {
-                        if (Read4(input, 4) == 0x006C0065006E006EUL && Read4(input, 8) == 0x0065006C00650073UL && Read4(input, 12) == 0x0072006F00740063UL) return "xChannelSelector";
-                        break;
-                    }
-                    case 0x0061006800630079UL:
-                    {
-                        if (Read4(input, 4) == 0x006C0065006E006EUL && Read4(input, 8) == 0x0065006C00650073UL && Read4(input, 12) == 0x0072006F00740063UL) return "yChannelSelector";
-                        break;
-                    }
-                    case 0x0063006500700073UL:
-                    {
-                        var chunk10 = Read4(input, 8);
-                        switch (chunk10)
-                        {
-                            case 0x006F007000780065UL:
-                            {
-                                if (Read4(input, 4) == 0x00720061006C0075UL && Read4(input, 12) == 0x0074006E0065006EUL) return "specularExponent";
-                                break;
-                            }
-                            case 0x0073006E006F0063UL:
-                            {
-                                if (Read4(input, 4) == 0x00720061006C0075UL && Read4(input, 12) == 0x0074006E00610074UL) return "specularConstant";
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                    case 0x006B00730061006DUL:
-                    {
-                        if (Read4(input, 4) == 0x0074006E006F0063UL && Read4(input, 8) == 0x00750074006E0065UL && Read4(input, 12) == 0x007300740069006EUL) return "maskContentUnits";
-                        break;
-                    }
-                    case 0x006E00720065006BUL:
-                    {
-                        if (Read4(input, 4) == 0x006E0075006C0065UL && Read4(input, 8) == 0x0065006C00740069UL && Read4(input, 12) == 0x006800740067006EUL) return "kernelUnitLength";
-                        break;
-                    }
-                    case 0x0074007400610070UL:
-                    {
-                        if (Read4(input, 4) == 0x0074006E00720065UL && Read4(input, 8) == 0x0073006E00610072UL && Read4(input, 12) == 0x006D0072006F0066UL) return "patternTransform";
-                        break;
-                    }
-                    case 0x0075007100650072UL:
-                    {
-                        if (Read4(input, 4) == 0x0064006500720069UL && Read4(input, 8) == 0x0074006100650066UL && Read4(input, 12) == 0x0073006500720075UL) return "requiredFeatures";
-                        break;
-                    }
-                }
-                break;
-            }
+            case 16: return Match16(input);
             case 17:
             {
                 var chunk11 = Read4(input, 0);
@@ -1281,6 +1161,239 @@ internal static class SvgAttributeNameLookup
                         break;
                     }
                 }
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match9(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 9) return null;
+        var chunk3 = Read4(input, 5);
+        switch (chunk3)
+        {
+            case 0x0072007500640074UL:
+            {
+                if (Read4(input, 0) == 0x0065007000650072UL && (uint) input[4] == 0x0061U) return "repeatDur";
+                break;
+            }
+            case 0x007300740069006EUL:
+            {
+                if (Read4(input, 0) == 0x006B00730061006DUL && (uint) input[4] == 0x0075U) return "maskUnits";
+                break;
+            }
+            case 0x00730074006E0069UL:
+            {
+                if (Read4(input, 0) == 0x007000790065006BUL && (uint) input[4] == 0x006FU) return "keyPoints";
+                break;
+            }
+            case 0x0078007400610073UL:
+            {
+                if (Read4(input, 0) == 0x006E0069006F0070UL && (uint) input[4] == 0x0074U) return "pointsAtX";
+                break;
+            }
+            case 0x0079007400610073UL:
+            {
+                if (Read4(input, 0) == 0x006E0069006F0070UL && (uint) input[4] == 0x0074U) return "pointsAtY";
+                break;
+            }
+            case 0x007A007400610073UL:
+            {
+                if (Read4(input, 0) == 0x006E0069006F0070UL && (uint) input[4] == 0x0074U) return "pointsAtZ";
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match11(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 11) return null;
+        var chunk5 = Read4(input, 3);
+        switch (chunk5)
+        {
+            case 0x006100760065006CUL:
+            {
+                if (Read2(input, 0) == 0x00610074U && (uint) input[2] == 0x0062U && Read4(input, 7) == 0x007300650075006CUL) return "tableValues";
+                break;
+            }
+            case 0x0063007400610065UL:
+            {
+                if (Read2(input, 0) == 0x00650072U && (uint) input[2] == 0x0070U && Read4(input, 7) == 0x0074006E0075006FUL) return "repeatCount";
+                break;
+            }
+            case 0x0066006F00740072UL:
+            {
+                if (Read2(input, 0) == 0x00740073U && (uint) input[2] == 0x0061U && Read4(input, 7) == 0x0074006500730066UL) return "startOffset";
+                break;
+            }
+            case 0x006F007200700065UL:
+            {
+                if (Read2(input, 0) == 0x00610062U && (uint) input[2] == 0x0073U && Read4(input, 7) == 0x0065006C00690066UL) return "baseProfile";
+                break;
+            }
+            case 0x0074006800630074UL:
+            {
+                if (Read2(input, 0) == 0x00740073U && (uint) input[2] == 0x0069U && Read4(input, 7) == 0x00730065006C0069UL) return "stitchTiles";
+                break;
+            }
+            case 0x007500720065006BUL:
+            {
+                if (Read2(input, 0) == 0x0061006DU && (uint) input[2] == 0x0072U && Read4(input, 7) == 0x007300740069006EUL) return "markerUnits";
+                break;
+            }
+            case 0x0075007200650074UL:
+            {
+                if (Read2(input, 0) == 0x00690066U && (uint) input[2] == 0x006CU && Read4(input, 7) == 0x007300740069006EUL) return "filterUnits";
+                break;
+            }
+            case 0x007700720065006BUL:
+            {
+                if (Read2(input, 0) == 0x0061006DU && (uint) input[2] == 0x0072U && Read4(input, 7) == 0x0068007400640069UL) return "markerWidth";
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match12(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 12) return null;
+        var chunk6 = Read4(input, 0);
+        switch (chunk6)
+        {
+            case 0x0064006400740073UL:
+            {
+                if (Read4(input, 4) == 0x0061006900760065UL && Read4(input, 8) == 0x006E006F00690074UL) return "stdDeviation";
+                break;
+            }
+            case 0x0065007200700073UL:
+            {
+                if (Read4(input, 4) == 0x0065006D00640061UL && Read4(input, 8) == 0x0064006F00680074UL) return "spreadMethod";
+                break;
+            }
+            case 0x0066007200750073UL:
+            {
+                if (Read4(input, 4) == 0x0073006500630061UL && Read4(input, 8) == 0x0065006C00610063UL) return "surfaceScale";
+                break;
+            }
+            case 0x0067006E0065006CUL:
+            {
+                if (Read4(input, 4) == 0x0064006100680074UL && Read4(input, 8) == 0x007400730075006AUL) return "lengthAdjust";
+                break;
+            }
+            case 0x006B00720061006DUL:
+            {
+                if (Read4(input, 4) == 0x0065006800720065UL && Read4(input, 8) == 0x0074006800670069UL) return "markerHeight";
+                break;
+            }
+            case 0x006E00720065006BUL:
+            {
+                if (Read4(input, 4) == 0x0061006D006C0065UL && Read4(input, 8) == 0x0078006900720074UL) return "kernelMatrix";
+                break;
+            }
+            case 0x0074007400610070UL:
+            {
+                if (Read4(input, 4) == 0x0075006E00720065UL && Read4(input, 8) == 0x007300740069006EUL) return "patternUnits";
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match13(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 13) return null;
+        var chunk7 = Read4(input, 6);
+        switch (chunk7)
+        {
+            case 0x0065007500710065UL:
+            {
+                if (Read4(input, 0) == 0x0065007300610062UL && Read2(input, 4) == 0x00720066U && Read2(input, 10) == 0x0063006EU && (uint) input[12] == 0x0079U) return "baseFrequency";
+                break;
+            }
+            case 0x006C006100650076UL:
+            {
+                if (Read4(input, 0) == 0x0073006500720070UL && Read2(input, 4) == 0x00720065U && Read2(input, 10) == 0x00680070U && (uint) input[12] == 0x0061U) return "preserveAlpha";
+                break;
+            }
+            case 0x006E006500740075UL:
+            {
+                if (Read4(input, 0) == 0x0072007400740061UL && Read2(input, 4) == 0x00620069U && Read2(input, 10) == 0x006D0061U && (uint) input[12] == 0x0065U) return "attributeName";
+                break;
+            }
+            case 0x006E007500680074UL:
+            {
+                if (Read4(input, 0) == 0x00700069006C0063UL && Read2(input, 4) == 0x00610070U && Read2(input, 10) == 0x00740069U && (uint) input[12] == 0x0073U) return "clipPathUnits";
+                break;
+            }
+            case 0x006E00750074006EUL:
+            {
+                if (Read4(input, 0) == 0x0064006100720067UL && Read2(input, 4) == 0x00650069U && Read2(input, 10) == 0x00740069U && (uint) input[12] == 0x0073U) return "gradientUnits";
+                break;
+            }
+            case 0x0074006500740075UL:
+            {
+                if (Read4(input, 0) == 0x0072007400740061UL && Read2(input, 4) == 0x00620069U && Read2(input, 10) == 0x00700079U && (uint) input[12] == 0x0065U) return "attributeType";
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static string? Match16(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 16) return null;
+        var chunk9 = Read4(input, 0);
+        switch (chunk9)
+        {
+            case 0x0061006800630078UL:
+            {
+                if (Read4(input, 4) == 0x006C0065006E006EUL && Read4(input, 8) == 0x0065006C00650073UL && Read4(input, 12) == 0x0072006F00740063UL) return "xChannelSelector";
+                break;
+            }
+            case 0x0061006800630079UL:
+            {
+                if (Read4(input, 4) == 0x006C0065006E006EUL && Read4(input, 8) == 0x0065006C00650073UL && Read4(input, 12) == 0x0072006F00740063UL) return "yChannelSelector";
+                break;
+            }
+            case 0x0063006500700073UL:
+            {
+                var chunk10 = Read4(input, 8);
+                switch (chunk10)
+                {
+                    case 0x006F007000780065UL:
+                    {
+                        if (Read4(input, 4) == 0x00720061006C0075UL && Read4(input, 12) == 0x0074006E0065006EUL) return "specularExponent";
+                        break;
+                    }
+                    case 0x0073006E006F0063UL:
+                    {
+                        if (Read4(input, 4) == 0x00720061006C0075UL && Read4(input, 12) == 0x0074006E00610074UL) return "specularConstant";
+                        break;
+                    }
+                }
+                break;
+            }
+            case 0x006B00730061006DUL:
+            {
+                if (Read4(input, 4) == 0x0074006E006F0063UL && Read4(input, 8) == 0x00750074006E0065UL && Read4(input, 12) == 0x007300740069006EUL) return "maskContentUnits";
+                break;
+            }
+            case 0x006E00720065006BUL:
+            {
+                if (Read4(input, 4) == 0x006E0075006C0065UL && Read4(input, 8) == 0x0065006C00740069UL && Read4(input, 12) == 0x006800740067006EUL) return "kernelUnitLength";
+                break;
+            }
+            case 0x0074007400610070UL:
+            {
+                if (Read4(input, 4) == 0x0074006E00720065UL && Read4(input, 8) == 0x0073006E00610072UL && Read4(input, 12) == 0x006D0072006F0066UL) return "patternTransform";
+                break;
+            }
+            case 0x0075007100650072UL:
+            {
+                if (Read4(input, 4) == 0x0064006500720069UL && Read4(input, 8) == 0x0074006100650066UL && Read4(input, 12) == 0x0073006500720075UL) return "requiredFeatures";
                 break;
             }
         }
@@ -1528,39 +1641,7 @@ internal static class SelectorPseudoClassLookup
                 }
                 break;
             }
-            case 7:
-            {
-                var chunk3 = Read4(input, 0);
-                switch (chunk3)
-                {
-                    case 0x0061006600650064UL:
-                    {
-                        if (Read2(input, 4) == 0x006C0075U && (uint) input[6] == 0x0074U) return PredicateKind.Default;
-                        break;
-                    }
-                    case 0x00610076006E0069UL:
-                    {
-                        if (Read2(input, 4) == 0x0069006CU && (uint) input[6] == 0x0064U) return PredicateKind.Invalid;
-                        break;
-                    }
-                    case 0x00620061006E0065UL:
-                    {
-                        if (Read2(input, 4) == 0x0065006CU && (uint) input[6] == 0x0064U) return PredicateKind.Enabled;
-                        break;
-                    }
-                    case 0x0063006500680063UL:
-                    {
-                        if (Read2(input, 4) == 0x0065006BU && (uint) input[6] == 0x0064U) return PredicateKind.Checked;
-                        break;
-                    }
-                    case 0x0069007300690076UL:
-                    {
-                        if (Read2(input, 4) == 0x00650074U && (uint) input[6] == 0x0064U) return PredicateKind.Visited;
-                        break;
-                    }
-                }
-                break;
-            }
+            case 7: return Match7(input);
             case 8:
             {
                 var chunk4 = Read4(input, 0);
@@ -1650,39 +1731,7 @@ internal static class SelectorPseudoClassLookup
                 if (Read4(input, 0) == 0x0073007200690066UL && Read4(input, 4) == 0x00680063002D0074UL && Read2(input, 8) == 0x006C0069U && (uint) input[10] == 0x0064U) return PredicateKind.FirstChild;
                 break;
             }
-            case 12:
-            {
-                var chunk7 = Read4(input, 0);
-                switch (chunk7)
-                {
-                    case 0x002D00740075006FUL:
-                    {
-                        if (Read4(input, 4) == 0x0072002D0066006FUL && Read4(input, 8) == 0x00650067006E0061UL) return PredicateKind.OutOfRange;
-                        break;
-                    }
-                    case 0x0073007200690066UL:
-                    {
-                        if (Read4(input, 4) == 0x0065006C002D0074UL && Read4(input, 8) == 0x0072006500740074UL) return PredicateKind.PseudoElement;
-                        break;
-                    }
-                    case 0x007400730061006CUL:
-                    {
-                        if (Read4(input, 4) == 0x002D0066006F002DUL && Read4(input, 8) == 0x0065007000790074UL) return PredicateKind.LastOfType;
-                        break;
-                    }
-                    case 0x00750063006F0066UL:
-                    {
-                        if (Read4(input, 4) == 0x00690077002D0073UL && Read4(input, 8) == 0x006E006900680074UL) return PredicateKind.FocusWithin;
-                        break;
-                    }
-                    case 0x0079006C006E006FUL:
-                    {
-                        if (Read4(input, 4) == 0x002D0066006F002DUL && Read4(input, 8) == 0x0065007000790074UL) return PredicateKind.OnlyOfType;
-                        break;
-                    }
-                }
-                break;
-            }
+            case 12: return Match12(input);
             case 13:
             {
                 var chunk8 = Read4(input, 0);
@@ -1714,6 +1763,76 @@ internal static class SelectorPseudoClassLookup
             case 17:
             {
                 if (Read4(input, 0) == 0x00630061006C0070UL && Read4(input, 4) == 0x006C006F00680065UL && Read4(input, 8) == 0x002D007200650064UL && Read4(input, 12) == 0x0077006F00680073UL && (uint) input[16] == 0x006EU) return PredicateKind.PlaceholderShown;
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static PredicateKind? Match7(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 7) return null;
+        var chunk3 = Read4(input, 0);
+        switch (chunk3)
+        {
+            case 0x0061006600650064UL:
+            {
+                if (Read2(input, 4) == 0x006C0075U && (uint) input[6] == 0x0074U) return PredicateKind.Default;
+                break;
+            }
+            case 0x00610076006E0069UL:
+            {
+                if (Read2(input, 4) == 0x0069006CU && (uint) input[6] == 0x0064U) return PredicateKind.Invalid;
+                break;
+            }
+            case 0x00620061006E0065UL:
+            {
+                if (Read2(input, 4) == 0x0065006CU && (uint) input[6] == 0x0064U) return PredicateKind.Enabled;
+                break;
+            }
+            case 0x0063006500680063UL:
+            {
+                if (Read2(input, 4) == 0x0065006BU && (uint) input[6] == 0x0064U) return PredicateKind.Checked;
+                break;
+            }
+            case 0x0069007300690076UL:
+            {
+                if (Read2(input, 4) == 0x00650074U && (uint) input[6] == 0x0064U) return PredicateKind.Visited;
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static PredicateKind? Match12(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 12) return null;
+        var chunk7 = Read4(input, 0);
+        switch (chunk7)
+        {
+            case 0x002D00740075006FUL:
+            {
+                if (Read4(input, 4) == 0x0072002D0066006FUL && Read4(input, 8) == 0x00650067006E0061UL) return PredicateKind.OutOfRange;
+                break;
+            }
+            case 0x0073007200690066UL:
+            {
+                if (Read4(input, 4) == 0x0065006C002D0074UL && Read4(input, 8) == 0x0072006500740074UL) return PredicateKind.PseudoElement;
+                break;
+            }
+            case 0x007400730061006CUL:
+            {
+                if (Read4(input, 4) == 0x002D0066006F002DUL && Read4(input, 8) == 0x0065007000790074UL) return PredicateKind.LastOfType;
+                break;
+            }
+            case 0x00750063006F0066UL:
+            {
+                if (Read4(input, 4) == 0x00690077002D0073UL && Read4(input, 8) == 0x006E006900680074UL) return PredicateKind.FocusWithin;
+                break;
+            }
+            case 0x0079006C006E006FUL:
+            {
+                if (Read4(input, 4) == 0x002D0066006F002DUL && Read4(input, 8) == 0x0065007000790074UL) return PredicateKind.OnlyOfType;
                 break;
             }
         }
@@ -1970,29 +2089,7 @@ internal static class XmlCatalogIdentifierLookup
                 if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x002F002F00430033UL && Read4(input, 8) == 0x0020004400540044UL && Read4(input, 12) == 0x004D005400480058UL && Read4(input, 16) == 0x002E00310020004CUL && Read4(input, 20) == 0x0072004600200030UL && Read4(input, 24) == 0x00730065006D0061UL && Read4(input, 28) == 0x002F002F00740065UL && Read2(input, 32) == 0x004E0045U) return true;
                 break;
             }
-            case 37:
-            {
-                var chunk0 = Read4(input, 32);
-                switch (chunk0)
-                {
-                    case 0x0045002F002F0030UL:
-                    {
-                        if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x004F004600500041UL && Read4(input, 8) == 0x002F004D00550052UL && Read4(input, 12) == 0x004400540044002FUL && Read4(input, 16) == 0x0054004800580020UL && Read4(input, 20) == 0x004D0020004C004DUL && Read4(input, 24) == 0x006C00690062006FUL && Read4(input, 28) == 0x002E003100200065UL && (uint) input[36] == 0x004EU) return true;
-                        break;
-                    }
-                    case 0x0045002F002F0031UL:
-                    {
-                        if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x004F004600500041UL && Read4(input, 8) == 0x002F004D00550052UL && Read4(input, 12) == 0x004400540044002FUL && Read4(input, 16) == 0x0054004800580020UL && Read4(input, 20) == 0x004D0020004C004DUL && Read4(input, 24) == 0x006C00690062006FUL && Read4(input, 28) == 0x002E003100200065UL && (uint) input[36] == 0x004EU) return true;
-                        break;
-                    }
-                    case 0x0045002F002F0032UL:
-                    {
-                        if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x004F004600500041UL && Read4(input, 8) == 0x002F004D00550052UL && Read4(input, 12) == 0x004400540044002FUL && Read4(input, 16) == 0x0054004800580020UL && Read4(input, 20) == 0x004D0020004C004DUL && Read4(input, 24) == 0x006C00690062006FUL && Read4(input, 28) == 0x002E003100200065UL && (uint) input[36] == 0x004EU) return true;
-                        break;
-                    }
-                }
-                break;
-            }
+            case 37: return Match37(input);
             case 38:
             {
                 if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x002F002F00430033UL && Read4(input, 8) == 0x0020004400540044UL && Read4(input, 12) == 0x004D005400480058UL && Read4(input, 16) == 0x002E00310020004CUL && Read4(input, 20) == 0x0072005400200030UL && Read4(input, 24) == 0x00690073006E0061UL && Read4(input, 28) == 0x006E006F00690074UL && Read4(input, 32) == 0x002F002F006C0061UL && Read2(input, 36) == 0x004E0045U) return true;
@@ -2003,12 +2100,40 @@ internal static class XmlCatalogIdentifierLookup
                 if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x002F002F00430033UL && Read4(input, 8) == 0x0020004400540044UL && Read4(input, 12) == 0x004D005400480058UL && Read4(input, 16) == 0x002E00310020004CUL && Read4(input, 20) == 0x006C007000200031UL && Read4(input, 24) == 0x004D002000730075UL && Read4(input, 28) == 0x004D006800740061UL && Read4(input, 32) == 0x002E00320020004CUL && Read4(input, 36) == 0x0045002F002F0030UL && (uint) input[40] == 0x004EU) return true;
                 break;
             }
-            case 54:
+            case 54: return Match54(input);
+        }
+        return false;
+    }
+
+    private static bool Match37(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 37) return false;
+        var chunk0 = Read4(input, 32);
+        switch (chunk0)
+        {
+            case 0x0045002F002F0030UL:
             {
-                if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x002F002F00430033UL && Read4(input, 8) == 0x0020004400540044UL && Read4(input, 12) == 0x004D005400480058UL && Read4(input, 16) == 0x002E00310020004CUL && Read4(input, 20) == 0x006C007000200031UL && Read4(input, 24) == 0x004D002000730075UL && Read4(input, 28) == 0x004D006800740061UL && Read4(input, 32) == 0x002E00320020004CUL && Read4(input, 36) == 0x006C007000200030UL && Read4(input, 40) == 0x0053002000730075UL && Read4(input, 44) == 0x0031002000470056UL && Read4(input, 48) == 0x002F002F0031002EUL && Read2(input, 52) == 0x004E0045U) return true;
+                if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x004F004600500041UL && Read4(input, 8) == 0x002F004D00550052UL && Read4(input, 12) == 0x004400540044002FUL && Read4(input, 16) == 0x0054004800580020UL && Read4(input, 20) == 0x004D0020004C004DUL && Read4(input, 24) == 0x006C00690062006FUL && Read4(input, 28) == 0x002E003100200065UL && (uint) input[36] == 0x004EU) return true;
+                break;
+            }
+            case 0x0045002F002F0031UL:
+            {
+                if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x004F004600500041UL && Read4(input, 8) == 0x002F004D00550052UL && Read4(input, 12) == 0x004400540044002FUL && Read4(input, 16) == 0x0054004800580020UL && Read4(input, 20) == 0x004D0020004C004DUL && Read4(input, 24) == 0x006C00690062006FUL && Read4(input, 28) == 0x002E003100200065UL && (uint) input[36] == 0x004EU) return true;
+                break;
+            }
+            case 0x0045002F002F0032UL:
+            {
+                if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x004F004600500041UL && Read4(input, 8) == 0x002F004D00550052UL && Read4(input, 12) == 0x004400540044002FUL && Read4(input, 16) == 0x0054004800580020UL && Read4(input, 20) == 0x004D0020004C004DUL && Read4(input, 24) == 0x006C00690062006FUL && Read4(input, 28) == 0x002E003100200065UL && (uint) input[36] == 0x004EU) return true;
                 break;
             }
         }
+        return false;
+    }
+
+    private static bool Match54(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 54) return false;
+        if (Read4(input, 0) == 0x0057002F002F002DUL && Read4(input, 4) == 0x002F002F00430033UL && Read4(input, 8) == 0x0020004400540044UL && Read4(input, 12) == 0x004D005400480058UL && Read4(input, 16) == 0x002E00310020004CUL && Read4(input, 20) == 0x006C007000200031UL && Read4(input, 24) == 0x004D002000730075UL && Read4(input, 28) == 0x004D006800740061UL && Read4(input, 32) == 0x002E00320020004CUL && Read4(input, 36) == 0x006C007000200030UL && Read4(input, 40) == 0x0053002000730075UL && Read4(input, 44) == 0x0031002000470056UL && Read4(input, 48) == 0x002F002F0031002EUL && Read2(input, 52) == 0x004E0045U) return true;
         return false;
     }
 
@@ -2591,64 +2716,7 @@ internal static class HtmlSpecialElementLookup
                 }
                 break;
             }
-            case 7:
-            {
-                var chunk5 = Read4(input, 0);
-                switch (chunk5)
-                {
-                    case 0x0061007400650064UL:
-                    {
-                        if (Read2(input, 4) == 0x006C0069U && (uint) input[6] == 0x0073U) return true;
-                        break;
-                    }
-                    case 0x0069007400720061UL:
-                    {
-                        if (Read2(input, 4) == 0x006C0063U && (uint) input[6] == 0x0065U) return true;
-                        break;
-                    }
-                    case 0x006D0065006F006EUL:
-                    {
-                        if (Read2(input, 4) == 0x00650062U && (uint) input[6] == 0x0064U) return true;
-                        break;
-                    }
-                    case 0x006D006D00750073UL:
-                    {
-                        if (Read2(input, 4) == 0x00720061U && (uint) input[6] == 0x0079U) return true;
-                        break;
-                    }
-                    case 0x006F007300670062UL:
-                    {
-                        if (Read2(input, 4) == 0x006E0075U && (uint) input[6] == 0x0064U) return true;
-                        break;
-                    }
-                    case 0x007100720061006DUL:
-                    {
-                        if (Read2(input, 4) == 0x00650075U && (uint) input[6] == 0x0065U) return true;
-                        break;
-                    }
-                    case 0x0072006400640061UL:
-                    {
-                        if (Read2(input, 4) == 0x00730065U && (uint) input[6] == 0x0073U) return true;
-                        break;
-                    }
-                    case 0x0074006300650073UL:
-                    {
-                        if (Read2(input, 4) == 0x006F0069U && (uint) input[6] == 0x006EU) return true;
-                        break;
-                    }
-                    case 0x0074007000610063UL:
-                    {
-                        if (Read2(input, 4) == 0x006F0069U && (uint) input[6] == 0x006EU) return true;
-                        break;
-                    }
-                    case 0x007400730069006CUL:
-                    {
-                        if (Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0067U) return true;
-                        break;
-                    }
-                }
-                break;
-            }
+            case 7: return Match7(input);
             case 8:
             {
                 var chunk6 = Read4(input, 0);
@@ -2718,6 +2786,66 @@ internal static class HtmlSpecialElementLookup
                         break;
                     }
                 }
+                break;
+            }
+        }
+        return false;
+    }
+
+    private static bool Match7(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 7) return false;
+        var chunk5 = Read4(input, 0);
+        switch (chunk5)
+        {
+            case 0x0061007400650064UL:
+            {
+                if (Read2(input, 4) == 0x006C0069U && (uint) input[6] == 0x0073U) return true;
+                break;
+            }
+            case 0x0069007400720061UL:
+            {
+                if (Read2(input, 4) == 0x006C0063U && (uint) input[6] == 0x0065U) return true;
+                break;
+            }
+            case 0x006D0065006F006EUL:
+            {
+                if (Read2(input, 4) == 0x00650062U && (uint) input[6] == 0x0064U) return true;
+                break;
+            }
+            case 0x006D006D00750073UL:
+            {
+                if (Read2(input, 4) == 0x00720061U && (uint) input[6] == 0x0079U) return true;
+                break;
+            }
+            case 0x006F007300670062UL:
+            {
+                if (Read2(input, 4) == 0x006E0075U && (uint) input[6] == 0x0064U) return true;
+                break;
+            }
+            case 0x007100720061006DUL:
+            {
+                if (Read2(input, 4) == 0x00650075U && (uint) input[6] == 0x0065U) return true;
+                break;
+            }
+            case 0x0072006400640061UL:
+            {
+                if (Read2(input, 4) == 0x00730065U && (uint) input[6] == 0x0073U) return true;
+                break;
+            }
+            case 0x0074006300650073UL:
+            {
+                if (Read2(input, 4) == 0x006F0069U && (uint) input[6] == 0x006EU) return true;
+                break;
+            }
+            case 0x0074007000610063UL:
+            {
+                if (Read2(input, 4) == 0x006F0069U && (uint) input[6] == 0x006EU) return true;
+                break;
+            }
+            case 0x007400730069006CUL:
+            {
+                if (Read2(input, 4) == 0x006E0069U && (uint) input[6] == 0x0067U) return true;
                 break;
             }
         }
@@ -4351,29 +4479,7 @@ internal static class CssDeviceWidthDeviceHeightDeviceAspectRatioNames
                 if (Read4(input, 0) == 0x007200650076006FUL && Read4(input, 4) == 0x0077006F006C0066UL && Read4(input, 8) == 0x006F006C0062002DUL && Read2(input, 12) == 0x006B0063U) return true;
                 break;
             }
-            case 15:
-            {
-                var chunk2 = Read4(input, 0);
-                switch (chunk2)
-                {
-                    case 0x0063002D00610075UL:
-                    {
-                        if (Read4(input, 4) == 0x0072006F006C006FUL && Read4(input, 8) == 0x006800630073002DUL && Read2(input, 12) == 0x006D0065U && (uint) input[14] == 0x0065U) return true;
-                        break;
-                    }
-                    case 0x00650076006E0069UL:
-                    {
-                        if (Read4(input, 4) == 0x0064006500740072UL && Read4(input, 8) == 0x006C006F0063002DUL && Read2(input, 12) == 0x0072006FU && (uint) input[14] == 0x0073U) return true;
-                        break;
-                    }
-                    case 0x007200650076006FUL:
-                    {
-                        if (Read4(input, 4) == 0x0077006F006C0066UL && Read4(input, 8) == 0x006C006E0069002DUL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0065U) return true;
-                        break;
-                    }
-                }
-                break;
-            }
+            case 15: return Match15(input);
             case 17:
             {
                 if (Read4(input, 0) == 0x0065006400690076UL && Read4(input, 4) == 0x006F0063002D006FUL && Read4(input, 8) == 0x002D0072006F006CUL && Read4(input, 12) == 0x0075006D00610067UL && (uint) input[16] == 0x0074U) return true;
@@ -4410,6 +4516,31 @@ internal static class CssDeviceWidthDeviceHeightDeviceAspectRatioNames
             case 28:
             {
                 if (Read4(input, 0) == 0x00690072006F0068UL && Read4(input, 4) == 0x0074006E006F007AUL && Read4(input, 8) == 0x0076002D006C0061UL && Read4(input, 12) == 0x0070007700650069UL && Read4(input, 16) == 0x002D00740072006FUL && Read4(input, 20) == 0x006D006700650073UL && Read4(input, 24) == 0x00730074006E0065UL) return true;
+                break;
+            }
+        }
+        return false;
+    }
+
+    private static bool Match15(ReadOnlySpan<char> input)
+    {
+        if (input.Length != 15) return false;
+        var chunk2 = Read4(input, 0);
+        switch (chunk2)
+        {
+            case 0x0063002D00610075UL:
+            {
+                if (Read4(input, 4) == 0x0072006F006C006FUL && Read4(input, 8) == 0x006800630073002DUL && Read2(input, 12) == 0x006D0065U && (uint) input[14] == 0x0065U) return true;
+                break;
+            }
+            case 0x00650076006E0069UL:
+            {
+                if (Read4(input, 4) == 0x0064006500740072UL && Read4(input, 8) == 0x006C006F0063002DUL && Read2(input, 12) == 0x0072006FU && (uint) input[14] == 0x0073U) return true;
+                break;
+            }
+            case 0x007200650076006FUL:
+            {
+                if (Read4(input, 4) == 0x0077006F006C0066UL && Read4(input, 8) == 0x006C006E0069002DUL && Read2(input, 12) == 0x006E0069U && (uint) input[14] == 0x0065U) return true;
                 break;
             }
         }

@@ -26,7 +26,7 @@ class ParserLookupTests(unittest.TestCase):
                         "keywordSet" in spec and re.search(
                             r"\bCssKeywordSet\." + spec["keywordSet"] + r"\b", source)):
                     reached.add(spec["name"])
-                    source += "\n" + "\n".join(parser.entries(spec, specs).values())
+                    source += "\n" + "\n".join(spec["entries"].values())
             if len(reached) == previous:
                 break
         self.assertEqual(set(spec["name"] for spec in specs) - reached, set())
@@ -49,7 +49,7 @@ class ParserLookupTests(unittest.TestCase):
 
         for spec in specs:
             for length, node in parser.generator.trees(
-                    list(parser.entries(spec, specs)), "char", spec.get("ignoreCase", False)).items():
+                    list(spec["entries"]), "char", spec.get("ignoreCase", False)).items():
                 check(node, length)
 
 

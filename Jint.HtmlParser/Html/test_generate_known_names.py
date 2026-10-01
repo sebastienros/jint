@@ -22,7 +22,8 @@ class DecisionTreeTests(unittest.TestCase):
                     visit(child, length, proven | covered)
 
         for names, kind, ignore_case in itertools.product(
-                [generator.HTML_NAMES, generator.HEADERS, generator.KEYWORDS, generator.SHARED_PREFIXES],
+                [generator.HTML_NAMES, generator.HEADERS, generator.KEYWORDS, generator.SHARED_PREFIXES,
+                 generator.PUNCTUATION_COLLISIONS],
                 ["byte", "char"], [False, True]):
             for length, root in generator.trees(names, kind, ignore_case).items():
                 visit(root, length)
@@ -85,6 +86,23 @@ class DecisionTreeTests(unittest.TestCase):
         for results in ({}, {"yes": "true"}, {"yes": "true", "no": "false", "maybe": "null"}):
             with self.assertRaises(ValueError):
                 generator.emit_class(["yes", "no"], "Names", results=results)
+
+    def test_ascii_insensitive_nodes_switch_on_the_common_mask(self):
+        output = "\n".join(generator.emit_class(generator.PUNCTUATION_COLLISIONS, "Names", "char", True))
+        self.assertIn("switch (chunk0 & 0xFFDFFFDFU)", output)
+        self.assertNotIn("else if", output)
+        # '@' and '`' share a case, so each re-checks bit 0x20 of its own unit.
+        self.assertIn("if ((chunk0 & 0xFFFFFFDFU) == 0x00400058U)", output)
+        self.assertIn("if ((chunk0 & 0xFFFFFFDFU) == 0x00600058U)", output)
+
+    def test_heavy_lengths_move_into_their_own_methods(self):
+        light = "\n".join(generator.emit_class(generator.KEYWORDS, "Names"))
+        self.assertNotRegex(light, r"Match\d+\(")
+        names = [f"{a}{b}{c}-{d}" for a in "abcd" for b in "efgh" for c in "ijkl" for d in "mn"] + ["tiny"]
+        output = "\n".join(generator.emit_class(names, "Names"))
+        self.assertIn("case 4:\n            {", output)
+        self.assertIn("case 5: return Match5(input);", output)
+        self.assertIn("private static string? Match5(ReadOnlySpan<char> input)", output)
 
 
 if __name__ == "__main__":
