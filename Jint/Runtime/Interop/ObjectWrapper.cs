@@ -1023,7 +1023,29 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return UnwrapJsValue(desc, receiver);
         }
 
-        var protoResult = Prototype?.Get(property, receiver) ?? Undefined;
+        var protoResult = Undefined;
+        if (Prototype is { } prototype)
+        {
+            // A hand-over, and the one forward in this type that cannot be flattened: the result is
+            // post-processed for ThrowOnUnresolvedMember below, so this is not a tail call and the link
+            // cannot join the loop ObjectInstance's own [[Get]] walks the chain with. A hop to an
+            // *ordinary* link re-enters that loop and costs nothing further, but a hop to another wrapper
+            // is a native frame with no probe between the two, and a chain of wrappers is buildable from
+            // script (ObjectWrapper does not override SetPrototypeOf), so its depth is an input. The probe
+            // turns twenty thousand links from a native stack overflow no catch sees into a catchable
+            // RangeError, on the same terms as every other hand-over (sebastienros/jint#4087, after #4076).
+            //
+            // It is the only site of that shape in this directory: Set and HasProperty end in base.<op>,
+            // which *is* that loop; Delete and GetOwnProperty ask own-property questions and walk nothing;
+            // TypeReference forwards no operation to its prototype and NamespaceReference.Get resolves a
+            // path rather than a chain. And it is deliberately not named in the IL pin
+            // StackOverflowGuardTests.ExactlyTheInteropAndForwardingFunctionsProbeTheNativeStack, which
+            // enumerates Function subclasses' Call: a hand-over probe is held in place by the depth cases in
+            // Jint.Tests.PublicInterface/HostNativeRecursionGuardTests, which end the host without it.
+            _engine._stackGuard.EnsureNativeStackHeadroom();
+            protoResult = prototype.Get(property, receiver);
+        }
+
         if (protoResult.IsUndefined()
             && property is JsString
             && !_typeDescriptor.IsDictionary

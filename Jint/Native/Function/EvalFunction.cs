@@ -101,6 +101,13 @@ public sealed class EvalFunction : Function
             return x;
         }
 
+        // Evaluating source text re-enters the interpreter without entering a function, so none of the
+        // function-entry probes sees it: `var s = 'eval(s)'; eval(s)` recursed until the native stack
+        // overflowed and took the host process with it. This is that entry's probe, gated the same way —
+        // off on the MaxExecutionStackCount lane, which counts an eval as a call instead (see
+        // StackGuard._unframedEvalDepth) — and placed before the parse so nothing is built to be unwound.
+        _engine._stackGuard.EnsureStackHeadroom();
+
         var evalRealm = _realm;
         _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 

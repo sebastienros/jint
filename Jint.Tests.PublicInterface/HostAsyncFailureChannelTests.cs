@@ -288,6 +288,23 @@ public class HostAsyncFailureChannelTests
     // ---------------------------------------------------------------------------------------------
 
     [Test]
+    public void RetiredEngineRefusesAsyncEntriesSynchronously()
+    {
+        using var engine = new Engine();
+        engine.Execute("function work() { }");
+        engine.Advanced.Retire();
+
+        Invoking(() => { _ = engine.EvaluateAsync("1"); })
+            .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        Invoking(() => { _ = engine.ExecuteAsync("1"); })
+            .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        Invoking(() => { _ = engine.InvokeAsync("work"); })
+            .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        Invoking(() => { _ = engine.Modules.ImportAsync("module"); })
+            .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+    }
+
+    [Test]
     public void ANullScriptIsRefusedSynchronously()
     {
         var engine = new Engine();

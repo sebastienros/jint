@@ -1,0 +1,22 @@
+{
+  "cldrVersion": "48.2",
+  "cldrReleaseTag": "release-48-2",
+  "cldrJsonVersion": "48.2.0",
+  "packages": [
+    {
+      "name": "cldr-dates-full",
+      "tarball": "https://registry.npmjs.org/cldr-dates-full/-/cldr-dates-full-48.2.0.tgz",
+      "integrity": "sha512-zMrKvjMO414HDftLr6vKH1fNQHakFNe+F1h4S0eg+zmL4WRi9pI41fxB3UrTJDY42MEM87jCuAw/qlqCgYKcAQ=="
+    },
+    {
+      "name": "cldr-core",
+      "tarball": "https://registry.npmjs.org/cldr-core/-/cldr-core-48.2.0.tgz",
+      "integrity": "sha512-zfmLothncSwfv2jlevoSrgI2VGgH8SDGHXst6jUEotHA8nq9Igeg9jzdJDFtBso9pgJuG89DK16TzrmZDdo2Bg=="
+    }
+  ],
+  "supplementalData": {
+    "path": "common/supplemental/supplementalData.xml",
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/supplemental/supplementalData.xml",
+    "sha256": "cd2af39aef82fdbfba4d591c87548203350538ad2318486d104b3b38b8d62f1a"
+  }
+}

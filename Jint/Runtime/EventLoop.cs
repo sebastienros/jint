@@ -315,6 +315,7 @@ internal sealed record EventLoop
     /// job whenever it happens to complete — possibly long after the restore.
     /// </summary>
     private int _generation;
+    private int _retired;
 
     internal int Generation => Volatile.Read(ref _generation);
 
@@ -339,24 +340,49 @@ internal sealed record EventLoop
 
     public void Enqueue(in EventLoopJob job)
     {
-        // Wake every registered async waiter. Each one re-checks its own promise
-        // state on resume, so spurious wakes loop harmlessly back to WaitForEventAsync.
-        List<TaskCompletionSource<bool>>? toSignal = null;
+        List<TaskCompletionSource<bool>>? toSignal;
         lock (_waitersLock)
         {
             // Queue selection is atomic with a late IndexedDB activation splitting the FIFO.
             var queue = job.IsTask ? _tasks ?? _events : _events;
             queue.Enqueue(job);
-            if (_waiters is { Count: > 0 })
-            {
-                toSignal = _waiters;
-                _waiters = null;
-            }
+            toSignal = TakeWaiters();
         }
 
-        // The enqueue and the waiter's queue check fence creation of this lazily allocated signal.
+        Wake(toSignal);
+    }
+
+    internal void Signal()
+    {
+        List<TaskCompletionSource<bool>>? toSignal;
+        lock (_waitersLock)
+        {
+            toSignal = TakeWaiters();
+        }
+
+        Wake(toSignal);
+    }
+
+    private List<TaskCompletionSource<bool>>? TakeWaiters()
+    {
+        if (_waiters is not { Count: > 0 } waiters)
+        {
+            return null;
+        }
+
+        _waiters = null;
+        return waiters;
+    }
+
+    private void Wake(List<TaskCompletionSource<bool>>? toSignal)
+    {
+        // Null means no thread has ever block-drained this engine, so there is nobody to wake.
+        // WaitForWork checks the queue and the retirement latch after resetting this event, closing
+        // the race with either kind of signal.
         Volatile.Read(ref _workArrived)?.Set();
 
+        // Wake every registered async waiter. Each one re-checks its own promise
+        // state on resume, so spurious wakes loop harmlessly back to WaitForEventAsync.
         if (toSignal is not null)
         {
             for (var i = 0; i < toSignal.Count; i++)
@@ -366,6 +392,11 @@ internal sealed record EventLoop
         }
     }
 
+    internal void Retire()
+    {
+        Volatile.Write(ref _retired, 1);
+        Signal();
+    }
     /// <summary>
     /// Blocks until new work is enqueued, <paramref name="completedEvent"/> is signaled, cancellation is
     /// requested, or <paramref name="timeout"/> elapses — whichever comes first. The synchronous sibling of
@@ -380,6 +411,11 @@ internal sealed record EventLoop
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     internal void WaitForWork(ManualResetEventSlim? completedEvent, TimeSpan timeout, CancellationToken cancellationToken)
     {
+        if (Volatile.Read(ref _retired) != 0)
+        {
+            return;
+        }
+
         var workArrived = WorkArrivedEvent;
 
         workArrived.Reset();
@@ -387,7 +423,7 @@ internal sealed record EventLoop
         // A non-empty queue only ends the wait when this thread can actually drain it. Nested inside a job
         // (IsRunningJob), the re-entrancy guard makes queued jobs unrunnable from here, and returning early
         // for them would turn this bounded wait into a hot spin for the caller's whole timeout.
-        if ((HasPendingJobs && !IsRunningJob) || completedEvent?.IsSet == true)
+        if (Volatile.Read(ref _retired) != 0 || (HasPendingJobs && !IsRunningJob) || completedEvent?.IsSet == true)
         {
             return;
         }
@@ -411,7 +447,7 @@ internal sealed record EventLoop
     public Task WaitForEventAsync(CancellationToken cancellationToken)
     {
         // Fast path: already have events queued
-        if (HasPendingJobs)
+        if (Volatile.Read(ref _retired) != 0 || HasPendingJobs)
         {
             return Task.CompletedTask;
         }
@@ -428,7 +464,7 @@ internal sealed record EventLoop
         // rather than removing from the list — Enqueue's broadcast TrySetResult on
         // an already-completed TCS is a no-op, so leaving the entry costs nothing
         // beyond a single GC root until the next Enqueue clears the list.
-        if (HasPendingJobs)
+        if (Volatile.Read(ref _retired) != 0 || HasPendingJobs)
         {
             tcs.TrySetResult(true);
             return tcs.Task;

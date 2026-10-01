@@ -609,10 +609,22 @@ public class DefaultCldrProvider : ICldrProvider
 
     /// <inheritdoc />
     /// <remarks>
-    /// Read out of CLDR's <c>calendarPreferenceData</c>, which keys the answer by region, so a locale that
+    /// <para>
+    /// Read out of CLDR 48.2's <c>calendarPreferenceData</c>, which keys the answer by region, so a locale that
     /// names none is maximized first — <c>"th"</c> is <c>"th-Thai-TH"</c> and therefore <c>"buddhist"</c>.
-    /// Four regions prefer something other than <c>"gregory"</c>: <c>AF</c> and <c>IR</c>, <c>SA</c>, and
-    /// <c>TH</c>.
+    /// Three regions prefer something other than <c>"gregory"</c>: <c>AF</c> and <c>IR</c> (<c>"persian"</c>)
+    /// and <c>TH</c> (<c>"buddhist"</c>). <c>SA</c> preferred <c>"islamic-umalqura"</c> until CLDR 46.
+    /// </para>
+    /// <para>
+    /// <c>Intl.Locale.prototype.getCalendars</c> reads the same table directly rather than through this
+    /// member, so an override here changes the calendar <c>Intl.DateTimeFormat</c> defaults to and leaves
+    /// that list as it was.
+    /// </para>
+    /// <para>
+    /// The <c>-u-rg-</c> and <c>-u-sd-</c> keywords are not read here. <c>Intl.DateTimeFormat</c> asks for the
+    /// locale https://tc39.es/ecma402/#sec-resolvelocale matched, which carries no extension, and the
+    /// specification keys that default by the matched locale alone.
+    /// </para>
     /// </remarks>
     public virtual string? GetDefaultCalendar(string locale)
     {
@@ -623,10 +635,15 @@ public class DefaultCldrProvider : ICldrProvider
     // === Locale Data ===
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Read out of CLDR's <c>weekData</c> for the region https://tc39.es/ecma402/#sec-weekinfooflocale picks:
+    /// a <c>-u-rg-</c> override CLDR has week data for, else the region subtag, a <c>-u-sd-</c> subdivision's
+    /// region, the region Add Likely Subtags supplies, and <c>001</c>, in that order - so <c>"en"</c> is
+    /// <c>"en-US"</c>'s Sunday and <c>"en-US-u-rg-gbzzzz"</c> is Great Britain's Monday.
+    /// </remarks>
     public virtual WeekInfo? GetWeekInfo(string locale)
     {
-        // Extract region from locale for week data lookup
-        var region = ExtractRegion(locale);
+        var region = WeekData.GetLookupRegion(RegionPreference.Of(locale));
 
         var weekendNumbers = WeekData.GetWeekend(region);
         var weekend = new DayOfWeek[weekendNumbers.Length];

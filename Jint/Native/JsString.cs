@@ -3,10 +3,12 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Native.Symbol;
 using Jint.Runtime;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native;
 
@@ -391,11 +393,21 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// <c>a += b</c> produces, which stays on <see cref="ConcatenatedString"/>'s builder.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The caller has already refused a result longer than <see cref="MaxLength"/> — it holds both
     /// lengths for the sum it just checked, so re-reading them here would be two virtual dispatches for
     /// a number it already has. That check is what lets the addition below be a plain <see cref="int"/>.
+    /// </para>
+    /// <para>
+    /// <paramref name="context"/> is read on the deferring branch alone, and only for the engine's memory
+    /// limit: a node is the same 56 bytes whatever length it stands for, and its characters are allocated
+    /// by whoever flattens it — possibly a host, after every constraint has been disarmed. So under
+    /// <c>LimitMemory</c> the node is charged when it is built; see
+    /// <see cref="Constraints.MemoryLimitConstraint.ChargeDeferredConcatenation"/> for how much. Taking the
+    /// context rather than its engine keeps that load off the short branch, which every short <c>+</c> takes.
+    /// </para>
     /// </remarks>
-    internal static JsString Concat(JsString left, JsString right)
+    internal static JsString Concat(JsString left, JsString right, EvaluationContext context)
     {
         var leftLength = left.Length;
         var rightLength = right.Length;
@@ -415,6 +427,13 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         if (rightLength == 0)
         {
             return Immutable(left);
+        }
+
+        // A constant fold evaluates with no engine: the node is then made from literals in the source text,
+        // which no budget pays for either.
+        if (context.Engine?._memoryLimitConstraint is { } memoryLimit)
+        {
+            memoryLimit.ChargeDeferredConcatenation(leftLength, rightLength);
         }
 
         return new RopeString(Immutable(left), Immutable(right), length);
@@ -938,6 +957,12 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// (<c>s = s + x</c>, a left-leaning spine) never has more than one node pending; the prepend shape
     /// (<c>s = x + s</c>) is the one that pays for the array.
     /// </para>
+    /// <para>
+    /// <b>The memory budget is charged when a node is built, never when it is flattened.</b> The flatten can
+    /// run anywhere — a host's <c>ToString()</c> after the run, another thread — and none of those places has
+    /// an operation to charge, so <see cref="Concat"/> charges the characters a node appends before it exists
+    /// (sebastienros/jint#4162). A new deferred representation owes the same, at its own construction.
+    /// </para>
     /// </remarks>
     internal sealed class RopeString : JsString
     {
@@ -949,6 +974,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
         // Not readonly, and released once the flat value is memoized: a flattened rope must stop
         // retaining the tree it was built from, which for an accumulator loop is one node per iteration.
+        // Released only after the memo is published, and read in CopyInto as "the memo is there" — see
+        // Flatten for why both halves of that handshake are volatile.
         private JsString? _left;
         private JsString? _right;
 
@@ -987,9 +1014,18 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             var value = string.Create(_length, this, static (span, rope) => rope.CopyInto(span));
 #endif
 
+            // The first read of a node can happen on two threads at once, and without any host sharing a
+            // result: a literal-plus-literal folded at preparation is one node on a Prepared<Script>, which
+            // every engine running that preparation reads (#4161). Two flattens racing is harmless — each
+            // builds the same text — but a walk that passed the memo test in CopyInto just before this one
+            // published must not then find the operands gone. So the memo is stored first, and the operands
+            // are released with volatile writes: an ordinary store may become visible ahead of an earlier
+            // one, and a reader that saw an operand released before the memo would have neither. The memo
+            // itself needs no barrier — storing a reference publishes the string's contents to whoever
+            // loads it — so ToString() stays a plain load of _value.
             _value = value;
-            _left = null;
-            _right = null;
+            Volatile.Write(ref _left, null);
+            Volatile.Write(ref _right, null);
 
             return value;
         }
@@ -1009,19 +1045,34 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             {
                 // A node that has already memoized its own flat value is a leaf as far as this walk is
                 // concerned: ToString() below hands back the memo without touching the (released) children.
+                string text;
                 if (node is RopeString { _value: null } rope)
                 {
-                    if (pendingCount == pending.Length)
+                    // Another thread may flatten this node between the memo test above and these reads.
+                    // They acquire what Flatten's releases publish, so an operand seen released means the
+                    // memo is visible — never null here — and the node is copied from it instead of
+                    // descended.
+                    var left = Volatile.Read(ref rope._left);
+                    var right = Volatile.Read(ref rope._right);
+                    if (left is not null && right is not null)
                     {
-                        System.Array.Resize(ref pending, pendingCount == 0 ? InitialPendingCapacity : pendingCount * 2);
+                        if (pendingCount == pending.Length)
+                        {
+                            System.Array.Resize(ref pending, pendingCount == 0 ? InitialPendingCapacity : pendingCount * 2);
+                        }
+
+                        pending[pendingCount++] = left;
+                        node = right;
+                        continue;
                     }
 
-                    pending[pendingCount++] = rope._left!;
-                    node = rope._right!;
-                    continue;
+                    text = Volatile.Read(ref rope._value);
+                }
+                else
+                {
+                    text = node.ToString();
                 }
 
-                var text = node.ToString();
                 position -= text.Length;
                 text.AsSpan().CopyTo(destination.Slice(position));
 

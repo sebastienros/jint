@@ -286,12 +286,15 @@ public sealed class FetchHandlerOperation
     /// </summary>
     private void ObserveAbandonment()
     {
-        if (_completed || _engine.EventLoopGeneration == _generation)
+        if (_completed || (!_engine.IsRetired && _engine.EventLoopGeneration == _generation))
         {
             return;
         }
 
-        Fail(new InvalidOperationException("The fetch handler invocation was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can settle into this engine any more. Invoke the handler again on the restored engine."));
+        var message = _engine.IsRetired
+            ? "The fetch handler invocation was abandoned because the engine was retired. Invoke the handler on another engine."
+            : "The fetch handler invocation was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can settle into this engine any more. Invoke the handler again on the restored engine.";
+        Fail(new InvalidOperationException(message));
     }
 }
 #endif

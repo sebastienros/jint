@@ -240,15 +240,13 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             // Option or hour12 provided - they override extension
             if (hour12.HasValue)
             {
-                if (hour12.Value)
-                {
-                    var lang = IntlUtilities.GetLanguageSubtag(resolvedLocale).ToLowerInvariant();
-                    hourCycle = string.Equals(lang, "ja", StringComparison.Ordinal) ? "h11" : "h12";
-                }
-                else
-                {
-                    hourCycle = "h23";
-                }
+                // https://tc39.es/ecma402/#sec-createdatetimeformat
+                // If hour12 is true, then
+                //   Let hc be resolvedLocaleData.[[hourCycle12]].
+                // Else if hour12 is false, then
+                //   Let hc be resolvedLocaleData.[[hourCycle24]].
+                var localeHourCycles = Data.TimeData.GetHourCycles(resolvedLocale);
+                hourCycle = hour12.Value ? Data.TimeData.GetHourCycle12(localeHourCycles) : Data.TimeData.GetHourCycle24(localeHourCycles);
             }
             else
             {
@@ -265,6 +263,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
         else
         {
+            // "If hc is null, set hc to resolvedLocaleData.[[hourCycle]]." That is a table lookup a formatter
+            // without an hour never needs, so JsDateTimeFormat.ResolvedHourCycle makes it on first use.
             hourCycle = null;
         }
 
@@ -977,8 +977,9 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// could correct and which is coarser than the data: <see cref="System.Globalization.HijriCalendar"/> and
     /// <see cref="System.Globalization.UmAlQuraCalendar"/> are one .NET type each and were both answered
     /// <c>"islamic"</c>, so <c>ar-SA</c> could not resolve to the <c>islamic-umalqura</c> that CLDR's
-    /// <c>calendarPreferenceData</c> — and ICU — put first for <c>SA</c>, even though Jint knows that
-    /// calendar and an explicit option resolves to it.
+    /// <c>calendarPreferenceData</c> then put first for <c>SA</c>, even though Jint knows that calendar and an
+    /// explicit option resolves to it. (CLDR 46 put <c>gregorian</c> first for <c>SA</c>, and the CLDR 48.2
+    /// data the shipped provider reads now answers <c>"gregory"</c> there.)
     /// </para>
     /// <para>
     /// An answer the engine does not answer for is discarded rather than resolved to: the specification

@@ -65,7 +65,7 @@ public partial class Engine
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
     public Task<JsValue> EvaluateAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
         if (code is null)
@@ -124,7 +124,7 @@ public partial class Engine
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentException"><paramref name="preparedScript"/> did not come from <c>PrepareScript</c>.</exception>
-    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
     public Task<JsValue> EvaluateAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
         if (!preparedScript.IsValid)
@@ -186,7 +186,7 @@ public partial class Engine
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
     public Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
         if (code is null)
@@ -225,7 +225,7 @@ public partial class Engine
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
     /// <exception cref="ArgumentException"><paramref name="preparedScript"/> did not come from <c>PrepareScript</c>.</exception>
-    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
     public Task<Engine> ExecuteAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
         if (!preparedScript.IsValid)
@@ -265,7 +265,7 @@ public partial class Engine
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="propertyName"/> or <paramref name="arguments"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
     public Task<JsValue> InvokeAsync(string propertyName, params object?[] arguments)
     {
         return InvokeAsync(propertyName, CancellationToken.None, arguments);
@@ -300,7 +300,7 @@ public partial class Engine
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="propertyName"/> or <paramref name="arguments"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
     public Task<JsValue> InvokeAsync(string propertyName, CancellationToken cancellationToken, params object?[] arguments)
     {
         if (propertyName is null)
@@ -433,6 +433,14 @@ public partial class Engine
         {
             while (promise.State == PromiseState.Pending)
             {
+                if (IsRetired)
+                {
+                    using (EnterTransferredHostCall(owner))
+                    {
+                        FinishRetirement();
+                    }
+                    ThrowIfRetired();
+                }
                 effectiveCt.ThrowIfCancellationRequested();
 
                 // Truly async wait — releases the thread back to the pool.
@@ -464,6 +472,8 @@ public partial class Engine
 
                 using (EnterTransferredHostCall(owner))
                 {
+                    if (IsRetired) FinishRetirement();
+                    ThrowIfRetired();
                     // Woke up — take ownership of the event loop for this processing cycle.
                     // Setting _waitingThreadId prevents any other thread from processing
                     // JavaScript continuations while we're running.
@@ -492,6 +502,7 @@ public partial class Engine
             ownedCts?.Dispose();
         }
 
+        ThrowIfRetired();
         return promise.State switch
         {
             PromiseState.Fulfilled => promise.Value,

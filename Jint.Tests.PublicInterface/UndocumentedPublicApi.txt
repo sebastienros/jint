@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 621
+undocumented: 620
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -341,7 +341,6 @@ M:Jint.Runtime.Interop.TypeReference.CreateTypeReference(Jint.Engine,System.Type
 M:Jint.Runtime.Interop.TypeReference.CreateTypeReference``1(Jint.Engine)
 M:Jint.Runtime.Interop.TypeResolver.#ctor
 M:Jint.Runtime.JavaScriptException.#ctor(Jint.Native.Error.ErrorConstructor,System.String)
-M:Jint.Runtime.JavaScriptException.#ctor(Jint.Native.JsValue)
 M:Jint.Runtime.JavaScriptException.SetJavaScriptCallstack(Jint.Engine,Acornima.SourceLocation@,System.Boolean)
 M:Jint.Runtime.JavaScriptException.SetJavaScriptLocation(Acornima.SourceLocation@)
 M:Jint.Runtime.MemoryLimitExceededException.#ctor(System.String)

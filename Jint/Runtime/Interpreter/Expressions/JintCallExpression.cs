@@ -810,7 +810,20 @@ internal sealed class JintCallExpression : JintExpression
         var strictCaller = engine.ExecutionContext.Strict;
         var evalRealm = evalFunctionInstance._realm;
         var direct = !_expression.IsOptional();
-        var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
+
+        // The one call this expression dispatches without pushing a call-stack frame, so the
+        // MaxExecutionStackCount lane counts it here instead (see StackGuard._unframedEvalDepth).
+        var stackGuard = engine._stackGuard;
+        stackGuard._unframedEvalDepth++;
+        JsValue value;
+        try
+        {
+            value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
+        }
+        finally
+        {
+            stackGuard._unframedEvalDepth--;
+        }
 
         if (rented)
         {

@@ -108,8 +108,13 @@ internal class DomHostHooks
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml.</summary>
+    /// <remarks>
+    /// The layout mutation scope is this algorithm's own because <c>DOM.setOuterHTML</c> reaches it without
+    /// the generated setter's guard; inside that guard it only nests (#4138).
+    /// </remarks>
     internal virtual void SetOuterHtml(DomRealm realm, Element element, string markup)
     {
+        using var mutation = realm.MutateLayout();
         if (element.ParentNode is not { } parent) return;
         if (parent is Document)
         {

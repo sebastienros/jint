@@ -62,10 +62,7 @@ internal static class ResultConverter
         {
             if (value.IsString())
             {
-                CountStringLength(((JsString) value).Length);
-                var text = value.ToString();
-                CountOutputCharacters(text.Length);
-                return text;
+                return ConvertString((JsString) value);
             }
 
             if (value.IsSymbol())
@@ -81,10 +78,7 @@ internal static class ResultConverter
             switch (instance)
             {
                 case StringInstance stringInstance:
-                    CountStringLength(stringInstance.StringData.Length);
-                    var text = stringInstance.StringData.ToString();
-                    CountOutputCharacters(text.Length);
-                    return text;
+                    return ConvertString(stringInstance.StringData);
                 case JsDate date:
                     return date.ToDateTime();
                 case BooleanInstance booleanInstance:
@@ -259,9 +253,7 @@ internal static class ResultConverter
                 for (var i = 0; i < enumerableKeys.Count; i++)
                 {
                     CheckConstraints();
-                    var key = enumerableKeys[i].ToString();
-                    CountStringLength(((JsString) enumerableKeys[i]).Length);
-                    CountOutputCharacters(key.Length);
+                    var key = ConvertString((JsString) enumerableKeys[i]);
                     result.Add(key, Convert(instance.Get(enumerableKeys[i])));
                 }
 
@@ -306,6 +298,28 @@ internal static class ResultConverter
             _propertyCount = observed;
         }
 
+        /// <summary>
+        /// Checks a string against both character limits by its length, and only then copies it.
+        /// </summary>
+        /// <remarks>
+        /// A slice view, a deferred concatenation and a host's <see cref="LazyJsString"/> answer
+        /// <see cref="JsString.Length"/> from a field, while <see cref="JsString.ToString()"/> on one of them
+        /// copies every character, up to <see cref="JsString.MaxLength"/> of them. Checking after the copy
+        /// would bound what the conversion returns, not what it allocates. What
+        /// <see cref="ResultLimits.MaxOutputCharacters"/> counts is still the text that was copied, so a host
+        /// string that materializes more than it declared cannot slip characters past the total.
+        /// </remarks>
+        private string ConvertString(JsString value)
+        {
+            var length = value.Length;
+            CountStringLength(length);
+            CheckOutputCharacters(length);
+
+            var text = value.ToString();
+            _outputCharacters = CheckOutputCharacters(text.Length);
+            return text;
+        }
+
         private void CountStringLength(int length)
         {
             if (length > _limits.MaxStringLength)
@@ -314,7 +328,7 @@ internal static class ResultConverter
             }
         }
 
-        private void CountOutputCharacters(int length)
+        private long CheckOutputCharacters(int length)
         {
             var observed = checked(_outputCharacters + length);
             if (observed > _limits.MaxOutputCharacters)
@@ -322,7 +336,7 @@ internal static class ResultConverter
                 ThrowLimit(ResultLimit.OutputCharacters, _limits.MaxOutputCharacters, observed);
             }
 
-            _outputCharacters = observed;
+            return observed;
         }
 
         private void CountBytes(long count)

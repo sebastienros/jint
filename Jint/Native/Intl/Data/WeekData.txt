@@ -1,3 +1,6 @@
+CLDR 48.2 weekData - https://github.com/unicode-org/cldr/releases/tag/release-48-2
+Source file common/supplemental/supplementalData.xml - the alt variant entries are left out
+
 [FIRST_DAY]
 001=mon
 AD=mon
@@ -52,7 +55,6 @@ FJ=mon
 FO=mon
 FR=mon
 GB=mon
-GB-alt-variant=sun
 GE=mon
 GF=mon
 GP=mon
@@ -69,7 +71,7 @@ IL=sun
 IN=sun
 IQ=sat
 IR=sat
-IS=mon
+IS=sun
 IT=mon
 JM=sun
 JO=sat

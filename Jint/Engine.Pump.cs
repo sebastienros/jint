@@ -37,6 +37,97 @@ public partial class Engine
     /// </summary>
     private AtomicsWaiterDeadlines? _atomicsWaiterDeadlines;
 
+    // A pending waiter is already rooted by its shared block. Keep the engine-side index only
+    // while waits remain pending, so a long-lived engine does not retain slots for settled waits.
+    // The lock guarding it is created by the first Atomics.waitAsync that parks, never by the constructor,
+    // so an engine that never waits never allocates it: see AtomicsAsyncWaitersLock.
+    private Lock? _atomicsAsyncWaitersLock;
+    private HashSet<AtomicsInstance.AsyncWaiter>? _atomicsAsyncWaiters;
+    private int _atomicsAsyncWaiterPeak;
+
+    /// <summary>
+    /// The lock over <see cref="_atomicsAsyncWaiters"/>, created on first use.
+    /// </summary>
+    /// <remarks>
+    /// Registration runs on the engine thread, but the unregistration a wake performs runs on whichever thread
+    /// called <c>Atomics.notify</c> — another agent's — so the publication is a compare-exchange rather than a
+    /// plain <c>??=</c>: every thread that asks gets the one instance that won.
+    /// </remarks>
+    private Lock AtomicsAsyncWaitersLock
+    {
+        get
+        {
+            var gate = Volatile.Read(ref _atomicsAsyncWaitersLock);
+            if (gate is not null)
+            {
+                return gate;
+            }
+
+            var created = new Lock();
+            return Interlocked.CompareExchange(ref _atomicsAsyncWaitersLock, created, null) ?? created;
+        }
+    }
+
+    internal void RegisterAtomicsAsyncWaiter(AtomicsInstance.AsyncWaiter waiter)
+    {
+        lock (AtomicsAsyncWaitersLock)
+        {
+            var waiters = _atomicsAsyncWaiters ??= [];
+            waiters.Add(waiter);
+            if (waiters.Count > _atomicsAsyncWaiterPeak) _atomicsAsyncWaiterPeak = waiters.Count;
+        }
+    }
+
+    internal void UnregisterAtomicsAsyncWaiter(AtomicsInstance.AsyncWaiter waiter)
+    {
+        // Every waiter reaching here was registered first, so this only reads the published lock; going through
+        // the accessor still means a notifying thread can never end up locking a second one.
+        lock (AtomicsAsyncWaitersLock)
+        {
+            var waiters = _atomicsAsyncWaiters;
+            if (waiters is null || !waiters.Remove(waiter)) return;
+            if (waiters.Count == 0)
+            {
+                _atomicsAsyncWaiters = null;
+                _atomicsAsyncWaiterPeak = 0;
+            }
+            else if (_atomicsAsyncWaiterPeak >= 64 && waiters.Count <= _atomicsAsyncWaiterPeak / 4)
+            {
+                _atomicsAsyncWaiters = new HashSet<AtomicsInstance.AsyncWaiter>(waiters);
+                _atomicsAsyncWaiterPeak = waiters.Count;
+            }
+        }
+    }
+
+    private void AbandonAtomicsAsyncWaiters()
+    {
+        var gate = Volatile.Read(ref _atomicsAsyncWaitersLock);
+        if (gate is null)
+        {
+            // No Atomics.waitAsync has ever parked on this engine, so there is no waiter to abandon and no
+            // reason to allocate the lock just to find that out. A finite-timeout deadline is only ever
+            // registered after its waiter, so the registry is already null too; clearing it keeps this branch
+            // equivalent to the locked one. Both callers hold the engine, which is also what registration
+            // needs, so no registration can be racing this read.
+            _atomicsWaiterDeadlines = null;
+            return;
+        }
+
+        HashSet<AtomicsInstance.AsyncWaiter>? waiters;
+        lock (gate)
+        {
+            waiters = _atomicsAsyncWaiters;
+            _atomicsAsyncWaiters = null;
+            _atomicsAsyncWaiterPeak = 0;
+            _atomicsWaiterDeadlines = null;
+        }
+        if (waiters is null) return;
+        foreach (var waiter in waiters)
+        {
+            waiter.Abandon();
+        }
+    }
+
     /// <summary>
     /// Registers a wait to time out <paramref name="timeoutMilliseconds"/> from now. Called on the engine
     /// thread from <c>Atomics.waitAsync</c>, and only for a finite timeout: a wait asking for none never
@@ -96,6 +187,7 @@ public partial class Engine
     internal bool TryPromoteDueTimerJob(bool includeIdleCallbacks = true)
     {
 #if NET8_0_OR_GREATER
+        if (IsRetired) return false;
         var webApi = _webApi;
         return webApi is not null && webApi.TryPromoteDeferredWork(includeIdleCallbacks);
 #else
@@ -108,6 +200,7 @@ public partial class Engine
     internal bool TryRunIdleCallback()
     {
 #if NET8_0_OR_GREATER
+        if (IsRetired) return false;
         return _webApi?.IdleCallbacks is { } idle && idle.TryRunIdleCallback();
 #else
         return false;
@@ -151,6 +244,7 @@ public partial class Engine
     /// </remarks>
     internal bool HasImmediatePumpWork()
     {
+        if (IsRetired) return false;
         if (_eventLoop.HasPendingJobs)
         {
             return true;
@@ -170,6 +264,7 @@ public partial class Engine
     /// </summary>
     internal TimeSpan? TimeUntilNextPumpScheduledWork()
     {
+        if (IsRetired) return null;
         var untilWaiter = _atomicsWaiterDeadlines?.TimeUntilNextDeadline();
 
 #if NET8_0_OR_GREATER
@@ -344,6 +439,14 @@ public partial class Engine
     internal bool WaitForScheduledWork(TimeSpan timeout, CancellationToken cancellationToken)
     {
         using var ownership = EnterHostCall();
+        if (IsRetired)
+        {
+            if (ownership.IsEntryRoot)
+            {
+                FinishRetirement();
+            }
+            return false;
+        }
 
         var isTopLevelPark = ownership.IsEntryRoot;
         using var admission = isTopLevelPark ? OpenHostCallbackAdmissionWindow() : default;
@@ -390,6 +493,14 @@ public partial class Engine
                     RethrowPumpWaitCancellation(cancellationToken);
                 }
 
+                if (IsRetired)
+                {
+                    if (ownership.IsEntryRoot)
+                    {
+                        FinishRetirement();
+                    }
+                    return false;
+                }
                 state = InspectScheduledWork();
                 if (state.IsAvailable)
                 {
@@ -440,6 +551,11 @@ public partial class Engine
             CancellationToken waitToken;
             using (EnterTransferredHostCall(owner))
             {
+                if (IsRetired)
+                {
+                    FinishRetirement();
+                    return false;
+                }
                 state = InspectScheduledWork();
                 waitToken = BuildPumpWaitToken(cancellationToken, out linkedTokenSource);
             }
@@ -492,6 +608,11 @@ public partial class Engine
 
                 using (EnterTransferredHostCall(owner))
                 {
+                    if (IsRetired)
+                    {
+                        FinishRetirement();
+                        return false;
+                    }
                     state = InspectScheduledWork();
                 }
 
@@ -731,7 +852,7 @@ public partial class Engine
             // one refuses every authorized callback instead of admitting the ones this frame issued. Nothing
             // is in force to keep here either — the reservation requires an unowned engine, and an unowned
             // engine has no operation token.
-            var owner = _engine.ReserveAsyncHostOperation(_engine.OwnershipReleasedEvent);
+            var owner = _engine.ReserveAsyncHostOperation(_engine.OwnershipReleasedEvent, allowRetired: true);
             return _engine.WaitForScheduledWorkCoreAsync(owner, timeout, cancellationToken);
         }
     }

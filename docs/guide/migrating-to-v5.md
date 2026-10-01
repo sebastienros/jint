@@ -1815,7 +1815,7 @@ path at all. From v5 a `+` whose result is at least 512 characters returns an *i
 instead, and materializes the text on the first read that needs characters.
 
 **What could break:** nothing a script can see — the value is the string it stands for, for equality,
-hashing, property keys, `length`, every `String.prototype` method and `JSON.stringify`. Two things a host
+hashing, property keys, `length`, every `String.prototype` method and `JSON.stringify`. Three things a host
 might notice:
 
 - `engine.Evaluate("a + b")` may hand back a `JsString` **subclass**. It always could — `+=` has returned one
@@ -1824,6 +1824,13 @@ might notice:
 - The result keeps its two operands alive until something reads its text. A host that concatenates a large
   string and holds only the result, expecting the operands to become collectable immediately, gets that back
   by reading the result once (`AsString()` is enough) — the node then drops both references.
+- Under `LimitMemory` the node is charged when it is built, for its shorter operand, rather than for the full
+  copy 4.16 made ([#4162](https://github.com/sebastienros/jint/issues/4162)). `s = s + x` is therefore charged
+  linearly — a loop 4.16 refused at 16 MB passes at about 6 MB — while one large `+` the script also reads is
+  charged up to 1.5 times what 4.16 charged. A `+` whose result alone exceeds the whole budget throws
+  `MemoryLimitExceededException` before the value exists, and `MemoryLimitConstraint.AllocatedBytes` counts
+  characters charged but not yet allocated. A host copying out many values that share characters should read
+  them through `Engine.ConvertResult` under `ResultLimits`; `ToString()` and `ToObject()` are not bounded.
 ### 4.28 A read-only host collection refuses script with a JavaScript error ([#3382](https://github.com/sebastienros/jint/issues/3382))
 
 A wrapped collection that declares itself read-only — `ReadOnlyCollection<T>`, `ImmutableList<T>`,
@@ -2510,17 +2517,24 @@ and both answered `"islamic"`.
 
 `ICldrProvider` gains a nineteenth member, `GetDefaultCalendar(string locale)`, and `DefaultCldrProvider`
 answers it from CLDR's `calendarPreferenceData` — keyed by region, so a locale naming none is maximized
-first. Four regions prefer something other than `gregory`: `AF` and `IR` (`persian`), `SA`
-(`islamic-umalqura`) and `TH` (`buddhist`).
+first. When this landed the table came from a CLDR release before 46, in which four regions preferred
+something other than `gregory`: `AF` and `IR` (`persian`), `SA` (`islamic-umalqura`) and `TH` (`buddhist`).
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159)
+moved it to CLDR 48.2, where `SA` lists `gregorian` first, so three remain.
 
 ```js
-// 4.16.x / earlier 5.0
+// 4.16.x
 new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "islamic"
 new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/2026" - a Hijri day and month beside a Gregorian year
 
-// 5.x
+// earlier 5.0, from this section until 4.139
 new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "islamic-umalqura"
 new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/1448"
+
+// 5.x
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "gregory"
+new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "27/8/2026"
+new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/1448"
 ```
 
 `islamic-umalqura` was never out of reach — it is in the supported list and an explicit
@@ -2542,11 +2556,14 @@ An answer the engine has no calendar for is discarded rather than resolved to �
 the calendars the implementation supports — so a provider naming `"mayan"` gets `gregory`, as does one
 answering `null`.
 
-**What could break:** `ar-SA` and its region-mates now report and format in `islamic-umalqura`. Every other
-locale reports exactly what it reported before, `.NET`'s answer and CLDR's having already agreed everywhere
-else. A host implementing `ICldrProvider` **from scratch** rather than deriving from `DefaultCldrProvider`
-has one more member to write; deriving costs nothing, and [5.2](#5-2-changing-one-locale-datum-is-one-override-3335)
-is why that is the shape the interface is documented for.
+**What could break:** `ar-SA` reported and formatted in `islamic-umalqura` from this section until
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159);
+against 4.16.x it now reports `gregory` and writes a Gregorian date, where 4.16.x reported `islamic` and wrote
+a Hijri day and month beside a Gregorian year. Every other locale reports exactly what it reported before,
+`.NET`'s answer and CLDR's having already agreed everywhere else. A host implementing `ICldrProvider`
+**from scratch** rather than deriving from `DefaultCldrProvider` has one more member to write; deriving costs
+nothing, and [5.2](#5-2-changing-one-locale-datum-is-one-override-3335) is why that is the shape the
+interface is documented for.
 ### 4.48 The blocking promise drain is bounded on the engine's clock, not on the wall clock ([#3406](https://github.com/sebastienros/jint/issues/3406))
 ### 4.49 `Duration.prototype.round` reckons in the calendar its `relativeTo` carries ([#3450](https://github.com/sebastienros/jint/issues/3450))
 
@@ -5640,6 +5657,193 @@ generator nothing swallowed the `TypeError`, so these shapes threw straight out 
 Plain `.` member access on an awaited value was never affected, and neither was an `await` in a call's
 arguments.
 
+### 4.138 `Intl.Locale.prototype.getWeekInfo` reads the region the specification picks ([#4159](https://github.com/sebastienros/jint/issues/4159))
+
+`getWeekInfo` read CLDR's week data for the tag's region subtag and nothing else, so a tag without one got
+the world's week and the `-u-rg-` and `-u-sd-` keywords were ignored. It now picks the region the way
+[RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) does: a `-u-rg-` override CLDR has week
+data for, then the region subtag, then a `-u-sd-` subdivision's region, then the region Add Likely Subtags
+supplies, then `001`.
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.Locale('en').getWeekInfo().firstDay;                // 1
+new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 7
+
+// 5.x
+new Intl.Locale('en').getWeekInfo().firstDay;                // 7 - "en" is likely "en-US"
+new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 1 - the override names Great Britain
+```
+
+`DefaultCldrProvider.GetWeekInfo` answers the script, so it makes the same choice. A provider overriding
+`GetWeekInfo` still receives the whole tag, keywords included, and its answer is used as it is; one that
+returns `null` falls back to the embedded data, now read for the same region.
+
+### 4.139 `Intl.Locale`'s hour cycles and calendars read CLDR 48.2 for the region the specification picks ([#4159](https://github.com/sebastienros/jint/issues/4159))
+
+The rest of what [4.138](#4-138-intl-locale-prototype-getweekinfo-reads-the-region-the-specification-picks-4159)
+began. [HourCyclesOfLocale](https://tc39.es/ecma402/#sec-hourcyclesoflocale) and
+[CalendarsOfLocale](https://tc39.es/ecma402/#sec-calendarsoflocale) read their data for the region
+[RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) picks, and neither did:
+
+- **`getHourCycles`** answered one cycle, read off the .NET culture's short time pattern, so it could list no
+  more than one, depended on the machine's globalization data, and never saw `-u-rg-` or `-u-sd-`. It now
+  reads CLDR's `timeData`: the language joined to the region first where CLDR keys an entry that way
+  (`fr_CA`, `en_001`), then the region, with a `-u-rg-` override CLDR has time data for tried ahead of both.
+  Each answer is CLDR's preferred cycle followed by the others it allows, and a region CLDR has no time data
+  for answers `["h23"]`, the specification's fallback.
+- **`getCalendars`** answered `["gregory"]` for every locale that carried no calendar of its own. It now
+  reads CLDR's `calendarPreferenceData` for the same region, keeping only the calendars Jint can format in:
+  `islamic` and `islamic-rgsa` are left out unless a host `ICalendarProvider` claims them.
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.Locale('en-US').getHourCycles();             // ["h12"]
+new Intl.Locale('ja-JP').getHourCycles();             // ["h23"]
+new Intl.Locale('es-MX').getHourCycles();             // ["h23"] - the culture's short time pattern
+new Intl.Locale('en-US-u-rg-gbzzzz').getHourCycles(); // ["h12"]
+new Intl.Locale('th').getCalendars();                 // ["gregory"]
+new Intl.Locale('ar-SA').getCalendars();              // ["gregory"]
+
+// 5.x
+new Intl.Locale('en-US').getHourCycles();             // ["h12", "h23"]
+new Intl.Locale('ja-JP').getHourCycles();             // ["h23", "h11", "h12"]
+new Intl.Locale('es-MX').getHourCycles();             // ["h12", "h23"]
+new Intl.Locale('en-US-u-rg-gbzzzz').getHourCycles(); // ["h23", "h12"]
+new Intl.Locale('th').getCalendars();                 // ["buddhist", "gregory"]
+new Intl.Locale('ar-SA').getCalendars();              // ["gregory", "islamic-umalqura"]
+```
+
+Every region table Jint embeds is CLDR 48.2's now — the new time data, the calendar preferences and the week
+data — and that moves two answers the new code does not touch:
+
+```js
+// earlier 5.0
+new Intl.Locale('is-IS').getWeekInfo().firstDay;             // 1
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar; // "islamic-umalqura" (4.16.x: "islamic")
+
+// 5.x
+new Intl.Locale('is-IS').getWeekInfo().firstDay;             // 7 - CLDR 48 starts Iceland's week on Sunday
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar; // "gregory" - CLDR 46 put gregorian first for SA
+```
+
+The second amends [4.47](#4-47-intl-datetimeformat-s-calendar-default-comes-from-the-cldr-provider-3457):
+`ar-SA` formats Gregorian dates unless it asks for another calendar. `DefaultCldrProvider.GetWeekInfo` and
+`GetDefaultCalendar` answer the same way when a host calls them.
+
+**Hosts.** Both lists are read from the data Jint embeds, and `ICldrProvider` has no member for either yet. A
+provider overriding `GetDefaultCalendar` therefore moves `Intl.DateTimeFormat`'s default calendar and not
+`getCalendars()`, and the two can disagree; with `DefaultCldrProvider` they read one table, and the first
+calendar listed is the one the formatter defaults to. `Intl.DateTimeFormat`'s default *hour cycle* reads
+`timeData` too, since
+[4.141](#4-141-intl-datetimeformat-defaults-to-the-hour-cycle-cldr-prefers-for-the-locale-s-region-4179), so
+`resolvedOptions().hourCycle` is `getHourCycles()[0]`.
+
+**What could break:** `getHourCycles()` returns more than one cycle for almost every locale, and its first
+element moved where the .NET culture's short time pattern disagreed with CLDR — on the machine this was
+measured on, 26 of 605 cultures, all from `h23` to `h12`, most of them Latin American Spanish. `getCalendars()`
+lists more than `gregory` wherever CLDR does (156 of the same 605). `is-IS` starts its week on Sunday, and
+`ar-SA` defaults to `gregory`. To keep the Umm al-Qura calendar for `ar-SA`, ask for it —
+`new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura')` — or answer it for the whole engine:
+
+```c#
+sealed class UmmAlQuraForSaudiArabia : DefaultCldrProvider
+{
+    public override string? GetDefaultCalendar(string locale)
+        => locale == "ar-SA" ? "islamic-umalqura" : base.GetDefaultCalendar(locale);
+}
+```
+
+### 4.140 A throw no longer reads `message`, and `JavaScriptException.Message` runs no script ([#4186](https://github.com/sebastienros/jint/pull/4186))
+
+When a throw left a function, generator or `eval` body, the `JavaScriptException` the engine re-raised to carry
+it read the thrown value's `message` through `[[Get]]` for its CLR message — twice for every frame the throw
+unwound through. A `message` getter or a proxy's `get` trap therefore ran on an ordinary `throw`, which reads
+nothing, and one that threw replaced the value being thrown:
+
+```js
+let n = 0;
+const e = new Error();
+Object.defineProperty(e, 'message', { get() { n++; return 'x'; } });
+function f() { throw e; }
+try { f(); } catch {}
+
+// 4.16.x / earlier 5.0: n is 2, and 8 through four frames
+// 5.x:                  n is 0
+```
+
+`Message` is now read from descriptors alone. It is unchanged for an ordinary error, whose `message` is a data
+property on it or on its prototype chain; for a thrown primitive; for an object with no `message` anywhere on
+its chain, which still reads `undefined`; for a `DOMException`, answered from its own slot; and for a wrapped CLR
+object, whose `Message` member is still read.
+
+**What could break:** `Message` is empty wherever only running script could produce it.
+
+| Thrown | `Message` before | `Message` after |
+| --- | --- | --- |
+| an error whose `message` is a getter — its own, or a subclass's `get message()` | the getter's result | `""` |
+| a proxy, or an object with a proxy on its prototype chain | what the `get` trap returned | `""` |
+| an object whose `message` is itself an object | that object's `toString()`, or a debug rendering (`(2)[]` for an array) | `""` |
+| a revoked proxy, passed to `new JavaScriptException(value)` | the constructor threw the proxy's `TypeError` | `""` |
+
+`ToString()` and `GetJavaScriptErrorString()` then start `Error` without the `: message` part, and an uncaught
+error's `ErrorEvent.message` is empty the same way. A host that wants the script's answer asks for it on the
+engine's thread, knowing that this runs the getter:
+
+```c#
+var message = exception.Error is ObjectInstance error ? error.Get("message").ToString() : exception.Message;
+```
+
+### 4.141 `Intl.DateTimeFormat` defaults to the hour cycle CLDR prefers for the locale's region ([#4179](https://github.com/sebastienros/jint/issues/4179))
+
+When neither `hourCycle`, `hour12` nor a `-u-hc-` keyword chose one, `Intl.DateTimeFormat` took its hour cycle
+from a hard-coded list of languages: `de`, `fr`, `it`, `es`, `pt`, `nl`, `ru`, `pl`, `sv`, `da`, `nb` and `fi`
+wrote a 24-hour clock, `ja` a 0-11 one, and every other language a 12-hour one. The locale data
+[CreateDateTimeFormat](https://tc39.es/ecma402/#sec-createdatetimeformat) reads is now CLDR 48.2's `timeData`
+for the region [RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) picks, the table
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159)
+gave `getHourCycles`. So `resolvedOptions().hourCycle` is `getHourCycles()[0]` of the resolved locale, and
+`format`, `formatToParts` and `timeStyle` write that cycle:
+
+```js
+const date = new Date(Date.UTC(2024, 0, 15, 15, 7));
+const hm = { hour: 'numeric', minute: 'numeric', timeZone: 'UTC' };
+
+// 4.16.x / earlier 5.0
+new Intl.DateTimeFormat('en-GB', hm).format(date);          // "3:07 pm"
+new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "3:07 午後"
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "15:07"
+date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "3:07:00 pm"
+
+// 5.x
+new Intl.DateTimeFormat('en-GB', hm).format(date);          // "15:07"
+new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "15:07"
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p. m."
+date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "15:07:00"
+```
+
+`hour12: true` resolves to the first 12-hour cycle the region allows and `hour12: false` to the first 24-hour
+one. For every .NET culture that is the answer the list gave: `h11` for `ja-JP`, `h12` elsewhere, and `h23`.
+
+**What could break:** measured over .NET 10's 605 specific cultures, 323 write their times on a different clock,
+and `resolvedOptions()` reports `hourCycle` and `hour12` to match:
+
+| Before | After | Cultures |
+| --- | --- | --- |
+| `h12` | `h23` | 292: `en-GB`, `en-IE`, `en-ZA`, `en-150` and 46 more `en-*`, `cs-CZ`, `tr-TR`, `uk-UA`, `he-IL`, `hu-HU`, `bg-BG`, `ro-RO`, `id-ID`, `vi-VN`, `th-TH`, `zh-Hans-CN`, `ca-*`, `sr-*`, `hr-*`, `bs-*`, `sw-*`, `ff-*`, and others |
+| `h23` | `h12` | 30: `es-419`, `es-MX`, `es-US` and 19 more `es-*` (the rest of Latin America, and `es-PH`), `fr-DJ`, `fr-DZ`, `fr-MR`, `fr-SY`, `fr-TD`, `fr-TN`, `fr-VU`, `pt-MO` |
+| `h11` | `h23` | `ja-JP` |
+
+`Date.prototype.toLocaleString`, `toLocaleTimeString` and Temporal's `toLocaleString` construct an
+`Intl.DateTimeFormat`, so they move with it — also when no locale is passed and `Options.Culture` (or the
+current culture) supplies it. There is no engine-wide switch back; a script that depends on a clock asks for it,
+and that is the one line to add at each call site:
+
+```js
+new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h12' }); // or hour12: true
+date.toLocaleTimeString('es-MX', { hour12: false });
+```
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5676,8 +5880,9 @@ none of it changes an engine that does not.
 | A synchronous, bounded callback in a host-created realm | `engine.Advanced.WithRealm(realm, action)` | [§5.33](#5-33-a-host-can-run-a-bounded-callback-in-one-of-its-realms-3917) |
 | Web Locks — `navigator.locks`, in a lock space several engines can share | in `UseWebApis()` already; `options.UseWebLocks(manager)` names the shared space | [§5.37](#5-37-several-engines-can-share-one-lock-space-navigator-locks) |
 | IndexedDB databases, transactions, indexes and cursors (.NET 8+) | `WebApiFeatures.IndexedDb` (`1 << 27`), opt-in; automatic in `Jint.Browser` with `BrowserOptions.MaxIndexedDbBytes` (50 MiB per origin) | [IndexedDB](web-apis/indexeddb.md) |
+| Buffer-view construction mode | `value.IsLengthTrackingArrayBufferView()` | [§5.38](#5-38-reading-a-buffer-view-s-length-tracking-mode) |
 
-The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
+The `LazyJsString` row is the only one that replaces an existing spelling rather than adding a capability, so it is
 worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
 and passing **`null`** to a constructor whose parameter is typed `string` — a suppression against a contract
 that existed only in that class's `<remarks>` — and then overriding `ToString()`, `Length` and the indexer
@@ -6888,6 +7093,58 @@ window and its workers in one agent cluster — assigns the parent's manager to 
 worker from. The flag itself travels, because it grants a worker nothing.
 
 [Web Locks](web-apis/locks.md) is the guide page.
+
+### 5.38 Reading a buffer view's length-tracking mode
+
+`JsValue.IsLengthTrackingArrayBufferView()` reports whether a native typed array or `DataView`
+tracks changes to its resizable or growable buffer. This lets a host serializer preserve the
+construction mode: a fixed-length view and a length-tracking view can expose the same length today
+but behave differently after the buffer grows.
+
+```csharp
+using Jint.Native;
+
+using var engine = new Engine();
+var view = engine.Evaluate("new Uint8Array(new ArrayBuffer(8, { maxByteLength: 16 }))");
+bool tracksLength = view.IsLengthTrackingArrayBufferView(); // true
+```
+
+The query reads native metadata without invoking script or changing the buffer. It retains the
+construction mode for an out-of-bounds view or a detached buffer; callers must validate bounds and
+detachment separately. Non-view values and proxies around views return `false`.
+
+### 5.39 Retiring an engine
+
+Call `engine.Advanced.Retire()` ([#4148](https://github.com/sebastienros/jint/pull/4148))
+when the host permanently ends the execution context owned by that engine. `engine.IsRetired`
+is a one-way status flag: no later top-level script entry, queued job or posted
+callback runs, and new `Tasks.Post` calls fail. The current script or job may finish. Pending
+engine waits wake, while module imports, fetch-handler invocations and stream copies report
+abandonment when polled. Transient timers, web resources and shared locks are released. Call
+`Dispose` after any active entry has returned to release the remaining engine state. Await an
+outstanding `*Async` operation before disposal, even though retirement wakes it promptly.
+
+Nested script-execution calls made by the current script may finish. New imports always refuse,
+including from that script. A posted host task that retires the engine cannot start a new script
+entry afterward. Later synchronous entries,
+`RegisterPromise`, `Post`, `StartImport`, `Import`, fetch-handler invocation and snapshot restore refuse
+with `InvalidOperationException`. New `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync` and `ImportAsync`
+calls refuse synchronously before returning a task. An in-flight wait for a pending promise faults
+its task; a result already completed in the current synchronous phase may still return.
+`ProcessTasks` and scheduled-work waits stop without throwing. Retirement is idempotent, may be
+called from another thread, and is a no-op after disposal.
+
+Worker connections ended by retirement report `ParentRetired` or `WorkerRetired`, rather than the
+snapshot-restore reasons `ParentRestored` and `WorkerRestored`.
+Retirement and disposal can synchronously invoke host worker, fetch-observer,
+cancellation and stream callbacks
+while serializing lifecycle cleanup. Do not block those callbacks waiting for another thread to
+call `Retire` or `Dispose` on the same engine; arrange such work after the callback returns.
+An abandoned fetch reports `OnFailed` synchronously during retirement cleanup with an
+engine-retired reason.
+
+Retiring an engine is terminal; use `RestoreGlobalSnapshot` only when the same engine must
+continue serving a trusted cycle.
 
 ## 6. AOT and trimming
 

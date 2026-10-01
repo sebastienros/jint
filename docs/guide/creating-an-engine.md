@@ -53,6 +53,11 @@ An engine serves one operation at a time and is not thread-safe. Keep it assigne
 and await any async API before reuse or disposal. A pooled engine retains globals, modules, intrinsic mutations,
 and caches unless the host explicitly manages them.
 
+When the host permanently ends an engine's execution context, call `engine.Advanced.Retire()`. It stops later
+script and queued work, wakes pending waits, and releases transient web resources. The current operation can
+finish; call `Dispose` after it returns. `IsRetired` reports this terminal state. An engine cannot resume after
+retirement.
+
 `CaptureGlobalSnapshot` and `RestoreGlobalSnapshot` can reset the global binding table for trusted reuse, but
 they are not an isolation boundary: prototype changes, reachable object graphs, CLR state, symbols, and modules
 survive. Use separate engines for separate trust domains. See [Performance](./performance.md) and

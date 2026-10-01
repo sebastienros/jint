@@ -33,14 +33,14 @@ public class HostStreamBridgeTests
     private static Engine StreamEngine() => new(options => options.UseWebApis(WebApiFeatures.Streams));
 
     /// <summary>
-    /// The same engine for the one test whose chunks arrive from another thread, with the promise budget the
+    /// The same engine for the two tests whose I/O completes on another thread, with the promise budget the
     /// blocking drain runs under moved off the engine's ten-second default and onto
     /// <see cref="TestBudgets.WedgeCeiling"/>.
     /// </summary>
     /// <remarks>
     /// Nothing here asserts a duration — the assertion is the text that came out of the stream — so the
     /// budget is a wedge ceiling and widening it can hide nothing. What it removes is the thread pool from
-    /// the set of things that decide the outcome: each chunk is delivered by a pool continuation, and on a
+    /// the set of things that decide the outcome: each chunk or write is completed by a pool continuation, and on a
     /// saturated runner the whole copy has been seen failing as <c>PromiseRejectedException: Timeout of
     /// 00:00:10 reached</c> (#3358), which is a symptom of the machine rather than of the bridge.
     /// </remarks>
@@ -609,7 +609,7 @@ public class HostStreamBridgeTests
         // The copy's own cross-thread half: each write settles on a thread-pool thread and comes back as a
         // generation-stamped event-loop job. CopyReadableStreamAsync is what drives those turns, so nothing
         // here waits for an interval.
-        var engine = StreamEngine();
+        var engine = OffThreadStreamEngine();
         var destination = new OffThreadWriteStream();
         var source = engine.Evaluate("""
             new ReadableStream({
@@ -744,6 +744,26 @@ public class HostStreamBridgeTests
         copy.IsCompleted.Should().BeTrue();
         copy.IsFaulted.Should().BeTrue();
         copy.Error!.Get("message").AsString().Should().Contain("abandoned");
+        destination.Disposed.Should().BeTrue();
+    }
+
+    [Test]
+    public void ACopyReportsRetirementBeforeTheCurrentCallbackReturns()
+    {
+        using var engine = StreamEngine();
+        var destination = new RecordingStream();
+        var source = engine.Evaluate("new ReadableStream({ pull(c) { } })");
+        var copy = engine.WebApi.StartReadableStreamCopy(source, destination);
+        var observed = false;
+        engine.SetValue("retireAndPoll", new Action(() =>
+        {
+            engine.Advanced.Retire();
+            observed = copy.IsCompleted && copy.IsFaulted;
+        }));
+
+        engine.Execute("retireAndPoll()");
+
+        observed.Should().BeTrue("the operation cannot wait for generation cleanup after this callback");
         destination.Disposed.Should().BeTrue();
     }
 

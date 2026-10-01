@@ -91,6 +91,11 @@ internal sealed class JintImportExpression : JintExpression
             }
 
             var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray()) { Phase = _phase };
+            if (context.Engine.IsRetired)
+            {
+                promiseCapability.Reject(context.Engine.Realm.Intrinsics.Error.Construct("The engine has been retired and cannot import modules."));
+                return promiseCapability.PromiseInstance;
+            }
             var payload = new DynamicImportPayload(context.Engine, moduleRequest, promiseCapability);
             context.Engine._host.LoadImportedModule(referrer, moduleRequest, payload);
         }

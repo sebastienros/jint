@@ -485,7 +485,7 @@ public partial class Engine
         /// <returns>The invocation in progress; see <see cref="FetchHandlerOperation"/>.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
         /// <exception cref="InvalidOperationException">
-        /// Neither a fetch handler nor a <c>fetch</c> listener is registered on this engine.
+        /// Neither a fetch handler nor a <c>fetch</c> listener is registered, or the engine is retired.
         /// </exception>
         public FetchHandlerOperation InvokeFetchHandler(HttpRequestMessage request)
             => InvokeFetchHandler(request, CancellationToken.None);
@@ -556,6 +556,7 @@ public partial class Engine
                 Throw.ArgumentNullException(nameof(request));
             }
 
+            _engine.ThrowIfRetired();
             var route = RequireFetchRoute();
 
             // Before the invocation, so that the evaluation cycle the operation is fenced against is the one

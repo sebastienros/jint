@@ -140,6 +140,37 @@ public sealed partial class Engine : IDisposable
     // Read with Volatile.Read behind IsDisposed: Dispose may be called from a thread other than the one that
     // last ran script, and Post - the one cross-thread entry - is what reads it.
     private int _disposed;
+    private int _retired;
+    private int _retirementFinished;
+    // Use the same monitor on every target to serialize Retire and Dispose. Teardown invokes host-owned
+    // cancellation and disposal callbacks while holding it; those callbacks must not join another thread
+    // that is entering the same engine's lifecycle methods. Created on first use by LifecycleLock, never by
+    // the constructor, so building an engine does not pay for a monitor only retirement and disposal need.
+    private object? _lifecycleLock;
+
+    /// <summary>
+    /// The monitor <see cref="AdvancedOperations.Retire"/> and <see cref="Dispose"/> serialize on, created by
+    /// whichever of them reaches it first.
+    /// </summary>
+    /// <remarks>
+    /// The two may race from different threads on an engine that has never allocated it, so the publication is
+    /// a compare-exchange: the loser drops its candidate and locks the winner's, and both end up holding the
+    /// same monitor. A plain <c>??=</c> would let two racing first uses each lock an object of their own.
+    /// </remarks>
+    private object LifecycleLock
+    {
+        get
+        {
+            var gate = Volatile.Read(ref _lifecycleLock);
+            if (gate is not null)
+            {
+                return gate;
+            }
+
+            var created = new object();
+            return Interlocked.CompareExchange(ref _lifecycleLock, created, null) ?? created;
+        }
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal HostCallScope EnterHostCall(object? asyncOwner = null, object? callbackOwner = null)
@@ -926,6 +957,7 @@ public sealed partial class Engine : IDisposable
             return;
         }
 
+        var reservationReleased = false;
         lock (owner)
         {
             if (ReferenceEquals(Volatile.Read(ref _asyncReleasePending), owner))
@@ -933,9 +965,15 @@ public sealed partial class Engine : IDisposable
                 Interlocked.CompareExchange(ref _asyncOwner, null, owner);
                 Interlocked.CompareExchange(ref _asyncReleasePending, null, owner);
                 Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, owner);
+                reservationReleased = true;
             }
 
             Monitor.PulseAll(owner);
+        }
+
+        if (reservationReleased)
+        {
+            CompleteRetirementIfUnowned();
         }
     }
 
@@ -956,8 +994,14 @@ public sealed partial class Engine : IDisposable
     /// a frame that runs none, where nothing can ever carry it and the match is empty rather than narrow.
     /// </para>
     /// </param>
-    internal object ReserveAsyncHostOperation(object? reservationOwner = null)
+    /// <param name="allowRetired">Whether a non-script wait may return <see langword="false"/> after retirement.</param>
+    internal object ReserveAsyncHostOperation(object? reservationOwner = null, bool allowRetired = false)
     {
+        if (!allowRetired)
+        {
+            ThrowIfRetired();
+        }
+
         var activeOwner = Volatile.Read(ref _ownerThreadId);
         if (activeOwner != 0)
         {
@@ -982,6 +1026,7 @@ public sealed partial class Engine : IDisposable
 
     internal void ReleaseAsyncHostOperation(object owner)
     {
+        var reservationReleased = false;
         lock (owner)
         {
             if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
@@ -998,10 +1043,27 @@ public sealed partial class Engine : IDisposable
 
             Interlocked.CompareExchange(ref _asyncOwner, null, owner);
             Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, owner);
+            reservationReleased = true;
             if (Volatile.Read(ref _ownerThreadId) == System.Environment.CurrentManagedThreadId
                 && ReferenceEquals(_ownerToken, owner))
             {
                 _ownerToken = null;
+            }
+        }
+
+        if (reservationReleased)
+        {
+            CompleteRetirementIfUnowned();
+        }
+    }
+
+    private void CompleteRetirementIfUnowned()
+    {
+        if (IsRetired && Volatile.Read(ref _retirementFinished) == 0 && TryEnterHostCall(out var ownership))
+        {
+            using (ownership)
+            {
+                FinishRetirement();
             }
         }
     }
@@ -1091,16 +1153,28 @@ public sealed partial class Engine : IDisposable
                 _engine._memoryLimitConstraint!.EndSegment(in _memorySegment);
             }
 
-            _engine.ExitHostCall();
-            if (_callbackOwner is not null)
+            try
             {
-                // Before the reservation release below, which waits for this very count to reach zero.
-                _engine.ReleaseHostCallbackAdmission(_callbackOwner);
+                if (_isEntryRoot && _engine.IsRetired)
+                {
+                    _engine.FinishRetirement();
+                }
             }
-
-            if (_isEntryRoot)
+            finally
             {
-                _engine.ReleaseEntryReservationIfHeld();
+                _engine.ExitHostCall();
+                if (_callbackOwner is not null)
+                {
+                    // Before the reservation release below, which waits for this very count to reach zero.
+                    _engine.ReleaseHostCallbackAdmission(_callbackOwner);
+                }
+
+                if (_isEntryRoot)
+                {
+                    _engine.ReleaseEntryReservationIfHeld();
+                    // Retirement can arrive after the check above but before ownership is released.
+                    _engine.CompleteRetirementIfUnowned();
+                }
             }
         }
     }
@@ -2524,6 +2598,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="source">The name the source is known by in stack traces and the debugger. Defaults to <c>&lt;anonymous&gt;</c>.</param>
     /// <param name="parsingOptions">Parsing options for this evaluation. Defaults to the engine's <see cref="Options.Parsing"/>.</param>
     /// <returns>The completion value of the script.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Evaluate(string code, string? source = null, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = EnterHostCall();
@@ -2533,6 +2608,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Evaluates a prepared script and returns the completion value.
     /// </summary>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
         => ExecuteForCompletion(in preparedScript);
 
@@ -2547,6 +2623,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="source">The name the source is known by in stack traces and the debugger. Defaults to <c>&lt;anonymous&gt;</c>.</param>
     /// <param name="parsingOptions">Parsing options for this execution. Defaults to the engine's <see cref="Options.Parsing"/>.</param>
     /// <returns>This engine, for chaining.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public Engine Execute(string code, string? source = null, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = EnterHostCall();
@@ -2556,6 +2633,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Executes a prepared script into engine and returns the engine instance (useful for chaining).
     /// </summary>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public Engine Execute(in Prepared<Script> preparedScript)
     {
         ExecuteForCompletion(in preparedScript);
@@ -2775,6 +2853,7 @@ public sealed partial class Engine : IDisposable
     /// </param>
     internal void AddToEventLoop(Action continuation, EventLoopJobKind kind)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(continuation, _eventLoop.Generation, CaptureMemoryLimitState(), kind));
     }
 
@@ -2789,6 +2868,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="kind">Which of HTML's two queues it belongs to — see <see cref="EventLoopJobKind"/>.</param>
     internal void AddToEventLoop(Action continuation, EventLoopRegistration registration, EventLoopJobKind kind)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(
             continuation,
             registration.Generation,
@@ -2817,6 +2897,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="kind">Which of HTML's two queues it belongs to — see <see cref="EventLoopJobKind"/>.</param>
     internal void AddToEventLoop(Action continuation, int generation, EventLoopJobKind kind)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null, kind));
     }
 
@@ -2826,6 +2907,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void AddToEventLoop(PromiseReaction reaction, JsValue value)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(reaction, value, _eventLoop.Generation, reaction.MemoryState));
     }
 
@@ -2846,6 +2928,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void EnqueueModuleLoadCompletion(Action continuation, EventLoopRegistration registration)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(
             continuation,
             registration.Generation,
@@ -2862,6 +2945,11 @@ public sealed partial class Engine : IDisposable
 
     internal void RunEventLoopJob(in EventLoopJob job)
     {
+        if (IsRetired)
+        {
+            return;
+        }
+
         // A job runs on an empty JavaScript execution context stack — that is what a job is — whatever depth
         // the drain that dequeued it happens to sit at. ScriptEvaluation drains before it pops its own
         // context, so the depth here is 2 for a job run on the way out of Execute and 1 for one run by a
@@ -2876,6 +2964,34 @@ public sealed partial class Engine : IDisposable
         finally
         {
             _emptyStackContextDepth = previousEmptyStackDepth;
+        }
+    }
+
+    private void FinishRetirement()
+    {
+        if (Interlocked.Exchange(ref _retirementFinished, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            AbandonAtomicsAsyncWaiters();
+            ResetTransientEvaluationState(retiring: true);
+        }
+        finally
+        {
+            _eventLoop.NextGeneration();
+            _eventLoop.Signal();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ThrowIfRetired()
+    {
+        if (IsRetired)
+        {
+            Throw.InvalidOperationException("The engine has been retired and cannot run more work.");
         }
     }
 
@@ -3026,6 +3142,12 @@ public sealed partial class Engine : IDisposable
     /// </remarks>
     internal bool NotifyAboutRejectedPromises()
     {
+        if (IsRetired)
+        {
+            _rejectionNotifications?.Clear();
+            return false;
+        }
+
         var pending = _rejectionNotifications;
         if (pending is null || pending.Count == 0)
         {
@@ -3315,12 +3437,15 @@ public sealed partial class Engine : IDisposable
 
             while (!isSettled(state))
             {
+                ThrowIfRetired();
                 // The caller's token is checked before any work is run, so an already-cancelled token
                 // fails the wait rather than being masked by a drain that happens to settle the
                 // condition on its first turn.
                 cancellationToken.ThrowIfCancellationRequested();
 
                 RunAvailableContinuations();
+
+                ThrowIfRetired();
 
                 if (isSettled(state))
                 {
@@ -3865,6 +3990,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="propertyName">The name of a property of the global object; see the remarks.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Invoke(string propertyName, params object?[] arguments)
     {
         return Invoke(propertyName, thisObj: null, arguments);
@@ -3900,6 +4026,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObj">The this value inside the function call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Invoke(string propertyName, object? thisObj, object?[] arguments)
     {
         using var ownership = EnterHostCall();
@@ -3915,6 +4042,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="value">The function to call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Call(JsValue, JsValue[])"/>
     public JsValue Invoke(JsValue value, params object?[] arguments)
     {
@@ -3934,6 +4062,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObj">The this value inside the function call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Call(JsValue, JsValue, JsValue[])"/>
     public JsValue Invoke(JsValue value, object? thisObj, object?[] arguments)
     {
@@ -4034,6 +4163,10 @@ public sealed partial class Engine : IDisposable
         // run forever. Host-entry depth covers callbacks that push no interpreter frame; execution-context
         // depth covers async and generator resumes that have no host entry.
         var isNested = _hostEntryDepth > 0 || _executionContexts.Count > 1;
+        if (!isNested)
+        {
+            ThrowIfRetired();
+        }
         if (_memoryLimitConstraint is not null)
         {
             return ExecuteWithMemoryLimit(strict, source, state, callback, isNested);
@@ -4097,6 +4230,10 @@ public sealed partial class Engine : IDisposable
                     ResetConstraints();
                 }
                 _agent.ClearKeptObjects();
+                if (!isNested && IsRetired)
+                {
+                    FinishRetirement();
+                }
             }
         }
     }
@@ -4165,6 +4302,10 @@ public sealed partial class Engine : IDisposable
                     ResetConstraints();
                 }
                 _agent.ClearKeptObjects();
+                if (!isNested && IsRetired)
+                {
+                    FinishRetirement();
+                }
             }
         }
     }
@@ -4285,6 +4426,12 @@ public sealed partial class Engine : IDisposable
     /// reason: the unbounded one, <see cref="JsValue.ToObject()"/>, is a method on every value a host
     /// already holds, so a host that never finds this one takes the unbounded route by default. Pass
     /// <paramref name="limits"/> to override <see cref="Options.ResultLimits"/> for one call.
+    /// </para>
+    /// <para>
+    /// Set <see cref="ResultLimits.MaxOutputCharacters"/> for an untrusted result: each string is checked by its
+    /// length before it is copied, and one that would take the characters copied past the limit is refused, so
+    /// the limit bounds the characters the conversion copies. A memory limit charges a copy only after it is
+    /// made. <see cref="ResultLimits.MaxStringLength"/> refuses any one string longer than it the same way.
     /// </para>
     /// </remarks>
     public object? ConvertResult(JsValue value, ResultLimits? limits = null)
@@ -5110,6 +5257,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="callable">The callable.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Invoke(JsValue, object[])"/>
     public JsValue Call(JsValue callable, params JsCallArguments arguments)
         => Call(callable, thisObject: JsValue.Undefined, arguments);
@@ -5122,6 +5270,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObject">Value bound as this.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Invoke(JsValue, object, object[])"/>
     public JsValue Call(JsValue callable, JsValue thisObject, JsCallArguments arguments)
     {
@@ -5322,6 +5471,10 @@ public sealed partial class Engine : IDisposable
     /// </remarks>
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
+    /// <summary>Whether the host permanently retired this engine through <see cref="AdvancedOperations.Retire"/>.</summary>
+    /// <remarks>A one-way status flag safe to read from any thread.</remarks>
+    public bool IsRetired => Volatile.Read(ref _retired) != 0;
+
     /// <summary>
     /// Raised once, on whichever thread calls <see cref="Dispose"/>, as this engine begins going away.
     /// </summary>
@@ -5354,6 +5507,10 @@ public sealed partial class Engine : IDisposable
     /// The engine must not be used afterwards; <see cref="TaskOperations.Post"/> refuses with
     /// <see cref="ObjectDisposedException"/>, and <see cref="IsDisposed"/> answers for everything else.
     /// </para>
+    /// <para>
+    /// Teardown invokes host callbacks while serializing lifecycle cleanup. They must not wait for another
+    /// thread to call <see cref="AdvancedOperations.Retire"/> or <see cref="Dispose"/> on this engine.
+    /// </para>
     /// </remarks>
     public void Dispose()
     {
@@ -5370,13 +5527,19 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
-            DisposeCore();
+            // A concurrent Retire can briefly claim an idle engine to release its transient state.
+            lock (LifecycleLock)
+            {
+                DisposeCore();
+            }
         }
     }
 
     private void DisposeCore()
     {
         using var ownership = EnterHostCall();
+
+        AbandonAtomicsAsyncWaiters();
 
         // the recent-wrapper ring (on by default since 4.14) strongly roots its targets and wrappers,
         // so a disposed-but-still-referenced engine must release them

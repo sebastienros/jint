@@ -1353,6 +1353,20 @@ public class WorkerMechanismTests
         parent.Evaluate("typeof w").AsString().Should().Be("undefined", "the binding went back with the globals");
     }
 
+    [Test]
+    public void AParentRetirementEndsTheConnectionWithItsOwnReason()
+    {
+        var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
+        var parent = Parent(host);
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        Drain(parent, host.Connection);
+
+        parent.Advanced.Retire();
+
+        host.Connection.EndReason.Should().Be(WorkerEndReason.ParentRetired);
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.ParentRetired);
+    }
+
     /// <summary>
     /// The <c>Worker</c> object outlives the restore and is <b>inert</b>: <c>postMessage</c> is a no-op after
     /// the serialization the standard's step order still prescribes, and <c>terminate()</c> does nothing.
@@ -1456,6 +1470,20 @@ public class WorkerMechanismTests
         parent.Execute("w.postMessage('after');");
         Drain(parent, host.Connection);
         host.Log.Should().Be("before", "the parent's half closed with the connection");
+    }
+
+    [Test]
+    public void AWorkerRetirementEndsTheConnectionWithItsOwnReason()
+    {
+        var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
+        var parent = Parent(host);
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        Drain(parent, host.Connection);
+
+        host.Connection.Worker.Advanced.Retire();
+
+        host.Connection.EndReason.Should().Be(WorkerEndReason.WorkerRetired);
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.WorkerRetired);
     }
 
     [Test]
