@@ -64,7 +64,7 @@ public sealed class PublishedToolTests
         result.Error.Should().BeEmpty();
         using var json = JsonDocument.Parse(result.Output);
         json.RootElement[0].GetString().Should().Be("yes");
-        json.RootElement[1].GetString().Should().Be("rgba(255, 0, 0, 1)");
+        json.RootElement[1].GetString().Should().Be("red");
         json.RootElement[2].GetString().Should().Be("xml");
         json.RootElement[3].GetInt32().Should().Be(1);
         json.RootElement[4].GetString().Should().Be("1.234,5");
