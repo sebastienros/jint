@@ -178,7 +178,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     {
         var node = RequireNodeId(parameters.NodeId);
         var matches = Query(node, parameters.Selector);
-        var match = matches.Count == 0 ? null : matches[0];
+        var match = matches.Length == 0 ? null : matches[0];
 
         return new ValueTask<QuerySelectorResponse>(new QuerySelectorResponse { NodeId = match is null ? 0 : Push(match) });
     }

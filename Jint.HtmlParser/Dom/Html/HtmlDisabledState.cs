@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Jint.HtmlParser;
 
 internal enum HtmlDisabledState
@@ -13,14 +15,27 @@ internal struct HtmlDisabledWork(CancellationToken cancellationToken, Action<int
     private int _steps = initialSteps;
     internal int Steps => _steps;
 
+    // Selector matching charges a step per character and per node, so the common case must inline
+    // down to an increment and a mask; the select context and the cadence callback stay out of line.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Step()
     {
-        selectContext?.Step();
-        if ((++_steps & 255) == 0)
-        {
-            checkpoint?.Invoke(_steps);
-            cancellationToken.ThrowIfCancellationRequested();
-        }
+        if (selectContext is not null) StepWithSelectContext();
+        else if ((++_steps & 255) == 0) Poll();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void StepWithSelectContext()
+    {
+        selectContext!.Step();
+        if ((++_steps & 255) == 0) Poll();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private readonly void Poll()
+    {
+        checkpoint?.Invoke(_steps);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     internal void Check() => cancellationToken.ThrowIfCancellationRequested();

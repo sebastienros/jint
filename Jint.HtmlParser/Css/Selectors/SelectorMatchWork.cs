@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Jint.HtmlParser.Css.Selectors;
 
 // Invocation-owned. Passing this value by ref preserves native work's polling remainder.
@@ -80,12 +82,20 @@ internal struct SelectorMatchWork
         _controlDocumentStamp = stamp;
         _controlSeedBound = true;
     }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Step()
+    {
+        // A cell only exists on initialized work, so the hot path skips the root check.
+        if (_cell is { InCheckpoint: false } cell) cell.Native.Step();
+        else StepWithoutCell();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void StepWithoutCell()
     {
         if (_root is null) throw new InvalidOperationException("Uninitialized selector work.");
         if (_cell is { InCheckpoint: true }) throw new InvalidOperationException(AlreadyActive);
-        if (_cell is { } cell) cell.Step();
-        else _native.Step();
+        _native.Step();
     }
     internal void VerifyRead() => Verify();
 

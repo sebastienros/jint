@@ -7,7 +7,8 @@ internal sealed class DomStaticNodeList : DomNodeList
 {
     private readonly Node[] _nodes;
 
-    internal DomStaticNodeList(IEnumerable<Node> matches) => _nodes = matches.ToArray();
+    /// <summary>Adopts <paramref name="matches"/>; the caller hands over a snapshot nothing else mutates.</summary>
+    internal DomStaticNodeList(Node[] matches) => _nodes = matches;
 
     internal Node[] Nodes => _nodes;
 

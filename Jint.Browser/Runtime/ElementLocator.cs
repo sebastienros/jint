@@ -67,8 +67,8 @@ internal static class ElementLocator
             }
 
             var elements = DomSelectors.QuerySelectorAll(realm, document, target);
-            var resolved = index >= 0 ? index : elements.Count + index;
-            return (uint) resolved < (uint) elements.Count ? elements[resolved] : null;
+            var resolved = index >= 0 ? index : elements.Length + index;
+            return (uint) resolved < (uint) elements.Length ? elements[resolved] : null;
         }
         catch (DomException)
         {

@@ -7,12 +7,15 @@ internal sealed class CompiledSelector
 {
     internal CompiledSelector(IReadOnlyList<Complex> branches, SelectorSpecificity maximumSpecificity, bool containsNesting = false)
     {
-        Branches = branches;
+        Branches = BranchArray = AsArray(branches);
         MaximumSpecificity = maximumSpecificity;
         ContainsNesting = containsNesting;
     }
 
     internal IReadOnlyList<Complex> Branches { get; }
+    // The same items as Branches. Hot matching loops index the array: through IReadOnlyList,
+    // every element read is an interface dispatch, which native AOT cannot devirtualize.
+    internal Complex[] BranchArray { get; }
     internal SelectorSpecificity MaximumSpecificity { get; }
     internal bool ContainsNesting { get; }
 
@@ -21,7 +24,13 @@ internal sealed class CompiledSelector
     // A racing write can lose a bit, which only repeats a validation.
     internal byte ValidatedImplemented;
 
+    // SelectorMatcher's direct-matcher classification, computed once from the immutable program.
+    // A racing write recomputes the same value.
+    internal byte DirectMatchShape;
+
     internal static IReadOnlyList<T> Freeze<T>(List<T> values) => values.Count == 0 ? [] : values.ToArray();
+
+    private static T[] AsArray<T>(IReadOnlyList<T> values) => values as T[] ?? [.. values];
 
     internal enum Combinator { Descendant, Child, NextSibling, SubsequentSibling, Column }
     internal enum NamespaceMode { Any, None, Exact }
@@ -43,8 +52,8 @@ internal sealed class CompiledSelector
         internal Complex(IReadOnlyList<Compound> compounds, IReadOnlyList<Combinator> combinators,
             Combinator? leadingCombinator, CssSourceSpan span, SelectorSpecificity specificity)
         {
-            Compounds = compounds;
-            Combinators = combinators;
+            Compounds = CompoundArray = AsArray(compounds);
+            Combinators = CombinatorArray = AsArray(combinators);
             LeadingCombinator = leadingCombinator;
             Span = span;
             Specificity = specificity;
@@ -52,6 +61,8 @@ internal sealed class CompiledSelector
 
         internal IReadOnlyList<Compound> Compounds { get; }
         internal IReadOnlyList<Combinator> Combinators { get; }
+        internal Compound[] CompoundArray { get; }
+        internal Combinator[] CombinatorArray { get; }
         internal Combinator? LeadingCombinator { get; }
         internal CssSourceSpan Span { get; }
         internal SelectorSpecificity Specificity { get; }
@@ -66,7 +77,7 @@ internal sealed class CompiledSelector
             NamespaceUri = namespaceUri;
             TypeName = typeName;
             HasExplicitType = explicitType;
-            Predicates = predicates;
+            Predicates = PredicateArray = AsArray(predicates);
             Span = span;
         }
 
@@ -75,6 +86,7 @@ internal sealed class CompiledSelector
         internal string? TypeName { get; } // null is universal.
         internal bool HasExplicitType { get; }
         internal IReadOnlyList<Predicate> Predicates { get; }
+        internal Predicate[] PredicateArray { get; }
         internal CssSourceSpan Span { get; }
     }
 

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.ObjectModel;
 using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
 
@@ -83,37 +84,68 @@ internal static partial class SelectorMatcher
 
     internal static IReadOnlyList<Element> QuerySelectorAll(CompiledSelector program, Node root,
         in SelectorEnvironment environment, ref SelectorMatchWork work)
+        => new ReadOnlyCollection<Element>(QuerySelectorAllSnapshot(program, root, environment, ref work));
+
+    /// <summary>
+    /// DOM §4.2.6 scope-match a selectors string: the matching elements in tree order, as an exact-length
+    /// array the caller owns and may adopt as a static list without copying it again.
+    /// </summary>
+    internal static Element[] QuerySelectorAllSnapshot(CompiledSelector program, Node root,
+        in SelectorEnvironment environment, ref SelectorMatchWork work)
     {
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(root);
         work.Enter(root, null, environment);
+        Element[]? buffer = null;
+        var count = 0;
         try
         {
             work.VerifyRead();
             var local = new Work(ref work, environment);
             ValidateImplemented(program, ref local, work.Token);
             var scope = ScopeFor(root, ref local);
-            var results = new List<Element>();
             for (var node = root.FirstChild; node is not null; node = NextWithin(root, node, ref local))
             {
                 work.Step();
                 if (node is Element candidate && TryMatchCore(program, candidate, scope, ref local, out _))
                 {
                     work.Step();
-                    results.Add(candidate);
+                    if (buffer is null || count == buffer.Length) buffer = GrowResults(buffer, count);
+                    buffer[count++] = candidate;
                 }
             }
-            var snapshot = new Element[results.Count];
+            if (count == 0)
+            {
+                work.VerifyRead();
+                work.Check();
+                return [];
+            }
+            var snapshot = new Element[count];
             for (var i = 0; i < snapshot.Length; i++)
             {
                 work.Step();
-                snapshot[i] = results[i];
+                snapshot[i] = buffer![i];
             }
             work.VerifyRead();
             work.Check();
-            return new ReadOnlyCollection<Element>(snapshot);
+            return snapshot;
         }
-        finally { work.Exit(); }
+        finally
+        {
+            if (buffer is not null) ArrayPool<Element>.Shared.Return(buffer, clearArray: true);
+            work.Exit();
+        }
+    }
+
+    private static Element[] GrowResults(Element[]? buffer, int count)
+    {
+        var grown = ArrayPool<Element>.Shared.Rent(buffer is null ? 64 : buffer.Length * 2);
+        if (buffer is not null)
+        {
+            Array.Copy(buffer, grown, count);
+            ArrayPool<Element>.Shared.Return(buffer, clearArray: true);
+        }
+        return grown;
     }
 
     // HTML §4.15 and Selectors §9: https://html.spec.whatwg.org/multipage/semantics-other.html#pseudo-classes

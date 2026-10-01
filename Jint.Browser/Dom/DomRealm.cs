@@ -717,7 +717,7 @@ internal sealed class DomRealm
     /// that is a contract rather than a preference.
     /// </para>
     /// </remarks>
-    internal JsValue WrapStaticNodeList(IEnumerable<Element> matches)
+    internal JsValue WrapStaticNodeList(Element[] matches)
     {
         var snapshot = new DomStaticNodeList(matches);
         return Cache(snapshot, new DomCollectionObject(this, DomInterfaces.NodeList, snapshot, DomAccessorNodeList.Instance));

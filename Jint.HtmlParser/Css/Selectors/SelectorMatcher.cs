@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
 
 namespace Jint.HtmlParser.Css.Selectors;
@@ -184,48 +185,9 @@ internal static partial class SelectorMatcher
     {
         if (ReferenceEquals(work.ShadowScope?.Host, element))
             return Evaluate(program, element, scope, ref work, out specificity);
-        // A lone compound with ordinary predicates is the common query path.
-        // Keep it allocation-free; relational programs use the explicit VM.
-        if (program.Branches.Count == 1)
-        {
-            var branch = program.Branches[0];
-            if (branch.Compounds.Count == 1 && branch.LeadingCombinator is null)
-            {
-                var compound = branch.Compounds[0];
-                var simple = true;
-                foreach (var predicate in compound.Predicates)
-                {
-                    work.Step();
-                    if (predicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or
-                        PredicateKind.Has || predicate.Arguments is not null)
-                    {
-                        simple = false;
-                        break;
-                    }
-                }
-                if (simple)
-                {
-                    var matched = NamespaceMatches(compound.NamespaceMode, compound.NamespaceUri,
-                                      element.NamespaceUri) &&
-                                  (compound.TypeName is null || SelectorNameMatches(compound.TypeName,
-                                      element.LocalName, IsHtmlElement(element), ref work));
-                    if (matched)
-                    {
-                        foreach (var predicate in compound.Predicates)
-                        {
-                            work.Step();
-                            if (!MatchPredicate(predicate, element, scope, ref work))
-                            {
-                                matched = false;
-                                break;
-                            }
-                        }
-                    }
-                    specificity = matched ? branch.Specificity : default;
-                    return matched;
-                }
-            }
-        }
+        // Ordinary query shapes stay allocation-free; the rest use the explicit VM.
+        if (TryMatchDirect(program, element, scope, ref work, out var matched, out specificity))
+            return matched;
         return Evaluate(program, element, scope, ref work, out specificity);
     }
 
@@ -340,7 +302,7 @@ internal static partial class SelectorMatcher
         ref Work work)
     {
         string? value = null;
-        foreach (var attribute in element.Attributes)
+        foreach (var attribute in element.AttributeSpan)
         {
             work.Step();
             if (attribute.NamespaceUri is not null || attribute.LocalName != attributeName) continue;
@@ -356,7 +318,7 @@ internal static partial class SelectorMatcher
 
     private static bool MatchAttribute(Predicate predicate, Element element, ref Work work)
     {
-        foreach (var attribute in element.Attributes)
+        foreach (var attribute in element.AttributeSpan)
         {
             work.Step();
             if (!NamespaceMatches(predicate.NamespaceMode, predicate.NamespaceUri, attribute.NamespaceUri) ||
@@ -633,6 +595,7 @@ internal static partial class SelectorMatcher
             (_featurelessEligibility ??= new Dictionary<CompiledSelector, bool>())[program] = eligible;
         }
         internal void Check() => Shared.Check();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Step() => Shared.Step();
     }
 }
