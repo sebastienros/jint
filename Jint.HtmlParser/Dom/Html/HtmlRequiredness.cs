@@ -38,9 +38,11 @@ internal static class HtmlRequiredness
             }
         }
 
+        // §4.16.3 lists only inputs to which `required` applies under :optional, but wpt
+        // html/semantics/selectors/pseudo-classes/required-optional-hidden.html expects a hidden one to match.
         if (element.LocalName == "input" && !HtmlInputTypes.Info(HtmlInputTypes.Parse(type)).RequiredApplies)
         {
-            return HtmlRequiredState.Inapplicable;
+            return HtmlRequiredState.Optional;
         }
 
         return required ? HtmlRequiredState.Required : HtmlRequiredState.Optional;

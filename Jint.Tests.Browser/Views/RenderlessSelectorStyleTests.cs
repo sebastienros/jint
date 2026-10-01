@@ -12,7 +12,7 @@ public sealed class RenderlessSelectorStyleTests
     [TestCase("button", "text", ":placeholder-shown", "placeholder=hint")]
     [TestCase("button", "text", ":read-write", "")]
     [TestCase("hidden", "text", ":required", "required")]
-    public async Task TypeChangesInvalidateSelectorStylesWithoutColorConversion(
+    public async Task TypeChangesInvalidateSelectorStyles(
         string before, string after, string selector, string attributes)
     {
         await using var browser = new Browser();
@@ -29,7 +29,7 @@ public sealed class RenderlessSelectorStyleTests
               return before + '|' + el.matches('{{selector}}') + ':' + style.color;
             })()
             """);
-        result.Should().Be("false:red|true:green");
+        result.Should().Be("false:rgb(255, 0, 0)|true:rgb(0, 128, 0)");
         page.Errors.Should().BeEmpty();
     }
 }

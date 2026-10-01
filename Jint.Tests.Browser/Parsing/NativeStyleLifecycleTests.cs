@@ -57,7 +57,7 @@ public sealed class NativeStyleLifecycleTests
                 document.body.appendChild(host);
                 const third=style.sheet;
                 return third !== null && third !== second && root.styleSheets.length === 1 &&
-                    getComputedStyle(root.querySelector('p')).color === 'green';
+                    getComputedStyle(root.querySelector('p')).color === 'rgb(0, 128, 0)';
             })()
             """)).Should().BeTrue();
         page.Errors.Should().BeEmpty();

@@ -25,6 +25,31 @@ public sealed class ComputedStyleTests
         ("position", "static"),
     ];
 
+    /// <summary>
+    /// CSSOM §9: a color property's resolved value is its used color, serialized per CSS Color 4 §15.2 as
+    /// legacy <c>rgb()</c>, or <c>rgba()</c> below full opacity; <c>currentcolor</c> is the element's color.
+    /// </summary>
+    [TestCase("color: red", "color", "rgb(255, 0, 0)")]
+    [TestCase("color: #0f08", "color", "rgba(0, 255, 0, 0.533)")]
+    [TestCase("color: #00ff0080", "color", "rgba(0, 255, 0, 0.5)")]
+    [TestCase("color: hsl(240 100% 50% / 25%)", "color", "rgba(0, 0, 255, 0.25)")]
+    [TestCase("color: RebeccaPurple", "color", "rgb(102, 51, 153)")]
+    [TestCase("background-color: transparent", "background-color", "rgba(0, 0, 0, 0)")]
+    [TestCase("color: lime; border-top-color: currentcolor", "border-top-color", "rgb(0, 255, 0)")]
+    [TestCase("color: currentcolor", "color", "rgb(0, 0, 255)")]
+    [TestCase("", "color", "rgb(0, 0, 255)")]
+    [TestCase("color: CanvasText", "color", "CanvasText")]
+    [TestCase("fill: url(#paint)", "fill", "url(#paint)")]
+    public async Task ColorPropertiesResolveToSrgb(string declarations, string property, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<div style='color: blue'><p id=t style='{declarations}'>x</p></div>");
+
+        (await page.EvaluateAsync<string>($"getComputedStyle(t).getPropertyValue('{property}')")).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task AStyleElementRuleAndAnInlineStyleBothReachTheComputedStyle()
     {
@@ -214,7 +239,7 @@ public sealed class ComputedStyleTests
         foreach (var (property, expected) in new[]
         {
             ("color", "rgb(0, 0, 0)"), ("font-size", "16px"), ("margin-top", "0px"),
-            ("z-index", "auto"), ("background-color", "transparent"), ("cursor", "auto")
+            ("z-index", "auto"), ("background-color", "rgba(0, 0, 0, 0)"), ("cursor", "auto")
         })
         {
             (await page.EvaluateAsync<string>(plain + ".getPropertyValue('" + property + "')")).Should().Be(expected);

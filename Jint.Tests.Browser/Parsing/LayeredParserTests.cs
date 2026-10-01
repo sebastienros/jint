@@ -40,7 +40,7 @@ public sealed class LayeredParserTests
         await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/",
             "<style id=s>" + condition + " { @scope (.unused) {} } p { color:blue }</style><p id=target>ready</p>"));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("blue");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("rgb(0, 0, 255)");
         (await fixture.Page.EvaluateAsync<bool>("s.sheet.cssRules.length===2")).Should().BeTrue();
         (await fixture.Page.EvaluateAsync<string>(
             "(()=>{try{return String(s.sheet.cssRules[0].cssRules.length)}catch(e){return e.name}})()"))
@@ -54,12 +54,12 @@ public sealed class LayeredParserTests
         await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/",
             "<style id=s>@media print { @scope (.unused) {} } p { color:blue }</style><p id=target>ready</p>"));
         await fixture.Page.NavigateAsync(fixture.Url("/"));
-        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("blue");
+        (await fixture.Page.EvaluateAsync<string>("getComputedStyle(target).color")).Should().Be("rgb(0, 0, 255)");
         (await fixture.Page.EvaluateAsync<string>(
             "s.sheet.cssRules[0].media.mediaText='screen';" +
             "(()=>{try{return getComputedStyle(target).color}catch(e){return e.name}})()"))
-            .Should().Be("blue");
+            .Should().Be("rgb(0, 0, 255)");
         (await fixture.Page.EvaluateAsync<string>(
-            "s.textContent='p { color:green }'; getComputedStyle(target).color")).Should().Be("green");
+            "s.textContent='p { color:green }'; getComputedStyle(target).color")).Should().Be("rgb(0, 128, 0)");
     }
 }

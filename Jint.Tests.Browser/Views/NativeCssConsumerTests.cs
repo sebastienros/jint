@@ -15,7 +15,7 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
-    public async Task DeclaredAndComputedColorsRetainText()
+    public async Task DeclaredColorsRetainTextAndComputedOnesSerializeAsSrgb()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -26,14 +26,14 @@ public sealed class NativeCssConsumerTests
                 const box = document.getElementById('box');
                 return box.style.color + '|' + getComputedStyle(box).color;
             })()
-            """)).Should().Be("ReD|ReD");
+            """)).Should().Be("ReD|rgb(255, 0, 0)");
         (await page.EvaluateAsync<string>("""
             (() => {
                 const box = document.getElementById('box');
                 box.style.color = 'blue';
                 return box.style.color + '|' + getComputedStyle(box).color;
             })()
-            """)).Should().Be("blue|blue");
+            """)).Should().Be("blue|rgb(0, 0, 255)");
         page.Errors.Should().BeEmpty();
     }
 

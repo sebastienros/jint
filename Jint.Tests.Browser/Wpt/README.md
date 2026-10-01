@@ -37,12 +37,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 1 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 21 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 13 |
 | `custom-elements/` | 16 | 0 | 513 | 9 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 50 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **238** |
+| **total** | **392** | **9** | **66,916** | **230** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -256,8 +256,8 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 ## What the pseudo-classes suite says about this browser
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
-against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 21
-of which do not pass**, and every failure is one of four bounded things AngleSharp does — only one of which
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 13
+of which do not pass**, and every failure is one of three bounded things AngleSharp does — only one of which
 is still its `DefaultPseudoClassSelectorFactory`. That is the reason the suite is here: the page owns
 `:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled`, `:default`, `:open`/`:closed`,
 `:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown`,
@@ -265,13 +265,12 @@ is still its `DefaultPseudoClassSelectorFactory`. That is the reason the suite i
 (`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until this suite arrived
 measured any of them.
 
-None of these four has a row in the cause table above, and that is by construction: the table counts the
+None of these three has a row in the cause table above, and that is by construction: the table counts the
 six DOM suites, and every one of these is a failure of this suite alone.
 
 | Tests | What it is |
 | ---: | --- |
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
-| 8 | **Computed colors stay declared text by design** at the LightPanda renderless boundary. These eight assertions require sRGB serialization, not different selector matching; they are categorized as `NeedsComputedCssValues`. |
 | 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
 | 1 | **A cloned control loses its dirty value flag**, so `maxlength`'s "too long" state does not survive `cloneNode`. `element.validity` says the same. |
 
@@ -283,9 +282,9 @@ asks for range limitations, and a `fieldset` is decided from its descendants —
 type state, answer for a `<textarea>`, and know about a radio button group and about a `progress` attribute
 that is absent rather than empty. That retired 34 rows of this suite and one of
 `dom/nodes/Element-closest.html`. **Three type-change documents did not become green and moved instead**:
-their selectors answer correctly now and their remaining assertion compares a computed colour against a
-literal. That historical serialization discrepancy is now superseded by the intentional raw-color
-boundary above; `RenderlessSelectorStyleTests` independently checks the type changes and live cascade.
+their selectors answer correctly now and their remaining assertion compared a computed colour against a
+literal. `getComputedStyle` now serializes color longhands as `rgb()`, so all three pass, and
+`RenderlessSelectorStyleTests` independently checks the type changes and live cascade.
 
 **`:focus` is the sixth, and it needed the page rather than the predicate.** AngleSharp answers `:focus` and
 `:focus-within` from `IElement.IsFocused`, a flag nothing in this package sets — its own `DoFocus()` assigns

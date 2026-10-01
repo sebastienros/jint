@@ -1,3 +1,4 @@
+using Jint.Browser.Dom.Views;
 using Jint.Browser.Styling;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model;
@@ -76,7 +77,7 @@ internal sealed partial class CssDomain : CSSDomainBase
             properties.Add(new ProtocolCss.CSSComputedStyleProperty
             {
                 Name = name,
-                Value = property.Text,
+                Value = ResolvedStyle.ColorOf(name, property.Text, computed),
             });
         }
 

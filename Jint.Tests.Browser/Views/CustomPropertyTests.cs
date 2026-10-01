@@ -17,7 +17,7 @@ public sealed class CustomPropertyTests
             (() => { const s = getComputedStyle(document.getElementById('t'));
             return [s.getPropertyValue('--tone'), s.getPropertyValue('--alias'),
             s.getPropertyValue('--size'), s.getPropertyValue('--missing'), s.color].join('|'); })()
-            """)).Should().Be("blue|var(--tone)|calc(1px + 2px)||red");
+            """)).Should().Be("blue|var(--tone)|calc(1px + 2px)||rgb(255, 0, 0)");
         page.Errors.Should().BeEmpty();
     }
 

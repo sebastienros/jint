@@ -9,17 +9,27 @@ internal static class CanvasColor
 {
     internal static bool TryParse(string value, out string serialized)
     {
-        var text = value.Trim().ToLowerInvariant();
         serialized = "";
-        if (text is "transparent") { serialized = "rgba(0, 0, 0, 0)"; return true; }
-        if (text is "currentcolor") { serialized = "#000000"; return true; }
-        if (text is "rebeccapurple") { serialized = "#663399"; return true; }
+        if (value.Trim().Equals("currentcolor", StringComparison.OrdinalIgnoreCase)) { serialized = "#000000"; return true; }
+        if (!TryParse(value, out var r, out var g, out var b, out var alpha)) return false;
+        serialized = Rgba(r, g, b, alpha);
+        return true;
+    }
+
+    /// <summary>Parses an absolute sRGB color; <c>currentcolor</c> and system colors are the caller's to resolve.</summary>
+    internal static bool TryParse(string value, out int r, out int g, out int b, out double alpha)
+    {
+        var text = value.Trim().ToLowerInvariant();
+        r = g = b = 0;
+        alpha = 1;
+        if (text is "transparent") { alpha = 0; return true; }
+        if (text is "rebeccapurple") { r = 0x66; g = 0x33; b = 0x99; return true; }
         if (text is "grey") text = "gray";
         else if (text.Contains("grey", StringComparison.Ordinal)) text = text.Replace("grey", "gray", StringComparison.Ordinal);
         var known = Color.FromName(text);
         if (known.IsKnownColor && !known.IsSystemColor)
         {
-            serialized = Rgba(known.R, known.G, known.B, known.A / 255d);
+            (r, g, b, alpha) = (known.R, known.G, known.B, known.A / 255d);
             return true;
         }
         if (text.StartsWith('#'))
@@ -28,8 +38,6 @@ internal static class CanvasColor
             if (hex.Length is not (3 or 4 or 6 or 8)) return false;
             foreach (var c in hex) if (!char.IsAsciiHexDigit(c)) return false;
             var bits = uint.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-            int r, g, b;
-            var alpha = 1d;
             if (hex.Length is 3 or 4)
             {
                 if (hex.Length == 4) { alpha = (bits & 15) / 15d; bits >>= 4; }
@@ -40,7 +48,6 @@ internal static class CanvasColor
                 if (hex.Length == 8) { alpha = (bits & 255) / 255d; bits >>= 8; }
                 r = (int) ((bits >> 16) & 255); g = (int) ((bits >> 8) & 255); b = (int) (bits & 255);
             }
-            serialized = Rgba(r, g, b, alpha);
             return true;
         }
         var open = text.IndexOf('(');
@@ -98,7 +105,7 @@ internal static class CanvasColor
             else { var m = l - chroma / 2; red += m; green += m; blue += m; }
             red *= 255; green *= 255; blue *= 255;
         }
-        serialized = Rgba(Byte(red), Byte(green), Byte(blue), Math.Clamp(a, 0, 1));
+        (r, g, b, alpha) = (Byte(red), Byte(green), Byte(blue), Math.Clamp(a, 0, 1));
         return true;
     }
 

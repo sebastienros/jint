@@ -28,12 +28,13 @@ public sealed class SelectorFormStateTests
             var applies = HtmlInputTypes.Info(type).RequiredApplies;
             Matches(":enabled", input).Should().BeTrue(type.ToString());
             Matches(":disabled", input).Should().BeFalse(type.ToString());
-            Matches(":optional", input).Should().Be(applies, type.ToString());
+            Matches(":optional", input).Should().BeTrue(type.ToString());
             Matches(":required", input).Should().BeFalse(type.ToString());
 
+            // wpt required-optional-hidden.html: an input `required` does not apply to stays :optional.
             input.SetAttribute("required", "");
             Matches(":required", input).Should().Be(applies, type.ToString());
-            Matches(":optional", input).Should().BeFalse(type.ToString());
+            Matches(":optional", input).Should().Be(!applies, type.ToString());
             input.SetAttribute("disabled", "");
             input.SetAttribute("readonly", "");
             Matches(":required", input).Should().Be(applies, type.ToString());
@@ -81,7 +82,7 @@ public sealed class SelectorFormStateTests
         Matches(":required", input).Should().BeTrue();
         input.SetAttribute("type", "HIDDEN");
         Matches(":required", input).Should().BeFalse();
-        Matches(":optional", input).Should().BeFalse();
+        Matches(":optional", input).Should().BeTrue();
         Matches(":enabled", input).Should().BeTrue();
 
         var xml = Document.CreateXml();

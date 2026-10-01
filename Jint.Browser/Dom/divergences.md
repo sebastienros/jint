@@ -135,8 +135,10 @@ values. Only the small layout shorthand set expands. Named/generic CSSOM accesso
 store, receiver checks, null removal, readonly computed views and live invalidation.
 CSS.supports checks known/custom names and nonempty values; it is not proof of a value grammar.
 Custom properties inherit raw text; small bounded textual var() substitution supports ordinary values.
-Whitespace keywords remain usable by text extraction. Colors retain their specified spelling rather
-than converting to sRGB; the affected WPT color-serialization cases are explicitly outside this boundary.
+Whitespace keywords remain usable by text extraction. The cascade keeps colors as declared text; only the
+CSSOM resolved value (`getComputedStyle`) and DevTools' computed style serialize absolute sRGB colors and
+`currentcolor` as `rgb()`/`rgba()`. Shorthands such as `border-color` and `background` and system colors
+stay declared text.
 
 The native selector VM implements [shadow stylesheet `:host` and
 `:host(...)`](https://drafts.csswg.org/css-shadow-1/#host-selector), including featureless hosts and the

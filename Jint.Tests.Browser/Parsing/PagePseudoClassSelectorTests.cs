@@ -1360,10 +1360,10 @@ public sealed class PagePseudoClassSelectorTests
 
     /// <summary>
     /// HTML §4.16.3: <c>:required</c> is an <c>input</c> which is required and a <c>select</c> or
-    /// <c>textarea</c> carrying the attribute, and <c>:optional</c> is an <c>input</c> the attribute
-    /// <i>applies</i> to which is not required and the other two without it — so §4.10.5.3.4's fifteen type
-    /// states bound both, and an input outside them is in neither class. AngleSharp reads the attribute
-    /// wherever it is written.
+    /// <c>textarea</c> carrying the attribute, so §4.10.5.3.4's fifteen type states bound it. The prose
+    /// bounds <c>:optional</c> the same way, but wpt
+    /// <c>html/semantics/selectors/pseudo-classes/required-optional-hidden.html</c> expects a required hidden
+    /// input to match it, so every input that is not required is optional.
     /// </summary>
     [Test]
     public async Task RequiredAndOptionalAskWhetherTheAttributeAppliesToTheTypeState()
@@ -1394,7 +1394,7 @@ public sealed class PagePseudoClassSelectorTests
               return before + '|' + hidden.matches(':required') + ':' + hidden.matches(':optional');
             })()
             """)).Should().Be(
-            "hidden:false:false,range:false:false,submit:false:false,checkbox:true:false,text:true:false," +
+            "hidden:false:true,range:false:true,submit:false:true,checkbox:true:false,text:true:false," +
             "plain:false:true,select:true:false,plainSelect:false:true,textarea:true:false," +
             "plainTextarea:false:true,div:false:false|true:false");
     }

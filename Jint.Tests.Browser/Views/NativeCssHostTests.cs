@@ -29,7 +29,7 @@ public sealed class NativeCssHostTests
                 style.getPropertyValue('--important'),style.getPropertyValue('--inline'),
                 style.getPropertyValue('--leak'),style.getPropertyValue('--rolled'),
                 child.getPropertyValue('--child')].join('|');
-              if (values()!=='green|outer|inner|inner||revert-layer|yes') return values();
+              if (values()!=='rgb(0, 128, 0)|outer|inner|inner||revert-layer|yes') return values();
               if (root.querySelector(':host')!==null || root.querySelector(':host > span')!==null ||
                   !CSS.supports('selector(:host(.x))')) return 'query scope';
               host.className='';

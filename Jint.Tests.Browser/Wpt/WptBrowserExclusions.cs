@@ -1114,21 +1114,6 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/invalid-after-clone.html", "Cloned invalid inputs / textareas with interactive changes get their validity state copied correctly", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the pseudo-classes suite: computed colors retain declaration text
-    private static readonly WptExclusion[] _thePseudoClassesSuiteOpaqueColour =
-    [
-        // CSSOM color conversion is intentionally outside the renderless text boundary.
-        // The selector engine is retained; these assertions require sRGB serialization of named colors.
-        new("html/semantics/selectors/pseudo-classes/checked-type-change.html", "Evaluation of :checked changes on input type change.", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/indeterminate-radio.html", ":indeterminate and input type=radio", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/indeterminate-type-change.html", "Evaluation of :indeterminate changes on input type change.", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :in-range changes for input type change.", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :out-of-range changes for input type change.", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/placeholder-shown-type-change.html", "Evaluation of :placeholder-shown changes for input type change.", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/readwrite-readonly-type-change.html", "Evaluation of :read-write and :read-only changes for input type change.", WptDivergence.NeedsComputedCssValues),
-        new("html/semantics/selectors/pseudo-classes/required-optional-hidden.html", "Evaluation of :required and :optional changes for input type change.", WptDivergence.NeedsComputedCssValues),
-    ];
-
     /// <summary>The causes this corpus found, each one the exclusions that are it.</summary>
     /// <remarks>
     /// A cause was a comment until it became a value a run could count. Its unique name is the hidden key
@@ -1151,7 +1136,6 @@ internal static class WptBrowserExclusions
         new("MutationObserver's records", _mutationObserverSRecords),
         new("one assertion each", _oneAssertionEach),
         new("the pseudo-classes suite: a cloned constraint state", _thePseudoClassesSuiteAClonedConstraintState),
-        new("the pseudo-classes suite: computed colors retain declaration text", _thePseudoClassesSuiteOpaqueColour),
     ];
 
     /// <summary>

@@ -61,7 +61,7 @@ public class CascadeRuleIndexTests
         var result = await ComputedAsync(
             "<!doctype html><style>.b{color:red} p{color:blue} .a{color:green}</style><p class='b a'>x</p>",
             "getComputedStyle(document.querySelector('p')).color");
-        result.Should().Be("green");
+        result.Should().Be("rgb(0, 128, 0)");
     }
 
     [Test]

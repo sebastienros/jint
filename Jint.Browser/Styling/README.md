@@ -16,7 +16,8 @@ Explicit revert/revert-rule/revert-layer values retain cascade rollback.
 Values are text, not typed grammars. Custom properties inherit declared text. Ordinary values may
 use bounded textual `var()` substitution with fallbacks (depth 32; expansion limit 1,000,000 characters).
 It is not token substitution: no declaration-scope resolution, deferred shorthand evaluation, typed
-functions, URL resolution, color conversion or unit computation. A missing/cyclic expansion defaults
+functions, URL resolution or unit computation. Colors stay declared text in the cascade; `ResolvedStyle`
+serializes color longhands as `rgb()`/`rgba()` only at the CSSOM and DevTools read boundary. A missing/cyclic expansion defaults
 the property rather than selecting an earlier declaration. Substitution-produced rollback keywords
 remain text. Simple display blockification stays; overflow axes no longer compute together.
 
