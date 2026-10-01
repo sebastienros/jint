@@ -26,23 +26,23 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 548 | 10 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 110 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 21 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 1 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
-| `dom/ranges/` | 17 | 0 | 84 | 2 |
-| `html/dom/` | 15 | 0 | 56,745 | 18 |
+| `dom/ranges/` | 17 | 0 | 84 | 0 |
+| `html/dom/` | 15 | 0 | 56,745 | 2 |
 | `html/infrastructure/common-dom-interfaces/collections/` | 1 | 0 | 41 | 0 |
 | `html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/` | 1 | 0 | 2 | 0 |
-| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 1 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
+| `html/webappapis/scripting/events/` | 12 | 0 | 51 | 0 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 0 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 13 |
-| `custom-elements/` | 16 | 0 | 513 | 9 |
-| `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 50 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 1 |
+| `custom-elements/` | 16 | 0 | 513 | 7 |
+| `custom-elements/parser/` | 8 | 0 | 20 | 6 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 28 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **230** |
+| **total** | **392** | **9** | **66,930** | **76** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -343,7 +343,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,228 tests, and **131 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **24 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -356,19 +356,14 @@ must belong to exactly one cause, and every cause that reaches these six suites 
 Unlike the census's `Not passing` ceiling, both columns are equalities: a cause growing or shrinking means the
 table needs to be regenerated.
 
-The numeric columns below retain the last Windows census and need regeneration after the native-parser
-acceptance fixes. Local runs have removed stale exclusions for media reflection, live-range adoption,
-saved implementations, selector escapes, native mutation records and `:dir()`. They are not a substitute
-for the Windows-only canonical census; its guard and failure ceilings are unchanged.
-
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 37 | 1 | **Ill-formed XML fixture assertions.** Native HTML PI parsing passes. The remaining exclusions require preservation of a PI from an XML document with no document element, where DOMParser must instead return a parsererror document. Patterns exclude only the PI-dependent assertions, not name-validation checks that also pass on an element. <!-- cause: a member of a DOM interface the bindings do not have --> |
-| 33 | 7 | **Remaining frame interfaces and registry access.** Native frame identity, adoption and CDATA branding now pass. The remaining exclusions cover the missing `TextEvent` interface and a custom-element registry accessed across an adopted container's realms. <!-- cause: a frame that runs script --> |
-| 16 | 1 | **The pinned Selectors 3 `:empty` expectation excludes whitespace-only elements.** [Selectors 4](https://drafts.csswg.org/selectors/#the-empty-pseudo) explicitly includes them. The native matcher follows that rule; `::slotted`, language matching and namespace-wildcard attribute matching now pass. <!-- cause: the Selectors-API table and selector-only element states --> |
-| 10 | 6 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
-| 4 | 2 | **Two refusals the bindings do not make.** `insertBefore` with a second argument that is not a node, `null` or `undefined` must be a `TypeError`, and replacing with a document or a doctype must be a `HierarchyRequestError`. Both are about *insertion*; they sat with the name-creation rows because one pull request named them together, and [#3950](https://github.com/sebastienros/jint/issues/3950) emptied everything else out from under them. <!-- cause: two refusals the bindings do not make --> |
-| 4 | 2 | **The pinned PI mutation fixture expects the old HTML bogus-comment data.** Current HTML parsing produces a processing instruction with data `data`, not the comment spelling `?processing data?`. Native parser and outerHTML mutation records pass without exclusions. <!-- cause: MutationObserver's records --> |
+| 10 | 1 | **Ill-formed XML fixture assertions.** Native HTML PI parsing passes. The remaining exclusions require preservation of a PI from an XML document with no document element, where DOMParser must instead return a parsererror document. Patterns exclude only the PI-dependent assertions, not name-validation checks that also pass on an element. <!-- cause: a member of a DOM interface the bindings do not have --> |
+| 8 | 1 | **The pinned Selectors 3 `:empty` expectation excludes whitespace-only elements.** [Selectors 4](https://drafts.csswg.org/selectors/#the-empty-pseudo) explicitly includes them. The native matcher follows that rule; `::slotted`, language matching and namespace-wildcard attribute matching now pass. <!-- cause: the Selectors-API table and selector-only element states --> |
+| 2 | 2 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
+| 1 | 1 | **Remaining frame interfaces and registry access.** Native frame identity, adoption and CDATA branding now pass. The remaining exclusions cover the missing `TextEvent` interface and a custom-element registry accessed across an adopted container's realms. <!-- cause: a frame that runs script --> |
+| 1 | 1 | **Two refusals the bindings do not make.** `insertBefore` with a second argument that is not a node, `null` or `undefined` must be a `TypeError`, and replacing with a document or a doctype must be a `HierarchyRequestError`. Both are about *insertion*; they sat with the name-creation rows because one pull request named them together, and [#3950](https://github.com/sebastienros/jint/issues/3950) emptied everything else out from under them. <!-- cause: two refusals the bindings do not make --> |
+| 1 | 1 | **The pinned PI mutation fixture expects the old HTML bogus-comment data.** Current HTML parsing produces a processing instruction with data `data`, not the comment spelling `?processing data?`. Native parser and outerHTML mutation records pass without exclusions. <!-- cause: MutationObserver's records --> |
 | 1 | 1 | **A `relList` on a MathML `<a>` that no standard defines.** The file's own `testAttr()` asks for a `DOMTokenList` in the MathML namespace beside the SVG one, and MathML Core's only interface is [`MathMLElement`](https://w3c.github.io/mathml-core/#dom-and-javascript), which declares neither `rel` nor `relList`; nothing else defines one on a MathML element either, so this is `AssertsWhatNothingRequires` rather than debt. The SVG row passes now — [SVG 2 §16.2](https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement)'s `SVGAElement` is one of `DomManualInterfaces`' local-name interfaces, and `Dom/divergences.md` records what is still missing. <!-- cause: a relList on a MathML <a> that no standard defines --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
