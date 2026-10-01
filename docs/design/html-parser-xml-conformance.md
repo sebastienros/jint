@@ -179,6 +179,14 @@ pass an independently reviewed no-fetch expected result, or have an individually
 gap with its exact case ID and rationale. Unimplemented output adapters remain blocking harness debt.
 A passing binary outcome never counts as a passing output assertion.
 
+`expectations.json` and `optional-policies.json` keep one projection entry per line with null members
+omitted. A projection of at least 100 entries that is identical to one stored earlier is replaced by
+`projectionSameAs`, naming the row that stores it. Each Japanese `pr-xml` document is a 6,283-entry
+projection repeated across encodings. The reference only saves storage: the loader holds the row to
+exactly the same entries, and it rejects a reference that chains, sits next to its own projection, or
+names a missing row. After editing either file, run `Tools/format_reviews.py`. It expands every
+reference and shares again, so its output is canonical.
+
 The completed review covers all 411 runnable rows with external-resource indications and the
 additional `eduni/errata-3e/errata3e.xml#rmt-e3e-13` internal-parameter case. Its undeclared `ent2`
 is a validity issue even without an external subset; a lexical resource scan alone cannot classify

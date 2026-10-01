@@ -9,7 +9,8 @@ internal sealed class XmlCaseExpectation
     public string? Status { get; init; }
     public XmlSkippedExpectation[]? Skipped { get; init; }
     public string? Outcome { get; init; }
-    public XmlProjectionEntry[]? Projection { get; init; }
+    public XmlProjectionEntry[]? Projection { get; set; }
+    public string? ProjectionSameAs { get; init; }
     public string? OutputPolicy { get; init; }
     public string? ProjectionSha256 { get; init; }
     public string? OriginalOutputSha256 { get; init; }
@@ -55,16 +56,37 @@ internal sealed class XmlCaseDeviation
 internal static class XmlExpectations
 {
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
-    private static readonly Lazy<IReadOnlyDictionary<string, XmlCaseExpectation>> Expectations =
-        new(() => Load<XmlCaseExpectation>("expectations.json", item => item.Key));
-    private static readonly Lazy<IReadOnlyDictionary<string, XmlCaseExpectation>> Optional =
-        new(() => Load<XmlCaseExpectation>("optional-policies.json", item => item.Key));
+    private static readonly Lazy<(IReadOnlyDictionary<string, XmlCaseExpectation> Reviewed,
+        IReadOnlyDictionary<string, XmlCaseExpectation> Optional)> Reviews = new(LoadReviews);
     private static readonly Lazy<IReadOnlyDictionary<string, XmlCaseDeviation>> Deviations =
         new(() => Load<XmlCaseDeviation>("deviations.json", item => item.Key));
 
-    internal static IReadOnlyDictionary<string, XmlCaseExpectation> Reviewed => Expectations.Value;
-    internal static IReadOnlyDictionary<string, XmlCaseExpectation> OptionalPolicies => Optional.Value;
+    internal static IReadOnlyDictionary<string, XmlCaseExpectation> Reviewed => Reviews.Value.Reviewed;
+    internal static IReadOnlyDictionary<string, XmlCaseExpectation> OptionalPolicies => Reviews.Value.Optional;
     internal static IReadOnlyDictionary<string, XmlCaseDeviation> KnownFailures => Deviations.Value;
+
+    private static (IReadOnlyDictionary<string, XmlCaseExpectation>, IReadOnlyDictionary<string, XmlCaseExpectation>) LoadReviews()
+    {
+        var reviewed = Load<XmlCaseExpectation>("expectations.json", item => item.Key);
+        var optional = Load<XmlCaseExpectation>("optional-policies.json", item => item.Key);
+        foreach (var item in reviewed.Values.Concat(optional.Values))
+            ShareProjection(item, reviewed, optional);
+        return (reviewed, optional);
+    }
+
+    // projectionSameAs is storage only (Tools/format_reviews.py): the row is held to exactly the entries
+    // the named row stores, so a reference can never weaken the comparison or chain to another reference.
+    internal static void ShareProjection(XmlCaseExpectation item,
+        IReadOnlyDictionary<string, XmlCaseExpectation> reviewed, IReadOnlyDictionary<string, XmlCaseExpectation> optional)
+    {
+        if (item.ProjectionSameAs is not { } source)
+            return;
+        if (item.Projection is not null ||
+            !(reviewed.TryGetValue(source, out var owner) || optional.TryGetValue(source, out owner)) ||
+            owner.ProjectionSameAs is not null || owner.Projection is null)
+            throw new InvalidDataException($"Invalid projectionSameAs on {item.Key}: {source}");
+        item.Projection = owner.Projection;
+    }
 
     private static IReadOnlyDictionary<string, T> Load<T>(string file, Func<T, string> keyOf)
     {

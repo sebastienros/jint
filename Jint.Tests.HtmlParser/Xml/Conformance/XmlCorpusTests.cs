@@ -403,6 +403,26 @@ public class XmlCorpusTests
         XmlConformanceRunner.Run(row).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
     }
 
+    [Test]
+    public void SharedProjectionsAreStorageOnlyAndNeverChain()
+    {
+        var reviewed = XmlExpectations.Reviewed;
+        var none = new Dictionary<string, XmlCaseExpectation>(StringComparer.Ordinal);
+        var shared = reviewed.Values.Where(item => item.ProjectionSameAs is not null).ToArray();
+        shared.Should().NotBeEmpty();
+        shared.Should().OnlyContain(item => item.Projection == reviewed[item.ProjectionSameAs!].Projection);
+
+        var owner = shared[0].ProjectionSameAs!;
+        var chained = new XmlCaseExpectation { Key = "probe", ProjectionSameAs = shared[0].Key };
+        var owned = new XmlCaseExpectation { Key = "probe", ProjectionSameAs = owner, Projection = [] };
+        var missing = new XmlCaseExpectation { Key = "probe", ProjectionSameAs = "xmlconf/missing.xml#none" };
+        foreach (var probe in new[] { chained, owned, missing })
+        {
+            var share = () => XmlExpectations.ShareProjection(probe, reviewed, none);
+            share.Should().Throw<InvalidDataException>();
+        }
+    }
+
     [TestCase("pr-xml-euc-jp", 41)]
     [TestCase("pr-xml-iso-2022-jp", 46)]
     [TestCase("pr-xml-shift_jis", 44)]
@@ -414,6 +434,8 @@ public class XmlCorpusTests
         row.Decoding.Decision.Should().StartWith("prepared-");
         row.OutputPath.Should().BeNull();
         policy.Projection.Should().HaveCount(6283);
+        policy.ProjectionSameAs.Should().Be("xmlconf/japanese/japanese.xml#pr-xml-utf-8");
+        policy.Projection.Should().BeSameAs(XmlExpectations.Reviewed[policy.ProjectionSameAs!].Projection);
         policy.Notations.Should().BeEmpty();
         var omission = policy.Skipped.Should().ContainSingle().Which;
         omission.Kind.Should().Be("ExternalSubset");
