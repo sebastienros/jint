@@ -44,6 +44,36 @@ UTF-16 high bits are preserved, so non-ASCII lookalikes cannot match ASCII names
 This is not Unicode case folding. The production HTML matcher remains
 case-sensitive because the tokenizer already folds ASCII.
 
+A node with several edges always emits `switch (chunk & mask)`, where the mask
+is the intersection of its edges' masks, so ASCII-insensitive dispatch is a jump
+table rather than an if/else chain. Only punctuation can share a case with a
+letter (`` ` `` and `@` differ by the case bit); such an edge re-checks its own
+stricter mask inside the case. `PunctuationCharNames` and `PunctuationByteNames`
+exercise exactly that collision.
+
+### Method shape
+
+The shape follows two code-generation hazards described in
+[Fancy Enum Generator](https://htmlcsstoimage.com/blog/fancy-enum-generator):
+one method holding every branch exceeds the JIT's inlining and local budgets, so
+the JIT stops inlining the span reads and zeroes the stack frame in the prolog.
+The generator weighs each length's tree by its comparison count and, while
+more than `INLINE_BUDGET` (64) comparisons would remain in `Match`, moves the
+heaviest length into a private `MatchN`. `Match` keeps the length switch and
+tail-jumps to it. Each `MatchN` first checks `input.Length != N` again: that
+check is redundant at runtime, but without it the JIT cannot drop the slice
+bounds checks it previously proved from the enclosing `case`.
+
+Measured with `DOTNET_JitDisasm` on .NET 10 Arm64, before this split five
+vocabularies called out-of-line span reads or zeroed their frames. The worst,
+`SvgAttributeNameLookup`, had 75 calls in 8,880 bytes. Afterwards none did, and
+that vocabulary became six methods totalling 6,728 bytes. The single remaining
+call is a cold throw helper in `HtmlSpecialElementLookup`, which predates the
+change. An isolated sweep over each vocabulary's names plus misses took
+`SvgAttributeNameLookup` from 216 ns to 180 ns. `CssUnitLookup` and
+`HtmlSpecialElementLookup` were unchanged within noise. That harness is not part
+of `Jint.Benchmark`, and nothing end-to-end was measured.
+
 ## Generated examples
 
 `GeneratedNameLookupFixtures.g.cs` contains compiled examples for HTTP headers
@@ -107,16 +137,16 @@ JINT_BENCH_MODE=stable dotnet run --project Jint.Benchmark -c Release -- \
 
 ## Parser-wide recognition
 
-`Parsing/parser-lookups.json` supplies 170 additional typed vocabularies.
+`Parsing/parser-lookups.json` supplies 95 additional typed vocabularies.
 `Parsing/generate_parser_lookups.py` reuses the same discriminator generator and
 emits `ParserLookups.g.cs` plus independent reference cases for the native tests.
 The original 56-name tokenizer recognizer and its measured vocabulary are unchanged.
 
 | Area | Generated recognition |
 | --- | --- |
-| HTML/SVG | Tree-construction membership groups, table/template/fragment dispatch, namespace-adjusted foreign attributes, SVG tag/attribute spelling, input types, exact quirks public identifiers. |
+| HTML/SVG | Tree-construction membership groups, table/template/fragment dispatch, namespace-adjusted foreign attributes, SVG tag/attribute spelling, `preserveAspectRatio` alignments, input types, exact quirks public identifiers. |
 | XML | Predefined entities, DTD catalog IDs and attribute types, declaration keywords and standalone values, literal reuse for common validated names. |
-| CSS values | Units, wide keywords, math functions/constants/rounding strategies, named/contextual colors, color functions/spaces, transform descriptors, pending reference names. |
+| CSS values | Units, wide keywords, easing keywords/functions/step positions, math functions/constants/rounding strategies, named/contextual colors, color functions/spaces, transform descriptors, pending reference names. |
 | CSS properties | Aliases, keyword sets, property indices shared by completed metadata, family obligations and shorthand effects; font-face descriptor names and keywords. |
 | CSS rules/selectors | Pseudo-class/element/function names, media features and their keyword sets, container axes/functions, reserved names and at-rule dispatch. |
 
@@ -165,7 +195,9 @@ of already-recognized canonical values are not vocabulary lookups.
 HTML entity parsing still needs longest-prefix matching and semicolon rules, so
 it retains its immutable trie. XML's complete catalog-name lookup now uses that
 same trie with an explicit terminal-semicolon edge instead of allocating
-`name + ";"`. Markup/DTD and doctype prefix scans retain prefix semantics.
+`name + ";"`. XML markup and DTD declarations switch on the characters after
+`<` and `<!`, then confirm the full prefix; doctype prefix scans retain prefix
+semantics.
 The reference-function wrapper retains its previous ordinal-ignore-case fallback
 for non-ASCII input rather than silently imposing ASCII semantics on it.
 

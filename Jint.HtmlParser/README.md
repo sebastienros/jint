@@ -146,6 +146,8 @@ attempts a run in a state that has one, and not on the unit that ended the
 previous run; both would fail, and each unit still costs one unit of work. Names still
 use HTML's ASCII-only case folding. Common names use generated, length-first
 decision trees with discriminating UTF-16 positions and wide integer comparisons.
+Heavy vocabularies are split into one method per length so that each stays within
+the JIT's budget.
 Every character is verified before returning the canonical string literal;
 no input string is materialized. A bounded, parse-local cache reuses other short
 names before allocating strings. The generator, safety model and isolated
