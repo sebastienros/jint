@@ -1,7 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!ENTITY e "an &unparsed; entity">
-<!NOTATION gif SYSTEM "file:///usr/X11R6/bin/xv">
-<!ENTITY unparsed SYSTEM "xyzzy" NDATA gif>
-]>
-<foo/>

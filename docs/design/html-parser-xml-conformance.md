@@ -34,26 +34,23 @@ and inspected: 107060 bytes, SHA-256:
 a919d7142fe6f72af51fc796b4df40732f385c9eb313b8993c6d39cc92acc410
 ```
 
-Vendor that ZIP unchanged, retain its embedded notice, and read entries with `ZipArchive`;
-do not commit extracted copies or recompress it. The W3C `xmltest` tree has nine changed files
-and thirteen additional files, including two catalogs, compared with the original ZIP.
-Generate an exact path/hash mapping: unchanged entries may serve W3C rows; changed/added entries
-must use their W3C bytes and reviewed distribution route. Never silently substitute the original
-bytes under a W3C expectation. Separate original-only tests are possible but are not W3C passes.
+Nothing from either archive is committed. The W3C `xmltest` tree has nine changed files and
+thirteen additional files, including two catalogs, compared with the original ZIP; the import tool
+reads the ZIP from the ignored cache only to record that mapping in `corpus.lock.json`
+(`unchanged-clark-zip` vs `verified-cache` per member, plus both hashes for changed paths). Tests
+never read the ZIP: every member is served from, and pinned against, the W3C archive. Never silently
+substitute the original bytes under a W3C expectation. Separate original-only tests are possible but
+are not W3C passes.
 
-A first finite vendored slice is Edinburgh's `errata-2e`, `errata-3e`, `errata-4e`,
-`namespaces/1.0`, and `namespaces/errata-1e`. Their collection `xmlconf.xml` notices explicitly
-permit redistribution with copyright retained. Keep those notices and all per-file notices.
-These catalogs contain 34 + 13 + 393 + 48 + 3 = **491 rows**, before filtering.
-This is an initial implementation slice, not the final acceptance denominator.
-
-For the full W3C gate, a deterministic developer/CI restore may fetch the pinned archive into
-an ignored local test cache for internal test use. Verify its hash before reading it; do not
-publish that cache, extracted fixtures, or a repackaged archive as build artifacts. Prefer
-vendored, licensed bytes where available. This restore path keeps the remaining collections
-in the final acceptance inventory while their redistribution packaging is resolved. Restore
-is a separate explicit command; tests themselves have no network fallback. Missing required
-corpus data fails the corpus-integrity gate, rather than producing zero tests or a green skip.
+The tests download the pinned W3C archive on first use into the ignored
+`Jint.Tests.HtmlParser/Xml/Conformance/Cache/` folder, verify its SHA-256 before reading it, and reuse
+it while it still matches the pin (a stale or torn file is replaced). Writes go through a unique sibling
+and an atomic rename, so the net8.0 and net10.0 test processes can share the folder. Offline, place the
+archive at that path; a missing or altered archive fails the corpus-integrity gate rather than producing
+zero tests or a green skip. Do not publish that cache, extracted fixtures, or a repackaged archive as
+build artifacts. The Edinburgh `errata-2e`, `errata-3e`, `errata-4e`, `namespaces/1.0` and
+`namespaces/errata-1e` catalogs (34 + 13 + 393 + 48 + 3 = **491 rows**) are an initial
+implementation slice, not the final acceptance denominator.
 
 ## One explicit parser profile
 
@@ -151,10 +148,10 @@ comparisons are supplemental diagnostics, not replacements for corpus expectatio
 
 Keep this lane under `Jint.Tests.HtmlParser/Xml/Conformance/`; do not change WPT or Test262 data.
 
-- `Vendor/README.md`, retained notices, licensed payloads/unchanged `xmltest.zip`, and `corpus.lock.json`:
-  archive pins, catalog inventory, per-file hashes, selected distribution source, and full-suite census.
+- `corpus.lock.json`: archive pins, catalog inventory, per-file hashes, recorded Clark-ZIP provenance,
+  and full-suite census. The archives themselves are downloaded on demand into the ignored `Cache/`.
 - `cases.json`: generated upstream metadata and explicit decoding/resource-profile classification.
-  A small deterministic import/restore tool reproduces it from the pinned inputs; no outcome harvesting.
+  A small deterministic import tool (`Tools/import_corpus.py`) reproduces it from the pinned inputs; no outcome harvesting.
 - `expectations.json` and `deviations.json`: reviewed no-fetch/output expectations and exact failing
   case IDs with issue, reason, expected failure signature and normative citation where applicable.
 - `XmlConformanceTests.cs` plus small `XmlCorpus`/`XmlExpectations` helpers: one NUnit case per selected

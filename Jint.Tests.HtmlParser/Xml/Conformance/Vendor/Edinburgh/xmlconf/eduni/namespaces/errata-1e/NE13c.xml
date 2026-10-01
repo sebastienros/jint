@@ -1,6 +1,0 @@
-<?xml version="1.0"?>
-<!-- Elements must not have the prefix xmlns. -->
-<!DOCTYPE foo [
-<!ELEMENT xmlns:foo EMPTY>
-]>
-<xmlns:foo/>

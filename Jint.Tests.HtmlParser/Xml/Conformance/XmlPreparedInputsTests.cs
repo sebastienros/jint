@@ -130,8 +130,9 @@ public class XmlPreparedInputsTests
             .Should().Be("strict-decode-error");
     }
 
-    private static byte[] Artifact(XmlPreparedInputRow entry) => File.ReadAllBytes(Path.Combine(
-        XmlCorpus.Root, "Cache", "DecodedJapanese", entry.RawSha256 + ".utf8"));
+    private static byte[] Artifact(XmlPreparedInputRow entry) =>
+        XmlPreparedInputs.Artifact(entry, XmlCorpus.Bytes(entry.InputPath))
+        ?? throw new InvalidDataException($"Cannot prepare {entry.Key}");
 
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 

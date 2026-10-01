@@ -1,5 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!ELEMENT bar (foo|foo)>
-]>
-<foo/>

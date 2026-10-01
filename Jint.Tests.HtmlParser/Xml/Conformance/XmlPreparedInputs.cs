@@ -45,20 +45,47 @@ internal static class XmlPreparedInputs
         var rows = Rows; // Validate the complete key registry before route selection.
         if (!Keys.Contains(row.Key)) return XmlByteDecoder.Decode(raw);
         var entry = rows[row.Key];
-        var artifactPath = Path.Combine(XmlCorpus.Root, "Cache", "DecodedJapanese", entry.RawSha256 + ".utf8");
-        byte[]? artifact = artifactOverride;
-        if (!useArtifactOverride)
-        {
-            try
-            {
-                artifact = File.ReadAllBytes(artifactPath);
-            }
-            catch (IOException error)
-            {
-                throw new XmlPreparedInputException("prepared-artifact-missing", $"{row.Key}: {error.Message}");
-            }
-        }
+        var artifact = useArtifactOverride ? artifactOverride : Artifact(entry, raw);
         return DecodePrepared(row, raw, entry, artifact);
+    }
+
+    /// <summary>
+    /// Reads the cached UTF-8 artifact, producing it from the pinned raw bytes when it is absent or stale.
+    /// Returns <c>null</c> when it cannot be produced, which <see cref="DecodePrepared"/> reports as a harness failure.
+    /// </summary>
+    internal static byte[]? Artifact(XmlPreparedInputRow entry, byte[] raw)
+    {
+        var path = Path.Combine(XmlCorpusCache.Directory, "DecodedJapanese", entry.RawSha256 + ".utf8");
+        if (XmlCorpusCache.TryReadVerified(path, entry.DecodedUtf8Sha256) is { } cached) return cached;
+        var produced = Produce(entry, raw);
+        if (produced is not null) XmlCorpusCache.WriteAtomically(path, produced);
+        return produced;
+    }
+
+    // The provider is queried directly rather than registered, so the generic XmlByteDecoder route keeps seeing
+    // only the in-box encodings and its strict-decode-error outcome for these inputs stays observable.
+    private static byte[]? Produce(XmlPreparedInputRow entry, byte[] raw)
+    {
+        if (Hash(raw) != entry.RawSha256) return null;
+        var name = entry.Codec switch
+        {
+            "euc_jp" => "euc-jp",
+            "iso2022_jp" => "iso-2022-jp",
+            "shift_jis" => "shift_jis",
+            _ => null
+        };
+        var encoding = name is null ? null : CodePagesEncodingProvider.Instance.GetEncoding(
+            name, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+        if (encoding is null) return null;
+        try
+        {
+            var bytes = StrictUtf8.GetBytes(encoding.GetString(raw));
+            return Hash(bytes) == entry.DecodedUtf8Sha256 ? bytes : null;
+        }
+        catch (DecoderFallbackException)
+        {
+            return null;
+        }
     }
 
     // Supplied-byte seam for corruption probes; no test mutates the shared cache.

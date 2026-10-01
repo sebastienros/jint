@@ -1,5 +1,0 @@
-<?xml version="1.0"?>
-<!-- Reserved prefixes and namespaces: declaring the xmlns prefix
-     with an incorrect URI -->
-<foo xmlns:xmlns="http://example.org/namespace"/>
-

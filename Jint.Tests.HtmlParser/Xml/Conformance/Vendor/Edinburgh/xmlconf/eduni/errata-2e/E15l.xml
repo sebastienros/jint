@@ -1,4 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo (PCDATA|foo)*>
-]>
-<foo><foo/><?pi xxx?><foo/></foo>

@@ -1,6 +1,0 @@
-<!-- Default values for enumerated attributes must match one of the enumerated values. -->
-<!DOCTYPE foo [
-<!ELEMENT foo EMPTY>
-<!ATTLIST foo a (one|two|three) "four">
-]>
-<foo a="one"/>

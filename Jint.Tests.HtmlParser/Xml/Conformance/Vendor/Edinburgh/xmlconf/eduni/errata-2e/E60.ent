@@ -1,2 +1,0 @@
-<![INCLUDE[<!ATTLIST foo bar CDATA #IMPLIED>]]>
-<![IGNORE[some junk]]>

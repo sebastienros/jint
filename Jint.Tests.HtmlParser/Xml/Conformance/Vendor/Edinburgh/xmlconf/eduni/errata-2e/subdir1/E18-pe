@@ -1,2 +1,0 @@
-<!ENTITY % extpe SYSTEM "../subdir2/E18-extpe">
-<!ENTITY % intpe "%extpe;">

@@ -178,2362 +178,2362 @@
     {
       "path": "xmlconf/eduni/errata-2e/E14.dtd",
       "sha256": "acfca92db2a079a319237acf2334acd215aa4c609a344e066f97fe6fd138adab",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E14.xml",
       "sha256": "49ec684cc345fb2a7b33d6c188050526cfc7c744b9ae2629463d1ab64c75d06d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15a.xml",
       "sha256": "809f059232c1a694b91da30c23ee993eedd87fb5bd4d824440db8bcbd3992452",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15b.xml",
       "sha256": "43e178b6a6a9f26be8bc2716177a22b2f4b48c69490d78c44b33d13bb1cd3fa4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15c.xml",
       "sha256": "b11097414dcfffc808923f0346b416867ec1f5f77639c62b5b9389711d65dfc3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15d.xml",
       "sha256": "1fcdbec46ddceaf6458e17413513cbff892d011afa8d2ba9f6245a0c9945c675",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15e.xml",
       "sha256": "05482fd04cd5644212186a938e3fa058f87fbdb98fb1026f7c454b0876820b3b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15f.xml",
       "sha256": "2d257b9c68b70e2d0447b6a3890ed034b8036da9f86e7d2cef7f6884d57b0d1e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15g.xml",
       "sha256": "5f3a35757058984efb8d664c9d3a7d13c9fcb998d0f7968a9ea575d46bffafdc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15h.xml",
       "sha256": "a6fc844add6b6483a3108fde489e64f1f1475b69764b600a02ae81362cf32003",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15i.xml",
       "sha256": "eb0ef2b234172fc742394aeb19e8a8b32114429a455f34906f4e501338a0c37d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15j.xml",
       "sha256": "c423aafbcb6b496831982bae25ed42da638df061beb7977c8200bf2239c0f1ca",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15k.xml",
       "sha256": "9eca4be6ad8ff8cd2c629c864b49000fc97fe61e89bc9b4cbf8faef3f83cc2b9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E15l.xml",
       "sha256": "95512e4410eb83e02c0463cb4daaa233b6ef10eb8ac59e813a97a8ccd9952769",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E18-ent",
       "sha256": "e7a9fdebb7317d1073212319dcbc5b5f8579767eb2b6b4d6b9e6d2494ce11a57",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E18.xml",
       "sha256": "5968be3ce43799a857ff2cfba9a431b525087a3293230d74a5d7e8b5d2eb169b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E19.dtd",
       "sha256": "5bd253befe789cff94fb7b501cc756ceac41bbcf38360968e357162602dfb43b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E19.xml",
       "sha256": "d58782564bf014ea15fdc5583addd1fe2547fd1399bcbbec702b1c726d6d2581",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E20.xml",
       "sha256": "c0381fe3208f61aa135fed0165019248451b01652d50143c1b924ced74aa3882",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E22.xml",
       "sha256": "4d9dcafa6554ea4528a1a3622132f365c669781b011cb41cace63767c3e1e4ea",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E24.xml",
       "sha256": "39682dc4e8210578ec916631d05867c0154e256f49718ab1c2ccf543cc718174",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E27.xml",
       "sha256": "65a9c205013317498d5c20db00c7cd9df7a00fadc442fafa72d7206648a04edb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E29.xml",
       "sha256": "d4b2c632809a897c813d29b36787957e84a21750066758c6f5bed18a045c0770",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E2a.xml",
       "sha256": "8b7c9dc1fb615accc8e8af901de6714398dd2440fded8ba7e8af13a2004b974f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E2b.xml",
       "sha256": "91a6613350270bd29faac8c40f584dec935bc738bd7fa4017a1f8cec4c821552",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E34.xml",
       "sha256": "17f5638ff6b2da0c01729b41e708f7fc98fc29034ecd31afa1336751a9a77312",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E36.dtd",
       "sha256": "4eb2cbd9aaeecc978fab08e3a242b5e5bf6727cc56ffc387919137fd382f2892",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E36.xml",
       "sha256": "301b067cf34a3b2fc4263083b795fee3afec12b7797ab3833036bfe327304887",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E38.ent",
       "sha256": "028229ed9dda8481d7996ef03a1e17300255abef2bf082011312f09b28623eef",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E38.xml",
       "sha256": "b6be7039a5dfeaad8eaad16eb3976c754888985bdd598b518a81a0f9547e3cf6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E41.xml",
       "sha256": "91ae7058d30d7e5d54a1812673f9e7f407ff7b6ce99042950a5298216203ce1a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E48.xml",
       "sha256": "ef55d2296bf77e7a07b069c855e23a73e5004ae84d03f09f6afd1ac8e12bcf54",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E50.xml",
       "sha256": "68cbb9562a6e0205b35a6613eba535776f5168deb97cf13060f5fda6f1b8b596",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E55.xml",
       "sha256": "39d1a22f07a8cb4557b9687edcc71347f6aa1ad482bc2e11be2cd0c1d9ceed29",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E57.xml",
       "sha256": "728295f82bdc949f0ecad8d59074bdb46e47e3cdcbe40fe65fdd14db9c31d8db",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E60.ent",
       "sha256": "e36968c6a19142b357fa88d0695b9f9a036bcd7ded8640a187f6017fabc8037c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E60.xml",
       "sha256": "67ce1c4c9423c0d1f1532fae3de021a58f70ecc1c6b08f231680c88484fbf0a7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E61.xml",
       "sha256": "ff6abbe1012405bf727942aacac975423362e809e4641ad38fab1d282d4cd8ea",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E9a.xml",
       "sha256": "9d506f065f8d84998201c4d1e0b0c22e85e0815bdfe352bf8c72bf540b85e7d3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/E9b.xml",
       "sha256": "ab2d9ef48f4e3d788cbb07dc48a40bb5824db19b1dc86d0c496148d236c13211",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/errata2e.xml",
       "sha256": "e0b9d33d9e7785e905c26f07ebccfc0091d92453528730c25bd9aa58e3c762ee",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/out/E18.xml",
       "sha256": "6f408fff4e526b0f7ba4571b96a4d2b2249e05106b2e19b7e050db4798179f7a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/out/E19.xml",
       "sha256": "563a51d224af406f8b33b9763b530cde193c952fdb7add39d5cd58245f02116e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/out/E24.xml",
       "sha256": "16f7edb164ba2fc480e3fb4874a8facfefe659266865512c767a1eecb7c31c44",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/subdir1/E18-ent",
       "sha256": "ecee6a41b9f298da762e1e87c91720d54c6da75ecd9ec40f7d560b2f065c914c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/subdir1/E18-pe",
       "sha256": "0236d72a7cc8455872d2f5886a4a43cf7ad291a616b52ce7ac82559c8bf4f850",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/subdir2/E18-ent",
       "sha256": "3d708d346b5e26672c50fee84748a0b377dabe482cf8f0b2c848886724ca1449",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/subdir2/E18-extpe",
       "sha256": "62eddd46cd27a7726da7a5e84f00e0e5d3e53b26b89276fd8fdfb2c060da1b46",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/testcases.dtd",
       "sha256": "be448a74c83a10a3029311ccaf8e443606aee634017bba4b6dd8ae98b29fc618",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-2e/xmlconf.xml",
       "sha256": "e912741c20d8528dbe0fbe5e407bbb81e5343ee4fd5e824ffde7e42c266cad52",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E05a.xml",
       "sha256": "ff5df21e7697285ba98c633ff7f9e7703dfa3a040b947a90cf37b4e4f0eeba8d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E05b.xml",
       "sha256": "3d378aee9754b528947c779a3d22a3a9a882b9686e9817fa5608cade9d1fc3c8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06a.xml",
       "sha256": "a96aca18afa22544c1732bd83ee3d6b34ff8ec7c5bba1d6700373ca24a44e4f6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06b.xml",
       "sha256": "a0e89f0cdde7c575f42e1ce8f5f15a27c4c2272ea8650eaacd62c5af0a7f71e9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06c.xml",
       "sha256": "a3061628bc22e67a03b511fe2167b5f7d806d00135d23b479ea35722c683157a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06d.xml",
       "sha256": "448eb6604010ad5ae4a6debe0c3d4e7c19f03ef639f89a1a05ac5bb14b5da693",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06e.xml",
       "sha256": "6687106053b772cca410078fb10877305a3d9ec46e0652b224e90dfcd9b35cf2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06f.xml",
       "sha256": "599a3f2dea7feee0b95f716f7e02f24ecbf74ead81e3681e676b403d0606bb5e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06g.xml",
       "sha256": "464b7f717614676dd85a3a3735ca95631dd2e53dca5e13f381053e715c7425da",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06h.xml",
       "sha256": "56e892f89e781b7b8007a89d5d6df2fbcdc47c7603b39db47c2e530bb6d017a1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E06i.xml",
       "sha256": "d84b73c3a9ad32732cb2d7253380c095d0b8a452f63d22b313c320179821811b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E12.xml",
       "sha256": "21a46082eda3b61dc11430840bb0f0eca4f62af47a89f9d543001716ac2bec1a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/E13.xml",
       "sha256": "40470ff5f2281476ed4521e066d85122e9cc240f1fa916f97bd095644540fa14",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/errata3e.xml",
       "sha256": "200d2a3321cd7addc090be7a8e8fca800fd95627bf1cc7b727f8a9c539544bb4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/testcases.dtd",
       "sha256": "be448a74c83a10a3029311ccaf8e443606aee634017bba4b6dd8ae98b29fc618",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-3e/xmlconf.xml",
       "sha256": "342608c785573c94cae39dbabe07352deccb039b22e644cd8c2b05fc9c2e5507",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/008.xml",
       "sha256": "47edc0a393831164e8d8003cb2581903dfd86f7d6639e4dd19a9b25fce013fbf",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/014.xml",
       "sha256": "c8ca627c12095720bc719456e7ee2a8d1e29016dc989bc6f80bc317b355dace5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/014a.xml",
       "sha256": "5d6e2f0efb977ac59ddfb5a94987e14e1e3879fa9e48d9e8f9717eb19a8da208",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/016.xml",
       "sha256": "2725525609e4f2fbaf8e6e420c633de2743aaa12948c1ffdfdeb17f644f07cb5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/019.xml",
       "sha256": "34b9d0b47ed714cc786d5c4160a7b761d8fc76e7d840031eea53c1c1d7364124",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/140.xml",
       "sha256": "9fe0bf5516dbd4dbe0e9c35a4955cfefeae1528a6cae68d259f8b341e881aa42",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/141.xml",
       "sha256": "6d63367fd04f00a38cf7646e1cce8b87a9b1da1bd902434e285c7579ef8fdc2e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/8bom.xml",
       "sha256": "20925dd0f4149936111110de4fa4e7dc5c21027cf98bd4ffd8573c641a15fb75",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/8bombom.xml",
       "sha256": "da8d4757ee89738a00ed604539f6eec911cd99ced625178a27eedd207e08d58b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/8bomboom.xml",
       "sha256": "5f0cfe96442d98ad3aa68e6b42e9b68c56bbba6d481f3c44957613fc619ddd14",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/bom_be.xml",
       "sha256": "60f92b6a69e061ea7d29edcd9ad69519ceeefafc3f1f0584bc2be13c24d2fe18",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/bom_le.xml",
       "sha256": "0730ba06a2666c94f0898609470ef876661bbbd561781e196057fb34049f0396",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/bombom_be.xml",
       "sha256": "3322af6489c8fe4b1b67c11914e40a4d4da3baeee41b8240626331f6755776d5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/bombom_le.xml",
       "sha256": "6c1466425f90848b0fd90ae2f26d7bdc14ef6ae8e2bad1dbd070241dc891e059",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/bomboom_be.xml",
       "sha256": "4559d90b2392224ea7d45fd3e59b4dce0f750b551b21a727fb5a08fd3460fd93",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/bomboom_le.xml",
       "sha256": "43706f3f7160deed9b16d0ddfa8e5cab3c19b400c5612b7c92f6f69afbaf6d74",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/errata4e.xml",
       "sha256": "293170b324cbd4786320f34239967644ad22e0ff7048a32438262a24dc2e2990",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an01.xml",
       "sha256": "6de3ad9484d24d21e677ee1ea5f03af59618717d114ff089f269f1069b1b7d89",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an02.xml",
       "sha256": "c597e91d42937d172a617679c04765f0f8d186d17964d5ee802d5d7a77de7420",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an03.xml",
       "sha256": "1b512e43402ba2aa7e90fa48a1b1d1870bbcc1f3f99d4163b3d04a31713b60b7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an04.xml",
       "sha256": "ad9007fdf7d85773fd039e2cca23cf4f58d66ae4433794d801b1093c5ded126d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an05.xml",
       "sha256": "034b1e7fffb0e10074bdabc1f39684d17cf2bbf902d10171ad84b6192ca47355",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an06.xml",
       "sha256": "eff33158e5a4b3dd93edd2cac744e42a4f67fa8d09eaf0246e1be7b7b36bd862",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an07.xml",
       "sha256": "92082aa31efb218548791f026cf2d863cc016653d24d868ba167ada8a74970c6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an08.xml",
       "sha256": "382a91f5f48a86a8cae4c2e1e3aaaa4c7a2fd2d524a766aa020f80f4428b0212",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an09.xml",
       "sha256": "f6231ec562a768d2ece0549842bf3c3fb400b3655c0a3af3a1a1008cae21b069",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an10.xml",
       "sha256": "09ac43834d4b38cfe79ec3230409b91e949842a5a957fa7955959dffb2c0a02a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an11.xml",
       "sha256": "8fca336678193efc42b16358045089e39139bb2d3ec0df43e7cd9038691e5a40",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an12.xml",
       "sha256": "0b34ec732d7113f6910c10debf906f68a8f577ac71e20e5b01d5a348087e4ff8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an13.xml",
       "sha256": "b0a851d1dfecbd4a588f15f3062373dafdba5044e71ef68d6b38eb03e6583c88",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an14.xml",
       "sha256": "41137ff3b8a2c4f66736f3c560d70fc4e321bf776d8baf6f1f42e8201b3795b1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an15.xml",
       "sha256": "1ebd85c2cb7567e46314b18d829e832fe60bba69e6c5eace62e5a19720bdfcc2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an16.xml",
       "sha256": "d0e45b79c0d90019f134c9723f6a33beefef833eca24992c22d2c60d2407028b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an17.xml",
       "sha256": "888ef44cc37c96b7196930b1f3c8b02f1cebf88bd05701bd344de00acf11e702",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an18.xml",
       "sha256": "775993b52a430fc43592523391de8ba6af95b26a8454d1a234c61e7e2653c459",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an19.xml",
       "sha256": "ac0a06d3c46ee8b3d790482ce6e08a38f8c40966b05a9e7159717f12555ba55d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an20.xml",
       "sha256": "f953a9592491937cc6924ea82f237e285e4114b553e7f0b9d4f722a6e4da4029",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an21.xml",
       "sha256": "ba471fa2c3581814cd73cef0dcd5815f5cbbd50cacdbf9648f73b648516575e4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an22.xml",
       "sha256": "0284f2155e6542fa2aa7800ffa18e9e0d548d60b71249561bebe1305ff896143",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an23.xml",
       "sha256": "69216cd2bab332c34d1eef7b3664ecb729c071568fe759190b4bd312fa4103ac",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an24.xml",
       "sha256": "2e2642c39a5a9218870dbeb105fea529a496dbd4d36fda5c4cb8b9734caf424e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an25.xml",
       "sha256": "b8515ce4845c9669b311cdb63fa5d23572034c7b98f70ab9feec6488a46b27fe",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an26.xml",
       "sha256": "83eadfd6ea070e91d8643218dadd03e1841df8ccefb233e9dce6f804c7bb0b28",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an27.xml",
       "sha256": "4fcf88ac9946d06280f7bb954ba17a57cf67ef3414bedce6877b93e6b0de5919",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04an28.xml",
       "sha256": "5ee7844bf2c885026a0da86b46bb0419f9d471096e99ac883650ab1fb8ef0589",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04av01.xml",
       "sha256": "292dedcf7dc9a3aafe0a3ab3c3ca43ed7b2fa2341ab7bc25d4f14bd9a0dd392a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n02.xml",
       "sha256": "6c008dd52924f36cbb12ac951e0f6300f52c9f5f79c6a849048c7c343f2257c6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n03.xml",
       "sha256": "806ae4ce1a51d4cd05bec17225ef8e2151a4c57d7f7f7616d40ee33e2a4f147d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n04.xml",
       "sha256": "8fa14a705c17d2779932435c74df6e7dddf7f1fbeb7649d260c1d9d48044a31c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n05.xml",
       "sha256": "a85e113dc5d8e34b0bda4990a8a53a2f0e6529ec067adc10a3d1a210b61eee8d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n06.xml",
       "sha256": "4b519c703ad3c460184361eab6a93cdee416016e87a22c464f36d5662adc0a18",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n07.xml",
       "sha256": "849ca664ce063f3c636119eb66a4fab107cc13cedd02a4d06f14b34270e5d2d6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n08.xml",
       "sha256": "9866e5f7ea1f4e2be2ff1fb690341dab768bab3e3fc6e39fe32f0d444fe81d0f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n09.xml",
       "sha256": "8996395a0c40c119e7cb4d9d76a68540951a017163857de6533511b772943969",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n10.xml",
       "sha256": "838284c4c3affe2501501aa746b702f243634f9b5f65b1553bd39588c8b0e498",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n11.xml",
       "sha256": "dc69cdfa9a2ec7804785dd9c2b7b3cf8260458c2516650d5d036fde36caba52b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n12.xml",
       "sha256": "a92c090402cb3b82afaa3807b53d550a1f520445222ef96641488aada7ddf616",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n13.xml",
       "sha256": "40a30e9e183cbe05ff152666a5eaff299214a4911044f8d0af304453da219526",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n14.xml",
       "sha256": "ae0fa1bdc030d9ae865a93ed930faa9a718a8f3aa124c120cf15485d4ffd583c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n15.xml",
       "sha256": "78c938b6a6893804d6e68efe4d802b1c9feb44509a75b420e55defb80d44d11b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n16.xml",
       "sha256": "75eb8d99d0821a421175fde4ae910a5e96b3d17f3914947b9864d2a56eff9468",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n17.xml",
       "sha256": "947f38904f2f881f719fc15e8b93109d33ce507e26ff8f0a85fa0284319e7f72",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n18.xml",
       "sha256": "27adffba212b8130e46ac29df762c1769e1f35247e5cd761f16694cc9a70868b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n19.xml",
       "sha256": "12565536105d86614910ae251e25b042cfb8620441791cfef5120a373a209008",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n20.xml",
       "sha256": "214481f0aa367d669c7cadd5ce2e398adbaa5f0cf9fdf42f54739408921d384e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n21.xml",
       "sha256": "850385383bb1851de6b162666fe05c6041ef7928c1b875004eeb19caf7fa2a84",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n22.xml",
       "sha256": "3524e990915522988d5ccb12ebed62436b597c08dec201431b544e6b14fe75c9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n23.xml",
       "sha256": "f0d46c18cca3e0a86d12d3b120dacdb1d17efa23c26bf36691095bdc4dab06ed",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n24.xml",
       "sha256": "671f56e755e78531a2f903ec85a9692beadca10b1a61629a55d0ade8b99c7dcd",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n25.xml",
       "sha256": "8e7c38073c13cc16b9dbe6b59db63e87f716059b514a77250b07478928f20969",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n26.xml",
       "sha256": "47d3f0f8eeed5785c6137e665f499b21a6bb5641bf2c8bb7cf492d459c1970fd",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n27.xml",
       "sha256": "27a120a49b76bd8f4c92eeb2e7e3a907fe02c2baaf69d4a9682d7467cb279d08",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04n28.xml",
       "sha256": "f68a8cd6393c4f6b93911db2e583b705d26d5cdc3b6854d537027c938f8a7ef0",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm04v01.xml",
       "sha256": "2b88561a23da03b8672fdce71ef4d5577a892d1e80fbb78f4fb7075bce89f7c8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05n01.xml",
       "sha256": "47fdb9ee2bc8e9b82ca643e9d0f49cc6beb6cf1b353d08fa1c6351656ff0a0f5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05n02.xml",
       "sha256": "18d9c1580d6a834e482a1fcc7760fb87714aa27d4ab6bacbadf3e29ed565a316",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05n03.xml",
       "sha256": "ca543481bd233e3892f1474a408af8a42c55639dce02a9cc353b570c0f1b4a8b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05n04.xml",
       "sha256": "4dcd50c25ce0d4e4fb4ccc16a2cbad3b96b585007a5be9660ca99808b7db6e78",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05n05.xml",
       "sha256": "16e49a7f4a154b7cf8bc12f4e1e2babfbd1331ada518b079dd0f5c58a582d73f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05n06.xml",
       "sha256": "44ac94dfaddd7daa14b24ccae778fd2f447a22313e7cd4b651e81707bb3c2448",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05v01.xml",
       "sha256": "b8b611f2aaca0f4cf1eed59fae6f50cb8d70ca9ad34f30b5733b996dc6367068",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05v02.xml",
       "sha256": "8d921bf99b032865ab96d3e9ddf90f2cc47629f75ab93cfc6431e09bf29ec2af",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05v03.xml",
       "sha256": "8567a5616bc308c3d3a54b6ab7f61da8915707df2f08d27638a426e2628c93d0",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05v04.xml",
       "sha256": "e1028120824e42144aad68fe973e1a828bf9c741848e176e842a4cf1f0d47ccc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm05v05.xml",
       "sha256": "df7efdac92874d0b37749cc45424828a814012a9a9bca9ef7746f986ae0600fa",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm07v01.xml",
       "sha256": "7d368596fa8b1becbc25b12834375a8334faa93d7f6a2e99c3d8ea189c1b0896",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n03.xml",
       "sha256": "066d2c210b430b10a85075f9804f474b564429355483c9a6544844afb695d867",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n04.xml",
       "sha256": "b85600226ead4207a239cc5ed7fa90284f16ed8cb5ad6cec4a7777a037897bac",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n05.xml",
       "sha256": "49497bbbcfa641ced5cc1d9f2d41db2ca2c19eb0f41384b3f24ec0a4a33275d3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n06.xml",
       "sha256": "c012807381416470b3fc95990f09fd1386bd4595a22b0b500fc9d0cbce4d4bc3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n07.xml",
       "sha256": "50beef0125d345d5c3741d4892d631fe9460eb33c46671ef8c481bf4fc52f46a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n08.xml",
       "sha256": "c5b7a6c206920966617e0a5c1fbe1b5bda73efd3209bd240aa728f2f6fc2121d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n09.xml",
       "sha256": "2200813a3f0e94536b2fabfe45bdfe51d763b1dceee8e6ff765dafe4af540163",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n10.xml",
       "sha256": "90d57df5ca6a64b30d16de70f7d2b9ac0598fef44a8c054398a5c08a59cbb944",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n100.xml",
       "sha256": "bf4954886ae8bea8fd5878e1005b0c1998fadb690e36ca8e23181917dc3763f7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n101.xml",
       "sha256": "1a38fde126165847193aac13becfb4ea11e4b7b7cb695775dea25b9b5ded448f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n102.xml",
       "sha256": "10af17da69fe588f073f108debea0a49753ef23199b3ec8f26200304ea759b25",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n103.xml",
       "sha256": "ad00284e66edf131dfecb56cf02248249e72f7e07bbc30257a6de21855b81229",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n104.xml",
       "sha256": "632b9f81ef175cf45a553c20aaece5574d7a59893ed5f51d7cf4862ccb5b1857",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n105.xml",
       "sha256": "26403ae435e99719de7b194e6ca1df7644ad69c32d76dc2bae9917d45ab0e2d9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n106.xml",
       "sha256": "8233462ae6f19934d3deab774206b5d1cce237f58c61f010b0f31c2e2e953e61",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n107.xml",
       "sha256": "f35e024a7e4a7384c6a94594817373c0c8da58c30622a0def7cd0c4104f53125",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n108.xml",
       "sha256": "7fe2de88cf94f4f275acea97cd20b499469d1eb9cfeefd298cbfe11237d7c30a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n109.xml",
       "sha256": "bb083bc36dc4781e2cb2e1c3b7230faf02446ed87b5c3e2293742d1c76e0038b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n11.xml",
       "sha256": "0354ddf5c4fd8b87e72bac489775136daf67e1000b7e313fe908c7de170cae90",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n110.xml",
       "sha256": "ccdd8879acbed6e5c494709cd7b6fe4ba4bf3aa9cef696c3a49b830e57c5e1c0",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n111.xml",
       "sha256": "9fa2a7774e6ba1cc4123e20dcb28470577206eec6ed427c67f1ea10d5a482dcc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n112.xml",
       "sha256": "6f76912366c52400e9bfa41aa8eff8c169e5f00073d1b2f380365b79c433ef58",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n113.xml",
       "sha256": "94af0494813c116f90785cdbc0c4d29f12864905d1312366e243e9ebb0ab0359",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n114.xml",
       "sha256": "33147418292f096da66005e4bf71661248ed2390c5b7a0fa4c96a3dc4b51dd1c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n115.xml",
       "sha256": "883d72e13f0d7fd52acaf0d57c851dbc02e875decbe10415cebc2b09a8be3900",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n116.xml",
       "sha256": "ad6c1d1957e24a5dccee243cda80f4576ddbd7178504252de6d60dd92a937407",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n117.xml",
       "sha256": "da5d1c609888c2d9b3bbed8f43d664164409bbf7d2314c9ef6bb9a9f63ad5725",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n118.xml",
       "sha256": "874039ba42145920a781efd1d95292b2f7aeceaea64129f17991f8bed44a33ab",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n119.xml",
       "sha256": "3eedfb24aad7f25daa2e061cb890acda397c8f621060b67d44fc9269df85d497",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n12.xml",
       "sha256": "035df088f644a52bafbedf776872efe597bd3057981eb1c16cdae846cf3e720f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n120.xml",
       "sha256": "f26f293e95b2004410b1ac511f051e373e6c70ef93087b8ece1521fc5dfd9da1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n121.xml",
       "sha256": "ab9917ff2f8570492419f7fc79fc6d2a32a2a97a2c32372baea484c9c6d2a9b8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n122.xml",
       "sha256": "bf2da5092cfbfed185c8192f8e59e553bc78467daec8e218fb840ac0cfa4a585",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n123.xml",
       "sha256": "8064000cc26e1cb5f74a68dd872fb6905dc6171267af33a95113ccfac0bf9659",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n124.xml",
       "sha256": "448b496b20abeefc283d1267b4345e79aeeb874d2f2b6dcb96751e3d785866a3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n125.xml",
       "sha256": "8baafef429fab09907c142e1f0764389a571b419bd5f0b1b8345075b0c982bda",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n126.xml",
       "sha256": "ee44ccd68e0433d3f3108ef66372ab7212fbcecc2d98547cfc4e99d448f91640",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n127.xml",
       "sha256": "01d1bb74f1ff4c697038db7eba495653761344f13da005735506e137e9d6596f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n128.xml",
       "sha256": "61bdc98c5cf0d2db468d194eed68d4b83d586a9d14402cb5b13e89a2473f8d27",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n129.xml",
       "sha256": "3f083bb6069eebb21289d61da67bcff65d1a3fb00109b72ab1845589d4c24be6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n13.xml",
       "sha256": "4d86f1de11663a75371ee786e2b6de769a8fae8d2ca49d35f2966c673ae47a01",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n130.xml",
       "sha256": "dd21a85e42d4a615fe2032833c15ef3649cadf3349d391a74b2a06f3b16236b9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n131.xml",
       "sha256": "a45e335759d440786b45830ed89121bba3002c19fe1028b9ceb804bee7f6690e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n132.xml",
       "sha256": "e863e43874c5e74a82e37a820977aac8494da09fce0b719174b87e669ba5ac8d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n133.xml",
       "sha256": "b9bbf4a9c5160ac17669b291bd3c3eb6e39d6b317cc786f0600fb6f1340220f4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n134.xml",
       "sha256": "c3658413ebb54a5946687f9bcb70e3cad58c9b718a598234ad168c7b724250f4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n135.xml",
       "sha256": "a9bf65cd32254b044c774bc0bc698988cd78819073678dc817da366b2372fd95",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n136.xml",
       "sha256": "61bda1a134c499141e4590b55d3a8464022bfc2963031c5b2435acc3c6364804",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n137.xml",
       "sha256": "615fe2db05cc2b764b7d4249d48a7d20b9224c7f8602008a0b73b16568404fbc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n138.xml",
       "sha256": "519cdb8d703a77339e181862614e9434ce443c9b581e7527e02cb7f40a876284",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n139.xml",
       "sha256": "e8383c7aa549ddbc13ed90207747d1db4a734f5b2a304c086f5252d9f87c2fc1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n14.xml",
       "sha256": "722cba3343b500b03eb545ff67632eefa493ae6b8d13e5b9ef4f87218928f321",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n140.xml",
       "sha256": "3684eaa5ba63f73dac803a751c8ec1664814a10544404f0be34d6c3128e11931",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n141.xml",
       "sha256": "29fb86aa7921e06d278dc016c0a095ba0be808d68aaf9d6dc8556e0274ee4c48",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n142.xml",
       "sha256": "94230848051722fa01f47a602e009be5de9782597a5e13dd93f9f72845846e82",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n143.xml",
       "sha256": "f284eac54e007e0b77ca95d1e38d83f0ca933206ff94b7bc877f6bf826079650",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n144.xml",
       "sha256": "0a78b61098fac47555009d55a0cad4c012ff9882fba426cf60cb0690f80ae48c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n145.xml",
       "sha256": "5f5e7b1c128962a96952a7ae84372b43c47ef14627f7ec3305893f8f2aeff8f9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n146.xml",
       "sha256": "30f470480290e8b248a9b1b838e74dc96fe8727d4b7dcca77e9e725679d3ae8e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n147.xml",
       "sha256": "f7b286fe0134e55ecb41a2b6135767e443bebad3b6ad99946c2df2ae372631ed",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n148.xml",
       "sha256": "8f9deefef0ed039481fc5d85f791a71ebba4c66320e4b2dcb26af36df08ed43d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n149.xml",
       "sha256": "6ee3a1ddf0a7d1caf01fdbd348ab60ab08299fd4a9b7cb15e9d9c017e3f5e2f1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n15.xml",
       "sha256": "722cba3343b500b03eb545ff67632eefa493ae6b8d13e5b9ef4f87218928f321",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n150.xml",
       "sha256": "91666430c8ee43680faccdccbb39d09f30c35fa4d582a982f75efb215dccc2f6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n151.xml",
       "sha256": "1d6bb77dba9dddec93fc648aa09297bded12015df711224d285a9aa7fe49e40d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n152.xml",
       "sha256": "f82b1724091952293a7138ed1d6cea4edc40f9603693b9bb617aafaffcbd0f62",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n153.xml",
       "sha256": "5006240a165dcdfee9fbe3fd9c9b0a3bf689c9ca991c4568f401f6a2d85ad723",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n154.xml",
       "sha256": "494f56ab6d05dc1c115fb75b5bbc0a625d470c943c35716ca571f872a0b8376c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n155.xml",
       "sha256": "0a572aad5881cca0e24a69edb7c9f60459a850c94dc73a1e0a3869fcc7a942b5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n156.xml",
       "sha256": "e6d1ef20b8abaa50aa8a8c7d043cfd66c7e7be982a1b4377e53bbda0883858b1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n157.xml",
       "sha256": "737bebbd1bce1f619d76095b0b7f73dc3401b0924a8ee0ec86ef9acee433ee40",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n158.xml",
       "sha256": "3eefae1109c80c96257d98ca7610a463716cf1b27db50ad6041b7bfecd055d56",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n159.xml",
       "sha256": "a6f4cffdbc0d50013660c67dd3fb91832f72800f0c266809edc7ae3a965f3dad",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n16.xml",
       "sha256": "91a06cff181b316ded4d8abff5c36a0f0208c919f8cf81c4c98487fab169793c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n160.xml",
       "sha256": "4493341d3b4627c54abfa9bb5689bc2e086d3812b626136dd306c79c3a26fa4f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n161.xml",
       "sha256": "619a80bdcf5a512b675e494b94682783d775c0de459635e527f918198c44e11d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n162.xml",
       "sha256": "4dfba31481029a019029d05c1bc6efd28f5cad7c50ad58ee37bb58bb17c5dee9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n163.xml",
       "sha256": "01459b777e5ee925e360da29cbdf076501a5f91ac0ab3ed149b9129caf8acf1b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n164.xml",
       "sha256": "5bcce9740e65edd2be1397947c19f513377e188119618073436270e7417c0227",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n165.xml",
       "sha256": "46fe63385a641189d37645569717854c71e2a4252dfa437123ccd0ef98ca746a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n166.xml",
       "sha256": "078abd005950cfe2ce4b7b55b82871ae4fdda85106a277f535bef1fa699a1ab6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n167.xml",
       "sha256": "c647c4606b52b85af9756cd7a9a4b6de8f2b7fbe19ac8995dc771659c37973ff",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n168.xml",
       "sha256": "5c58b3ae092ccb6e729d5e1eb89a12a582e3b91d568fc4f96059bacae3befdfa",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n169.xml",
       "sha256": "0dda958f536ca5f69e58ddf2d0b9dc8b57e8a9568e462f9f3f23c3fd8f45cef2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n17.xml",
       "sha256": "c834093563815c20f3b906af62e75c6b42ac893be16f7722e03af21efba9c04f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n170.xml",
       "sha256": "e726d729cf51c5d07378096dde0b490782b6c108ba0c28d127453e5119649f3b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n171.xml",
       "sha256": "f8da289b3df7c41c1d7daac0f79bc20cb3f21f58d372c68790f8eadc987fb067",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n172.xml",
       "sha256": "135bd60f3dc2d6bffd43e323965b25f48b1a9ff3391eb16bfe48776403ca52ff",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n173.xml",
       "sha256": "765ed166ccd4c374adb01755faabd5bd3226148727c0761f10f912b4c22e57cf",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n174.xml",
       "sha256": "878e5ddc742f93cd2350c04298aaff25754bad5af274a6d29174bba421be8f04",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n175.xml",
       "sha256": "b115162b01ad26357fbebe2d44621a1069c08e398a41ae920269028e284e6b29",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n176.xml",
       "sha256": "ff7edf678bf44657d12350980adda26038fae57e7b450039a38ca2b32cd1666a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n177.xml",
       "sha256": "11f5ed1b6738d1fecf628af8ef0d20ade0926028e7822857a4f870efc2e80489",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n178.xml",
       "sha256": "d7cfd72ac9f32d77cfd535f041da557d13b475e780b8f0fee5f5544aec7ebb21",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n179.xml",
       "sha256": "56e4ed72118f7864c341079e1a8246ff3fc3bd9ece6e6ea072db132377b22309",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n18.xml",
       "sha256": "a18dce2ac3c556c148cabd637929d1d4887101c41ba708acf5bc5183c0cc82c8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n180.xml",
       "sha256": "e39200ade4952ca58f0da5958278cd9193d355978fabaf99aa44a10de6140981",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n181.xml",
       "sha256": "5aee19e7ae9044cc4a985348ceac3a433f4826ba3a7da5011931b6694a720384",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n182.xml",
       "sha256": "1e2f4bafc0ab9d34e7886fc50a77d0a34d14b5e8d363df5a437a2ae15e5b98e8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n183.xml",
       "sha256": "209f7ec3cb405c28f57a48e99f9fb6d2caffafc2432091989190ffdd6151dcb1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n184.xml",
       "sha256": "7728d162be7d011d375a569eaa1b4d6eec92661822cc843c9967c2a500662119",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n185.xml",
       "sha256": "80d230c8900927980787d2b677d10023b1f44b5048262269a849e7dffa1204ba",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n186.xml",
       "sha256": "02e9252caf14327f850658effe81fae0c8d89548f08479c9317cead65b2af355",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n187.xml",
       "sha256": "5aa7f0ea78f03b4ec560a766be1267a10f44029e0a1e21af24df0bb5169dffc4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n188.xml",
       "sha256": "68144b34d12747d5ae0e1a4b6baf4fb55cc9b4fe65ca9aa7b0538f9f5d62c0fe",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n189.xml",
       "sha256": "92c9ef0ecae563594631f0c14f6069d5a683b4be704a63bf4cb1a2d2ab907b9d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n19.xml",
       "sha256": "2239913f44715d8590dbc46c6de3ca09d3def82e7333d8a29a00f05ffc272e73",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n190.xml",
       "sha256": "8fc7ddacc64758a03c8174336a9937e5c570c947b61de8ca2529b19dc4ea5e9a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n191.xml",
       "sha256": "8d7d898b771ee21b468521dcffa71217c81e69f4f15c8fa972c167cb7ffb5f55",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n192.xml",
       "sha256": "e744f4dd98814d465abe666d16e34504b32ce5eb79712cca1baac8595d06dc1d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n193.xml",
       "sha256": "ef0eeb7dd371abb0e4e9f581bb52dc0937211dfffe89558f9071bbc4166968c2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n194.xml",
       "sha256": "130425c5e02bac0031ff352f4721746c57d5affb717e7f096fc023a8d7eb79da",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n195.xml",
       "sha256": "b8a2a32fd3aa34bb2872ec5b339e77a59f58a3e4f857630bbee35438a45de776",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n196.xml",
       "sha256": "feee0911bd6ab6865db20acb704a4cff71ac4177ac22f60b5ae593b66b185801",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n197.xml",
       "sha256": "96d9bd8404122f1f5fb84af81f3be742034369bac52b012b8b2e53924d1f9b85",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n198.xml",
       "sha256": "ceed404f8cf3f8661e208ba9ba0d7c796db428e6e2688f8448ee06949df31d2d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n20.xml",
       "sha256": "52c65b7a85079a9675ad66829745b9ca8c051cebae410784d2f301b14863b65e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n21.xml",
       "sha256": "2e6e5f33919802610d228b00ce498275084457161a5ed0e374cc9f55269c060f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n22.xml",
       "sha256": "57250258315bb58d58fdaf38995dbbd68c6c76479cc2ff040de6fb4b3a142b78",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n23.xml",
       "sha256": "78165aecca75a3f5e09466ec234cd771b6c8eb22f5860ca63cc5367581263674",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n24.xml",
       "sha256": "3c8e15e704e8396a042fb40ffb3c4e63bf5b05a6a4063118aca896fd734a973e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n25.xml",
       "sha256": "d7fb8c16b119711ea01d7b49cc3139f772861cb850a5d2343be117181e148573",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n26.xml",
       "sha256": "f1f7ca3c6190f25e605ad10a9d1d30510f4efcf2ce783dd127c0f4cc8deb164d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n27.xml",
       "sha256": "38c245ee3ba2da017b84a5f3f4148723878a9a113d2b8fa933a6178200f220fb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n28.xml",
       "sha256": "10bb04afc58c118111bdff0dc1a0acd87c7ea504224307d09502833420a74fb3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n29.xml",
       "sha256": "44c0a7c1322896e6a4878443b61bda59054e737c806ec71fca1d1ddf28fd260e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n30.xml",
       "sha256": "e367d6fa30ca9625fda657e68d1c2dca41fb5dd553c20e5996a67fdd8deac5d6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n31.xml",
       "sha256": "3265aa9e63db2ac1e1eea615331348f58b6416785ddc815ec38586e6892f2c53",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n32.xml",
       "sha256": "fafb4756f5e282ff61a1800c04084c02e05c69ef43a2a8d34c8f6b0f4a91a6e2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n33.xml",
       "sha256": "57d26bef4a12831017c524127347c86fd29926e35403dd0841e080996340f95a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n34.xml",
       "sha256": "ef2694db1063c14e7b203e4a2c0797b417c685a09116e52638609619f31c256c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n35.xml",
       "sha256": "fedca2f103d1c00d4c448f908c951199b660c5663611741badea7540457978b5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n36.xml",
       "sha256": "e1cf3b1dcca14497321bbc5fc246c2b068a3f540c9e8cdae7a08cc39a0534f9c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n37.xml",
       "sha256": "ef4bc6e4b15ad466710fa633290200572969a2171153af6594dc476f10fef5ff",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n38.xml",
       "sha256": "f0ab82f2c74a1313c3330e178f8d8f3353a8b1ee55d742732da794991294fd82",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n39.xml",
       "sha256": "13fe5f76475f5715ebfe700960b8f7aaf76a80e4733ddab594d6dffd2d27c1c9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n40.xml",
       "sha256": "bc0a855eddb3636aff54411ca13d1fc61866f8705647594f87e26a5fe1add22f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n41.xml",
       "sha256": "ac4cd3b421ab945f90586747e46bf687eaffbe8dd10153892cd3e31da2c130bc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n42.xml",
       "sha256": "69dbf8f7d169cfb9aef648d20385fce87c185219d9259af30bbc285724ddfcbf",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n43.xml",
       "sha256": "436ba68a80a5b7c2e11f7e5d2ddcf2554db38dbdab1b5f98bafaddff56e5b7cf",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n44.xml",
       "sha256": "db50049f75eef75e09a85ff633514e5e9f03ea6a3d5e86b4082cdc9f2ffdb164",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n45.xml",
       "sha256": "c37a7cd97fc10b12ebf28c1780c6c640af54ba4c265defe0a6713d60a0e740a0",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n46.xml",
       "sha256": "c67e7494e5c44a1484983d1558f68d1738268e428bfc037de44c546456c1a2fb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n47.xml",
       "sha256": "e7eac22c812bb776085533fd0725304cc40db79fe7f02a0fdc948cd4d3c11dc9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n48.xml",
       "sha256": "5f9bca6747fd955df1a449b9d8e4c04f005f64a5ee4f835338d9471b50ff94da",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n49.xml",
       "sha256": "e653d7793d15a9c7cfabf9ddef182a403195b733b4f2daf5fd79ad1ed9c18c39",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n50.xml",
       "sha256": "5c69386bf253ff6e7e4c1926ab3709f39cc058de4a3a8ebf5ebe61bb9821a758",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n51.xml",
       "sha256": "4d086e97c5402fda75ca54e36549c8d459ce149f39767f8094bf0a0c6a200b5d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n52.xml",
       "sha256": "3f1ea6a85cbfe4dc9bb486482d25b4376c6302ab11fc9d5963af6c7ff96192f1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n53.xml",
       "sha256": "a23f43c0f99dd0480c95e0b98bec328bcaa462c9bdb33180786e77e8f49b1b6b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n54.xml",
       "sha256": "f7ab5f94d08f94415c46b4eb74501306eabc75e9d6fb5c5563b7305465ca81d6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n55.xml",
       "sha256": "ef1e791a5bbfd0e42401c238e44835eeebc0c00419176ec3eeaabf299d45f68e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n56.xml",
       "sha256": "898ef7fcd426c20fd8676b4ec30f1f8e02f35ce50303e4f02a670ac78ca22aba",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n57.xml",
       "sha256": "240a4035a191dcb6c322d9656834e9b3be07335e71b5073f7429252dac40f4ae",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n58.xml",
       "sha256": "a6b047ba86d57d2fb2f2e8f0d68bd2c9ce686b440acdf6f19f19143f86fc5de0",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n59.xml",
       "sha256": "adb5e083111bd838bf91f1abb9bb84d26db317a8965e29667acbb78398a81f32",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n60.xml",
       "sha256": "9ceed43a6a1da3c54e4d92c8477c243494e5058d84ef750a49b991fa57fc24e4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n61.xml",
       "sha256": "7320fac18578b2948d933668b184c3581658f09425d30eaf8732cac03e1b1005",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n62.xml",
       "sha256": "12d0cc9e1ddcb03a45202012c10d1b9ecd1b1b8abcbce5402addfbb3eb365435",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n63.xml",
       "sha256": "7aa93e09cb4fe21b2174ce94bef52e5216304040efb496163729d68f37202c9b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n64.xml",
       "sha256": "26dac118c37c0e27a363613bee2c117bfe5020dddfe78a59c85366edfaaef9d1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n65.xml",
       "sha256": "147b6ee487c6bb49919db89de0a3fe60867ec6e63b21da471a2e14ee4de3070c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n66.xml",
       "sha256": "54ca6dd13c83d5c8aa1b73eee3088660f3befa901854fac3079a6a1a3f618faf",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n67.xml",
       "sha256": "ba7dfade9889f4f50d631f960e7657d49c2c0b262f316690d13d31f7638d6646",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n68.xml",
       "sha256": "71f982f8e3def09eb3838d8912687b6b761f4974e877d4eccab7364e6fe6aa7f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n69.xml",
       "sha256": "d48a65d3a34df6317aaec8f4191951a7d74884d2b44235224e70206235e10eff",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n70.xml",
       "sha256": "8a1fa4eb4f80846225b6077cc1dd3bd77661e2370eec8768f6b94ecf1c1b267f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n71.xml",
       "sha256": "595c38a9308bf6f251203e2c591f45e225230c776f76dd61e577cbf6864f4a50",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n72.xml",
       "sha256": "1f2b2a9244af5bf2cb158f365294602c9019d1e3623d7cb034486f33439f7ec2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n73.xml",
       "sha256": "fc3c6524c610631ea050581851473f0a149af43967a02bb9f8f4ef73671bd9c2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n74.xml",
       "sha256": "4577559bf3626909180bf129197acf2b3272f6f71be317925d3d87f5dce1940b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n75.xml",
       "sha256": "f6ab617732e90cd80954fe1f1c5fb8449f92cdbad1bc653dbdd8abbb45b4322e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n76.xml",
       "sha256": "267c526706b1d16ce524623607e48ba3beb37b8d7a45934f1ae015265c8e3b52",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n77.xml",
       "sha256": "b769d07e8dcc16e46c125f3db729dcc30538c9c7f77a53c94c756a998217759a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n78.xml",
       "sha256": "77651b72fcc3bc0d80cff621e87e6410971b309f1ad6123bf27674890fb66472",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n79.xml",
       "sha256": "d88f86aa328f458c2524d85bab7030393497cb0037c88f5daca30b8439272aae",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n80.xml",
       "sha256": "9d5150f4860b7f62658f228cc7f7cb5248dcb760fa568885e3b33797f4e49c19",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n81.xml",
       "sha256": "1d1f5715f289bb70c35713187bd0be7a19d14d33120597797d1b72df9fd46a59",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n82.xml",
       "sha256": "81a125ecbbe96e2683fab60ff3c1a18d261d4b27590b25d8b8187c9cebabea9e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n83.xml",
       "sha256": "510a8182abb8f31ee020ada1ce756b50b269b2b003d1edc079dee519166689d8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n84.xml",
       "sha256": "19291b3f8def48380a6eeb6d40c54767b1ae39caaba33777a04a206fb1c8165d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n85.xml",
       "sha256": "76a5bce65c7bf14d916e7fb21b5e0dfcd8c679cafdc191c670763eefc6cc8fbf",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n86.xml",
       "sha256": "38e3769f488ceb8541bf4a0d38a2463abb54d8a1ec3367e2e46b744b74ec6b0a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n87.xml",
       "sha256": "da195299c3e55b7e5f2aec11a318910cef34be45f872ec6a1aea7f0b5226bf3e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n88.xml",
       "sha256": "567ecf65b62141403acb5a0a498a43d12c896eb3885731cd5688bf2bf89ca22d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n89.xml",
       "sha256": "8cf6b1a893ec8beae058a2a8c4f31f0aca6670cf16367f78db1c862dc3aa8eec",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n90.xml",
       "sha256": "55236227e797e7cd8c539025b3af00ce8692ebcbdb95104532c15e2865a0ead4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n91.xml",
       "sha256": "448d7856311cd8b868a86110d362bcbad6565edb7c0f9cebe692b14c30fc5bf5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n92.xml",
       "sha256": "21d3f891c0318b9b7ea865b4e8519705c79280dda98890918fbca93278fd09ba",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n93.xml",
       "sha256": "2005f30a06a02d540f17a23ef1cd6b71ee5527434e69b817c81d6ab77f71e332",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n94.xml",
       "sha256": "dd6f8a11de8680508c930bf4ce32b9b574c3c0ab96ace4ce1aec3c3a3d8daf69",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n95.xml",
       "sha256": "d7d786578af745f004b043f94a7b8d3706a56065fe0b0615ae5c6f60a86f4b6c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n96.xml",
       "sha256": "5e487ab59fe6a14d83de8d55559f563be825024de135fb39919eb865789968b7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n97.xml",
       "sha256": "dd0c3108e94ef40daa5eb3c694e60c50d0322157d432eb90fe254701c57ff58b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n98.xml",
       "sha256": "a517820ce940dd5bb0e1f79d180b8114a00903d0ff404d1fadefd2ab347a824c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm85n99.xml",
       "sha256": "7aa46906abfdccd4fc242401330e275395a024675570f10ff9f234aac4613e1f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm86n01.xml",
       "sha256": "7aceeca131f0b1a712e965925eb04273d720d05e397abd0da7eae9b974033f4c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm86n02.xml",
       "sha256": "33b119c7fbdb96e8d3e0f46a3af6cf2d2464c605dcc8334fd5b4933c8266e71e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm86n03.xml",
       "sha256": "060c0ca77cea3d785ec19ad21bb0845b8219c9f446cb12c7d240d00a5d43ab5c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm86n04.xml",
       "sha256": "58cf2795b7d9c5f7f55ec724c5a33667621ac482ce7cc4e6e0fbb3a7636c67bc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n01.xml",
       "sha256": "2c460934c27679a9cddcf587077337f8b6ffeedeae5abc77db38f411e1f490e9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n02.xml",
       "sha256": "4614769547d86d4e566b6a9d1078994cccad8ce9a08b117bcf30b43de9e7dda5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n03.xml",
       "sha256": "5736fe90fe16ab5c08cc143f4341d765f328e59a27aadd9305267469dfde6fbb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n04.xml",
       "sha256": "01cae18a6020ab2fe475632cbba4efda2339a968c1ebda1a4e1b2ef70208aea3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n05.xml",
       "sha256": "c6b2a4720d8f8586648ee127ca1a4ebf8ad471507c935be229996aacaf62b44f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n06.xml",
       "sha256": "30b610bae66239774ff68e7fb05bfd4ac73d4c36ae19449113002c1b0d716b15",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n07.xml",
       "sha256": "b84fb1c1900fcdd7a78fea14e1246073a800bd4470a5d1e5ae9f80e034326b8f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n08.xml",
       "sha256": "8f0a1784ea4a3ea098e891bd53fc37a4eeb464e28d73db4b339c7dcd0885093f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n09.xml",
       "sha256": "d4de0a3918c4bc88f12512e8bc3a84930425619702010ad7c462d0325cfbb21d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n10.xml",
       "sha256": "cdea9adbb4bd00f4f768e2b945c2e4232690486fc51cd24cd9910f5cf399617f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n11.xml",
       "sha256": "5d147371dacc2e03b9b3f0aba2e350895ddf41a2c827d0b5f238bcf50261aa8c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n12.xml",
       "sha256": "84f023dca800880a8c9ac4bf3b6a503f2e109627a72b6fd54bbe25168ec49e13",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n13.xml",
       "sha256": "fe7a8170198cb91e7742356410d6a2667daab8e281a9404f021d4a70db264049",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n14.xml",
       "sha256": "b6b4c703802d13da7e9ba9b030de504a6e39b3bc0d02608ff83a70aaee64d23b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n15.xml",
       "sha256": "06365b21e6e2af25ff36de64ec7a6bd1726ed67dc43b3abded0c70a825cc4e52",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n16.xml",
       "sha256": "7ef94ac5409471f0a504e7ef3ed295a2c4f3315478687454d60a0a64ba56dfd2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n17.xml",
       "sha256": "40a496ecd3d0d03b17427b9ed5a005cb8f5dc9afa00401ba2dde7a3d3f1b64b1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n18.xml",
       "sha256": "eadce455da6f6153f3995233ae8a0e5af77c3745001f362c52ed82abc9238c63",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n19.xml",
       "sha256": "78664ed18d374d7bea5504094f120b24a89723d79529961945b0ce38ec93e965",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n20.xml",
       "sha256": "707892c2ad56bd959cfbe0913f807835e6fbf9a0ed147fbb94189a58db38f234",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n21.xml",
       "sha256": "d1caa3188a022c788cb124f3b000e2a2b0e9492927a447759d097c9f9dc186e7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n22.xml",
       "sha256": "b479142071553380529f082d794fd7570a1edf3adb7ada5235f1eedf5e34009b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n23.xml",
       "sha256": "55bc94d546bd0771373c7107ff5eceb7f1e83dd54260750daf4f890377734135",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n24.xml",
       "sha256": "edcaae098f692470d91f6caa1387efc5242f3e8b9324d7ef4c2b6679d94f9113",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n25.xml",
       "sha256": "3ea07b2ca0951b89ed55e5267da17d1ce6f4e5387ea633b0dc2406183e8c1477",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n26.xml",
       "sha256": "d2067f5506ab00690c2f3e92c05b5aa0c5811db80ceed06e3e4d0cacb3a17f9b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n27.xml",
       "sha256": "029ca863093986d9193d68279613cea77ca1d004e307faa3514ddab455100f0f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n28.xml",
       "sha256": "49120ba80011ae012f713cb4b7ddb87d6a23447cd7cf252ada0fe2613cb449fc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n29.xml",
       "sha256": "fbafad1ee4af77524b98dad87d3aca9d507424277a6353dee63a531d99973396",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n30.xml",
       "sha256": "b8bd3aa44d4684650cd1cf5821065678d17b7f6a5e70f2902e49e84d7fb49c2d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n31.xml",
       "sha256": "17b6e403cfb2168cea1146435d6dd98bf341778116cf09315fce4a983844ed9c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n32.xml",
       "sha256": "0c4d5d5f7a9b6855f9c5ba1cbd0d4de824fc9c2724fea786d34cd15edbfe5d7a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n33.xml",
       "sha256": "01350681c4c299be881e2d1af1891131f4cee9020d70e4ab28bcce4251f816f1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n34.xml",
       "sha256": "31d5bfa6aa83f307203803f9873b96acb7fc7646589351ff739c0cb274f22201",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n35.xml",
       "sha256": "20158bd800a991c2683fa7abdb1e81ddec6b77bb9774cc4a81fbb0a7e77706be",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n36.xml",
       "sha256": "33b0c65eda6d0a4d1cda847959330d32b327f310c43a72fbef52dae1e7804eb0",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n37.xml",
       "sha256": "2237f55ab4c0b07828b72e815c8c13e274c652e51698b3b8229be0812d0a3f30",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n38.xml",
       "sha256": "ea7339dd109bdd1e7ba658dd3486ce8e80ca144112645a1b9fa64025d65589c9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n39.xml",
       "sha256": "52017c115476e69688e768e294954e9ce69c483599a76b4355c649ddf22cb16a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n40.xml",
       "sha256": "1ec2605acf1eb4405a347b275030efcfb679b4376a68e312f8228fa583eddcd8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n41.xml",
       "sha256": "6b16ef263630b7ff6ecadab08f290a0a00fa4f39450a37fce664c7aa36a5e72c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n42.xml",
       "sha256": "aea265dd04ce496020c415327b1018f6b5bf9b915467a3e6912936e85589ca22",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n43.xml",
       "sha256": "e5d4bdc5a9c12ec16bacf78fbe2de398bcbece84c06ebfa1f361d973963606b4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n44.xml",
       "sha256": "83dda23bfbcbf3b807c0776b8b484eb482183f86531648fd9faebbdd32d09c55",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n45.xml",
       "sha256": "e97c3811eba46b105ce86d081bf2cfa332a271393e3a19e7a4ea437364699a71",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n46.xml",
       "sha256": "40a9cd5563cf936eecc6d347592015c56894ca22b399190e4d58e89e74c456e7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n47.xml",
       "sha256": "35ec29dc032fa309b9224c9927faf5634be5398acf93b2d4026ba89e39ede0d3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n48.xml",
       "sha256": "3b3c143843a3502b564e6c218d2a0825e2400cae1687325ca383f179e01c39f8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n49.xml",
       "sha256": "3d46575191e084bb7f9f67851f8b2ffda55a06267e527b3ab5733f179bfb9287",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n50.xml",
       "sha256": "8a49b3f39ceb84bb63c4b126c5e2a36013524937c7dffc9c02e21b4db5cd25c7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n51.xml",
       "sha256": "245cb3dc0e9ede6a394de73a2ca0cdc6d1aa3eb6cf5cafaac3267f494f1dc9c6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n52.xml",
       "sha256": "89e6f5ccedbfcc9f7006a0a1bf2ffc531fa9309a4301b60f2d1a654ed2e44170",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n53.xml",
       "sha256": "41a248f3133c684c34e26b4508b6a15a5d9bc9ba8f3501bdb40df089a5a86e52",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n54.xml",
       "sha256": "fe2b039140932aad5bc213467d890baced9eb8a9be29ac3295c17ae8daba8138",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n55.xml",
       "sha256": "d9969b25200f842ae0550538f370ccfaa493ed6078280ccb04265372fe7f0814",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n56.xml",
       "sha256": "2fc629095819ec5578bdf6bec1647f9a6ef838d8fb33384fe32fec70a5760321",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n57.xml",
       "sha256": "db9d6141edf1769ee728076f00fd2beb649311a1f382e24bf23962d81d64ffa5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n58.xml",
       "sha256": "fc79dd63c637ccdbaa926e4256853881de459904e4cf8f4e5977fb7cff59ef96",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n59.xml",
       "sha256": "be6798027e5b6513052f44768f931526c277b816e74750c645b3762ab61fecef",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n60.xml",
       "sha256": "35a8483bc92eeff1c5471e6639a4681ffa2ab7a166a9e5a67f5d3c5603784109",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n61.xml",
       "sha256": "a87e1b4973dbe9f1b1e8aff32b54f2b8d60ca02df9cb9d0b39642d66bf967875",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n62.xml",
       "sha256": "87da64c7f70a54e5e12a0863c097228b2944c94b80b442209b9d08fc424714ff",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n63.xml",
       "sha256": "d38ed42bb0773439545b3cc006bad741aa0c97dd917ca0719d972743be491bac",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n64.xml",
       "sha256": "9c3917512ba135e6a200d14e943601e2966c9f4921f6f5e5525434424ca2df34",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n66.xml",
       "sha256": "8129f0045beb60bddfb31d186df548ab99d352bb929d66b8246acf8f07287a32",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n67.xml",
       "sha256": "55a5a5fe95549f83ac8bc064cf943d700ea8dbb6b1b55a1b6838d7fe0dfde549",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n68.xml",
       "sha256": "82a821ac282e3141b46befbf8753a739a7f0d5fa00a56be2f2aee5462d13c2fb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n69.xml",
       "sha256": "c5b4f6f0280e0e9f10eb0bd634ae00f15b56038daa11ac8b0c0862997f4d8988",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n70.xml",
       "sha256": "149289af951eee079c8fa2c63c51865779769c846cfaad31ab84c6ea0a37b1f5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n71.xml",
       "sha256": "fab49b1595b82c8b9370cf7947c25be1aef1e82a4d68289e95c30ebe47b9ad77",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n72.xml",
       "sha256": "be81401bd6a78ade55f9bea4e799e713ab56c1263e4af914a59a06b5ff05201d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n73.xml",
       "sha256": "ca0182c7f68560207648fb68e9ea778a491fbfd22e376fc009556832c419b3ec",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n74.xml",
       "sha256": "ab191787daa74ce237a152d50ce97931319de242c07ff4d19a26b2fb432879c6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n75.xml",
       "sha256": "b11353ef518bad1ba2d649367f56110a13b9442522614de2e19c130db17381d5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n76.xml",
       "sha256": "9250522a635ab5b8f230c8dd75dd68baf326580349214aa438c77222d3e71e93",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n77.xml",
       "sha256": "3f44f173d2c39f911488682ab3d0674465916b72be7336c264336f0bc6a59aa2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n78.xml",
       "sha256": "15aa136c96cccf5f132c04d68d835f86c4a036e87b2969da09cffeb9b80704b6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n79.xml",
       "sha256": "42bad7e2af8d53181c6bf69238192d2f27de2fe07895b48b0f8b3d8df18b3b7e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n80.xml",
       "sha256": "4c1c342aa6fb9fbc48ed48005996e3aa66ffc5396d958ccacc619a8043b5e21e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n81.xml",
       "sha256": "6d18359021c3325882711ae8023ee534da1f8b0dd673d9ea8f4b5ec80710fa85",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n82.xml",
       "sha256": "566a1e11a00705b768f63ed0fbd0f1a7d8f8807d5219468da1afae4b50f943ed",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n83.xml",
       "sha256": "22dc0cea85f2680c093bc07bdce72a6c9f0014ad9f3cbc1cab5210d7148be2dc",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n84.xml",
       "sha256": "a83949b451d4b627e90b4cd567cbe0a7329aa089f909a9fcb2319b2996a5d3cd",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm87n85.xml",
       "sha256": "17819f4956b193cf7b7adf6731955ddc20851f9bfc30b6902e876b5ca4e95d34",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n03.xml",
       "sha256": "e6a73a4251e9e8ebd97ddee1fd20a0c10fd43b00b5ccc86580e8186f034aeed3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n04.xml",
       "sha256": "faa6e1f11ebcdfd31f950ade5836d9776635f499971628c9c7e5b488711a86e9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n05.xml",
       "sha256": "17495a5e5975ded6cb3c0550b76e64c37d07130ff2d13b3e0724f4dc7afd5a23",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n06.xml",
       "sha256": "79252a72e11f6171d006aef0dadfe564699530a0478957026ab0dc38258505ca",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n08.xml",
       "sha256": "c8d21d56494f832314518ae3e78255af107e7904826238aabc37f33247d02af1",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n09.xml",
       "sha256": "34928aa9cc5f14b83c80f08471d6fb94308a66f97663b750b3a044b9dc581204",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n10.xml",
       "sha256": "69f778930714f37086abb9671ee91923a54e6ee4a7fb7885208ac3f17d5ec49b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n11.xml",
       "sha256": "3d5855929eb2994490e55cac75b728a411b82205a860e4b39ed7b6f9122403c5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n12.xml",
       "sha256": "40cf05a6f7786e202ad62441d9664eb300b66bc9097aac0aec3960a39d4594b4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n13.xml",
       "sha256": "02997ba1884ccf0d61c334b8feea71796c532842e881e2a8a385ee9ee0381c8b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n14.xml",
       "sha256": "3007b3f7ade90be3d66823774dbf5f54b551ccea530db7846278c57328a67c1a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n15.xml",
       "sha256": "95650c6b7cb89ccdb41ce5a7023dd174f963ea93a6fe93b4a72bd0eff586df00",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm88n16.xml",
       "sha256": "d653d9366efed3869595c7fe8787e1305f5ae2fcddce23415b94e1805901a7af",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n03.xml",
       "sha256": "748e4676d35c65e245bdb45a40c27e149107226f66ea24f760f8d2c6321a5b21",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n04.xml",
       "sha256": "8e48ead1c696ff8927eed84c00c96ff8e0e21082bc57b1077351d61d07c63a5b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n05.xml",
       "sha256": "435d39ca25fa146e1e218e8ae4d35285f617177bff6f855f305630fabf9bef79",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n06.xml",
       "sha256": "aa051c9f46b7b6807e60fa1ccf7ef5bb663676f0063b4803d26258053032191e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n07.xml",
       "sha256": "1411811778dfee52dd5561b5b0b797dd9b7fa1a5e7e320b4e9aac436335fd4ce",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n08.xml",
       "sha256": "65c11d77dcb1a6015f782b6918715818517bf9ae4853cedf2d654206ba0a27b5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n09.xml",
       "sha256": "e598a720271f51d51050a01ba41d5141dd7df3c249b8c2a4c8beaa431efdea8a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n10.xml",
       "sha256": "b45e97b15c4b6e1b6b681f4da76c52595ba9aa03cac0fd329c55c851a4044048",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n11.xml",
       "sha256": "0e37396cd4873343841ec8915e7d93988da068ec55504fbc4cf0dd92243bf0f9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/ibm89n12.xml",
       "sha256": "d09ec4641f381837681cb80cad205b2f60d0960403c8cffdd6d58412a66aa416",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/incl8bom.xml",
       "sha256": "72699e3c0429e974d84cc21c19045b82166944b31d1df15c01efa4f84c4265c5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/incl8bombom.xml",
       "sha256": "cfa49549af988eea65149753afb5f1688c641b724750c18efb6318fbc0fea678",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/incl8bomboom.xml",
       "sha256": "06593c4784e98f3030c421f7e29742a7a84b30df8bbc2c8e57e6cb586570a44a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbom_be.xml",
       "sha256": "38b46b2e6d7acd59259e8b368ccb5588437bbf5c2848d2fc202eaa29ccc32945",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbom_le.xml",
       "sha256": "80621e0104caceedab6578509d0f405ee5de1d15a9a235bbc8c4e68ca9e8aa01",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbom_out.xml",
       "sha256": "0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbombom_be.xml",
       "sha256": "1b1258436f73f581747f36debca113433968df482a393e76d8dbf382f47c834e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbombom_le.xml",
       "sha256": "e4ff0493ec8d6be672695b419788e1b10e1b6d90d4b7e174ce6536fd7536c1d4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbombom_out.xml",
       "sha256": "f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbomboom_be.xml",
       "sha256": "bc7bbdf5ddae320f3a3ea2154a8d1ac95775aa8e96d87cf0eedcb05f26c7690a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/inclbomboom_le.xml",
       "sha256": "b5a325cd2e3fa787c606d8d99d84b1c523347767fd8729aafadbe7eb44dc0182",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/testcases.dtd",
       "sha256": "744e7883f048444f77a4b2490281a022c3e50106764d2353109bdfdd8847d2fd",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/errata-4e/xmlconf.xml",
       "sha256": "203323f0525a5f0eb14cbfe1540df5fa29f348fe356496763c156af3fc481e5e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/misc/001.xml",
@@ -2593,247 +2593,247 @@
     {
       "path": "xmlconf/eduni/namespaces/1.0/001.xml",
       "sha256": "c82dbe9e3b0c14d9da9c25184728788f57ef17277f0546ecd89106c1931a660f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/002.xml",
       "sha256": "7903ce7786c42f79f60e928b3209e108c0437aee925ea9087b649fffa83920a7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/003.xml",
       "sha256": "3b21fb5fd926db91838d77b991f611acf5d625118168b982cf22cf24badb9ff8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/004.xml",
       "sha256": "6cc982131ac3ce84997b5359ad5410bb4f6cf820941f148aba93a84acba8ddcb",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/005.xml",
       "sha256": "88b32168a25d64933cde5d0e8e30f01ab1e5c6795f99637506063bdc5cee6a72",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/006.xml",
       "sha256": "2bfb967623cb35d22aa796498824d321d03178315fb1f9f9b253a9f0d73017ec",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/007.xml",
       "sha256": "f3541e84b6a28dc9f22ab5fbe784699f37b55e16789893017011078db357deb6",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/008.xml",
       "sha256": "4735825bcc0f7f6b3d831324ec1fd13770aafdc691b50763852bd98c9e61e1d8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/009.xml",
       "sha256": "f502fb7c36fe61a0cdc67bb98efe6962d92eb6b5e94202a627a621db88f6f70c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/010.xml",
       "sha256": "fe52417b26d98d7741f9b8c6a2d1077303096deb852180dcbedf3587591f9974",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/011.xml",
       "sha256": "5eb43e37937dc0569199c74b9556e7eed725b605dc0dac20e2f7b15366ca91d4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/012.xml",
       "sha256": "4dede8c9498eadf6d39dbec5f1afa489d5ef6df95b9a1bdc4d453bb99344671b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/013.xml",
       "sha256": "13a6b7c98a6234a32cc662a5ed8040c2a9029cbb78bb714c121f1f3776975dda",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/014.xml",
       "sha256": "7e6fc99e94f977a932a1e4914306831cc1d47688f3a77c8dab56d7eea77b9137",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/015.xml",
       "sha256": "9b7a43c8c2e28a0c596578611d7660535b2da69c8c58a20ae11a6e6248d910ac",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/016.xml",
       "sha256": "8b79faca6c5bcff48fc9b27ccbadeb79e966d9192a3f2ee5e8815f6666afe124",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/017.xml",
       "sha256": "92bc5636cbf15fc1805f9af2cbcb1a5d753c8dac841f7be254dc238eaa71f52c",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/018.xml",
       "sha256": "7553ea188d8a9f48894513012f470d8ed2708330bacba84617cca20ee41e1a91",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/019.xml",
       "sha256": "30870398793901d9f2bf29afdf1a4d201753806d87b2535d86879dc2b73ac31b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/020.xml",
       "sha256": "4e2a874b1f498459612513f9f2df2786d5cd1965b39ee255fd744e3b1558ef06",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/021.xml",
       "sha256": "2640a64e246c774fbeebb4988cb73614e2585096b08c88c2687ac73ec7c1254e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/022.xml",
       "sha256": "eb1608f45edbe1e891d56ef8d5ed295024003fe58da43cdb3f6c98df4e93b003",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/023.xml",
       "sha256": "58e0b5ac0bfc7b30302159a3fe634365168bc43db1f9769366ec50ae393013a3",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/024.xml",
       "sha256": "b132e36f940d41123d5588acde29ab7c0bb4a733a0941f71b6527eec3b207cfe",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/025.xml",
       "sha256": "9253b2b7ad5d82698fbaf3aef5f0f31510ce35cab3e596e916ba6f7b8e3d0ec9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/026.xml",
       "sha256": "d3eef8afc317f5e0d90160df2f345c006df9783263a226cfa68c8262fef8692b",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/027.xml",
       "sha256": "37201b398a41bef883c8f058b924a71b0c885f8648d8f78703d97acd78d85ca4",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/028.xml",
       "sha256": "7ab821f1f5505bb4b177ce3185b4eadb54255f8ca66a0bbba3869c4eaeb42814",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/029.xml",
       "sha256": "4290b4117adcee0ae6c0d68bd0f0d0e023a33c4146e9efade4b2de80c5b1c5c9",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/030.xml",
       "sha256": "91da4d93ff82a6474d76d6fbf018241073676c76caf1d6130bef70f3ef6a4e92",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/031.xml",
       "sha256": "61cd2e3484747174488b93231bc7ec23f083e9ea4ef02d1e64b52ca807b2bb81",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/032.xml",
       "sha256": "6512b88f9728d000d2c33daacfd25dab4a043bab4509dd2859a831366b9785ee",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/033.xml",
       "sha256": "c2eb1ce79f56e54d2f22bcc4d31117936190554ff3a899843bf541772713a92a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/034.xml",
       "sha256": "f8d035695aeba297ac17252602989eb2f3756b4364ee23d5e9715abf4da80719",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/035.xml",
       "sha256": "2cadfe2a5630e4ba7fe6a01ac33c1315bbabe801c79f87f81d93313f21941175",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/036.xml",
       "sha256": "5709143331c580c18181173d9581976545a85fd861dbef5eeeebd23309ac2b2a",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/037.xml",
       "sha256": "43e727c68d00f8f7f69bb0809e5c1a4a02a1bb0dfea4c3d4b641f60fe8924c9f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/038.xml",
       "sha256": "79977d740500941275ced9bd9be883d1c31fbc972dfc2559d6b20b0f4259474e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/039.xml",
       "sha256": "1a8cc7d5962271c8dc4197e8daca681359e47f88c334cf4fdd9308b101203899",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/040.xml",
       "sha256": "051d767fc95489601c86cb04589070859a2c55a157b88f02518597d9787a1eb5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/041.xml",
       "sha256": "ba24c9a10d3a32279d4b1682941e7938969ce4106a7ade3f45b7d5bd70333fa5",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/042.xml",
       "sha256": "2ff7553efa457354141c5f61a7560112f22b528203ecd052d298da9eebfaa8e2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/043.xml",
       "sha256": "8adddafc4435c4303a3e0a6b823cc6aeffa9f6e1a4983a228f0a94ffb0734bc7",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/044.xml",
       "sha256": "47555bc24bcb1b73f0c01d060614b4d994296ef9d225860ab8261748a7511ed2",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/045.xml",
       "sha256": "185ed22b1d5adaf1c1e1d9ed9198e6af78fae94180b8e42aba74d2b2662e65ce",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/046.xml",
       "sha256": "b2747ef9b0b31a7402a275553b2d64e759057eea8ece882b90c7f2b941c5f92d",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/047.xml",
       "sha256": "9a4ca77085652c81087d1b05b279d23aa68e75e92b38cee53b458a717567d119",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/048.xml",
       "sha256": "6f5ef7f5b2dcf696d84749898c3e523cfd4f9e96fc8a1d95a73022ae56dd2986",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml",
       "sha256": "c853f87e10180879e95bd1f924e91c9abd3d277acb654259d4479094dcb4d54e",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/1.1/001.xml",
@@ -2883,32 +2883,32 @@
     {
       "path": "xmlconf/eduni/namespaces/errata-1e/NE13a.xml",
       "sha256": "394290e0c188b96b7e2e833e0a274b4e96afa5b5d534c8c1d6da9ca8e8624fd8",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/errata-1e/NE13b.xml",
       "sha256": "4e1eb0b42efb1721340ff5e857012a1caded47503914a03769ed621345cdb3aa",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/errata-1e/NE13c.xml",
       "sha256": "16569bc38e866ff0c49d7c8534efac7193ff5f85dc7b0b4fde7663db8d73bcaa",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/errata-1e/errata1e.xml",
       "sha256": "bdc56805fdf32c03a689fa77a4d0a0b84b67d30b32044992c401470f8a4c527f",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/errata-1e/testcases.dtd",
       "sha256": "be448a74c83a10a3029311ccaf8e443606aee634017bba4b6dd8ae98b29fc618",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/errata-1e/xmlconf.xml",
       "sha256": "fb492f8b30bcceb0ab933708ffb18d0e99f15621cb6d6c1c665dbdcbabfa9efa",
-      "source": "edinburgh-vendor"
+      "source": "verified-cache"
     },
     {
       "path": "xmlconf/eduni/namespaces/testcases.dtd",

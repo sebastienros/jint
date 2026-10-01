@@ -1,5 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!ENTITY gt ">">
-]>
-<foo>You can use ]]&gt; or ]]&#62;</foo>

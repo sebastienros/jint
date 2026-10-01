@@ -1,5 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!ATTLIST foo bar NMTOKENS #IMPLIED>
-]>
-<foo bar="abc&#9;xyz"/>

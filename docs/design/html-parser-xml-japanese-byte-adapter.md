@@ -47,19 +47,22 @@ route. The `declared` field preserves source spelling (`Shift_JIS` only in weekl
 Use decisions `prepared-euc-jp`, `prepared-iso-2022-jp`, `prepared-shift-jis` to distinguish exact
 corpus preparation from a general declaration-based decoder.
 
-## 3. Explicit preparation and offline reproducibility
+## 3. Preparation and offline reproducibility
 
-Extend the existing tool with this explicit offline command, run from the repository root:
+The test loader produces each artifact on first use: when `Cache/DecodedJapanese/<rawSha256>.utf8`
+is absent or does not match its reviewed digest, it decodes the verified raw member with .NET's
+`CodePagesEncodingProvider` (`euc-jp`, `iso-2022-jp`, `shift_jis`, exception fallbacks), and writes
+the result only when it matches the reviewed digest. The provider is queried directly, never
+registered, so the generic decoder's repertoire is unchanged. No Python installation is needed.
+
+The importer keeps an equivalent Python route for regenerating the manifest, also runnable on its own:
 
 ```sh
 python3 Jint.Tests.HtmlParser/Xml/Conformance/Tools/import_corpus.py prepare-decoded
 ```
 
-It requires the already-restored pinned W3C archive. It never downloads anything. The existing
-`restore` action should finish by invoking the same preparation routine after verifying its restored
-archives, so a fresh documented restore produces a complete cache. Do not run preparation from
-MSBuild, a test initializer, or the test runner. No Python installation is needed when running tests
-against a complete verified cache.
+It requires the already-restored pinned W3C archive and never downloads anything. Both routes are
+held to the same fixed hashes, so they cannot disagree silently.
 
 For each checked row, preparation must:
 
@@ -103,7 +106,8 @@ Missing/corrupt/stale artifact, invalid UTF-8, wrong raw member, duplicate/path 
 length mismatch or declaration mismatch is **HarnessFailure**, with a specific integrity signature.
 A table-level integrity exception may fail the corpus-integrity gate directly. Never convert these
 failures to OptionalAdapterDebt, parser rejection, an ordinary skip or a fallback to the generic
-codec. There is no network, Python execution or automatic cache rebuilding in this loader.
+codec. The loader runs no Python and fetches nothing itself; it only re-derives a missing or stale
+artifact from the already-verified raw member, accepting the result solely when it matches the reviewed digest.
 Use a narrow data-loading seam accepting supplied bytes for corruption tests; do not mutate global
 caches or real fixture files. Avoid broad catches that hide cancellation or programming errors.
 

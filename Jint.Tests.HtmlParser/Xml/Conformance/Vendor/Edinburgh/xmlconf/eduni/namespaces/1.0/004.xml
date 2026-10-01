@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-<!-- Namespace name test: a relative URI (deprecated) -->
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!ATTLIST foo xmlns CDATA #IMPLIED>]
->
-<foo xmlns="namespaces/zaphod"/>

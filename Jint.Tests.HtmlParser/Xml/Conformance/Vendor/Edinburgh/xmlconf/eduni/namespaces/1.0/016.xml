@@ -1,3 +1,0 @@
-<?xml version="1.0"?>
-<!-- Bad QName syntax: xmlns: -->
-<foo xmlns:="http://example.org/namespace" />

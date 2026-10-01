@@ -1,3 +1,0 @@
-<!ELEMENT foo ANY>
-<!ENTITY % e "bar CDATA #IMPLIED>">
-<!ATTLIST foo %e;

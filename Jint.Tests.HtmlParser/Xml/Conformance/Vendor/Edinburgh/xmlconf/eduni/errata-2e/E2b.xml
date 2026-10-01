@@ -1,6 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!NOTATION one SYSTEM "file:///usr/bin/awk">
-<!ATTLIST foo bar NOTATION (one|one) #IMPLIED>
-]>
-<foo/>

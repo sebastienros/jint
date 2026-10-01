@@ -1,4 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-]>
-<foo>hello</foo>

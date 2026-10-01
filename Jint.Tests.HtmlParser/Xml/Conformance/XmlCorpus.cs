@@ -2,7 +2,6 @@
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace Jint.Tests.HtmlParser.Xml.Conformance;
@@ -74,7 +73,10 @@ internal sealed class XmlClarkChange
     public string? OriginalSha256 { get; init; }
 }
 
-/// <summary>Offline W3C 20130923 fixture store. No resolver reaches the parser.</summary>
+/// <summary>
+/// W3C 20130923 fixture store, downloaded on demand into <c>Cache/</c> and verified byte-for-byte against
+/// <c>corpus.lock.json</c>. No resolver reaches the parser.
+/// </summary>
 internal static class XmlCorpus
 {
     internal const string ArchiveDigest = "9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f";
@@ -147,14 +149,8 @@ internal static class XmlCorpus
 
     private static IReadOnlyDictionary<string, byte[]> LoadAndVerifyFiles()
     {
-        var archivePath = Path.Combine(Root, "Cache", "xmlts20130923.tar.gz");
-        if (!File.Exists(archivePath))
-            throw new InvalidDataException($"Required W3C archive missing: {archivePath}. Explicitly run Tools/import_corpus.py restore.");
-        var archiveBytes = File.ReadAllBytes(archivePath);
-        VerifyDigest(archiveBytes, ArchiveDigest, archivePath);
-        var originalPath = Path.Combine(Root, "Vendor", "xmltest.zip");
-        var originalBytes = File.ReadAllBytes(originalPath);
-        VerifyDigest(originalBytes, ClarkDigest, originalPath);
+        var archiveBytes = XmlCorpusCache.Archive();
+        VerifyDigest(archiveBytes, ArchiveDigest, XmlCorpusCache.ArchiveUrl);
 
         var files = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         using (var compressed = new MemoryStream(archiveBytes, writable: false))
@@ -185,75 +181,26 @@ internal static class XmlCorpus
         if (files.Count != Lock.FileCount)
             throw new InvalidDataException($"W3C archive file census drift: {files.Count}");
 
-        using var zip = new ZipArchive(new MemoryStream(originalBytes, writable: false), ZipArchiveMode.Read);
+        // Every member is pinned individually; the source route is provenance metadata recorded by the import tool.
         foreach (var item in Lock.Files)
         {
             EnsureSafePath(item.Path);
             if (!files.TryGetValue(item.Path, out var archiveFile))
                 throw new InvalidDataException($"Missing locked W3C file: {item.Path}");
             VerifyDigest(archiveFile, item.Sha256, item.Path);
-            switch (item.Source)
-            {
-                case "edinburgh-vendor":
-                    var vendorPath = Path.Combine(Root, "Vendor", "Edinburgh", item.Path.Replace('/', Path.DirectorySeparatorChar));
-                    VerifyDigest(File.ReadAllBytes(vendorPath), item.Sha256, vendorPath);
-                    break;
-                case "unchanged-clark-zip":
-                    var zipName = item.Path["xmlconf/".Length..];
-                    var zipEntry = zip.GetEntry(zipName) ?? throw new InvalidDataException($"Missing unchanged Clark entry: {zipName}");
-                    using (var stream = zipEntry.Open())
-                    using (var buffer = new MemoryStream())
-                    {
-                        stream.CopyTo(buffer);
-                        VerifyDigest(buffer.ToArray(), item.Sha256, zipName);
-                    }
-                    break;
-                case "verified-cache":
-                    break;
-                default:
-                    throw new InvalidDataException($"Unknown W3C source route for {item.Path}: {item.Source}");
-            }
+            if (item.Source is not ("unchanged-clark-zip" or "verified-cache"))
+                throw new InvalidDataException($"Unknown W3C source route for {item.Path}: {item.Source}");
         }
         if (Lock.Files.Select(item => item.Path).Distinct(StringComparer.Ordinal).Count() != files.Count)
             throw new InvalidDataException("W3C file lock contains duplicate or missing paths");
         foreach (var changed in Lock.ClarkChanged)
-        {
-            var current = files[changed.Path];
-            VerifyDigest(current, changed.W3cSha256 ?? "", changed.Path);
-            var original = zip.GetEntry(changed.Path["xmlconf/".Length..])
-                ?? throw new InvalidDataException($"Missing changed original Clark entry: {changed.Path}");
-            using var originalStream = original.Open();
-            using var copy = new MemoryStream();
-            originalStream.CopyTo(copy);
-            VerifyDigest(copy.ToArray(), changed.OriginalSha256 ?? "", changed.Path + " in original ZIP");
-            if (current.AsSpan().SequenceEqual(copy.GetBuffer().AsSpan(0, checked((int)copy.Length))))
-                throw new InvalidDataException($"Clark changed entry unexpectedly matches W3C: {changed.Path}");
-        }
+            VerifyDigest(files[changed.Path], changed.W3cSha256 ?? "", changed.Path);
         foreach (var added in Lock.ClarkAdded)
-        {
             VerifyDigest(files[added.Path], added.W3cSha256 ?? "", added.Path);
-            if (zip.GetEntry(added.Path["xmlconf/".Length..]) is not null)
-                throw new InvalidDataException($"Clark added entry unexpectedly exists in original ZIP: {added.Path}");
-        }
         foreach (var old in Lock.ClarkOriginalOnly)
         {
             if (files.ContainsKey(old.Path))
                 throw new InvalidDataException($"Original-only Clark entry unexpectedly exists in W3C: {old.Path}");
-            var entry = zip.GetEntry(old.Path["xmlconf/".Length..])
-                ?? throw new InvalidDataException($"Missing original-only Clark entry: {old.Path}");
-            using var originalStream = entry.Open();
-            using var copy = new MemoryStream();
-            originalStream.CopyTo(copy);
-            VerifyDigest(copy.ToArray(), old.OriginalSha256 ?? "", old.Path + " in original ZIP");
-        }
-        var notice = zip.GetEntry("xmltest/readme.html")
-            ?? throw new InvalidDataException("James Clark's embedded redistribution notice is missing");
-        using (var noticeStream = new StreamReader(notice.Open()))
-        {
-            var text = noticeStream.ReadToEnd();
-            if (!text.Contains("redistribute the file <code>xmltest.zip</code>", StringComparison.Ordinal) ||
-                !text.Contains("no modifications of any kind", StringComparison.Ordinal))
-                throw new InvalidDataException("James Clark's embedded redistribution notice changed");
         }
         foreach (var row in Cases)
         {
@@ -262,10 +209,6 @@ internal static class XmlCorpus
                 (row.Output3Path is not null && !files.ContainsKey(row.Output3Path)))
                 throw new InvalidDataException($"W3C case refers to missing bytes: {row.Key}");
         }
-        var vendoredPaths = Directory.EnumerateFiles(Path.Combine(Root, "Vendor", "Edinburgh"), "*", SearchOption.AllDirectories).ToArray();
-        if (vendoredPaths.Length != Lock.Files.Count(item => item.Source == "edinburgh-vendor") ||
-            vendoredPaths.Any(path => (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0))
-            throw new InvalidDataException("Edinburgh vendor tree has extra, missing, or linked files");
         return files;
     }
 

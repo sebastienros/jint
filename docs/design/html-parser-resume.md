@@ -459,9 +459,8 @@ The independent exponential review packet is also retained in ignored
 Preserve needed ignored files before any common-worktree archival; managed snapshots exclude them.
 
 Pinned archive: `Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz`, SHA
-`9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f`.
-Explicit decoded preparation when needed:
-`python3 Jint.Tests.HtmlParser/Xml/Conformance/Tools/import_corpus.py prepare-decoded`.
+`9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f`. The tests download it on first
+use and produce the decoded Japanese inputs beside it; nothing in `Cache/` is committed.
 Missing corpus/prepared inputs must fail visibly, never become silent skips.
 
 Always fresh Release, never `--no-build`; Git uses `git -c core.fsmonitor=false`.

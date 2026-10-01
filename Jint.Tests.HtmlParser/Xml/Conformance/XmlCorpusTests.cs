@@ -8,7 +8,7 @@ namespace Jint.Tests.HtmlParser.Xml.Conformance;
 public class XmlCorpusTests
 {
     [Test]
-    public void PinLicenseRoutesAndEveryReferencedByteAreVerified()
+    public void PinRoutesAndEveryReferencedByteAreVerified()
     {
         XmlCorpus.Files.Should().HaveCount(3386);
         XmlCorpus.Lock.RowCount.Should().Be(2585);
@@ -18,10 +18,8 @@ public class XmlCorpusTests
         XmlCorpus.Lock.Categories["error"].Should().Be(33);
         XmlCorpus.Lock.ClarkChanged.Should().HaveCount(9);
         XmlCorpus.Lock.ClarkAdded.Should().HaveCount(13);
-        XmlCorpus.Lock.Files.Count(file => file.Source == "edinburgh-vendor").Should().Be(527);
         XmlCorpus.Lock.Files.Count(file => file.Source == "unchanged-clark-zip").Should().Be(584);
-        File.ReadAllText(Path.Combine(XmlCorpus.Root, "Vendor", "README.md"))
-            .Should().Contain("unmodified").And.Contain("copyright");
+        XmlCorpus.Lock.Files.Count(file => file.Source == "verified-cache").Should().Be(2802);
         XmlCorpus.Cases.Count(row => row.Catalog.StartsWith("xmlconf/eduni/errata-2e/", StringComparison.Ordinal) ||
             row.Catalog.StartsWith("xmlconf/eduni/errata-3e/", StringComparison.Ordinal) ||
             row.Catalog.StartsWith("xmlconf/eduni/errata-4e/", StringComparison.Ordinal) ||

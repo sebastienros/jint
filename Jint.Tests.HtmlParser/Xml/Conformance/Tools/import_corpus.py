@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Restore and inventory the pinned W3C XML test corpus. Never called by tests.
 
+Nothing downloaded is committed: both archives live in the gitignored Cache/ folder. The tests fetch
+the W3C archive and produce the decoded Japanese inputs themselves on first use; this tool is only
+needed to regenerate cases.json and corpus.lock.json, which also requires James Clark's original
+xmltest.zip (FTP-only) to record which members are unchanged from it.
+
 The metadata parser resolves only the 23 pinned catalog/DTD files listed below.
 It never opens test documents through an XML resolver.
 """
@@ -24,9 +29,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / "Cache"
-VENDOR = ROOT / "Vendor"
 ARCHIVE = CACHE / "xmlts20130923.tar.gz"
-CLARK_ZIP = VENDOR / "xmltest.zip"
+CLARK_ZIP = CACHE / "xmltest.zip"
 ARCHIVE_URL = "https://www.w3.org/XML/Test/xmlts20130923.tar.gz"
 CLARK_URL = "ftp://ftp.jclark.com/pub/xml/xmltest.zip"
 ARCHIVE_SHA = "9b61db9f5dbffa545f4b8d78422167083a8568c59bd1129f94138f936cf6fc1f"
@@ -57,14 +61,6 @@ xmlconf/eduni/errata-4e/errata4e.xml
 xmlconf/eduni/namespaces/errata-1e/errata1e.xml
 xmlconf/eduni/misc/ht-bh.xml
 """.split())
-
-VENDORED_PREFIXES = (
-    "xmlconf/eduni/errata-2e/",
-    "xmlconf/eduni/errata-3e/",
-    "xmlconf/eduni/errata-4e/",
-    "xmlconf/eduni/namespaces/1.0/",
-    "xmlconf/eduni/namespaces/errata-1e/",
-)
 
 # The root 20130923 catalog says eduni/namespaces/misc/, while the archive
 # stores all nine input files beside eduni/misc/ht-bh.xml. Keep both spellings.
@@ -181,7 +177,6 @@ def prepare_decoded() -> None:
     lock = json.loads((ROOT / "corpus.lock.json").read_bytes())
     if lock.get("archiveSha256") != ARCHIVE_SHA or lock.get("clarkZipSha256") != CLARK_SHA:
         raise ValueError("Prepared archive pin drift")
-    verify(CLARK_ZIP, CLARK_SHA)
     files = archive_files(verify(ARCHIVE, ARCHIVE_SHA))
     if len(files) != lock["fileCount"] or len(lock["files"]) != lock["fileCount"]:
         raise ValueError("Prepared source archive census mismatch")
@@ -340,19 +335,9 @@ def import_corpus() -> None:
     if Counter(row["metadata"]["TYPE"] for row in rows) != Counter({"valid": 812, "invalid": 242, "not-wf": 1498, "error": 33}):
         raise ValueError("Upstream category census drift")
 
-    for path, data in files.items():
-        if path.startswith(VENDORED_PREFIXES):
-            destination = VENDOR / "Edinburgh" / path
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            if destination.exists() and destination.read_bytes() != data:
-                raise ValueError(f"Vendored byte drift: {destination}")
-            destination.write_bytes(data)
-
     file_lock = []
     for path, data in sorted(files.items()):
-        source = "edinburgh-vendor" if path.startswith(VENDORED_PREFIXES) else (
-            "unchanged-clark-zip" if path in zip_files and data == zip_files[path] else "verified-cache"
-        )
+        source = "unchanged-clark-zip" if path in zip_files and data == zip_files[path] else "verified-cache"
         file_lock.append({"path": path, "sha256": digest(data), "source": source})
 
     changed_clark = [

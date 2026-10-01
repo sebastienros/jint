@@ -1,8 +1,0 @@
-<!DOCTYPE root [
-<!ELEMENT root ANY>
-<!ELEMENT ̀BadName EMPTY>
-]>
-<!-- BadName containing char 0x300; -->
-<root>
-	<̀BadName/>	
-</root>

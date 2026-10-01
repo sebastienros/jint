@@ -1,7 +1,0 @@
-<!DOCTYPE foo [
-<!ELEMENT foo ANY>
-<!NOTATION gif SYSTEM "file:///usr/X11R6/bin/xv">
-<!ENTITY declared SYSTEM "xyzzy" NDATA gif>
-<!ATTLIST foo bar ENTITY "7">
-]>
-<foo bar="declared"/>
