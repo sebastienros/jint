@@ -10,7 +10,7 @@
          binding generator's pin: tools/dom-bindings/pin.json repeats them, and DomBindingsPinTests fails when
          the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
          these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
-    <PackageVersion Include="AngleSharp" Version="1.8.2" />
+    <PackageVersion Include="AngleSharp" Version="1.8.3" />
     <!-- Css 1.1.2 includes the converter re-entry and transform fixes first consumed in beta.308/310,
          plus computed-value fixes for gradients, grid, points and border-image-slice. Keep the focused
          IndividualTransformStyleTests and TransformFunctionStyleTests: converter re-entry used to end
@@ -22,7 +22,7 @@
          DOMParser's XML content types, which need an XML parser, and DOM §7's XPath, which needs an
          XPathNavigator over an AngleSharp tree. -->
     <PackageVersion Include="AngleSharp.Xml" Version="1.2.0" />
-    <PackageVersion Include="AngleSharp.XPath" Version="2.0.6" />
+    <PackageVersion Include="AngleSharp.XPath" Version="2.0.8" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
