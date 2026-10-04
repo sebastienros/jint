@@ -42,20 +42,20 @@ public class HostRegexMatcherCompatibilityTests
             engine.SetValue("subject", subject + suffix);
         }
 
-        const string expression = "JSON.stringify(new RegExp(pattern, 'd').exec(subject))";
+        const string expression = "JSON.stringify((m => m && [Array.from(m), m.groups, m.indices, m.indices.groups])(new RegExp(pattern, 'd').exec(subject)))";
         var expected = unbounded.Evaluate(expression).ToString();
         expected.Should().NotBe("null");
-        cooperative.Evaluate("JSON.stringify(new RegExp(pattern, 'du').exec(subject))").ToString().Should().Be(expected);
+        cooperative.Evaluate(expression.Replace("'d'", "'du'")).ToString().Should().Be(expected);
     }
 
     [Test]
     public void ManyNamedAlternativesKeepTheirSharedBackreference()
     {
-        var pattern = "(?:" + string.Join("|", System.Linq.Enumerable.Repeat("(?<part>a)", 300)) + @")\k<part>";
+        var pattern = "(?:" + string.Join("|", System.Linq.Enumerable.Repeat("(?<part>a)", 299)) + "|(?<part>b)" + @")\k<part>";
         using var engine = new Engine();
         engine.SetValue("pattern", pattern);
 
-        engine.Evaluate("new RegExp(pattern, 'du').exec('aa').groups.part").Should().Be("a");
+        engine.Evaluate("JSON.stringify((m => [m[300], m.groups.part, m.indices[300], m.indices.groups.part])(new RegExp(pattern, 'du').exec('bb')))").ToString().Should().Be("[\"b\",\"b\",[0,1],[0,1]]");
         engine.Evaluate("new RegExp(pattern, 'u').test('ab')").Should().Be(false);
     }
 
