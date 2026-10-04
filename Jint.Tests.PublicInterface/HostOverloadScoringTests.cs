@@ -61,7 +61,7 @@ public class HostOverloadScoringTests
             return count;
         }
 
-        public string DescribeTemperature(Fahrenheit temperature) => $"{temperature.Degrees}F";
+        public string DescribeTemperature(Fahrenheit temperature) => FormattableString.Invariant($"{temperature.Degrees}F");
 
         public string DescribeUnit(LengthUnit unit) => $"unit {(int) unit}";
 
