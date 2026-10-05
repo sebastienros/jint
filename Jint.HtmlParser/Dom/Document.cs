@@ -131,9 +131,26 @@ public sealed partial class Document : Node
     internal HtmlSelectWorkProbe? SelectWorkProbe { get; set; }
     internal HtmlCheckedWorkProbe? CheckedWorkProbe { get; set; }
     internal bool MayHaveMutationRegistrations => _mayHaveMutationRegistrations;
-    internal void MarkMutationRegistrationsPresent() => _mayHaveMutationRegistrations = true;
-    internal void MarkMutation()
+    // One weak negative ancestry witness per document, never a per-node parser cache.
+    // Only fresh parser links preserve it; all other mutations retire it conservatively.
+    private WeakReference<Node>? _unobservedMutationAncestor;
+    internal Node? UnobservedMutationAncestor
+        => _unobservedMutationAncestor is not null && _unobservedMutationAncestor.TryGetTarget(out var node) ? node : null;
+    // Test-only charged visit hook; callbacks must not mutate or reenter.
+    internal Action? MutationAncestorVisited { get; set; }
+    internal void RememberUnobservedMutationAncestor(Node node)
     {
+        if (_unobservedMutationAncestor is null) _unobservedMutationAncestor = new WeakReference<Node>(node);
+        else _unobservedMutationAncestor.SetTarget(node);
+    }
+    internal void MarkMutationRegistrationsPresent()
+    {
+        _mayHaveMutationRegistrations = true;
+        _unobservedMutationAncestor?.SetTarget(null!);
+    }
+    internal void MarkMutation(bool preserveUnobservedAncestry = false)
+    {
+        if (!preserveUnobservedAncestry) _unobservedMutationAncestor?.SetTarget(null!);
         if (_mutationStamp != ulong.MaxValue)
         {
             _mutationStamp++;

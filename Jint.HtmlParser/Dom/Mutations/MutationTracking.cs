@@ -10,7 +10,8 @@ internal static class MutationTracking
         // DOM Standard §4.3.2: collect interested observers in inclusive-ancestor
         // order, then deduplicate each subscription and project oldValue per observer.
         // https://dom.spec.whatwg.org/#queue-a-mutation-record
-        if (!(target as Document ?? target.OwnerDocument!).MayHaveMutationRegistrations)
+        var document = target as Document ?? target.OwnerDocument!;
+        if (!document.MayHaveMutationRegistrations)
         {
             return null;
         }
@@ -19,14 +20,22 @@ internal static class MutationTracking
         Node root = target;
         // Tri-state: computed on the first subscription that asks.
         var inert = 0;
+        var unobserved = document.UnobservedMutationAncestor;
+        var sawRegistration = false;
         for (var ancestor = target; ancestor is not null; ancestor = ancestor.ParentNode)
         {
+            document.MutationAncestorVisited?.Invoke();
+            // A registration-free suffix is independent of record kind/options. Fresh
+            // parser children cannot change it (DOM §4.3.2); reparenting, adoption and
+            // new registrations invalidate the witness before another match.
+            if (!sawRegistration && ReferenceEquals(ancestor, unobserved)) break;
             root = ancestor;
             if (ancestor.MutationRegistrations is not { } registrations)
             {
                 continue;
             }
 
+            sawRegistration = true;
             for (var r = 0; r < registrations.Count; r++)
             {
                 var entry = registrations[r];
@@ -49,6 +58,8 @@ internal static class MutationTracking
                     kind == MutationRecordKind.ChildList && entry.Registration.Subscription.CaptureHtmlMetaInsertions);
             }
         }
+
+        if (!sawRegistration) document.RememberUnobservedMutationAncestor(target);
 
         if (kind == MutationRecordKind.ChildList && matches is not null)
         {

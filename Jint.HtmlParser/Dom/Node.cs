@@ -128,7 +128,7 @@ public abstract partial class Node
         ArgumentNullException.ThrowIfNull(child);
         EnsureContainer();
         EnsureFreshParsedChild(child);
-        InsertValidated(child, null);
+        InsertValidated(child, null, preserveUnobservedAncestry: true);
     }
 
     // DOM Standard §4.2.3 insertion steps. The parser has already proved
@@ -153,7 +153,7 @@ public abstract partial class Node
 
         EnsureFreshParsedChild(child);
         cancellationToken.ThrowIfCancellationRequested();
-        InsertValidated(child, referenceChild);
+        InsertValidated(child, referenceChild, preserveUnobservedAncestry: true);
         cancellationToken.ThrowIfCancellationRequested();
         afterCommitCheckpoint?.Invoke();
         cancellationToken.ThrowIfCancellationRequested();
@@ -665,7 +665,7 @@ public abstract partial class Node
 
     private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false,
         bool suppressSemantic = false, bool suppressLiveInsertion = false,
-        HtmlMetaInsertionCapture? insertionCapture = null)
+        HtmlMetaInsertionCapture? insertionCapture = null, bool preserveUnobservedAncestry = false)
     {
         using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!);
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
@@ -686,7 +686,7 @@ public abstract partial class Node
             if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
             LinkBefore(node, referenceChild);
             capture?.Committed(node);
-            (this as Document ?? _ownerDocument!).MarkMutation();
+            (this as Document ?? _ownerDocument!).MarkMutation(preserveUnobservedAncestry);
             if (capture is not null && suppressSemantic)
                 HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
             SlotAssignment.AfterInsertion(this, node, referenceChild);
