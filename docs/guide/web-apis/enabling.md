@@ -31,6 +31,12 @@ flags and configure the associated options. Feature dependencies are expanded au
 brings the events, URL, files, and streams surfaces it uses, and `WebLocks` brings navigator and events.
 `IndexedDb` brings events and structured cloning; see [IndexedDB](./indexeddb.md) for storage lifetimes and pumping.
 
+Performance is in the default set and installs `PerformanceResourceTiming`. If you also grant Fetch or
+XMLHttpRequest, completed requests record resource entries and queue an additional task per request,
+even without an observer. To omit this work, select `WebApiFeatures.Default & ~WebApiFeatures.Performance`
+before adding your network flags. This removes the clock, user timing, and observers too; see
+[performance timeline](./crypto-and-performance.md#performance-timeline).
+
 Globals are installed lazily and do not replace an own global already registered by the host. Only the principal
 realm is changed; a `ShadowRealm` receives none of these globals unless the host installs them.
 

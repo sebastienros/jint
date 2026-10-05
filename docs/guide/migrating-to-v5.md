@@ -5075,9 +5075,9 @@ Object.getPrototypeOf(Performance.prototype);  // 5.0: Object.prototype   5.x: E
 is running in a browser. And the feature closure now brings `WebApiFeatures.Events` with
 `WebApiFeatures.Performance`, so an engine built with the performance flag alone additionally carries `Event`,
 `CustomEvent`, `EventTarget`, `AbortController` and `AbortSignal` as globals — a script that tested
-`typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing is
-dispatched at `performance` by the engine: the one event the specifications define on the interface is
-`resourcetimingbufferfull`, and there is no resource timing buffer here to fill.
+`typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing
+was dispatched at `performance` by the engine in those previews. Resource timing now supplies a buffer
+and its `resourcetimingbufferfull` event; see [§4.148](#4148-fetch-and-xhr-add-resource-timing-when-performance-is-enabled-4207).
 
 ### 4.116 The File API brings the event interfaces with it ([#3660](https://github.com/sebastienros/jint/pull/3660))
 
@@ -5912,6 +5912,29 @@ IndexedDB connection and abandoned queued opens. After catching the `JavaScriptE
 `Engine.Tasks.ProcessTasks()` to deliver abort/request-error events and settle the failed upgrade's open
 request. Other connections and queued opens remain usable. A listener that already called `commit()` or
 `abort()` retains that outcome. Diagnostics-sink reporting and constraint-failure cleanup are unchanged.
+
+### 4.148 Fetch and XHR add resource timing when Performance is enabled ([#4207](https://github.com/sebastienros/jint/pull/4207))
+
+Earlier previews exposed only user-timing entries on ordinary engines. With `WebApiFeatures.Performance`
+enabled, `PerformanceResourceTiming` is now a lazy, non-clobbering global, and Fetch and XMLHttpRequest
+record resource entries visible to `performance.getEntries*` and `PerformanceObserver`. Each completed
+request queues one additional task to publish its entry, even when no observer is registered; observer
+notifications and buffer-full events can schedule further tasks. Hosts that pump or count queued work
+must allow for these tasks. Fetch entries wait for the body to be consumed or cancelled.
+
+`UseWebApis()` includes Performance in `WebApiFeatures.Default`; adding Fetch or XHR therefore activates
+recording without another grant. A bare `new Engine()` still installs no web APIs, and Fetch/XHR alone
+do not enable Performance. To avoid timing entries and their tasks, select flags at construction:
+
+```csharp
+options.UseWebApis((WebApiFeatures.Default & ~WebApiFeatures.Performance) | WebApiFeatures.Fetch);
+```
+
+This also removes `performance.now()`, user timing, and observers; there is no separate resource-timing
+flag, and an existing engine cannot disable enabled features. Resource entries have a separate default
+250-entry buffer. Clearing it or setting its size to zero does not stop recording or its tasks. See
+[performance timeline](web-apis/crypto-and-performance.md#performance-timeline) for buffer management,
+body completion, and cross-origin timing visibility.
 
 ## 5. New in v5
 

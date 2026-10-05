@@ -1187,13 +1187,24 @@ public enum WebApiFeatures
     Crypto = 1 << 5,
 
     /// <summary>
-    /// The <c>performance</c> object — <c>now()</c>, <c>timeOrigin</c>, and the User Timing surface
-    /// (<c>mark</c>, <c>measure</c>, <c>getEntries</c> and friends) with the <c>PerformanceEntry</c>,
-    /// <c>PerformanceMark</c> and <c>PerformanceMeasure</c> interface objects behind it. Every reading comes
-    /// from the clock in <see cref="Options.TimerOptions.TimeProvider"/>, so a fake one drives them and the
-    /// timers together. There is no <c>PerformanceObserver</c>, and the entry buffer is bounded rather than
-    /// unbounded — see <c>JsPerformance</c>.
+    /// The performance clock, timeline, entry interfaces, and observers, including resource timing when Fetch or XMLHttpRequest is enabled.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Included in <see cref="Default"/>. Installs <c>PerformanceResourceTiming</c> even without network features.
+    /// Completed Fetch and XMLHttpRequest requests each queue an additional task to record a resource entry;
+    /// pump the engine to publish entries and deliver observer callbacks.
+    /// </para>
+    /// <para>
+    /// Fetch bodies are read on demand, so their entries wait for consumption or cancellation.
+    /// Resource entries have a separate 250-entry buffer; marks and measures retain at most 10,000 entries.
+    /// All readings use <see cref="Options.TimerOptions.TimeProvider"/>.
+    /// </para>
+    /// <para>
+    /// Omit this flag at construction to avoid resource recording and its tasks; this also removes the
+    /// performance clock, user timing, and observers. Features cannot be disabled after enabling them.
+    /// </para>
+    /// </remarks>
     Performance = 1 << 6,
 
     /// <summary>

@@ -27,7 +27,8 @@ decisions.
 ## Performance timeline
 
 `WebApiFeatures.Performance` provides `performance.now()`, `timeOrigin`, marks, measures, entry queries, and
-`PerformanceObserver`.
+`PerformanceObserver`, and the `PerformanceResourceTiming` global. Performance is included in
+`WebApiFeatures.Default`; a bare `new Engine()` installs none of these APIs.
 
 ```javascript
 performance.mark('start');
@@ -39,7 +40,19 @@ console.log(measure.duration);
 The user-timing buffer retains at most 10,000 marks and measures; clear them when no longer needed.
 `PerformanceObserver` callbacks are tasks, delivered after pending microtasks, and run only while the engine is pumped.
 
-With Fetch or XMLHttpRequest also enabled, completed responses create `PerformanceResourceTiming` entries:
+With Fetch or XMLHttpRequest also enabled, completed requests create `PerformanceResourceTiming` entries.
+Each request queues one additional task to publish its entry, even without an observer. Pump the engine
+with `Engine.Tasks.ProcessTasks()` to publish entries and deliver any observer callbacks. The default
+web-API set plus an explicit Fetch/XHR grant therefore records resources automatically; Fetch/XHR alone
+do not enable Performance.
+
+To avoid resource recording and its tasks, omit `WebApiFeatures.Performance` when selecting flags at
+construction, for example `(WebApiFeatures.Default & ~WebApiFeatures.Performance) | WebApiFeatures.Fetch`.
+This also removes the performance clock, user timing, and observers. Enabled features cannot be removed;
+there is no separate resource-timing flag. Clearing the resource buffer or setting its size to zero does
+not stop recording or its tasks.
+
+Observe resource entries with:
 
 ```javascript
 new PerformanceObserver(list => {
