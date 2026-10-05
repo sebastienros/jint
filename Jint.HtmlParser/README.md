@@ -19,6 +19,11 @@ var fragment = MarkupParser.ParseXmlFragment("<next/>", root);
 root.AppendChild(fragment);
 ```
 
+XML parsing defaults to a ceiling of 10,000,000 UTF-16 entity replacement units, including when
+other limits are supplied through `new ParseLimits()`. Select `ParseLimits.Unbounded` or explicitly
+set `MaxEntityExpansionCharacters = 0` only for trusted inputs. Exceeding a limit raises
+`ParseLimitException`, separately from XML syntax errors.
+
 XML results expose immutable `SkippedXmlEntities`, `XmlNotations` and
 `XmlDtdProcessingInstructions` inventories. DTD instructions retain target, data and original UTF-16
 offsets in encounter order (including repeated parameter-entity invocations). They are parse metadata,

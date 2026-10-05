@@ -15,7 +15,7 @@ public static partial class MarkupParser
     /// <summary>Parses XML children in the namespace context of an existing element.</summary>
     public static DocumentFragment ParseXmlFragment(string source, Element context, XmlParseOptions? options = null,
         CancellationToken cancellationToken = default)
-        => XmlTreeParser.ParseFragment(source, context, options?.Limits ?? ParseLimits.Unbounded, cancellationToken);
+        => XmlTreeParser.ParseFragment(source, context, options?.Limits ?? ParseLimits.Default, cancellationToken);
 
     /// <summary>Parses a document whose root is an SVG element in the SVG namespace.</summary>
     public static Document ParseSvg(string source, XmlParseOptions? options = null,
@@ -24,6 +24,6 @@ public static partial class MarkupParser
         ArgumentNullException.ThrowIfNull(source);
         cancellationToken.ThrowIfCancellationRequested();
         return XmlTreeParser.ParseIntoDocument(source, Document.CreateXml("image/svg+xml"),
-            options?.Limits ?? ParseLimits.Unbounded, requireSvgRoot: true, cancellationToken);
+            options?.Limits ?? ParseLimits.Default, requireSvgRoot: true, cancellationToken);
     }
 }

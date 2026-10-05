@@ -183,3 +183,10 @@ differences:
   objects ignore `new.target`, as every other one in this package does.
 - A `DOMMatrix` string initializer is read by the native `CssTransformList`, which refuses `calc()` and other
   math functions even where they would resolve to an absolute length.
+
+XML entity replacement work (XML 1.0 [§4.4](https://www.w3.org/TR/xml/#entproc)) is capped at
+10,000,000 UTF-16 units by default. Browser XML navigation, `DOMParser` and XML fragments also cap
+input and atomic tokens by `MemoryLimit / 2` units when a finite memory budget is configured;
+entity work uses the smaller of that ceiling and the default. Parser limits are resource failures,
+not XML syntax errors or `parsererror` documents. Allocation constraints can fail before these ceilings.
+Standalone parser callers can explicitly select `ParseLimits.Unbounded` for trusted XML.

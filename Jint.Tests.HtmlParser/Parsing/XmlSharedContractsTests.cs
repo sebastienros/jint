@@ -11,8 +11,9 @@ public class XmlSharedContractsTests
     {
         var first = new XmlParseOptions();
         var second = new XmlParseOptions();
-        first.Limits.Should().BeSameAs(ParseLimits.Unbounded);
-        second.Limits.Should().BeSameAs(ParseLimits.Unbounded);
+        first.Limits.MaxEntityExpansionCharacters.Should().Be(10_000_000);
+        second.Limits.Should().BeSameAs(first.Limits);
+        new ParseLimits().MaxEntityExpansionCharacters.Should().Be(10_000_000);
         ParseLimits.Unbounded.MaxEntityExpansionCharacters.Should().Be(0);
         new ParseLimits { MaxEntityExpansionCharacters = 0 }.MaxEntityExpansionCharacters.Should().Be(0);
         new ParseLimits { MaxEntityExpansionCharacters = long.MaxValue }.MaxEntityExpansionCharacters

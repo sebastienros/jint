@@ -3,7 +3,7 @@ namespace Jint.HtmlParser;
 /// <summary>Resource bounds and an optional diagnostic sink for one CSS parse.</summary>
 public sealed class CssParseOptions
 {
-    private ParseLimits _limits = ParseLimits.Unbounded;
+    private ParseLimits _limits = ParseLimits.Default;
 
     /// <summary>Inclusive resource limits.</summary>
     public ParseLimits Limits

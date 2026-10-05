@@ -63,7 +63,7 @@ public static Document ParseSvg(string source, XmlParseOptions? options = null,
 
 public sealed class XmlParseOptions
 {
-    public ParseLimits Limits { get; init; } = ParseLimits.Unbounded;
+    public ParseLimits Limits { get; init; } = new();
 }
 
 public sealed class MarkupParseException : Exception
@@ -94,7 +94,7 @@ DTD completion, the one required budget extension:
 
 ```csharp
 // Addition to ParseLimits; same nonnegative/zero-unbounded rules as its other members.
-public long MaxEntityExpansionCharacters { get; init; } // default 0
+public long MaxEntityExpansionCharacters { get; init; } // default 10,000,000; explicit 0 disables
 // Addition to ParseLimitKind:
 EntityExpansionCharacters
 ```

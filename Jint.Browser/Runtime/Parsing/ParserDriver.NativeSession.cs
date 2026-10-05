@@ -47,7 +47,7 @@ internal sealed partial class ParserDriver
             _xmlParsingDocuments.Add(document);
             try
             {
-                XmlDocumentParser.Parse(markup, document, null, _cancellationToken);
+                XmlDocumentParser.Parse(markup, document, BrowserXmlParsing.Options(_runtime.Options), _cancellationToken);
                 _runtime.Engine.Constraints.Check();
                 WatchDocument(document);
                 ProcessResources(document);

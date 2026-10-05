@@ -5,6 +5,31 @@ namespace Jint.Tests.HtmlParser.Xml;
 
 public class XmlDtdTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SmallExponentialEntityInputIsBoundedByDefault(bool explicitOptions)
+    {
+        var source = "<!DOCTYPE r [<!ENTITY e0 'lol'>";
+        for (var i = 1; i <= 7; i++)
+            source += "<!ENTITY e" + i + " '" + string.Concat(Enumerable.Repeat("&e" + (i - 1) + ";", 10)) + "'>";
+        source += "]><r>&e7;</r>";
+        source.Length.Should().BeLessThan(700);
+
+        var limit = Assert.Throws<ParseLimitException>(() => MarkupParser.ParseXml(source,
+            explicitOptions ? new XmlParseOptions { Limits = new ParseLimits() } : null));
+        limit!.Kind.Should().Be(ParseLimitKind.EntityExpansionCharacters);
+        limit.Limit.Should().Be(10_000_000);
+        limit.Observed.Should().Be(10_000_001);
+    }
+
+    [Test]
+    public void ExplicitUnboundedLimitsStillAllowTrustedEntities()
+    {
+        var root = MarkupParser.ParseXml("<!DOCTYPE r [<!ENTITY e 'hello'>]><r>&e;</r>",
+            new XmlParseOptions { Limits = ParseLimits.Unbounded }).DocumentElement!;
+        ((Text) root.FirstChild!).Data.Should().Be("hello");
+    }
+
     [TestCase(0)]
     [TestCase(127)]
     [TestCase(128)]

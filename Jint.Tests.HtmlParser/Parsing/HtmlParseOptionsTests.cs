@@ -8,11 +8,11 @@ namespace Jint.Tests.HtmlParser.Parsing;
 public class HtmlParseOptionsTests
 {
     [Test]
-    public void DefaultsAreInertAndUnbounded()
+    public void DefaultsAreInertWithSafeEntityLimits()
     {
         var options = new HtmlParseOptions();
         options.ScriptingEnabled.Should().BeFalse();
-        options.Limits.Should().BeSameAs(ParseLimits.Unbounded);
+        options.Limits.MaxEntityExpansionCharacters.Should().Be(10_000_000);
         options.Diagnostics.Should().BeNull();
     }
 

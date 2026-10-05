@@ -3,7 +3,7 @@ namespace Jint.HtmlParser;
 /// <summary>Resource bounds for one XML document or fragment parse.</summary>
 public sealed class XmlParseOptions
 {
-    private ParseLimits _limits = ParseLimits.Unbounded;
+    private ParseLimits _limits = ParseLimits.Default;
 
     /// <summary>Inclusive resource limits.</summary>
     public ParseLimits Limits

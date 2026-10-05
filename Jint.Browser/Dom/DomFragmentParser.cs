@@ -12,7 +12,8 @@ internal static class DomFragmentParser
         realm.Engine.Constraints.Check();
         if (context.OwnerDocument!.Kind == DocumentKind.Xml)
         {
-            var fragment = MarkupParser.ParseXmlFragment(markup, context, cancellationToken: realm.CancellationToken);
+            var fragment = MarkupParser.ParseXmlFragment(markup, context,
+                Runtime.BrowserXmlParsing.Options(Runtime.PageRuntime.Find(realm.Engine)?.Options), cancellationToken: realm.CancellationToken);
             realm.Engine.Constraints.Check();
             return fragment;
         }

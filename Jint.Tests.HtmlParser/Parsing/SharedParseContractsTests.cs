@@ -7,12 +7,12 @@ namespace Jint.Tests.HtmlParser.Parsing;
 public class SharedParseContractsTests
 {
     [Test]
-    public void DefaultOptionsAndLimitsAreUnboundedAndReusable()
+    public void DefaultOptionsAndLimitsAreReusable()
     {
         var first = new CssParseOptions();
         var second = new CssParseOptions();
-        first.Limits.Should().BeSameAs(ParseLimits.Unbounded);
-        second.Limits.Should().BeSameAs(ParseLimits.Unbounded);
+        first.Limits.MaxEntityExpansionCharacters.Should().Be(10_000_000);
+        second.Limits.Should().BeSameAs(first.Limits);
         first.Diagnostics.Should().BeNull();
         ParseLimits.Unbounded.MaxInputCharacters.Should().Be(0);
         ParseLimits.Unbounded.MaxTokenCharacters.Should().Be(0);

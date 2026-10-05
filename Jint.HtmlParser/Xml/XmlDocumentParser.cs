@@ -6,6 +6,6 @@ internal static class XmlDocumentParser
 {
     internal static Document Parse(string source, Document document, XmlParseOptions? options,
         CancellationToken cancellationToken)
-        => XmlTreeParser.ParseIntoDocument(source, document, options?.Limits ?? ParseLimits.Unbounded,
+        => XmlTreeParser.ParseIntoDocument(source, document, options?.Limits ?? ParseLimits.Default,
             requireSvgRoot: false, cancellationToken);
 }

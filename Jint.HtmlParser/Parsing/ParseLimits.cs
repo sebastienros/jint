@@ -6,10 +6,12 @@ public sealed class ParseLimits
     private long _maxInputCharacters;
     private int _maxTokenCharacters;
     private int _maxNestingDepth;
-    private long _maxEntityExpansionCharacters;
+    private long _maxEntityExpansionCharacters = 10_000_000;
 
     /// <summary>Shared all-zero limits.</summary>
-    public static ParseLimits Unbounded { get; } = new();
+    public static ParseLimits Unbounded { get; } = new() { MaxEntityExpansionCharacters = 0 };
+
+    internal static ParseLimits Default { get; } = new();
 
     /// <summary>Maximum original UTF-16 input units.</summary>
     public long MaxInputCharacters
@@ -32,7 +34,10 @@ public sealed class ParseLimits
         init => _maxNestingDepth = value >= 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
     }
 
-    /// <summary>Maximum UTF-16 replacement units consumed by XML general and parameter entities.</summary>
+    /// <summary>
+    /// Maximum UTF-16 replacement units consumed by XML general and parameter entities; 10,000,000 by default.
+    /// Set zero explicitly to disable this bound.
+    /// </summary>
     public long MaxEntityExpansionCharacters
     {
         get => _maxEntityExpansionCharacters;

@@ -10,7 +10,7 @@ public class HtmlPublicApiTests
     {
         var options = new HtmlParseOptions();
         options.ScriptingEnabled.Should().BeFalse();
-        options.Limits.Should().BeSameAs(ParseLimits.Unbounded);
+        options.Limits.MaxEntityExpansionCharacters.Should().Be(10_000_000);
         options.Diagnostics.Should().BeNull();
         var document = MarkupParser.ParseHtml("");
         document.Kind.Should().Be(DocumentKind.Html);
