@@ -24,7 +24,7 @@ public sealed class Attr
         set { if (value != 0 || _rare is not null) (_rare ??= new NodeRareData()).IteratorRootSweepCursor = value; }
     }
 
-    private StringSlice _value;
+    private StringSliceStorage _value;
     private string? _prefix;
 
     internal Attr(Document ownerDocument, string? namespaceUri, string localName, string? prefix, string value,
@@ -40,7 +40,7 @@ public sealed class Attr
         NamespaceUri = namespaceUri;
         LocalName = localName;
         _prefix = prefix;
-        _value = value;
+        _value = new StringSliceStorage(value);
         IsDtdId = isDtdId;
     }
 
@@ -66,7 +66,7 @@ public sealed class Attr
     public string Name => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
     public string Value
     {
-        get => StringSlice.Materialize(ref _value);
+        get => _value.Materialize();
         set => SetValue(value, null);
     }
     internal ReadOnlySpan<char> ValueSpan => _value.Span;
@@ -78,7 +78,7 @@ public sealed class Attr
         var oldValue = Value;
         var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
             LocalName, NamespaceUri);
-        _value = new StringSlice(value);
+        _value = new StringSliceStorage(new StringSlice(value));
         OwnerDocument.MarkMutation();
         if (owner is not null)
         {

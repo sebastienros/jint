@@ -194,6 +194,13 @@ noncontiguous input fall back to owned decoded storage; only adjacent ranges of
 the same source can coalesce without copying. Caller arrays and reusable
 tokenizer buffers are never retained as immutable values.
 
+Tokenizer slices stay immutable. DOM value storage keeps fixed offsets and a
+separate string cache; concurrent materialization publishes the cache with an
+atomic reference operation before releasing the original source reference.
+Racing cold readers may allocate equivalent strings, but return the published
+winner. No read rewrites a multi-field slice, and span readers can safely retain
+either the original source or the materialized string.
+
 Public `Text.Data` and `Attr.Value` remain strings. Their first read materializes
 and caches the current value when needed; source-backed values then release their
 reference to the larger input. Internal span consumers, including HTML
@@ -202,8 +209,28 @@ notifications preserve the existing string and ownership contracts.
 
 This trades fewer copies for source retention: an unread value can keep its whole
 input string alive, including on a detached node. Shared text/attribute storage
-also has a layout cost for already materialized values such as XML input.
+also has a layout cost for already materialized values such as XML input. The
+DOM cache adds one reference per text/attribute value, without a per-value heap
+object; tokenizer slices keep their existing layout.
 Source slices are not a new public API or raw-markup provenance contract.
+
+After parsing finishes and the tree is safely published to other threads,
+concurrent immutable inspection of tree links, node names, character data and
+attribute values is supported, including cold `Text.Data`/`Attr.Value` getters,
+text-content reads and serialization with separate per-call state. Keep the tree
+unchanged for the entire read operation. Parsing sessions, mutation, adoption,
+live ranges/iterators and mutation subscriptions require one writer and external
+synchronization with all readers; one writer alone does not make overlapping
+reads safe. Operations that initialize mutable DOM state or indexes (including
+selector/id queries, form-control state and processing-instruction attribute
+views) also require external synchronization. This is not a blanket thread-safety
+promise for every method that looks like a read.
+
+Jint.Browser page trees retain their page-loop affinity: access them through the
+page's scheduled operations. The standalone parser's immutable-read support does
+not permit reading a live Browser DOM from another thread while its page can run
+script, parse or mutate it.
+
 `HtmlParserValueAccessBenchmark` measures complete parsing plus string or span
 consumption separately, so parse-only measurements cannot hide deferred work.
 

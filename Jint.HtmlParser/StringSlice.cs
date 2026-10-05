@@ -44,12 +44,53 @@ internal readonly struct StringSlice
     public override string ToString() => _source is null ? string.Empty :
         _start == 0 && Length == _source.Length ? _source : Span.ToString();
 
-    internal static string Materialize(ref StringSlice slice)
+    internal string? Source => _source;
+    internal int Start => _start;
+}
+
+// DOM-only storage: offsets never change during reads. Publish the complete
+// string before releasing the input, using only atomic reference writes. Do not
+// copy this storage during materialization; use Snapshot to obtain an immutable
+// StringSlice. Replacing a value remains a single-writer DOM mutation.
+internal struct StringSliceStorage
+{
+    private volatile string? _source;
+    private volatile string? _materialized;
+    private readonly int _start;
+    internal readonly int Length;
+
+    internal StringSliceStorage(StringSlice slice)
     {
-        if (slice._source is null) return string.Empty;
-        if (slice._start == 0 && slice.Length == slice._source.Length) return slice._source;
-        var value = slice.Span.ToString();
-        slice = new StringSlice(value);
-        return value;
+        _source = slice.Source;
+        _start = slice.Start;
+        Length = slice.Length;
+        _materialized = null;
+    }
+
+    internal readonly StringSlice Snapshot
+    {
+        get
+        {
+            // Read source first: a null source acquires the preceding cache
+            // publication. A retained source always uses the original offsets.
+            var source = _source;
+            return source is not null ? new StringSlice(source, _start, Length) : new StringSlice(_materialized ?? string.Empty);
+        }
+    }
+
+    internal readonly ReadOnlySpan<char> Span => Snapshot.Span;
+
+    internal string Materialize()
+    {
+        var cached = _materialized;
+        if (cached is not null) return cached;
+        var source = _source;
+        if (source is null) return _materialized ?? string.Empty;
+        var value = _start == 0 && Length == source.Length ? source : source.AsSpan(_start, Length).ToString();
+        // All racing readers produce the same string. Publish one winner so
+        // subsequent getters preserve cached string identity as well as content.
+        var winner = Interlocked.CompareExchange(ref _materialized, value, null) ?? value;
+        _source = null;
+        return winner;
     }
 }

@@ -10,13 +10,13 @@ internal enum TextAppendCheckpoint
 /// <summary>A text node.</summary>
 public sealed class Text : Node
 {
-    private StringSlice _data;
+    private StringSliceStorage _data;
     private char[]? _parsedStorage;
     private int _parsedLength;
     private string? _cachedParsedData;
 
     internal Text(Document owner, string data) : base(owner) =>
-        _data = new StringSlice(data ?? throw new ArgumentNullException(nameof(data)));
+        _data = new StringSliceStorage(new StringSlice(data ?? throw new ArgumentNullException(nameof(data))));
     public override NodeType NodeType => NodeType.Text;
     internal int DataLength => _parsedStorage is null ? _data.Length : _parsedLength;
     internal ReadOnlySpan<char> DataSpan => _parsedStorage is null ? _data.Span : _parsedStorage.AsSpan(0, _parsedLength);
@@ -25,8 +25,14 @@ public sealed class Text : Node
     {
         get
         {
-            if (_parsedStorage is not null) return _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
-            return StringSlice.Materialize(ref _data);
+            if (_parsedStorage is not null)
+            {
+                var cached = Volatile.Read(ref _cachedParsedData);
+                if (cached is not null) return cached;
+                var value = new string(_parsedStorage, 0, _parsedLength);
+                return Interlocked.CompareExchange(ref _cachedParsedData, value, null) ?? value;
+            }
+            return _data.Materialize();
         }
         set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
     }
@@ -52,7 +58,7 @@ public sealed class Text : Node
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? Data : null;
         LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
-        _data = new StringSlice(value);
+        _data = new StringSliceStorage(new StringSlice(value));
         _parsedStorage = null;
         _parsedLength = 0;
         _cachedParsedData = null;
@@ -68,7 +74,7 @@ public sealed class Text : Node
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (data.IsEmpty) return;
-        if (_parsedStorage is null && _data.TryConcat(data, out var combined))
+        if (_parsedStorage is null && _data.Snapshot.TryConcat(data, out var combined))
         {
             CommitParsedAppend(combined, null, _data.Length, combined.Length);
             cancellationToken.ThrowIfCancellationRequested();
@@ -136,7 +142,7 @@ public sealed class Text : Node
             LiveTraversalTracking.ReplaceData(this, (uint) oldLength, 0, (uint) (newLength - oldLength));
             _parsedStorage = storage;
             _parsedLength = newLength;
-            _data = source;
+            _data = new StringSliceStorage(source);
             _cachedParsedData = null;
             OwnerDocument!.MarkMutation();
             if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent, mayShorten: false);

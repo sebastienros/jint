@@ -16,6 +16,7 @@
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="PublicApiGenerator" />
     <PackageReference Include="Verify.NUnit" />
+    <Compile Include="..\Jint.Tests\DedicatedThread.cs" Link="DedicatedThread.cs" />
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
     <!-- The Browser cascade is tested here without an engine: these files must build against the parser alone. -->
     <Compile Include="..\Jint.Browser\Styling\NativeCssStyleSheets.Query.cs" Link="Styling\NativeCssStyleSheets.Query.cs" />
