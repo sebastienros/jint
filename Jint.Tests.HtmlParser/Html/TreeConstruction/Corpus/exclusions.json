@@ -1,0 +1,26 @@
+{
+  "html5test-com.dat#12": {
+    "SourceSha256": "2b759f4334858255b41034b84d1f29e32ad9c5a3a1776c94a98ed5093c7e6be2",
+    "CurrentTree": "| <?import namespace=\"foo\" implementation=\"#bar\">\n| <html>\n|   <head>\n|   <body>",
+    "Reason": "Valid import PI is a native processing instruction, not a historical bogus comment.",
+    "Spec": "https://html.spec.whatwg.org/multipage/parsing.html#processing-instruction-data-state"
+  },
+  "tests1.dat#40": {
+    "SourceSha256": "a92c78b91f76b2cf66002eb226fc8921b5759d20592b987225b20d462a2ea249",
+    "CurrentTree": "| <html>\n|   <head>\n|   <body>",
+    "Reason": "EOF in processing-instruction open state drops the unfinished PI.",
+    "Spec": "https://html.spec.whatwg.org/multipage/parsing.html#processing-instruction-open-state"
+  },
+  "tests1.dat#44": {
+    "SourceSha256": "d0efe2c45d06766ffedc82420eef53b0521811c3711868e1d4bb28cac742c484",
+    "CurrentTree": "| <?COMMENT >\n| <html>\n|   <head>\n|   <body>",
+    "Reason": "Valid COMMENT PI preserves target case and has empty data.",
+    "Spec": "https://html.spec.whatwg.org/multipage/parsing.html#processing-instruction-target-state"
+  },
+  "tests1.dat#47": {
+    "SourceSha256": "f62c2a64c18736d59e288a9ed83af792e859f99642a2eee3767081b20ec71e1a",
+    "CurrentTree": "| <?COM--MENT >\n| <html>\n|   <head>\n|   <body>",
+    "Reason": "Hyphens in a PI target are permitted; this is a native PI with empty data.",
+    "Spec": "https://html.spec.whatwg.org/multipage/parsing.html#processing-instruction-target-state"
+  }
+}

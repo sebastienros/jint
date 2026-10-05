@@ -8,6 +8,12 @@ internal sealed partial class HtmlTreeBuilder
     {
         if (name == "select")
         {
+            // HTML Standard §13.2.6.4.7, select start tag, fragment case.
+            if (_fragmentContext is { NamespaceUri: Namespaces.Html, LocalName: "select" })
+            {
+                Error("nested-select-start-tag");
+                return false;
+            }
             if (InScope("select"))
             {
                 Error("nested-select-start-tag");

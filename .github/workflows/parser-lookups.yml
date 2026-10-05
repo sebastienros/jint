@@ -30,3 +30,6 @@ jobs:
 
     - name: Test known name generator
       run: python3 -m unittest discover -s Jint.HtmlParser/Html -p test_generate_known_names.py -v
+
+    - name: Verify pinned html5lib tree corpus
+      run: python3 tools/sync_html5lib_corpus.py --check

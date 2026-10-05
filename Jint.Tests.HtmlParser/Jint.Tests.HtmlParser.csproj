@@ -9,6 +9,7 @@
     <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <ItemGroup>
+    <None Update="Html/TreeConstruction/Corpus/**/*" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />

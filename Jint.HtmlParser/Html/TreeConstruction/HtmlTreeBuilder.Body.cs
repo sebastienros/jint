@@ -172,6 +172,13 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "input")
         {
+            // HTML Standard §13.2.6.4.7: the select fragment context is not
+            // on the stack, so this guard must precede the open-select check.
+            if (_fragmentContext is { NamespaceUri: Namespaces.Html, LocalName: "select" })
+            {
+                Error("input-in-select-fragment");
+                return false;
+            }
             // HTML Standard §13.2.6.4.7: an input closes an open select
             // before formatting is reconstructed and the input is inserted.
             if (InScope("select"))

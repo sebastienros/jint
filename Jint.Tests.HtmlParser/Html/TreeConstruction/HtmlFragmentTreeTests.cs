@@ -17,6 +17,10 @@ public class HtmlFragmentTreeTests
     [TestCase("caption", "<p>x", "<p>x</p>")]
     [TestCase("colgroup", "<col>x", "<col></col>")]
     [TestCase("select", "<option>x<option>y", "<option>x</option><option>y</option>")]
+    // HTML Standard §13.2.6.4.7: input/select are ignored in a select fragment.
+    [TestCase("select", "<input><option>", "<option></option>")]
+    [TestCase("select", "<select><option>a<select><option>b", "<option>a</option><option>b</option>")]
+    [TestCase("select", "<div><input type=hidden><option>x", "<div><option>x</option></div>")]
     [TestCase("option", "<option>x", "<option>x</option>")]
     [TestCase("optgroup", "<option>x", "<option>x</option>")]
     [TestCase("template", "<tr><td>x", "<tr><td>x</td></tr>")]
