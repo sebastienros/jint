@@ -20,8 +20,8 @@ public sealed class SelectorCompilerTests
     [TestCase(":scope:root:empty:first-child:last-child:only-child:first-of-type:last-of-type:only-of-type")]
     [TestCase(":nth-child(2n+1 of .a, #b):nth-last-child(odd):nth-of-type(-n+3):nth-last-of-type(even)")]
     [TestCase(":nth-col(2n):nth-last-col(4)")]
-    [TestCase(":lang(en, 'fr'):dir(ltr):host:host(.a):host-context(.b)")]
-    [TestCase(":any-link:link:visited:checked:unchecked:indeterminate:default:enabled:disabled:required:optional:valid:invalid:in-range:out-of-range:read-only:read-write:placeholder-shown:open:closed")]
+    [TestCase(":lang(en, 'fr'):dir(ltr):host:host(.a)")]
+    [TestCase(":any-link:link:visited:checked:indeterminate:default:enabled:disabled:required:optional:valid:invalid:in-range:out-of-range:read-only:read-write:placeholder-shown:open:closed")]
     [TestCase(":hover:active:focus:focus-within:focus-visible:target:autofill:-webkit-autofill")]
     [TestCase("::before, ::after, ::selection, ::footnote-call, ::footnote-marker, ::first-line, ::first-letter, ::content, ::checkmark, ::picker-icon, ::picker(select), ::slotted(.x)")]
     [TestCase("::\\2d webkit-foo, ::-WeBkIt-Bar")]
@@ -64,6 +64,11 @@ public sealed class SelectorCompilerTests
         Parse(":is(:unknown)").Branches[0].Compounds[0].Predicates[0].Arguments!.Branches.Should().BeEmpty();
     }
 
+    [TestCase(":host-context(p)", "selector/unsupported-construct", 1)]
+    [TestCase("p, :host-context(p)", "selector/unsupported-construct", 4)]
+    [TestCase(":not(:host-context(p))", "selector/unsupported-construct", 6)]
+    [TestCase(@":HoSt-\63 ontext(p)", "selector/unsupported-construct", 1)]
+    [TestCase(":unchecked", "selector/unsupported-construct", 1)]
     [TestCase(":shadow", "selector/unsupported-construct", 1)]
     [TestCase(":contains(x)", "selector/unsupported-construct", 1)]
     [TestCase("::-webkit-foo(x)", "selector/unsupported-construct", 2)]

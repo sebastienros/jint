@@ -7,6 +7,10 @@ namespace Jint.Tests.Browser;
 /// <summary>https://drafts.csswg.org/selectors/#forgiving-selector: invalid branches are discarded.</summary>
 public sealed class ForgivingSelectorTests
 {
+    [TestCase(":is(:host-context(p), #target)")]
+    [TestCase(":where(:unchecked, #target)")]
+    [TestCase(":is(:not(:host-context(p)), #target)")]
+    [TestCase(":is(:host-context(p), #other, #target):not(#other)")]
     [TestCase(":is(div:unknown, #target)")]
     [TestCase(":where(|123, #target)")]
     [TestCase(":is(ns|div, #target)")]
@@ -55,6 +59,8 @@ public sealed class ForgivingSelectorTests
             """).Should().Be("true/true/true/true/true/true");
     }
 
+    [TestCase(":is(:host-context(p))")]
+    [TestCase(":where(:unchecked)")]
     [TestCase(":is(:unknown)")]
     [TestCase(":where(ns|div, > div, |123)")]
     [TestCase(":is()")]

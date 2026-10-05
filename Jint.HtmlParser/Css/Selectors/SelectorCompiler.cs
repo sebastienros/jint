@@ -293,6 +293,10 @@ internal static class SelectorCompiler
             if (name is null) throw Error("selector/invalid-syntax", nameValue.Span.Start);
             var function = nameValue.Kind == CssComponentKind.Function;
             var kind = Identify(name, pseudoElement, function, nameValue.Span.Start);
+            // Selectors §3.9: unsupported predicates are invalid selectors. Reject before
+            // publishing a program so forgiving lists recover and DOM queries report SyntaxError.
+            if (kind is PredicateKind.HostContext or PredicateKind.Unchecked)
+                throw Error("selector/unsupported-construct", nameValue.Span.Start);
             if ((pseudoElement || kind == PredicateKind.PseudoElement) && !f.AllowPseudoElements)
                 throw Error("selector/invalid-syntax", start);
             if (f.PseudoElementContext &&

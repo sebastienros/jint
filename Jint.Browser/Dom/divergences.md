@@ -145,7 +145,10 @@ The native selector VM implements [shadow stylesheet `:host` and
 normal-context functional argument. Browser cascade ordering compares encapsulation contexts before
 specificity, reversing that order for important declarations. This does not make DOM queries cross shadow
 boundaries or match hosts. `SelectorHostTests` and `NativeCssHostTests` cover these cases;
-`:host-context()` remains unsupported.
+`:host-context()` and `:unchecked` remain unsupported and are rejected during selector compilation.
+DOM queries expose a catchable `SyntaxError`, including on empty trees; forgiving `:is()` / `:where()`
+lists discard these branches, following [Selectors error handling](https://drafts.csswg.org/selectors/#invalid).
+`UnsupportedSelectorTests` covers script catches through the public page API.
 
 ### Sanitizer: sanitize after parsing, not while parsing
 

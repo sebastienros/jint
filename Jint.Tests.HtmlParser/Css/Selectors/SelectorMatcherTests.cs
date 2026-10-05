@@ -437,7 +437,6 @@ public sealed class SelectorMatcherTests
         checkpoints.Should().Be(2);
     }
 
-    [TestCase(":host-context(.x)")]
     [TestCase(":valid")]
     [TestCase("div, :valid")]
     public void UnimplementedFamiliesFailPreflightEvenWhenAnotherBranchMatches(string source)
