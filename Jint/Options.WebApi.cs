@@ -150,6 +150,13 @@ public sealed partial class Options
         private StorageOptions? _storage;
 
         /// <summary>
+        /// Settings for private IndexedDB storage, used when <see cref="Features"/> contains <see cref="WebApiFeatures.IndexedDb"/>.
+        /// </summary>
+        public IndexedDbOptions IndexedDb => Materialize(ref _indexedDb, ref _readOnly);
+
+        private IndexedDbOptions? _indexedDb;
+
+        /// <summary>
         /// Settings for the <c>caches</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
@@ -195,6 +202,7 @@ public sealed partial class Options
             clone._navigator = _navigator?.Clone();
             clone._diagnostics = _diagnostics?.Clone();
             clone._storage = _storage?.Clone();
+            clone._indexedDb = _indexedDb?.Clone();
             clone._cache = _cache?.Clone();
             clone._messaging = _messaging?.Clone();
             clone._workers = _workers?.Clone();
@@ -415,6 +423,49 @@ public sealed partial class Options
         public int MaxQueuedMessages { get; set { ThrowIfReadOnly(); field = value; } } = 16384;
 
         internal WorkerOptions Clone() => (WorkerOptions) MemberwiseClone();
+    }
+
+    /// <summary>
+    /// Configures private in-memory IndexedDB storage on .NET 8 or later.
+    /// </summary>
+    public sealed partial class IndexedDbOptions
+    {
+        /// <summary>
+        /// Creates IndexedDB settings with a 50 MiB retained-data quota.
+        /// </summary>
+        public IndexedDbOptions()
+        {
+        }
+
+        /// <summary>
+        /// Gets or sets the retained-data quota across this engine's IndexedDB databases, in bytes; defaults to 50 MiB.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Captured when the engine first uses IndexedDB. Configure before first use, including through
+        /// <c>Engine.WebApi.Enable</c>. Browser-managed stores use their own quota instead.
+        /// </para>
+        /// <para>
+        /// Nonnegative; zero refuses database creation, and <see cref="long.MaxValue"/> explicitly removes
+        /// the practical quota. A commit exceeding it aborts with <c>QuotaExceededError</c>.
+        /// </para>
+        /// <para>
+        /// Counts committed serialized values, keys, indexes and metadata, not peak CLR allocations.
+        /// Data and its charge survive global snapshot restores; deleting data releases its charge.
+        /// </para>
+        /// </remarks>
+        public long MaxBytes
+        {
+            get;
+            set
+            {
+                ThrowIfReadOnly();
+                if (value < 0) Throw.ArgumentOutOfRangeException(nameof(value), "IndexedDB quota must be nonnegative.");
+                field = value;
+            }
+        } = 50 * 1024 * 1024;
+
+        internal IndexedDbOptions Clone() => (IndexedDbOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1598,6 +1649,7 @@ public enum WebApiFeatures
     /// Opt-in, and not part of <see cref="Default"/>. Also enables <see cref="Events"/> and
     /// <see cref="StructuredClone"/>. Requests complete as tasks on the owning engine's event loop;
     /// hosts must pump it. Data survives a global snapshot restore but not engine disposal.
+    /// Private storage defaults to 50 MiB; configure <see cref="Options.IndexedDbOptions.MaxBytes"/> before first use.
     /// </para>
     /// <para>
     /// Enabling this flag separates tasks from microtasks immediately, including through live enablement.

@@ -15,9 +15,10 @@ internal sealed class IndexedDbAgent
     internal IndexedDbAgent(Engine engine)
     {
         _engine = engine;
+        Store = new IndexedDbStore(engine.Options.WebApi.IndexedDb.MaxBytes);
     }
 
-    internal IndexedDbStore Store { get; private set; } = new();
+    internal IndexedDbStore Store { get; private set; }
     internal bool OpaqueOrigin { get; private set; }
 
     internal void Configure(IndexedDbStore store, bool opaqueOrigin)

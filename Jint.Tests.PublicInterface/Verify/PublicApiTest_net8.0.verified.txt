@@ -347,6 +347,11 @@ namespace Jint
             public System.Func<Jint.Native.Function.Function, Acornima.Ast.Node, string?> FunctionToStringHandler { get; set; }
             public bool StringCompilationAllowed { get; set; }
         }
+        public sealed class IndexedDbOptions
+        {
+            public IndexedDbOptions() { }
+            public long MaxBytes { get; set; }
+        }
         public sealed class InteropOptions
         {
             public InteropOptions() { }
@@ -461,6 +466,7 @@ namespace Jint
             public Jint.Options.DiagnosticsOptions Diagnostics { get; }
             public Jint.WebApiFeatures Features { get; set; }
             public Jint.Options.FetchOptions Fetch { get; }
+            public Jint.Options.IndexedDbOptions IndexedDb { get; }
             public Jint.Options.WebLocksOptions Locks { get; }
             public Jint.Options.MessagingOptions Messaging { get; }
             public Jint.Options.NavigatorOptions Navigator { get; }

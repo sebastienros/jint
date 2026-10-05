@@ -22,11 +22,28 @@ engine.Tasks.ProcessTasks();
 ```
 
 The flag also enables events, DOMException and structured cloning. It grants no network access. Each ordinary
-engine has its own in-memory store, with no public provider API and no storage quota. Stored data survives a
+engine has its own in-memory store with a 50 MiB retained-data quota. Stored data survives a
 global snapshot restore; live connections and transactions do not. Private data is retained with the engine;
 dispose it to release connections, and release references to it to reclaim that data.
-Do not expose unlimited retained storage to untrusted workloads without bounding the engine's lifetime and
-process resources.
+Set `Options.WebApi.IndexedDb.MaxBytes` before first IndexedDB use (also supported in the
+`Engine.WebApi.Enable` configuration callback). The nonnegative quota covers committed serialized values,
+keys, index entries and metadata across all databases on that engine. A commit exceeding it aborts with
+`QuotaExceededError`; failed commits publish no changes. Deletion releases the charge. Zero refuses database
+creation (the aborted upgrade's open request reports `AbortError`); `long.MaxValue` explicitly opts into practically unlimited retained data. The quota and its charge
+survive global snapshot restores and repeated host entries, independently of `LimitMemory`.
+
+```csharp
+using var engine = new Engine(options =>
+{
+    options.WebApi.IndexedDb.MaxBytes = 5 * 1024 * 1024;
+    options.UseWebApis(WebApiFeatures.IndexedDb);
+});
+```
+
+Changing the option after the private store has been created does not resize it. Sharing `Options` shares
+configuration, never the private data. There is no public IndexedDB storage-provider API. This quota bounds
+retained data, not peak allocations during cloning or an in-flight transaction; use execution and memory
+budgets as well.
 
 ## Requests, transactions and values
 
@@ -66,7 +83,7 @@ context-owned, not an extension of that public provider.
 `BrowserOptions.MaxIndexedDbBytes` defaults to 50 MiB per origin. Accounting covers committed serialized values,
 keys, index entries and metadata across all databases. A commit that exceeds the quota aborts with
 `QuotaExceededError`; deleting data/databases releases its charge. Zero refuses database creation. This is a
-retained-data quota, not a bound on peak allocations while cloning values or copying a transaction snapshot;
+retained-data quota, not a bound on peak allocations while cloning values or holding transaction state;
 use the browser's memory and task budgets as well.
 
 Opaque origins still expose the interface. `open()` and `deleteDatabase()` throw `SecurityError`, and
@@ -78,6 +95,6 @@ Opaque origins still expose the interface. `open()` and `deleteDatabase()` throw
 - `durability` is validated and returned, but has no disk-flush behavior.
 - No IndexedDB CDP domain or `Storage.clearDataForOrigin` integration.
 - IDB 3.1 additions such as `getAllRecords()` and the newer `getAll` options overload are not implemented.
-- Writable transactions copy their scoped stores; large write scopes consume additional memory.
+- Writable transactions fork store/index metadata and share persistent record/index trees; changed tree paths allocate additional memory.
 - The upstream WPT IndexedDB directory is not yet part of the pinned vendored corpus. Repository tests cover
   the implementation, but this is not a claim of full IndexedDB WPT conformance.

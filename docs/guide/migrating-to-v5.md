@@ -7250,6 +7250,20 @@ engine-retired reason.
 Retiring an engine is terminal; use `RestoreGlobalSnapshot` only when the same engine must
 continue serving a trusted cycle.
 
+### 5.40 Plain-engine IndexedDB storage has a configurable quota
+
+`Options.WebApi.IndexedDb` and `Options.IndexedDbOptions.MaxBytes` expose the private store's retained-data
+quota on .NET 8 or later. IndexedDB remains opt-in. Its private store now defaults to 50 MiB across all
+of the engine's databases, rather than unlimited storage. Configure `MaxBytes` before first use, including
+through the live-enable callback; zero refuses database creation, and `long.MaxValue` restores the practical
+unlimited-storage behavior. Negative values are rejected.
+
+A commit exceeding the quota aborts with `QuotaExceededError` without publishing its writes. Stored data
+and its quota charge survive global snapshot restores and host entries; deleting data releases the charge.
+The quota counts retained serialized values, keys, indexes and metadata, not peak CLR allocations. Options
+sharing does not share private stores. Browser-managed storage continues to use `BrowserOptions.MaxIndexedDbBytes`.
+See [IndexedDB](web-apis/indexeddb.md) for configuration and lifetime details.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

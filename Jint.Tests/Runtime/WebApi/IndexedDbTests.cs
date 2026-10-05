@@ -42,6 +42,13 @@ public sealed class IndexedDbTests
         => engine.Evaluate("(async () => {" + script + "})()").UnwrapIfPromise();
 
     [Test]
+    public void PrivateStoreUsesFiniteDefaultQuota()
+    {
+        using var engine = Create();
+        engine._webApi!.IndexedDb.Store.MaxBytes.Should().Be(50 * 1024 * 1024);
+    }
+
+    [Test]
     public void OptInHasItsDependenciesButIsNotDefault()
     {
         using var defaults = new Engine(o => o.UseWebApis());
