@@ -68,7 +68,7 @@ public sealed class DependencyHashingTests
             release.Set();
             if (fail)
             {
-                var error = Assert.ThrowsAsync<IOException>(async () => await task);
+                var error = await Assert.ThrowsAsync<IOException>(async () => await task);
                 Assert.That(error, Is.SameAs(failure));
                 Assert.That(task.IsFaulted, Is.True);
             }
@@ -155,7 +155,7 @@ public sealed class DependencyHashingTests
             var activeAtFailure = Volatile.Read(ref active);
             var returnedBeforeReadersFinished = task.IsCompleted;
             release.Set();
-            var error = Assert.ThrowsAsync<IOException>(async () => await task);
+            var error = await Assert.ThrowsAsync<IOException>(async () => await task);
             Assert.That(error, Is.SameAs(failure));
             Assert.That(failureReached, Is.True);
             Assert.That(activeAtFailure, Is.EqualTo(4));

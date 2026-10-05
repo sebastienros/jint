@@ -70,7 +70,6 @@
 
   <ItemGroup Condition="'$(RunsPublicApiBaselines)' == 'true'">
     <PackageReference Include="PublicApiGenerator" />
-    <PackageReference Include="Verify.DiffPlex" />
     <PackageReference Include="Verify.NUnit" />
   </ItemGroup>
 
