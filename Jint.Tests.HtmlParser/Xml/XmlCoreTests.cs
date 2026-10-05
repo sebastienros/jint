@@ -130,6 +130,27 @@ public class XmlCoreTests
         context.ChildCount.Should().Be(0);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ExistingDocumentAndFragmentPollInsideOneLongToken(bool fragment)
+    {
+        var document = Document.CreateXml();
+        var context = document.CreateElement("context");
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        var source = "<!--" + new string('x', 12_000) + "--><r/>";
+        void Poll() { polls++; cancellation.Cancel(); }
+        var error = Assert.Throws<OperationCanceledException>(() =>
+        {
+            if (fragment) XmlTreeParser.ParseFragment(source, context, ParseLimits.Unbounded, Poll, cancellation.Token);
+            else XmlTreeParser.ParseIntoDocument(source, document, ParseLimits.Unbounded, false, Poll, cancellation.Token);
+        });
+        error.Should().BeOfType<OperationCanceledException>();
+        polls.Should().Be(1);
+        document.ChildCount.Should().Be(0);
+        context.ChildCount.Should().Be(0);
+    }
+
     [Test]
     public void CancelsInsideOneLongLexicalToken()
     {

@@ -103,6 +103,10 @@ dependency XML package is involved. Text navigations already arrive as the HTML 
 HTML session driver; keep that limitation distinct from `DOMParser`, whose documents must be inert.
 `DOMParser` uses a scripting-disabled HTML session or the native XML parser without this resource driver.
 It converts XML syntax failure to a `parsererror` document, not cancellation or resource-limit failure.
+All Browser XML document and fragment paths connect the native parser's bounded work polls to
+`Engine.Constraints.Check`; those polls observe the enclosing turn without re-arming it or pumping tasks.
+`BrowserXmlParsing` uses `ExecuteWithMemoryAccounting` to charge native allocations to that same turn,
+including script-free navigation.
 
 ### Resource loading and completion
 

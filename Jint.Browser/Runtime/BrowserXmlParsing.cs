@@ -5,6 +5,19 @@ namespace Jint.Browser.Runtime;
 /// <summary>Resource policy shared by XML navigation, DOMParser and XML fragments.</summary>
 internal static class BrowserXmlParsing
 {
+    // Native parsing outside script still needs an allocation segment. Reuse an
+    // active script segment or the PageBudget's explicit operation without resetting
+    // its budgets, running a checkpoint or pumping the page loop.
+    internal static Document ParseDocument(Engine engine, string markup, Document document,
+        BrowserOptions? options, CancellationToken cancellationToken)
+        => engine.ExecuteWithMemoryAccounting(() => XmlDocumentParser.Parse(markup, document,
+            Options(options), engine.Constraints.Check, cancellationToken));
+
+    internal static DocumentFragment ParseFragment(Engine engine, string markup, Element context,
+        BrowserOptions? options, CancellationToken cancellationToken)
+        => engine.ExecuteWithMemoryAccounting(() => XmlDocumentParser.ParseFragment(markup, context,
+            Options(options), engine.Constraints.Check, cancellationToken));
+
     internal static XmlParseOptions Options(BrowserOptions? browserOptions)
     {
         var defaults = new XmlParseOptions();

@@ -123,13 +123,17 @@ internal sealed partial class XmlTreeParser
 
     internal static Document ParseIntoDocument(string source, Document document, ParseLimits limits,
         bool requireSvgRoot, CancellationToken cancellationToken)
+        => ParseIntoDocument(source, document, limits, requireSvgRoot, null, cancellationToken);
+
+    internal static Document ParseIntoDocument(string source, Document document, ParseLimits limits,
+        bool requireSvgRoot, Action? onCancellationPoll, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(limits);
         if (document.Kind != DocumentKind.Xml || document.ChildCount != 0)
             throw new ArgumentException("A fresh empty XML document is required.", nameof(document));
-        var parser = new XmlTreeParser(source, limits, null, document, requireSvgRoot, null, cancellationToken);
+        var parser = new XmlTreeParser(source, limits, null, document, requireSvgRoot, onCancellationPoll, cancellationToken);
         parser.Parse();
         return document;
     }

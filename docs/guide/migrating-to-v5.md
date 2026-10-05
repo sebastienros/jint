@@ -5936,6 +5936,16 @@ flag, and an existing engine cannot disable enabled features. Resource entries h
 [performance timeline](web-apis/crypto-and-performance.md#performance-timeline) for buffer management,
 body completion, and cross-origin timing visibility.
 
+### 4.149 Browser XML parsing observes the page turn's time and allocation budgets
+
+XML `DOMParser.parseFromString`, XML navigation (including documents with no script), and XML fragment
+setters such as `innerHTML` now poll engine constraints during parsing. Earlier previews could complete
+native XML work without observing `BrowserOptions.MaxTaskDuration` or charging its allocations to
+`BrowserOptions.MemoryLimit`. Budget exhaustion propagates as `TimeoutException` or
+`MemoryLimitExceededException`; DOMParser converts only XML syntax failures to a `parsererror` document.
+The existing lexical XML limits still apply independently. Standalone `MarkupParser` entry points retain
+their parser limits and cancellation tokens, without a Browser engine budget.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

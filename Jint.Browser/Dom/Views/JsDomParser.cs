@@ -108,8 +108,7 @@ internal sealed class JsDomParser : ObjectInstance
     {
         try
         {
-            return XmlDocumentParser.Parse(source, CreateDocument(type), BrowserXmlParsing.Options(_runtime.Options),
-                _runtime.Cancellation?.Token ?? CancellationToken.None);
+            return BrowserXmlParsing.ParseDocument(_runtime.Engine, source, CreateDocument(type), _runtime.Options, _runtime.Cancellation?.Token ?? CancellationToken.None);
         }
         catch (MarkupParseException exception)
         {

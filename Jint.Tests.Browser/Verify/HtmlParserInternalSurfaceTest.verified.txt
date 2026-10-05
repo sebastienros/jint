@@ -586,6 +586,7 @@ internal Jint.HtmlParser.Svg.SvgViewBox
 internal Jint.HtmlParser.XPathWorkStage
 internal Jint.HtmlParser.XmlDocumentParser
     Parse
+    ParseFragment
 public Jint.HtmlParser.Attr
     Rehome
 public Jint.HtmlParser.Document
