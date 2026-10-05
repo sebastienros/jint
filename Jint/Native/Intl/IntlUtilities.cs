@@ -942,6 +942,54 @@ internal static class IntlUtilities
     }
 
     /// <summary>
+    /// The hour cycles in common use for a locale, most preferred first, as the engine's
+    /// <see cref="ICldrProvider.GetHourCycles"/> answers them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both readers of that data come through here: steps 2 to 7 of
+    /// https://tc39.es/ecma402/#sec-hourcyclesoflocale, and the <c>[[hourCycle]]</c>, <c>[[hourCycle12]]</c>
+    /// and <c>[[hourCycle24]]</c> locale data https://tc39.es/ecma402/#sec-createdatetimeformat reads. So a host's
+    /// answer moves <c>getHourCycles()</c> and a formatter's defaults together, and for one locale the
+    /// formatter's default is <c>getHourCycles()[0]</c> whichever provider answers.
+    /// </para>
+    /// <para>
+    /// The shared singleton is not asked: its member answers a copy of the embedded table, so asking would only
+    /// allocate and re-check an answer known to be valid. A provider answering null has no opinion, and the
+    /// embedded table answers for it too.
+    /// </para>
+    /// <para>
+    /// A host's answer keeps only the four identifiers the algorithm allows, each once and in its order, and
+    /// one left with none of them is <c>« "h23" »</c>, step 7's fallback. The caller never writes to the
+    /// array returned.
+    /// </para>
+    /// </remarks>
+    internal static string[] GetLocaleHourCycles(Engine engine, string locale)
+    {
+        var provider = engine.Options.Intl.CldrProvider;
+        if (!ReferenceEquals(provider, DefaultCldrProvider.Instance) && provider.GetHourCycles(locale) is { } answer)
+        {
+            return KeepHourCycleIdentifiers(answer);
+        }
+
+        return TimeData.GetHourCycles(locale);
+    }
+
+    private static string[] KeepHourCycleIdentifiers(string[] answer)
+    {
+        var kept = new List<string>(answer.Length);
+        foreach (var hourCycle in answer)
+        {
+            if (hourCycle is "h11" or "h12" or "h23" or "h24" && !kept.Contains(hourCycle))
+            {
+                kept.Add(hourCycle);
+            }
+        }
+
+        return kept.Count > 0 ? kept.ToArray() : ["h23"];
+    }
+
+    /// <summary>
     /// Validates that a string matches the Unicode extension value pattern: (3*8alphanum) *("-" (3*8alphanum))
     /// Only ASCII alphanumeric characters are allowed.
     /// </summary>

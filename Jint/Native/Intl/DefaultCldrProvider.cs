@@ -11,7 +11,7 @@ namespace Jint.Native.Intl;
 /// <remarks>
 /// <para>
 /// Every member is <c>virtual</c>, so changing one datum means deriving from this class and overriding
-/// that one member. The other eighteen are inherited, and nothing has to be delegated by hand.
+/// that one member. The other twenty are inherited, and nothing has to be delegated by hand.
 /// </para>
 /// <para>
 /// Install the derived instance on <see cref="Options.IntlOptions.CldrProvider"/>; leaving that property
@@ -616,9 +616,9 @@ public class DefaultCldrProvider : ICldrProvider
     /// and <c>TH</c> (<c>"buddhist"</c>). <c>SA</c> preferred <c>"islamic-umalqura"</c> until CLDR 46.
     /// </para>
     /// <para>
-    /// <c>Intl.Locale.prototype.getCalendars</c> reads the same table directly rather than through this
-    /// member, so an override here changes the calendar <c>Intl.DateTimeFormat</c> defaults to and leaves
-    /// that list as it was.
+    /// <see cref="GetCalendars"/> reads the same table, so for a locale without <c>-u-rg-</c> or <c>-u-sd-</c>
+    /// this is the first calendar <c>Intl.Locale.prototype.getCalendars</c> lists. An override here moves only
+    /// <c>Intl.DateTimeFormat</c>'s default; a host that wants the two to agree overrides both members.
     /// </para>
     /// <para>
     /// The <c>-u-rg-</c> and <c>-u-sd-</c> keywords are not read here. <c>Intl.DateTimeFormat</c> asks for the
@@ -657,6 +657,42 @@ public class DefaultCldrProvider : ICldrProvider
             FirstDay = IntlUtilities.CldrDayNumberToDayOfWeek(WeekData.GetFirstDayOfWeek(region)),
             Weekend = weekend
         };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// Read out of CLDR 48.2's <c>timeData</c> for the language and the region
+    /// https://tc39.es/ecma402/#sec-hourcyclesoflocale picks: a <c>-u-rg-</c> override CLDR has time data for,
+    /// else the region subtag, a <c>-u-sd-</c> subdivision's region, the likely region, and <c>001</c>. The
+    /// language joined to a region is tried first, so <c>"fr-CA"</c> is <c>h23</c> first and <c>"en-CA"</c> <c>h12</c>.
+    /// </para>
+    /// <para>
+    /// Never null: a region CLDR has no time data for answers <c>["h23"]</c>. Each call returns a new array.
+    /// </para>
+    /// </remarks>
+    public virtual string[]? GetHourCycles(string locale)
+    {
+        return [.. TimeData.GetHourCycles(locale)];
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <para>
+    /// Read out of CLDR 48.2's <c>calendarPreferenceData</c> for the region
+    /// https://tc39.es/ecma402/#sec-calendarsoflocale picks, the way <see cref="GetHourCycles"/> picks it, and
+    /// answered as CLDR orders it — <c>islamic</c> and <c>islamic-rgsa</c> included, which
+    /// <c>getCalendars</c> then leaves out unless an <see cref="Temporal.ICalendarProvider"/> claims them.
+    /// </para>
+    /// <para>
+    /// Never null: a region CLDR lists no preferences for answers <c>["gregory"]</c>, the world's. Each call
+    /// returns a new array.
+    /// </para>
+    /// </remarks>
+    public virtual string[]? GetCalendars(string locale)
+    {
+        var calendars = CalendarPreferenceData.GetCalendarsInUse(RegionPreference.Of(locale));
+        return calendars.Length == 0 ? [CalendarPreferenceData.Default] : [.. calendars];
     }
 
     private static string? ExtractRegion(string locale)

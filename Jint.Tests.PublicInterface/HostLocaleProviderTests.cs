@@ -16,7 +16,7 @@ namespace Jint.Tests.PublicInterface;
 public class HostLocaleProviderTests
 {
     [Test]
-    public void OverridingOneCldrDatumLeavesTheOtherEighteenMembersInherited()
+    public void OverridingOneCldrDatumLeavesTheOtherTwentyMembersInherited()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrencyName());
 
@@ -34,6 +34,8 @@ public class HostLocaleProviderTests
         engine.Evaluate("new Intl.RelativeTimeFormat('en').format(3, 'day')")
             .AsString().Should().Be("in 3 days");
         engine.Evaluate("Intl.supportedValuesOf('unit').length").AsNumber().Should().BeGreaterThan(0);
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-US').getHourCycles())").AsString().Should().Be("""["h12","h23"]""");
+        engine.Evaluate("JSON.stringify(new Intl.Locale('th').getCalendars())").AsString().Should().Be("""["buddhist","gregory"]""");
     }
 
     [Test]
@@ -148,11 +150,66 @@ public class HostLocaleProviderTests
         engine.Evaluate("new Intl.DateTimeFormat('en-US-u-ca-buddhist').resolvedOptions().calendar")
             .AsString().Should().Be("buddhist");
 
-        // …and every other member is the inherited data, delegated by nobody
+        // …and every other member is the inherited data, delegated by nobody — the calendar list included,
+        // which is a member of its own, so moving the default alone leaves getCalendars()[0] where it was
         engine.Evaluate("new Intl.NumberFormat('en', { style: 'unit', unit: 'meter' }).format(5)")
             .AsString().Should().Be("5 m");
         engine.Evaluate("new Intl.DisplayNames('en', { type: 'currency' }).of('USD')")
             .AsString().Should().Be("US Dollar");
+        engine.Evaluate("new Intl.Locale('en-US').getCalendars()[0]").AsString().Should().Be("gregory");
+    }
+
+    /// <summary>
+    /// The default calendar and the calendar list are two members, because the specification keys the one by
+    /// the matched locale and the other by the whole tag. A host that overrides both keeps
+    /// <c>getCalendars()[0]</c> and the formatter's default calendar the same answer.
+    /// </summary>
+    [Test]
+    public void OverridingTheDefaultCalendarAndTheCalendarListTogetherKeepsThemInAgreement()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new HebrewByDefaultAndFirst());
+
+        foreach (var locale in new[] { "en-US", "th", "ar-SA", "en-GB-u-rg-thzzzz" })
+        {
+            var first = engine.Evaluate($"new Intl.Locale('{locale}').getCalendars()[0]").AsString();
+            var formatter = engine.Evaluate($"new Intl.DateTimeFormat('{locale}').resolvedOptions().calendar").AsString();
+
+            first.Should().Be("hebrew", locale);
+            formatter.Should().Be(first, locale);
+        }
+
+        engine.Evaluate("JSON.stringify(new Intl.Locale('th').getCalendars())").AsString().Should().Be("""["hebrew","gregory"]""");
+
+        // a calendar the locale names is still ahead of both
+        engine.Evaluate("JSON.stringify(new Intl.Locale('th-u-ca-buddhist').getCalendars())").AsString().Should().Be("""["buddhist"]""");
+        engine.Evaluate("new Intl.DateTimeFormat('th-u-ca-buddhist').resolvedOptions().calendar").AsString().Should().Be("buddhist");
+    }
+
+    /// <summary>
+    /// One member answers both readers of a locale's hour cycles: <c>Intl.Locale.prototype.getHourCycles</c>,
+    /// and the cycles <c>Intl.DateTimeFormat</c> resolves when nothing but the locale decides — its default,
+    /// and the one <c>hour12</c> picks either way — so the two cannot disagree.
+    /// </summary>
+    [Test]
+    public void OverridingTheHourCyclesReachesIntlLocaleAndDateTimeFormat()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new ZeroBasedClocks());
+
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-GB').getHourCycles())").AsString().Should().Be("""["h11","h24"]""");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB', { hour: 'numeric' }).resolvedOptions().hourCycle").AsString().Should().Be("h11");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: true }).resolvedOptions().hourCycle").AsString().Should().Be("h11");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false }).resolvedOptions().hourCycle").AsString().Should().Be("h24");
+        // noon on the 0-11 clock; the day period after it is the platform's designator ("pm" or "PM")
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15, 12, 7))")
+            .AsString().Should().StartWith("0:07 ");
+
+        // …a cycle the locale or the options name is still ahead of the provider
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-GB-u-hc-h23').getHourCycles())").AsString().Should().Be("""["h23"]""");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB-u-hc-h23', { hour: 'numeric' }).resolvedOptions().hourCycle").AsString().Should().Be("h23");
+        engine.Evaluate("new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h12' }).resolvedOptions().hourCycle").AsString().Should().Be("h12");
+
+        // …and the calendars are still the inherited data
+        engine.Evaluate("JSON.stringify(new Intl.Locale('th').getCalendars())").AsString().Should().Be("""["buddhist","gregory"]""");
     }
 
     [Test]
@@ -451,7 +508,7 @@ public class HostLocaleProviderTests
     }
 }
 
-/// <summary>One currency's display name; the other seventeen members are inherited.</summary>
+/// <summary>One currency's display name; the other twenty members are inherited.</summary>
 file sealed class OneCurrencyName : DefaultCldrProvider
 {
     public override string? GetCurrencyDisplayName(string locale, string code)
@@ -474,13 +531,27 @@ file sealed class SundayIsTheWeekend : DefaultCldrProvider
         => new WeekInfo { FirstDay = DayOfWeek.Wednesday, Weekend = [DayOfWeek.Sunday] };
 }
 
-/// <summary>One numbering system the engine has never heard of; every other one is inherited.</summary>
 /// <summary>A host whose locales all keep the Hebrew calendar.</summary>
 file sealed class HebrewByDefault : DefaultCldrProvider
 {
     public override string? GetDefaultCalendar(string locale) => "hebrew";
 }
 
+/// <summary>The same host, answering the calendar list too, so the two readers agree.</summary>
+file sealed class HebrewByDefaultAndFirst : DefaultCldrProvider
+{
+    public override string? GetDefaultCalendar(string locale) => "hebrew";
+
+    public override string[]? GetCalendars(string locale) => ["hebrew", "gregory"];
+}
+
+/// <summary>A host whose clocks count from zero; every other member is inherited.</summary>
+file sealed class ZeroBasedClocks : DefaultCldrProvider
+{
+    public override string[]? GetHourCycles(string locale) => ["h11", "h24"];
+}
+
+/// <summary>One numbering system the engine has never heard of; every other one is inherited.</summary>
 file sealed class AlphabetDigits : DefaultCldrProvider
 {
     public override string? GetNumberingSystemDigits(string numberingSystem)
@@ -536,7 +607,7 @@ file sealed class NauticalDayPeriods : DefaultCldrProvider
     public override string[]? GetDayPeriods(string locale, string style, string? calendar) => ["MORN", "EVE"];
 }
 
-/// <summary>One list-pattern set; the other seventeen members are inherited.</summary>
+/// <summary>One list-pattern set; the other twenty members are inherited.</summary>
 file sealed class GermanLists : DefaultCldrProvider
 {
     public override ListPatterns? GetListPatterns(string locale, string type, string style)
@@ -562,7 +633,6 @@ file sealed class ShiftedHebrewEra : DefaultCalendarProvider
 }
 
 /// <summary>
-/// Present only to be compiled: the compiler is the only thing that checks that all nineteen are virtual.
 /// A calendar Jint has never heard of, defined as ISO shifted by the Mayan Long Count epoch so the
 /// arithmetic is checkable by eye. The two conversions are the whole subclass: nobody but the host can
 /// convert a calendar the engine does not know, and everything else about it is inherited.
@@ -602,7 +672,7 @@ file sealed class WithMayan : DefaultCalendarProvider
 
 /// <summary>
 /// Present only to be compiled: a host reaching a member the engine never consults still has to be able
-/// to override it, and the compiler is the only thing that checks that all twenty are virtual.
+/// to override it, and the compiler is the only thing that checks that all twenty-one are virtual.
 /// </summary>
 file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
 {
@@ -613,12 +683,15 @@ file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
     public override string? GetDefaultNumberingSystem(string locale) => base.GetDefaultNumberingSystem(locale);
     public override CurrencyData? GetCurrencyData(string locale, string currencyCode) => base.GetCurrencyData(locale, currencyCode);
     public override UnitPatterns? GetUnitPatterns(string locale, string unit, string style) => base.GetUnitPatterns(locale, unit, style);
+    public override string? GetDefaultCalendar(string locale) => base.GetDefaultCalendar(locale);
     public override string[]? GetMonthNames(string locale, string style, string? calendar) => base.GetMonthNames(locale, style, calendar);
     public override string[]? GetWeekdayNames(string locale, string style) => base.GetWeekdayNames(locale, style);
     public override string[]? GetDayPeriods(string locale, string style, string? calendar) => base.GetDayPeriods(locale, style, calendar);
     public override string[]? GetEraNames(string locale, string style, string? calendar) => base.GetEraNames(locale, style, calendar);
     public override string? GetCurrencyDisplayName(string locale, string code) => base.GetCurrencyDisplayName(locale, code);
     public override WeekInfo? GetWeekInfo(string locale) => base.GetWeekInfo(locale);
+    public override string[]? GetHourCycles(string locale) => base.GetHourCycles(locale);
+    public override string[]? GetCalendars(string locale) => base.GetCalendars(locale);
     public override IReadOnlyCollection<string> GetSupportedCollations() => base.GetSupportedCollations();
     public override IReadOnlyCollection<string> GetSupportedCurrencies() => base.GetSupportedCurrencies();
     public override IReadOnlyCollection<string> GetSupportedNumberingSystems() => base.GetSupportedNumberingSystems();

@@ -108,6 +108,10 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, localeMatcher, []);
         var resolvedLocale = resolved.Locale;
 
+        // The matched available locale, which carries no Unicode extension: the locale the CLDR provider is
+        // asked about. resolvedLocale gains the extensions the formatter keeps further down.
+        var dataLocale = resolvedLocale;
+
         // Extract unicode extension values from the requested locale. One walk answers for all three
         // keys, and UnicodeExtension is the only thing in the engine that knows where a value ends —
         // reading a key at a time by hand is what cost every tag carrying more than one of them.
@@ -245,7 +249,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
                 //   Let hc be resolvedLocaleData.[[hourCycle12]].
                 // Else if hour12 is false, then
                 //   Let hc be resolvedLocaleData.[[hourCycle24]].
-                var localeHourCycles = Data.TimeData.GetHourCycles(resolvedLocale);
+                // The locale data is the CLDR provider's answer for the data locale, which getHourCycles reads too.
+                var localeHourCycles = IntlUtilities.GetLocaleHourCycles(_engine, dataLocale);
                 hourCycle = hour12.Value ? Data.TimeData.GetHourCycle12(localeHourCycles) : Data.TimeData.GetHourCycle24(localeHourCycles);
             }
             else
@@ -449,8 +454,10 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // https://tc39.es/ecma402/#sec-resolvelocale step 13.c: with no calendar option and no -u-ca-
         // extension, the key starts at keyLocaleData[0] — the locale's own calendar, which the CLDR
         // provider answers for. The calendar is always resolved, so an answer this engine cannot format
-        // in becomes "gregory" rather than a calendar nothing can write a date with.
-        calendar ??= GetDefaultCalendarForLocale(resolvedLocale);
+        // in becomes "gregory" rather than a calendar nothing can write a date with. keyLocaleData is the
+        // data locale's, so the provider is asked about it and not about the -u-hc- or -u-nu- keyword the
+        // formatter kept, the same locale the hour cycles are asked about.
+        calendar ??= GetDefaultCalendarForLocale(dataLocale);
 
         // https://tc39.es/ecma402/#sec-formatdatetimepattern step 13 takes the field values from
         // dateTimeFormat.[[Calendar]] — the calendar resolvedOptions() reports — and JsDateTimeFormat is

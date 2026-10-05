@@ -113,11 +113,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
     /// <summary>
     /// The hc of https://tc39.es/ecma402/#sec-createdatetimeformat: <see cref="HourCycle"/>, or when that is
-    /// null, <c>resolvedLocaleData.[[hourCycle]]</c> — CLDR's preferred cycle for the locale, which is
-    /// <c>getHourCycles()[0]</c> of the same locale. <c>resolvedOptions()</c> reports it and all three lanes
+    /// null, <c>resolvedLocaleData.[[hourCycle]]</c> — the CLDR provider's preferred cycle for the locale, which
+    /// is <c>getHourCycles()[0]</c> of the same locale. <c>resolvedOptions()</c> reports it and all three lanes
     /// that write an hour write with it, so the two cannot disagree.
     /// </summary>
-    internal string ResolvedHourCycle => HourCycle ?? (_localeHourCycle ??= Data.TimeData.GetHourCycles(Locale)[0]);
+    /// <remarks>
+    /// The provider is asked about the data locale, as the constructor asks it for <c>hour12</c>: <see cref="Locale"/>
+    /// with the <c>-u-ca-</c> and <c>-u-nu-</c> keywords the formatter kept taken off again.
+    /// </remarks>
+    internal string ResolvedHourCycle
+        => HourCycle ?? (_localeHourCycle ??= IntlUtilities.GetLocaleHourCycles(_engine, UnicodeExtension.RemoveSequence(Locale))[0]);
 
     internal string? DateStyle { get; }
     internal string? TimeStyle { get; }

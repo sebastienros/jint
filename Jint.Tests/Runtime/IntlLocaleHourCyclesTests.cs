@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Native.Intl;
+
 namespace Jint.Tests.Runtime;
 
 /// <summary>
@@ -114,5 +116,98 @@ public class IntlLocaleHourCyclesTests
                 return first !== locale.getHourCycles() && JSON.stringify(new Intl.Locale('en-US').getHourCycles());
             })()
             """).AsString().Should().Be("""["h12","h23"]""");
+    }
+
+    /// <summary>
+    /// <see cref="ICldrProvider.GetHourCycles"/> is asked for the whole tag, keywords included, the way
+    /// <see cref="ICldrProvider.GetWeekInfo"/> is: the region the keywords pick is the provider's to resolve.
+    /// It is not asked at all when the locale carries its own hour cycle.
+    /// </summary>
+    [Test]
+    public void AProviderIsAskedForTheWholeTag()
+    {
+        var provider = new RecordsWhatItWasAsked();
+        var engine = new Engine(options => options.Intl.CldrProvider = provider);
+
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-US-u-rg-gbzzzz').getHourCycles())").AsString()
+            .Should().Be("""["h23","h12"]""");
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-GB-u-hc-h12').getHourCycles())").AsString()
+            .Should().Be("""["h12"]""");
+
+        provider.Asked.Should().Equal("en-US-u-rg-gbzzzz");
+    }
+
+    /// <summary>
+    /// A provider with no opinion leaves the answer to the embedded data, read for the same region the default
+    /// provider picks — the language joined to it, and the <c>-u-rg-</c> override, included.
+    /// </summary>
+    [TestCase("fr-CA", """["h23","h12"]""")]
+    [TestCase("en-US-u-rg-gbzzzz", """["h23","h12"]""")]
+    [TestCase("fr-US-u-rg-cazzzz", """["h23","h12"]""")]
+    [TestCase("ht-HT", """["h23"]""")]
+    public void AProviderWithNoOpinionFallsBackThroughTheSameRegionPreference(string tag, string expected)
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new NoHourCycles());
+
+        engine.Evaluate($"JSON.stringify(new Intl.Locale('{tag}').getHourCycles())").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A host's answer is held to what the algorithm allows: the four hour cycle identifiers, lower case, each
+    /// once, in the host's order — and <c>h23</c> alone when nothing is left, the algorithm's own fallback.
+    /// </summary>
+    [Test]
+    public void AHostAnswerKeepsOnlyHourCycleIdentifiersEachOnce()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new AnswersWith(["h25", "H12", "h12", null!, "", "h11", "h12"]));
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-US').getHourCycles())").AsString().Should().Be("""["h12","h11"]""");
+
+        var nothingLeft = new Engine(options => options.Intl.CldrProvider = new AnswersWith(["24h", "H23"]));
+        nothingLeft.Evaluate("JSON.stringify(new Intl.Locale('en-US').getHourCycles())").AsString().Should().Be("""["h23"]""");
+
+        var empty = new Engine(options => options.Intl.CldrProvider = new AnswersWith([]));
+        empty.Evaluate("JSON.stringify(new Intl.Locale('en-US').getHourCycles())").AsString().Should().Be("""["h23"]""");
+    }
+
+    /// <summary>
+    /// A host calling the shipped provider directly gets what the script does, in a new array every time, so
+    /// writing to one cannot change the table the next engine reads.
+    /// </summary>
+    [Test]
+    public void TheDefaultProviderAnswersWhatTheScriptSees()
+    {
+        var provider = DefaultCldrProvider.Instance;
+
+        provider.GetHourCycles("fr-CA").Should().Equal("h23", "h12");
+        provider.GetHourCycles("en-CA").Should().Equal("h12", "h23");
+        provider.GetHourCycles("en-US-u-rg-gbzzzz").Should().Equal("h23", "h12");
+        provider.GetHourCycles("ja").Should().Equal("h23", "h11", "h12");
+        provider.GetHourCycles("ht-HT").Should().Equal("h23");
+
+        var first = provider.GetHourCycles("en-US")!;
+        first[0] = "h24";
+        provider.GetHourCycles("en-US").Should().NotBeSameAs(first).And.Equal("h12", "h23");
+        HourCycles("en-US").Should().Be("""["h12","h23"]""");
+    }
+
+    private sealed class RecordsWhatItWasAsked : DefaultCldrProvider
+    {
+        public List<string> Asked { get; } = [];
+
+        public override string[]? GetHourCycles(string locale)
+        {
+            Asked.Add(locale);
+            return base.GetHourCycles(locale);
+        }
+    }
+
+    private sealed class NoHourCycles : DefaultCldrProvider
+    {
+        public override string[]? GetHourCycles(string locale) => null;
+    }
+
+    private sealed class AnswersWith(string[] hourCycles) : DefaultCldrProvider
+    {
+        public override string[]? GetHourCycles(string locale) => hourCycles;
     }
 }

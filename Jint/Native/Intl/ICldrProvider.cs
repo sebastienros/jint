@@ -92,10 +92,9 @@ public interface ICldrProvider
     /// which the same step lets overwrite it. A calendar this engine does not answer for is not in
     /// <c>keyLocaleData</c> at all, and is ignored rather than becoming a calendar nothing can format in.
     /// <para>
-    /// Only <c>Intl.DateTimeFormat</c> reads it. <c>Intl.Locale.prototype.getCalendars</c> and
-    /// <c>getHourCycles</c> read the CLDR data embedded in the engine and have no member here, so a provider
-    /// answering this differently from that data makes <c>getCalendars()[0]</c> and the formatter's default
-    /// calendar disagree.
+    /// Only <c>Intl.DateTimeFormat</c> reads it, with the locale it matched, which carries no Unicode extension.
+    /// <c>Intl.Locale.prototype.getCalendars</c> reads <see cref="GetCalendars"/> instead, so a host that wants
+    /// <c>getCalendars()[0]</c> to be the formatter's default calendar overrides both.
     /// </para>
     /// </remarks>
     string? GetDefaultCalendar(string locale);
@@ -157,6 +156,44 @@ public interface ICldrProvider
     /// locale takes precedence over <see cref="WeekInfo.FirstDay"/>, as the specification requires.
     /// </remarks>
     WeekInfo? GetWeekInfo(string locale);
+
+    /// <summary>
+    /// Gets the hour cycles in common use for a locale, most preferred first.
+    /// </summary>
+    /// <param name="locale">The locale identifier.</param>
+    /// <returns>Hour cycle identifiers, or null to fall back to the embedded CLDR time data.</returns>
+    /// <remarks>
+    /// <para>
+    /// Read by <c>Intl.Locale.prototype.getHourCycles</c> with the whole tag, whose <c>-u-rg-</c> and
+    /// <c>-u-sd-</c> keywords can move the region, and by <c>Intl.DateTimeFormat</c> with the locale it matched,
+    /// for its default cycle and the cycles <c>hour12</c> picks. Neither asks when a <c>-u-hc-</c> keyword or an
+    /// <c>hourCycle</c> option decides the cycle.
+    /// </para>
+    /// <para>
+    /// Only <c>"h11"</c>, <c>"h12"</c>, <c>"h23"</c> and <c>"h24"</c> are kept, each once; an answer left with
+    /// none of them reads as <c>["h23"]</c>.
+    /// </para>
+    /// </remarks>
+    string[]? GetHourCycles(string locale);
+
+    /// <summary>
+    /// Gets the calendars in common use for a locale, most preferred first.
+    /// </summary>
+    /// <param name="locale">The locale identifier.</param>
+    /// <returns>Calendar identifiers, or null to fall back to the embedded CLDR calendar preferences.</returns>
+    /// <remarks>
+    /// <para>
+    /// Read by <c>Intl.Locale.prototype.getCalendars</c> with the whole tag, whose <c>-u-rg-</c> and
+    /// <c>-u-sd-</c> keywords can move the region, unless a <c>-u-ca-</c> keyword or a <c>calendar</c> option
+    /// already names a calendar. Each identifier is canonicalized and kept once, and only when this engine can
+    /// format in it; an answer left with none reads as <c>["gregory"]</c>.
+    /// </para>
+    /// <para>
+    /// <c>Intl.DateTimeFormat</c> reads <see cref="GetDefaultCalendar"/> instead, so a host that wants
+    /// <c>getCalendars()[0]</c> to be the formatter's default calendar overrides both.
+    /// </para>
+    /// </remarks>
+    string[]? GetCalendars(string locale);
 
     // === Supported Values ===
 
