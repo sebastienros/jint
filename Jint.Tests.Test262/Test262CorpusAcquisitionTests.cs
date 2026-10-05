@@ -219,7 +219,7 @@ public sealed class Test262CorpusAcquisitionTests
     }
 
     [Test]
-    public void OfflineModeFailsClosedWhenThePinnedArchiveIsAbsent()
+    public async Task OfflineModeFailsClosedWhenThePinnedArchiveIsAbsent()
     {
         var cacheDirectory = NewCacheDirectory();
         var downloadCalls = 0;
@@ -234,7 +234,7 @@ public sealed class Test262CorpusAcquisitionTests
 
         try
         {
-            var exception = Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
+            var exception = await Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
                 acquisition.LoadAsync("0123456789abcdef", cacheDirectory, offline: true));
 
             Assert.That(exception!.InnerException, Is.TypeOf<FileNotFoundException>());
@@ -247,7 +247,7 @@ public sealed class Test262CorpusAcquisitionTests
     }
 
     [Test]
-    public void OfflineModeRejectsAPartialArchiveWithTheExactRootDirectories()
+    public async Task OfflineModeRejectsAPartialArchiveWithTheExactRootDirectories()
     {
         const string sha = "0123456789abcdef";
         var cacheDirectory = NewCacheDirectory();
@@ -259,7 +259,7 @@ public sealed class Test262CorpusAcquisitionTests
 
         try
         {
-            var exception = Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
+            var exception = await Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
                 acquisition.LoadAsync(sha, cacheDirectory, offline: true));
 
             Assert.That(exception!.InnerException, Is.TypeOf<InvalidDataException>());
@@ -271,7 +271,7 @@ public sealed class Test262CorpusAcquisitionTests
     }
 
     [Test]
-    public void OfflineModeRejectsAnArchiveWhoseRootDoesNotMatchThePinnedCommit()
+    public async Task OfflineModeRejectsAnArchiveWhoseRootDoesNotMatchThePinnedCommit()
     {
         const string sha = "0123456789abcdef";
         var cacheDirectory = NewCacheDirectory();
@@ -283,7 +283,7 @@ public sealed class Test262CorpusAcquisitionTests
 
         try
         {
-            Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
+            await Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
                 acquisition.LoadAsync(sha, cacheDirectory, offline: true));
         }
         finally
@@ -293,7 +293,7 @@ public sealed class Test262CorpusAcquisitionTests
     }
 
     [Test]
-    public void PermanentTransientFailureStopsAtTheBound()
+    public async Task PermanentTransientFailureStopsAtTheBound()
     {
         const string sha = "fedcba9876543210";
         var cacheDirectory = NewCacheDirectory();
@@ -309,7 +309,7 @@ public sealed class Test262CorpusAcquisitionTests
 
         try
         {
-            var exception = Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
+            var exception = await Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
                 acquisition.LoadAsync(sha, cacheDirectory));
 
             Assert.That(attempts, Is.EqualTo(3));
@@ -325,7 +325,7 @@ public sealed class Test262CorpusAcquisitionTests
     }
 
     [Test]
-    public void PermanentHttpFailureIsReportedWithoutRetrying()
+    public async Task PermanentHttpFailureIsReportedWithoutRetrying()
     {
         var cacheDirectory = NewCacheDirectory();
         var attempts = 0;
@@ -341,7 +341,7 @@ public sealed class Test262CorpusAcquisitionTests
 
         try
         {
-            var exception = Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
+            var exception = await Assert.ThrowsAsync<Test262CorpusUnavailableException>(() =>
                 acquisition.LoadAsync("0123456789abcdef", cacheDirectory));
 
             Assert.That(attempts, Is.EqualTo(1));

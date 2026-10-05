@@ -5731,11 +5731,13 @@ The second amends [4.47](#4-47-intl-datetimeformat-s-calendar-default-comes-from
 `ar-SA` formats Gregorian dates unless it asks for another calendar. `DefaultCldrProvider.GetWeekInfo` and
 `GetDefaultCalendar` answer the same way when a host calls them.
 
-**Hosts.** Both lists are read from the data Jint embeds, and `ICldrProvider` has no member for either yet. A
-provider overriding `GetDefaultCalendar` therefore moves `Intl.DateTimeFormat`'s default calendar and not
-`getCalendars()`, and the two can disagree; with `DefaultCldrProvider` they read one table, and the first
-calendar listed is the one the formatter defaults to. `Intl.DateTimeFormat`'s default *hour cycle* reads
-`timeData` too, since
+**Hosts.** Both lists are read from the data Jint embeds. When this landed `ICldrProvider` had no member for
+either, so a provider overriding `GetDefaultCalendar` moved `Intl.DateTimeFormat`'s default calendar and not
+`getCalendars()`. [4.145](#4-145-icldrprovider-answers-the-hour-cycles-and-calendars-intl-locale-lists-4178)
+added `GetHourCycles` and `GetCalendars`, which `DefaultCldrProvider` answers from these tables, as it answers
+`GetDefaultCalendar`: with it the first calendar listed is the one the formatter defaults to, and a provider that
+overrides `GetDefaultCalendar` alone can still see the two disagree. `Intl.DateTimeFormat`'s default *hour cycle*
+reads `timeData` too, since
 [4.141](#4-141-intl-datetimeformat-defaults-to-the-hour-cycle-cldr-prefers-for-the-locale-s-region-4179), so
 `resolvedOptions().hourCycle` is `getHourCycles()[0]`.
 
@@ -5843,6 +5845,54 @@ and that is the one line to add at each call site:
 new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h12' }); // or hour12: true
 date.toLocaleTimeString('es-MX', { hour12: false });
 ```
+
+### 4.145 `ICldrProvider` answers the hour cycles and calendars `Intl.Locale` lists ([#4178](https://github.com/sebastienros/jint/issues/4178))
+
+`ICldrProvider` gains two members, the way `GetWeekInfo` answers `getWeekInfo`:
+
+- `string[]? GetHourCycles(string locale)` answers `Intl.Locale.prototype.getHourCycles`, and the hour cycles
+  `Intl.DateTimeFormat` resolves when only the locale decides: its default and the one `hour12` picks either way.
+- `string[]? GetCalendars(string locale)` answers `Intl.Locale.prototype.getCalendars`.
+
+`DefaultCldrProvider` implements both as `virtual` members answering from the CLDR 48.2 tables of
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159),
+so an engine that configures no provider, or one deriving from it, answers exactly as before. Like `GetWeekInfo`,
+each member receives the whole tag, `-u-rg-` and `-u-sd-` included, and resolves the region itself; returning
+`null` leaves the answer to the embedded table. The engine keeps the rest of the algorithm: a `-u-hc-` or `-u-ca-`
+keyword, or the matching option, still wins; hour cycles other than `h11`, `h12`, `h23` and `h24` are dropped;
+calendars are canonicalized and kept only if the engine can format in them; and an answer with nothing left reads
+as `["h23"]` or `["gregory"]`.
+
+One hour-cycle member means `resolvedOptions().hourCycle` is `getHourCycles()[0]` of the same locale whatever
+the provider answers. The calendar stays two members, because the specification keys the formatter's default by
+the matched locale alone while `getCalendars()` honours `-u-rg-` and `-u-sd-`: a host that wants
+`getCalendars()[0]` to be the formatter's default calendar overrides both.
+
+```c#
+sealed class HebrewByDefault : DefaultCldrProvider
+{
+    public override string? GetDefaultCalendar(string locale) => "hebrew";
+
+    public override string[]? GetCalendars(string locale) => ["hebrew", "gregory"];
+}
+```
+
+`Intl.DateTimeFormat` now asks `GetDefaultCalendar` about the locale it matched, with no Unicode extension, as
+that member always documented. It used to pass the keywords the formatter kept, so a formatter for
+`'en-US-u-nu-arab'` asked about `"en-US-u-nu-arab"` and now asks about `"en-US"`.
+
+**What could break:** a host implementing `ICldrProvider` from scratch rather than deriving from
+`DefaultCldrProvider` no longer compiles until it adds the two members. Delegating them keeps what
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159)
+shipped, one line each — returning `null` does the same:
+
+```c#
+public string[]? GetHourCycles(string locale) => DefaultCldrProvider.Instance.GetHourCycles(locale);
+public string[]? GetCalendars(string locale) => DefaultCldrProvider.Instance.GetCalendars(locale);
+```
+
+A `GetDefaultCalendar` override that matched the whole locale string sees the keyword-free locale for a
+formatter whose tag carried `-u-nu-` or `-u-hc-`.
 
 ## 5. New in v5
 
@@ -5995,7 +6045,7 @@ shape. Nothing about an unconfigured engine changed: the `Options` properties st
 and answers inline rather than going through the interface.
 
 ```c#
-// 5.x — the other eighteen members are inherited
+// 5.x — the other twenty members are inherited
 sealed class MyCldr : DefaultCldrProvider
 {
     public override string? GetCurrencyDisplayName(string locale, string code)
@@ -6005,10 +6055,12 @@ sealed class MyCldr : DefaultCldrProvider
 var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 ```
 
-`ICldrProvider` is now nineteen members and every one of them has a caller, so whatever a derived class
+`ICldrProvider` is now twenty-one members and every one of them has a caller, so whatever a derived class
 answers is what `Intl` shows — see [4.22](#4-22-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info-3336)
 and [4.29](#4-29-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits-3354) for the two changes
-that closed the gap, and section [2](#2-removed-api) for the two members that went instead of being wired.
+that closed the gap, [4.47](#4-47-intl-datetimeformat-s-calendar-default-comes-from-the-cldr-provider-3457) and
+[4.145](#4-145-icldrprovider-answers-the-hour-cycles-and-calendars-intl-locale-lists-4178) for the three members
+added since, and section [2](#2-removed-api) for the two members that went instead of being wired.
 On the calendar side, *correcting* a calendar Jint already knows is one override, while *adding* one it does
 not know is three — `GetSupportedCalendars` and both conversions — per
 [4.30](#4-30-a-calendar-icalendarprovider-claims-is-a-calendar-temporal-accepts-3355).

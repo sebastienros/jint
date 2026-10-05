@@ -10,6 +10,8 @@ namespace Jint.Native.Intl.Data;
 /// which is <c>Intl.Locale.prototype.getHourCycles</c>, and the locale data
 /// https://tc39.es/ecma402/#sec-createdatetimeformat takes an <c>Intl.DateTimeFormat</c>'s hour cycle from
 /// when no option or keyword decides it. So a formatter's default is <c>getHourCycles()[0]</c> of its locale.
+/// Both reach it through <see cref="IntlUtilities.GetLocaleHourCycles"/>, which asks a host's
+/// <see cref="ICldrProvider.GetHourCycles"/> first, so a host's answer moves both readers together.
 /// </para>
 /// <para>
 /// The data is CLDR 48.2's (see <c>TimeData.Data.cs</c>). Each entry is CLDR's preferred hour format followed
@@ -57,18 +59,18 @@ internal static partial class TimeData
     }
 
     /// <summary>
-    /// The hour cycles in common use for an <c>Intl.DateTimeFormat</c>'s data locale, read as
-    /// <see cref="GetHourCycles(string, in RegionPreference)"/> reads them for an <c>Intl.Locale</c>.
+    /// The hour cycles in common use for <paramref name="locale"/>: its language, in the region
+    /// https://tc39.es/ecma402/#sec-regionpreference picks for it.
     /// </summary>
     /// <remarks>
-    /// A data locale is the matched available locale of https://tc39.es/ecma402/#sec-resolvelocale, which
-    /// carries no Unicode extension a region could come from: <c>-u-rg-</c> and <c>-u-sd-</c> are not among
-    /// the formatter's relevant extension keys, so neither reaches here, and the region is the tag's own or
-    /// its likely one.
+    /// An <c>Intl.Locale</c>'s tag can carry <c>-u-rg-</c> and <c>-u-sd-</c>, and both are honoured. An
+    /// <c>Intl.DateTimeFormat</c>'s data locale is the matched available locale of
+    /// https://tc39.es/ecma402/#sec-resolvelocale, which carries no Unicode extension: neither keyword is among
+    /// the formatter's relevant extension keys, so its region is the tag's own or its likely one.
     /// </remarks>
-    internal static string[] GetHourCycles(string dataLocale)
+    internal static string[] GetHourCycles(string locale)
     {
-        return GetHourCycles(IntlUtilities.GetLanguageSubtag(dataLocale), RegionPreference.Of(dataLocale));
+        return GetHourCycles(IntlUtilities.GetLanguageSubtag(locale), RegionPreference.Of(locale));
     }
 
     /// <summary>

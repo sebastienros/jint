@@ -122,17 +122,92 @@ public class IntlLocaleCalendarsTests
     }
 
     /// <summary>
-    /// <see cref="ICldrProvider"/> has no member for the ordering, so a host moving the default calendar moves
-    /// the formatter and not this list. Deliberate for now, and documented on
-    /// <see cref="ICldrProvider.GetDefaultCalendar"/>.
+    /// The formatter's default and this list are two <see cref="ICldrProvider"/> members, because the
+    /// specification keys the one by the matched locale and the other by the whole tag. A host moving only the
+    /// default calendar moves the formatter and not this list, and one moving only the list moves only the list;
+    /// both members document that a host wanting them to agree overrides both.
     /// </summary>
     [Test]
-    public void AHostDefaultCalendarMovesTheFormatterAndNotTheList()
+    public void AHostMovingOneOfTheTwoMovesOnlyItsOwnReader()
     {
-        var engine = new Engine(options => options.Intl.CldrProvider = new EverywhereIsHebrew());
+        var defaultOnly = new Engine(options => options.Intl.CldrProvider = new EverywhereIsHebrew());
 
-        engine.Evaluate("new Intl.DateTimeFormat('en-US').resolvedOptions().calendar").AsString().Should().Be("hebrew");
-        Calendars(engine, "en-US").Should().Be("""["gregory"]""");
+        defaultOnly.Evaluate("new Intl.DateTimeFormat('en-US').resolvedOptions().calendar").AsString().Should().Be("hebrew");
+        Calendars(defaultOnly, "en-US").Should().Be("""["gregory"]""");
+
+        var listOnly = new Engine(options => options.Intl.CldrProvider = new AnswersWith(["hebrew", "gregory"]));
+
+        listOnly.Evaluate("new Intl.DateTimeFormat('en-US').resolvedOptions().calendar").AsString().Should().Be("gregory");
+        Calendars(listOnly, "en-US").Should().Be("""["hebrew","gregory"]""");
+    }
+
+    /// <summary>
+    /// <see cref="ICldrProvider.GetCalendars"/> is asked for the whole tag, keywords included, and not at all
+    /// when the locale carries its own calendar.
+    /// </summary>
+    [Test]
+    public void AProviderIsAskedForTheWholeTag()
+    {
+        var provider = new RecordsWhatItWasAsked();
+        var engine = new Engine(options => options.Intl.CldrProvider = provider);
+
+        Calendars(engine, "en-US-u-rg-thzzzz").Should().Be("""["buddhist","gregory"]""");
+        Calendars(engine, "th-TH-u-ca-gregory").Should().Be("""["gregory"]""");
+
+        provider.Asked.Should().Equal("en-US-u-rg-thzzzz");
+    }
+
+    /// <summary>
+    /// A provider with no opinion leaves the ordering to the embedded data, read for the same region.
+    /// </summary>
+    [TestCase("th", """["buddhist","gregory"]""")]
+    [TestCase("en-US-u-rg-irzzzz", """["persian","gregory","islamic-civil","islamic-tbla"]""")]
+    [TestCase("fa-u-sd-inka", """["gregory","indian"]""")]
+    [TestCase("en-US", """["gregory"]""")]
+    public void AProviderWithNoOpinionFallsBackThroughTheSameRegionPreference(string tag, string expected)
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new AnswersWith(null));
+
+        Calendars(engine, tag).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A host's answer goes through the same steps CLDR's does: each identifier canonicalized, kept once, and
+    /// only if the engine can format in it — and <c>gregory</c> alone when nothing is left.
+    /// </summary>
+    [Test]
+    public void AHostAnswerIsCanonicalizedFilteredAndListedOnce()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider =
+            new AnswersWith(["mayan", "ethiopic-amete-alem", null!, "gregory", "GREGORY", "islamicc", "islamic", "ethioaa"]));
+        Calendars(engine, "en-US").Should().Be("""["ethioaa","gregory","islamic-civil"]""");
+
+        var nothingLeft = new Engine(options => options.Intl.CldrProvider = new AnswersWith(["mayan", ""]));
+        Calendars(nothingLeft, "en-US").Should().Be("""["gregory"]""");
+
+        var empty = new Engine(options => options.Intl.CldrProvider = new AnswersWith([]));
+        Calendars(empty, "th").Should().Be("""["gregory"]""");
+    }
+
+    /// <summary>
+    /// A host calling the shipped provider directly gets CLDR's own ordering — the identifiers the engine then
+    /// leaves out included — in a new array every time, and a region CLDR lists nothing for is the world's.
+    /// </summary>
+    [Test]
+    public void TheDefaultProviderAnswersCldrsOwnOrdering()
+    {
+        var provider = DefaultCldrProvider.Instance;
+
+        provider.GetCalendars("ar-SA").Should().Equal("gregory", "islamic-umalqura", "islamic", "islamic-rgsa");
+        provider.GetCalendars("th").Should().Equal("buddhist", "gregory");
+        provider.GetCalendars("en-US-u-rg-thzzzz").Should().Equal("buddhist", "gregory");
+        provider.GetCalendars("en-US").Should().Equal("gregory");
+        provider.GetCalendars("eo").Should().Equal("gregory");
+
+        var first = provider.GetCalendars("th")!;
+        first[0] = "hebrew";
+        provider.GetCalendars("th").Should().NotBeSameAs(first).And.Equal("buddhist", "gregory");
+        Calendars("th").Should().Be("""["buddhist","gregory"]""");
     }
 
     private sealed class WithObservationalIslamic : DefaultCalendarProvider
@@ -143,5 +218,21 @@ public class IntlLocaleCalendarsTests
     private sealed class EverywhereIsHebrew : DefaultCldrProvider
     {
         public override string? GetDefaultCalendar(string locale) => "hebrew";
+    }
+
+    private sealed class AnswersWith(string[]? calendars) : DefaultCldrProvider
+    {
+        public override string[]? GetCalendars(string locale) => calendars;
+    }
+
+    private sealed class RecordsWhatItWasAsked : DefaultCldrProvider
+    {
+        public List<string> Asked { get; } = [];
+
+        public override string[]? GetCalendars(string locale)
+        {
+            Asked.Add(locale);
+            return base.GetCalendars(locale);
+        }
     }
 }

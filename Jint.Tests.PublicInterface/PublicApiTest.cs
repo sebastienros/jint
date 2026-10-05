@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using PublicApiGenerator;
 using VerifyTests;
-using VerifyTests.DiffPlex;
 using VerifyNUnit;
 
 namespace Jint.Tests.PublicInterface;
@@ -147,6 +146,6 @@ internal static class PublicApiDiffFormat
     /// reviews, which is the one thing this suite cannot afford.
     /// </summary>
     [ModuleInitializer]
-    public static void Initialize() => VerifyDiffPlex.Initialize(OutputType.Compact);
+    public static void Initialize() => VerifierSettings.UseTextDiffFormat(DiffEngine.TextDiffFormat.Compact);
 }
 #endif

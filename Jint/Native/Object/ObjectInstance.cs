@@ -2754,7 +2754,12 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             {
                 return TypeConverter.ToBoolean(spreadable);
             }
-            return IsSpecArray();
+
+            // Step 2 of IsConcatSpreadable (https://tc39.es/ecma262/#sec-isconcatspreadable) is IsArray, which a host
+            // wrapper is not. One that exposes the target's elements by index is what script sees as an array though
+            // (a live view over a CLR array, a List<T>), and concat spread it before ArrayConversionMode.LiveView
+            // became a wrapper (#4201). The type test is only reached for a non-array, so a JsArray pays nothing.
+            return IsSpecArray() || this is ObjectWrapper { IsArrayLike: true, HasIndexedElements: true };
         }
     }
 

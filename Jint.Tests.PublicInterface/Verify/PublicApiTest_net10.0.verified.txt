@@ -1477,12 +1477,14 @@ namespace Jint.Native.Intl
     {
         public static readonly Jint.Native.Intl.DefaultCldrProvider Instance;
         protected DefaultCldrProvider() { }
+        public virtual string[]? GetCalendars(string locale) { }
         public virtual Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode) { }
         public virtual string? GetCurrencyDisplayName(string locale, string code) { }
         public virtual string[]? GetDayPeriods(string locale, string style, string? calendar) { }
         public virtual string? GetDefaultCalendar(string locale) { }
         public virtual string? GetDefaultNumberingSystem(string locale) { }
         public virtual string[]? GetEraNames(string locale, string style, string? calendar) { }
+        public virtual string[]? GetHourCycles(string locale) { }
         public virtual Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style) { }
         public virtual string[]? GetMonthNames(string locale, string style, string? calendar) { }
         public virtual string? GetNumberingSystemDigits(string numberingSystem) { }
@@ -1499,12 +1501,14 @@ namespace Jint.Native.Intl
     }
     public interface ICldrProvider
     {
+        string[]? GetCalendars(string locale);
         Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode);
         string? GetCurrencyDisplayName(string locale, string code);
         string[]? GetDayPeriods(string locale, string style, string? calendar);
         string? GetDefaultCalendar(string locale);
         string? GetDefaultNumberingSystem(string locale);
         string[]? GetEraNames(string locale, string style, string? calendar);
+        string[]? GetHourCycles(string locale);
         Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style);
         string[]? GetMonthNames(string locale, string style, string? calendar);
         string? GetNumberingSystemDigits(string numberingSystem);

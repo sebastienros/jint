@@ -422,11 +422,11 @@ public class WebApiFetchHandlerTests
     public async Task TheAwaitableVariantThrowsWhatTheHandlerFailedWith()
     {
         var throwing = Handler("globalThis.handler = () => { throw new TypeError('sync boom'); };");
-        var syncFailure = Assert.ThrowsAsync<JavaScriptException>(() => throwing.WebApi.InvokeFetchHandlerAsync(Get()))!;
+        var syncFailure = (await Assert.ThrowsAsync<JavaScriptException>(() => throwing.WebApi.InvokeFetchHandlerAsync(Get())))!;
         syncFailure.Message.Should().Be("sync boom");
 
         var rejecting = Handler("globalThis.handler = { async fetch() { throw new Error('async boom'); } };");
-        var asyncFailure = Assert.ThrowsAsync<PromiseRejectedException>(() => rejecting.WebApi.InvokeFetchHandlerAsync(Get()))!;
+        var asyncFailure = (await Assert.ThrowsAsync<PromiseRejectedException>(() => rejecting.WebApi.InvokeFetchHandlerAsync(Get())))!;
         asyncFailure.RejectedValue.AsObject().Get("message").AsString().Should().Be("async boom");
     }
 
@@ -773,7 +773,7 @@ public class WebApiFetchHandlerTests
     {
         var engine = Listener("addEventListener('fetch', () => { });");
 
-        var failure = Assert.ThrowsAsync<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get()))!;
+        var failure = (await Assert.ThrowsAsync<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get())))!;
         failure.Message.Should().Contain("respondWith");
     }
 

@@ -232,7 +232,7 @@ public class FetchHandlerAbortTests
 
         // The same when the invocation fails rather than answering.
         engine.WebApi.SetFetchHandler(engine.Evaluate("() => { throw new Error('nope'); }"));
-        Assert.ThrowsAsync<JavaScriptException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
+        await Assert.ThrowsAsync<JavaScriptException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
     }
 
@@ -257,7 +257,7 @@ public class FetchHandlerAbortTests
         var pending = engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
 
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(() => pending);
+        await Assert.CatchAsync<OperationCanceledException>(() => pending);
 
         // The registration went back when the call returned, however it returned.
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
