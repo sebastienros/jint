@@ -37,6 +37,15 @@ internal static partial class CssParser
         var kind = name is null ? default : CssAtRuleLookup.Match(name);
         // CSS Syntax §3.2: an encoding declaration only looks like an at-rule; "no such rule actually exists".
         if (name == "charset") return null;
+        // Same renderless nesting boundary as CssStyleSheet.BuildShallow; do this before
+        // the media fast path can expose descendants without their parent selector context.
+        if (nestingParent is not null && raw.Kind == CssRuleKind.AtRule &&
+            kind is CssAtRuleKind.Media or CssAtRuleKind.Supports or CssAtRuleKind.Layer)
+        {
+            options?.Diagnostics?.Add("css/unsupported-nested-at-rule", raw.Text.Span.Start);
+            work.Charge(raw.Text.Span.Length);
+            return new(new CssGenericRule(raw.Text.Text, raw.Text.Span), null, null);
+        }
         if (raw.Kind == CssRuleKind.AtRule && kind is not (CssAtRuleKind.Media or CssAtRuleKind.Import or
             CssAtRuleKind.FontFace or CssAtRuleKind.Supports or CssAtRuleKind.Layer))
         {

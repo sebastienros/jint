@@ -102,7 +102,6 @@ internal Jint.HtmlParser.Css.Model.CssRule
     get_Stamp
     get_Type
 internal Jint.HtmlParser.Css.Model.CssRuleList
-    (constructor)
     GetEnumerator
     PublishParsed
     Reserve

@@ -326,14 +326,21 @@ internal sealed class CssStyleSheet
         {
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
             var kind = CssAtRuleLookup.Match(name);
+            // CSS Nesting §3.3 https://drafts.csswg.org/css-nesting-1/#nesting-at-rules
+            // Until grouping rules carry the parent selector context, retain their complete raw
+            // contents without projecting descendants into the cascade.
+            if (nestingParent is not null && kind is CssAtRuleKind.Media or CssAtRuleKind.Supports or CssAtRuleKind.Layer)
+            {
+                options?.Diagnostics?.Add("css/unsupported-nested-at-rule", syntax.Span.Start);
+                work.Charge(syntax.Span.Length);
+                return new CssGenericRule(source.Substring(syntax.Span.Start, syntax.Span.Length), syntax.Span);
+            }
             switch (kind)
             {
                 case CssAtRuleKind.Import:
                     return CssImportRule.Parse(source, syntax, parser, work);
                 case CssAtRuleKind.Layer:
                     {
-                        if (nestingParent is not null)
-                            throw new CssIncompleteRuleGrammarException("nested-layer", "C2:nesting-selector-context", syntax.Span);
                         var names = CssLayerName.Parse(syntax.Prelude, work);
                         if (names is null) return null;
                         if (syntax.Block is null)
@@ -395,12 +402,6 @@ internal sealed class CssStyleSheet
                     afterNestedRule = true;
                     continue;
                 }
-                // Unknown at-rules recover; known nested grammars must remain completion blockers.
-                if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media") || CssAscii.EqualsIgnoreCase(item.Rule.Name, "supports") ||
-                    CssAscii.EqualsIgnoreCase(item.Rule.Name, "layer"))
-                    throw new CssIncompleteRuleGrammarException("nested-" + item.Rule.Name, "C2:nesting-selector-context", item.Rule.Span);
-                if (!CssAscii.EqualsIgnoreCase(item.Rule.Name, "import") && !CssAscii.EqualsIgnoreCase(item.Rule.Name, "property"))
-                    BuildShallow(source, item.Rule, parser, options, work, cancellationToken);
                 continue;
             }
             if (afterNestedRule)

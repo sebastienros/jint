@@ -130,6 +130,12 @@ are removed by design for [LightPanda parity](../../Jint.HtmlParser/README.md#re
 Their at-rules, and page/namespace/counter-style rules, expose only CSSRule and round-trip cssText.
 They never affect the cascade. No removed rule interface is installed.
 
+[Nested grouping at-rules](https://drafts.csswg.org/css-nesting-1/#nesting-at-rules)
+inside style rules (`@media`, `@supports`, `@layer`) also remain opaque CSSRule objects.
+Their complete text is retained and an optional native parse diagnostic records
+`css/unsupported-nested-at-rule`; their contents do not cascade. Supported declarations
+around them and other rules still apply, including during `getComputedStyle` and `innerText` reads.
+
 Alignment, gaps and all other catalog properties accept nonempty text rather than grammar-validated
 values. Only the small layout shorthand set expands. Named/generic CSSOM accessors still share one
 store, receiver checks, null removal, readonly computed views and live invalidation.

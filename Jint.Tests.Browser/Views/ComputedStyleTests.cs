@@ -12,6 +12,36 @@ using Browser = global::Jint.Browser.Browser;
 /// <summary>CSSOM resolved values over the native computed query, with the synthetic flat box policy.</summary>
 public sealed class ComputedStyleTests
 {
+    [TestCase("@media all")]
+    [TestCase("@layer theme")]
+    [TestCase("@supports (display:block)")]
+    public async Task UnsupportedNestedAtRulesDoNotBreakPageWideStyleReads(string prelude)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>.card { color:green; " + prelude +
+            " { color:red; & { display:none; } } display:block; } " +
+            "#other { color:blue; } .hidden { display:none; }</style>" +
+            "<p id=card class=card>card</p><p id=other>other</p>" +
+            "<p id=plain>plain</p><p id=hidden class=hidden>hidden</p>");
+        (await page.EvaluateAsync<string>("getComputedStyle(card).color")).Should().Be("rgb(0, 128, 0)");
+        (await page.EvaluateAsync<string>("getComputedStyle(card).display")).Should().Be("block");
+        (await page.EvaluateAsync<string>("getComputedStyle(other).color")).Should().Be("rgb(0, 0, 255)");
+        (await page.EvaluateAsync<string>("getComputedStyle(plain).display")).Should().Be("block");
+        (await page.EvaluateAsync<string>("card.innerText")).Should().Be("card");
+        (await page.EvaluateAsync<string>("other.innerText")).Should().Be("other");
+        (await page.EvaluateAsync<string>("plain.innerText")).Should().Be("plain");
+        (await page.EvaluateAsync<string>("getComputedStyle(hidden).display")).Should().Be("none");
+        (await page.EvaluateAsync<string>("document.body.innerText")).Should().NotContain("hidden");
+        (await page.EvaluateAsync<string>("document.styleSheets[0].cssRules[0].cssRules[0].cssText"))
+            .Should().Be(prelude + " { color:red; & { display:none; } }");
+        (await page.EvaluateAsync<bool>("(() => { const rule = document.styleSheets[0].cssRules[0]; " +
+            "return rule.cssRules === rule.rules && rule.cssRules === rule.cssRules && " +
+            "Object.getPrototypeOf(rule.cssRules[0]) === CSSRule.prototype && " +
+            "rule.cssRules[0].parentRule === rule; })()")).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
     /// <summary>Initial values for the interaction properties.</summary>
     private static readonly (string Property, string Initial)[] _resolved =
     [

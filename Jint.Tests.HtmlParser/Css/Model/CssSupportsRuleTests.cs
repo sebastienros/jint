@@ -60,13 +60,13 @@ public sealed class CssSupportsRuleTests
     }
 
     [Test]
-    public void FalseConditionsDoNotHideKnownUnimplementedChildGrammars()
+    public void UnsupportedNestedRulesRemainOpaqueEvenInConditionGroups()
     {
         var sheet = CssStyleSheet.Parse("@supports (unknown-property:none) { @scope unknown {} }");
         sheet.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
-        Assert.Throws<CssIncompleteRuleGrammarException>(() =>
-            CssStyleSheet.Parse("a { @supports (color:red) { & {} } }"))!
-            .Blocker.Should().Be("C2:nesting-selector-context");
+        var nested = CssStyleSheet.Parse("a { @supports (color:red) { & {} } }");
+        nested.Rules[0].Rules.Single().Should().BeOfType<CssGenericRule>();
+        nested.Rules[0].Rules[0].CssText.Should().Be("@supports (color:red) { & {} }");
     }
 
     [Test]

@@ -1,5 +1,5 @@
-using System.Runtime.CompilerServices;
 using Jint.HtmlParser.Css.Model;
+using Jint.Browser.Styling;
 using Jint.Native;
 
 namespace Jint.Browser.Dom;
@@ -13,17 +13,10 @@ internal abstract class NativeCssUnavailable
 
 internal static class DomCssMembers
 {
-    private static readonly ConditionalWeakTable<CssStyleRule, CssRuleList> EmptyStyleRules = new();
-
-    // The native stylesheet builder refuses nested rule grammar before publishing a style
-    // rule. CSSStyleRule's two legacy list accessors therefore expose its actual empty list,
-    // with one identity per owner (CSSOM §6.4 and the contract's SameObject aliases).
+    // CSSOM §6.4: expose the native child list with stable cssRules/rules aliases,
+    // including opaque nested at-rules retained by the renderless parser.
     internal static CssRuleList Rules(DomRealm realm, CssStyleRule rule)
-    {
-        realm.Engine.Constraints.Check();
-        realm.CancellationToken.ThrowIfCancellationRequested();
-        return EmptyStyleRules.GetValue(rule, static _ => new CssRuleList([]));
-    }
+        => NativeCssBindings.ReadRules(realm, rule);
 
     internal static JsValue Unavailable(DomRealm realm, string member)
         => DomFailures.Refuse(realm, member, "NotSupportedError", "This CSS interface has no native semantic producer.");

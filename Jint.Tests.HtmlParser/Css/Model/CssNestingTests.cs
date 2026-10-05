@@ -168,15 +168,50 @@ public sealed class CssNestingTests
         sheet.Stamp.Should().Be(stamp);
     }
 
+    [TestCase("@media all { color:red; & { display:none; } }")]
+    [TestCase("@supports (display:block) { color:red; & { display:none; } }")]
+    [TestCase("@layer theme { color:red; & { display:none; } }")]
+    [TestCase("@layer theme;")]
+    [TestCase("@MEDIA (width:calc(1px + 1px)) { @layer theme { color:red; } }")]
+    public void UnsupportedNestedAtRulesStayRawWithDiagnosticsAndSurroundingDeclarations(string raw)
+    {
+        var diagnostics = new ParseDiagnosticCollector();
+        var source = "main { color:green; " + raw + " display:block; & > button { opacity:0.5; } } aside { color:blue; }";
+        var sheet = CssStyleSheet.Parse(source, new CssParseOptions { Diagnostics = diagnostics });
+        var parent = (CssStyleRule) sheet.Rules[0];
+        parent.Style.GetPropertyValue("color").Should().Be("green");
+        parent.Style.GetPropertyValue("display").Should().Be("block");
+        var opaque = parent.Rules[0];
+        opaque.Should().BeOfType<CssGenericRule>();
+        opaque.CssText.Should().Be(raw);
+        opaque.ParentRule.Should().BeSameAs(parent);
+        opaque.ParentStyleSheet.Should().BeSameAs(sheet);
+        sheet.ApplicableStyleRules(new CssMediaEnvironment(), new CssValueWork(default))
+            .Should().Equal(parent, (CssStyleRule) parent.Rules[1], (CssStyleRule) sheet.Rules[1]);
+        var diagnostic = diagnostics.Items.Single();
+        diagnostic.Code.Should().Be("css/unsupported-nested-at-rule");
+        diagnostic.Offset.Should().Be(source.IndexOf('@'));
+        diagnostics.Clear();
+        var work = new CssValueWork(default);
+        var rawRule = CssParser.ParseRuleList(raw, work)[0];
+        var deferred = CssParser.ParseRule(rawRule, work, parent, new CssParseOptions { Diagnostics = diagnostics })!.Value;
+        deferred.Rule.Should().BeOfType<CssGenericRule>();
+        deferred.Rule.CssText.Should().Be(raw);
+        deferred.Children.Should().BeNull();
+        deferred.Media.Should().BeNull();
+        diagnostics.Items.Single().Code.Should().Be("css/unsupported-nested-at-rule");
+        diagnostics.Items.Single().Offset.Should().Be(0);
+        var snapshot = sheet.SerializeWithRanges();
+        var range = snapshot.Ranges[opaque];
+        snapshot.Text[range.Start..range.End].Should().Be(raw);
+        CssStyleSheet.Parse(snapshot.Text).Serialize().Should().Be(snapshot.Text);
+    }
+
     [Test]
     public void FiniteGrammarBoundariesAndInvalidNestedSelectorsRemainExplicit()
     {
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => CssStyleSheet.Parse("main { @media all { & {} } }"))!
-            .Blocker.Should().Be("C2:nesting-selector-context");
         Assert.Throws<CssIncompleteRuleGrammarException>(() => CssStyleSheet.Parse("main { & {} color:red; }"))!
             .Blocker.Should().Be("C2:interleaved-declarations");
-        Assert.Throws<CssIncompleteRuleGrammarException>(() => CssStyleSheet.Parse("main { @supports (display:block) { & {} } }"))!
-            .Blocker.Should().Be("C2:nesting-selector-context");
         var sheet = CssStyleSheet.Parse("main { ??? { color:red; } & > button {} }");
         ((CssStyleRule) sheet.Rules[0]).Rules.Count.Should().Be(1);
     }
