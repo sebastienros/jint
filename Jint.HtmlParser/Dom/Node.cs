@@ -620,6 +620,7 @@ public abstract partial class Node
             parent.LastChild = node.PreviousSibling;
         }
 
+        (parent as Document ?? parent._ownerDocument!).MarkTreeMutation(node);
         parent.ChildCount--;
         node.ParentNode = null;
         node.PreviousSibling = null;
@@ -660,6 +661,7 @@ public abstract partial class Node
             LastChild = node;
         }
 
+        (this as Document ?? _ownerDocument!).MarkTreeMutation(node);
         ChildCount++;
     }
 

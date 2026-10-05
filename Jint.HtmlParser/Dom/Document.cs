@@ -40,6 +40,9 @@ public sealed partial class Document : Node
     // Trusted scheduling only: no script, endpoint reads or mutation at this sink.
     internal Action? PendingRangeChanges { get; set; }
     private ulong _mutationStamp;
+    // Trusted scheduling/cache invalidation only: no script or tree mutation at this sink.
+    internal Action<Node>? TreeMutationSignal { get; set; }
+    internal void MarkTreeMutation(Node node) => TreeMutationSignal?.Invoke(node);
     private bool _mayHaveMutationRegistrations;
     // Browser installs an agent-level collector. Native mutations notify at the
     // algorithm's signal points; an absent sink retains no pending slot queue.

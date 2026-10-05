@@ -8,7 +8,7 @@ internal static partial class NativeCssStyleSheets
 {
     internal static NativeCssSheetSets SetsOf(Document document)
     {
-        var resources = Documents.GetValue(document, static _ => new Resources());
+        var resources = ResourcesOf(document);
         return resources.Sets ??= new(document);
     }
 
@@ -51,13 +51,19 @@ internal static partial class NativeCssStyleSheets
             resource.Associated = true;
             resource.Disabled = disabled;
         }
+        var resources = ResourcesOf(document);
+        if (!resources.AssociatedOwners.TryGetValue(owner, out _))
+        {
+            resources.AssociatedOwners.Add(owner, resource);
+            Jint.HtmlParser.Css.Model.Syntax.CssMutationStamp.Advance(ref resources.Version);
+        }
     }
 
     internal static Resource? PrepareOwner(Document document, Element owner, CssValueWork work)
     {
         if (owner.NamespaceUri != Namespaces.Html && owner.NamespaceUri != Namespaces.Svg ||
             owner.LocalName != "style" && !(owner.LocalName == "link" && owner.NamespaceUri == Namespaces.Html)) return null;
-        var resources = Documents.GetValue(document, static _ => new Resources());
+        var resources = ResourcesOf(document);
         if (resources.Owners.TryGetValue(owner, out var known))
         {
             ObserveDisabled(owner);
@@ -92,6 +98,7 @@ internal static partial class NativeCssStyleSheets
         if (resource.Sheet is { } sheet) sheet.SetAttachment(resource.Attachment with { OwnerNode = null });
         resource.Sheet = null;
         resource.Associated = false;
+        resources.AssociatedOwners.Remove(owner);
         resources.Sets?.Removed(owner);
         resource.MediaSource = null;
         resource.Disabled = false;
@@ -298,15 +305,10 @@ internal sealed class NativeCssSheetSets(Document document)
     {
         var reads = new DomReadWork(work.Charge, work.Token);
         var result = new List<SheetState>();
-        // Only current ordinary-tree members are visited, in DOM order. There is no history-sized list.
-        var pending = new Stack<Node>();
-        pending.Push(document);
-        while (pending.TryPop(out var node))
+        foreach (var owner in NativeCssStyleSheets.OrderedOwners(document, work))
         {
             work.Charge(1);
-            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
-            { work.Charge(1); pending.Push(child); }
-            if (node is not Element owner || !_resources.TryGetValue(owner, out var resource) || !resource.Associated ||
+            if (!_resources.TryGetValue(owner, out var resource) || !resource.Associated ||
                 !NativeCssStyleSheets.EligibleOwner(owner, reads, work)) continue;
             result.Add(new(reads.Attribute(owner, "title") ?? "", resource, NativeCssStyleSheets.DisabledOf(resource), resource.Sheet?.Stamp));
         }

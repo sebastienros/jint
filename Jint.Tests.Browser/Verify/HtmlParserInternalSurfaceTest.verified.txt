@@ -607,6 +607,7 @@ public Jint.HtmlParser.Document
     get_PendingRangeChanges
     set_AdoptionObserver
     set_PendingRangeChanges
+    set_TreeMutationSignal
 public Jint.HtmlParser.DomException
     Hierarchy
     InvalidCharacter

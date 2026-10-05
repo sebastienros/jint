@@ -110,7 +110,7 @@ internal static partial class NativeCssStyleSheets
         work.Charge(text.Length);
         work.Charge(sourceUrl.Length);
         work.Charge(baseUrl.Length);
-        var resources = Documents.GetValue(document, static _ => new Resources());
+        var resources = ResourcesOf(document);
         var source = Uri.TryCreate(sourceUrl, UriKind.Absolute, out var uri) ? uri : null;
         var attachment = new CssStyleSheetAttachment
         {
@@ -155,7 +155,7 @@ internal static partial class NativeCssStyleSheets
     private static ReadOnlyCollection<NativeCssSheet> Get(Node root, Document document, CssValueWork work, bool includeShadow)
     {
         var result = new List<NativeCssSheet>();
-        var resources = Documents.GetValue(document, static _ => new Resources());
+        var resources = ResourcesOf(document);
         var revision = new CssMutationStamp(resources.Version);
         var documentStamp = document.MutationStamp;
         void Verify()
@@ -167,28 +167,18 @@ internal static partial class NativeCssStyleSheets
         }
         Verify();
         var parsing = CssValueWork.Guard(work, Verify);
-        // DOM order, rather than load completion order, owns stylesheet order.
-        var pending = new Stack<Node>();
-        pending.Push(root);
-        while (pending.TryPop(out var node))
+        // CSSOM's associated sheets remain in tree order, independent of fetch completion.
+        // Membership is registered at PrepareOwner/Install, never rediscovered by a DOM walk.
+        foreach (var element in OrderedOwners(root, document, resources, parsing, includeShadow))
         {
-            work.Charge(1);
-            if (includeShadow && node is Element { AttachedShadowRoot: { } shadow }) pending.Push(shadow);
-            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
-            {
-                work.Charge(1);
-                pending.Push(child);
-            }
-            if (node is Element element)
-            {
-                if (!resources.Owners.TryGetValue(element, out var resource) || !resource.Associated || !resource.Loaded)
-                    continue;
-                var ownerWork = new DomReadWork(work.Charge, work.Token);
-                if (!EligibleOwner(element, ownerWork, work)) continue;
-                var source = CaptureImportSource(document, element, parsing)
-                    ?? throw new InvalidOperationException(NativeCssQuery.Invalidated);
-                result.Add(new(EnsureSheet(source, parsing), NativeCssOrigin.Author));
-            }
+            parsing.Charge(1);
+            if (!resources.Owners.TryGetValue(element, out var resource) || !resource.Associated || !resource.Loaded)
+                continue;
+            var ownerWork = new DomReadWork(parsing.Charge, parsing.Token);
+            if (!EligibleOwner(element, ownerWork, parsing)) continue;
+            var source = CaptureImportSource(document, element, parsing)
+                ?? throw new InvalidOperationException(NativeCssQuery.Invalidated);
+            result.Add(new(EnsureSheet(source, parsing), NativeCssOrigin.Author));
         }
         Verify();
         return result.AsReadOnly();
@@ -325,10 +315,31 @@ internal static partial class NativeCssStyleSheets
         return false;
     }
 
+    private static Resources ResourcesOf(Document document) => Documents.GetValue(document, static owner =>
+    {
+        var resources = new Resources();
+        owner.TreeMutationSignal = resources.TreeChanged;
+        return resources;
+    });
+
     private sealed class Resources
     {
         internal ulong Version;
+        internal ulong TreeVersion;
+        internal ulong AncestryTreeVersion;
+        internal ulong AncestryResourceVersion;
+        internal ConditionalWeakTable<Node, object>? OrderAncestors;
+        internal void TreeChanged(Node node)
+        {
+            // Inserting/removing a subtree without a registered owner cannot change the
+            // relative order or scope of existing owners. No walk on the native mutation stack.
+            if (OrderAncestors is null || OrderAncestors.TryGetValue(node, out _))
+                CssMutationStamp.Advance(ref TreeVersion);
+        }
+
         internal NativeCssSheetSets? Sets;
+        internal ConditionalWeakTable<Node, OwnerOrders> Orders { get; } = new();
+        internal ConditionalWeakTable<Element, Resource> AssociatedOwners { get; } = new();
         internal ConditionalWeakTable<Element, Resource> Owners { get; } = new();
     }
     private sealed class LinkHistory
