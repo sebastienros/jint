@@ -429,4 +429,75 @@ public partial class HtmlTreeConstructionTests
             ((Element) body.LastChild!).LocalName.Should().Be("p");
         }
     }
+    [TestCase(128)]
+    [TestCase(256)]
+    [TestCase(512)]
+    public void AdoptionOffsetsLongSpecialSuffixWithLinearCountedWork(int depth)
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<b>" + string.Concat(Enumerable.Repeat("<div>", depth)) + "x");
+        DrainToNeedInput(session, 4096);
+        var before = session.WorkCount;
+        session.AppendInput("</b>", isFinal: true);
+        DrainToCompletion(session, 4096);
+        var work = session.WorkCount - before;
+        TestContext.WriteLine($"Adoption suffix {depth}: {work} work units");
+        // Eight spec iterations, each offsetting the moved suffix once in
+        // each applicable index. Repeated binary searches per moved element
+        // exceed this envelope as the suffix grows.
+        work.Should().BeLessThan(100L * depth);
+        document.DocumentElement!.TextContent().Should().Be("x");
+    }
+
+    [TestCase(1)]
+    [TestCase(3)]
+    [TestCase(4096)]
+    public void RepeatedAdoptionRetainsDeepTreeAndAuxiliaryIndexes(int quota)
+    {
+        const int depth = 32;
+        var source = string.Concat(Enumerable.Repeat("<b>", depth)) +
+            string.Concat(Enumerable.Repeat("<div><section><span><custom>", depth)) +
+            "x" + string.Concat(Enumerable.Repeat("</b>", depth)) +
+            string.Concat(Enumerable.Repeat("</custom></span></section></div>", depth)) +
+            "<ul><li>a<li>b</ul><dl><dt>c<dd>d</dl><p>e";
+        var parsed = Parse(source, quota);
+        parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        parsed.Document.DocumentElement!.TextContent().Should().Be("xabcde");
+        Serialize(parsed.Document).Should().Contain(
+            "<ul><li>a</li><li>b</li></ul><dl><dt>c</dt><dd>d</dd></dl><p>e</p>");
+        if (quota != 4096)
+            Serialize(parsed.Document).Should().Be(Serialize(Parse(source, 4096).Document));
+    }
+
+    [TestCase("RemoveFormattingOpen")]
+    [TestCase("InsertReplacementOpen")]
+    public void CancellationDuringBulkIndexOffsetsPreservesCommittedTree(string stage)
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<b>" + string.Concat(Enumerable.Repeat("<div><span>", 24)) + "x");
+        DrainToNeedInput(session, 1);
+        session.AppendInput("</b>", isFinal: true);
+        var builder = BuilderOf(session);
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var stageField = typeof(HtmlTreeBuilder).GetField("_adoptionStage", flags)!;
+        var cursorField = typeof(HtmlTreeBuilder).GetField("_adoptionOffsetCursor", flags)!;
+        var listField = typeof(HtmlTreeBuilder).GetField("_adoptionOffsetList", flags)!;
+        for (var turn = 0; turn < 100_000; turn++)
+        {
+            session.Drive(1, CancellationToken.None);
+            if (stageField.GetValue(builder)!.ToString() == stage &&
+                listField.GetValue(builder) is not null && (int) cursorField.GetValue(builder)! > 1)
+                break;
+            if (turn == 99_999) throw new InvalidOperationException("Adoption did not enter index offsets.");
+        }
+        var before = Serialize(document);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => session.Drive(1, cancellation.Token));
+        Serialize(document).Should().Be(before);
+        Assert.Throws<InvalidOperationException>(() => session.Drive(1, CancellationToken.None));
+    }
+
 }

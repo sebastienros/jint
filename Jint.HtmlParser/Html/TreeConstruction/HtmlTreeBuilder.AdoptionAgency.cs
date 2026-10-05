@@ -6,8 +6,9 @@ namespace Jint.HtmlParser.Html;
 internal sealed partial class HtmlTreeBuilder
 {
     // HTML Standard §13.2.6.4.7, adoption agency algorithm (2026-09-22).
-    // Each scan and move is a separate continuation point. The outer limit of
-    // eight is prescribed by HTML and has no relation to the Drive work quota.
+    // Scans and index offsets have continuation points; native list shifts
+    // are atomic and charged by suffix length. The outer limit of eight is
+    // prescribed by HTML and has no relation to the Drive work quota.
     private enum AdoptionStage
     {
         Idle, Outer, FindOpen, FindFurthest,
@@ -39,7 +40,14 @@ internal sealed partial class HtmlTreeBuilder
     private int _adoptionGenericTarget;
     private int _adoptionShiftIndex = -1;
     private int _adoptionInsertIndex = -1;
-    private int _adoptionInsertCursor;
+    private readonly HashSet<List<int>> _adoptionOffsetLists = [];
+    private int _adoptionOffsetScan;
+    private int _adoptionOffsetMinimum;
+    private int _adoptionOffsetDelta;
+    private HashSet<List<int>>.Enumerator _adoptionOffsetEnumerator;
+    private bool _adoptionOffsetEnumerating;
+    private List<int>? _adoptionOffsetList;
+    private int _adoptionOffsetCursor;
     private readonly HashSet<Element> _adoptionRemovedOpen = new(ReferenceEqualityComparer.Instance);
     private int _adoptionCompactRead;
     private int _adoptionCompactWrite;
@@ -567,20 +575,12 @@ internal sealed partial class HtmlTreeBuilder
             _openIdentity.Remove(removed);
             if (!AllowedOpenAtEof(removed)) _unexpectedOpenCount--;
             RemoveIndexes(removed, index);
+            _open.RemoveAt(index);
             _adoptionShiftIndex = index;
-            Charge(1);
+            BeginAdoptionOffsets(index, index + 1, -1);
+            Charge(1L + _open.Count - index);
         }
-        var moved = false;
-        while (_adoptionShiftIndex < _open.Count - 1)
-        {
-            if (_remaining <= 0 && moved) return false;
-            var item = _open[_adoptionShiftIndex + 1];
-            _open[_adoptionShiftIndex] = item;
-            ShiftIndexes(item, _adoptionShiftIndex + 1);
-            _adoptionShiftIndex++;
-            moved = true;
-        }
-        _open.RemoveAt(_open.Count - 1);
+        if (!TryAdoptionOffsets()) return false;
         _adoptionShiftIndex = -1;
         return true;
     }
@@ -591,21 +591,11 @@ internal sealed partial class HtmlTreeBuilder
         {
             CheckDepth();
             _adoptionInsertIndex = index;
-            _adoptionInsertCursor = _open.Count - 1;
-            _open.Add(element);
-            Charge(1);
+            _open.Insert(index, element);
+            BeginAdoptionOffsets(index + 1, index, 1);
+            Charge(1L + _open.Count - index - 1);
         }
-        var shifted = false;
-        while (_adoptionInsertCursor >= index)
-        {
-            if (_remaining <= 0 && shifted) return false;
-            var item = _open[_adoptionInsertCursor];
-            _open[_adoptionInsertCursor + 1] = item;
-            ShiftIndexesUp(item, _adoptionInsertCursor);
-            _adoptionInsertCursor--;
-            shifted = true;
-        }
-        _open[index] = element;
+        if (!TryAdoptionOffsets()) return false;
         _openIdentity.Add(element);
         AddIndexesAt(element, index);
         if (!AllowedOpenAtEof(element)) _unexpectedOpenCount++;
@@ -614,24 +604,69 @@ internal sealed partial class HtmlTreeBuilder
         return true;
     }
 
-    private void ShiftIndexesUp(Element element, int oldIndex)
+    private void BeginAdoptionOffsets(int scan, int minimum, int delta)
     {
-        static void Shift(List<int> indexes, int index)
+        _adoptionOffsetScan = scan;
+        _adoptionOffsetMinimum = minimum;
+        _adoptionOffsetDelta = delta;
+        _adoptionOffsetLists.Add(_specialIndexes);
+        _adoptionOffsetLists.Add(_liStops);
+        _adoptionOffsetLists.Add(_ddDtStops);
+        _adoptionOffsetLists.Add(_scopeStops);
+        _adoptionOffsetLists.Add(_resetModeIndexes);
+    }
+
+    private bool TryAdoptionOffsets()
+    {
+        // Collect only names in the moved suffix: enumerating the name map
+        // would also visit every historical name whose retained list is empty.
+        // No stack consumer runs until all indexes have caught up with the
+        // single RemoveAt/Insert. Each collection/offset has a yield boundary.
+        var advanced = false;
+        while (!_adoptionOffsetEnumerating)
         {
-            var position = indexes.BinarySearch(index);
-            if (position < 0) throw new InvalidOperationException("HTML stack index was not found.");
-            indexes[position] = index + 1;
+            if (_remaining <= 0 && advanced) return false;
+            if (_adoptionOffsetScan == _open.Count)
+            {
+                _adoptionOffsetEnumerator = _adoptionOffsetLists.GetEnumerator();
+                _adoptionOffsetEnumerating = true;
+                break;
+            }
+            _adoptionOffsetLists.Add(_nameIndexes.For(_open[_adoptionOffsetScan++]));
+            Charge(1);
+            advanced = true;
         }
-        Shift(_nameIndexes.For(element), oldIndex);
-        if (IsSpecialElement(element))
+        while (true)
         {
-            Shift(_specialIndexes, oldIndex);
-            if (!HtmlAddressDivPNames.Match(element.LocalName)) Shift(_liStops, oldIndex);
-            if (!HtmlAddressDivPDdNames.Match(element.LocalName)) Shift(_ddDtStops, oldIndex);
+            if (_remaining <= 0 && advanced) return false;
+            if (_adoptionOffsetList is null)
+            {
+                if (!_adoptionOffsetEnumerator.MoveNext())
+                {
+                    _adoptionOffsetEnumerator.Dispose();
+                    _adoptionOffsetEnumerator = default;
+                    _adoptionOffsetEnumerating = false;
+                    _adoptionOffsetLists.Clear();
+                    return true;
+                }
+                _adoptionOffsetList = _adoptionOffsetEnumerator.Current;
+                var position = _adoptionOffsetList.BinarySearch(_adoptionOffsetMinimum);
+                _adoptionOffsetCursor = position < 0 ? ~position : position;
+                Charge(1L + SearchCost(_adoptionOffsetList.Count));
+                advanced = true;
+                continue;
+            }
+            if (_adoptionOffsetCursor == _adoptionOffsetList.Count)
+            {
+                _adoptionOffsetList = null;
+                continue;
+            }
+            // Ascending offsets may temporarily duplicate a neighbor during
+            // insertion; no search uses this list until the suffix is complete.
+            _adoptionOffsetList[_adoptionOffsetCursor++] += _adoptionOffsetDelta;
+            Charge(1);
+            advanced = true;
         }
-        if (IsScopeBoundary(element)) Shift(_scopeStops, oldIndex);
-        if (IsResetModeElement(element)) Shift(_resetModeIndexes, oldIndex);
-        Charge(1);
     }
 
     private void EndAdoption()
