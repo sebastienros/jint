@@ -58,4 +58,16 @@
     <Using Remove="Acornima.Ast" />
   </ItemGroup>
 
+  <!-- Browser binds parser internals, so a newer parser is not a compatible substitute.
+       Use the referenced project's final version (including its experimental GA suffix),
+       rather than Browser's PackageVersion. NuGet's plain version syntax is a minimum. -->
+  <Target Name="PinHtmlParserPackageDependency" AfterTargets="_GetProjectReferenceVersions">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Update="@(_ProjectReferencesWithVersions)"
+                                      Condition="'%(_ProjectReferencesWithVersions.Filename)' == 'Jint.HtmlParser'">
+        <ProjectVersion>[%(_ProjectReferencesWithVersions.ProjectVersion)]</ProjectVersion>
+      </_ProjectReferencesWithVersions>
+    </ItemGroup>
+  </Target>
+
 </Project>

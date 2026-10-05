@@ -36,7 +36,21 @@ def main():
         referenced = data["TargetResults"]["_GetProjectVersion"]["Items"][0]["ProjectVersion"]
         if actual != expected or referenced != expected:
             raise AssertionError(f"{properties}: package={actual}, reference={referenced}, expected={expected}")
-        print(f"{properties}: {actual}")
+        browser = subprocess.run(
+            [
+                "dotnet", "msbuild", "Jint.Browser/Jint.Browser.csproj",
+                "-p:Configuration=Release", "-p:TargetFrameworks=net10.0",
+                "-p:TargetFramework=net10.0", "-t:_GetProjectReferenceVersions",
+                "-getItem:_ProjectReferencesWithVersions",
+                *[f"-p:{prop}" for prop in properties],
+            ],
+            cwd=ROOT, text=True, capture_output=True, check=True,
+        )
+        references = json.loads(browser.stdout)["Items"]["_ProjectReferencesWithVersions"]
+        parser = next(item for item in references if item["Filename"] == "Jint.HtmlParser")
+        if parser["ProjectVersion"] != f"[{expected}]":
+            raise AssertionError(f"{properties}: Browser parser dependency={parser['ProjectVersion']}")
+        print(f"{properties}: {actual}, Browser dependency [{expected}]")
     print("PARSER PRERELEASE VERSION CHECKS PASSED")
 
 
