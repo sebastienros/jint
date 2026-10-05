@@ -5,6 +5,7 @@ namespace Jint.HtmlParser;
 // object instead of widening every node.
 internal class NodeRareData
 {
+    internal NativeIdIndex? IdIndex;
     internal HtmlFormIndex? FormIndex;
     internal HtmlRadioGroupIndex? RadioIndex;
     internal HtmlFormWorkProbe? FormWorkProbe;

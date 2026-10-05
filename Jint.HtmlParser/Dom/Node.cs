@@ -23,6 +23,8 @@ public abstract partial class Node
     private protected virtual NodeRareData CreateRareData() => new();
     private protected NodeRareData Rare => _rare ??= CreateRareData();
 
+    internal NativeIdIndex IdIndex => Rare.IdIndex ??= new();
+
     internal HtmlFormIndex? FormIndex
     {
         get => _rare?.FormIndex;

@@ -467,6 +467,8 @@ internal Jint.HtmlParser.NativeCharacterData
     ReplaceData
     SplitText
     SubstringData
+internal Jint.HtmlParser.NativeIdIndex
+    Find
 internal Jint.HtmlParser.NativeXPathNavigator
     CheckRead
     PublishResult

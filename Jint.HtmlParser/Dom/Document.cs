@@ -42,7 +42,20 @@ public sealed partial class Document : Node
     private ulong _mutationStamp;
     // Trusted scheduling/cache invalidation only: no script or tree mutation at this sink.
     internal Action<Node>? TreeMutationSignal { get; set; }
-    internal void MarkTreeMutation(Node node) => TreeMutationSignal?.Invoke(node);
+    internal ulong IdIndexRevision { get; private set; }
+    internal void MarkIdMutation()
+    {
+        if (IdIndexRevision != ulong.MaxValue) IdIndexRevision++;
+    }
+    internal void MarkIdAttributeMutation(string? namespaceUri, string localName)
+    {
+        if (namespaceUri is null && localName == "id") MarkIdMutation();
+    }
+    internal void MarkTreeMutation(Node node)
+    {
+        MarkIdMutation();
+        TreeMutationSignal?.Invoke(node);
+    }
     private bool _mayHaveMutationRegistrations;
     // Browser installs an agent-level collector. Native mutations notify at the
     // algorithm's signal points; an absent sink retains no pending slot queue.

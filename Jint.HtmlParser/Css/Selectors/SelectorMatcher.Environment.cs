@@ -66,6 +66,13 @@ internal static partial class SelectorMatcher
             work.VerifyRead();
             var local = new Work(ref work, environment);
             ValidateImplemented(program, ref local, work.Token);
+            // Selectors §6.7: quirks-mode ID matching is ASCII case-insensitive.
+            // Keep that lane on the matcher, and classify the parsed program (including escapes).
+            if ((root as Document ?? root.OwnerDocument)?.Mode != DocumentMode.Quirks &&
+                program.BranchArray is [var branch] && branch.LeadingCombinator is null &&
+                branch.CompoundArray is [var compound] && !compound.HasExplicitType &&
+                compound.PredicateArray is [{ Kind: PredicateKind.Id, IsNestingReference: false } id])
+                return NativeIdIndex.Find(root, id.Name!, ref work);
             var scope = ScopeFor(root, ref local);
             for (var node = root.FirstChild; node is not null; node = NextWithin(root, node, ref local))
             {

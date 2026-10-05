@@ -274,6 +274,7 @@ public sealed class Element : Node
             attribute.OwnerElement = this;
             attribute.Rehome(OwnerDocument!);
             OwnerDocument!.MarkMutation();
+            OwnerDocument.MarkIdAttributeMutation(attribute.NamespaceUri, attribute.LocalName);
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             MutationTracking.QueueAttribute(this, attribute, oldValue, matches, previous);
@@ -320,6 +321,7 @@ public sealed class Element : Node
         ResetAttributeStructureIdentity();
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
+        OwnerDocument.MarkIdAttributeMutation(attribute.NamespaceUri, attribute.LocalName);
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         MutationTracking.QueueAttribute(this, attribute, attribute.Value);
@@ -354,6 +356,7 @@ public sealed class Element : Node
         _attributes = new Attr[source._attributeCount];
         _attributeCount = 0;
         ResetAttributeStructureIdentity();
+        OwnerDocument!.MarkIdMutation();
         foreach (var attribute in source.AttributeSpan)
         {
             work.Step();
@@ -507,6 +510,7 @@ public sealed class Element : Node
         attribute.Rehome(OwnerDocument!);
         ScriptAttributeAdded(attribute);
         OwnerDocument!.MarkMutation();
+        OwnerDocument.MarkIdAttributeMutation(attribute.NamespaceUri, attribute.LocalName);
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         MutationTracking.QueueAttribute(this, attribute, null);

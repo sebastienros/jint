@@ -82,6 +82,7 @@ public sealed class Attr
         OwnerDocument.MarkMutation();
         if (owner is not null)
         {
+            OwnerDocument.MarkIdAttributeMutation(NamespaceUri, LocalName);
             HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
             MutationTracking.QueueAttribute(owner, this, oldValue, matches);
             HtmlInputStateChanges.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
