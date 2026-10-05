@@ -8,6 +8,7 @@ using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Native.Symbol;
 using Jint.Runtime;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native;
 
@@ -370,11 +371,21 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// <c>a += b</c> produces, which stays on <see cref="ConcatenatedString"/>'s builder.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The caller has already refused a result longer than <see cref="MaxLength"/> — it holds both
     /// lengths for the sum it just checked, so re-reading them here would be two virtual dispatches for
     /// a number it already has. That check is what lets the addition below be a plain <see cref="int"/>.
+    /// </para>
+    /// <para>
+    /// <paramref name="context"/> is read on the deferring branches alone, and only for the engine's memory
+    /// limit: a node is the same few dozen bytes whatever length it stands for, and its characters are
+    /// allocated by whoever flattens it — possibly a host, after every constraint has been disarmed. So under
+    /// <c>LimitMemory</c> the node is charged when it is built; see
+    /// <see cref="Constraints.MemoryLimitConstraint.ChargeDeferredConcatenation"/> for how much. Taking the
+    /// context rather than its engine keeps that load off the short branch, which every short <c>+</c> takes.
+    /// </para>
     /// </remarks>
-    internal static JsString Concat(JsString left, JsString right)
+    internal static JsString Concat(JsString left, JsString right, EvaluationContext context)
     {
         var leftLength = left.Length;
         var rightLength = right.Length;
@@ -388,7 +399,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
         if (!IsRetainable(left) || !IsRetainable(right))
         {
-            return ConcatSnapshotting(left, right);
+            return ConcatSnapshotting(left, right, context);
         }
 
         if (leftLength == 0)
@@ -401,6 +412,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return left;
         }
 
+        ChargeDeferredConcatenation(context, leftLength, rightLength);
         return new RopeString(left, right, length);
     }
 
@@ -442,7 +454,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// flattened, not a character copy.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static JsString ConcatSnapshotting(JsString left, JsString right)
+    private static JsString ConcatSnapshotting(JsString left, JsString right, EvaluationContext context)
     {
         if (!IsRetainable(left))
         {
@@ -467,7 +479,24 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return left;
         }
 
+        // Charged for the lengths the node actually holds: the snapshot above has replaced a host's claim
+        // with its text.
+        ChargeDeferredConcatenation(context, leftLength, rightLength);
         return new RopeString(left, right, leftLength + rightLength);
+    }
+
+    /// <summary>
+    /// Charges the engine's memory limit, if any, for a node about to be built over operands of these lengths.
+    /// A constant fold evaluates with no engine: the node is then made from literals in the source text,
+    /// which no budget pays for either.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ChargeDeferredConcatenation(EvaluationContext context, int leftLength, int rightLength)
+    {
+        if (context.Engine?._memoryLimitConstraint is { } memoryLimit)
+        {
+            memoryLimit.ChargeDeferredConcatenation(leftLength, rightLength);
+        }
     }
 
     internal static JsString Create(int value)
@@ -977,6 +1006,12 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// already costs — and no stack frames at all. The walk descends right-first, so the append shape
     /// (<c>s = s + x</c>, a left-leaning spine) never has more than one node pending; the prepend shape
     /// (<c>s = x + s</c>) is the one that pays for the array.
+    /// </para>
+    /// <para>
+    /// <b>The memory budget is charged when a node is built, never when it is flattened.</b> The flatten can
+    /// run anywhere — a host's <c>ToString()</c> after the run, another thread — and none of those places has
+    /// an entry to charge, so <see cref="Concat"/> charges the characters a node appends before it exists
+    /// (sebastienros/jint#4162). A new deferred representation owes the same, at its own construction.
     /// </para>
     /// </remarks>
     internal sealed class RopeString : JsString

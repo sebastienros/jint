@@ -2771,7 +2771,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             // names the function it creates through this overload - and binding a bound function hands
             // the previous level's name straight back in. The same deferred concatenation as Function's
             // overload keeps a chain of binds from copying the whole name at every level (#4129).
-            name = Function.Function.PrefixName(prefix!, name);
+            name = Function.Function.PrefixName(prefix!, name, _engine._evaluationContext);
         }
 
         DefinePropertyOrThrow(CommonProperties.Name, new PropertyDescriptor(name, PropertyFlag.Configurable));

@@ -311,6 +311,14 @@ public sealed partial class Engine : IDisposable
     internal readonly MaxStatementsConstraint? _inlineStatementCounter;
 
     /// <summary>
+    /// The engine's <see cref="MemoryLimitConstraint"/>, if <c>LimitMemory</c> configured one. A long
+    /// <c>a + b</c> defers its copy, and <see cref="JsString.Concat"/> charges the characters it appends here
+    /// when it builds the node (sebastienros/jint#4162), because the flatten that allocates them can run where
+    /// no constraint is armed.
+    /// </summary>
+    internal readonly MemoryLimitConstraint? _memoryLimitConstraint;
+
+    /// <summary>
     /// Statements remaining before the next amortized constraint check. Driven by
     /// <see cref="EvaluationContext.RunAmortizedConstraintChecks"/>.
     /// <para>
@@ -504,6 +512,14 @@ public sealed partial class Engine : IDisposable
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;
         _inlineStatementCounter = partitionedConstraints.InlineStatementCounter;
+        foreach (var constraint in _constraints)
+        {
+            if (constraint is MemoryLimitConstraint memoryLimit)
+            {
+                _memoryLimitConstraint = memoryLimit;
+                break;
+            }
+        }
 
         // Everything the context snapshots is settled by now (debug mode, the constraint partition),
         // and it must exist before Options.Apply below, whose configuration callbacks may execute
