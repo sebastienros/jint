@@ -45,6 +45,73 @@ public class XmlDtdTests
     }
 
     [Test]
+    public void RepeatedElementsReuseMergedDeclarationsWithFirstDeclarationWinning()
+    {
+        // XML 1.0 §3.3: repeated ATTLISTs merge, and the first declaration of an attribute binds.
+        const string source = "<!DOCTYPE r [" +
+            "<!ATTLIST x tokens NMTOKENS #IMPLIED key ID #IMPLIED plain CDATA #IMPLIED " +
+            "a CDATA 'first' a CDATA 'duplicate' xmlns:p CDATA 'urn:test'>" +
+            "<!ATTLIST x tokens CDATA #IMPLIED key CDATA #IMPLIED plain NMTOKENS #IMPLIED " +
+            "a CDATA 'later' b CDATA 'second' ignored CDATA #IMPLIED>" +
+            "<!ATTLIST x ignored CDATA 'must-not-appear'>" +
+            "<!ATTLIST y tokens CDATA #IMPLIED a CDATA 'other'>]>" +
+            "<r><x key='one' tokens=' a  b ' plain=' c  d '><p:item/></x><y tokens=' a  b '/>" +
+            "<x key='two' tokens=' e  f ' plain=' g  h ' a='explicit'/></r>";
+        var document = MarkupParser.ParseXml(source);
+        var children = document.DocumentElement!.ChildNodes.Cast<Element>().ToArray();
+        children[0].GetAttribute("tokens").Should().Be("a b");
+        children[0].GetAttribute("plain").Should().Be(" c  d ");
+        children[0].Attributes.Select(a => a.Name).Should().Equal("key", "tokens", "plain", "a", "xmlns:p", "b");
+        children[0].GetAttribute("a").Should().Be("first");
+        ((Element) children[0].FirstChild!).NamespaceUri.Should().Be("urn:test");
+        children[1].GetAttribute("tokens").Should().Be(" a  b ");
+        children[1].GetAttribute("a").Should().Be("other");
+        children[2].GetAttribute("tokens").Should().Be("e f");
+        children[2].GetAttribute("plain").Should().Be(" g  h ");
+        children[2].GetAttribute("a").Should().Be("explicit");
+        foreach (var child in new[] { children[0], children[2] })
+        {
+            child.GetAttribute("b").Should().Be("second");
+            child.GetAttribute("ignored").Should().BeNull();
+        }
+        var navigator = NativeXPath.CreateNavigator(document, default);
+        navigator.MoveToId("one").Should().BeTrue();
+        navigator.UnderlyingObject.Should().BeSameAs(children[0]);
+        navigator.MoveToId("two").Should().BeTrue();
+        navigator.UnderlyingObject.Should().BeSameAs(children[2]);
+    }
+
+    [Test]
+    public void ImpliedDeclarationsAndRepeatedElementsScaleWithInputSize()
+    {
+        // Count parser work and managed allocations, not wall time. Quadrupling both declarations
+        // and tags must not multiply their product: unused declarations add no per-tag work.
+        var small = Parse(256);
+        var large = Parse(1024);
+        large.Polls.Should().BeLessThan(small.Polls * 6);
+        large.Allocations.Should().BeLessThan(small.Allocations * 6);
+
+        static (int Polls, long Allocations) Parse(int count)
+        {
+            var source = new System.Text.StringBuilder("<!DOCTYPE r [<!ATTLIST x tokens NMTOKENS #IMPLIED");
+            for (var i = 0; i < count; i++)
+                source.Append(" a").Append(i).Append(i % 2 == 0 ? " CDATA #IMPLIED" : " CDATA #REQUIRED");
+            source.Append(">]><r>");
+            for (var i = 0; i < count; i++) source.Append("<x tokens=' a  b '/>");
+            source.Append("</r>");
+            var input = source.ToString();
+            var polls = 0;
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var document = XmlTreeParser.ParseDocument(input, ParseLimits.Unbounded, () => polls++, default);
+            var allocations = GC.GetAllocatedBytesForCurrentThread() - before;
+            var children = document.DocumentElement!.ChildNodes.Cast<Element>().ToArray();
+            children.Length.Should().Be(count);
+            children.All(child => child.GetAttribute("tokens") == "a b").Should().BeTrue();
+            return (polls, allocations);
+        }
+    }
+
+    [Test]
     public void DoctypeAndInternalEntityProduceNativeNodes()
     {
         var source = "<!DOCTYPE r [<!ENTITY e 'hello'>]><r>&e;</r>";

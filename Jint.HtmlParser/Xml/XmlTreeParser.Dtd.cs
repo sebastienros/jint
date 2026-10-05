@@ -7,8 +7,8 @@ internal sealed partial class XmlTreeParser
 {
     // HTML Standard §14.2. Only these identifiers activate the pinned local
     // character-entity catalog shared with the HTML tokenizer.
-    private readonly Dictionary<string, List<XmlAttributeDeclaration>> _attributeDeclarations = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, HashSet<string>> _declaredAttributeNames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Dictionary<string, XmlAttributeDeclaration>> _attributeDeclarations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<XmlAttributeDeclaration>> _defaultAttributeDeclarations = new(StringComparer.Ordinal);
 
     private bool ResumeInput()
     {
@@ -437,13 +437,17 @@ internal sealed partial class XmlTreeParser
         {
             if (!_attributeDeclarations.TryGetValue(elementName, out var existing))
             {
-                _attributeDeclarations.Add(elementName, existing = new List<XmlAttributeDeclaration>());
-                _declaredAttributeNames.Add(elementName, new HashSet<string>(StringComparer.Ordinal));
+                _attributeDeclarations.Add(elementName, existing = new Dictionary<string, XmlAttributeDeclaration>(StringComparer.Ordinal));
             }
-            var known = _declaredAttributeNames[elementName];
             foreach (var declaration in declarations)
             {
-                if (known.Add(declaration.Name)) existing.Add(declaration);
+                // XML §3.3: merge ATTLISTs once, preserving the first declaration of each attribute.
+                if (existing.TryAdd(declaration.Name, declaration) && declaration.DefaultValue is not null)
+                {
+                    if (!_defaultAttributeDeclarations.TryGetValue(elementName, out var defaults))
+                        _defaultAttributeDeclarations.Add(elementName, defaults = new List<XmlAttributeDeclaration>());
+                    defaults.Add(declaration);
+                }
                 WorkUnit();
             }
         }
@@ -582,12 +586,13 @@ internal sealed partial class XmlTreeParser
     private void ApplyDtdAttributes(string elementName, List<RawAttribute> attributes,
         Dictionary<string, string?> localBindings)
     {
-        if (!_attributeDeclarations.TryGetValue(elementName, out var declarations)) return;
+        // Only defaults need per-element work; #IMPLIED and #REQUIRED declarations do not.
+        if (!_defaultAttributeDeclarations.TryGetValue(elementName, out var declarations)) return;
         foreach (var declaration in declarations)
         {
             WorkUnit();
-            if (declaration.DefaultValue is null || !AddRawName(attributes, declaration.Name)) continue;
-            var value = declaration.DefaultValue;
+            if (!AddRawName(attributes, declaration.Name)) continue;
+            var value = declaration.DefaultValue!;
             attributes.Add(new RawAttribute(declaration.Name, value, _position));
             if (declaration.Name == "xmlns" || declaration.Name.StartsWith("xmlns:", StringComparison.Ordinal))
             {
@@ -599,16 +604,7 @@ internal sealed partial class XmlTreeParser
     }
 
     private Dictionary<string, XmlAttributeDeclaration>? GetDeclaredAttributeTypes(string elementName)
-    {
-        if (!_attributeDeclarations.TryGetValue(elementName, out var declarations)) return null;
-        var result = new Dictionary<string, XmlAttributeDeclaration>(declarations.Count, StringComparer.Ordinal);
-        foreach (var declaration in declarations)
-        {
-            result.Add(declaration.Name, declaration);
-            WorkUnit();
-        }
-        return result;
-    }
+        => _attributeDeclarations.GetValueOrDefault(elementName);
 
     private string NormalizeDtdDefault(string value, int offset, bool replacementSource)
     {
