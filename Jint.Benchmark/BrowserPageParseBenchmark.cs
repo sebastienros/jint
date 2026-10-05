@@ -8,7 +8,10 @@ namespace Jint.Benchmark;
 /// the native parse plus everything Jint.Browser layers on it while the parser runs (resource discovery,
 /// creation realms, base URL, load events). Pair it with <see cref="HtmlParserComparisonBenchmark"/>'s
 /// <c>ParseNative</c> row for the same case: the difference is the browser's per-page overhead.
-/// Each row owns one page; the corpus has no scripts, so no script engine work is measured.
+/// Each corpus row owns one browser and page, created and warmed in <c>[GlobalSetup]</c>.
+/// Every measured <c>SetContentAsync</c> replaces the document engine, so engine construction and
+/// browser runtime initialization are included in the per-page overhead, along with any corpus scripts
+/// executed during the load. Setup's element-count validation is outside the measurement.
 /// </summary>
 [MemoryDiagnoser]
 [BenchmarkCategory("HtmlParserComparison")]
