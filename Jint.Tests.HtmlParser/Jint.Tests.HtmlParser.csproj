@@ -15,7 +15,6 @@
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="PublicApiGenerator" />
-    <PackageReference Include="Verify.DiffPlex" />
     <PackageReference Include="Verify.NUnit" />
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
     <!-- The Browser cascade is tested here without an engine: these files must build against the parser alone. -->

@@ -4,7 +4,6 @@ using System.Runtime.Versioning;
 using Jint.HtmlParser;
 using PublicApiGenerator;
 using VerifyTests;
-using VerifyTests.DiffPlex;
 using VerifyNUnit;
 
 namespace Jint.Tests.HtmlParser.Parsing;
@@ -52,5 +51,5 @@ public class PublicApiTest
 internal static class PublicApiDiffFormat
 {
     [ModuleInitializer]
-    public static void Initialize() => VerifyDiffPlex.Initialize(OutputType.Compact);
+    public static void Initialize() => VerifierSettings.UseTextDiffFormat(DiffEngine.TextDiffFormat.Compact);
 }
