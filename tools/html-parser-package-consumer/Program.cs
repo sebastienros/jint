@@ -28,6 +28,9 @@ internal static class Program
             CheckCssSyntax();
             CheckXPath();
             CheckSerialization();
+#if BROWSER_PROBE
+            CheckBrowserAsync().GetAwaiter().GetResult();
+#endif
             Console.WriteLine("ALL PARSER PACKAGE PROBES PASSED");
             return 0;
         }
@@ -37,6 +40,18 @@ internal static class Program
             return 1;
         }
     }
+
+#if BROWSER_PROBE
+    private static async System.Threading.Tasks.Task CheckBrowserAsync()
+    {
+        await using var browser = new Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='probe'>before</p><script>document.querySelector('#probe').textContent = 'packed browser';</script>");
+        Require(await page.EvaluateAsync<string>("document.querySelector('#probe').textContent") == "packed browser",
+            "Packed Browser/parser integration failed.");
+        Console.WriteLine("BROWSER PACKAGE PROBE PASSED");
+    }
+#endif
 
     private static void CheckDtdProcessingInstructions()
     {

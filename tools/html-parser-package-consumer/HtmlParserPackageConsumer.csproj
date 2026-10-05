@@ -4,9 +4,13 @@
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <HtmlParserPackageVersion Condition="'$(HtmlParserPackageVersion)' == ''">5.0.0-consumer-smoke</HtmlParserPackageVersion>
+    <BrowserPackageVersion Condition="'$(BrowserPackageVersion)' == ''">5.0.0-consumer-smoke</BrowserPackageVersion>
+    <DefineConstants Condition="'$(IncludeBrowser)' == 'true'">$(DefineConstants);BROWSER_PROBE</DefineConstants>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)..\..\artifacts\html-parser-package-consumer\packages</RestorePackagesPath>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Jint.HtmlParser" Version="5.0.0-consumer-smoke" />
+    <PackageReference Include="Jint.HtmlParser" Version="$(HtmlParserPackageVersion)" />
+    <PackageReference Include="Jint.Browser" Version="$(BrowserPackageVersion)" Condition="'$(IncludeBrowser)' == 'true'" />
   </ItemGroup>
 </Project>

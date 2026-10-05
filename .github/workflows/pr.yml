@@ -18,6 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  html-parser-package-consumer:
+    uses: ./.github/workflows/html-parser-package-consumer.yml
+
   # No path filter: source vocabularies, shared generators and all generated fixtures must agree.
   parser-lookups:
     uses: ./.github/workflows/parser-lookups.yml
