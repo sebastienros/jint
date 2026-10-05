@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native;
 using Jint.Native.Promise;
@@ -26,6 +27,86 @@ public partial class Engine
     // on the identical script erupted from the call - and erupted only sometimes, because a host callback
     // charged to the operation from another thread could trip the post-script check before the engine thread
     // reached it. See https://github.com/sebastienros/jint/issues/3241.
+    //
+    // The same bodies own the entry's cancellation token: BeginObservingAsyncEntryToken first, inside the try,
+    // so a token cancelled before the call cancels the task without running anything, and
+    // EndObservingAsyncEntryToken in the finally, so the next entry - synchronous or not - never observes a
+    // token that belonged to this one.
+
+    /// <summary>
+    /// The token of the <c>*Async</c> entry in progress, or <see langword="default"/> outside one. The
+    /// interpreter observes it on the amortized cadence (<see cref="CheckAmortizedConstraints"/>), which is what
+    /// lets the entry's own token stop a script that never yields without the host registering
+    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> — a registration fixed when the
+    /// <see cref="Options"/> are built, and therefore no use to a host whose token is per request.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Engine state rather than a <see cref="Constraint"/>: the constraint set is built once and fixed for
+    /// the engine's life, while this lives for one entry. It is observation-only for the same reasons
+    /// <see cref="Constraints.CancellationConstraint"/> is amortizable — a token never un-cancels — so it rides
+    /// the cadence and never joins the exact partition, and the tight-loop lane stays armed.
+    /// </para>
+    /// <para>
+    /// Only a token that <see cref="CancellationToken.CanBeCanceled"/> is installed, so an entry handed
+    /// <see langword="default"/> leaves the interpreter on exactly the path it ran before; an engine with no
+    /// amortized constraint then does not even run the countdown. No two entries overlap: the async
+    /// reservation refuses a second one, including one made from a host callback inside the first, so one
+    /// field is the whole of the state. A nested <em>synchronous</em> re-entry from a host callback is part of
+    /// the operation and observes the token too.
+    /// </para>
+    /// </remarks>
+    internal CancellationToken _asyncEntryToken;
+
+    /// <summary>
+    /// Refuses an entry whose token is already cancelled, and otherwise installs that token for the interpreter
+    /// to observe until <see cref="EndObservingAsyncEntryToken"/>.
+    /// </summary>
+    internal void BeginObservingAsyncEntryToken(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (cancellationToken.CanBeCanceled)
+        {
+            _asyncEntryToken = cancellationToken;
+            _evaluationContext.RefreshAmortizedChecks();
+        }
+    }
+
+    /// <summary>
+    /// Uninstalls the token <see cref="BeginObservingAsyncEntryToken"/> installed. Never throws: it runs in the
+    /// finally that releases the reservation.
+    /// </summary>
+    /// <remarks>
+    /// It does not take the engine. A host callback admitted under the reservation may still be finishing on
+    /// another thread, and what it can see change under it is one reference-sized field going to
+    /// <see langword="default"/> and one flag that only decides whether the cadence is counted — either
+    /// value of either is safe.
+    /// </remarks>
+    internal void EndObservingAsyncEntryToken(CancellationToken cancellationToken)
+    {
+        if (cancellationToken.CanBeCanceled)
+        {
+            _asyncEntryToken = default;
+            _evaluationContext.RefreshAmortizedChecks();
+        }
+    }
+
+    /// <summary>
+    /// Fails the run with an <see cref="OperationCanceledException"/> carrying the entry's own token when the
+    /// <c>*Async</c> entry in progress has been cancelled. A real <see cref="OperationCanceledException"/>, as
+    /// <see cref="Constraints.OperationDeadlineConstraint"/> throws, and not Jint's
+    /// <see cref="ExecutionCanceledException"/>: the host passed this token to an <c>*Async</c> method, and
+    /// that is the exception .NET promises it back.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ThrowIfAsyncEntryCancelled()
+    {
+        if (_asyncEntryToken.IsCancellationRequested)
+        {
+            Throw.OperationCanceledException(_asyncEntryToken);
+        }
+    }
 
     /// <summary>
     /// Evaluates JavaScript code asynchronously, properly awaiting any promises.
@@ -44,14 +125,12 @@ public partial class Engine
     /// Both mean the operation never started, so there is no evaluation for a task to describe.
     /// </para>
     /// <para>
-    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
-    /// script is evaluated to completion first and the token is only observed afterwards, while awaiting
-    /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
-    /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
-    /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> for token-driven cancellation or
-    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> for a wall-clock bound. Both are
-    /// amortizable, so neither disarms the interpreter's tight-loop lane.
+    /// <paramref name="cancellationToken"/> covers the whole call. Already cancelled, it cancels the returned
+    /// task — awaiting it throws <see cref="OperationCanceledException"/> — before any script runs. Otherwise
+    /// the interpreter observes it on the cadence an amortizable constraint uses, through the synchronous run,
+    /// every continuation and any synchronous re-entry from a host callback, so <c>while (true) { }</c> is
+    /// cancellable through it and the tight-loop lane stays armed. Every cancellation carries this token. Only
+    /// a host callback that never returns cannot be stopped.
     /// </para>
     /// <para>
     /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
@@ -62,7 +141,7 @@ public partial class Engine
     /// </remarks>
     /// <param name="code">The JavaScript code to evaluate.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
-    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
+    /// <param name="cancellationToken">Cancellation token observed for the whole call, script included; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
@@ -81,6 +160,7 @@ public partial class Engine
     {
         try
         {
+            BeginObservingAsyncEntryToken(cancellationToken);
             Task<JsValue> task;
             using (EnterHostCall(owner))
             {
@@ -91,6 +171,7 @@ public partial class Engine
         }
         finally
         {
+            EndObservingAsyncEntryToken(cancellationToken);
             ReleaseAsyncHostOperation(owner);
         }
     }
@@ -110,18 +191,16 @@ public partial class Engine
     /// Both mean the operation never started, so there is no evaluation for a task to describe.
     /// </para>
     /// <para>
-    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
-    /// script is evaluated to completion first and the token is only observed afterwards, while awaiting
-    /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
-    /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
-    /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> for token-driven cancellation or
-    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> for a wall-clock bound. Both are
-    /// amortizable, so neither disarms the interpreter's tight-loop lane.
+    /// <paramref name="cancellationToken"/> covers the whole call. Already cancelled, it cancels the returned
+    /// task — awaiting it throws <see cref="OperationCanceledException"/> — before any script runs. Otherwise
+    /// the interpreter observes it on the cadence an amortizable constraint uses, through the synchronous run,
+    /// every continuation and any synchronous re-entry from a host callback, so <c>while (true) { }</c> is
+    /// cancellable through it and the tight-loop lane stays armed. Every cancellation carries this token. Only
+    /// a host callback that never returns cannot be stopped.
     /// </para>
     /// </remarks>
     /// <param name="preparedScript">The pre-parsed script to evaluate.</param>
-    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
+    /// <param name="cancellationToken">Cancellation token observed for the whole call, script included; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentException"><paramref name="preparedScript"/> did not come from <c>PrepareScript</c>.</exception>
     /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
@@ -141,6 +220,7 @@ public partial class Engine
     {
         try
         {
+            BeginObservingAsyncEntryToken(cancellationToken);
             Task<JsValue> task;
             using (EnterHostCall(owner))
             {
@@ -151,6 +231,7 @@ public partial class Engine
         }
         finally
         {
+            EndObservingAsyncEntryToken(cancellationToken);
             ReleaseAsyncHostOperation(owner);
         }
     }
@@ -168,12 +249,12 @@ public partial class Engine
     /// refusing the call because the engine is already in use.
     /// </para>
     /// <para>
-    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
-    /// code runs to completion first and the token is only observed afterwards, while awaiting promise
-    /// settlement — that is, at event-loop continuation boundaries. To bound the interpreter itself,
-    /// register an execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> or
-    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>.
+    /// <paramref name="cancellationToken"/> covers the whole call. Already cancelled, it cancels the returned
+    /// task — awaiting it throws <see cref="OperationCanceledException"/> — before any script runs. Otherwise
+    /// the interpreter observes it on the cadence an amortizable constraint uses, through the synchronous run,
+    /// every continuation and any synchronous re-entry from a host callback, so <c>while (true) { }</c> is
+    /// cancellable through it and the tight-loop lane stays armed. Every cancellation carries this token. Only
+    /// a host callback that never returns cannot be stopped.
     /// </para>
     /// <para>
     /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
@@ -183,7 +264,7 @@ public partial class Engine
     /// </remarks>
     /// <param name="code">The JavaScript code to execute.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
-    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
+    /// <param name="cancellationToken">Cancellation token observed for the whole call, script included; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
@@ -202,6 +283,7 @@ public partial class Engine
     {
         try
         {
+            BeginObservingAsyncEntryToken(cancellationToken);
             Task<JsValue> task;
             using (EnterHostCall(owner))
             {
@@ -213,6 +295,7 @@ public partial class Engine
         }
         finally
         {
+            EndObservingAsyncEntryToken(cancellationToken);
             ReleaseAsyncHostOperation(owner);
         }
     }
@@ -222,7 +305,7 @@ public partial class Engine
     /// </summary>
     /// <inheritdoc cref="EvaluateAsync(in Prepared{Script}, CancellationToken)" path="/remarks"/>
     /// <param name="preparedScript">The pre-parsed script to execute.</param>
-    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
+    /// <param name="cancellationToken">Cancellation token observed for the whole call, script included; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
     /// <exception cref="ArgumentException"><paramref name="preparedScript"/> did not come from <c>PrepareScript</c>.</exception>
     /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
@@ -242,6 +325,7 @@ public partial class Engine
     {
         try
         {
+            BeginObservingAsyncEntryToken(cancellationToken);
             Task<JsValue> task;
             using (EnterHostCall(owner))
             {
@@ -253,6 +337,7 @@ public partial class Engine
         }
         finally
         {
+            EndObservingAsyncEntryToken(cancellationToken);
             ReleaseAsyncHostOperation(owner);
         }
     }
@@ -283,12 +368,12 @@ public partial class Engine
     /// refusing the call because the engine is already in use.
     /// </para>
     /// <para>
-    /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous call. The function runs
-    /// to completion first and the token is only observed afterwards, while awaiting promise settlement —
-    /// that is, at event-loop continuation boundaries. To bound the interpreter itself, register an
-    /// execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> or
-    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>.
+    /// <paramref name="cancellationToken"/> covers the whole call. Already cancelled, it cancels the returned
+    /// task — awaiting it throws <see cref="OperationCanceledException"/> — before any script runs. Otherwise
+    /// the interpreter observes it on the cadence an amortizable constraint uses, through the synchronous run,
+    /// every continuation and any synchronous re-entry from a host callback, so <c>while (true) { }</c> is
+    /// cancellable through it and the tight-loop lane stays armed. Every cancellation carries this token. Only
+    /// a host callback that never returns cannot be stopped.
     /// </para>
     /// <para>
     /// <paramref name="propertyName"/> resolves exactly as <see cref="Invoke(string, object, object[])"/>
@@ -296,7 +381,7 @@ public partial class Engine
     /// </para>
     /// </remarks>
     /// <param name="propertyName">The name of a property of the global object holding the function to invoke.</param>
-    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
+    /// <param name="cancellationToken">Cancellation token observed for the whole call, script included; see the remarks.</param>
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="propertyName"/> or <paramref name="arguments"/> is <see langword="null"/>.</exception>
@@ -321,6 +406,7 @@ public partial class Engine
     {
         try
         {
+            BeginObservingAsyncEntryToken(cancellationToken);
             Task<JsValue> task;
             using (EnterHostCall(owner))
             {
@@ -331,6 +417,7 @@ public partial class Engine
         }
         finally
         {
+            EndObservingAsyncEntryToken(cancellationToken);
             ReleaseAsyncHostOperation(owner);
         }
     }
@@ -441,6 +528,7 @@ public partial class Engine
                     }
                     ThrowIfRetired();
                 }
+                cancellationToken.ThrowIfCancellationRequested();
                 effectiveCt.ThrowIfCancellationRequested();
 
                 // Truly async wait — releases the thread back to the pool.
@@ -495,6 +583,16 @@ public partial class Engine
             // The timeout CTS fired, not the user's cancellation token.
             // Translate to PromiseRejectedException to match sync API behavior.
             throw new PromiseRejectedException($"Timeout of {timeout} reached");
+        }
+        catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested
+                                                           && exception.CancellationToken != cancellationToken
+                                                           && (exception.CancellationToken == effectiveCt || !exception.CancellationToken.CanBeCanceled))
+        {
+            // The caller's token fired, but the wait reported it through the linked source that also carries
+            // PromiseTimeout, or through a waiter cancelled with no token at all. Hand back the token the caller
+            // passed, which is the one every other cancellation this entry raises carries and the one a
+            // `when (e.CancellationToken == token)` filter matches.
+            throw new OperationCanceledException(exception.Message, exception, cancellationToken);
         }
         finally
         {

@@ -3726,6 +3726,12 @@ public sealed partial class Engine : IDisposable
             {
                 constraint.Check();
             }
+
+            // The *Async entry's own token rides the same cadence as the registered observation-only
+            // constraints; see _asyncEntryToken for why it is engine state rather than one of them. After
+            // them, so a host that also registered ObserveCancellation for the same token keeps getting the
+            // exception it already catches.
+            ThrowIfAsyncEntryCancelled();
         }
         catch (Exception exception) when (_implicitMemoryContextDepth != 0 && exception is not JavaScriptException)
         {
@@ -3746,7 +3752,8 @@ public sealed partial class Engine : IDisposable
         }
 
         // Host-side projection is not an execution entry, so an ordinary timeout has no active
-        // budget to enforce. Cancellation and a host-armed operation deadline do span entries.
+        // budget to enforce. Cancellation and a host-armed operation deadline do span entries, and an
+        // *Async entry's token covers everything done under that entry.
         foreach (var constraint in _amortizedConstraints)
         {
             if (constraint is CancellationConstraint or OperationDeadlineConstraint)
@@ -3754,6 +3761,8 @@ public sealed partial class Engine : IDisposable
                 constraint.Check();
             }
         }
+
+        ThrowIfAsyncEntryCancelled();
     }
 
     /// <summary>
