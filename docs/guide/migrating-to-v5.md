@@ -5946,6 +5946,21 @@ native XML work without observing `BrowserOptions.MaxTaskDuration` or charging i
 The existing lexical XML limits still apply independently. Standalone `MarkupParser` entry points retain
 their parser limits and cancellation tokens, without a Browser engine budget.
 
+### 4.150 Browser contexts have an aggregate storage quota ([#4207](https://github.com/sebastienros/jint/pull/4207))
+
+Previously, each new origin could retain its own IndexedDB, localStorage and cache quota without a context ceiling.
+`BrowserOptions.MaxTotalStorageBytes` now defaults to 100 MiB per context across origins, pages and workers;
+`BrowserContextOptions.MaxTotalStorageBytes` overrides it. Existing per-origin quotas remain. Writes that exceed
+the shared quota fail with `QuotaExceededError` without publishing changes; a quota-aborted IndexedDB upgrade
+rejects its open request with `AbortError`. Deletion/shrinking releases quota, while deleted caches remain charged
+as long as a live handle retains their data.
+
+Set `browserOptions.MaxTotalStorageBytes = long.MaxValue` to restore the previous aggregate policy for trusted
+content. `ForUntrustedContent` resolves that value to 100 MiB, and an unlimited context override uses the finite
+browser setting. Custom localStorage/cache partitions enforce their own quotas; context-owned IndexedDB still
+counts. Session storage, cookies, empty partition maps and peak allocations are excluded. See
+[IndexedDB storage limits](web-apis/indexeddb.md#jint-browser).
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

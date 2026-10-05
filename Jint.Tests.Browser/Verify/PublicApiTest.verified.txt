@@ -32,6 +32,7 @@ namespace Jint.Browser
         public System.Net.Http.HttpClient? HttpClient { get; set; }
         public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
         public int? MaxPages { get; set; }
+        public long? MaxTotalStorageBytes { get; set; }
         public Jint.Browser.StoragePartitionProvider? StoragePartition { get; set; }
         public System.Func<System.Uri, bool>? UrlFilter { get; set; }
     }
@@ -55,6 +56,7 @@ namespace Jint.Browser
         public long MaxResponseBytes { get; set; }
         public long MaxSubresourceBytes { get; set; }
         public System.TimeSpan MaxTaskDuration { get; set; }
+        public long MaxTotalStorageBytes { get; set; }
         public long MemoryLimit { get; set; }
         public System.TimeSpan PumpIdle { get; set; }
         public bool RecordConsoleMessages { get; set; }

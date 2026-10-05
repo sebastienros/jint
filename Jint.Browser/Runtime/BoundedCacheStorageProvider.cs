@@ -3,7 +3,7 @@ using Jint.WebApi;
 namespace Jint.Browser.Runtime;
 
 /// <summary>Context-owned storage for https://w3c.github.io/ServiceWorker/#cache-storage-open and batch-cache-operations.</summary>
-internal sealed class BoundedCacheStorageProvider(long maxBytes) : CacheStorageProvider
+internal sealed class BoundedCacheStorageProvider(long maxBytes, StorageQuota? totalQuota = null) : CacheStorageProvider
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, Store> _named = new(StringComparer.Ordinal);
@@ -41,6 +41,7 @@ internal sealed class BoundedCacheStorageProvider(long maxBytes) : CacheStorageP
             var size = 64 + SizeOf(cacheName);
             CheckQuota(size);
             var store = new Store(this, size);
+            ResizeTotal(store, size);
             _named.Add(cacheName, store);
             _names.Add(cacheName);
             _live.Add(new WeakReference<Store>(store));
@@ -84,6 +85,14 @@ internal sealed class BoundedCacheStorageProvider(long maxBytes) : CacheStorageP
         }
     }
 
+    private StorageQuota.Account? CreateAccount() => totalQuota is null ? null : new StorageQuota.Account();
+
+    private void ResizeTotal(Store store, long size)
+    {
+        if (totalQuota is not null && !totalQuota.TryResize(store.Account!, size, out var requested))
+            throw new CacheQuotaExceededException("The context's storage quota has been exceeded.", totalQuota.MaxBytes, requested);
+    }
+
     private static long SizeOf(string value) => 2L * value.Length;
 
     private static long SizeOf(IReadOnlyList<CachedHeader> headers)
@@ -106,6 +115,7 @@ internal sealed class BoundedCacheStorageProvider(long maxBytes) : CacheStorageP
     private sealed class Store(BoundedCacheStorageProvider owner, long baseSize) : CacheStore
     {
         private CacheEntry[] _entries = [];
+        internal StorageQuota.Account? Account { get; } = owner.CreateAccount();
         internal long Size { get; private set; } = baseSize;
 
         public override IReadOnlyList<CacheEntry> Entries
@@ -150,7 +160,9 @@ internal sealed class BoundedCacheStorageProvider(long maxBytes) : CacheStorageP
                         }
                     }
                     result.AddRange(write.Added);
-                    _entries = result.ToArray();
+                    var entries = result.ToArray();
+                    owner.ResizeTotal(this, size);
+                    _entries = entries;
                     Size = size;
                 }
             }

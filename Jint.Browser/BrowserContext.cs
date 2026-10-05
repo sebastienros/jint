@@ -36,8 +36,11 @@ public sealed class BrowserContext : IAsyncDisposable
         _maxPages = browser.Options.UntrustedContent is not null && (maxPages == 0 || maxPages == int.MaxValue)
             ? browser.Options.MaxPages
             : maxPages;
+        var maxStorage = options.MaxTotalStorageBytes ?? browser.Options.MaxTotalStorageBytes;
+        if (browser.Options.UntrustedContent is not null && maxStorage == long.MaxValue)
+            maxStorage = browser.Options.MaxTotalStorageBytes;
         Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
-            browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes);
+            browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
     }
 
     /// <summary>The browser this context belongs to.</summary>

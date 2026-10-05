@@ -24,6 +24,19 @@ namespace Jint.Browser;
 public sealed class BrowserContextOptions
 {
     private int? _maxPages;
+    private long? _maxTotalStorageBytes;
+
+    /// <summary>Gets or sets this context's aggregate storage quota; null uses BrowserOptions.MaxTotalStorageBytes.</summary>
+    /// <remarks>Uses the browser quota's accounting. Under ForUntrustedContent, long.MaxValue uses the finite browser default.</remarks>
+    public long? MaxTotalStorageBytes
+    {
+        get => _maxTotalStorageBytes;
+        set
+        {
+            if (value is < 0) throw new ArgumentOutOfRangeException(nameof(value));
+            _maxTotalStorageBytes = value;
+        }
+    }
 
     /// <summary>Overrides <see cref="BrowserOptions.MaxPages"/> for this context; null uses the browser default.</summary>
     /// <remarks>

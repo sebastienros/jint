@@ -74,6 +74,7 @@ public sealed class InMemoryStoragePartitionProvider : StoragePartitionProvider
     private readonly ConcurrentDictionary<string, CacheStorageProvider> _caches = new(StringComparer.Ordinal);
     private readonly long _maxTotalBytes;
     private readonly long _maxCacheStorageBytes;
+    private readonly StorageQuota? _totalQuota;
 
     /// <summary>Creates a partition whose stores each enforce the default five-mebibyte quota.</summary>
     public InMemoryStoragePartitionProvider() : this(Options.StorageOptions.DefaultMaxTotalBytes)
@@ -91,7 +92,13 @@ public sealed class InMemoryStoragePartitionProvider : StoragePartitionProvider
     /// <param name="maxTotalBytes">The local storage quota per origin, counted in UTF-16 bytes.</param>
     /// <param name="maxCacheStorageBytes">The cache quota per origin, counting bodies, UTF-16 metadata and fixed entry overhead; zero denies writes.</param>
     public InMemoryStoragePartitionProvider(long maxTotalBytes, long maxCacheStorageBytes)
+        : this(maxTotalBytes, maxCacheStorageBytes, null)
     {
+    }
+
+    internal InMemoryStoragePartitionProvider(long maxTotalBytes, long maxCacheStorageBytes, StorageQuota? totalQuota)
+    {
+        _totalQuota = totalQuota;
         ArgumentOutOfRangeException.ThrowIfNegative(maxCacheStorageBytes);
         _maxTotalBytes = maxTotalBytes;
         _maxCacheStorageBytes = maxCacheStorageBytes;
@@ -101,13 +108,15 @@ public sealed class InMemoryStoragePartitionProvider : StoragePartitionProvider
     public override StorageProvider? GetLocalStorage(string origin)
     {
         ArgumentNullException.ThrowIfNull(origin);
-        return _origins.GetOrAdd(origin, static (_, max) => new InMemoryStorageProvider(max), _maxTotalBytes);
+        return _origins.GetOrAdd(origin, _ => _totalQuota is null
+            ? new InMemoryStorageProvider(_maxTotalBytes)
+            : new Runtime.BoundedLocalStorageProvider(_maxTotalBytes, _totalQuota));
     }
 
     /// <inheritdoc />
     public override CacheStorageProvider? GetCacheStorage(string origin)
     {
         ArgumentNullException.ThrowIfNull(origin);
-        return _caches.GetOrAdd(origin, static (_, max) => new Runtime.BoundedCacheStorageProvider(max), _maxCacheStorageBytes);
+        return _caches.GetOrAdd(origin, _ => new Runtime.BoundedCacheStorageProvider(_maxCacheStorageBytes, _totalQuota));
     }
 }

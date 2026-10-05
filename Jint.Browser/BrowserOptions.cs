@@ -29,6 +29,8 @@ public sealed class BrowserOptions
     private long _maxCapturedResponseBytes = 16 * 1024 * 1024;
     private long _maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes;
     private long _maxIndexedDbBytes = 50 * 1024 * 1024;
+    private long _maxTotalStorageBytes = DefaultMaxTotalStorageBytes;
+    internal const long DefaultMaxTotalStorageBytes = 100 * 1024 * 1024;
     private TimeSpan _subresourceTimeout = TimeSpan.FromSeconds(30);
     private int _maxRedirects = 20;
     private TimeSpan? _maxTaskDuration;
@@ -108,6 +110,25 @@ public sealed class BrowserOptions
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             _maxCacheStorageBytes = value;
+        }
+    }
+
+    /// <summary>Gets or sets the aggregate retained storage quota per context; defaults to 100 mebibytes.</summary>
+    /// <remarks>
+    /// <para>Counts committed IndexedDB and built-in localStorage/Cache Storage across origins, pages and workers.
+    /// Custom storage partitions enforce their own quotas. Session storage, cookies, empty partition maps and
+    /// peak allocations are excluded.</para>
+    /// <para>Zero denies nonempty storage; long.MaxValue opts out for trusted content and resolves to 100 MiB
+    /// under ForUntrustedContent. Read when a context is created.</para>
+    /// </remarks>
+    public long MaxTotalStorageBytes
+    {
+        get => UntrustedContent is not null && _maxTotalStorageBytes == long.MaxValue
+            ? DefaultMaxTotalStorageBytes : _maxTotalStorageBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxTotalStorageBytes = value;
         }
     }
 

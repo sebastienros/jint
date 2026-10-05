@@ -86,6 +86,17 @@ keys, index entries and metadata across all databases. A commit that exceeds the
 retained-data quota, not a bound on peak allocations while cloning values or holding transaction state;
 use the browser's memory and task budgets as well.
 
+`BrowserOptions.MaxTotalStorageBytes` also limits each context to 100 MiB across all origins, pages and workers.
+`BrowserContextOptions.MaxTotalStorageBytes` overrides it for one context. The shared budget covers committed
+IndexedDB plus the default partition's localStorage and all live Cache Storage handles. Existing per-origin
+quotas still apply. Aborted commits publish no changes; deletion and shrinking writes release their charge.
+Deleting a cache name does not release data still retained through a live cache handle; dead handles are reclaimed
+before refusing a write. Custom storage partitions enforce their own localStorage/cache quotas; IndexedDB still
+counts against the context budget. Session storage, cookies, empty partition maps and peak allocations are excluded.
+Zero denies nonempty storage; `long.MaxValue` opts out for trusted content. Under `ForUntrustedContent`, an unlimited
+browser setting resolves to 100 MiB and an unlimited context override uses the finite browser setting.
+A quota-aborted database upgrade rejects its open request with `AbortError`.
+
 Opaque origins still expose the interface. `open()` and `deleteDatabase()` throw `SecurityError`, and
 `databases()` rejects with it. Creator-inherited `about:blank` uses the creator's origin.
 

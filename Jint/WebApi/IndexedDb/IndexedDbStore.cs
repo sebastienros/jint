@@ -12,11 +12,12 @@ namespace Jint.WebApi.IndexedDb;
 /// A transaction forks metadata on its engine thread and shares persistent record/index trees,
 /// then publishes the changed roots atomically here.
 /// </remarks>
-internal sealed class IndexedDbStore(long maxBytes = long.MaxValue)
+internal sealed class IndexedDbStore(long maxBytes = long.MaxValue, StorageQuota? totalQuota = null)
 {
     private readonly Lock _gate = new();
     private readonly Dictionary<string, Database> _databases = new(StringComparer.Ordinal);
     private long _bytes;
+    private readonly StorageQuota.Account? _account = totalQuota is null ? null : new StorageQuota.Account();
 
     internal OpenOperation Open(string name, double? version, bool delete, Action<Notice> notify)
     {
@@ -106,6 +107,7 @@ internal sealed class IndexedDbStore(long maxBytes = long.MaxValue)
                 {
                     var old = database.Version;
                     _bytes -= database.Bytes;
+                    totalQuota?.TryResize(_account!, _bytes, out _);
                     database.Bytes = 0;
                     database.Stores = new(StringComparer.Ordinal);
                     database.Version = 0;
@@ -204,6 +206,7 @@ internal sealed class IndexedDbStore(long maxBytes = long.MaxValue)
                 foreach (var store in next.Values) bytes = checked(bytes + store.ByteSize);
                 requested = checked(_bytes - database.Bytes + bytes);
                 if (requested > maxBytes) return false;
+                if (totalQuota is not null && !totalQuota.TryResize(_account!, requested, out _)) return false;
                 database.Stores = next;
                 database.Bytes = bytes;
                 _bytes = requested;
