@@ -61,7 +61,7 @@ public class BoundFunctionChainWalkTests
     {
         var expected = AnsweringRoutes.Concat(ForwardingRoutes).ToDictionary(x => x.Key, x => x.Value.Expected);
 
-        RunRoutes(BoundChain, AnsweringRoutes.Concat(ForwardingRoutes), stackOverflowGuard: true).Should().BeEquivalentTo(expected);
+        RunRoutes(BoundChain, AnsweringRoutes.Concat(ForwardingRoutes), Guarded(true)).Should().BeEquivalentTo(expected);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class BoundFunctionChainWalkTests
     {
         var expected = AnsweringRoutes.ToDictionary(x => x.Key, x => x.Value.Expected);
 
-        RunRoutes(BoundChain, AnsweringRoutes, stackOverflowGuard: false).Should().BeEquivalentTo(expected);
+        RunRoutes(BoundChain, AnsweringRoutes, Guarded(false)).Should().BeEquivalentTo(expected);
     }
 
     [Fact]
@@ -82,18 +82,82 @@ public class BoundFunctionChainWalkTests
             ["new"] = ForwardingRoutes["new"],
         };
 
-        RunRoutes(MixedChain, routes, stackOverflowGuard: true).Should().BeEquivalentTo(routes.ToDictionary(x => x.Key, x => x.Value.Expected));
+        RunRoutes(MixedChain, routes, Guarded(true)).Should().BeEquivalentTo(routes.ToDictionary(x => x.Key, x => x.Value.Expected));
     }
+
+    // instanceof over a bound chain asks every link for its own @@hasInstance
+    // (https://tc39.es/ecma262/#sec-ordinaryhasinstance step 2). A link that inherits %Function.prototype[@@hasInstance]%
+    // is one step of BindFunction's own loop rather than a call of that intrinsic, so a chain of such links answers with
+    // the guard on or off.
+    // Each link's own "name" is deleted for the reason BoundChain gives.
+    private const string InstanceofChain = "var base = function () {}; var f = base; for (var i = 0; i < 200000; i++) { f = f.bind(null); delete f.name; }";
+
+    // Every other link has a method of its own that asks instanceof of the link below it: a recursion script controls,
+    // one call of a user method per two links, reached from BindFunction's loop. Its probe on that call is what keeps it
+    // a catchable RangeError on the MaxExecutionStackCount lane, where script functions do not probe and nothing else on
+    // this route does; on the default lane the called function's own probe would too. Names are deleted as above.
+    private const string HasInstanceChain = """
+        var base = function () {};
+        var f = base;
+        var h = function (v) { return v instanceof this.down; };
+        for (var i = 0; i < 100000; i++) {
+            var link = f.bind(null);
+            delete link.name;
+            Object.defineProperty(link, Symbol.hasInstance, { value: h });
+            Object.defineProperty(link, 'down', { value: f });
+            f = link.bind(null);
+            delete f.name;
+        }
+        """;
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void InstanceofOverADeepBoundChainAnswers(bool stackOverflowGuard)
+    {
+        var route = new Dictionary<string, (string Script, string Expected)>
+        {
+            ["instanceof the chain"] = ("return [new base() instanceof f, {} instanceof f].join();", "true,false"),
+        };
+
+        RunRoutes(InstanceofChain, route, Guarded(stackOverflowGuard)).Should().BeEquivalentTo(route.ToDictionary(x => x.Key, x => x.Value.Expected));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InstanceofOverADeepChainOfLinksWithTheirOwnHasInstanceRaisesACatchableError(bool maxExecutionStackCountLane)
+    {
+        var route = new Dictionary<string, (string Script, string Expected)>
+        {
+            ["instanceof the chain"] = ("return String({} instanceof f);", StackExhausted),
+        };
+
+        // StackOverflowGuard is opt-in on this branch, and the probe on the method call is gated on it like every
+        // other native-stack probe, so both lanes ask for it; on main it is on by default and the lane row sets only
+        // the count. The count lane is still the row that matters: there a script function does not probe on entry.
+        Action<Options> configure = maxExecutionStackCountLane
+            ? options =>
+            {
+                options.Constraints.StackOverflowGuard = true;
+                options.Constraints.MaxExecutionStackCount = 500;
+            }
+            : Guarded(true);
+
+        RunRoutes(HasInstanceChain, route, configure).Should().BeEquivalentTo(route.ToDictionary(x => x.Key, x => x.Value.Expected));
+    }
+
+    private static Action<Options> Guarded(bool stackOverflowGuard) => options => options.Constraints.StackOverflowGuard = stackOverflowGuard;
 
     private static Dictionary<string, string> RunRoutes(
         string chain,
         IEnumerable<KeyValuePair<string, (string Script, string Expected)>> routes,
-        bool stackOverflowGuard)
+        Action<Options> configure)
     {
         var outcomes = new Dictionary<string, string>();
         DedicatedThread.Run(() =>
         {
-            using var engine = new Engine(options => options.Constraints.StackOverflowGuard = stackOverflowGuard);
+            using var engine = new Engine(configure);
             engine.Execute(chain);
 
             foreach (var route in routes)

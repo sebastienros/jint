@@ -2,6 +2,7 @@
 
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -41,6 +42,23 @@ internal sealed partial class FunctionPrototype : Function
     private static JsValue HasInstance(JsValue thisObject, JsValue v)
     {
         return thisObject.OrdinaryHasInstance(v);
+    }
+
+    // The function object behind HasInstance above, read back from this object's own property the first time
+    // IsHasInstanceFunction is asked rather than captured when the symbols are created, so the descriptor stays lazy
+    // for every engine that never asks. The property is non-writable and non-configurable, so the value read once is
+    // the value for the realm's lifetime.
+    private JsValue? _hasInstanceFunction;
+
+    /// <summary>
+    /// Whether <paramref name="method"/> is this realm's <c>%Function.prototype[@@hasInstance]%</c>, whose whole
+    /// behaviour is <c>OrdinaryHasInstance(this, V)</c> — which is what lets <see cref="BindFunction"/> walk a chain of
+    /// binds instead of calling it once per link.
+    /// </summary>
+    internal bool IsHasInstanceFunction(ICallable method)
+    {
+        var hasInstance = _hasInstanceFunction ??= GetOwnProperty(GlobalSymbolRegistry.HasInstance).Value;
+        return ReferenceEquals(method, hasInstance);
     }
 
     /// <summary>
