@@ -81,6 +81,9 @@ jobs:
         echo "numeric=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
         echo "Releasing $VERSION"
 
+    - name: Verify experimental parser package versions
+      run: python3 tools/check_html_parser_version.py
+
     - name: Pack with dotnet
       run: >
         dotnet pack Jint/Jint.csproj --output artifacts --configuration Release
@@ -100,7 +103,8 @@ jobs:
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
 
-    # The native parser is a package dependency of Jint.Browser and ships with the same tag version.
+    # The parser follows the tag base but retains a prerelease label until ACC-06 explicitly closes.
+    # Its project calculates PackageVersion consistently for its own pack and Browser project references.
     - name: Pack Jint.HtmlParser with dotnet
       run: >
         dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj --output artifacts --configuration Release

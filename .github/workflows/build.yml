@@ -80,6 +80,9 @@ jobs:
         # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
         enableCrossOsArchive: true
 
+    - name: Verify experimental parser package versions
+      run: python3 tools/check_html_parser_version.py
+
     - name: Pack with dotnet
       run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 

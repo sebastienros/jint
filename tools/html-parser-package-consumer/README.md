@@ -8,6 +8,12 @@ so it cannot resolve `Jint.HtmlParser` from nuget.org.
 The local-feed paths use forward slashes so NuGet retains the source's mapping identity on Unix as
 well as Windows; a restored cache must not hide a broken fresh-package resolution.
 
+The explicit `5.0.0-consumer-smoke` prerelease below is preserved by the parser version policy.
+Stable `Version` or `PackageVersion` inputs instead acquire `experimental-<BuildNumber>` (default `0`),
+even for a Jint GA tag. Use the resulting version in consumer references; do not assume the parser
+package version equals the stable Jint/Browser version. This probe supplies acceptance evidence but
+cannot by itself close ACC-06 or freeze all public APIs.
+
 From the repository root on macOS or Linux, run:
 
 ```sh

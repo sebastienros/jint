@@ -1,6 +1,21 @@
 # Jint.HtmlParser
 
-Jint.HtmlParser is an experimental native markup package for .NET 8 and .NET 10. Its implemented public surface includes:
+Jint.HtmlParser is an experimental native markup package for .NET 8 and .NET 10. Its public API is provisional until **ACC-06 (external package and API acceptance)** in the
+[acceptance tracker](https://github.com/sebastienros/jint/blob/main/docs/design/html-parser-completeness.md)
+is explicitly closed. Internal Browser use and API snapshots do not close that gate. Public signatures,
+behavior and value-type layouts may change between prereleases, including positional record structs such
+as `ShadowRootInit` and `BoundaryPoint`; pin a tested package version when integrating.
+
+The package remains prerelease even when Jint releases GA. Existing prerelease inputs are preserved
+(for example `5.0.0-preview-123`); stable version inputs become `5.0.0-experimental-0` by default,
+or `5.0.0-experimental-<BuildNumber>` when a build number is supplied. This applies to explicit
+`Version` and `PackageVersion` overrides as well as the normal prefix/suffix calculation. The numeric
+base follows the repository release; it is not a promise that this package's API has frozen.
+Promotion to a stable parser package requires a separate reviewed change removing the build policy
+and recording the external acceptance evidence. Jint.Browser can retain its repository release version
+while declaring the calculated prerelease parser dependency.
+
+Its implemented public surface includes:
 
 - A mutable document tree with elements, attributes, text, comments, CDATA and processing instructions.
 - Inert HTML document and contextual fragment parsing through `MarkupParser.ParseHtml` and `ParseHtmlFragment`, with lexical limits and bounded diagnostics.

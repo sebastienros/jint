@@ -201,8 +201,11 @@ internal static class Program
     private static void CheckHtml()
     {
         var options = new HtmlParseOptions();
-        Require(!options.ScriptingEnabled && ReferenceEquals(options.Limits, ParseLimits.Unbounded) &&
+        Require(!options.ScriptingEnabled && options.Limits.MaxEntityExpansionCharacters == 10_000_000 &&
             options.Diagnostics is null, "HTML option defaults changed.");
+        Require(new XmlParseOptions().Limits.MaxEntityExpansionCharacters == 10_000_000 &&
+            new CssParseOptions().Limits.MaxEntityExpansionCharacters == 10_000_000 &&
+            ParseLimits.Unbounded.MaxEntityExpansionCharacters == 0, "Entity-expansion limit defaults changed.");
         var empty = MarkupParser.ParseHtml("");
         Require(empty.Kind == DocumentKind.Html && empty.ContentType == "text/html" &&
             empty.DocumentElement?.LocalName == "html" && empty.DocumentElement.ChildCount == 2,

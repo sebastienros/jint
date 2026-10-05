@@ -186,6 +186,11 @@ friend access or a project reference. A separate native pack/run is required for
 - [ ] **ACC-06 - External package and API acceptance.** At every public promotion and the final
   checkpoint, verify both API snapshots, pack to a fresh local feed, run unsigned net8.0/net10.0
   consumers and publish/run the Native AOT consumer.
+  Until this item explicitly closes, `Jint.HtmlParser` remains a prerelease package independently of
+  Jint GA: existing prerelease versions are retained; stable inputs acquire `experimental-<BuildNumber>`
+  (default `0`). All current public APIs, including positional record layouts, remain provisional and may
+  evolve between prereleases. Browser's internal use and snapshot approval are not external acceptance.
+  Stable promotion requires a reviewed removal of the project version policy with acceptance evidence.
   Done when package assets/dependencies/licenses are correct and each advertised API is exercised
   without signing, friend access, a project reference or a stale same-version package cache.
 - [ ] **ACC-07 - Full integration and dependency closure.** After the feature gates, run complete

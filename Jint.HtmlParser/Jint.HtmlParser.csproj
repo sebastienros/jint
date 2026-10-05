@@ -1,4 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project TreatAsLocalProperty="PackageVersion">
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
@@ -23,4 +24,11 @@
     <Using Remove="Acornima" />
     <Using Remove="Acornima.Ast" />
   </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <!-- ACC-06 remains open. Apply after SDK version calculation so pack and project-reference
+       metadata agree, including command-line Version/PackageVersion and GA release tags.
+       Removing this policy requires explicit external package/API acceptance. -->
+  <PropertyGroup>
+    <PackageVersion Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(PackageVersion)', '^[0-9]+(\.[0-9]+){1,3}-'))">$([System.Text.RegularExpressions.Regex]::Replace('$(PackageVersion)', '^([^+]+)(.*)$', '$1-experimental-$(BuildNumber)$2'))</PackageVersion>
+  </PropertyGroup>
 </Project>

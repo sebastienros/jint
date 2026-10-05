@@ -24,7 +24,9 @@
 
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <NoWarn>$(NoWarn);1591</NoWarn>
+    <!-- A GA Browser can intentionally consume the experimental parser until ACC-06 closes.
+         Its project reference obtains the parser's independently calculated package version. -->
+    <NoWarn>$(NoWarn);1591;NU5104</NoWarn>
 
     <!-- The closed browser tool's native publication does not establish a general trimming contract
          for every library embedding. Keep the existing package claim until the coordinated consumer
