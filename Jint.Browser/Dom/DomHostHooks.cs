@@ -333,18 +333,22 @@ internal class DomHostHooks
                 var offset = 0;
                 while (offset < declared.Length)
                 {
-                    while (offset < declared.Length && IsAsciiWhitespace(declared[offset])) { work.Step(); offset++; }
+                    offset = TokenBoundary(declared, offset, whitespace: true, work);
                     var start = offset;
-                    while (offset < declared.Length && !IsAsciiWhitespace(declared[offset])) { work.Step(); offset++; }
+                    offset = TokenBoundary(declared, offset, whitespace: false, work);
                     if (offset - start != expected.Length) continue;
-                    matched = true;
-                    for (var i = 0; i < expected.Length; i++)
+                    if (!_quirks)
                     {
-                        work.Step();
-                        var left = declared[start + i];
-                        var right = expected[i];
-                        if (_quirks) { left = AsciiLowercase(left); right = AsciiLowercase(right); }
-                        if (left == right) continue;
+                        matched = work.EqualSpan(declared.AsSpan(start, expected.Length), expected.AsSpan());
+                        if (matched) break;
+                        continue;
+                    }
+                    matched = true;
+                    for (var i = 0; i < expected.Length; i += 256)
+                    {
+                        var length = Math.Min(256, expected.Length - i);
+                        work.Account(length);
+                        if (TokenEqualsFolded(declared.AsSpan(start + i, length), expected.AsSpan(i, length))) continue;
                         matched = false;
                         break;
                     }
@@ -354,6 +358,20 @@ internal class DomHostHooks
             }
             return true;
         }
+    }
+
+    private static int TokenBoundary(string text, int offset, bool whitespace, DomReadWork work)
+    {
+        while (offset < text.Length)
+        {
+            var length = Math.Min(256, text.Length - offset);
+            var part = text.AsSpan(offset, length);
+            var found = whitespace ? part.IndexOfAnyExcept(AsciiWhitespaceValues) : part.IndexOfAny(AsciiWhitespaceValues);
+            work.Account(found < 0 ? length : found + 1);
+            if (found >= 0) return offset + found;
+            offset += length;
+        }
+        return offset;
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
@@ -387,7 +405,7 @@ internal class DomHostHooks
                 : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
         }
         internal override bool Matches(Element element, DomReadWork work)
-            => qualifiedName == "*" || work.Equal(element.TagName,
+            => qualifiedName == "*" || work.EqualSpan(element.TagName.AsSpan(),
                 htmlDocument && element.NamespaceUri == Namespaces.Html ? htmlName : qualifiedName);
     }
 
@@ -420,8 +438,8 @@ internal class DomHostHooks
                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal));
 
         internal override bool Matches(Element element, DomReadWork work)
-            => (namespaceUri == "*" || (namespaceUri is null ? element.NamespaceUri is null : work.Equal(element.NamespaceUri, namespaceUri)))
-                && (localName == "*" || work.Equal(element.LocalName, localName));
+            => (namespaceUri == "*" || (namespaceUri is null ? element.NamespaceUri is null : work.EqualSpan(element.NamespaceUri.AsSpan(), namespaceUri.AsSpan())))
+                && (localName == "*" || work.EqualSpan(element.LocalName.AsSpan(), localName.AsSpan()));
     }
 
     /// <summary>
@@ -607,7 +625,7 @@ internal class DomHostHooks
     /// compares this way; the exact comparison is the substring search in <see cref="HasClass"/> and never
     /// reaches here.
     /// </summary>
-    private static bool TokenEqualsFolded(ReadOnlySpan<char> token, string candidate)
+    private static bool TokenEqualsFolded(ReadOnlySpan<char> token, ReadOnlySpan<char> candidate)
     {
         if (token.Length != candidate.Length)
         {

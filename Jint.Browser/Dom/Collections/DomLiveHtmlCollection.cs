@@ -7,33 +7,24 @@ namespace Jint.Browser.Dom.Collections;
 /// <summary>
 /// An <see cref="DomHtmlCollection{T}"/> whose filter is evaluated against the current tree for every read.
 /// </summary>
-/// <remarks>
-/// <para>
-/// DOM collections are live unless their defining algorithm says otherwise. AngleSharp's tag-name and
-/// class-name queries materialize a snapshot, so the binding supplies this small adapter for those
-/// operations. Keeping the target as an <see cref="DomHtmlCollection{T}"/> lets the ordinary HTMLCollection
-/// wrapper retain the one indexed and named-property implementation used by every other collection.
-/// </para>
-/// <para>
-/// <b>Every read is one walk, and it allocates nothing.</b> The element at an index is found by walking until
-/// the walk has passed that many matches — so running out <i>is</i> the bounds answer and no separate
-/// <see cref="Length"/> probe precedes it — and the walk itself is <see cref="DomElementWalker"/>, whose
-/// remarks carry the measurement that motivated both. Nothing here memoizes: these collections are live by
-/// specification, so a second read re-runs the filter against whatever the tree now is.
-/// </para>
-/// <para>
-/// <b>Two sources.</b> Nearly every live collection in the surface is "the element descendants of a root that
-/// match a filter", which is the <see cref="DomElementWalker"/> form. The exception is <c>document.all</c>'s
-/// named sub-collection, whose source is another live collection rather than a tree and which therefore
-/// filters a sequence; it is reached only from a named read of <c>document.all</c> that several elements
-/// match, and is deliberately left on that shape rather than given a wrapper of its own.
-/// </para>
-/// </remarks>
+// DOM §4.2.10: retain only a weak native cursor, never a membership/wrapper snapshot.
 internal sealed class DomLiveHtmlCollection : DomHtmlCollection<Element>
 {
     private readonly Node? _root;
     private readonly IEnumerable<Element>? _source;
     private readonly DomElementFilter _filter;
+
+    private WeakReference<Element>? _cursor;
+    private uint _cursorIndex;
+    private WeakReference<Document>? _cursorOwner;
+    private ulong _cursorStamp;
+
+    internal override bool TryGetCountWitness(out Document? document, out ulong stamp)
+    {
+        document = _root as Document ?? _root?.OwnerDocument;
+        stamp = document?.MutationStamp ?? ulong.MaxValue;
+        return document is not null && stamp != ulong.MaxValue;
+    }
 
     /// <summary>The element descendants of <paramref name="root"/> that <paramref name="filter"/> matches.</summary>
     internal DomLiveHtmlCollection(Node root, DomElementFilter filter)
@@ -97,31 +88,110 @@ internal sealed class DomLiveHtmlCollection : DomHtmlCollection<Element>
 
     internal override Element? GetItem(DomRealm realm, uint index)
     {
-        Element? result = null;
-        foreach (var element in Read(realm))
+        if (_root is not { } root)
         {
-            if (index-- != 0) continue;
-            result = element;
-            break;
+            Element? result = null;
+            foreach (var item in Read(realm))
+            {
+                if (index-- != 0) continue;
+                result = item;
+                break;
+            }
+            realm.Engine.Constraints.Check();
+            return result;
         }
-        realm.Engine.Constraints.Check();
-        return result;
+        var work = RootWork(realm, root);
+        work.Check();
+        if (_filter.MatchesNothing) return null;
+        _filter.BeginRead();
+        Node? current = null;
+        uint position = 0;
+        Element? remembered = null;
+        var haveCursor = TryGetCountWitness(out var owner, out var stamp)
+            && _cursorOwner is not null && _cursorOwner.TryGetTarget(out var previousOwner)
+            && ReferenceEquals(owner, previousOwner) && stamp == _cursorStamp
+            && _cursor is not null && _cursor.TryGetTarget(out remembered);
+        // A weak cursor cannot keep a removed descendant alive between reads.
+        if (haveCursor)
+        {
+            current = remembered;
+            position = _cursorIndex;
+        }
+        var backwards = current is not null && index < position;
+        while (!haveCursor || position != index)
+        {
+            do
+            {
+                current = backwards ? Previous(root, current!, work) : Next(root, current, work);
+                if (current is null) { work.Check(); return null; }
+            }
+            while (current is not Element element || !_filter.Matches(element, work));
+            if (haveCursor) position = backwards ? position - 1 : position + 1;
+            else haveCursor = true;
+        }
+        work.Check();
+        if (TryGetCountWitness(out owner, out stamp))
+        {
+            if (_cursor is null) _cursor = new WeakReference<Element>((Element) current!);
+            else _cursor.SetTarget((Element) current!);
+            if (_cursorOwner is null) _cursorOwner = new WeakReference<Document>(owner!);
+            else _cursorOwner.SetTarget(owner!);
+            _cursorStamp = stamp;
+            _cursorIndex = position;
+        }
+        return (Element) current!;
+    }
+
+    private static DomReadWork RootWork(DomRealm realm, Node root)
+        => new(realm.NativeReadCheckpoint, realm.CancellationToken, root);
+
+    private static Node? Next(Node root, Node? node, DomReadWork work)
+    {
+        work.Step();
+        if (node is null) return root.FirstChild;
+        if (node.FirstChild is { } child) return child;
+        while (!ReferenceEquals(node, root))
+        {
+            work.Step();
+            if (node.NextSibling is { } sibling) return sibling;
+            node = node.ParentNode!;
+        }
+        return null;
+    }
+
+    private static Node? Previous(Node root, Node node, DomReadWork work)
+    {
+        work.Step();
+        if (node.PreviousSibling is not { } previous)
+            return ReferenceEquals(node.ParentNode, root) ? null : node.ParentNode;
+        while (previous.LastChild is { } child) { work.Step(); previous = child; }
+        return previous;
     }
 
     internal override IEnumerable<Element> Read(DomRealm realm)
     {
-        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
-        work.Check();
+        if (_root is { } root)
+        {
+            var work = RootWork(realm, root);
+            work.Check();
+            if (_filter.MatchesNothing) yield break;
+            _filter.BeginRead();
+            for (var node = Next(root, null, work); node is not null; node = Next(root, node, work))
+                if (node is Element element && _filter.Matches(element, work)) yield return element;
+            work.Check();
+            yield break;
+        }
+        var sourceWork = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        sourceWork.Check();
         if (_filter.MatchesNothing) yield break;
         _filter.BeginRead();
-        var source = _root is { } root ? NodeTraversal.DescendantElements(root, work.Check, work.Token)
-            : _source is DomHtmlCollection<Element> collection ? collection.Read(realm) : _source!;
+        var source = _source is DomHtmlCollection<Element> collection ? collection.Read(realm) : _source!;
         foreach (var element in source)
         {
-            work.Step();
-            if (_filter.Matches(element, work)) yield return element;
+            sourceWork.Step();
+            if (_filter.Matches(element, sourceWork)) yield return element;
         }
-        work.Check();
+        sourceWork.Check();
     }
 
     public int Count => Length;
