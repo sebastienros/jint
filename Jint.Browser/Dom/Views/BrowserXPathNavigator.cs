@@ -8,7 +8,7 @@ namespace Jint.Browser.Dom.Views;
 /// Browser's namespace-ignoring XPath view over the guarded native navigator.
 /// The adaptation is confined to this cursor; it never changes the native namespace model.
 /// </summary>
-internal sealed class BrowserXPathNavigator : XPathNavigator
+internal sealed class BrowserXPathNavigator : XPathNavigator, IXPathAncestorContext
 {
     private readonly NativeXPathNavigator _native;
 
@@ -20,6 +20,13 @@ internal sealed class BrowserXPathNavigator : XPathNavigator
     }
 
     private BrowserXPathNavigator(NativeXPathNavigator native) => _native = native;
+
+    bool IXPathAncestorContext.HasAncestor(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
+    {
+        _native.CheckRead();
+        return (nodeTest || anyNamespace || namespaceUri.Length == 0) &&
+            ((IXPathAncestorContext) _native).HasAncestor(localName, "", true, nodeTest, includeSelf);
+    }
 
     internal void CheckRead() => _native.CheckRead();
     internal void ResultWork() => _native.ResultWork();
@@ -47,6 +54,12 @@ internal sealed class BrowserXPathNavigator : XPathNavigator
             _native.CheckRead();
             return string.Empty;
         }
+    }
+
+    public override XmlNodeOrder ComparePosition(XPathNavigator? other)
+    {
+        _native.CheckRead();
+        return other is BrowserXPathNavigator view ? _native.ComparePosition(view._native) : XmlNodeOrder.Unknown;
     }
 
     public override bool IsSamePosition(XPathNavigator other)

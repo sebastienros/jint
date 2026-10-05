@@ -138,7 +138,7 @@ internal static class XPathEvaluation
 
         try
         {
-            evaluated = navigator.Evaluate(expression.ClonePrepared());
+            evaluated = expression.EvaluatePrepared(navigator.Evaluate);
         }
         catch (XPathException exception)
         {

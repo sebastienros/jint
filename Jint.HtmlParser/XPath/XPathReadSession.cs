@@ -35,6 +35,7 @@ internal sealed class XPathReadSession
     private readonly Dictionary<Element, XPathNamespaceBinding[]> _allNamespaces = new();
     private readonly Dictionary<(Element, string), int> _namespaceOrder = new();
     private readonly Dictionary<Node, string> _textValues = new();
+    private readonly Dictionary<(string LocalName, string NamespaceUri, bool AnyNamespace, bool NodeTest), Dictionary<object, bool>> _ancestorMatches = new();
     private Dictionary<Node, int>? _order;
     private Dictionary<string, Element>? _ids;
 
@@ -511,6 +512,56 @@ internal sealed class XPathReadSession
 
         Check();
         var found = _ids.TryGetValue(id, out var result) ? result : null;
+        Check();
+        return found;
+    }
+
+    // XPath 1.0 §2.4: a bare node-set predicate tests existence, never axis position.
+    // Cache inclusive answers along the visited path, within this mutation-witnessed read only.
+    internal bool HasAncestor(object position, string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
+    {
+        Check();
+        Work(1 + localName.Length + namespaceUri.Length, XPathWorkStage.AncestorScan);
+        var key = (localName, namespaceUri, anyNamespace, nodeTest);
+        if (!_ancestorMatches.TryGetValue(key, out var answers))
+        {
+            answers = new Dictionary<object, bool>();
+            _ancestorMatches.Add(key, answers);
+        }
+
+        static object? Parent(object current) => current switch
+        {
+            Attr attribute => attribute.OwnerElement,
+            XPathNamespaceBinding binding => binding.OwnerElement,
+            Node node => node.ParentNode,
+            _ => null
+        };
+
+        var current = includeSelf ? position : Parent(position);
+        var path = new List<object>();
+        var found = false;
+        while (current is not null)
+        {
+            Work(1, XPathWorkStage.AncestorScan);
+            if (answers.TryGetValue(current, out found)) break;
+            path.Add(current);
+            if (nodeTest || current is Element element &&
+                (localName.Length == 0 || element.LocalName == localName) &&
+                (anyNamespace || (element.NamespaceUri ?? "") == namespaceUri))
+            {
+                found = true;
+                break;
+            }
+
+            current = Parent(current);
+        }
+
+        foreach (var visited in path)
+        {
+            Work(1, XPathWorkStage.AncestorScan);
+            answers.Add(visited, found);
+        }
+
         Check();
         return found;
     }

@@ -433,7 +433,7 @@ internal sealed partial class DomDomain
         try
         {
             var expression = NativeXPath.Compile(query, null, (_, _) => dom.Engine.Constraints.Check(), dom.CancellationToken);
-            if (navigator.Evaluate(expression.ClonePrepared()) is not XPathNodeIterator nodes) return [];
+            if (expression.EvaluatePrepared(navigator.Evaluate) is not XPathNodeIterator nodes) return [];
             var found = new List<object>();
             while (true)
             {

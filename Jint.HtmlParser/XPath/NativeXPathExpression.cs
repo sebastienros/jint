@@ -12,11 +12,13 @@ namespace Jint.HtmlParser;
 public sealed class NativeXPathExpression
 {
     private readonly XPathExpression _prepared;
+    private readonly bool _hasAncestorPredicates;
 
-    private NativeXPathExpression(string source, XPathExpression prepared)
+    private NativeXPathExpression(string source, XPathExpression prepared, bool hasAncestorPredicates)
     {
         Source = source;
         _prepared = prepared;
+        _hasAncestorPredicates = hasAncestorPredicates;
     }
 
     /// <summary>The exact source passed to compilation.</summary>
@@ -24,6 +26,37 @@ public sealed class NativeXPathExpression
     /// <summary>The expression's static result type.</summary>
     public XPathResultType ReturnType => _prepared.ReturnType;
     internal XPathExpression ClonePrepared() => _prepared.Clone();
+
+    internal object EvaluatePrepared(Func<XPathExpression, object> evaluate)
+    {
+        if (!_hasAncestorPredicates) return evaluate(ClonePrepared());
+        try
+        {
+            var result = evaluate(ClonePrepared());
+            return result is XPathNodeIterator iterator ? new GuardedIterator(iterator) : result;
+        }
+        catch (XPathException error) when (error.InnerException is XPathAncestorPredicates.EvaluationFailure failure)
+        {
+            failure.Original.Throw();
+            throw;
+        }
+    }
+
+    private sealed class GuardedIterator(XPathNodeIterator iterator) : XPathNodeIterator
+    {
+        public override XPathNodeIterator Clone() => new GuardedIterator(iterator.Clone());
+        public override XPathNavigator? Current => iterator.Current;
+        public override int CurrentPosition => iterator.CurrentPosition;
+        public override bool MoveNext()
+        {
+            try { return iterator.MoveNext(); }
+            catch (XPathException error) when (error.InnerException is XPathAncestorPredicates.EvaluationFailure failure)
+            {
+                failure.Original.Throw();
+                throw;
+            }
+        }
+    }
 
     internal static NativeXPathExpression Compile(string source, IXmlNamespaceResolver? resolver,
         Action<XPathWorkStage, int>? checkpoint, CancellationToken token)
@@ -35,15 +68,16 @@ public sealed class NativeXPathExpression
         token.ThrowIfCancellationRequested();
         var guarded = GuardFollowing(source, checkpoint, token);
         token.ThrowIfCancellationRequested();
-        var prepared = guarded is null ? original : XPathExpression.Compile(guarded);
+        var optimized = XPathAncestorPredicates.Rewrite(guarded ?? source, resolver, checkpoint, token, out var context);
+        var prepared = optimized is null ? (guarded is null ? original : XPathExpression.Compile(guarded)) : XPathExpression.Compile(optimized);
         token.ThrowIfCancellationRequested();
-        if (resolver is not null)
+        if (context is not null || resolver is not null)
         {
-            prepared.SetContext(resolver);
+            prepared.SetContext(context ?? resolver!);
             token.ThrowIfCancellationRequested();
         }
 
-        return new NativeXPathExpression(source, prepared);
+        return new NativeXPathExpression(source, prepared, context is not null);
     }
 
     private static string? GuardFollowing(string source, Action<XPathWorkStage, int>? checkpoint,

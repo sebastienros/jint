@@ -461,6 +461,8 @@ internal Jint.HtmlParser.HtmlTextSelection
     op_Inequality
 internal Jint.HtmlParser.HtmlValueChangeOrigin
 internal Jint.HtmlParser.INodeAdoptionObserver
+internal Jint.HtmlParser.IXPathAncestorContext
+    HasAncestor
 internal Jint.HtmlParser.NativeCharacterData
     GetLength
     Normalize
@@ -642,7 +644,7 @@ public Jint.HtmlParser.MutationSubscription
 public Jint.HtmlParser.NativeXPath
     CreateNavigator
 public Jint.HtmlParser.NativeXPathExpression
-    ClonePrepared
+    EvaluatePrepared
 public Jint.HtmlParser.Node
     get_TreeShadowRoot
 public Jint.HtmlParser.Text

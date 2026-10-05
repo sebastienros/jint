@@ -4,7 +4,7 @@ using System.Xml.XPath;
 namespace Jint.HtmlParser;
 
 // XPathNavigator is a cursor, not a DOM wrapper: cloned cursors share only a read session.
-internal sealed class NativeXPathNavigator : XPathNavigator
+internal sealed class NativeXPathNavigator : XPathNavigator, IXPathAncestorContext
 {
     private readonly XPathReadSession _session;
     private object _position;
@@ -41,15 +41,15 @@ internal sealed class NativeXPathNavigator : XPathNavigator
 
     public override XPathNavigator Clone() => new NativeXPathNavigator(this);
     internal void CheckRead() => _session.Check();
+    bool IXPathAncestorContext.HasAncestor(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
+        => _session.HasAncestor(_position, localName, namespaceUri, anyNamespace, nodeTest, includeSelf);
     internal void ResultWork(int units = 1) => _session.Work(units, XPathWorkStage.ResultMaterialization);
     internal void PublishResult() => _session.PublishResult();
     internal object EvaluatePrepared(NativeXPathExpression expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
         _session.Check();
-        var prepared = expression.ClonePrepared();
-        _session.Check();
-        var result = base.Evaluate(prepared, null);
+        var result = expression.EvaluatePrepared(prepared => base.Evaluate(prepared, null));
         _session.Check();
         return result;
     }
@@ -293,6 +293,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
     public override bool MoveToParent()
     {
         _session.Check();
+        _session.Work(1, XPathWorkStage.AncestorScan);
         var parent = _position switch
         {
             Attr attribute => attribute.OwnerElement,

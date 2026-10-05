@@ -33,6 +33,29 @@ public sealed class XPathTests
     }
 
     [Test]
+    public async Task BareAncestorPredicatesPreserveBrowserNamespacePolicyAndCompiledReuse()
+    {
+        await using var browser = new Browser();
+        var page = await OpenAsync(browser);
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const expression = document.createExpression('//*[ancestor::div]');
+              const ids = () => {
+                const result = expression.evaluate(document, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE);
+                return Array.from({length: result.snapshotLength}, (_, i) => result.snapshotItem(i).localName).join('|');
+              };
+              const before = ids();
+              document.getElementById('root').remove();
+              const after = ids();
+              const xml = new DOMParser().parseFromString('<r xmlns:p="urn:p"><p:x><y/></p:x></r>', 'application/xml');
+              const count = source => document.evaluate(source, xml, p => 'urn:p', XPathResult.ORDERED_NODE_SNAPSHOT_TYPE).snapshotLength;
+              return [before, after, count('//*[ancestor::x]'), count('//*[ancestor::p:x]'), count('//*[ancestor-or-self::x]')].join(';');
+            })()
+            """ )).Should().Be("p|p|span;;1;0;2");
+    }
+
+    [Test]
     public async Task TheThreeInterfacesAreGlobalsAndOnlyTheEvaluatorIsConstructible()
     {
         await using var browser = new Browser();
