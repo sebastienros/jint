@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-10-05
-anchors: 1270
+anchors: 1273
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -275,6 +275,7 @@ ecma262 sec-example-cyclic-module-record-graphs
 ecma262 sec-execute-async-module
 ecma262 sec-expanded-years
 ecma262 sec-exports-runtime-semantics-evaluation
+ecma262 sec-finalization-registry-cleanup-callback
 ecma262 sec-finalization-registry-constructor
 ecma262 sec-finalization-registry.prototype.register
 ecma262 sec-finalization-registry.prototype.unregister
@@ -357,6 +358,7 @@ ecma262 sec-global-environment-records-hasbinding-n
 ecma262 sec-globaldeclarationinstantiation
 ecma262 sec-host-cleanup-finalization-registry
 ecma262 sec-host-promise-rejection-tracker
+ecma262 sec-hostcalljobcallback
 ecma262 sec-hostenqueuepromisejob
 ecma262 sec-hostensurecancompilestrings
 ecma262 sec-hostfinalizeimportmeta
@@ -413,6 +415,7 @@ ecma262 sec-iteratorclose
 ecma262 sec-iteratornext
 ecma262 sec-iteratorstepvalue
 ecma262 sec-iteratorzip
+ecma262 sec-jobcallback-records
 ecma262 sec-json.parse
 ecma262 sec-json.stringify
 ecma262 sec-keyforsymbol
