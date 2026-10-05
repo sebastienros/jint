@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -114,6 +115,41 @@ public sealed class HostIndexedDbTests
         engine.GetValue("trace").AsArray().Length.Should().Be(0);
         engine.Tasks.ProcessTasks();
         engine.Evaluate("trace.join(',')").Should().Be("task,micro");
+    }
+
+    [Test]
+    public void HostCanResumePumpingAfterAThrowingUpgradeListener()
+    {
+        using var engine = new Engine(options => options.UseWebApis(WebApiFeatures.IndexedDb));
+        engine.Execute("""
+            var db;
+            const initial=indexedDB.open('existing');
+            initial.onupgradeneeded=()=>initial.result.createObjectStore('items');
+            initial.onsuccess=()=>db=initial.result;
+            function start() {
+                globalThis.openError='';globalThis.opened=false;
+                const failed=indexedDB.open('failed');
+                failed.onupgradeneeded=()=>{throw new Error('upgrade listener failed');};
+                failed.onerror=()=>openError=failed.error.name;
+                const queued=indexedDB.open('queued');
+                queued.onsuccess=()=>{opened=true;queued.result.close();};
+            }
+            """);
+        // Invoke checkpoints reactions but leaves the database tasks to the explicit host pump.
+        engine.Invoke("start");
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().Throw<JavaScriptException>()
+            .WithMessage("*upgrade listener failed*");
+        engine.Tasks.ProcessTasks();
+        engine.GetValue("openError").Should().Be("AbortError");
+        engine.GetValue("opened").Should().Be(true);
+        var result = engine.Evaluate("""
+            new Promise(resolve=>{
+                const r=db.transaction('items').objectStore('items').count();
+                r.onsuccess=()=>resolve(r.result);
+            })
+            """);
+        engine.Tasks.ProcessTasks();
+        result.UnwrapIfPromise().Should().Be(0);
     }
 
     [Test]

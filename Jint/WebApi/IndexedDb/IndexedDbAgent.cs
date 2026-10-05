@@ -45,9 +45,15 @@ internal sealed class IndexedDbAgent
     private void Run(Action action)
     {
         try { action(); }
+        catch (JavaScriptException)
+        {
+            // Request dispatch handles its owning transaction. Other listener failures must not
+            // close unrelated connections or abandon queued database operations.
+            throw;
+        }
         catch
         {
-            // Never translate constraints or an unreported script exception into a successful IDB request.
+            // Never translate constraints or other non-script failures into a successful IDB request.
             Reset();
             throw;
         }

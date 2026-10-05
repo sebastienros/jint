@@ -46,7 +46,10 @@ Do not wait for a timer or network operation and then reuse it. When its request
 automatically; `commit()` disallows further requests. Request errors bubble through transaction and database.
 Calling `preventDefault()` on a request error suppresses the automatic abort unless the transaction is already
 committing. An uncaught request-listener exception aborts an active transaction; the ordinary diagnostics-sink
-rules still determine whether that exception is reported or propagates to the host.
+rules still determine whether that exception is reported or propagates to the host. On a sinkless engine,
+resume pumping after catching the exception to deliver pending abort/request-error events and settle an
+aborted upgrade's open request. Unrelated connections and queued opens remain usable. Constraint failures
+still propagate and release the engine's IndexedDB activity.
 
 Values are structured-cloned when `put`/`add` is called, not when its request executes. Reads produce new clones,
 including fresh mutable buffer storage. Aborts discard changes to records, schema, indexes and key generators.

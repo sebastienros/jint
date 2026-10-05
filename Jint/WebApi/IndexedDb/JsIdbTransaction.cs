@@ -143,6 +143,16 @@ internal sealed class JsIdbTransaction : JsEventTarget
                     : request.Error);
             }
         }
+        catch (JavaScriptException)
+        {
+            // https://w3c.github.io/IndexedDB/#fire-a-success-event and #fire-an-error-event:
+            // a throwing listener aborts only an active transaction, even without a diagnostics sink.
+            if (!Finished && !_committing)
+            {
+                Abort(_realm.Intrinsics.DomException.CreateException("AbortError", "A request listener threw an exception."));
+            }
+            throw;
+        }
         finally
         {
             Active = false;

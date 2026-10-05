@@ -5904,6 +5904,15 @@ With the flag enabled, pending promise reactions run before queued tasks, and ev
 is first read. Hosts without this flag retain their existing queue behavior. Database storage remains lazy;
 requests still require pumping through `Engine.Tasks.ProcessTasks`.
 
+### 4.147 IndexedDB listener failures preserve unrelated connections
+
+On an engine without a diagnostics sink, an uncaught request or upgrade listener exception now aborts only
+its active transaction with `AbortError` before propagating to the host. Earlier previews closed every
+IndexedDB connection and abandoned queued opens. After catching the `JavaScriptException`, resume
+`Engine.Tasks.ProcessTasks()` to deliver abort/request-error events and settle the failed upgrade's open
+request. Other connections and queued opens remain usable. A listener that already called `commit()` or
+`abort()` retains that outcome. Diagnostics-sink reporting and constraint-failure cleanup are unchanged.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

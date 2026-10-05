@@ -466,6 +466,169 @@ public sealed class IndexedDbTests
             """).Should().Be("9007199254740992|ConstraintError");
     }
 
+    [TestCase(false, "request")]
+    [TestCase(true, "request")]
+    [TestCase(true, "transaction")]
+    [TestCase(true, "database")]
+    public void SinklessRequestListenerFailureAbortsOnlyItsTransaction(bool requestFails, string listenerTarget)
+    {
+        using var engine = Create();
+        engine.Execute("var db,other;open().then(x=>db=x);open('other').then(x=>other=x);");
+        engine.SetValue("requestFails", requestFails);
+        engine.SetValue("listenerTarget", listenerTarget);
+        using (engine.EventLoop.DeferTaskDrain())
+        {
+            engine.Execute("""
+                var t=db.transaction('s','readwrite'),s=t.objectStore('s'),aborted='',pendingError='',otherDone=false,opened=false;
+                t.onabort=()=>aborted=t.error.name;
+                if(requestFails)s.add('first',1);
+                var r=requestFails?s.add('duplicate',1):s.put('first',1);
+                var target=listenerTarget==='request'?r:listenerTarget==='transaction'?t:db;
+                target.addEventListener(requestFails?'error':'success',e=>{
+                    e.preventDefault();throw new Error('listener failed');
+                },{once:true});
+                var pending=s.put('pending',2);pending.onerror=()=>pendingError=pending.error.name;
+                var unrelated=other.transaction('s','readwrite');
+                unrelated.objectStore('s').put('kept',1);unrelated.oncomplete=()=>otherDone=true;
+                var opening=indexedDB.open('queued');
+                opening.onupgradeneeded=()=>opening.result.createObjectStore('s');
+                opening.onsuccess=()=>{opened=true;opening.result.close();};
+                """);
+        }
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().Throw<JavaScriptException>().WithMessage("*listener failed*");
+        engine.Evaluate("t.error.name").Should().Be("AbortError");
+        engine.Tasks.ProcessTasks();
+        engine.Evaluate("[aborted,pendingError,otherDone,opened].join('|')").Should().Be("AbortError|AbortError|true|true");
+        Run(engine, """
+            const a=request(db.transaction('s').objectStore('s').count());
+            const b=request(other.transaction('s').objectStore('s').get(1));
+            return (await a)+'|'+await b;
+            """).Should().Be("0|kept");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SinklessListenerFailureDoesNotAbortACommittingOrAbortedTransaction(bool abort)
+    {
+        using var engine = Create();
+        engine.Execute("var db;open().then(x=>db=x);");
+        engine.SetValue("abortExplicitly", abort);
+        using (engine.EventLoop.DeferTaskDrain())
+        {
+            engine.Execute("""
+                var t=db.transaction('s','readwrite'),outcome='';
+                t.oncomplete=()=>outcome='complete';t.onabort=()=>outcome='abort';
+                t.objectStore('s').put('x',1).onsuccess=()=>{
+                    if(abortExplicitly)t.abort();else t.commit();
+                    throw new Error('listener failed');
+                };
+                """);
+        }
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().Throw<JavaScriptException>().WithMessage("*listener failed*");
+        engine.Tasks.ProcessTasks();
+        engine.GetValue("outcome").Should().Be(abort ? "abort" : "complete");
+        Run(engine, "return await request(db.transaction('s').objectStore('s').count());").Should().Be(abort ? 0 : 1);
+    }
+
+    [Test]
+    public void SinklessUpgradeListenerFailureSettlesOpenAndAllowsTheNextOpen()
+    {
+        using var engine = Create();
+        engine.Execute("var other;open('other').then(x=>other=x);");
+        using (engine.EventLoop.DeferTaskDrain())
+        {
+            engine.Execute("""
+                var failed=indexedDB.open('upgrade',2),openError='',pendingError='',reopened=false,version=0;
+                failed.onupgradeneeded=()=>{
+                    const s=failed.result.createObjectStore('rolledback');
+                    s.put('pending',1).onerror=e=>pendingError=e.target.error.name;
+                    failed.transaction.onabort=()=>{throw new Error('abort listener failed');};
+                    throw new Error('upgrade listener failed');
+                };
+                failed.onerror=()=>openError=failed.error.name;
+                var next=indexedDB.open('upgrade',1);
+                next.onupgradeneeded=()=>next.result.createObjectStore('s');
+                next.onsuccess=()=>{reopened=true;version=next.result.version;next.result.close();};
+                """);
+        }
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().Throw<JavaScriptException>().WithMessage("*upgrade listener failed*");
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().Throw<JavaScriptException>().WithMessage("*abort listener failed*");
+        engine.Tasks.ProcessTasks();
+        engine.Evaluate("[openError,pendingError,reopened,version,failed.transaction].join('|')")
+            .Should().Be("AbortError|AbortError|true|1|");
+        Run(engine, "return await request(other.transaction('s').objectStore('s').count());").Should().Be(0);
+    }
+
+    [TestCase("complete")]
+    [TestCase("abort")]
+    [TestCase("success")]
+    [TestCase("blocked")]
+    [TestCase("versionchange")]
+    public void SinklessNonRequestListenerFailureKeepsOtherConnectionsAndQueuedOpens(string eventType)
+    {
+        using var engine = Create();
+        engine.Execute("var db,other;open().then(x=>db=x);open('other').then(x=>other=x);");
+        engine.SetValue("eventType", eventType);
+        using (engine.EventLoop.DeferTaskDrain())
+        {
+            engine.Execute("""
+                var opened=false;
+                const throwing=()=>{throw new Error('listener failed');};
+                if(eventType==='success')indexedDB.open('db').onsuccess=throwing;
+                else if(eventType==='blocked'||eventType==='versionchange'){
+                    const r=indexedDB.open('db',2);
+                    if(eventType==='blocked')r.onblocked=throwing;
+                    else db.onversionchange=throwing;
+                    r.onupgradeneeded=()=>{};
+                    r.onsuccess=()=>r.result.close();
+                }else{
+                    const t=db.transaction('s','readwrite');
+                    if(eventType==='abort'){t.onabort=throwing;t.abort();}
+                    else {t.oncomplete=throwing;t.objectStore('s').put('kept',1);}
+                }
+                const queued=indexedDB.open('queued');
+                queued.onsuccess=()=>{opened=true;queued.result.close();};
+                """);
+        }
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().Throw<JavaScriptException>().WithMessage("*listener failed*");
+        engine.Tasks.ProcessTasks();
+        engine.GetValue("opened").Should().Be(true);
+        Run(engine, "return await request(other.transaction('s').objectStore('s').count());").Should().Be(0);
+        engine.Execute("db.close()");
+        engine.Tasks.ProcessTasks();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RequestListenerConstraintFailuresPropagateAndReleaseConnections(bool diagnostics)
+    {
+        var tripwire = new TripwireConstraint();
+        var reports = new List<DiagnosticEvent>();
+        using var engine = new Engine(o =>
+        {
+            o.UseWebApis(WebApiFeatures.IndexedDb).AddConstraint(tripwire);
+            if (diagnostics) o.WebApi.Diagnostics.Sink = new RecordingSink(reports);
+        });
+        engine.Execute(Helpers);
+        engine.Execute("var db;open().then(x=>db=x);");
+        engine.SetValue("arm", (Action) (() => tripwire.Armed = true));
+        using (engine.EventLoop.DeferTaskDrain())
+        {
+            engine.Execute("""
+                var aborted=false;
+                const t=db.transaction('s','readwrite');
+                t.onabort=()=>aborted=true;
+                t.objectStore('s').put('x',1).onsuccess=()=>{arm();while(true){}};
+                """);
+        }
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().ThrowExactly<TimeoutException>();
+        tripwire.Checks.Should().Be(20);
+        tripwire.Armed = false;
+        reports.Should().BeEmpty();
+        engine.GetValue("aborted").Should().Be(false);
+        engine.Evaluate("errorName(()=>db.transaction('s'))").Should().Be("InvalidStateError");
+    }
+
     private sealed class RecordingSink(List<DiagnosticEvent> reports) : DiagnosticsSink
     {
         public override void Report(DiagnosticEvent report) => reports.Add(report);
