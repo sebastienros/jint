@@ -58,6 +58,8 @@ internal static class GlobalValueRegistration
     /// </summary>
     internal static void RegisterDelegate(Engine engine, ObjectInstance globalObject, string name, Delegate value)
     {
+        // JsValue.FromDelegate is the public, lazy-friendly form of this construction; keep the two identical.
+        // It is not called from here only because the caller already holds the host-call reservation.
         globalObject.DefineOwnPropertyUnchecked(name, new PropertyDescriptor(new DelegateWrapper(engine, value), PropertyFlag.NonEnumerable));
     }
 

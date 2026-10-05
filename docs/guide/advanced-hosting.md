@@ -35,6 +35,16 @@ using var engine = new Engine(options)
 the first read. The result is memoized for that engine. Use the engine overload
 when adding a lazy global after construction.
 
+For a host delegate, return `JsValue.FromDelegate` from the factory and pass
+`PropertyFlag.NonEnumerable`. That yields the same function
+`SetValue(string, Delegate)` installs; `JsValue.FromObject` would consult the
+registered object converters first.
+
+```csharp
+engine.AddLazyGlobal("log", logDelegate,
+    static (e, d) => JsValue.FromDelegate(e, d), PropertyFlag.NonEnumerable);
+```
+
 ## Choose the narrowest projection
 
 General `ObjectInstance` subclasses are flexible, but specialized projections

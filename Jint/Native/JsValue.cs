@@ -340,6 +340,55 @@ public abstract partial class JsValue : IEquatable<JsValue>
     }
 
     /// <summary>
+    /// Wraps a delegate as a callable function exactly as <see cref="Engine.SetValue(string, Delegate)"/> does,
+    /// without consulting any registered object converter.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Return it from a lazy-global factory so the materialized global is the function <c>SetValue</c> would
+    /// have installed. <see cref="FromObject"/> may differ: registered converters see the delegate first, and
+    /// a delegate obtained from a script function converts back to that function rather than to a wrapper.
+    /// </para>
+    /// <para>
+    /// Property attributes belong to the registration, not the value: pass
+    /// <see cref="Runtime.Descriptors.PropertyFlag.NonEnumerable"/> to match <c>SetValue</c>.
+    /// </para>
+    /// <para>
+    /// Only a <see cref="Delegate"/>-typed argument binds to <see cref="Engine.SetValue(string, Delegate)"/>;
+    /// a strongly typed one such as <c>Func&lt;int&gt;</c> binds to <c>SetValue&lt;T&gt;</c> and is converted
+    /// like any other object. Each call builds a new function.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// engine.AddLazyGlobal("log", logDelegate, static (e, d) => JsValue.FromDelegate(e, d), PropertyFlag.NonEnumerable);
+    /// </code>
+    /// </example>
+    /// <param name="engine">The engine the function belongs to.</param>
+    /// <param name="value">The delegate to wrap.</param>
+    /// <returns>A new function that invokes <paramref name="value"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="engine"/> or <paramref name="value"/> is
+    /// <see langword="null"/>.</exception>
+    public static JsValue FromDelegate(Engine engine, Delegate value)
+    {
+        if (engine is null)
+        {
+            Throw.ArgumentNullException(nameof(engine));
+        }
+
+        if (value is null)
+        {
+            Throw.ArgumentNullException(nameof(value));
+        }
+
+        using var ownership = engine.EnterHostCall();
+
+        // The construction GlobalValueRegistration.RegisterDelegate performs for SetValue(string, Delegate);
+        // the two must stay identical, which LazyDelegateGlobalTests pins from the embedder's side.
+        return new DelegateWrapper(engine, value);
+    }
+
+    /// <summary>
     /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance, with a type
     /// </summary>
     public static JsValue FromObjectWithType(Engine engine, object? value, Type? type)
