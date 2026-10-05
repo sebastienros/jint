@@ -130,7 +130,7 @@ internal sealed class JsPromise : ObjectInstance
         }
 
         var realm = _engine.Realm;
-        var job = PromiseOperations.NewPromiseResolveThenableJob(this, resultObj, thenMethod);
+        var job = PromiseOperations.NewPromiseResolveThenableJob(_engine, this, resultObj, thenMethod);
         _engine._host.HostEnqueuePromiseJob(job, realm);
 
         return Undefined;

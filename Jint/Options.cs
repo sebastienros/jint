@@ -806,6 +806,21 @@ public class Options
         ///   since <c>toString()</c> should include the <c>get</c> or <c>set</c> tokens for getters/setters and the member name as per specification.
         /// </remarks>
         public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = (_, _) => null;
+
+        /// <summary>
+        /// Gets or sets the hooks that carry host state from where a callback is registered to where it runs. Defaults to <see langword="null"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is how a host tells which logical flow a host call belongs to after an <c>await</c> resumes; see
+        /// <see cref="JobCallbackHooks"/>. Left <see langword="null"/>, promise reactions cost nothing extra.
+        /// </para>
+        /// <para>
+        /// Read once, when an engine is constructed. One instance may serve every engine built from these options,
+        /// so keep per-engine state keyed by the <see cref="Engine"/> each member receives.
+        /// </para>
+        /// </remarks>
+        public JobCallbackHooks? JobCallbacks { get; set; }
     }
 
     /// <summary>
