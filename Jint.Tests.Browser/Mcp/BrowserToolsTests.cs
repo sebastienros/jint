@@ -217,11 +217,19 @@ public sealed class BrowserToolsTests
         await using var fixture = await McpFixture.CreateAsync(server => server.MapHtml("/late", """
             <!doctype html><title>Late</title>
             <script>setTimeout(() => { const p = document.createElement('p'); p.id = 'ready'; p.textContent = 'done'; document.body.appendChild(p); }, 150);</script>
-            """));
+            """), configure: options =>
+            {
+                // This checks completion, not a time budget. Leave room for cold JIT work and CI scheduling.
+                options.MaxTaskDuration = TestBudgets.WedgeCeiling;
+                options.Timeout = TestBudgets.WedgeCeiling;
+            });
 
-        await fixture.CallAsync("navigate", ("url", fixture.Url("/late")));
+        var navigation = await fixture.CallAsync("navigate", ("url", fixture.Url("/late")));
+        navigation.IsError.Should().NotBe(true, McpFixture.TextOf(navigation));
 
-        var answer = JsonDocument.Parse(McpFixture.TextOf(await fixture.CallAsync("wait_for", ("selector", "#ready")))).RootElement;
+        var result = await fixture.CallAsync("wait_for", ("selector", "#ready"));
+        result.IsError.Should().NotBe(true, McpFixture.TextOf(result));
+        var answer = JsonDocument.Parse(McpFixture.TextOf(result)).RootElement;
         answer.GetProperty("done").GetBoolean().Should().BeTrue();
     }
 
