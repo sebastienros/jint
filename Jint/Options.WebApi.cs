@@ -1581,12 +1581,18 @@ public enum WebApiFeatures
 
     /// <summary>
     /// IndexedDB databases, transactions, indexes and cursors, backed by private in-memory storage.
-    /// https://w3c.github.io/IndexedDB/
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Opt-in, and not part of <see cref="Default"/>. Also enables <see cref="Events"/> and
     /// <see cref="StructuredClone"/>. Requests complete as tasks on the owning engine's event loop;
     /// hosts must pump it. Data survives a global snapshot restore but not engine disposal.
+    /// </para>
+    /// <para>
+    /// Enabling this flag separates tasks from microtasks immediately, including through live enablement.
+    /// Microtasks run before queued tasks and at the end of every top-level host Invoke or Call.
+    /// See https://w3c.github.io/IndexedDB/#transaction-lifetime.
+    /// </para>
     /// </remarks>
     IndexedDb = 1 << 27,
 

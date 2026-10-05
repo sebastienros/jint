@@ -5894,6 +5894,16 @@ public string[]? GetCalendars(string locale) => DefaultCldrProvider.Instance.Get
 A `GetDefaultCalendar` override that matched the whole locale string sees the keyword-free locale for a
 formatter whose tag carried `-u-nu-` or `-u-hc-`.
 
+### 4.146 Enabling IndexedDB selects task and microtask lanes immediately
+
+`WebApiFeatures.IndexedDb` now separates tasks from microtasks when the engine is constructed or when
+`Engine.WebApi.Enable` enables the flag. Earlier previews delayed this until the first IndexedDB operation,
+so unrelated BroadcastChannel deliveries and promise reactions could change order partway through a run.
+With the flag enabled, pending promise reactions run before queued tasks, and every top-level host
+`Invoke` or `Call` performs a microtask checkpoint before transaction cleanup, even before `indexedDB`
+is first read. Hosts without this flag retain their existing queue behavior. Database storage remains lazy;
+requests still require pumping through `Engine.Tasks.ProcessTasks`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -29,8 +29,8 @@ internal readonly record struct EventLoopRegistration(
 /// </summary>
 /// <remarks>
 /// <para>
-/// Ordinary Engine hosts retain one FIFO; browser engines separate tasks from microtasks so a task and
-/// its complete checkpoint share one budget. Both modes need the same classification:
+/// Engine hosts without IndexedDB retain one FIFO; IndexedDB and browser engines separate tasks from
+/// microtasks. A browser task and its complete checkpoint share one budget. Both modes need the same classification:
 /// <see cref="EventLoop.RunMicrotaskCheckpoint"/> has to know where the microtasks end. So every enqueue
 /// site says which it is, at the site, and the two <see cref="Engine.AddToEventLoop(Action, EventLoopJobKind)"/>
 /// overloads take it with no default — a new source of deferred work has to decide rather than inherit.
@@ -174,7 +174,7 @@ internal sealed record EventLoop
         public void Dispose() => eventLoop._taskDrainDeferralDepth--;
     }
 
-    // Installed before a browser engine runs script. Ordinary embedders retain their single FIFO and
+    // Installed before a browser engine runs script. Embedders without IndexedDB retain their single FIFO and
     // host-owned budget contract; a browser needs HTML's two lanes to keep a task's reactions ahead of
     // the next task, even when that task was queued before the reactions.
     internal void ConfigureTaskBudget(IEventLoopTaskBudget budget)
@@ -254,7 +254,7 @@ internal sealed record EventLoop
     /// </summary>
     internal bool HasPendingJobs => !_events.IsEmpty || _tasks is { IsEmpty: false };
 
-    // Feature pumps yield to the original FIFO for ordinary engines, but only to reactions in a browser.
+    // Feature pumps yield to the original FIFO without task lanes, but only to reactions with task lanes.
     // Yielding to other tasks on the separate lane would let two feature pumps defer on each other forever.
     internal bool HasPendingCheckpointJobs => !_events.IsEmpty;
 
@@ -343,7 +343,7 @@ internal sealed record EventLoop
         List<TaskCompletionSource<bool>>? toSignal;
         lock (_waitersLock)
         {
-            // Queue selection is atomic with a late IndexedDB activation splitting the FIFO.
+            // Queue selection is atomic with a live feature enablement splitting the FIFO.
             var queue = job.IsTask ? _tasks ?? _events : _events;
             queue.Enqueue(job);
             toSignal = TakeWaiters();
@@ -657,7 +657,7 @@ internal sealed record EventLoop
             // https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model
             // The full initial checkpoint above still belongs to the enclosing script's budget.
             // An explicit host pump bypasses deferral for this call only: a nested evaluation must
-            // still see the depth, and ordinary Engine hosts never reach this separate task lane.
+            // still see the depth, and IndexedDB-enabled Engine hosts also use this separate task lane.
             if (!allowTaskDrain && _taskDrainDeferralDepth != 0)
             {
                 return;
@@ -753,7 +753,7 @@ internal sealed record EventLoop
     /// <remarks>
     /// <para>
     /// <b>It runs the microtasks at the head of the queue and stops at the first task.</b> An ordinary
-    /// Engine has a single queue where HTML has a microtask queue and a set of task queues, so an entry's kind
+    /// Engine without IndexedDB has a single queue where HTML has a microtask queue and a set of task queues, so an entry's kind
     /// is carried by the entry: every enqueue site states an <see cref="EventLoopJobKind"/>, and
     /// <see cref="EventLoopJob.MayRunInMicrotaskCheckpoint"/> is that answer. Running a task from here would
     /// run one inside a checkpoint, which no event loop does; <b>skipping past it</b> to a microtask behind
@@ -761,7 +761,7 @@ internal sealed record EventLoop
     /// <c>queueMicrotask</c> callback queued behind an <c>XMLHttpRequest</c> delivery waits for the turn's
     /// own drain, where a browser would run it first. That is the behaviour every dispatch had before this
     /// method existed, so what still waits costs nothing that was ever promised.
-    /// Browser engines instead put tasks on a separate lane, so this checkpoint reaches every reaction
+    /// IndexedDB-enabled and browser engines instead put tasks on a separate lane, so this checkpoint reaches every reaction
     /// without running or reordering tasks.
     /// <see cref="WakeJob"/> is looked past rather than stopped at, because a wake is not work.
     /// </para>

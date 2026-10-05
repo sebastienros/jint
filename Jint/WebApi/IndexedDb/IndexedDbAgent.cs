@@ -15,7 +15,6 @@ internal sealed class IndexedDbAgent
     internal IndexedDbAgent(Engine engine)
     {
         _engine = engine;
-        engine.EventLoop.ConfigureTaskCleanup(Cleanup);
     }
 
     internal IndexedDbStore Store { get; private set; } = new();
@@ -66,7 +65,7 @@ internal sealed class IndexedDbAgent
         Store.CompleteOpen(operation);
     }
 
-    private void Cleanup()
+    internal void Cleanup()
     {
         foreach (var transaction in _transactions.ToArray()) transaction.Cleanup();
     }

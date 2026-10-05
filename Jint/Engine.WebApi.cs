@@ -498,6 +498,8 @@ internal sealed class WebApiEngineState
     /// </remarks>
     internal CacheStorageProvider? CacheProvider { get; private set; }
 
+    internal void CleanupIndexedDbTransactions() => _indexedDb?.Cleanup();
+
     private WebApi.IndexedDb.IndexedDbAgent? _indexedDb;
     internal WebApi.IndexedDb.IndexedDbAgent IndexedDb => _indexedDb ??= new WebApi.IndexedDb.IndexedDbAgent(_engine);
 

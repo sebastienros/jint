@@ -909,7 +909,19 @@ internal static class WebApiRegistration
             engine._webApi.AttachXhrOptions(options.WebApi.Xhr);
         }
 
+        ConfigureIndexedDbTasks(engine, engine._webApi, features);
         AttachWorkers(options, engine._webApi, features);
+    }
+
+    private static void ConfigureIndexedDbTasks(Engine engine, WebApiEngineState state, WebApiFeatures features)
+    {
+        if ((features & WebApiFeatures.IndexedDb) != WebApiFeatures.None)
+        {
+            // https://w3c.github.io/IndexedDB/#transaction-lifetime
+            // Install the cleanup step and task lanes when the host enables the feature, before script
+            // can run. The callback consults the lazy agent without creating it or its storage.
+            engine.EventLoop.ConfigureTaskCleanup(state.CleanupIndexedDbTransactions);
+        }
     }
 
     /// <summary>
@@ -998,6 +1010,7 @@ internal static class WebApiRegistration
             state.AttachLocks(options.WebApi.Locks);
         }
 
+        ConfigureIndexedDbTasks(engine, state, added);
         AttachWorkers(options, state, added);
 
         if ((added & WebApiFeatures.CacheApi) != WebApiFeatures.None && state.CacheProvider is null)
