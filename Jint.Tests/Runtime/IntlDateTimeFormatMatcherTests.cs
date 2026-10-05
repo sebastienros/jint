@@ -490,6 +490,8 @@ public class IntlDateTimeFormatMatcherTests
         public string[]? GetEraNames(string locale, string style, string? calendar) => _inner.GetEraNames(locale, style, calendar);
         public string? GetCurrencyDisplayName(string locale, string code) => _inner.GetCurrencyDisplayName(locale, code);
         public WeekInfo? GetWeekInfo(string locale) => _inner.GetWeekInfo(locale);
+        public string[]? GetHourCycles(string locale) => _inner.GetHourCycles(locale);
+        public string[]? GetCalendars(string locale) => _inner.GetCalendars(locale);
         public IReadOnlyCollection<string> GetSupportedCollations() => _inner.GetSupportedCollations();
         public IReadOnlyCollection<string> GetSupportedCurrencies() => _inner.GetSupportedCurrencies();
         public IReadOnlyCollection<string> GetSupportedNumberingSystems() => _inner.GetSupportedNumberingSystems();
