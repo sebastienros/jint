@@ -1,0 +1,32 @@
+name: Parser lookups
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Generated parser lookups
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Setup Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+
+    - name: Verify generated parser lookups
+      run: python3 Jint.HtmlParser/Parsing/generate_parser_lookups.py --check
+
+    - name: Verify generated known names
+      run: python3 Jint.HtmlParser/Html/generate_known_names.py --check
+
+    - name: Test parser lookup generator
+      run: python3 -m unittest discover -s Jint.HtmlParser/Parsing -p test_generate_parser_lookups.py -v
+
+    - name: Test known name generator
+      run: python3 -m unittest discover -s Jint.HtmlParser/Html -p test_generate_known_names.py -v

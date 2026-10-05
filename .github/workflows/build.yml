@@ -13,12 +13,16 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
+  # No path filter: source vocabularies, shared generators and all generated fixtures must agree.
+  parser-lookups:
+    uses: ./.github/workflows/parser-lookups.yml
+
   browser-tool:
     uses: ./.github/workflows/browser-tool.yml
 
   build:
 
-    needs: browser-tool
+    needs: [browser-tool, parser-lookups]
     runs-on: ubuntu-latest
     steps:
 

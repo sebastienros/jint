@@ -15,6 +15,11 @@ permissions:
   contents: read
 
 jobs:
+  # No path filter: source vocabularies, shared generators and all generated fixtures must agree.
+  parser-lookups:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/parser-lookups.yml
+
   browser-tool:
     uses: ./.github/workflows/browser-tool.yml
 
@@ -22,7 +27,7 @@ jobs:
 
     # Publishing release notes must not push the same NuGet version again.
     if: github.event_name == 'push'
-    needs: browser-tool
+    needs: [browser-tool, parser-lookups]
     runs-on: ubuntu-latest
 
     # Must match the Environment field of the nuget.org trusted publishing policy.
