@@ -123,6 +123,17 @@ internal sealed class ObjectPool<T> where T : class
     /// </summary>
     internal int PooledCount => (_firstItem is null ? 0 : 1) + _currentSlowPooledItems;
 
+    /// <summary>
+    /// Drops every pooled instance, so that nothing a returned instance still references is kept alive by
+    /// the pool. The next allocations create fresh instances.
+    /// </summary>
+    internal void Clear()
+    {
+        _firstItem = null;
+        Array.Clear(_items, 0, _items.Length);
+        _currentSlowPooledItems = 0;
+    }
+
     private T CreateInstance()
     {
         var inst = _factory();

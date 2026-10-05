@@ -116,7 +116,8 @@ public partial class Engine
         /// <see cref="System.Threading.Tasks.Task"/> awaited from script — is dropped when it settles rather
         /// than resuming its continuation against the restored globals. Engine warm-up caches
         /// (prepared-script handler trees and their inline caches) are preserved — re-running a cached
-        /// prepared script after a restore keeps warm-engine performance.
+        /// prepared script after a restore keeps warm-engine performance — and so are the host objects their
+        /// warmed sites last served; <see cref="DiscardInterpreterCaches"/> releases those.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -206,6 +207,45 @@ public partial class Engine
             }
 
             snapshot.Restore();
+        }
+
+        /// <summary>
+        /// Discards the interpreter state cached for scripts and functions this engine has run, releasing the
+        /// host objects its warmed call and member-read sites still reference.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A warmed site keeps the last callee and receiver it served, so an idle pooled engine can keep a
+        /// finished request's objects alive. Call this after <see cref="RestoreGlobalSnapshot"/> when that
+        /// matters; the engine, its realm, prepared scripts and CLR member resolution stay warm.
+        /// </para>
+        /// <para>
+        /// The next run of each script rebuilds its handler tree and re-warms its caches, roughly the cost of a
+        /// script's first run on a new engine minus building the engine. Calling it on every return gives up
+        /// the warm handler trees; calling it when an engine goes idle keeps them for busy engines.
+        /// </para>
+        /// <para>
+        /// It reaches the engine's own caches, class and object-literal methods, and functions bound directly
+        /// on the global object or in global <c>let</c>/<c>const</c>/<c>class</c> bindings. A function
+        /// expression or arrow held only by another object, module code and computed keys keep their caches.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">An evaluation is in progress, or the engine has been
+        /// retired.</exception>
+        public void DiscardInterpreterCaches()
+        {
+            using var ownership = _engine.EnterHostCall();
+            var engine = _engine;
+            engine.ThrowIfRetired();
+
+            // The same refusal as a restore, for the same reasons: script on the stack is running in the trees
+            // about to be dropped, and a suspended EvaluateAsync is invisible to the stack check.
+            if (engine.IsEvaluationInProgress || engine.HasPendingAsyncOperations)
+            {
+                Throw.InvalidOperationException("The interpreter caches cannot be discarded while an evaluation is in progress.");
+            }
+
+            engine.DiscardInterpreterCaches();
         }
 
         /// <summary>

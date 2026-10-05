@@ -202,8 +202,9 @@ public sealed record EngineMemoryReport
 /// the engine — but on a pooled engine they live as long as the engine does, and they are the roots of the
 /// retention a host actually asks about: a warmed member-read site keeps a strong reference to the last
 /// receiver it served, and a warmed call site keeps its last callee (and through a closure callee, the
-/// environment that closure captured). Nothing clears them; a host whose receivers wrap large native state
-/// that must not outlive a request drops the engine rather than pooling it.
+/// environment that closure captured). <see cref="Engine.AdvancedOperations.DiscardInterpreterCaches"/> empties
+/// <see cref="FunctionDefinitions"/> and <see cref="ScriptStatementLists"/>, at the price of rebuilding each
+/// tree on its script's next run; <see cref="EvaluatedScripts"/> and <see cref="PropertyKeyExpressions"/> stay.
 /// </para>
 /// <para>
 /// <b>Why there is no per-call-site breakdown here.</b> The counts below are of cache <em>entries</em> —
