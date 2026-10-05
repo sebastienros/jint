@@ -51,6 +51,15 @@ jobs:
         # Seed a cross-OS cache so the PR workflow's Windows/macOS/ARM jobs can restore it too.
         enableCrossOsArchive: true
 
+    - name: Restore W3C XML conformance corpus
+      id: cache-xml
+      uses: actions/cache/restore@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
+        enableCrossOsArchive: true
+
     - name: Test
       run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
@@ -60,6 +69,15 @@ jobs:
       with:
         path: Jint.Tests.Test262/Generated
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
+        enableCrossOsArchive: true
+
+    - name: Save W3C XML conformance corpus
+      if: steps.cache-xml.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
         enableCrossOsArchive: true
 
     - name: Pack with dotnet

@@ -70,6 +70,14 @@ jobs:
         # Windows/macOS/ARM jobs regenerate the whole suite on every run.
         enableCrossOsArchive: true
 
+    - name: Cache W3C XML conformance corpus
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
+        enableCrossOsArchive: true
+
     - name: Test
       if: matrix.os.name != 'windows'
       run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false

@@ -33,7 +33,7 @@ internal static class XmlCorpusCache
                 WriteAtomically(path, bytes);
                 return bytes;
             }
-            catch (Exception error) when (error is HttpRequestException or IOException or TaskCanceledException or InvalidDataException)
+            catch (Exception error) when (error is HttpRequestException or IOException or OperationCanceledException or InvalidDataException)
             {
                 last = error;
                 if (attempt < DownloadAttempts) Thread.Sleep(TimeSpan.FromSeconds(attempt * 2));
@@ -88,13 +88,23 @@ internal static class XmlCorpusCache
 
     private static byte[] Download(string url)
     {
-        using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        using var client = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+        return DownloadAsync(client, url, TimeSpan.FromMinutes(5)).GetAwaiter().GetResult();
+    }
+
+    // ResponseHeadersRead ends HttpClient.Timeout coverage at the headers. This deadline belongs to the
+    // whole attempt, including reading the body, and cancellation is propagated to every async read.
+    internal static async Task<byte[]> DownloadAsync(HttpClient client, string url, TimeSpan timeout)
+    {
+        using var deadline = new CancellationTokenSource(timeout);
+        var cancellationToken = deadline.Token;
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        using var response = client.Send(request, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        using var stream = response.Content.ReadAsStream();
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
+        await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         return buffer.ToArray();
     }
 
