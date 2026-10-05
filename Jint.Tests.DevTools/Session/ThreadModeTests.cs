@@ -86,7 +86,7 @@ public class ThreadModeTests
     {
         await using var target = new EngineTarget(new Engine(), new EngineTargetOptions { ThreadMode = ThreadMode.LibraryOwned });
 
-        var thrown = Assert.ThrowsAsync<InvalidOperationException>(
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await target.PostAsync(_ => throw new InvalidOperationException("from the host")).WaitAsync(Bound));
 
         thrown!.Message.Should().Be("from the host");

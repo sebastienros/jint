@@ -103,7 +103,7 @@ public sealed class AccountingTests
         var adapter = new BrowserAdapter(new AdapterOptions("fails", "lightpanda", "/bin/sh", ["-c", "exit 23"]));
         try
         {
-            Assert.That(async () => await adapter.StartAsync(), Throws.TypeOf<InvalidOperationException>());
+            await Assert.ThatAsync(async () => await adapter.StartAsync(), Throws.TypeOf<InvalidOperationException>());
             Assert.That(adapter.ProcessId, Is.Not.Null);
         }
         finally
@@ -172,7 +172,7 @@ public sealed class AccountingTests
                 Assert.That(after[index].FileSha256[executableA], Is.EqualTo(before[index].FileSha256[executableA]));
             }
             File.Delete(executableB);
-            Assert.ThrowsAsync<ArgumentException>(async () => await BinaryIdentity.ReadInstallationBatchAsync(adapters));
+            await Assert.ThrowsAsync<ArgumentException>(async () => await BinaryIdentity.ReadInstallationBatchAsync(adapters));
         }
         finally
         {
@@ -235,7 +235,7 @@ public sealed class AccountingTests
             File.WriteAllText(external, "changed native library");
             var after = await BinaryIdentity.HashRootsAsync([library], secret);
             Assert.That(after[external], Is.Not.EqualTo(before[external]));
-            Assert.ThrowsAsync<InvalidOperationException>(async () => await BinaryIdentity.HashRootsAsync([secret], secret));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await BinaryIdentity.HashRootsAsync([secret], secret));
             Assert.Throws<InvalidOperationException>(() => BinaryIdentity.RejectExcludedRoot(Path.Combine(library, "secret-alias", "key"), secret));
         }
         finally
@@ -247,14 +247,14 @@ public sealed class AccountingTests
 
     [Test]
     [Platform(Exclude = "Win")]
-    public void MissingNativeDependencyOutsidePrivateBoundaryStillFails()
+    public async Task MissingNativeDependencyOutsidePrivateBoundaryStillFails()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
         {
             File.CreateSymbolicLink(Path.Combine(directory, "native.so"), Path.Combine(directory, "missing.so"));
-            Assert.ThrowsAsync<FileNotFoundException>(async () => await BinaryIdentity.HashRootsAsync([directory], Path.Combine(directory, "private")));
+            await Assert.ThrowsAsync<FileNotFoundException>(async () => await BinaryIdentity.HashRootsAsync([directory], Path.Combine(directory, "private")));
         }
         finally
         {
@@ -264,7 +264,7 @@ public sealed class AccountingTests
 
     [Test]
     [Platform(Exclude = "Win")]
-    public void UnreadableNativeDependencyOutsidePrivateBoundaryStillFails()
+    public async Task UnreadableNativeDependencyOutsidePrivateBoundaryStillFails()
     {
         if (OperatingSystem.IsWindows()) { Assert.Ignore("Requires Unix permissions."); return; }
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -274,7 +274,7 @@ public sealed class AccountingTests
         File.SetUnixFileMode(native, UnixFileMode.None);
         try
         {
-            Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await BinaryIdentity.HashRootsAsync([directory], Path.Combine(directory, "private")));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await BinaryIdentity.HashRootsAsync([directory], Path.Combine(directory, "private")));
         }
         finally
         {
@@ -307,7 +307,7 @@ public sealed class AccountingTests
         var run = new OwnedRun(options, adapter, journal);
         try
         {
-            Assert.That(async () => await run.ExecuteAsync<int>(_ => throw new InvalidOperationException("checksum mismatch"), cancel.Token),
+            await Assert.ThatAsync(async () => await run.ExecuteAsync<int>(_ => throw new InvalidOperationException("checksum mismatch"), cancel.Token),
                 Throws.TypeOf<AggregateException>());
             Assert.That(run.CleanupSucceeded, Is.True);
             Assert.That(adapter.ProcessId, Is.Not.Null);

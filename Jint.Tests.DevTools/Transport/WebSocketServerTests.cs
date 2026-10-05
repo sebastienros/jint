@@ -242,7 +242,7 @@ public class WebSocketServerTests
 
         var url = string.Create(CultureInfo.InvariantCulture, $"ws://127.0.0.1:{server.BoundPort}/devtools/page/NOPE");
 
-        var thrown = Assert.ThrowsAsync<WebSocketException>(async () => await DevToolsClient.ConnectAsync(url));
+        var thrown = await Assert.ThrowsAsync<WebSocketException>(async () => await DevToolsClient.ConnectAsync(url));
         thrown.Should().NotBeNull("a client that guessed a path is told so rather than left holding an open socket");
     }
 

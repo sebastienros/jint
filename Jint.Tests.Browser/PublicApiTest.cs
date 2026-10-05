@@ -3,7 +3,6 @@
 using System.Runtime.CompilerServices;
 using PublicApiGenerator;
 using VerifyTests;
-using VerifyTests.DiffPlex;
 using VerifyNUnit;
 
 namespace Jint.Tests.Browser;
@@ -103,7 +102,7 @@ internal static class PublicApiDiffFormat
     /// Makes a baseline mismatch print the lines that changed rather than both files in full.
     /// </summary>
     [ModuleInitializer]
-    public static void Initialize() => VerifyDiffPlex.Initialize(OutputType.Compact);
+    public static void Initialize() => VerifierSettings.UseTextDiffFormat(DiffEngine.TextDiffFormat.Compact);
 }
 
 #endif
