@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http;
+using Jint.Browser;
 using Jint.Browser.Runtime;
 using Jint.WebApi.Fetch;
 
@@ -54,6 +57,72 @@ public sealed class CookieStoreTests
             })()
             """)).Should().Be("""["first=one",{"name":"first","value":"one"},[{"name":"first","value":"one"},{"name":"second","value":"two"}],null,[]]""");
         fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("http://cookies.test/page", false)]
+    [TestCase("http://cookies.test/page", true)]
+    [TestCase("http://192.0.2.1/page", false)]
+    [TestCase("http://192.0.2.1/page", true)]
+    public async Task InsecureWritesRejectAndLeaveTheJarUnchanged(string url, bool customJar)
+    {
+        var jar = customJar ? (CookieJar) new CountingJar() : new CookieContainerCookieJar();
+        var uri = new Uri(url);
+        jar.StoreResponseCookies(uri, ["existing=original; Path=/"]);
+        var before = jar.GetCookieHeader(uri);
+        var writes = (jar as CountingJar)?.Writes;
+        using var client = new HttpClient(new CookiePageHandler());
+        await using var browser = new global::Jint.Browser.Browser();
+        await using var context = await browser.NewContextAsync(new BrowserContextOptions { HttpClient = client, CookieJar = jar });
+        var page = await context.NewPageAsync();
+        await page.NavigateAsync(url);
+        (await page.EvaluateAndAwaitAsync<string>(
+            """
+            (async () => {
+              const results = [];
+              for (const write of [() => cookieStore.set('new','value'),
+                  () => cookieStore.set({name:'existing',value:'changed'}),
+                  () => cookieStore.delete('existing'), () => cookieStore.delete({name:'existing'})]) {
+                try {
+                  const p = write();
+                  results.push(await p.then(() => 'fulfilled',
+                    e => [p instanceof Promise,e instanceof DOMException,e.name].join(':')));
+                } catch(e) { results.push('threw:' + e.name); }
+              }
+              return results.join(',');
+            })()
+            """)).Should().Be("true:true:SecurityError,true:true:SecurityError,true:true:SecurityError,true:true:SecurityError");
+        jar.GetCookieHeader(uri).Should().Be(before);
+        if (jar is CountingJar counting) counting.Writes.Should().Be(writes!.Value);
+        else ((CookieContainerCookieJar) jar).Container.GetAllCookies().Cast<Cookie>()
+            .Should().ContainSingle().Which.Value.Should().Be("original");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("https://cookies.test/page")]
+    [TestCase("http://localhost/page")]
+    [TestCase("http://127.0.0.1/page")]
+    [TestCase("http://[::1]/page")]
+    public async Task SecureAndLoopbackPagesCanWriteAndDeleteSecureCookies(string url)
+    {
+        var jar = new CookieContainerCookieJar();
+        using var client = new HttpClient(new CookiePageHandler());
+        await using var browser = new global::Jint.Browser.Browser();
+        await using var context = await browser.NewContextAsync(new BrowserContextOptions { HttpClient = client, CookieJar = jar });
+        var page = await context.NewPageAsync();
+        await page.NavigateAsync(url);
+        (await page.EvaluateAndAwaitAsync<string>(
+            """
+            (async () => {
+              await cookieStore.set('written','value');
+              return JSON.stringify([await cookieStore.get('written'), document.cookie]);
+            })()
+            """)).Should().Be("""[{"name":"written","value":"value"},"written=value"]""");
+        jar.Container.GetAllCookies().Cast<Cookie>().Should().ContainSingle().Which.Secure.Should().BeTrue();
+        (await page.EvaluateAndAwaitAsync<string>(
+            "cookieStore.delete('written').then(() => cookieStore.getAll()).then(JSON.stringify)"))
+            .Should().Be("[]");
+        jar.GetCookieHeader(new Uri(url)).Should().BeEmpty();
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -494,10 +563,23 @@ public sealed class CookieStoreTests
         });
     }
 
+    private sealed class CookiePageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<title>cookies</title>", System.Text.Encoding.UTF8, "text/html"),
+            });
+        }
+    }
+
     private sealed class CountingJar : CookieJar
     {
         private int _reads;
         internal int Reads => Volatile.Read(ref _reads);
+        internal int Writes { get; private set; }
         public override string? GetCookieHeader(Uri url)
         {
             Interlocked.Increment(ref _reads);
@@ -505,6 +587,7 @@ public sealed class CookieStoreTests
         }
         public override void StoreResponseCookies(Uri url, IReadOnlyList<string> setCookieHeaders)
         {
+            Writes++;
         }
     }
 }

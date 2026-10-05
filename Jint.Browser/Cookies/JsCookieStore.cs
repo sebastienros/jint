@@ -90,6 +90,13 @@ internal sealed class JsCookieStore : JsEventTarget
         }
 
         var requestUri = RequestUri();
+        // https://cookiestore.spec.whatwg.org/#restrict and #secure-cookies: writes require secure access.
+        // The host exposes the API more broadly, so refuse an insecure write rather than report success.
+        if (requestUri.Scheme != "https" && !requestUri.IsLoopback)
+        {
+            throw new JavaScriptException(_realm.Intrinsics.DomException.CreateException(
+                DomExceptionNames.Security, "Cookie Store writes require HTTPS or HTTP loopback."));
+        }
         SetCookie parsedCookie;
         try
         {
@@ -100,13 +107,9 @@ internal sealed class JsCookieStore : JsEventTarget
             // Unlike WebIDL conversion and origin/URL checks, these are the algorithm's parallel steps.
             return SettleLater(exception.Error, reject: true);
         }
-        // The API always writes Secure cookies. Exposing it on HTTP does not remove that restriction.
-        if (requestUri.Scheme == "https" || requestUri.IsLoopback)
-        {
-            var jar = _runtime!.Network.CookieJar;
-            ScriptCookies.Write(jar, requestUri, parsedCookie,
-                jar is CookieContainerCookieJar ? "" : ScriptCookies.Serialize(parsedCookie, options.SameSite, options.Partitioned));
-        }
+        var jar = _runtime!.Network.CookieJar;
+        ScriptCookies.Write(jar, requestUri, parsedCookie,
+            jar is CookieContainerCookieJar ? "" : ScriptCookies.Serialize(parsedCookie, options.SameSite, options.Partitioned));
         return ResolveLater(Undefined);
     }
 
