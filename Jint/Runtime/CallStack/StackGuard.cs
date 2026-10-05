@@ -38,6 +38,28 @@ internal sealed class StackGuard
     // for a deep import.
     private readonly bool _nativeBackstopEnabled;
 
+    /// <summary>
+    /// How many evaluations of <c>eval</c> that a call expression dispatched without pushing a call-stack
+    /// frame are on the stack: every direct <c>eval(…)</c>, and <c>eval?.(…)</c>, which
+    /// <c>JintCallExpression.HandleEval</c> hands straight to <c>PerformEval</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="TryEnterOnCurrentStack"/> adds it to the call-stack count, so the
+    /// <see cref="Options.ConstraintOptions.MaxExecutionStackCount"/> lane counts such an eval as the call it
+    /// is. Without it a recursion made only of direct evals (<c>var s = 'eval(s)'; eval(s)</c>) never grew the
+    /// count, so every time the stack ran low the lane hopped to a fresh thread-pool thread, left the one below
+    /// it blocked, and never reached its limit — a host thread per hop, for as long as the process lasted.
+    /// </para>
+    /// <para>
+    /// The other ways a call expression reaches <c>eval</c> are counted already: the call pushes the
+    /// <c>EvalFunction</c> like any built-in, or pushes the built-in that calls <c>eval</c> back. It is a
+    /// counter rather than a pushed frame because a frame is observable — <c>error.stack</c>, the debugger's
+    /// call stack and <see cref="Options.ConstraintOptions.MaxRecursionDepth"/> all read the call stack.
+    /// </para>
+    /// </remarks>
+    internal int _unframedEvalDepth;
+
     public StackGuard(Engine engine)
     {
         _engine = engine;
@@ -69,6 +91,14 @@ internal sealed class StackGuard
     /// from <c>ContinueTailCalls</c>' loop, where a proper tail call has replaced the caller's frame
     /// rather than stacked one on top: there is no stack to probe for, and probing anyway would charge a
     /// strict tail recursion once per hop.
+    /// </para>
+    /// <para>
+    /// <c>EvalFunction.PerformEval</c> is the one caller besides those four, for the one entry into
+    /// interpreted code that enters no function: evaluating <c>eval</c>'s source text. It takes this flag
+    /// rather than <see cref="EnsureNativeStackHeadroom"/>'s for the reason <c>_backstopEnabled</c> gives way
+    /// to the count lane: eval is reached through a call expression too, so on that lane a probe a few
+    /// frames below the hop would sometimes throw where the lane hops, and which of the two fires first moves
+    /// with the JIT's frame sizes. The lane bounds eval by counting it instead.
     /// </para>
     /// <para>
     /// The probe is <c>RuntimeHelpers.TryEnsureSufficientExecutionStack</c>: it asks the runtime
@@ -168,7 +198,7 @@ internal sealed class StackGuard
             return true;
         }
 
-        if (_engine.CallStack.Count > _maxExecutionStackCount)
+        if (_engine.CallStack.Count + _unframedEvalDepth > _maxExecutionStackCount)
         {
             Throw.RangeError(_engine.Realm, "Maximum call stack size exceeded");
         }
