@@ -37,9 +37,25 @@ public sealed class BrowserOptions
     private long _maxResponseBytes = 32 * 1024 * 1024;
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
+    private int _maxPages;
     private int _maxFrameDocuments = 16;
     private int _maxImageRequests = 1000;
     private bool? _blockPrivateNetwork;
+
+    /// <summary>Maximum simultaneous pages per context, including pending creations; zero means unlimited.</summary>
+    /// <remarks>
+    /// Read when a context is created. Under <see cref="ForUntrustedContent"/>, zero and
+    /// <see cref="int.MaxValue"/> resolve to 16. Named target reuse does not consume another slot.
+    /// </remarks>
+    public int MaxPages
+    {
+        get => UntrustedContent is not null && (_maxPages == 0 || _maxPages == int.MaxValue) ? 16 : _maxPages;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxPages = value;
+        }
+    }
 
     /// <summary>What a page reports itself as, in script and on the wire.</summary>
     /// <remarks>
@@ -487,6 +503,8 @@ public sealed class BrowserOptions
     /// <b>What it changes here.</b> <see cref="MaxTaskDuration"/> and <see cref="MemoryLimit"/> take their
     /// values from the limits unless the host has already set them, and a value the host does set is what the
     /// page engines are given — so the turn bracket and the profile can never disagree about the budget.
+    /// <see cref="MaxPages"/> limits each context to 16 pages unless a finite host limit is set,
+    /// counting pending host pages and popups too.
     /// <see cref="BlockPrivateNetwork"/> comes on unless it was assigned, so every
     /// <see cref="BrowserContext"/> of this browser refuses the private network unless its own options
     /// assigned <see cref="BrowserContextOptions.BlockPrivateNetwork"/>, in which case it keeps its choice.

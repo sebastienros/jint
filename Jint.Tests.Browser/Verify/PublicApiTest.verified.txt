@@ -31,6 +31,7 @@ namespace Jint.Browser
         public Jint.WebApi.Fetch.CookieJar? CookieJar { get; set; }
         public System.Net.Http.HttpClient? HttpClient { get; set; }
         public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
+        public int? MaxPages { get; set; }
         public Jint.Browser.StoragePartitionProvider? StoragePartition { get; set; }
         public System.Func<System.Uri, bool>? UrlFilter { get; set; }
     }
@@ -48,6 +49,7 @@ namespace Jint.Browser
         public int MaxFrameDocuments { get; set; }
         public int MaxImageRequests { get; set; }
         public long MaxIndexedDbBytes { get; set; }
+        public int MaxPages { get; set; }
         public int MaxRecordedEvents { get; set; }
         public int MaxRedirects { get; set; }
         public long MaxResponseBytes { get; set; }

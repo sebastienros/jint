@@ -23,6 +23,23 @@ namespace Jint.Browser;
 /// </remarks>
 public sealed class BrowserContextOptions
 {
+    private int? _maxPages;
+
+    /// <summary>Overrides <see cref="BrowserOptions.MaxPages"/> for this context; null uses the browser default.</summary>
+    /// <remarks>
+    /// Counts host pages, popups and pending creations together. Zero means unlimited for trusted content;
+    /// zero and <see cref="int.MaxValue"/> use the finite browser default under ForUntrustedContent.
+    /// </remarks>
+    public int? MaxPages
+    {
+        get => _maxPages;
+        set
+        {
+            if (value is < 0) throw new ArgumentOutOfRangeException(nameof(value));
+            _maxPages = value;
+        }
+    }
+
     /// <summary>Where this context's cookies live.</summary>
     /// <remarks>
     /// <para>

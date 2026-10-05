@@ -24,12 +24,18 @@ public sealed class BrowserContext : IAsyncDisposable
 {
     private readonly List<Page> _pages = [];
     private readonly List<BrowsingContextHandle> _openingPopups = [];
+    private readonly List<TaskCompletionSource> _openingPages = [];
+    private readonly int _maxPages;
     private readonly object _gate = new();
     private volatile bool _closed;
 
     internal BrowserContext(Browser browser, BrowserContextOptions options)
     {
         Browser = browser;
+        var maxPages = options.MaxPages ?? browser.Options.MaxPages;
+        _maxPages = browser.Options.UntrustedContent is not null && (maxPages == 0 || maxPages == int.MaxValue)
+            ? browser.Options.MaxPages
+            : maxPages;
         Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
             browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes);
     }
@@ -73,38 +79,51 @@ public sealed class BrowserContext : IAsyncDisposable
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>
     /// <exception cref="ObjectDisposedException">The context or its browser has been closed.</exception>
+    /// <exception cref="InvalidOperationException">The context page limit has been reached.</exception>
     public async Task<Page> NewPageAsync()
     {
-        ObjectDisposedException.ThrowIf(_closed, this);
-
-        var page = await Page.CreateAsync(this, Browser.Options).ConfigureAwait(false);
-        var raced = false;
-
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            if (_closed)
-            {
-                raced = true;
-            }
-            else
-            {
-                _pages.Add(page);
-            }
+            ObjectDisposedException.ThrowIf(_closed, this);
+            if (AtPageLimit()) throw new InvalidOperationException("The context page limit has been reached.");
+            _openingPages.Add(opening);
         }
 
-        if (raced)
+        try
         {
-            // Closed while the page was starting, so it is nobody's page. Its thread is awaited here rather
-            // than abandoned, because the browser promises that closing waits for every page thread to end
-            // and this page is not in any list for it to wait on.
-            await page.CloseAsync().ConfigureAwait(false);
-            ObjectDisposedException.ThrowIf(true, this);
-        }
+            var page = await Page.CreateAsync(this, Browser.Options).ConfigureAwait(false);
+            bool closed;
+            lock (_gate)
+            {
+                closed = _closed;
+                if (!closed)
+                {
+                    _pages.Add(page);
+                    _openingPages.Remove(opening);
+                }
+            }
 
-        page.WindowHandle.Complete(page);
-        Browser.OnPageOpened(this, page);
-        return page;
+            if (closed)
+            {
+                await page.CloseAsync().ConfigureAwait(false);
+                ObjectDisposedException.ThrowIf(true, this);
+            }
+
+            page.WindowHandle.Complete(page);
+            Browser.OnPageOpened(this, page);
+            return page;
+        }
+        finally
+        {
+            lock (_gate) _openingPages.Remove(opening);
+            opening.SetResult();
+        }
     }
+
+    // Called only under _gate: reservations must count before a page allocates an engine or starts a thread.
+    private bool AtPageLimit() => _maxPages != 0
+        && (long) _pages.Count + _openingPopups.Count + _openingPages.Count >= _maxPages;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/document-sequences.html#the-rules-for-choosing-a-navigable
@@ -135,6 +154,10 @@ public sealed class BrowserContext : IAsyncDisposable
                     }
                 }
             }
+
+            // HTML's choosing-a-navigable algorithm permits refusing a new auxiliary context.
+            // Reusing an existing named target above needs no new resources.
+            if (AtPageLimit()) return null;
 
             var handle = new BrowsingContextHandle(named ? name : "", noopener ? null : source, scriptClosable: true);
             _openingPopups.Add(handle);
@@ -193,7 +216,8 @@ public sealed class BrowserContext : IAsyncDisposable
             _closed = true;
             pages = _pages.ToArray();
             _pages.Clear();
-            opening = _openingPopups.Select(handle => handle.Opening).ToArray();
+            opening = _openingPopups.Select(handle => handle.Opening)
+                .Concat(_openingPages.Select(pending => pending.Task)).ToArray();
         }
 
         foreach (var page in pages)
