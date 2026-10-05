@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using System.Linq;
+using System.Collections.Immutable;
 using System.Threading;
 using Jint.WebApi.StructuredClone;
 
@@ -8,7 +9,8 @@ namespace Jint.WebApi.IndexedDb;
 /// <summary>Coordinates connections and transactions: https://w3c.github.io/IndexedDB/#transaction-scheduling.</summary>
 /// <remarks>
 /// Published data is immutable. Callbacks only post notifications; they never run script or read an engine.
-/// A transaction copies its scoped stores on its own engine thread, then publishes them atomically here.
+/// A transaction forks metadata on its engine thread and shares persistent record/index trees,
+/// then publishes the changed roots atomically here.
 /// </remarks>
 internal sealed class IndexedDbStore(long maxBytes = long.MaxValue)
 {
@@ -295,7 +297,7 @@ internal sealed class ObjectStoreData(string name, IndexedDbKeyPath? keyPath, bo
     internal IndexedDbKeyPath? KeyPath { get; } = keyPath;
     internal bool AutoIncrement { get; } = autoIncrement;
     internal double Generator = 1;
-    internal SortedDictionary<IndexedDbKey, StoredRecord> Records { get; } = new();
+    internal ImmutableSortedDictionary<IndexedDbKey, StoredRecord> Records = ImmutableSortedDictionary<IndexedDbKey, StoredRecord>.Empty;
     internal Dictionary<string, IndexData> Indexes { get; } = new(StringComparer.Ordinal);
     internal long RecordBytes;
     internal long ByteSize => 128L + 2L * Name.Length + (KeyPath?.Paths.Sum(static p => 2L * p.Length) ?? 0)
@@ -303,14 +305,20 @@ internal sealed class ObjectStoreData(string name, IndexedDbKeyPath? keyPath, bo
 
     internal ObjectStoreData Copy(Action check)
     {
-        var result = new ObjectStoreData(Name, KeyPath, AutoIncrement) { Id = Id, Generator = Generator, RecordBytes = RecordBytes };
-        var n = 0;
-        foreach (var record in Records)
+        // Copy only mutable metadata. Immutable AVL roots keep snapshot isolation without
+        // enumerating records at startup or on the first write (O(log n) path copying).
+        var result = new ObjectStoreData(Name, KeyPath, AutoIncrement)
         {
-            if ((++n & 255) == 0) check();
-            result.Records.Add(record.Key, record.Value);
+            Id = Id,
+            Generator = Generator,
+            RecordBytes = RecordBytes,
+            Records = Records,
+        };
+        foreach (var index in Indexes)
+        {
+            check();
+            result.Indexes.Add(index.Key, index.Value.Copy());
         }
-        foreach (var index in Indexes) result.Indexes.Add(index.Key, index.Value.Copy(check));
         return result;
     }
 }
@@ -329,21 +337,12 @@ internal sealed class IndexData(string name, IndexedDbKeyPath keyPath, bool uniq
     // locate that record by index key alone without a second lookup structure.
     private static readonly IComparer<IndexEntry> UniqueComparer =
         Comparer<IndexEntry>.Create(static (left, right) => left.Key.CompareTo(right.Key));
-    internal SortedSet<IndexEntry> Entries { get; } = new(unique ? UniqueComparer : Comparer<IndexEntry>.Default);
+    internal ImmutableSortedSet<IndexEntry> Entries = ImmutableSortedSet.Create(unique ? UniqueComparer : Comparer<IndexEntry>.Default);
     internal long EntryBytes;
     internal long ByteSize => 96L + 2L * Name.Length + KeyPath.Paths.Sum(static p => 2L * p.Length) + EntryBytes;
 
-    internal IndexData Copy(Action check)
-    {
-        var result = new IndexData(Name, KeyPath, Unique, MultiEntry) { Id = Id, EntryBytes = EntryBytes };
-        var n = 0;
-        foreach (var entry in Entries)
-        {
-            if ((++n & 255) == 0) check();
-            result.Entries.Add(entry);
-        }
-        return result;
-    }
+    internal IndexData Copy()
+        => new(Name, KeyPath, Unique, MultiEntry) { Id = Id, EntryBytes = EntryBytes, Entries = Entries };
 }
 
 internal readonly record struct IndexEntry(IndexedDbKey Key, IndexedDbKey PrimaryKey) : IComparable<IndexEntry>

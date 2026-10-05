@@ -735,6 +735,93 @@ public sealed class IndexedDbTests
         }
     }
 
+    [TestCase("s.put({x:20000,tags:[20000,200001]},20000)")]
+    [TestCase("s.put({x:500,tags:[500,200001]},500)")]
+    [TestCase("s.delete(500)")]
+    public void OneWriteTransactionsDoNotPollUnrelatedRecords(string operation)
+    {
+        int? smallerStoreChecks = null;
+        foreach (var recordCount in new[] { 1024, 8192 })
+        {
+            var counter = new RecordAccessConstraint();
+            using var engine = new Engine(o => o.UseWebApis(WebApiFeatures.IndexedDb).AddConstraint(counter));
+            engine.Execute(Helpers);
+            engine.SetValue("recordCount", recordCount);
+            engine.SetValue("beginMeasure", (Action) (() => { counter.Checks = 0; counter.Armed = true; }));
+            engine.SetValue("endMeasure", (Action) (() => counter.Armed = false));
+            Run(engine, """
+                const db=await open('db',1,db=>{
+                    const s=db.createObjectStore('s');
+                    s.createIndex('u','x',{unique:true});
+                    s.createIndex('tags','tags',{multiEntry:true});
+                });
+                let t=db.transaction('s','readwrite'),done=completed(t),s=t.objectStore('s');
+                for(let i=0;i<recordCount;i++)s.put({x:i,tags:[i,i+1]},i);
+                await done;
+                beginMeasure();
+                for(let i=0;i<8;i++) {
+                    t=db.transaction('s','readwrite');done=completed(t);s=t.objectStore('s');
+                """ + "await request(" + operation + ");" + """
+                    await done;
+                }
+                endMeasure();
+                return true;
+                """).Should().Be(true);
+            // Includes startup, first mutation and publication for each separate transaction.
+            counter.Checks.Should().BeGreaterThan(0);
+            if (smallerStoreChecks is { } expected) counter.Checks.Should().Be(expected);
+            smallerStoreChecks = counter.Checks;
+        }
+    }
+
+    [Test]
+    public void StoreForksShareTreesAndSingleWritesAllocateOnlyChangedPaths()
+    {
+        long? smallerStoreBytes = null;
+        foreach (var count in new[] { 1024, 8192 })
+        {
+            var original = new ObjectStoreData("s", null, true);
+            var index = new IndexData("i", new IndexedDbKeyPath(["x"], false), false, false);
+            original.Indexes.Add("i", index);
+            var record = new StoredRecord(default, 1);
+            for (var i = 0; i < count; i++)
+            {
+                var key = IndexedDbKey.Numeric(i);
+                original.Records = original.Records.Add(key, record);
+                index.Entries = index.Entries.Add(new IndexEntry(key, key));
+            }
+            var fork = original.Copy(static () => { });
+            fork.Records.Should().BeSameAs(original.Records);
+            fork.Indexes["i"].Entries.Should().BeSameAs(index.Entries);
+            // Warm the exact path before measuring allocations, never wall-clock time.
+            Write(fork, count);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var current = original;
+            for (var i = 0; i < 64; i++)
+            {
+                current = current.Copy(static () => { });
+                Write(current, count + i);
+            }
+            var bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            if (smallerStoreBytes is { } small) bytes.Should().BeLessThan(small * 2);
+            smallerStoreBytes = bytes;
+            original.Records.Count.Should().Be(count);
+            index.Entries.Count.Should().Be(count);
+            original.Generator.Should().Be(1);
+            current.Records.Count.Should().Be(count + 64);
+            current.Indexes["i"].Entries.Count.Should().Be(count + 64);
+        }
+
+        static void Write(ObjectStoreData data, int number)
+        {
+            var key = IndexedDbKey.Numeric(number);
+            data.Records = data.Records.SetItem(key, new StoredRecord(default, 1));
+            var index = data.Indexes["i"];
+            index.Entries = index.Entries.Add(new IndexEntry(key, key));
+            data.Generator = number + 1;
+        }
+    }
+
     [Test]
     public void UniqueMultiEntryReplacementDeletionAndRollbackPreserveEntries()
     {

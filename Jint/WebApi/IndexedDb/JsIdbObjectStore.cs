@@ -148,7 +148,7 @@ internal sealed class JsIdbObjectStore : ObjectInstance
         }
         var size = checked(IndexedDbSize.Record(in record, _engine.Constraints.Check) + IndexedDbSize.Key(key) + 48);
         RemoveRecord(data, key, indexes);
-        data.Records[key] = new StoredRecord(record, size);
+        data.Records = data.Records.SetItem(key, new StoredRecord(record, size));
         data.RecordBytes = checked(data.RecordBytes + size);
         data.Generator = generator;
         foreach (var (index, keys) in indexKeys)
@@ -156,7 +156,7 @@ internal sealed class JsIdbObjectStore : ObjectInstance
             foreach (var indexKey in keys)
             {
                 _engine.Constraints.Check();
-                index.Entries.Add(new IndexEntry(indexKey, key));
+                index.Entries = index.Entries.Add(new IndexEntry(indexKey, key));
                 index.EntryBytes = checked(index.EntryBytes + IndexedDbSize.Key(indexKey) + IndexedDbSize.Key(key) + 32);
             }
         }
@@ -165,7 +165,8 @@ internal sealed class JsIdbObjectStore : ObjectInstance
 
     private void RemoveRecord(ObjectStoreData data, IndexedDbKey key, IEnumerable<IndexData> indexes)
     {
-        if (!data.Records.Remove(key, out var previous)) return;
+        if (!data.Records.TryGetValue(key, out var previous)) return;
+        data.Records = data.Records.Remove(key);
         data.RecordBytes -= previous.Bytes;
         foreach (var index in indexes)
         {
@@ -177,8 +178,9 @@ internal sealed class JsIdbObjectStore : ObjectInstance
                 _engine.Constraints.Check();
                 var entry = new IndexEntry(indexKey, key);
                 if (index.Entries.TryGetValue(entry, out var existing)
-                    && existing.PrimaryKey.CompareTo(key) == 0 && index.Entries.Remove(entry))
+                    && existing.PrimaryKey.CompareTo(key) == 0)
                 {
+                    index.Entries = index.Entries.Remove(entry);
                     index.EntryBytes -= IndexedDbSize.Key(existing.Key) + IndexedDbSize.Key(existing.PrimaryKey) + 32;
                 }
             }
@@ -222,11 +224,11 @@ internal sealed class JsIdbObjectStore : ObjectInstance
         return Transaction.Queue(this, () =>
         {
             var data = Data;
-            data.Records.Clear();
+            data.Records = data.Records.Clear();
             data.RecordBytes = 0;
             foreach (var index in indexes ?? (IEnumerable<IndexData>) data.Indexes.Values)
             {
-                index.Entries.Clear();
+                index.Entries = index.Entries.Clear();
                 index.EntryBytes = 0;
             }
             return Undefined;
@@ -256,7 +258,7 @@ internal sealed class JsIdbObjectStore : ObjectInstance
         Transaction.QueueSchema(() =>
         {
             var current = Data;
-            index.Entries.Clear();
+            index.Entries = index.Entries.Clear();
             index.EntryBytes = 0;
             foreach (var record in current.Records)
             {
@@ -268,7 +270,7 @@ internal sealed class JsIdbObjectStore : ObjectInstance
                     {
                         IndexedDbErrors.Throw(_realm, "ConstraintError", "Existing records violate the unique index.");
                     }
-                    index.Entries.Add(new IndexEntry(key, record.Key));
+                    index.Entries = index.Entries.Add(new IndexEntry(key, record.Key));
                     index.EntryBytes = checked(index.EntryBytes + IndexedDbSize.Key(key) + IndexedDbSize.Key(record.Key) + 32);
                 }
             }
