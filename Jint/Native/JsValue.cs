@@ -340,6 +340,17 @@ public abstract partial class JsValue : IEquatable<JsValue>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-instanceofoperator
     /// </summary>
+    /// <remarks>
+    /// A <c>@@hasInstance</c> method of the target's own — a class's <c>static [Symbol.hasInstance]</c>, one given with
+    /// <c>defineProperty</c> — is a way back into this operator, so a method that asks <c>instanceof</c> of its own
+    /// target is a recursion script controls, one native frame per level, and the call of it is probed (gated, like every
+    /// native-stack probe, on <see cref="Options.ConstraintOptions.StackOverflowGuard"/>, which is opt-in on 4.x). The method
+    /// cannot be relied on to probe for itself: on the <see cref="Options.ConstraintOptions.MaxExecutionStackCount"/>
+    /// lane a script function does not, and <c>eval</c> as the method comes back here without entering a function at
+    /// all, on either lane. The intrinsic <c>%Function.prototype[@@hasInstance]%</c>, which every ordinary function
+    /// inherits and so nearly every <c>instanceof</c> finds, is called unprobed as it always was: its whole behaviour is
+    /// <c>OrdinaryHasInstance(target, V)</c>, and <see cref="Function.BindFunction"/>'s walk probes the calls that one makes.
+    /// </remarks>
     internal bool InstanceofOperator(JsValue target)
     {
         if (target is not ObjectInstance oi)
@@ -351,6 +362,12 @@ public abstract partial class JsValue : IEquatable<JsValue>
         var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
         if (instOfHandler is not null)
         {
+            // 3. If instOfHandler is not undefined, return ToBoolean(? Call(instOfHandler, target, « V »)).
+            if (!Function.FunctionPrototype.IsIntrinsicHasInstance(instOfHandler))
+            {
+                oi.Engine._stackGuard.EnsureNativeStackHeadroom();
+            }
+
             return TypeConverter.ToBoolean(instOfHandler.Call(target, this));
         }
 
