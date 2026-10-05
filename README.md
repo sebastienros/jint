@@ -372,6 +372,21 @@ only on the success path hands them to the next caller. `engine.Advanced.WithRes
 is exactly that `try`/`finally` in one call, so the restore cannot be left off the throwing path; it adds
 nothing else, and in particular no isolation the restore does not already give you.
 
+A restore keeps the warmed interpreter caches, and with them the last callee and receiver each warmed call
+or member-read site served. When those are host objects that must not outlive a request — a delegate closing
+over a request's `IServiceProvider`, a wrapped `HttpContext` — release them as well:
+
+```csharp
+engine.Advanced.RestoreGlobalSnapshot(snapshot);
+engine.Advanced.DiscardInterpreterCaches();
+```
+
+The engine, its realm, the prepared scripts and CLR member resolution stay warm; the next run of each script
+rebuilds its handler tree, roughly a first run on a new engine minus building the engine. Discarding on every
+return gives up the warm trees, so a pool that keeps busy engines warm can discard only when an engine goes
+idle. A function expression held only by another object, module code and computed property keys are not
+reached.
+
 Choosing between this and `AddLazyGlobal` is a question of engine lifetime: a fresh-engine-per-evaluation
 host wants lazy globals (nothing to restore — the win is never building what the script does not read); a
 pooled host wants the snapshot. They compose: restore returns a global that was still lazy at capture to its
