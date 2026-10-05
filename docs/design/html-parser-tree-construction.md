@@ -341,7 +341,9 @@ requires a reviewed tokenizer contract rather than hidden rescanning of discarde
 
 ## Browser and future session handoff
 
-The current consumers were inspected, rather than inferred from the standalone facade:
+The pre-migration consumers were inspected at the H4 checkpoint, rather than inferred from the
+standalone facade. The AngleSharp and accumulated-write descriptions below are historical;
+[current Browser parsing](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Runtime/Parsing/AGENTS.md) uses native sessions:
 
 - `Runtime/Parsing/ParserDriver.cs` registers scripting according to PageRuntime.ScriptingEnabled,
   drives AngleSharp's incremental script/resource behavior, and checks MaxDomNodes on the final tree.

@@ -1,7 +1,7 @@
 namespace Jint.Browser;
 
 /// <summary>
-/// A headless browser: AngleSharp's parser and DOM, Jint's engine, and one thread per page.
+/// A headless browser: Jint.HtmlParser's native parser and DOM, Jint's engine, and one thread per page.
 /// </summary>
 /// <remarks>
 /// <para>

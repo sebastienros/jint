@@ -237,12 +237,11 @@ internal static class DocumentFetch
 
         // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — an XML MIME type is read
         // with the XML parser, which is a real XML document and not markup wrapped in an HTML skeleton. The
-        // bytes go on as they are and the essence rides with them: the parse states it back to AngleSharp,
-        // whose document factory is what turns it into an XmlDocument (see PageDocumentFactory), and it is
-        // also the document's own `contentType`, which is what DOM's createElement reads to decide whether
-        // an XHTML document's elements are in the HTML namespace. **A <script> in such a document does not
-        // run**: AngleSharp's XML parser prepares none, which is the same reason `DOMParser` produces an
-        // inert document and is recorded in Dom/divergences.md.
+        // decoded text and MIME essence go to ParserDriver's native XML path. XmlDocumentParser builds a
+        // DocumentKind.Xml document; Browser retains the essence as its `contentType`, which createElement
+        // uses to decide whether an XHTML document's elements are in the HTML namespace. XML navigation
+        // does not execute scripts because it has no HTML session host-request sequence. DOMParser is
+        // separately inert for both HTML and XML, as recorded in Dom/divergences.md.
         if (DomContentType.IsXml(essence))
         {
             return (text, essence);

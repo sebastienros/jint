@@ -15,7 +15,7 @@ namespace Jint.Browser.Runtime;
 /// selector, and it is the right thing for it to have. Everything a caller reading a snapshot has is a role
 /// and a name — <c>- button "Save" [ref=42]</c> — and a CSS selector for that is something it would have to
 /// invent. So a target beginning <c>ref=</c> is the identifier the snapshot printed, resolved back through
-/// the accessibility tree's own table, and anything else is a selector handed to AngleSharp.
+/// the accessibility tree's own table, and anything else is a selector matched by the native DOM selector adapter.
 /// </para>
 /// <para>
 /// <b>A reference belongs to one document.</b> The identifiers are the document's, so a navigation ends
@@ -30,7 +30,7 @@ internal static class ElementLocator
 
     /// <summary>The first element <paramref name="target"/> names, or <see langword="null"/>.</summary>
     /// <remarks>
-    /// A selector AngleSharp cannot parse answers <see langword="null"/> rather than throwing: a caller
+    /// A selector the native compiler rejects answers <see langword="null"/> rather than throwing: a caller
     /// asking about an element that is not there and a caller asking wrongly both want "no", and a selector
     /// arriving from a protocol client or an agent is input rather than code.
     /// </remarks>

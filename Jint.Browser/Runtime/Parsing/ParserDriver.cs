@@ -342,15 +342,11 @@ internal sealed partial class ParserDriver : IDisposable
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>AngleSharp asks and this answers; the state is the binding's.</b> The request itself is
-    /// AngleSharp's <c>ImageRequestProcessor</c>, which is what turns a parsed <c>src</c>, a
-    /// <c>img.src = …</c> and a <c>srcset</c> rewrite into exactly one fetch and what makes the document
-    /// delay its <c>load</c> event while one is outstanding. What it cannot produce is HTML's current-request
-    /// state or an intrinsic size, so <see cref="Media.PageImages"/> holds both — see that class for what a
-    /// browser with no pixels can and cannot say. <b>The URL is the binding's too</b>: AngleSharp's source
-    /// set reads no descriptor and no <c>media</c>, so which candidate of a <c>srcset</c> or a
-    /// <c>&lt;picture&gt;</c> is actually fetched is <see cref="Media.ImageSourceSet"/>'s answer over the
-    /// page's own viewport, and only the request around it stays AngleSharp's.
+    /// Native resource watches record parsed sources and later source mutations; the driver drains those
+    /// records at parse and completed-mutation boundaries. <see cref="Media.ImageSourceSet"/> selects a
+    /// <c>srcset</c> or <c>&lt;picture&gt;</c> candidate against the page's viewport and media state.
+    /// Browser owns the fetch and completion events, while <see cref="Media.PageImages"/> retains the
+    /// current-request state and intrinsic header dimensions.
     /// </para>
     /// <para>
     /// <b>The three endings are the standard's three.</b> Bytes whose container
@@ -384,10 +380,9 @@ internal sealed partial class ParserDriver : IDisposable
         {
             var images = _runtime.Images;
 
-            // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set — the candidate
-            // AngleSharp put in the request is the *first* one of the first srcset it found, whatever the
-            // descriptors and the media say, so the URL that is actually fetched is decided here instead.
-            // See Media/ImageSourceSet, and Dom/divergences.md for what AngleSharp's own answer misses.
+            // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set
+            // Select from the native element's attributes using the page's viewport and media state.
+            // The recorded request URL alone does not account for srcset descriptors or picture sources.
             var url = Media.ImageSourceSet.Select(_runtime, image);
 
             if (url is null)
@@ -399,8 +394,7 @@ internal sealed partial class ParserDriver : IDisposable
 
                 // The selection produced nothing — an empty `srcset`, or a `<picture>` whose every
                 // `<source>` was ruled out and whose `<img>` has no `src`. HTML fires `error` here and this
-                // does not: see Dom/divergences.md, which records why AngleSharp gives no notification to
-                // hang one on for the case it never asks the loader about at all.
+                // does not: this path records the declined request without queuing a completion event.
                 _requests.RecordNotFetched(
                     requested,
                     RequestInitiator.Subresource,
@@ -471,10 +465,8 @@ internal sealed partial class ParserDriver : IDisposable
     /// Whether <paramref name="document"/> belongs to a child frame rather than to the page itself.
     /// </summary>
     /// <remarks>
-    /// A frame's document is opened into the child browsing context AngleSharp made for the element, and a
-    /// child context copies its parent's services — so the page's own <c>IScriptingService</c> and
-    /// <c>IResourceLoader</c> are what a frame's document asks. The context is therefore the only thing that
-    /// separates the two, and it is what says which document a script belongs to.
+    /// Browser associates each child document with the frame's <c>DomBrowsingContext</c>. Comparing that
+    /// identity with the principal document's context distinguishes their script and resource ownership.
     /// </remarks>
     private bool IsFrameDocument(Document document)
         => !ReferenceEquals(DomBrowsingContext.Of(document), _context);
@@ -655,8 +647,8 @@ internal sealed partial class ParserDriver : IDisposable
     /// URL, so <c>&lt;script src="a.js#"&gt;</c> has to report the <c>#</c> that
     /// https://url.spec.whatwg.org/#concept-url-serializer keeps for a non-null empty fragment. Answering
     /// the transport URL instead made <c>onerror</c> disagree with the <c>src</c> the same element
-    /// reflects. AngleSharp reads it for a document's <c>location</c> and Selectors' <c>:target</c>, and for
-    /// a script and a style sheet it is the base URL, which a fragment plays no part in resolving against.
+    /// reflects. Browser uses the document URL for <c>location</c> and the selector environment's
+    /// <c>:target</c>; script and stylesheet base-URL resolution does not use the fragment.
     /// </para>
     /// </remarks>
     private static string ResponseUrl(string responseUrl, string? fragment)
@@ -693,9 +685,8 @@ internal sealed partial class ParserDriver : IDisposable
 
     /// <summary>Dispatches a simple event at an element through Jint's dispatcher.</summary>
     /// <remarks>
-    /// AngleSharp fires its own <c>load</c> and <c>error</c> into its own listener lists, which hold nothing
-    /// a script registered — so the one a page can hear is this one. Neither bubbles, which is HTML's rule
-    /// for a resource event.
+    /// Resource completion is dispatched through the native node's Jint wrapper. Neither <c>load</c> nor
+    /// <c>error</c> bubbles, which is HTML's rule for a resource event.
     /// </remarks>
     private void FireAt(Node node, string type)
     {
@@ -802,11 +793,8 @@ internal sealed partial class ParserDriver : IDisposable
         {
             // Everything else a script can end with, and the ones that matter are the bounds: a per-turn
             // deadline or a memory budget throws out of Execute, and it arrives here on the *loop* thread
-            // inside a baton hand-off. Letting it out is worse than it looks — AngleSharp's script processor
-            // wraps EvaluateScriptAsync in `catch (Exception) { TrackError }`, so a constraint abort raised
-            // by an inline or deferred script would vanish into AngleSharp's own error list, while one
-            // raised where the resource loader is running would fault the parse and fail the navigation.
-            // Neither is the contract, which is HTML's: recorded, and the page survives its scripts.
+            // while the native session is paused for script execution. Record the script failure through
+            // Browser's error channel so the document can finish loading and the host can inspect it.
             // `Execute` and `RunModule` are the only two places a script runs, so they are the only two
             // that owe this.
             Report(PageErrorKind.ScriptError, exception.Message, location);
@@ -866,13 +854,11 @@ internal sealed partial class ParserDriver : IDisposable
         // custom before DOMContentLoaded, which is where a page looks for it.
         _runtime.CustomElementsIfCreated?.UpgradeParsedElements();
 
-        // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. AngleSharp advances its own
-        // readiness during the parse and its setter is not reachable from outside its assembly
-        // (AngleSharp#1309), so what a page reads is the runtime's shadow, moved here.
+        // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. Browser owns readiness and
+        // its events; native tree construction does not advance the page lifecycle.
         SetReadyState("interactive");
 
-        // The module half of "scripting is disabled": AngleSharp never sees a module script, so refusing one
-        // is this driver's own business rather than a service it can decline to register.
+        // Module execution is Browser work and must honor the same scripting policy as classic scripts.
         if (_runtime.ScriptingEnabled)
         {
             RunModules(document);
@@ -959,9 +945,8 @@ internal sealed partial class ParserDriver : IDisposable
     /// leaves: a frame is given a document by what it points at, and an empty frame points at nothing.
     /// </para>
     /// <para>
-    /// AngleSharp fires its own <c>load</c> into its own listener list, which holds nothing a script
-    /// registered; <see cref="FireAt"/> is the one a page can hear. A <c>&lt;frame&gt;</c> is not here
-    /// because legacy frame documents are unavailable.
+    /// <see cref="FireAt"/> dispatches completion through Jint's event system. A <c>&lt;frame&gt;</c> is not
+    /// here because legacy frame documents are unavailable.
     /// </para>
     /// </remarks>
     private void FireFrameLoads(Document document)
@@ -1248,8 +1233,8 @@ internal sealed partial class ParserDriver : IDisposable
     /// <para>
     /// <c>window-onerror-parse-error.html</c> is what asks for this by name — it asserts line 34, which is
     /// the line of the document its unparsable <c>&lt;script&gt;</c> sits on. The column is deliberately not
-    /// offset: AngleSharp exposes the parser's index just past the closing tag and not the index the text
-    /// began at, so the only honest column is the one within the script's own line.
+    /// offset: this adapter passes the native script source line to <c>ParsingFrom</c>, while columns
+    /// remain relative to the script's own line.
     /// </para>
     /// <para>
     /// A script on line 1 takes the engine's cached default parser instead, because an offset of nothing is

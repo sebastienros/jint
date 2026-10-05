@@ -1,6 +1,10 @@
 # Jint.HtmlParser: owned markup, DOM and CSS infrastructure
 
-Status: proposed design, 2026-09-23. This document introduces no runtime implementation.
+Status: historical migration proposal, 2026-09-23. The AngleSharp dependency and parser-thread
+inventory below describes the pre-migration revisions named here, not the current runtime.
+The shipped native ownership and integration contract are documented in
+[the parser package README](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/README.md) and
+[Browser's contributor instructions](https://github.com/sebastienros/jint/blob/main/Jint.Browser/AGENTS.md).
 Design worktree base: `73f9220b1b48e6da755cc1ae32b058f6e846b599`. Evidence refreshed against the
 coordinator's integration base `d78d25137526b4a7b35ccdcfc8522730acd392d1`; current-state statements
 below refer to that newer revision, not the design worktree's older checkout.
