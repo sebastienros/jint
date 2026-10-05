@@ -631,6 +631,11 @@ var engine = new Engine(options => {
 }
 ```
 
+A long `a + b` defers its copy, so under `LimitMemory` it is charged when it is built, for the characters it
+appends, and a `+` whose result alone would exceed the limit fails at once: no string a script builds costs more
+than the budget to read. Strings that share characters are each charged only for what they add, yet a host read
+copies each in full; `ToString()` and `ToObject()` on a result run outside every constraint.
+
 You can also write a custom constraint by deriving from the `Constraint` base class:
 
 ```c#
