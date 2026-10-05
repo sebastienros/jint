@@ -211,7 +211,7 @@ public sealed class ShadowRealm : ObjectInstance
 
             if (result.Type == CompletionType.Throw)
             {
-                ThrowCrossRealmError(callerRealm, result.GetValueOrDefault().ToString());
+                ThrowCrossRealmError(callerRealm, CopiedErrorMessage(result.GetValueOrDefault()));
             }
         }
         finally
@@ -247,13 +247,21 @@ public sealed class ShadowRealm : ObjectInstance
     private static WrappedFunction WrappedFunctionCreate(Realm throwerRealm, Realm callerRealm, ObjectInstance target)
     {
         var wrapped = new WrappedFunction(callerRealm.GlobalEnv._engine, callerRealm, target);
+        string? failure = null;
         try
         {
             CopyNameAndLength(wrapped, target);
         }
         catch (JavaScriptException ex)
         {
-            ThrowCrossRealmError(throwerRealm, ex.Message);
+            // Recorded, then thrown once the handler has returned: see WrappedFunction.Call for why a throw
+            // from inside this catch is a native stack overflow waiting for a deep enough recursion.
+            failure = ex.Message;
+        }
+
+        if (failure is not null)
+        {
+            ThrowCrossRealmError(throwerRealm, failure);
         }
 
         return wrapped;
@@ -325,10 +333,34 @@ public sealed class ShadowRealm : ObjectInstance
         }
 
         var onFulfilled = new StepsFunction(_engine, callerRealm, exportNameString);
+        var onRejected = new ImportValueErrorFunction(_engine, callerRealm);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
-        var value = PromiseOperations.PerformPromiseThen(_engine, (JsPromise) innerCapability.PromiseInstance, onFulfilled, callerRealm.Intrinsics.ThrowTypeError, promiseCapability);
+        var value = PromiseOperations.PerformPromiseThen(_engine, (JsPromise) innerCapability.PromiseInstance, onFulfilled, onRejected, promiseCapability);
 
         return value;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-shadowrealm/#sec-import-value-error-functions — copies a failed import into a
+    /// <c>TypeError</c> of the realm that asked for it.
+    /// </summary>
+    /// <remarks>
+    /// This used to be <c>%ThrowTypeError%</c>, which runs nothing either but says only what it says about
+    /// <c>arguments.callee</c> in strict code — that 'caller', 'callee' and 'arguments' may not be accessed —
+    /// so a module that failed to evaluate was reported as a property access it never made.
+    /// </remarks>
+    private sealed class ImportValueErrorFunction : Function.Function
+    {
+        public ImportValueErrorFunction(Engine engine, Realm callerRealm) : base(engine, callerRealm, JsString.Empty)
+        {
+            SetFunctionLength(JsNumber.PositiveOne);
+        }
+
+        protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
+        {
+            ThrowCrossRealmError(_realm, CopiedErrorMessage(arguments.At(0)));
+            return Undefined;
+        }
     }
 
     private sealed class StepsFunction : Function.Function
@@ -369,9 +401,164 @@ public sealed class ShadowRealm : ObjectInstance
         return instance;
     }
 
+    private const string CrossRealmErrorPrefix = "Cross-Realm Error: ";
+
+    /// <summary>
+    /// Throws the TypeError https://tc39.es/proposal-shadowrealm/#sec-create-type-error-copy creates in
+    /// <paramref name="callerRealm"/>. Its message is left to the host, so it carries the message of the error
+    /// that crossed, marked once as a crossing.
+    /// </summary>
+    /// <remarks>
+    /// Marked <em>once</em>: a message that already carries the mark is reused as it is, because a failure that
+    /// crosses a chain of wrapped functions is copied at every hop, and a mark added per hop made a chain
+    /// <c>n</c> hops deep build <c>n</c> ever-longer strings — quadratic in the depth of a chain script builds
+    /// in a loop — to say nothing the first mark had not.
+    /// </remarks>
+    [DoesNotReturn]
     private static void ThrowCrossRealmError(Realm callerRealm, string message)
     {
-        Throw.TypeError(callerRealm, "Cross-Realm Error: " + message);
+        Throw.TypeError(callerRealm, message.StartsWith(CrossRealmErrorPrefix, StringComparison.Ordinal) ? message : CrossRealmErrorPrefix + message);
+    }
+
+    private const string NotAnErrorMessage = "an object that is not an Error was thrown";
+
+    /// <summary>How far up a prototype chain the descriptor walks below climb before giving up on an answer.</summary>
+    private const int MaxPrototypeHops = 32;
+
+    /// <summary>
+    /// What the copy https://tc39.es/proposal-shadowrealm/#sec-create-type-error-copy makes of
+    /// <paramref name="originalError"/> says about it, read without running any script — which the operation
+    /// requires in so many words: it "must not cause any ECMAScript code execution".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A primitive is its own string form, which calls nothing; a symbol, which <c>ToString</c> refuses, is
+    /// written as its descriptive string. An object carrying <c>[[ErrorData]]</c> is the line
+    /// <c>Error.prototype.toString</c> would write: its <c>name</c> and <c>message</c> where each is a data
+    /// property holding a string, never through an accessor. Any other object — a proxy included, whatever it
+    /// stands for — is described by kind alone, because everything that would say more about it
+    /// (<c>toString</c>, <c>@@toPrimitive</c>, a trap) is script. This was <c>ToString</c> of the thrown value,
+    /// which ran all of those, and when one of them threw, its exception — an object of the shadow realm —
+    /// reached the caller in place of the copy.
+    /// </para>
+    /// <para>
+    /// An error that is itself a copy, from a shadow realm nested inside this one, is described by its message
+    /// alone, which already says it crossed: prefixed with its <c>TypeError</c> name, it would be marked again
+    /// by <see cref="ThrowCrossRealmError"/> at every realm on the way out.
+    /// </para>
+    /// </remarks>
+    private static string CopiedErrorMessage(JsValue originalError)
+    {
+        if (originalError is not ObjectInstance obj)
+        {
+            return originalError.IsSymbol() ? originalError.ToString() : TypeConverter.ToString(originalError);
+        }
+
+        // [[ErrorData]] is what Error.isError tests, and on this branch JsError is the one type carrying it.
+        if (obj is not JsError)
+        {
+            return NotAnErrorMessage;
+        }
+
+        // A name that cannot be read without a call falls back to the constructor's name, itself read by
+        // descriptors alone, and then to "Error".
+        var name = DataPropertyText(obj, CommonProperties.Name) ?? ConstructorName(obj) ?? "Error";
+        var message = DataPropertyText(obj, CommonProperties.Message) ?? string.Empty;
+
+        if (message.StartsWith(CrossRealmErrorPrefix, StringComparison.Ordinal))
+        {
+            return message;
+        }
+
+        // https://tc39.es/ecma262/#sec-error.prototype.tostring steps 8-10: an empty half is dropped along
+        // with the separator.
+        if (name.Length == 0)
+        {
+            return message;
+        }
+
+        if (message.Length == 0)
+        {
+            return name;
+        }
+
+        return name + ": " + message;
+    }
+
+    /// <summary>
+    /// The text of a string-valued data property somewhere on <paramref name="obj"/>'s chain, or
+    /// <see langword="null"/> when it is absent, an accessor, behind a proxy, or anything that would have to
+    /// be coerced — coercing anything but a string would reach <c>toString</c>/<c>valueOf</c>, which is script.
+    /// </summary>
+    private static string? DataPropertyText(ObjectInstance obj, JsValue key)
+    {
+        var descriptor = FindOnPrototypeChain(obj, key);
+        if (descriptor is null
+            || ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+            || descriptor.IsAccessorDescriptor())
+        {
+            return null;
+        }
+
+        return descriptor.Value is JsString text ? text.ToString() : null;
+    }
+
+    /// <summary>
+    /// The name of the constructor <paramref name="obj"/> was built by, read as descriptors off its prototype
+    /// chain, or <see langword="null"/> when a step of that walk cannot be taken without calling something.
+    /// </summary>
+    private static string? ConstructorName(ObjectInstance obj)
+    {
+        var prototype = obj.Prototype;
+        if (prototype is null)
+        {
+            return null;
+        }
+
+        var descriptor = FindOnPrototypeChain(prototype, CommonProperties.Constructor);
+        if (descriptor is null
+            || ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+            || descriptor.IsAccessorDescriptor()
+            || descriptor.Value is not Function.Function constructor)
+        {
+            return null;
+        }
+
+        var nameDescriptor = constructor.GetOwnProperty(CommonProperties.Name);
+        if (ReferenceEquals(nameDescriptor, PropertyDescriptor.Undefined) || nameDescriptor.IsAccessorDescriptor())
+        {
+            return null;
+        }
+
+        return nameDescriptor.Value is JsString name && name.Length > 0 ? name.ToString() : null;
+    }
+
+    /// <summary>
+    /// The own property <c>[[Get]]</c> would read <paramref name="key"/> from — the first one up
+    /// <paramref name="obj"/>'s prototype chain — found by descriptor lookups alone.
+    /// <see cref="PropertyDescriptor.Undefined"/> when the chain ends without one; <see langword="null"/> when
+    /// the walk meets a proxy, whose every step is a trap, or climbs past <see cref="MaxPrototypeHops"/>.
+    /// </summary>
+    private static PropertyDescriptor? FindOnPrototypeChain(ObjectInstance obj, JsValue key)
+    {
+        ObjectInstance? current = obj;
+        for (var hops = 0; current is not null && hops < MaxPrototypeHops; hops++)
+        {
+            if (current is JsProxy)
+            {
+                return null;
+            }
+
+            var descriptor = current.GetOwnProperty(key);
+            if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+            {
+                return descriptor;
+            }
+
+            current = current.Prototype;
+        }
+
+        return current is null ? PropertyDescriptor.Undefined : null;
     }
 
     private sealed class WrappedFunction : Function.Function
@@ -405,14 +592,27 @@ public sealed class ShadowRealm : ObjectInstance
             var wrappedThisArgument = GetWrappedValue(callerRealm, targetRealm, thisArgument);
 
             JsValue result;
+            string? failure = null;
             try
             {
                 result = target.Call(wrappedThisArgument, wrappedArgs);
             }
             catch (JavaScriptException ex)
             {
-                ThrowCrossRealmError(_realm, ex.Message);
-                return default!;
+                // The copy is thrown after the handler has returned, never from inside it. A throw from a
+                // catch block is dispatched on top of the one being handled, whose frames — everything from
+                // here down to where it was raised — stay on the native stack until the handler returns. So a
+                // failure crossing a chain of wrapped functions nested one exception dispatch per hop, which
+                // no stack probe sees: a chain script builds by passing a function back and forth across the
+                // boundary a few hundred times turned the guard's catchable RangeError at its bottom into a
+                // native stack overflow on the way back up. Thrown below, the frames it handled are gone first.
+                result = Undefined;
+                failure = ex.Message;
+            }
+
+            if (failure is not null)
+            {
+                ThrowCrossRealmError(_realm, failure);
             }
 
             return GetWrappedValue(callerRealm, callerRealm, result);

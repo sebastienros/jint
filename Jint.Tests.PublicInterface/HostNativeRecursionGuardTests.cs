@@ -3,6 +3,7 @@
 using Jint;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
@@ -204,6 +205,58 @@ public class HostNativeRecursionGuardTests
 
             engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
         }, maxStackSize: ForwardingStack);
+    }
+
+    /// <summary>
+    /// Two recursions across a <c>ShadowRealm</c> boundary, each a native frame per level, where a failure is
+    /// copied into a <c>TypeError</c> at every level on its way back up
+    /// (https://tc39.es/proposal-shadowrealm/#sec-create-type-error-copy). The probe raised its
+    /// <c>RangeError</c> at the bottom of both, and the host process still ended: the copy was thrown from
+    /// inside the <c>catch</c> handling the failure it copies, so each level nested one more exception
+    /// dispatch on top of every frame down to the bottom, and nothing probes an exception dispatch. Five
+    /// hundred round trips on a 1 MB thread were enough on both .NET 10 and .NET Framework; the first row
+    /// makes ten times that.
+    /// <para>
+    /// The first row is <c>WrappedFunction</c>'s <c>[[Call]]</c> over a chain script builds by passing a
+    /// function back and forth; the second is <c>WrappedFunctionCreate</c>, which reads <c>name</c> to copy it
+    /// and here finds a getter that wraps its own receiver again, so it has no depth to choose at all. The
+    /// message is asserted whole because the copy's mark used to be added once per level, which made the
+    /// message — and every copy on the way up — longer with each one.
+    /// </para>
+    /// <para>
+    /// The engine opts into <c>StackOverflowGuard</c>, which is off by default on this branch: without it
+    /// nothing turns the recursion into a <c>RangeError</c> in the first place, and both rows end the process
+    /// whether or not the copy is thrown from inside its handler.
+    /// </para>
+    /// </summary>
+    public static TheoryData<string, string> CrossRealmCopyChains => new()
+    {
+        {
+            "wrapped call",
+            "const sr = new ShadowRealm(); const id = sr.evaluate('x => x'); let f = function () { return 1; }; for (let i = 0; i < 5000; i++) f = id(f); f();"
+        },
+        {
+            "wrapped create",
+            "const sr = new ShadowRealm(); const g = function () {}; Object.defineProperty(g, 'name', { get: sr.evaluate('(function () {})') }); sr.evaluate('f => f')(g);"
+        },
+    };
+
+    [Theory]
+    [MemberData(nameof(CrossRealmCopyChains))]
+    public void AFailureCopiedAcrossAShadowRealmBoundaryAtEveryLevelIsCatchable(string route, string script)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = Guarded();
+
+            var thrown = engine.Invoking(e => e.Execute(script)).Should().Throw<JavaScriptException>().Which;
+            thrown.Message.Should().Be("Cross-Realm Error: Maximum call stack size exceeded");
+            engine.SetValue("thrown", thrown.Error);
+            engine.Evaluate("thrown instanceof TypeError").AsBoolean().Should().BeTrue();
+
+            engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
+        }, maxStackSize: SmallStack);
     }
 
     [Fact]
