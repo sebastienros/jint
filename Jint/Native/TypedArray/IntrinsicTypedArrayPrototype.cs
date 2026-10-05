@@ -1671,10 +1671,24 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         // The result has the same element type, so bulk-copy the source bytes into the freshly created target
         // and then overwrite the single replaced element (whose value is already coerced above).
+        // Only the elements O still has are copied: the coercions above may have shrunk its buffer.
         var elementSize = o._arrayElementType.GetElementSize();
+        var present = System.Math.Min(len, o.GetLength());
         _engine.Constraints.Check();
-        System.Array.Copy(o._viewedArrayBuffer._arrayBufferData!, o._byteOffset, a._viewedArrayBuffer._arrayBufferData!, a._byteOffset, len * elementSize);
+        System.Array.Copy(o._viewedArrayBuffer._arrayBufferData!, o._byteOffset, a._viewedArrayBuffer._arrayBufferData!, a._byteOffset, present * elementSize);
         a[(int) actualIndex] = value;
+
+        // Elements past O's current length read as undefined and are converted by TypedArraySetElement:
+        // NaN for floats, +0 for integers, a TypeError for BigInt (tc39/ecma262#3979).
+        for (var k = present; k < len; k++)
+        {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            a[k] = Undefined;
+        }
 
         return a;
     }
