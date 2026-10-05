@@ -601,6 +601,7 @@ public abstract partial class Node
         var matches = suppressRecord ? null : MutationTracking.Match(parent, MutationRecordKind.ChildList, changedChild: node);
         MutationTracking.CaptureTransients(parent, node);
 
+        ChildNodeCursor.Removing(parent, node);
         if (node.PreviousSibling is { } previous)
         {
             previous.NextSibling = node.NextSibling;
@@ -637,6 +638,7 @@ public abstract partial class Node
 
     private void LinkBefore(Node node, Node? referenceChild)
     {
+        ChildNodeCursor.Inserting(this, referenceChild);
         node.ParentNode = this;
         node.NextSibling = referenceChild;
         node.PreviousSibling = referenceChild?.PreviousSibling ?? (referenceChild is null ? LastChild : null);

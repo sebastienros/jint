@@ -18,12 +18,13 @@ internal sealed class DomChildNodeList : DomNodeList
 {
     private static readonly ConditionalWeakTable<object, DomChildNodeList> Lists = new();
     private readonly Node? _parent;
-    private readonly WeakReference<Node> _cursor = new(null!);
-    private readonly WeakReference<Document> _cursorDocument = new(null!);
-    private int _cursorIndex;
-    private ulong _cursorStamp;
+    private readonly ChildNodeCursor? _cursor;
 
-    private DomChildNodeList(object owner) => _parent = owner as Node;
+    private DomChildNodeList(object owner)
+    {
+        _parent = owner as Node;
+        if (_parent is not null) _cursor = ChildNodeCursor.Of(_parent);
+    }
 
     internal static DomChildNodeList Of(object owner) => Lists.GetValue(owner, static value => new DomChildNodeList(value));
 
@@ -34,35 +35,8 @@ internal sealed class DomChildNodeList : DomNodeList
 
     internal override Node? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
     {
-        var work = new DomReadWork(checkpoint, token);
-        work.Check();
-        if (index >= (uint) Length) return null;
-        var document = _parent as Document ?? _parent!.OwnerDocument!;
-        var stamp = document.MutationStamp;
-        Node current;
-        uint position;
-        if (stamp != ulong.MaxValue && _cursorStamp == stamp && _cursorDocument.TryGetTarget(out var previousDocument)
-            && ReferenceEquals(previousDocument, document) && index >= (uint) _cursorIndex && _cursor.TryGetTarget(out var remembered))
-        {
-            current = remembered;
-            position = (uint) _cursorIndex;
-        }
-        else
-        {
-            current = _parent!.FirstChild!;
-            position = 0;
-        }
-        while (position < index)
-        {
-            work.Step();
-            current = current.NextSibling!;
-            position++;
-        }
-        work.Check();
-        _cursor.SetTarget(current);
-        _cursorDocument.SetTarget(document);
-        _cursorIndex = (int) index;
-        _cursorStamp = stamp;
-        return current;
+        if (_parent is not null) return _cursor!.ReadItem(_parent, index, checkpoint, token);
+        new DomReadWork(checkpoint, token).Check();
+        return null;
     }
 }

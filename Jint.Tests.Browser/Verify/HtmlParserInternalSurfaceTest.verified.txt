@@ -1,4 +1,7 @@
-﻿internal Jint.HtmlParser.Css.Conditions.CssSupports
+﻿internal Jint.HtmlParser.ChildNodeCursor
+    Of
+    ReadItem
+internal Jint.HtmlParser.Css.Conditions.CssSupports
     EvaluateCondition
     EvaluateDeclaration
 internal Jint.HtmlParser.Css.CssParsedRule

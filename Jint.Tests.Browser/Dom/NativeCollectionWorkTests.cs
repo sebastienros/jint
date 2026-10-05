@@ -26,14 +26,14 @@ public sealed class NativeCollectionWorkTests
     }
 
     [Test]
-    public void NativeChildNodeCursorChecksLongWalkAndStillUsesTheActualMutationStamp()
+    public void NativeChildNodeCursorChecksLongWalkAndTracksLocalInsertions()
     {
         var document = Document.CreateHtml();
         var root = document.CreateElement("div");
         for (var i = 0; i < 2048; i++) root.AppendChild(document.CreateComment(""));
         var list = DomChildNodeList.Of(root);
         var checks = 0;
-        Assert.Throws<OperationCanceledException>(() => list.ReadItem(2047,
+        Assert.Throws<OperationCanceledException>(() => list.ReadItem(1024,
             _ => { if (++checks == 3) throw new OperationCanceledException(); }, default));
         var last = list.ReadItem(2047, null, default);
         last.Should().BeSameAs(root.LastChild);
