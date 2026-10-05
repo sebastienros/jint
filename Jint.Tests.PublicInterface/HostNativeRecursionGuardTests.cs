@@ -505,6 +505,222 @@ public class HostNativeRecursionGuardTests
     /// </summary>
     private static Engine Guarded() => new(options => options.Constraints.StackOverflowGuard = true);
 
+    /// <summary>
+    /// A target whose own <c>@@hasInstance</c> method asks <c>instanceof</c> of that same target, which the operator
+    /// answers by calling the method again (https://tc39.es/ecma262/#sec-instanceofoperator step 3): a recursion script
+    /// controls, one native frame per level, and no call expression anywhere in it.
+    /// <para>
+    /// Every route is a row on both stack lanes. With <c>StackOverflowGuard</c> alone a script function probes on
+    /// entry, so the first two routes were already a <c>RangeError</c> there; with <c>MaxExecutionStackCount</c> it does
+    /// not, and the only probe that lane arms sits in the call expression this recursion never evaluates, so both ended
+    /// the host with a native stack overflow (<c>InstanceOfBinaryExpression</c> → <c>ScriptFunction.CallOnce</c> repeated
+    /// to the bottom). The second route's method is a built-in rather than a script function —
+    /// <c>Function.prototype.call</c>, which calls the target with <c>V</c> as <c>this</c> — which is why the probe is
+    /// on every method but the intrinsic, not on script functions only. The <c>eval</c> route ended the host on both
+    /// lanes: the source it evaluates comes back to the operator without entering any function, so nothing probed at all.
+    /// </para>
+    /// <para>
+    /// The operator's probe is gated on <c>StackOverflowGuard</c> like every other native-stack probe, and the guard is
+    /// opt-in on this branch, so the <c>MaxExecutionStackCount</c> rows ask for it as well — the configuration a
+    /// default engine on main has when that lane is chosen.
+    /// </para>
+    /// </summary>
+    public static TheoryData<string, string, bool> HasInstanceRecursions => new()
+    {
+        { "class static method, StackOverflowGuard", ClassStaticHasInstance, false },
+        { "class static method, MaxExecutionStackCount", ClassStaticHasInstance, true },
+        { "built-in method, StackOverflowGuard", BuiltInHasInstance, false },
+        { "built-in method, MaxExecutionStackCount", BuiltInHasInstance, true },
+        { "eval, StackOverflowGuard", EvalHasInstance, false },
+        { "eval, MaxExecutionStackCount", EvalHasInstance, true },
+    };
+
+    private const string ClassStaticHasInstance =
+        "class C { static [Symbol.hasInstance](v) { return v instanceof C; } } outcome = String({} instanceof C);";
+
+    private const string BuiltInHasInstance =
+        "var C = function () { return this instanceof C; }; Object.defineProperty(C, Symbol.hasInstance, { value: Function.prototype.call }); outcome = String({} instanceof C);";
+
+    // Indirect eval runs in the global scope, so both bindings are global variables.
+    private const string EvalHasInstance =
+        "var s = 's instanceof C'; var C = function () {}; Object.defineProperty(C, Symbol.hasInstance, { value: eval }); outcome = String(s instanceof C);";
+
+    [Theory]
+    [MemberData(nameof(HasInstanceRecursions))]
+    public void AHasInstanceMethodThatAsksInstanceofOfItsOwnTargetRaisesACatchableError(string route, string operation, bool maxExecutionStackCountLane)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine(options =>
+            {
+                options.Constraints.StackOverflowGuard = true;
+                if (maxExecutionStackCountLane)
+                {
+                    options.Constraints.MaxExecutionStackCount = 500;
+                }
+            });
+
+            var outcome = engine.Evaluate("""
+                var outcome;
+                try {
+                """ + operation + """
+                } catch (error) { outcome = error.name + ':' + error.message; }
+                String(outcome);
+                """).AsString();
+            outcome.Should().Be("RangeError:Maximum call stack size exceeded");
+
+            // the engine recovers, and a method that does not recurse answers as it always did beside the intrinsic
+            engine.Evaluate("""
+                class D { static [Symbol.hasInstance](v) { return v === 1; } }
+                [1 instanceof D, 2 instanceof D, [] instanceof Array, {} instanceof Array].join();
+                """).AsString().Should().Be("true,false,true,false");
+        }, maxStackSize: SmallStack);
+    }
+
+    /// <summary>
+    /// Recursions made of evaluations rather than of calls: each level hands source text back to the
+    /// evaluator, and the evaluator re-enters the interpreter without entering a function. The first four
+    /// never reach a function body at all, so none of the probes a function entry carries saw them, and a
+    /// direct eval (<c>var s = 'eval(s)'; eval(s)</c>) ended the host process with a native stack overflow on
+    /// every target framework, guard or no guard. The <c>@@hasInstance</c> row is <c>eval</c> reached with no
+    /// call expression in the loop; the operator's own probe (#4184) bounds it as well.
+    /// <para>
+    /// The two <c>Function</c> constructor rows were never broken — the function the constructor builds is
+    /// entered through an ordinary call, whose callee probes — and are here so the pair states the shape
+    /// that was: evaluating source text is guarded, whichever built-in hands it over.
+    /// </para>
+    /// </summary>
+    public static TheoryData<string, string> EvaluatedSourceRecursions => new()
+    {
+        { "direct eval", "var s = 'eval(s)'; eval(s);" },
+        { "indirect eval", "var s = '(0, eval)(s)'; (0, eval)(s);" },
+        { "optional-call eval", "var s = 'eval?.(s)'; eval?.(s);" },
+        { "eval as a callback", "var s = '[s].forEach(eval)'; [s].forEach(eval);" },
+        { "eval as @@hasInstance", "var o = {}; Object.defineProperty(o, Symbol.hasInstance, { value: eval }); var s = 's instanceof o'; s instanceof o;" },
+        { "new Function", "var s = 'new Function(s)()'; new Function(s)();" },
+        { "Function.prototype.constructor", "var s = 'Function.prototype.constructor(s)()'; Function.prototype.constructor(s)();" },
+    };
+
+    [Theory]
+    [MemberData(nameof(EvaluatedSourceRecursions))]
+    public void ARecursionThroughEvaluatedSourceRaisesACatchableErrorAndTheEngineRecovers(string route, string script)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = Guarded();
+            EvaluateCatching(engine, script).Should().Be("RangeError:Maximum call stack size exceeded");
+
+            engine.Evaluate("eval('6 * 7')").AsNumber().Should().Be(42);
+        }, maxStackSize: SmallStack);
+    }
+
+    /// <summary>
+    /// The same recursions on the <see cref="Options.ConstraintOptions.MaxExecutionStackCount"/> lane, which
+    /// continues a call chain on a fresh thread when the stack runs low and throws once the call stack holds
+    /// more than the configured count. A direct eval is dispatched without a call-stack frame, so a recursion
+    /// made only of direct evals never grew that count: it hopped to a new thread at every exhaustion, leaving
+    /// the one below it blocked, and never threw — the host lost a thread per hop and the call never returned.
+    /// It counts as the call it is now, so the lane throws at its limit as it does for any other recursion.
+    /// <c>eval?.()</c> took the same frameless dispatch and hung the same way; the other rows push a frame per
+    /// level (the <c>EvalFunction</c>, <c>forEach</c>, the constructed function) and were bounded already.
+    /// <para>
+    /// Each route is a row with <c>StackOverflowGuard</c> on, the configuration main's default engine has when
+    /// this lane is chosen, and with it off, this branch's default: the count is what bounds these, and it does
+    /// not depend on the guard.
+    /// </para>
+    /// <para>
+    /// The join ceiling is what reports the hop that never ends, and is never what passes a test: a bounded
+    /// recursion returns in well under a second. <c>@@hasInstance</c> is not a row: with no call expression in
+    /// its loop it never reaches this lane's count, and what bounds it instead is the operator's own probe
+    /// before any method but the intrinsic, which
+    /// <see cref="AHasInstanceMethodThatAsksInstanceofOfItsOwnTargetRaisesACatchableError"/> pins on both lanes.
+    /// </para>
+    /// </summary>
+    public static TheoryData<string, string, bool> CountedEvaluatedSourceRecursions => new()
+    {
+        { "direct eval", "var s = 'eval(s)'; eval(s);", true },
+        { "direct eval", "var s = 'eval(s)'; eval(s);", false },
+        { "indirect eval", "var s = '(0, eval)(s)'; (0, eval)(s);", true },
+        { "indirect eval", "var s = '(0, eval)(s)'; (0, eval)(s);", false },
+        { "optional-call eval", "var s = 'eval?.(s)'; eval?.(s);", true },
+        { "optional-call eval", "var s = 'eval?.(s)'; eval?.(s);", false },
+        { "eval as a callback", "var s = '[s].forEach(eval)'; [s].forEach(eval);", true },
+        { "eval as a callback", "var s = '[s].forEach(eval)'; [s].forEach(eval);", false },
+        { "new Function", "var s = 'new Function(s)()'; new Function(s)();", true },
+        { "new Function", "var s = 'new Function(s)()'; new Function(s)();", false },
+    };
+
+    [Theory]
+    [MemberData(nameof(CountedEvaluatedSourceRecursions))]
+    public void OnTheExecutionStackCountLaneARecursionThroughEvaluatedSourceStopsAtTheCount(string route, string script, bool stackOverflowGuard)
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                using var engine = new Engine(options =>
+                {
+                    options.Constraints.StackOverflowGuard = stackOverflowGuard;
+                    options.Constraints.MaxExecutionStackCount = 500;
+                });
+                EvaluateCatching(engine, script).Should().Be("RangeError:Maximum call stack size exceeded");
+
+                engine.Evaluate("eval('6 * 7')").AsNumber().Should().Be(42);
+            },
+            joinTimeout: WedgeCeiling,
+            timeoutMessage: $"'{route}' did not stop at the configured count within {WedgeCeiling}; the lane is hopping threads without bound",
+            maxStackSize: SmallStack);
+    }
+
+    /// <summary>
+    /// What the lane is <em>for</em>, through eval: a recursion deeper than the thread holds, but finite and
+    /// inside the configured count, continues on a fresh thread and returns its answer. It is what rules out
+    /// the other way to bound the rows above — probing eval under
+    /// <see cref="Options.ConstraintOptions.StackOverflowGuard"/> on this lane too. That probe sits a few
+    /// frames below the call expression's hop, so whichever of the two finds the stack low first decides, and
+    /// measured on .NET 10 it was the probe: this recursion threw where it used to return, while .NET Framework,
+    /// with other frame sizes, still hopped. The guard is on here because only then is there a probe that could
+    /// fire. Every level counts twice (the function and the eval), which the count leaves ample room for.
+    /// </summary>
+    public static TheoryData<string, string> FiniteRecursionsThroughEval => new()
+    {
+        { "direct eval", "function f(n) { return n === 0 ? 0 : eval('f(n - 1)') + 1; } f(3000);" },
+        { "indirect eval", "function f(n) { return n === 0 ? 0 : (0, eval)('f(' + (n - 1) + ')') + 1; } f(3000);" },
+    };
+
+    [Theory]
+    [MemberData(nameof(FiniteRecursionsThroughEval))]
+    public void OnTheExecutionStackCountLaneAFiniteRecursionThroughEvalDeeperThanTheThreadReturns(string route, string script)
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                using var engine = new Engine(options =>
+                {
+                    options.Constraints.StackOverflowGuard = true;
+                    options.Constraints.MaxExecutionStackCount = 100_000;
+                });
+                engine.Evaluate(script).AsNumber().Should().Be(3000);
+            },
+            joinTimeout: WedgeCeiling,
+            timeoutMessage: $"'{route}' did not return within {WedgeCeiling}",
+            maxStackSize: SmallStack);
+    }
+
+    /// <summary>
+    /// The ceiling for a body whose failure mode is never returning; it is never what passes a test.
+    /// </summary>
+    private static readonly TimeSpan WedgeCeiling = TimeSpan.FromMinutes(2);
+
+    private static string EvaluateCatching(Engine engine, string script) => engine.Evaluate("""
+        var caught;
+        try {
+        """ + script + """
+        } catch (error) { caught = error; }
+        caught === undefined ? 'none' : caught.name + ':' + caught.message;
+        """).AsString();
+
     private sealed class RecursiveHostConstructor : Constructor
     {
         private readonly Engine _hostEngine;

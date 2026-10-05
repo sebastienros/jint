@@ -680,15 +680,15 @@ public class Options
         /// This lane is probed at the call expression only, so a recursion that reaches a function body by
         /// another route — <c>new</c>, an accessor, a coercion, a Proxy trap — still overflows the native
         /// stack; <see cref="StackOverflowGuard"/> is the one that covers those, and setting this property
-        /// takes precedence over it.
+        /// takes precedence over it. A direct <c>eval</c> counts as a call, as an indirect one always has.
         /// </remarks>
         public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
 
         /// <summary>
         /// Whether the engine probes the remaining native stack — on every entry into an interpreted
-        /// function, and on every module of a graph being linked or evaluated — and throws a catchable
-        /// <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone. Defaults to
-        /// <see langword="false"/>.
+        /// function or into <c>eval</c> source, and on every module of a graph being linked or evaluated —
+        /// and throws a catchable <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone.
+        /// Defaults to <see langword="false"/>.
         /// </summary>
         /// <remarks>
         /// <para>
