@@ -1042,6 +1042,7 @@ public sealed partial class Page
         runtime.DocumentUrl = url;
         runtime.Referrer = referrer;
         runtime.DocumentCreationOrigin = creationOrigin;
+        WindowHandle.Origin = creationOrigin;
         runtime.DocumentCreationBaseUrl = Dom.DomDocumentOrigin.InheritsCreator(url) ? creator?.BaseUrl : null;
         _loaderId = loaderId;
         CancelNetworkIdle();

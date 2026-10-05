@@ -139,7 +139,7 @@ public sealed class BrowserContext : IAsyncDisposable
             {
                 foreach (var page in _pages)
                 {
-                    if (!page.IsClosed && page.WindowHandle.Name == name)
+                    if (page.WindowHandle.Name == name && page.WindowHandle.CanBeNamedTarget(source, navigation.Origin))
                     {
                         if (navigation.Url.Length != 0) page.WindowHandle.Navigate(source, navigation);
                         return page.WindowHandle;
@@ -147,7 +147,7 @@ public sealed class BrowserContext : IAsyncDisposable
                 }
                 foreach (var pending in _openingPopups)
                 {
-                    if (!pending.Closed && pending.Name == name)
+                    if (pending.Name == name && pending.CanBeNamedTarget(source, navigation.Origin))
                     {
                         if (navigation.Url.Length != 0) pending.Navigate(source, navigation);
                         return pending;
@@ -159,7 +159,8 @@ public sealed class BrowserContext : IAsyncDisposable
             // Reusing an existing named target above needs no new resources.
             if (AtPageLimit()) return null;
 
-            var handle = new BrowsingContextHandle(named ? name : "", noopener ? null : source, scriptClosable: true);
+            var handle = new BrowsingContextHandle(named ? name : "", noopener ? null : source, scriptClosable: true,
+                origin: navigation.Origin);
             _openingPopups.Add(handle);
             if (navigation.Url.Length != 0 && navigation.Url != PageUrl.Blank) handle.Navigate(source, navigation);
             handle.Opening = Task.Run(() => OpenPopupAsync(source, handle, navigation));
