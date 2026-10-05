@@ -27,7 +27,8 @@ jobs:
 
     # Must match the Environment field of the nuget.org trusted publishing policy.
     # Also the place to add required reviewers if releases should be approval-gated.
-    # The policy must allow creating Jint.* packages, including the six Jint.Browser.Tool.<rid> IDs;
+    # Verify on nuget.org that the policy allows creating Jint.* packages, including Jint.HtmlParser
+    # and the six Jint.Browser.Tool.<rid> IDs; these account-side scopes are not configured here.
     # a policy restricted to new versions of the existing Jint package cannot ship the 5.0 additions.
     environment: nuget
 
@@ -86,6 +87,15 @@ jobs:
     - name: Pack Jint.DevTools with dotnet
       run: >
         dotnet pack Jint.DevTools/Jint.DevTools.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
+    # The native parser is a package dependency of Jint.Browser and ships with the same tag version.
+    - name: Pack Jint.HtmlParser with dotnet
+      run: >
+        dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj --output artifacts --configuration Release
         -p:Version=${{ steps.version.outputs.version }}
         -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
         -p:FileVersion=${{ steps.version.outputs.numeric }}
