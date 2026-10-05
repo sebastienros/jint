@@ -364,13 +364,7 @@ internal static partial class SelectorMatcher
                    !HasMatchingSibling(element, previous: false, ofType, ref work);
 
         var fromEnd = kind is PredicateKind.NthLastChild or PredicateKind.NthLastOfType;
-        var index = 1;
-        for (var node = fromEnd ? element.NextSibling : element.PreviousSibling;
-             node is not null; node = fromEnd ? node.NextSibling : node.PreviousSibling)
-        {
-            work.Step();
-            if (node is Element sibling && (!ofType || SameType(element, sibling))) index++;
-        }
+        var index = SiblingIndex(element, ofType, fromEnd, ref work);
         return MatchAnPlusB(index, predicate.A, predicate.B, ref work);
     }
 

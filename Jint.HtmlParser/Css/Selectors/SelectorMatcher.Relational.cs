@@ -31,7 +31,7 @@ internal static partial class SelectorMatcher
         internal Node? RegionRoot;
         internal Node? Cursor;
         internal bool RegionStarted;
-        internal int NthIndex;
+        internal SelectorFilteredPositions? NthPositions;
         internal List<ForwardState>? Forward;
         internal HashSet<(int Position, Node Node)>? ForwardVisited;
         internal bool? RelativeHasColumn;
@@ -347,8 +347,7 @@ internal static partial class SelectorMatcher
                         frame.Waiting = true;
                         stack.Add(new EvaluationFrame(EvaluationKind.Nth, frame.Node, frame.Scope)
                         {
-                            Predicate = currentPredicate,
-                            NthIndex = 1
+                            Predicate = currentPredicate
                         });
                         break;
                     }
@@ -394,39 +393,41 @@ internal static partial class SelectorMatcher
 
                 case EvaluationKind.Nth:
                     var nth = frame.Predicate!;
-                    if (frame.Position == 0)
+                    var key = FilteredKey(nth, frame.Node, frame.Scope, ref work);
+                    var cell = work.Shared.EnsureCell();
+                    cell.FilteredPositions ??= new();
+                    if (frame.NthPositions is null)
                     {
-                        frame.Position = 1;
-                        frame.Waiting = true;
-                        stack.Add(new EvaluationFrame(EvaluationKind.Program, frame.Node, frame.Scope)
+                        work.Step();
+                        if (cell.FilteredPositions.TryGetValue(key, out var cached))
                         {
-                            Program = nth.Arguments
-                        });
-                        break;
+                            var cachedIndex = cached.Index((Element) frame.Node, nth.Kind == PredicateKind.NthLastChild);
+                            result = cachedIndex != 0 && MatchAnPlusB(cachedIndex, nth.A, nth.B, ref work);
+                            stack.RemoveAt(stack.Count - 1);
+                            continue;
+                        }
+                        work.Shared.Observe(key.Parent);
+                        frame.NthPositions = new SelectorFilteredPositions();
                     }
                     if (frame.Waiting)
                     {
                         frame.Waiting = false;
-                        if (frame.Position == 1 && !result)
-                        {
-                            stack.RemoveAt(stack.Count - 1);
-                            continue;
-                        }
-                        if (frame.Position == 2 && result) frame.NthIndex++;
+                        if (result) frame.NthPositions.Elements.Add((Element) frame.Cursor!, ++frame.NthPositions.Count);
                     }
-                    frame.Position = 2;
-                    var fromEnd = nth.Kind == PredicateKind.NthLastChild;
-                    var sibling = frame.Cursor is null
-                        ? fromEnd ? frame.Node.NextSibling : frame.Node.PreviousSibling
-                        : fromEnd ? frame.Cursor.NextSibling : frame.Cursor.PreviousSibling;
+                    var sibling = frame.Position++ == 0
+                        ? frame.Node.ParentNode?.FirstChild ?? frame.Node
+                        : frame.Cursor!.NextSibling;
                     while (sibling is not null && sibling is not Element)
                     {
                         work.Step();
-                        sibling = fromEnd ? sibling.NextSibling : sibling.PreviousSibling;
+                        sibling = sibling.NextSibling;
                     }
                     if (sibling is null)
                     {
-                        result = MatchAnPlusB(frame.NthIndex, nth.A, nth.B, ref work);
+                        work.Shared.VerifyRead();
+                        cell.FilteredPositions.Add(key, frame.NthPositions);
+                        var nthIndex = frame.NthPositions.Index((Element) frame.Node, nth.Kind == PredicateKind.NthLastChild);
+                        result = nthIndex != 0 && MatchAnPlusB(nthIndex, nth.A, nth.B, ref work);
                         stack.RemoveAt(stack.Count - 1);
                         continue;
                     }

@@ -209,6 +209,9 @@ internal struct SelectorMatchWork
 
     internal sealed class Cell : ISlotQueryWork
     {
+        internal Dictionary<CompiledSelector, bool>? ScopeDependencies;
+        internal Dictionary<Node, SelectorSiblingPositions>? SiblingPositions;
+        internal Dictionary<SelectorFilteredPositionKey, SelectorFilteredPositions>? FilteredPositions;
         internal HtmlDisabledWork Native;
         internal bool Active;
         internal bool InCheckpoint;

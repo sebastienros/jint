@@ -83,6 +83,36 @@ public sealed class NativeCssQueryDiagnosticsTests
         diagnostics.Queries.Should().BeEmpty();
     }
 
+    [TestCase("span:nth-child(odd)")]
+    [TestCase("span:nth-last-child(odd)")]
+    [TestCase("span:nth-of-type(odd)")]
+    [TestCase("span:nth-last-of-type(odd)")]
+    [TestCase("span:nth-child(odd of .x)")]
+    public void SeparateComputedViewsShareLinearSiblingIndexWork(string selector)
+    {
+        const int size = 4096;
+        using var fixture = Create($"<style>{selector} {{ opacity:.5 }}</style><main></main>");
+        var document = fixture.Document;
+        var root = ContentDom.Descendants(document).Single(e => e.LocalName == "main");
+        var items = new Element[size];
+        for (var i = 0; i < size; i++)
+        {
+            root.AppendChild(document.CreateComment("gap"));
+            items[i] = document.CreateElement("span");
+            items[i].SetAttribute("class", "x");
+            root.AppendChild(items[i]);
+        }
+        var input = NativeCssStyleSheets.CreateQuery(document, DomRealm.Of(fixture.Engine));
+        var cell = input.Matching.EnsureCell();
+        // Each view copies the work value, as CssCascade.Traversal.Of does. Its cell must stay shared.
+        for (var i = size - 1; i >= 0; i--)
+        {
+            var view = new NativeCssComputedStyle(input.Query, items[i], input.Matching);
+            view.GetPropertyValue("opacity").Should().Be((selector.Contains("last") ? (size - i) : i + 1) % 2 == 1 ? "0.5" : "1");
+        }
+        cell.Native.Steps.Should().BeLessThan(size * 300);
+    }
+
     private static DomTestFixture Create(string html)
     {
         var fixture = DomTestFixture.Create(html);

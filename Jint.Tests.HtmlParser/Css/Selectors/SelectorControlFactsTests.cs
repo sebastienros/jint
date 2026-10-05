@@ -103,6 +103,32 @@ public sealed class SelectorControlFactsTests
         factory.Reads[^1].Element.Should().BeSameAs(second);
     }
 
+    [Test]
+    public void FilteredNthSharesControlReadsAndRejectsRevisionChanges()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("form");
+        document.AppendChild(root);
+        var items = new Element[512];
+        for (var i = 0; i < items.Length; i++) root.AppendChild(items[i] = document.CreateElement("input"));
+        var factory = new Factory { Facts = new(Validity: SelectorControlValidity.Valid) };
+        var seed = factory.Seed(document);
+        var work = new SelectorMatchWork(document, default);
+        var program = Parse(":nth-child(odd of :valid)");
+        for (var i = 0; i < items.Length; i++)
+            SelectorMatcher.Matches(program, items[i], null, seed, ref work).Should().Be(i % 2 == 0);
+        factory.Creates.Should().Be(1);
+        factory.Reads.Should().HaveCount(items.Length);
+        Witnesses(ref work).Should().Be(0);
+        // A control revision is independent of the document mutation stamp.
+        factory.Revision++;
+        Action stale = () => SelectorMatcher.Matches(program, items[0], null, seed, ref work);
+        stale.Should().Throw<InvalidOperationException>().WithMessage(SelectorMatchWork.Invalidated);
+        var fresh = new SelectorMatchWork(document, default);
+        factory.Facts = new(Validity: SelectorControlValidity.Invalid);
+        SelectorMatcher.Matches(program, items[0], null, factory.Seed(document), ref fresh).Should().BeFalse();
+    }
+
     private static int Witnesses(ref SelectorMatchWork work)
         => (typeof(SelectorMatchWork.Cell).GetField("_observations", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(work.EnsureCell()) as ICollection)?.Count ?? 0;
