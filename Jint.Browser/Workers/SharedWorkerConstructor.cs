@@ -91,7 +91,7 @@ internal sealed class SharedWorkerConstructor : Constructor
         var generation = _engine.EventLoopGeneration;
         var client = new SharedWorkerClient(_owner, outer, inner,
             () => _engine.AddToEventLoop(() => worker.FireEvent(new JsString("error")),
-                generation, EventLoopJobKind.Task));
+                generation, EventLoopJobKind.Task), _runtime.Page.RecordWorkerError);
 
         // Opaque documents must never match each other's serialized "null" origins.
         var key = new SharedWorkerKey(origin, uri.AbsoluteUri, settings.Name,

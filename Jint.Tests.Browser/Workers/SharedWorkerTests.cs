@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http;
 using Jint.Browser;
 using Jint.Browser.Workers;
+using Jint.Browser.Runtime;
+using Jint.WebApi.Fetch;
 using Jint.Tests.Browser.Navigation;
 using Jint.WebApi;
 using Jint.WebApi.Messaging;
@@ -83,6 +85,112 @@ public sealed class SharedWorkerTests
         await second.EvaluateAsync("worker.port.postMessage('still running')");
         await second.WaitForAsync("messages.length === 2", _wait);
         (await second.EvaluateAsync<string>("messages[1]")).Should().Be("still running");
+        await second.CloseAsync();
+        fixture.Context.SharedWorkers.LiveCount.Should().Be(0);
+    }
+
+    [TestCase("classic", "", true)]
+    [TestCase("module", "", true)]
+    [TestCase("classic", "no-referrer", false)]
+    [TestCase("module", "unknown, origin, no-referrer", false)]
+    public async Task ReusedWorkersOwnTheirNetworkLogAndReferrer(string type, string policy, bool sendsReferrer)
+    {
+        PageNetworkRecorder? workerLog = null;
+        var workerClients = 0;
+        using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/first.html", "")
+            .MapHtml("/later.html", "")
+            .Map("/worker.js", _ => LoopbackResponse.Bytes(
+                (type == "classic" ? "importScripts('/helper.js');" : "import '/helper.js';")
+                + "let count=0; onconnect=e=>{const p=e.ports[0]; p.postMessage(++count);"
+                + "p.onmessage=m=>fetch(m.data === 'denied' ? '/denied' : '/answer')"
+                + ".then(r=>r.text()).then(t=>p.postMessage(t)).catch(()=>p.postMessage('blocked'));};",
+                "text/javascript").With("Referrer-Policy", policy))
+            .Map("/helper.js", _ => LoopbackResponse.Bytes("const imported = true;", "text/javascript"))
+            .Map("/answer", _ => LoopbackResponse.Text("fetched")),
+            configureContext: options =>
+            {
+                var allowed = options.UrlFilter!;
+                options.UrlFilter = uri => allowed(uri) && uri.AbsolutePath != "/denied";
+                options.HttpClientFactory = engine =>
+                {
+#pragma warning disable JINT0002 // Inspect the worker's engine-free network observer.
+                    if (engine.Options.WebApi.Fetch.Observer is PageNetworkRecorder recorder
+                        && engine.Options.Modules.ModuleLoader is PageModuleLoader)
+                    {
+                        workerLog = recorder;
+                        Interlocked.Increment(ref workerClients);
+                    }
+#pragma warning restore JINT0002
+                    return client;
+                };
+            },
+            configureBrowser: options => options.MaxRecordedEvents = 3);
+        var second = await fixture.NewPageAsync();
+        await fixture.Page.NavigateAsync(fixture.Url("/first.html"));
+        await second.NavigateAsync(fixture.Url("/later.html"));
+        await fixture.Page.EvaluateAsync("document.cookie='shared=present; Path=/'");
+        var settings = "{name:'counter',type:'" + type + "'}";
+        await Connect(fixture.Page, settings);
+        await Connect(second, settings);
+        workerClients.Should().Be(1, "the client factory must receive the independent worker engine");
+        workerLog.Should().NotBeNull();
+        workerLog!.Requests.Should().ContainSingle(r => r.Url == fixture.Url("/worker.js"));
+        fixture.Server.Received.Single(r => r.Path == "/worker.js").Header("Referer")
+            .Should().Be(fixture.Url("/first.html"), "startup uses the creator's outside settings");
+        fixture.Page.Requests.Should().NotContain(r => r.Url == fixture.Url("/worker.js"));
+        await fixture.Page.CloseAsync();
+        var firstRequests = fixture.Page.Requests.Count;
+        var third = await fixture.NewPageAsync();
+        await third.NavigateAsync(fixture.Url("/later.html"));
+        await Connect(third, settings);
+        (await third.EvaluateAsync<int>("messages[0]")).Should().Be(3);
+        for (var i = 0; i < 4; i++)
+        {
+            await third.EvaluateAsync("worker.port.postMessage('fetch')");
+            await third.WaitForAsync("messages.length === " + (i + 2), _wait);
+        }
+        fixture.Server.Received.Count(r => r.Path == "/worker.js").Should().Be(1);
+        foreach (var request in fixture.Server.Received.Where(r => r.Path is "/answer" or "/helper.js"))
+        {
+            request.Header("Referer").Should().Be(sendsReferrer ? fixture.Url("/worker.js") : null);
+            request.Header("Cookie").Should().Contain("shared=present");
+            request.Header("User-Agent").Should().NotBeNullOrEmpty();
+        }
+        await third.EvaluateAsync("worker.port.postMessage('denied')");
+        await third.WaitForAsync("messages.length === 6", _wait);
+        (await third.EvaluateAsync<string>("messages[5]")).Should().Be("blocked");
+        fixture.Server.Received.Should().NotContain(r => r.Path == "/denied");
+        workerLog.Requests.Should().HaveCount(3, "the independent log remains ring bounded");
+        fixture.Page.Requests.Should().HaveCount(firstRequests);
+        second.Requests.Should().NotContain(r => r.Url == fixture.Url("/answer"));
+        third.Requests.Should().NotContain(r => r.Url == fixture.Url("/answer"));
+        third.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task BudgetDiagnosticsFollowTheRemainingOwners()
+    {
+        await using var fixture = await Fixture(
+            "onconnect=e=>{e.ports[0].postMessage('ready'); e.ports[0].onmessage=()=>{while(true){}};};",
+            options => options.MaxTaskDuration = TimeSpan.FromMilliseconds(100));
+        var second = await fixture.NewPageAsync();
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await second.NavigateAsync(fixture.Url("/next.html"));
+        await Connect(fixture.Page);
+        await Connect(second);
+        await fixture.Page.CloseAsync();
+        var firstErrors = fixture.Page.Errors.Count;
+        await second.EvaluateAsync("worker.port.postMessage('spin')");
+        var deadline = DateTime.UtcNow + _wait;
+        while (!second.Errors.Any(e => e.Kind == PageErrorKind.WorkerError) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+        second.Errors.Should().Contain(e => e.Kind == PageErrorKind.WorkerError
+            && e.Message.Contains("time budget elapsed", StringComparison.Ordinal));
+        fixture.Page.Errors.Should().HaveCount(firstErrors);
         await second.CloseAsync();
         fixture.Context.SharedWorkers.LiveCount.Should().Be(0);
     }

@@ -172,9 +172,9 @@ public partial class Engine
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>WebApiRegistration.ApplyLive</c> is the only caller and calls it immediately before running the
-    /// host's configuration callback, because that callback is the one write to an engine's options after
-    /// construction and the instance it would otherwise write to is shared: with every other engine built
+    /// <c>WebApiRegistration.ApplyLive</c> calls it before the host configuration callback; Browser also
+    /// uses it to finalize a worker's fetch settings from its script response before author script runs.
+    /// The instance either caller would otherwise write to is shared: with every other engine built
     /// from it, and for <c>new Engine()</c> with an instance Jint keeps process-wide.
     /// </para>
     /// <para>

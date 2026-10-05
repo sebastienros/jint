@@ -126,17 +126,20 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         // built, exactly as its parent document's are.
         options.WebApi.Fetch.UserAgent = _page.Emulation.EffectiveUserAgent;
 
-        // On the parent's thread, inside the constructor, so the host's factory sees the engine that asked
-        // for the worker — which is the engine whose HostDefined carries whatever varies per page.
-        var client = _network.ClientFor(request.Parent);
+        // Dedicated workers retain the page client contract; shared workers select a client
+        // for their own engine during configuration, without retaining a page-owned client.
+        var client = _network.ClientFor(sharedUrl is null ? request.Parent : null);
         options.WebApi.Fetch.HttpClient = client;
         options.WebApi.Fetch.UrlFilter = _network.UrlFilter;
         options.WebApi.Fetch.CookieJar = _network.CookieJar;
 
-        // The page's own network log, so what a worker fetches is in Page.Requests beside what the document
-        // did. The observer is called from transport threads and is written for exactly that.
+        // Shared workers own a bounded log with immutable worker metadata. A page recorder
+        // contains page delegates and protocol listeners and must not outlive that page.
+        var requests = sharedUrl is null ? _requests : new PageNetworkRecorder(
+            _options.MaxRecordedEvents, _options.MaxCapturedResponseBytes,
+            static () => "", () => sharedUrl.AbsoluteUri);
 #pragma warning disable JINT0002 // FetchObserver is the engine's own network seam.
-        options.WebApi.Fetch.Observer = _requests;
+        options.WebApi.Fetch.Observer = requests;
 #pragma warning restore JINT0002
 
         Uri.TryCreate(_page.Url, UriKind.Absolute, out var documentUrl);
@@ -144,21 +147,36 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         if (baseUrl is not null && (baseUrl.Scheme == Uri.UriSchemeHttp || baseUrl.Scheme == Uri.UriSchemeHttps))
         {
             options.WebApi.Fetch.BaseUrl = baseUrl;
-            options.WebApi.Fetch.Referrer = documentUrl;
+            // Non-Window clients use their creation URL as referrer source.
+            // https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer
+            options.WebApi.Fetch.Referrer = sharedUrl ?? documentUrl;
             options.WebApi.Fetch.Origin = baseUrl.GetLeftPart(UriPartial.Authority);
 
             options.Modules.ModuleLoader = new PageModuleLoader(
                 _network,
-                _requests,
+                requests,
                 client,
                 baseUrl,
                 options.WebApi.Fetch.MaxResponseBytes,
                 options.WebApi.Fetch.Timeout,
                 options.WebApi.Fetch.UserAgent,
                 credentials,
-                sharedUrl);
+                sharedUrl,
+                documentUrl,
+                request.Parent.Options.WebApi.Fetch.ReferrerPolicy);
         }
 
+        if (sharedUrl is not null && options.Modules.ModuleLoader is PageModuleLoader loader)
+        {
+            // Configure before options freeze, using only context-owned state in the retained callback.
+            var network = _network;
+            options.ConfigureFirstParty(worker =>
+            {
+                var workerClient = network.ClientFor(worker);
+                worker.Options.WebApi.Fetch.HttpClient = workerClient;
+                loader.SetClient(workerClient);
+            });
+        }
         var engine = new Engine(options);
         PageStorage.InstallCaches(engine, opaque: false);
         PageStorage.InstallIndexedDb(engine, _network,
@@ -182,9 +200,17 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
     }
 
     /// <summary>Uses the same pump for a context-owned worker, without enrolling it in page-wide termination.</summary>
-    internal void StartPump(WorkerConnection connection)
+    internal void StartPump(WorkerConnection connection, Action<Exception, string>? reportError = null)
     {
-        var thread = new Thread(() => Pump(connection))
+        // Snapshot only the wait and a weak diagnostics destination: the thread must not
+        // keep this provider (and its page, engine and request log) alive.
+        var page = new WeakReference<Page>(_page);
+        var idle = _pumpIdle;
+        reportError ??= (exception, name) =>
+        {
+            if (page.TryGetTarget(out var target)) target.RecordWorkerError(exception, name);
+        };
+        var thread = new Thread(() => Pump(connection, idle, reportError))
         {
             IsBackground = true,
             Name = "Jint.Browser worker",
@@ -239,7 +265,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         }
     }
 
-    private void Pump(WorkerConnection connection)
+    private static void Pump(WorkerConnection connection, TimeSpan idle, Action<Exception, string> reportError)
     {
         var worker = connection.Worker;
 
@@ -256,7 +282,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                 {
                     // Recorded on the page, and the worker goes on with a budget of its own — the same
                     // answer the page gives its own drains. Anything else still ends the worker below.
-                    _page.RecordWorkerError(exception, connection.Name);
+                    reportError(exception, connection.Name);
                 }
 
                 if (connection.IsEnded)
@@ -265,7 +291,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                 }
 
                 var next = worker.Tasks.TimeUntilNextScheduledWork;
-                var wait = next is { } due && due < _pumpIdle ? due : _pumpIdle;
+                var wait = next is { } due && due < idle ? due : idle;
                 if (wait <= TimeSpan.Zero)
                 {
                     continue;
@@ -283,7 +309,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         }
         catch (Exception exception)
         {
-            _page.RecordWorkerError(exception, connection.Name);
+            reportError(exception, connection.Name);
         }
         finally
         {

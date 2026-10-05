@@ -64,7 +64,7 @@ internal sealed class SharedWorkerRun
                 engine.Dispose();
                 return;
             }
-            provider.StartPump(run.Connection);
+            provider.StartPump(run.Connection, (exception, name) => registry.ReportError(entry, exception, name));
         }
         catch
         {

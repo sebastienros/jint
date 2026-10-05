@@ -86,9 +86,10 @@ instance to a host, so reading one of its members must never be a write to it (`
 two threads reading it got a clock each); and a public method that writes a bare field rather than a guarded
 property refuses through a door of its own (`Options.SetNodeBuiltinModules`), or it is the one write nothing
 stops. Nothing Jint writes to `Options` may happen after that line — the profile re-expansion and the host's
-`Configure` callbacks both run inside `Options.Apply`, well before it. The one sanctioned post-construction write is
-`Engine.WebApi.Enable`'s callback, and it writes to a copy of the web-API subtree the engine takes for itself
-first (`Engine.TakePrivateWebApiOptions`) — an `Options` is shareable, and for `new Engine()` it is one Jint
+`Configure` callbacks both run inside `Options.Apply`, well before it. The sanctioned post-construction writes are
+`Engine.WebApi.Enable`'s callback and Browser's worker-script response finalization before author script runs.
+Both write to a copy of the web-API subtree the engine takes for itself first
+(`Engine.TakePrivateWebApiOptions`) — an `Options` is shareable, and for `new Engine()` it is one Jint
 keeps process-wide, so a per-tenant client set there used to reach every default-built engine. The copy stays
 frozen; the guard is suspended for it on the calling thread alone.
 

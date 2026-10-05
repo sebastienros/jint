@@ -21,6 +21,17 @@ internal sealed class SharedWorkerRegistry
         get { lock (_gate) return _live.Count; }
     }
 
+    internal void ReportError(SharedWorkerEntry entry, Exception exception, string name)
+    {
+        Action<Exception, string>[] reporters;
+        lock (_gate)
+        {
+            reporters = entry.Clients.DistinctBy(client => client.Owner)
+                .Select(client => client.ReportError).OfType<Action<Exception, string>>().ToArray();
+        }
+        foreach (var report in reporters) report(exception, name);
+    }
+
     internal SharedWorkerEntry? Connect(SharedWorkerKey key, SharedWorkerSettings settings,
         SharedWorkerClient client, int limit, out bool created, out bool quota)
     {
@@ -151,10 +162,12 @@ internal sealed class SharedWorkerEntry(SharedWorkerKey key, SharedWorkerSetting
 }
 
 /// <summary>Engine-free connection data. The error callback only posts to its owning document's queue.</summary>
-internal sealed class SharedWorkerClient(object owner, MessagePortEndpoint outer, MessagePortEndpoint inner, Action error)
+internal sealed class SharedWorkerClient(object owner, MessagePortEndpoint outer, MessagePortEndpoint inner, Action error,
+    Action<Exception, string>? reportError = null)
 {
     private Action? _error = error;
     internal object Owner { get; } = owner;
+    internal Action<Exception, string>? ReportError { get; } = reportError;
     internal MessagePortEndpoint Outer { get; } = outer;
     internal MessagePortEndpoint Inner { get; } = inner;
 
