@@ -505,6 +505,9 @@ internal sealed class PageLoop : IDisposable
             return;
         }
 
+        // Native mailbox reads also check engine constraints. Their entry budget starts here,
+        // rather than inheriting the deadline left armed by the previous script before an idle park.
+        _engine!.ResetConstraints();
         _turn = budget.BeginTurn();
         _inTurn = true;
     }

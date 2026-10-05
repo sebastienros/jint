@@ -10,6 +10,39 @@ public sealed class PageTaskBudgetTests
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task NativeMailboxReadsReceiveFreshEntryBudgetsAfterIdle(bool hardened)
+    {
+        var clock = new BudgetClock();
+        var options = new BrowserOptions().ConfigureEngine(o =>
+        {
+            o.Constraints.TimeProvider = clock;
+            o.LimitExecutionTime(TimeSpan.FromSeconds(1));
+        });
+        if (hardened) options.ForUntrustedContent();
+        await using var browser = new global::Jint.Browser.Browser(options);
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='ready'>done</p>");
+        await page.EvaluateAsync("1");
+
+        // Expire the previous engine entry without spending any of the next mailbox turn.
+        clock.Advance();
+        (await page.WaitForSelectorAsync("#ready", Bound)).Should().BeTrue();
+        clock.Advance();
+        (await page.WaitForTextAsync("done", Bound)).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+
+        // A native request must still fail if its own work spends that same entry allowance.
+        var failure = await Caught.ExceptionAsync(() => page.RunOnLoopAsync(engine =>
+        {
+            clock.Advance();
+            engine.Constraints.Check();
+            return true;
+        }));
+        failure.Should().BeOfType<TimeoutException>();
+    }
+
     [Test]
     public async Task SeparateQueuedTasksReceiveSeparateBudgets()
     {
