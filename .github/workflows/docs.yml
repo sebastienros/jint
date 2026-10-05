@@ -11,6 +11,8 @@ on:
       - 'Jint.Browser/README.md'
       - 'Jint.Browser.Tool/README.md'
       - 'Jint.Browser.Mcp/README.md'
+      - 'Jint.HtmlParser/*.md'
+      - '.claude/rules/html-parser.md'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main ]
@@ -21,6 +23,8 @@ on:
       - 'Jint.Browser/README.md'
       - 'Jint.Browser.Tool/README.md'
       - 'Jint.Browser.Mcp/README.md'
+      - 'Jint.HtmlParser/*.md'
+      - '.claude/rules/html-parser.md'
       - '.github/workflows/docs.yml'
 
 concurrency:

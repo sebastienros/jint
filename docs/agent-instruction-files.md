@@ -60,3 +60,12 @@ Only five of the fourteen ecosystems in the table above reach a co-located file 
 into a nested `AGENTS.md`, and Claude Code follows the one-line `CLAUDE.md` beside it — so every other one
 arrives only because the root index names it, and a relocated rule nothing points at is the same outcome as
 truncation.
+
+## Native parser routing and documentation
+
+The root index and `.claude/rules/html-parser.md` route parser changes to
+[Jint.HtmlParser/AGENTS.md](../Jint.HtmlParser/AGENTS.md), with the one-line `CLAUDE.md` beside it.
+Its [contributor guide](../Jint.HtmlParser/CONTRIBUTING.md) holds regeneration, corpus and package-check
+recipes outside the instruction budget. The [NuGet README](../Jint.HtmlParser/README.md) holds embedding
+usage, defaults, provisional API/version policy and supported threading. `AgentInstructionFileTests`
+discovers the new instruction file and checks its budget, routing, links and anchors automatically.

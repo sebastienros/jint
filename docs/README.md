@@ -60,3 +60,11 @@ and the Markdown references each region with stable markers:
 Run `npm run samples:sync` after changing a sample. Commit the resulting
 Markdown so GitHub, NuGet.org, and the documentation site all show the reviewed
 code. CI runs `npm run samples:check` and fails if a block is stale or missing.
+
+## Native parser documentation
+
+The [package README](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/README.md)
+covers standalone embedding. The [contributor guide](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/CONTRIBUTING.md)
+covers parser contracts, regeneration, corpora and package verification, and the
+[acceptance tracker](design/html-parser-completeness.md) records open gates. Markdown lint covers both
+package and contributor documents; the instruction guardian tests check parser routing and local anchors.
