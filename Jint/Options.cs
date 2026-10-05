@@ -551,6 +551,12 @@ public sealed partial class Options
         // native-code placeholder).
         "Host.FunctionToStringHandler",
 
+        // Host wiring that grants script nothing: it carries the host's own state from where a callback is
+        // registered to where it runs, and script can neither see nor call it. A second engine is a separate
+        // agent whose flows are its own host's to track, and an instance written for one engine's state
+        // would otherwise be entered from another engine's thread.
+        "Host.JobCallbacks",
+
         // Grant-shaped, and the pair travels or stays together. The loader is what a worker can import
         // through at all - the provider's to give, which is why CreateDefaultOptions leaves it fresh - and a
         // load policy is written against the ResolvedSpecifier shapes of the loader it accompanies, so
