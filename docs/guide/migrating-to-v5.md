@@ -5077,7 +5077,7 @@ is running in a browser. And the feature closure now brings `WebApiFeatures.Even
 `CustomEvent`, `EventTarget`, `AbortController` and `AbortSignal` as globals — a script that tested
 `typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing
 was dispatched at `performance` by the engine in those previews. Resource timing now supplies a buffer
-and its `resourcetimingbufferfull` event; see [§4.148](#4148-fetch-and-xhr-add-resource-timing-when-performance-is-enabled-4207).
+and its `resourcetimingbufferfull` event; see [§4.148](#4-148-fetch-and-xhr-add-resource-timing-when-performance-is-enabled-4207).
 
 ### 4.116 The File API brings the event interfaces with it ([#3660](https://github.com/sebastienros/jint/pull/3660))
 
