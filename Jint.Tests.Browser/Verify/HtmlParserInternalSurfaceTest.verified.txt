@@ -236,6 +236,8 @@ internal Jint.HtmlParser.Css.Values.CssValueWork
     Guard
     get_Token
 internal Jint.HtmlParser.Css.Values.Properties.CssDeclarationContext
+internal Jint.HtmlParser.Css.Values.Properties.CssLayoutValues
+    AcceptsText
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyCatalog
     get_Names
 internal Jint.HtmlParser.Css.Values.Properties.CssPropertyMetadata

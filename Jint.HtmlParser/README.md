@@ -285,7 +285,12 @@ style/media/supports/layer/import/font-face models remain. Every other at-rule i
 
 Declarations store property names, text and importance. A data-only catalog supplies known names,
 inheritance flags, a small initial-value table and the layout shorthands (overflow, flex, flex-flow,
-margin, padding, inset, gap, border-width/style). Whitespace splitting replaces typed grammars.
+margin, padding, inset, gap, border-width/style). A small token grammar gate discards invalid
+visibility/layout keywords, lengths, numeric ranges and shorthand arity before declarations replace
+earlier valid values. It covers display, visibility, position, float/clear, box sizing, direction/writing
+mode, whitespace, dimensions, physical insets, margins/padding, border widths/styles, font size/line
+height, flex, alignment, gaps, overflow and z-index. Keyword escapes and case are decoded. Other
+catalog properties remain text; this is not a full property grammar engine.
 Colors, lengths, fonts, transforms and functions are returned as declared, with only light CSSOM
 normalization. There is no math evaluation, color conversion, typed URL resolution, `all` reset,
 container query, keyframe model or `@property` registration.
@@ -301,7 +306,12 @@ broader selectors/media conditions, synthetic flex geometry, and small textual `
 for ordinary properties (depth 32, bounded expansion). Custom properties themselves remain
 declared text and inherit. Variables resolve at the consuming element, not in a typed declaration
 environment; there is no deferred shorthand or token-graph substitution engine.
-Text extraction interprets white-space keywords without reviving a typed typography engine.
+Literal invalid declarations are discarded before cascading ([CSS Cascade §4.1](https://drafts.csswg.org/css-cascade-5/#declared)).
+CSS-wide keywords remain accepted; a declaration containing `var()` defers validity until substitution.
+An invalid substituted visibility/layout value defaults to inheritance or the initial value instead of
+reviving an earlier declaration ([CSS Variables §3.1](https://drafts.csswg.org/css-variables-1/#invalid-variables)).
+Recognized math and sizing functions remain declared text; their arguments are not evaluated or fully
+grammar-checked. Text extraction interprets white-space keywords without a typed typography engine.
 
 Typed grammars are read only on demand. `Css/Values/CssTransformList` parses the `transform`
 property's `<transform-list>` for Geometry's `DOMMatrix` string initializer, normalizing absolute lengths to

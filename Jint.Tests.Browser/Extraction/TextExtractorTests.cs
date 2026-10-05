@@ -109,6 +109,14 @@ public sealed class TextExtractorTests
         TextExtractor.InnerText(ContentDom.ElementById(document, "t")!, useComputedStyle: false).Should().Be("ac\nd");
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void InvalidInlineKeywordsDoNotOverrideEarlierHiddenDeclarations(bool computed)
+    {
+        var document = PageFixture.Parse("<div id=t>a<span style='display:N\\4f NE!important;display:bogus!important'>b</span>c<span style='visibility:hidden;visibility:bogus'>d</span></div>");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!, useComputedStyle: computed).Should().Be("ac");
+    }
+
     [Test]
     public void ASpanTurnedIntoABlockByTheAuthorBreaksTheLine()
     {

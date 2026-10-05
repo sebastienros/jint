@@ -42,6 +42,70 @@ public sealed class ComputedStyleTests
         page.Errors.Should().BeEmpty();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task InvalidDeclarationsCannotRevealHiddenTextOrChangeSyntheticGeometry(bool inline)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        const string hidden = "display:none;display:bogus!important";
+        const string invisible = "visibility:hidden;visibility:bogus!important";
+        const string dimensions = "width:24px;width:bogus!important;height:12px;height:-1px;padding-left:3px;padding-left:auto;flex-shrink:0";
+        var sheet = inline ? "" : $"<style>#hidden{{{hidden}}}#invisible{{{invisible}}}#sized{{{dimensions}}}</style>";
+        await page.SetContentAsync(sheet +
+            $"<div id=hidden style='{(inline ? hidden : "")}'>hidden text</div>" +
+            $"<div id=invisible style='{(inline ? invisible : "")}'>invisible text</div>" +
+            $"<div style='display:flex'><div id=sized style='{(inline ? dimensions : "")}'>sized text</div></div>");
+        (await page.EvaluateAsync<string>("getComputedStyle(hidden).display")).Should().Be("none");
+        (await page.EvaluateAsync<string>("getComputedStyle(invisible).visibility")).Should().Be("hidden");
+        (await page.EvaluateAsync<int>("hidden.getClientRects().length + invisible.getClientRects().length")).Should().Be(0);
+        (await page.EvaluateAsync<string>("document.body.innerText")).Should().Be("sized text");
+        (await page.EvaluateAsync<string>("getComputedStyle(sized).width + '|' + getComputedStyle(sized).height + '|' + getComputedStyle(sized).paddingLeft"))
+            .Should().Be("24px|16px|3px");
+        (await page.EvaluateAsync<double>("sized.getBoundingClientRect().width")).Should().Be(24);
+        await page.EvaluateAsync("sized.style.setProperty('width', 'bogus', 'important'); sized.style.paddingLeft='auto'");
+        (await page.EvaluateAsync<double>("sized.getBoundingClientRect().width")).Should().Be(24);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task InvalidHighSpecificityRulesDoNotOverrideValidStyles()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>.hidden{display:none;visibility:hidden;width:24px} #t{display:bogus!important;visibility:bogus!important;width:bogus!important}</style><div id=t class=hidden>text</div>");
+        (await Read(page, "display")).Should().Be("none");
+        (await Read(page, "visibility")).Should().Be("hidden");
+        (await Read(page, "width")).Should().Be("24px");
+        (await page.EvaluateAsync<string>("document.body.innerText")).Should().BeEmpty();
+        (await page.EvaluateAsync<int>("t.getClientRects().length")).Should().Be(0);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task VariablesDeferValidityAndInvalidSubstitutionUsesDefaultingInsteadOfEarlierDeclarations()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div style='visibility:hidden'><div id=t style='--d:bogus;--v:bogus;display:none;display:var(--d);visibility:visible;visibility:var(--v);width:24px;width:var(--d);padding-left:3px;padding-left:var(--d)'>text</div></div>");
+        (await Read(page, "display")).Should().Be("inline");
+        (await Read(page, "visibility")).Should().Be("hidden");
+        (await Read(page, "width")).Should().Be("auto");
+        (await Read(page, "padding-left")).Should().Be("0px");
+        (await page.EvaluateAsync<string>("getComputedStyle(t).getPropertyValue('--d')")).Should().Be("bogus");
+        await page.EvaluateAsync("t.style.setProperty('--d', 'none'); t.style.setProperty('--v', 'visible')");
+        (await Read(page, "display")).Should().Be("none");
+        (await Read(page, "visibility")).Should().Be("visible");
+        await page.EvaluateAsync("t.style.display='var(--missing, none)'");
+        (await Read(page, "display")).Should().Be("none");
+        await page.EvaluateAsync("t.style.display='var(--missing, bogus)'");
+        (await Read(page, "display")).Should().Be("inline");
+        await page.EvaluateAsync("t.style.display='none'; t.style.display='INITIAL'; t.style.visibility='UNSET'");
+        (await Read(page, "display")).Should().Be("inline");
+        (await Read(page, "visibility")).Should().Be("hidden");
+        page.Errors.Should().BeEmpty();
+    }
+
     /// <summary>Initial values for the interaction properties.</summary>
     private static readonly (string Property, string Initial)[] _resolved =
     [
@@ -302,7 +366,7 @@ public sealed class ComputedStyleTests
         foreach (var (property, expected) in new[]
         {
             ("width", "1280px"), ("height", "16px"), ("margin-left", "auto"),
-            ("min-width", "auto"), ("padding-left", "auto"), ("font-size", "auto")
+            ("min-width", "auto"), ("padding-left", "0px"), ("font-size", "16px")
         })
         {
             await page.SetContentAsync($"<div id='t' style='{property}:auto'>g</div>");

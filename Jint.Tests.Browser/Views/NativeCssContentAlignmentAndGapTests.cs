@@ -10,7 +10,7 @@ public sealed class NativeCssContentAlignmentAndGapTests
     [TestCase("justifyContent", "justify-content", "space-around", "space-around", "space-around")]
     [TestCase("placeContent", "place-content", "last baseline start", "last baseline start", "last baseline start")]
     [TestCase("rowGap", "row-gap", "2em", "2em", "2em")]
-    [TestCase("columnGap", "column-gap", "thick", "thick", "thick")]
+    [TestCase("columnGap", "column-gap", "thick", "", "normal")]
     [TestCase("gap", "gap", "2em 3px", "2em 3px", "2em 3px")]
     [TestCase("gridGap", "grid-gap", "2em", "2em", "2em")]
     [TestCase("gridRowGap", "grid-row-gap", "2em", "2em", "2em")]
@@ -69,7 +69,8 @@ public sealed class NativeCssContentAlignmentAndGapTests
                         style[name] = 'normal';
                         style[name] = 'bogus';
                         style[name] = undefined;
-                        if (style[name] !== 'undefined' || Object.hasOwn(style, name)) return false;
+                        const expected = name === 'placeContent' ? 'undefined' : 'normal';
+                        if (style[name] !== expected || Object.hasOwn(style, name)) return false;
                         style[name] = null;
                         return style[name] === '';
                     });

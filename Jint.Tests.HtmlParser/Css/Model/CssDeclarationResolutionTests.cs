@@ -30,7 +30,7 @@ public sealed class CssDeclarationResolutionTests
     {
         var block = Syntax("display:block;display:invalid;opacity:.1 !important;opacity:.2;visibility:hidden;visibility:visible");
         var work = new CssValueWork(default);
-        block.ResolveProperty("display", work)!.Value.Should().Be("invalid");
+        block.ResolveProperty("display", work)!.Value.Should().Be("block");
         block.ResolveProperty("opacity", work)!.Value.Should().Be("0.1");
         block.ResolveProperty("visibility", work)!.Value.Should().Be("visible");
         var entries = block.ResolveAll(work);

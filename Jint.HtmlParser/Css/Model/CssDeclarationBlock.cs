@@ -53,6 +53,11 @@ internal sealed class CssDeclarationBlock
             var value = string.Concat(source.AsSpan(span.Start, span.Length), declaration.ValueTermination);
             if (value.Length == 0 && name.StartsWith("--", StringComparison.Ordinal)) value = " ";
             if (value.Length == 0) continue;
+            if (context == CssDeclarationContext.Style)
+            {
+                if (!CssLayoutValues.Accepts(name, declaration.Value, work)) continue;
+                value = CssLayoutValues.NormalizeKeywords(name, value, declaration.Value, work);
+            }
             if (context == CssDeclarationContext.FontFace || CssPropertyRegistry.Find(name) is not { Longhands.Count: > 0 })
             {
                 Add(Longhand(name, value, declaration.IsImportant, declaration.Span, context, work), work);
@@ -215,6 +220,11 @@ internal sealed class CssDeclarationBlock
             parser.ValueTermination(values, new CssSourceSpan(0, value.Length), work));
         if (text.Length == 0) text = name.StartsWith("--", StringComparison.Ordinal) ? " " : "";
         if (text.Length == 0) return;
+        if (_context == CssDeclarationContext.Style)
+        {
+            if (!CssLayoutValues.Accepts(name, values, work)) return;
+            text = CssLayoutValues.NormalizeKeywords(name, text, values, work);
+        }
         var replacement = Expand(name, text, !string.IsNullOrEmpty(priority), default, _context, work);
         var entries = new List<CssDeclaration>(_entries);
         foreach (var entry in replacement)

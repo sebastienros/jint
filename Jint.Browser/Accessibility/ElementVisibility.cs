@@ -1,4 +1,7 @@
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Properties;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Styling;
@@ -185,57 +188,18 @@ internal sealed class ElementVisibility
             return (null, null);
         }
 
-        string? display = null;
-        string? visibility = null;
-
-        var start = 0;
-        while (start < style.Length)
+        // Charge the captured input to the host read budget; native parsing also polls below.
+        if (_work is not null)
         {
-            _work?.Step();
-            var end = start;
-            var separator = -1;
-            for (; end < style.Length && style[end] != ';'; end++)
-            {
-                _work?.Step();
-                if (separator < 0 && style[end] == ':') separator = end;
-            }
-            if (end < style.Length) _work?.Step();
-            if (separator >= 0)
-            {
-                var name = Trim(style, start, separator);
-                var isDisplay = name.Equals("display", StringComparison.OrdinalIgnoreCase);
-                var isVisibility = name.Equals("visibility", StringComparison.OrdinalIgnoreCase);
-                if (isDisplay || isVisibility)
-                {
-                    var value = Trim(style, separator + 1, end);
-                    for (var i = 0; i < value.Length; i++) _work?.Step();
-                    _work?.Check();
-                    var text = value.ToString();
-                    _work?.Check();
-                    if (isDisplay) display = text;
-                    else visibility = text;
-                }
-            }
-            start = end + 1;
+            for (var i = 0; i < style.Length; i++) _work.Step();
         }
+        // Inline-only extraction uses the same declaration filtering/importance as the cascade.
+        var token = _work?.Token ?? default;
+        var work = new CssValueWork(token, () => _work?.Check());
+        var block = CssDeclarationBlock.Parse(style, CssDeclarationContext.Style, null, work, token);
+        var display = block.ResolveProperty("display", work)?.Value;
+        var visibility = block.ResolveProperty("visibility", work)?.Value;
         _work?.Check();
         return (display, visibility);
-    }
-
-    private ReadOnlySpan<char> Trim(string value, int start, int end)
-    {
-        while (start < end)
-        {
-            _work?.Step();
-            if (!char.IsWhiteSpace(value[start])) break;
-            start++;
-        }
-        while (end > start)
-        {
-            _work?.Step();
-            if (!char.IsWhiteSpace(value[end - 1])) break;
-            end--;
-        }
-        return value.AsSpan(start, end - start);
     }
 }

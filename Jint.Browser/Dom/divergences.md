@@ -136,8 +136,15 @@ Their complete text is retained and an optional native parse diagnostic records
 `css/unsupported-nested-at-rule`; their contents do not cascade. Supported declarations
 around them and other rules still apply, including during `getComputedStyle` and `innerText` reads.
 
-Alignment, gaps and all other catalog properties accept nonempty text rather than grammar-validated
-values. Only the small layout shorthand set expands. Named/generic CSSOM accessors still share one
+Visibility/layout declarations use a small token grammar gate before entering the cascade; invalid
+keywords, primitive lengths/numbers and shorthand arity cannot replace earlier valid declarations.
+CSS-wide keywords and custom text remain accepted. Ordinary var() values defer validity until
+substitution; invalid results use inheritance/initial defaulting, without falling back to an earlier
+winner. Inline-only extraction uses the same declaration filtering and importance.
+See [CSS Cascade §4.1](https://drafts.csswg.org/css-cascade-5/#declared) and
+[CSS Variables §3.1](https://drafts.csswg.org/css-variables-1/#invalid-variables).
+Recognized math/sizing functions retain text without full argument validation or evaluation; other
+catalog properties still accept nonempty text. Only the small layout shorthand set expands. Named/generic CSSOM accessors still share one
 store, receiver checks, null removal, readonly computed views and live invalidation.
 CSS.supports checks known/custom names and nonempty values; it is not proof of a value grammar.
 Custom properties inherit raw text; small bounded textual var() substitution supports ordinary values.
