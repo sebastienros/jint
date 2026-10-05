@@ -325,7 +325,11 @@ internal sealed class IndexData(string name, IndexedDbKeyPath keyPath, bool uniq
     internal IndexedDbKeyPath KeyPath { get; } = keyPath;
     internal bool Unique { get; } = unique;
     internal bool MultiEntry { get; } = multiEntry;
-    internal SortedSet<IndexEntry> Entries { get; } = new();
+    // Unique indexes have at most one primary key per index key, so their tree can
+    // locate that record by index key alone without a second lookup structure.
+    private static readonly IComparer<IndexEntry> UniqueComparer =
+        Comparer<IndexEntry>.Create(static (left, right) => left.Key.CompareTo(right.Key));
+    internal SortedSet<IndexEntry> Entries { get; } = new(unique ? UniqueComparer : Comparer<IndexEntry>.Default);
     internal long EntryBytes;
     internal long ByteSize => 96L + 2L * Name.Length + KeyPath.Paths.Sum(static p => 2L * p.Length) + EntryBytes;
 

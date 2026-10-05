@@ -136,13 +136,11 @@ internal sealed class JsIdbObjectStore : ObjectInstance
             {
                 foreach (var candidate in keys)
                 {
-                    foreach (var entry in index.Entries)
+                    _engine.Constraints.Check();
+                    if (index.Entries.TryGetValue(new IndexEntry(candidate, key), out var entry)
+                        && entry.PrimaryKey.CompareTo(key) != 0)
                     {
-                        _engine.Constraints.Check();
-                        if (entry.Key.CompareTo(candidate) == 0 && entry.PrimaryKey.CompareTo(key) != 0)
-                        {
-                            IndexedDbErrors.Throw(_realm, "ConstraintError", "The index requires unique keys.");
-                        }
+                        IndexedDbErrors.Throw(_realm, "ConstraintError", "The index requires unique keys.");
                     }
                 }
             }
@@ -157,6 +155,7 @@ internal sealed class JsIdbObjectStore : ObjectInstance
         {
             foreach (var indexKey in keys)
             {
+                _engine.Constraints.Check();
                 index.Entries.Add(new IndexEntry(indexKey, key));
                 index.EntryBytes = checked(index.EntryBytes + IndexedDbSize.Key(indexKey) + IndexedDbSize.Key(key) + 32);
             }
@@ -170,17 +169,18 @@ internal sealed class JsIdbObjectStore : ObjectInstance
         data.RecordBytes -= previous.Bytes;
         foreach (var index in indexes)
         {
-            var removed = new List<IndexEntry>();
-            var n = 0;
-            foreach (var entry in index.Entries)
+            _engine.Constraints.Check();
+            // https://w3c.github.io/IndexedDB/#object-store-deletion-operation:
+            // the previous value determines exactly which index records belong to this key.
+            foreach (var indexKey in index.KeyPath.IndexKeys(previous.Value.Root, index.MultiEntry, _engine.Constraints.Check))
             {
-                if ((++n & 255) == 0) _engine.Constraints.Check();
-                if (entry.PrimaryKey.CompareTo(key) == 0) removed.Add(entry);
-            }
-            foreach (var entry in removed)
-            {
-                index.Entries.Remove(entry);
-                index.EntryBytes -= IndexedDbSize.Key(entry.Key) + IndexedDbSize.Key(entry.PrimaryKey) + 32;
+                _engine.Constraints.Check();
+                var entry = new IndexEntry(indexKey, key);
+                if (index.Entries.TryGetValue(entry, out var existing)
+                    && existing.PrimaryKey.CompareTo(key) == 0 && index.Entries.Remove(entry))
+                {
+                    index.EntryBytes -= IndexedDbSize.Key(existing.Key) + IndexedDbSize.Key(existing.PrimaryKey) + 32;
+                }
             }
         }
     }
@@ -192,13 +192,25 @@ internal sealed class JsIdbObjectStore : ObjectInstance
         return Transaction.Queue(cursor is null ? this : cursor, () =>
         {
             var data = Data;
+            var currentIndexes = indexes ?? (IEnumerable<IndexData>) data.Indexes.Values;
+            _engine.Constraints.Check();
+            if (range is { Lower: { } lower, Upper: { } upper, LowerOpen: false, UpperOpen: false }
+                && lower.CompareTo(upper) == 0)
+            {
+                RemoveRecord(data, lower, currentIndexes);
+                return Undefined;
+            }
             var keys = new List<IndexedDbKey>();
             foreach (var key in data.Records.Keys)
             {
                 _engine.Constraints.Check();
                 if (range is null || range.Contains(key)) keys.Add(key);
             }
-            foreach (var key in keys) RemoveRecord(data, key, indexes ?? (IEnumerable<IndexData>) data.Indexes.Values);
+            foreach (var key in keys)
+            {
+                _engine.Constraints.Check();
+                RemoveRecord(data, key, currentIndexes);
+            }
             return Undefined;
         });
     }
@@ -251,7 +263,8 @@ internal sealed class JsIdbObjectStore : ObjectInstance
                 _engine.Constraints.Check();
                 foreach (var key in path.IndexKeys(record.Value.Value.Root, multiEntry, _engine.Constraints.Check))
                 {
-                    if (unique && index.Entries.Any(entry => entry.Key.CompareTo(key) == 0))
+                    _engine.Constraints.Check();
+                    if (unique && index.Entries.Contains(new IndexEntry(key, record.Key)))
                     {
                         IndexedDbErrors.Throw(_realm, "ConstraintError", "Existing records violate the unique index.");
                     }

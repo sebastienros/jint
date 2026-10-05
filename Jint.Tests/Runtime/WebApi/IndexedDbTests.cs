@@ -697,6 +697,189 @@ public sealed class IndexedDbTests
             """).Should().Be(1);
     }
 
+    [TestCase("s.put({x:20000,tags:[20000,200001]},20000)")]
+    [TestCase("s.put({x:500,tags:[500,200001]},500)")]
+    [TestCase("s.delete(500)")]
+    [TestCase("s.delete(IDBKeyRange.bound(500,500))")]
+    [TestCase("s.delete(20000)")]
+    public void SingleRecordWritesDoNotPollUnrelatedRecords(string operation)
+    {
+        int? smallerStoreChecks = null;
+        foreach (var recordCount in new[] { 1024, 4096 })
+        {
+            var counter = new RecordAccessConstraint();
+            using var engine = new Engine(o => o.UseWebApis(WebApiFeatures.IndexedDb).AddConstraint(counter));
+            engine.Execute(Helpers);
+            engine.SetValue("recordCount", recordCount);
+            engine.SetValue("beginMeasure", (Action) (() => { counter.Checks = 0; counter.Armed = true; }));
+            engine.SetValue("endMeasure", (Action) (() => counter.Armed = false));
+            Run(engine, """
+                const db=await open('db',1,db=>{
+                    const s=db.createObjectStore('s');
+                    s.createIndex('u','x',{unique:true});
+                    s.createIndex('tags','tags',{multiEntry:true});
+                });
+                const t=db.transaction('s','readwrite'),done=completed(t),s=t.objectStore('s');
+                for(let i=0;i<recordCount;i++)s.put({x:i,tags:[i,i+1]},i);
+                await request(s.get(0));
+                beginMeasure();
+                """ + "await request(" + operation + ");" + """
+                endMeasure();
+                await done;
+                return true;
+                """).Should().Be(true);
+            // Excludes copying and population, and catches even scans polling every 256 entries.
+            counter.Checks.Should().BeGreaterThan(0).And.BeLessThan(128);
+            if (smallerStoreChecks is { } expected) counter.Checks.Should().Be(expected);
+            smallerStoreChecks = counter.Checks;
+        }
+    }
+
+    [Test]
+    public void UniqueMultiEntryReplacementDeletionAndRollbackPreserveEntries()
+    {
+        using var engine = Create();
+        Run(engine, """
+            const db=await open('db',1,db=>{
+                const s=db.createObjectStore('s');
+                s.createIndex('u','tags',{unique:true,multiEntry:true});
+                s.createIndex('n','tags',{multiEntry:true});
+            });
+            let t=db.transaction('s','readwrite'),done=completed(t),s=t.objectStore('s');
+            await request(s.put({tags:['a','a','b']},1));
+            await request(s.put({tags:['c']},2));
+            await request(s.put({tags:['b','d','d']},1));
+            const failed=s.put({tags:['c','e']},1);
+            const failure=new Promise(resolve=>failed.onerror=e=>{e.preventDefault();resolve(failed.error.name);});
+            const error=await failure;
+            const before=await request(s.index('u').getAllKeys());
+            await request(s.delete(IDBKeyRange.only(1)));
+            const after=await request(s.index('u').getAllKeys());
+            await request(s.put({tags:['b','d']},3));
+            await done;
+            t=db.transaction('s','readwrite');s=t.objectStore('s');
+            const aborted=new Promise(resolve=>t.onabort=resolve);
+            await request(s.delete(2));await request(s.put({tags:['c']},4));t.abort();await aborted;
+            t=db.transaction('s','readwrite');done=completed(t);s=t.objectStore('s');
+            const rolledBack=await request(s.index('u').getAllKeys());
+            await request(s.clear());await request(s.put({tags:['c','c']},5));await done;
+            t=db.transaction('s');s=t.objectStore('s');
+            return error+'|'+before+'|'+after+'|'+rolledBack+'|'
+                +await request(s.index('u').getAllKeys())+'|'+await request(s.index('n').getAllKeys());
+            """).Should().Be("ConstraintError|1,2,1|2|3,2,3|5|5");
+    }
+
+    [Test]
+    public void QueuedReplacementAndDeleteUseTheCapturedIndexSchema()
+    {
+        using var engine = Create();
+        Run(engine, """
+            let keys;
+            const db=await open('db',1,(db,t)=>{
+                const s=db.createObjectStore('s');
+                s.createIndex('i','old',{unique:true});
+                s.put({old:'a',new:'z'},1);
+                s.put({old:'b',new:'y'},1);
+                s.delete(1);
+                s.put({old:'a',new:'x'},2);
+                s.deleteIndex('i');
+                const i=s.createIndex('i','new',{unique:true});
+                i.getAllKeys().onsuccess=e=>keys=e.target.result;
+            });
+            return keys+'|'+await request(db.transaction('s').objectStore('s').index('i').getKey('x'));
+            """).Should().Be("2|2");
+    }
+
+    [TestCase("s.delete(1)")]
+    [TestCase("s.put({tags:[999]},1)")]
+    public void RemovingManyMultiEntryKeysStillPropagatesConstraints(string operation)
+    {
+        var counter = new RecordAccessConstraint { Limit = 100 };
+        using var engine = new Engine(o => o.UseWebApis(WebApiFeatures.IndexedDb).AddConstraint(counter));
+        engine.Execute(Helpers);
+        engine.SetValue("arm", (Action) (() => counter.Armed = true));
+        Run(engine, """
+            globalThis.db=await open('db',1,db=>db.createObjectStore('s').createIndex('i','tags',{multiEntry:true}));
+            const t=db.transaction('s','readwrite'),done=completed(t);
+            t.objectStore('s').put({tags:Array.from({length:256},(_,i)=>i)},1);await done;
+            """);
+        using (engine.EventLoop.DeferTaskDrain())
+        {
+            engine.Execute("""
+                var t=db.transaction('s','readwrite'),s=t.objectStore('s');
+                s.get(1).onsuccess=()=>{
+                """ + operation + ";arm();};");
+        }
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().ThrowExactly<TimeoutException>();
+        counter.Checks.Should().Be(100);
+        counter.Armed = false;
+        Run(engine, """
+            const reopened=await open();
+            const s=reopened.transaction('s').objectStore('s');
+            return (await request(s.get(1))).tags.length+'|'+await request(s.index('i').count());
+            """).Should().Be("256|256");
+    }
+
+    [TestCase("-0", "0")]
+    [TestCase("new Date(0)", "new Date(0)")]
+    [TestCase("new Uint8Array([1,2])", "new Uint8Array([1,2]).buffer")]
+    [TestCase("[1,'x',[]]", "[1,'x',[]]")]
+    public void UniqueIndexLookupUsesIndexedDbKeyEquality(string first, string equivalent)
+    {
+        using var engine = Create();
+        Run(engine, """
+            const db=await open('db',1,db=>db.createObjectStore('s').createIndex('i','x',{unique:true}));
+            const t=db.transaction('s','readwrite'),done=completed(t),s=t.objectStore('s');
+            """ + "await request(s.put({x:" + first + "},1));await request(s.put({x:" + equivalent + "},1));"
+            + "const failed=s.put({x:" + equivalent + "},2);" + """
+            const error=await new Promise(resolve=>failed.onerror=e=>{e.preventDefault();resolve(failed.error.name);});
+            await request(s.delete(1));
+            """ + "await request(s.put({x:" + equivalent + "},2));" + """
+            await done;
+            const r=db.transaction('s').objectStore('s').index('i').openKeyCursor(null,'prev');
+            const key=await new Promise(resolve=>r.onsuccess=()=>resolve(r.result.primaryKey));
+            return error+'|'+key;
+            """).Should().Be("ConstraintError|2");
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void IndexCursorUpdateAndDeleteKeepTheRemainingOrder(bool unique)
+    {
+        using var engine = Create();
+        engine.SetValue("unique", unique);
+        Run(engine, """
+            const db=await open('db',1,db=>db.createObjectStore('s').createIndex('i','v',{unique}));
+            const t=db.transaction('s','readwrite'),done=completed(t),s=t.objectStore('s');
+            s.put({v:'a'},1);s.put({v:'b'},2);s.put({v:'c'},3);
+            const r=s.index('i').openCursor(),seen=[];
+            await new Promise((resolve,reject)=>{
+                r.onerror=()=>reject(r.error);
+                r.onsuccess=()=>{
+                    const c=r.result;if(!c){resolve();return;}
+                    seen.push(c.key+':'+c.primaryKey);
+                    if(c.key==='a')c.update({v:'d'});
+                    if(c.key==='b')c.delete();
+                    c.continue();
+                };
+            });await done;
+            const q=db.transaction('s').objectStore('s');
+            return seen.join()+'|'+await request(q.index('i').getAllKeys())+'|'+await request(q.getAllKeys());
+            """).Should().Be("a:1,b:2,c:3,d:1|3,1|1,3");
+    }
+
+    private sealed class RecordAccessConstraint : Constraint
+    {
+        internal bool Armed;
+        internal int Checks;
+        public override void Reset() { }
+        internal int Limit = int.MaxValue;
+        public override void Check()
+        {
+            if (Armed && ++Checks == Limit) throw new TimeoutException("IndexedDB record access budget");
+        }
+    }
+
     [Test]
     public void FirstDatabaseUseInsideAMicrotaskDrainsItsNewTaskLane()
     {
