@@ -201,7 +201,7 @@ public sealed class DomParserTests
         var page = await browser.NewPageAsync();
 
         // Both halves of parseFromString end "set document's content type to type", so the four XML types
-        // are four content types and not the one text/xml AngleSharp's XML parser gives every document it
+        // are four content types and not the one text/xml the former DOM integration's XML parser gives every document it
         // builds. And a document DOMParser produced is not showing anywhere, so its location is null.
         await page.SetContentAsync(
             """

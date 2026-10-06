@@ -21,17 +21,7 @@ namespace Jint.Browser.Dom;
 /// making it do so would put the value back where a selector can read it.
 /// </para>
 /// <para>
-/// <b>The attribute change steps are read from the attribute's value</b>, exactly as
-/// <see cref="AriaElementReferences"/> reads its own: HTML's steps set the slot to the content attribute's
-/// new value whenever anything writes it, and AngleSharp's <c>IAttributeObserver</c> reports neither a
-/// namespaced write nor an <c>Attr</c> node's value, and is registered by the page runtime rather than by the
-/// document. So the slot records the attribute it was last synchronised against, and a value that no longer
-/// matches means somebody else wrote the attribute and the slot follows it. The one case that reads
-/// differently from the standard is a page setting the content attribute back to the value it held at the
-/// moment of an IDL set, which is invisible to a comparison; <c>divergences.md</c> records it.
-/// </para>
-/// <para>
-/// <b>Keyed on the AngleSharp element</b>, because this assembly cannot add a field to one — the arrangement
+/// <b>Keyed on the native element</b>, because this assembly cannot add a field to one — the arrangement
 /// <see cref="AriaElementReferences"/> and <c>Collections/DomTokenListMembers</c> already use — and nothing is
 /// allocated for an element whose <c>nonce</c> nobody has touched.
 /// </para>

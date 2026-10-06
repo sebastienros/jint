@@ -184,7 +184,7 @@ public sealed class NodeIteratorTests
     }
 
     /// <summary>
-    /// A removal <i>between</i> traversals moves the reference the same way, which is the half AngleSharp
+    /// A removal <i>between</i> traversals moves the reference the same way, which is the half the former DOM integration
     /// already answered and which has to go on answering.
     /// </summary>
     [Test]

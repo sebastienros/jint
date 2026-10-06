@@ -182,7 +182,7 @@ public class ChildFrameTests
         await loopback.Page.NavigateAsync(loopback.Url("/"));
 
         // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose content
-        // type is an XML MIME type is parsed by the XML parser. Without AngleSharp.Xml's factory registered
+        // type is an XML MIME type is parsed by the XML parser. Without the former XML integration's factory registered
         // the response came back as an *HTML* document with the text inside an <html><body> skeleton, so the
         // root element was HTML and every XML rule a page then asked about was the wrong document's.
         (await loopback.Page.EvaluateAsync<string>(
@@ -457,7 +457,7 @@ public class ChildFrameTests
         loopback.Page.Errors.Should().ContainSingle(e => e.Message.Contains("/missing.html", StringComparison.Ordinal));
 
         // `ParserDriver.FailSubresource` dispatches `error` at the element as well, and nothing a page could
-        // have registered is there to hear it: a frame's fetch happens the moment AngleSharp applies `src`,
+        // have registered is there to hear it: a frame's fetch happens the moment the former DOM integration applies `src`,
         // which is before the element is in the document and before any script below it has run. That timing
         // is this browser's — a browser's frame load is asynchronous — and it is the same one an <img> that
         // fails already has, so what a page can act on is `Page.Errors`.

@@ -2,7 +2,7 @@ namespace Jint.Tests.Browser;
 
 /// <summary>
 /// The two nodes whose interface also supports indexed or named properties, and the union-typed operations
-/// AngleSharp spells as two overloads.
+/// The former DOM integration spells as two overloads.
 /// </summary>
 /// <remarks>
 /// A node's wrapper is what the engine's tree-dispatch lane keys on and the wrapper cache keeps exactly one
@@ -119,7 +119,7 @@ public sealed class DomIndexedNodeTests
         using var fixture = DomTestFixture.Create(Page);
 
         // https://html.spec.whatwg.org/multipage/form-elements.html#dom-select-add —
-        // `(HTMLOptionElement or HTMLOptGroupElement)`, which AngleSharp models as two overloads sharing one
+        // `(HTMLOptionElement or HTMLOptGroupElement)`, which the former DOM integration models as two overloads sharing one
         // [DomName]. The generator binds one member per name, so the optgroup arm used to be a TypeError.
         fixture.Execute("const g = document.createElement('optgroup'); g.label = 'G'; document.getElementById('s').add(g);");
         fixture.Text("document.getElementById('s').lastElementChild.tagName").Should().Be("OPTGROUP");
@@ -142,7 +142,7 @@ public sealed class DomIndexedNodeTests
         using var fixture = DomTestFixture.Create("<div id='a'></div><p id='b'>x</p>");
 
         // https://dom.spec.whatwg.org/#converting-nodes-into-a-node — `(Node or DOMString)...`, where the
-        // string half becomes a Text node in the receiver's node document. AngleSharp's signature is INode[],
+        // string half becomes a Text node in the receiver's node document. the former DOM integration's signature is INode[],
         // so a string argument used to be a TypeError where a browser inserts text.
         fixture.Execute("document.getElementById('a').append('one', document.createElement('span'), 2);");
         fixture.Text("document.getElementById('a').innerHTML").Should().Be("one<span></span>2");

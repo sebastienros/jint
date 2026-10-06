@@ -20,7 +20,7 @@ internal static class DomObsoleteMembers
 {
     /// <summary>
     /// One empty collection per document, because the IDL attribute is <c>[SameObject]</c>: two reads of
-    /// <c>document.applets</c> must be the same object, and the wrapper cache keys on the AngleSharp object,
+    /// <c>document.applets</c> must be the same object, and the wrapper cache keys on the native DOM object,
     /// so a fresh collection per read would be a fresh wrapper per read.
     /// </summary>
     private static readonly ConditionalWeakTable<Document, DomLiveHtmlCollection> _applets = new();

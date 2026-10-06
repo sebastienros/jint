@@ -3,7 +3,7 @@ namespace Jint.Tests.Browser.Dom;
 /// <summary>
 /// The three shapes <a href="https://html.spec.whatwg.org/multipage/obsolete.html">HTML §16</a> has, and
 /// which of them each of these members is: a name the standard removed, a member it keeps and defines to
-/// answer nothing, and an interface AngleSharp split that HTML never had.
+/// answer nothing, and an interface the former DOM integration split that HTML never had.
 /// </summary>
 /// <remarks>
 /// <c>html/dom/historical.html</c> is the corpus file that tells them apart, and telling them apart is the
@@ -22,7 +22,7 @@ public sealed class ObsoleteMemberTests
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/obsolete.html#htmlappletelement — HTML removed the interface,
     /// so the name is gone from the global and the element takes the interface every unlisted HTML name
-    /// takes. AngleSharp still builds an <c>HtmlAppletElement</c>, which is why the local name has to decide.
+    /// takes. the former DOM integration still builds an <c>HtmlAppletElement</c>, which is why the local name has to decide.
     /// </summary>
     [Test]
     public void AnAppletIsAnHtmlUnknownElement()
@@ -71,7 +71,7 @@ public sealed class ObsoleteMemberTests
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/tables.html#htmltablecellelement — HTML has one interface for
     /// both cells, and `html/dom/historical.html` asserts that the two names the DOM once had are gone.
-    /// AngleSharp declares both, which put two names on the global that no standard declares.
+    /// The former DOM integration declares both, which put two names on the global that no standard declares.
     /// </summary>
     [Test]
     public void BothCellsAreOneInterfaceAndTheTwoRemovedNamesAreGone()

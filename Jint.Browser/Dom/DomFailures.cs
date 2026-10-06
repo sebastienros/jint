@@ -8,35 +8,13 @@ using Jint.WebApi.DomException;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The one place a CLR exception from AngleSharp becomes the throw the standard prescribes: every generated
-/// member body is wrapped by <see cref="Guard"/>, so a DOM operation that refuses is a JavaScript
-/// <c>DOMException</c> with the right <c>name</c> and legacy <c>code</c>.
+/// Translates native DOM failures into script-visible DOMException or TypeError values.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why one wrapper rather than a <c>catch</c> per body.</b> A page's whole vocabulary for a refused DOM
-/// operation is <c>e.name</c> — <c>try { … } catch (e) { if (e.name === 'HierarchyRequestError') … }</c> —
-/// and AngleSharp raises an <c>AngleSharp.Dom.DomException</c>, which is a CLR exception: it walks straight
-/// through a script's <c>try</c>/<c>catch</c>, out of the page loop and into the host. The conversion is one
-/// function because the two thousand generated members must not each carry a copy of it, and because the
-/// mapping table is one table. <c>Dom/AGENTS.md</c> has the divergences it is written against.
-/// </para>
-/// <para>
-/// <b>What is translated, and what is deliberately left alone.</b> An <c>AngleSharp.Dom.DomException</c>
-/// becomes the <c>DOMException</c> its <c>DomError</c> names; an <see cref="ArgumentException"/> — a
-/// WebIDL conversion the CLR signature refused — becomes a <c>TypeError</c>; a
-/// <see cref="NotSupportedException"/> or <see cref="NotImplementedException"/> becomes
-/// <c>NotSupportedError</c>. <b>Everything else keeps the engine's own interop behaviour</b>, which is a
-/// frozen contract for embedders (<c>Jint/Runtime/Interop/AGENTS.md</c>): in particular a
-/// <see cref="JavaScriptException"/> the body raised itself, and every constraint and cancellation signal,
-/// are outside the filter and never touched.
-/// </para>
-/// <para>
-/// <b>The message after the colon is AngleSharp's sentence, not the standard's.</b> DOM specifies a name and
-/// nothing about wording, no page branches on the text, and AngleSharp's sentence at least says what went
-/// wrong; the <c>Failed to execute '&lt;interface&gt;.&lt;member&gt;': </c> prefix is the one
-/// <see cref="DomBindings"/> already puts in front of an illegal invocation and a bad argument.
-/// </para>
+/// Every generated member uses Guard so exception translation has one policy. Native DomException names
+/// and legacy codes are preserved. ArgumentException becomes TypeError; unsupported operations become
+/// NotSupportedError. JavaScript exceptions, constraints and cancellation keep the engine's interop behavior.
+/// DOM specifies error names and codes; diagnostic wording comes from the native exception.
 /// </remarks>
 internal static class DomFailures
 {
@@ -193,42 +171,19 @@ internal static class DomFailures
         };
     }
 
-    /// <summary>
-    /// The <a href="https://webidl.spec.whatwg.org/#idl-DOMException-error-names">error name</a> AngleSharp's
-    /// <c>DomError</c> stands for.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// AngleSharp's own <c>DomException.Name</c> is the <i>enum field name</i> —
-    /// <c>HierarchyRequest</c>, not <c>HierarchyRequestError</c> — so it cannot be handed to a page, and this
-    /// is the table that can. Its numeric values happen to be WebIDL's legacy codes, which is why the switch
-    /// reads as one; <see cref="DomExceptionNames.CodeFor"/> is still what computes the code, from the name.
-    /// </para>
-    /// <para>
-    /// <c>DomError.Validation</c> is absent because AngleSharp gives it 15, the value of
-    /// <c>DomError.InvalidAccess</c>, so the two are one case and no <c>ValidationError</c> can be
-    /// distinguished. It is recorded in <c>Dom/AGENTS.md</c>'s divergence table.
-    /// </para>
-    /// </remarks>
+    /// <summary>Returns the native exception's WebIDL error name.</summary>
     internal static string NameOf(DomException exception) => exception.Name;
 
     /// <summary>
     /// Whether an exception is one of the four this file converts, on a receiver there is an engine to build
     /// the error in.
     /// </summary>
-    /// <remarks>
-    /// A primitive receiver cannot be reached with any AngleSharp work already done — the body's brand check
-    /// refuses it first — so the receiver test is a guarantee that <see cref="Translate"/> has a realm, not a
-    /// case that happens.
-    /// </remarks>
     private static bool Translates(JsValue thisObject, Exception exception)
         => thisObject is ObjectInstance
            && exception is DomException or ArgumentException or NotSupportedException or NotImplementedException or TypeErrorException;
 
     /// <summary>
-    /// Raises the <c>DOMException</c> a member refuses with, in the message shape every refusal in this
-    /// binding wears. This is the door for a member whose refusal has to be written by hand, because the
-    /// standard names an error AngleSharp raises differently or not at all.
+    /// Raises a script-visible DOMException for a hand-written Browser refusal.
     /// </summary>
     /// <param name="engine">The engine the error is built in.</param>
     /// <param name="member">The qualified member name — <c>Element.insertAdjacentHTML</c>.</param>

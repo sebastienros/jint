@@ -69,7 +69,7 @@ public sealed class DomBindingsStalenessTests
     {
         // It used to report two, and both were the same thing: one WebIDL member spelled as two CLR overloads
         // sharing a [DomName] — HTML's `select.add((HTMLOptionElement or HTMLOptGroupElement) element, …)` is
-        // a union type and AngleSharp models it as two methods, so one half always lost and
+        // a union type and the former DOM integration models it as two methods, so one half always lost and
         // `select.add(optgroup)` was a TypeError where a browser accepts it. Both are `skip` + `additions`
         // entries over DomUnionMembers now, which is what turns the collision into a decision.
         //
@@ -83,7 +83,7 @@ public sealed class DomBindingsStalenessTests
     {
         var skipped = Generate().Skipped;
 
-        skipped.Should().NotBeEmpty("some AngleSharp members cannot cross the boundary, and the report is where they are named");
+        skipped.Should().NotBeEmpty("excluded native bindings are named in the contract report");
         skipped.Should().AllSatisfy(entry => entry.Should().Contain(" — ", "a skip without a reason is an omission nobody can review"));
     }
 

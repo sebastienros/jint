@@ -11,10 +11,7 @@ namespace Jint.Browser.Dom;
 internal static class DomManualShapes
 {
     /// <summary>
-    /// <c>HTMLCollection.prototype</c>. It is hand-written because AngleSharp's
-    /// <c>IHtmlCollection&lt;T&gt;</c> is generic and invariant, so a static member body cannot name the
-    /// receiver's element type; both members reach the wrapper's own two virtuals instead, which
-    /// <c>DomHtmlCollectionObject&lt;T&gt;</c> closes over the type it was created with.
+    /// The HTMLCollection prototype; its members call the collection wrapper's own virtuals.
     /// </summary>
     internal static JsObjectShape HtmlCollection()
         => new JsObjectShape.Builder()

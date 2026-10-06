@@ -31,11 +31,6 @@ internal static class DomBindings
     /// <a href="https://webidl.spec.whatwg.org/#es-interfaces">interface object</a>:
     /// <c>{ writable: true, enumerable: false, configurable: true }</c>.
     /// </para>
-    /// <para>
-    /// An interface AngleSharp marked <c>[DomNoInterfaceObject]</c> gets no global. Its prototype is still in
-    /// the chain and still carries its members; it simply cannot be named, which is what
-    /// <c>[LegacyNoInterfaceObject]</c> means.
-    /// </para>
     /// </remarks>
     internal static void Install(Engine engine)
     {
@@ -170,8 +165,7 @@ internal static class DomBindings
     }
 
     /// <summary>
-    /// Every interface that gets a global: the generated ones, and the ones this package declares itself
-    /// because AngleSharp has no <c>[DomName]</c> interface for them. See <see cref="DomManualInterfaces"/>.
+    /// The generated and Browser-owned interfaces that receive a global constructor property.
     /// </summary>
     private static IEnumerable<DomInterfaceDefinition> Interfaces()
     {
@@ -186,13 +180,11 @@ internal static class DomBindings
         }
     }
 
-    /// <summary>Projects an AngleSharp object into <paramref name="engine"/>.</summary>
+    /// <summary>Projects a native DOM object into <paramref name="engine"/>.</summary>
     internal static JsValue Wrap(Engine engine, object? value) => DomRealm.Of(engine).Wrap(value);
 
     /// <summary>
-    /// The brand check every generated member starts with: the receiver has to be a wrapper over an
-    /// AngleSharp object implementing <typeparamref name="T"/>, or the call is
-    /// <a href="https://webidl.spec.whatwg.org/#dfn-create-operation-function">not on this interface</a>.
+    /// Checks that the receiver wraps the native type declared by this WebIDL interface.
     /// </summary>
     /// <remarks>
     /// <para>

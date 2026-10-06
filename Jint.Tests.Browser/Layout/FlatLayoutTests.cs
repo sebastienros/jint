@@ -582,7 +582,7 @@ public class FlatLayoutTests
     /// <para>
     /// <b>The rendered set is read from the cascade, so every box query went through the cascade too.</b>
     /// <c>FlatLayout.IsRendered</c> asks <c>Accessibility/ElementVisibility</c> for
-    /// <c>display</c> and <c>visibility</c>, that asked AngleSharp.Css, and AngleSharp.Css raised
+    /// <c>display</c> and <c>visibility</c>, that asked the former CSS integration, and the former CSS integration raised
     /// <c>ArgumentException</c> for a percentage with no render device registered — so
     /// <c>getBoundingClientRect</c> on <i>any</i> element of a page with a single <c>width: 100%</c> rule
     /// was a CLR exception. Over the protocol that is a <c>-32000</c> rather than an

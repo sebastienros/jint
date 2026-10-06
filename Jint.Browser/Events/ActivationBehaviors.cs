@@ -7,27 +7,11 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.Events;
 
 /// <summary>
-/// HTML's activation behaviours, keyed by the element a click reached.
-/// <para>
-/// https://dom.spec.whatwg.org/#eventtarget-activation-behavior, and the per-element definitions in
-/// https://html.spec.whatwg.org/multipage/
-/// </para>
+/// Runs HTML activation behavior through the Browser dispatcher and native control state.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>What "activation" means with no layout.</b> Every one of these is reached the same way a browser reaches
-/// it — a <c>MouseEvent</c> named <c>click</c> is dispatched through the tree, the dispatcher picks the nearest
-/// ancestor with an activation behaviour as the activation target, and the behaviour runs after the listeners
-/// unless one of them canceled the event. Nothing here measures or paints; the behaviours that would need a
-/// rendering (a file picker, a colour picker, a date picker) become a host seam or a no-op, and the ones that
-/// are pure state (checkedness, <c>details.open</c>, selectedness) are exact.
-/// </para>
-/// <para>
-/// <b>None of it goes through AngleSharp's own <c>DoClick</c>.</b> That method dispatches on AngleSharp's event
-/// bus, which holds nothing a script registered, and it runs no activation behaviour whatsoever — a checkbox it
-/// clicks does not toggle, a <c>&lt;summary&gt;</c> it clicks does not open its <c>&lt;details&gt;</c>, and an
-/// <c>&lt;a href&gt;</c> it clicks does not navigate. Design doc §5 is the rule and this is where it bites.
-/// </para>
+/// Activation brackets dispatch with the standard's pre-activation, cancellation and default-action steps.
+/// All page listeners use the Browser event realm; native state changes remain on the page loop.
 /// </remarks>
 internal static class ActivationBehaviors
 {
@@ -486,12 +470,6 @@ internal static class ActivationBehaviors
     /// document, which is what "connected" means and what the checkbox and radio activation behaviours ask
     /// before they announce anything.
     /// </summary>
-    /// <remarks>
-    /// The walk crosses a shadow boundary through the root's host, so a control inside an open or closed
-    /// shadow tree of a connected host is connected — the eight shadow cases of
-    /// <c>Event-dispatch-detached-input-and-change.html</c> are what say so. AngleSharp has no member that
-    /// answers this: <c>Node.OwnerDocument</c> is the node document whether or not the node is in it.
-    /// </remarks>
     private static bool IsConnected(Node node)
     {
         var current = node;
@@ -515,9 +493,7 @@ internal static class ActivationBehaviors
     }
 
     /// <summary>
-    /// The input type comparison HTML asks for: the <c>type</c> content attribute's keyword, matched
-    /// ASCII-case-insensitively. AngleSharp's <c>Type</c> property already answers the lower-case keyword and
-    /// the missing-value default, so this is a plain ordinal compare on top of it.
+    /// Compares the native input type keyword, including its missing-value default, using ordinal comparison.
     /// </summary>
     internal static bool IsType(Element input, string type)
         => EventDom.IsHtml(input, "input") && string.Equals(EventDom.InputType(input), type, StringComparison.Ordinal);

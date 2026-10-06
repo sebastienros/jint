@@ -8,13 +8,6 @@ namespace Jint.Browser.Accessibility;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This table, and not the cascade, is what decides whether a box is block-level. AngleSharp.Css's default
-/// style sheet has no rules for the HTML5 flow and sectioning elements — <c>section</c>, <c>article</c>,
-/// <c>nav</c>, <c>aside</c>, <c>header</c>, <c>footer</c>, <c>main</c>, <c>figure</c>, <c>figcaption</c>,
-/// <c>details</c>, <c>summary</c>, <c>dialog</c>, <c>hgroup</c> — so asking it would call every one of them
-/// inline.
-/// </para>
-/// <para>
 /// The cascade still wins where it says something this table does not: <see cref="Resolve"/> prefers a
 /// declared value that differs from the default, which is what makes
 /// <c>&lt;span style="display:block"&gt;</c> a block and leaves <c>&lt;section&gt;</c> alone.
@@ -130,10 +123,6 @@ internal static class HtmlDisplay
     };
 
     /// <summary>Whether the element's content keeps its white space verbatim.</summary>
-    /// <remarks>
-    /// The element list is HTML's; AngleSharp.Css's default sheet carries <c>pre { white-space: pre }</c> but
-    /// not the <c>textarea</c> rule, so asking the cascade alone would collapse a text area's content.
-    /// </remarks>
     internal static bool PreservesWhitespace(Element element, string? declaredWhiteSpace)
     {
         if (!string.IsNullOrEmpty(declaredWhiteSpace))

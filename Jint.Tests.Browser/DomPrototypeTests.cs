@@ -75,7 +75,7 @@ public sealed class DomPrototypeTests
         fixture.Text("Object.prototype.toString.call(document)").Should().Be("[object HTMLDocument]");
         fixture.Text("Object.prototype.toString.call(document.querySelector('#a').childNodes)").Should().Be("[object NodeList]");
 
-        // AngleSharp types querySelectorAll as IHtmlCollection<IElement> where DOM §4.2.6 specifies a static
+        // The former DOM integration types querySelectorAll as IHtmlCollection<IElement> where DOM §4.2.6 specifies a static
         // NodeList. The binding contains that return-type divergence rather than exposing HTMLCollection's
         // prototype and named-property semantics.
         fixture.Text("Object.prototype.toString.call(document.querySelectorAll('div'))").Should().Be("[object NodeList]");
@@ -154,7 +154,7 @@ public sealed class DomPrototypeTests
             [d.writable, d.enumerable, d.configurable].join(',');
             """).Should().Be("true,false,true");
 
-        // An interface AngleSharp marked [DomNoInterfaceObject] gets a prototype but no global.
+        // An interface the former DOM integration marked [DomNoInterfaceObject] gets a prototype but no global.
         fixture.Bool("typeof ParentNode === 'undefined'").Should().BeTrue();
         fixture.Bool("typeof ChildNode === 'undefined'").Should().BeTrue();
     }

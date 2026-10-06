@@ -168,7 +168,7 @@ storage partition, its own thread, its own engine, its own realm.
 **A page that never yields hangs the lane, and nothing here can stop it.** The driver's deadline is a wait on
 another thread, so it ends a page that is *idle and not done* and not one whose engine is in a loop; with
 `MaxTaskDuration` infinite (below) there is no constraint armed either — and a walk that never re-enters the
-engine would not meet one even if it were armed. Four `dom/traversal/` documents found this: AngleSharp's
+engine would not meet one even if it were armed. Four `dom/traversal/` documents found this: the former DOM integration's
 `TreeWalker.ToPrevious` did not terminate, which is why DOM §6.1's seven traversals are `Jint.Browser`'s own
 ([`Jint.HtmlParser/Dom/LiveTraversal/DomTreeWalker.cs`](../../Jint.HtmlParser/Dom/LiveTraversal/DomTreeWalker.cs), and its file
 argues each loop's termination) and why all four are cases now. **A new suite that wedges the run rather than
@@ -182,7 +182,7 @@ never a document deleted, and never one left in to hang the lane.
   `timeout=long`, and no deadline under a debugger because a breakpoint is not a hang), and before that
   upstream's harness timeout, which is the one that usually fires first and is left exactly as upstream sets it.
 * **The lane pins its culture to the invariant one.** A page's document culture is the engine's
-  (`Options.Culture`) since the parse started handing it to AngleSharp's browsing context, and AngleSharp
+  (`Options.Culture`) since the parse started handing it to the former DOM integration's browsing context, and the former DOM integration
   resolves `:lang()` on an element with **no** inherited language from it — so without a pin four rows of
   `dom/nodes/ParentNode-querySelector-All.html` passed on the Linux leg, which runs with no culture, and
   failed on the Windows one, which has a real one. **A gate whose answer depends on the runner's locale is

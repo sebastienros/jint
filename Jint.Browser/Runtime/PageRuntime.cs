@@ -81,13 +81,6 @@ internal sealed class PageRuntime
     internal bool IsUnloading { get; set; }
 
     /// <summary>The managed identifier of the thread that owns this engine and its document.</summary>
-    /// <remarks>
-    /// It is this constructor's own thread, because a page's engine is built on its loop
-    /// (<c>PageLoop.ReplaceEngine</c>) and nothing else may build one. It exists so that a callback
-    /// AngleSharp makes <i>inline</i> — a mutation record, an attribute notification — can tell whether
-    /// it arrived on the loop or on the parser's thread, which is the difference between running a
-    /// page's script now and having to queue it.
-    /// </remarks>
     internal int LoopThreadId { get; } = Environment.CurrentManagedThreadId;
 
     /// <summary>The page, for the seams that have to reach the host — dialogs and navigation.</summary>
@@ -120,12 +113,6 @@ internal sealed class PageRuntime
     /// <summary>
     /// What <c>document.readyState</c> answers: <c>loading</c>, <c>interactive</c> or <c>complete</c>.
     /// </summary>
-    /// <remarks>
-    /// It is the page's rather than AngleSharp's because <c>Document.ReadyState</c>'s setter is protected and
-    /// unreachable from outside its assembly, so the three transitions and the <c>readystatechange</c> events
-    /// that go with them are the parser driver's to make. AngleSharp's own value advances on its own schedule
-    /// and is read at exactly one point — the moment it starts the deferred queue.
-    /// </remarks>
     internal string ReadyState { get; set; } = "loading";
 
     /// <summary>What a client asked this page to pretend it is, which outlives this document.</summary>
@@ -268,10 +255,6 @@ internal sealed class PageRuntime
     internal string? DocumentCreationBaseUrl { get; set; }
 
     /// <summary>The document this engine is showing, or <see langword="null"/> before the first parse.</summary>
-    /// <remarks>
-    /// It is published by the parse driver as soon as AngleSharp has created the document, which is
-    /// <em>before</em> the parse finishes — an inline script runs during the parse and has to see it.
-    /// </remarks>
     internal Document? Document
     {
         get => _document;
@@ -345,13 +328,6 @@ internal sealed class PageRuntime
     /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c>,
     /// relative resolution and HTML §4.10.18.6's empty-<c>action</c> default read.
     /// </summary>
-    /// <remarks>
-    /// It is the runtime's rather than AngleSharp's because <c>pushState</c> and a fragment navigation move
-    /// it without reloading, and writing AngleSharp's location instead would raise its own
-    /// <c>Location.Changed</c> — a fire-and-forget <c>IBrowsingContext.OpenAsync</c> on this very thread.
-    /// AngleSharp's document address stays at whatever the parse was given, which is what the parse resolved
-    /// against and is right for that.
-    /// </remarks>
     private string _documentUrl = "about:blank";
     internal string DocumentUrl
     {
@@ -379,11 +355,6 @@ internal sealed class PageRuntime
     /// https://dom.spec.whatwg.org/#concept-document-base-url — the document's base URL, which
     /// <c>&lt;base href&gt;</c> moves.
     /// </summary>
-    /// <remarks>
-    /// The first <c>&lt;base&gt;</c> with an <c>href</c> wins, resolved against the document's own URL, and
-    /// one that does not parse is ignored. AngleSharp computes the same thing from the same element; it is
-    /// recomputed here because the URL it resolves against has to be the page's.
-    /// </remarks>
     internal string BaseUri => Document is { } document ? DomDocumentState.BaseUri(document) : DocumentUrl;
 
     /// <summary><c>history.scrollRestoration</c>, which nothing scrolls and nothing restores.</summary>

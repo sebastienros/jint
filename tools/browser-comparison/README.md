@@ -3,7 +3,7 @@
 This tool follows [#3575 X4](https://github.com/sebastienros/jint/issues/3575). The original
 [#3907](https://github.com/sebastienros/jint/pull/3907) smoke/raw-diagnostic harness is extended under
 [#3930](https://github.com/sebastienros/jint/issues/3930). One PuppeteerSharp client applies identical offline
-workloads and independently expected checksums to **AngleSharp + Jint**, Chromium, and Lightpanda.
+workloads and independently expected checksums to **Jint.Browser**, Chromium, and Lightpanda.
 No Lightpanda source is read or copied.
 
 A working harness is not a completed benchmark campaign. X4 remains open until the complete idle-accepted

@@ -93,14 +93,6 @@ internal enum ReflectedKind
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The content attribute is the only storage.</b> A getter is <c>getAttribute</c> plus one parse; a setter
-/// is <c>setAttribute</c> plus one serialization. Nothing here holds state, which is what makes the two
-/// directions agree by construction — <c>el.setAttribute('dir', 'RTL')</c> and <c>el.dir = 'RTL'</c> are the
-/// same write, an attribute the parser produced is visible through the IDL attribute with nothing having to
-/// synchronise, and <c>[CEReactions]</c> comes free because the write goes through AngleSharp's attribute
-/// observer, which is where a custom element's <c>attributeChangedCallback</c> already arrives.
-/// </para>
-/// <para>
 /// <b>Every instance is process-shared and immutable</b>, because the generated shape member that names one
 /// is instantiated once per engine: the descriptors live in <c>Generated/DomReflected.g.cs</c> as static
 /// readonly fields, and the whole of an instance's state is the two names and the parameters of its type.
@@ -194,7 +186,7 @@ internal sealed class ReflectedAttribute
     /// with: "on getting, when the content attribute is missing or its value is the empty string, the
     /// element's node document's URL must be returned instead". It is the document's URL and not the base
     /// URL, so a <c>&lt;base href&gt;</c> does not move it — and for a document with a browsing context it
-    /// is the URL <em>the page</em> holds, which a same-document navigation moves and AngleSharp's document
+    /// is the URL <em>the page</em> holds, which a same-document navigation moves and the native DOM's document
     /// address does not; <see cref="Get(DomRealm, Element)"/> is where the two are told apart.
     /// </param>
     internal static ReflectedAttribute Url(string member, string attribute, bool documentUrlWhenEmpty = false)
@@ -247,15 +239,6 @@ internal sealed class ReflectedAttribute
     }
 
     /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
-    /// <remarks>
-    /// Two values come from the runtime and they are different values. The base URL is what a relative
-    /// content attribute resolves against; the document's URL is what <see cref="_documentUrlWhenEmpty"/>
-    /// answers instead of resolving anything, and a <c>&lt;base href&gt;</c> does not move it. Both are the
-    /// runtime's rather than AngleSharp's because a same-document navigation moves
-    /// <see cref="PageRuntime.DocumentUrl"/> and leaves AngleSharp's document address at whatever the parse
-    /// was given — so after <c>history.pushState</c> the AngleSharp answer is the address the page was
-    /// loaded at, which for <c>formAction</c> is the one URL a form posting to itself must not read.
-    /// </remarks>
     internal JsValue Get(DomRealm realm, Element element)
     {
         if (_kind != ReflectedKind.Url) return Get(element, null, null, realm);
@@ -298,14 +281,6 @@ internal sealed class ReflectedAttribute
     }
 
     /// <summary>The element a <see cref="ReflectedTarget"/> names in <paramref name="document"/>.</summary>
-    /// <remarks>
-    /// Both are <see cref="DomDocumentElements"/>' and neither is AngleSharp's, because both members name one
-    /// of HTML's two <em>defined</em> elements rather than the tree position it usually occupies: <c>dir</c>
-    /// reflects "the html element", which is the document element only while that element is an <c>html</c>
-    /// one in the HTML namespace, and the colours reflect "the body element", which is a child of that.
-    /// AngleSharp's <c>Body</c> asks neither question, so <c>document.bgColor</c> on a document rooted at an
-    /// XHTML <c>div</c> read the nested <c>body</c>'s attribute where the standard has no target at all.
-    /// </remarks>
     private Element? ElementIn(Document document, DomReadWork? work = null) => _target switch
     {
         ReflectedTarget.DocumentElement => work is null ? DomDocumentElements.Html(document) : DomDocumentElements.Html(document, work),
@@ -314,7 +289,7 @@ internal sealed class ReflectedAttribute
     };
 
     /// <summary>
-    /// The node document's current base URL, derived without AngleSharp's cached <c>Node.BaseUri</c>.
+    /// Resolves the node document's current base URL.
     /// </summary>
 
     private static string? CurrentBaseUri(Document? document)
@@ -342,8 +317,6 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element, value));
 
             case ReflectedKind.Url when _documentUrlWhenEmpty && string.IsNullOrEmpty(value):
-                // "...the element's node document's URL must be returned instead." The caller resolved which
-                // URL that is, because for the page's own document it is the runtime's and not AngleSharp's.
                 return DomConvert.Text(documentUrl ?? "");
 
             case ReflectedKind.Url:
@@ -623,11 +596,6 @@ internal sealed class ReflectedAttribute
     /// A URL attribute's getter: parse the content attribute against the element's node document, and answer
     /// the resulting URL string — or, when parsing fails, the content attribute as it stands.
     /// </summary>
-    /// <remarks>
-    /// The parser is the same WHATWG parser the page runtime uses for its document and base URLs. The
-    /// descriptor deliberately bypasses AngleSharp's convenience URL properties because their cached base
-    /// can survive removal of the document's first <c>base[href]</c>.
-    /// </remarks>
     private static string ResolveUrl(string? value, string? baseUri)
     {
         if (value is null)

@@ -351,7 +351,7 @@ public sealed class FocusTests
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-document-activeelement — the body when
-    /// nothing is focused, which AngleSharp's own <c>ActiveElement</c> never answers because it never assigns
+    /// nothing is focused, which the former DOM integration's own <c>ActiveElement</c> never answers because it never assigns
     /// one.
     /// </summary>
     [Test]
@@ -427,7 +427,7 @@ public sealed class FocusTests
 
     /// <summary>
     /// Focusability without a rendering: the element's own kind, or a <c>tabindex</c> content attribute.
-    /// AngleSharp's <c>TabIndex</c> cannot decide it — it answers 0 for every element, including a bare
+    /// The former DOM integration's <c>TabIndex</c> cannot decide it — it answers 0 for every element, including a bare
     /// <c>&lt;div&gt;</c>, where HTML says −1.
     /// </summary>
     [Test]

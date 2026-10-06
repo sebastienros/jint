@@ -375,8 +375,7 @@ internal static class TextEditing
     }
 
     /// <summary>
-    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#attr-fe-maxlength, read off the
-    /// content attribute rather than through AngleSharp, which answers for an absent one.
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#attr-fe-maxlength — reads maxlength from the content attribute.
     /// </summary>
     private static long? MaxLengthOf(DomRealm dom, Element element)
         => HtmlTextControlAttributes.GetMaximumAllowedLength(element, dom.NativeReadCheckpoint, dom.CancellationToken);

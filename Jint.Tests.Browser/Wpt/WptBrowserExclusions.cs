@@ -79,8 +79,8 @@ internal static class WptBrowserExclusions
         // for it before a test could report. It exists now, so the reason these are not vendored is spent and
         // vendoring them is a change of its own: it moves the census's Documents and Tests columns, which the
         // change that fixes an engine deliberately does not. `keypress-dispatch-crash.html` needed one more
-        // thing — `document.implementation.createDocument`, which AngleSharp's IImplementation does not have
-        // at all — and that is answered too now, from `additions` rather than from AngleSharp.
+        // thing — `document.implementation.createDocument`, which the former DOM integration's IImplementation does not have
+        // at all — and that is answered too now, from `additions` rather than from the former DOM integration.
         ("dom/events/Event-constants.html", "not vendored: it called document.createEvent at file scope, which now exists"),
         ("dom/events/Event-propagation.html", "not vendored: it called document.createEvent at file scope, which now exists"),
         ("dom/events/Event-dispatch-detached-click.html", "not vendored: it called document.createEvent inside its one test, which now exists"),
@@ -275,7 +275,7 @@ internal static class WptBrowserExclusions
 
         // ------------------------------------------------------------ an XML document
         // The server answers `.xhtml` with application/xhtml+xml and `.svg` with image/svg+xml, and a page
-        // here reads both with the XML parser now. What has not moved is the other half: AngleSharp's XML
+        // here reads both with the XML parser now. What has not moved is the other half: the former DOM integration's XML
         // parser prepares no script element, so a document that loads `testharness.js` through a
         // <script src> registers nothing and reports nothing — which is a not-vendored reason and never an
         // exclusion. WptDivergence.NeedsXmlDocuments has no rows left; README.md says what its rows became.
@@ -295,7 +295,7 @@ internal static class WptBrowserExclusions
         // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and 191 `reflected` rows in
         // overrides.json state, per member, which of them it takes. Nine of the ten pass whole; the 16 rows
         // the tenth still needs are not reflection at all but the dependency — <style>'s `media`, which
-        // AngleSharp.Css refuses from inside setAttribute.
+        // The former CSS integration refuses from inside setAttribute.
         //
         // The issue that vendored them is #3770, and what kept them out was never that they are slow: the
         // whole set runs in about 22 s, the largest (reflection-embedded.html, 8,922 tests) in 7.3 s, well
@@ -388,7 +388,7 @@ internal static class WptBrowserExclusions
         ("html/dom/aria-element-reflection-labelledby.html", "reads firstElementChild off a null shadow root in a promise, which testharness makes a file-wide error"),
 
         // ------------------------------------------------------------ one file each
-        ("dom/collections/domstringmap-supported-property-names.html", "an AngleSharp SyntaxError escapes its third test at file scope and no `error` event carries it to the harness, so the file reports three of its five and then times out"),
+        ("dom/collections/domstringmap-supported-property-names.html", "a SyntaxError escapes its third test at file scope and no `error` event carries it to the harness, so the file reports three of its five and then times out"),
         ("dom/nodes/MutationObserver-attributes.html", "thirty-four of its tests report and one waits forever for a record the observer never delivers"),
         ("dom/nodes/MutationObserver-childList.html", "the same, after thirty-eight"),
 
@@ -932,10 +932,10 @@ internal static class WptBrowserExclusions
         // The five `window-onerror-with-cross-frame-event-listeners-*` files meet something before the realm,
         // and the run says so: `new frames[0].Function(...)` reads a member of `undefined`, because their
         // frames are `<iframe>` with no `src`. A frame with no source is never asked for here — the resource
-        // loader answers a request AngleSharp makes, and it makes none — so it has no document and therefore
+        // loader answers a request the former DOM integration makes, and it makes none — so it has no document and therefore
         // no window, where HTML gives every nested browsing context an initial `about:blank` document. That is
         // a gap of its own and not this category; opening a document into a context nobody navigated is not
-        // something AngleSharp's public surface does.
+        // something the former DOM integration's public surface does.
         new("dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html", "*", WptDivergence.NeedsIframeScripting),
     ];
 
@@ -962,7 +962,7 @@ internal static class WptBrowserExclusions
     private static readonly WptExclusion[] _theRegistryTheConstructorAndTheTwoCreationMembers =
     [
         // DOM's create-an-element sets the namespace prefix on the element the constructor produced, after
-        // it returns; AngleSharp's `Prefix` has no setter, so the element is created carrying it instead and
+        // it returns; the former DOM integration's `Prefix` has no setter, so the element is created carrying it instead and
         // a constructor reading `this.prefix` sees it one step early. That is the whole of what is left of
         // this document — its third test, which is about the prefix not leaking between two constructions,
         // passes. `Dom/divergences.md` records the trade, and the alternative was an element that lost its
@@ -1036,7 +1036,7 @@ internal static class WptBrowserExclusions
     [
         // The SVG half of this pair is gone: SVG 2 16.2 gives SVGAElement a rel/relList pair
         // (https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement) and DomManualInterfaces declares
-        // the interface by local name over AngleSharp's bare SvgElement, so
+        // the interface by local name over the former DOM integration's bare SvgElement, so
         // "a.relList in http://www.w3.org/2000/svg namespace should be DOMTokenList." passes.
         //
         // The MathML half is the test's own divergence, which is why it is AssertsWhatNothingRequires and
@@ -1108,7 +1108,7 @@ internal static class WptBrowserExclusions
         // constraint validation and answers a fieldset from its descendants. This row is neither: the file
         // types into a control and sets maxLength to 0, and HTML §4.10.5.5's "suffering from being too long"
         // is conditional on the element's *dirty value flag*, which cloneNode has to copy along with the
-        // value. AngleSharp's HtmlTextFormControlElement clones the custom validity error and not that flag,
+        // value. the former DOM integration's HtmlTextFormControlElement clones the custom validity error and not that flag,
         // so the clone reports valid where the original does not. element.validity says the same, so it is a
         // constraint-validation state rather than anything a selector can decide.
         new("html/semantics/selectors/pseudo-classes/invalid-after-clone.html", "Cloned invalid inputs / textareas with interactive changes get their validity state copied correctly", WptDivergence.NeedsTriage),
@@ -1152,7 +1152,7 @@ internal static class WptBrowserExclusions
     /// <b><see cref="WptDivergence.NeedsTriage"/> records bounded causes, not a count of exclusion rows.</b> The eleven
     /// defects this lane first recorded were filed as
     /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
-    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a member AngleSharp
+    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a member the former DOM integration
     /// reflects wrong, an <c>@@unscopables</c> object the binding does not emit, and a form-associated custom
     /// element.
     /// </para>

@@ -35,12 +35,6 @@ internal readonly record struct SelectedFile(
 /// <c>SetInputFilesAsync</c> — comes through here, so one selection algorithm serves all three rather than
 /// three that drift.
 /// </para>
-/// <para>
-/// <b>The selection is the same state a script sets through <c>input.files</c>.</b>
-/// <see cref="FileTransferRealm"/> owns it, mirrors it into AngleSharp's own input model so
-/// <c>input.value</c> and constraint validation agree with the <c>FileList</c>, and
-/// <c>Runtime/FormSubmitter</c> reads it when it builds an entry list. Nothing here keeps a second copy.
-/// </para>
 /// </remarks>
 internal static class FileSelection
 {
@@ -148,16 +142,6 @@ internal static class FileSelection
         => utc <= DateTime.UnixEpoch ? 0 : (long) (utc - DateTime.UnixEpoch).TotalMilliseconds;
 
     /// <summary>The MIME type an extension names, or <see cref="DefaultType"/> when it names none.</summary>
-    /// <remarks>
-    /// <b>AngleSharp's table, plus three registrations it predates.</b> There is no standard mapping from an
-    /// extension to a type — a browser asks the platform, which answers differently on each of them — so a
-    /// fixed table is what makes this answer the same everywhere, and <c>FileMimeTypes</c> is
-    /// the one already in the dependency set. It answers <see cref="DefaultType"/> for
-    /// <c>.json</c>, <c>.csv</c> and <c>.md</c>, which are three of the commonest things a form uploads, so
-    /// their IANA registrations are supplied here: RFC 8259, RFC 4180 and RFC 7763. This is a gap in a
-    /// convenience table rather than a divergence from a specification, which is why it is filled here
-    /// instead of being recorded in <c>Dom/divergences.md</c>.
-    /// </remarks>
     internal static string TypeOf(string name)
     {
         var extension = Path.GetExtension(name);

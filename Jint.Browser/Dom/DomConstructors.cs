@@ -6,43 +6,11 @@ using Jint.Native.Object;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The generated interfaces and legacy factory functions a script may really call <c>new</c> on.
+/// Installs the constructible DOM interfaces and validates their WebIDL constructor arguments.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>The shortness of this table is the point.</b> AngleSharp puts
-/// <c>[DomConstructor]</c> on concrete classes and on no <c>[DomName]</c> interface, so the generator can
-/// never learn that an interface is constructible; <see cref="DomInterfaceObject"/> therefore refuses every
-/// <c>new</c>, which is also what a browser answers for <c>new HTMLDivElement()</c> and for all but a handful
-/// of DOM's interfaces. Each row here is a decision rather than a projection:
-/// <c>Document</c> (https://dom.spec.whatwg.org/#dom-document-document);
-/// <c>DocumentFragment</c> (https://dom.spec.whatwg.org/#dom-documentfragment-documentfragment), which htmx 2
-/// builds for every swap whose response starts with <c>&lt;html&gt;</c> or <c>&lt;body&gt;</c>;
-/// and the three DOM has given a constructor since 2014 —
-/// <c>Comment</c> (https://dom.spec.whatwg.org/#dom-comment-comment),
-/// <c>Text</c> (https://dom.spec.whatwg.org/#dom-text-text) and
-/// <c>Range</c> (https://dom.spec.whatwg.org/#dom-range-range); plus
-/// <c>StaticRange</c> (https://dom.spec.whatwg.org/#dom-staticrange-staticrange), which is not a generated
-/// interface at all — see <see cref="DomStaticRange"/>.
-/// </para>
-/// <para>
-/// HTML's <c>Image</c> is the other shape represented here: a
-/// <c>[LegacyFactoryFunction]</c> for the generated <c>HTMLImageElement</c> interface, rather than that
-/// interface's own constructor. It therefore gets its own global function while sharing the generated
-/// prototype and wrapper.
-/// </para>
-/// <para>
-/// <b>Every one of them says "the current global object's associated <c>Document</c>".</b> That is the page's
-/// when there is a page runtime behind the binding, and an empty XML document of this call's own when there
-/// is not — the same answer <c>DocumentFragment</c> already gave, for the same reason: a node nothing else
-/// can reach still needs an owner.
-/// </para>
-/// <para>
-/// The document it makes is DOM's: an <b>XML</b> document with no doctype, no document element and no
-/// browsing context. Its parser gets the same configuration a <c>DOMParser</c> document gets — the CSS
-/// services and nothing else — so it reaches no network and runs no script, which is the whole of what "no
-/// browsing context" costs a page that then builds a tree in it.
-/// </para>
+/// Most DOM interfaces are not constructible. The small constructor table supplies the explicit exceptions
+/// and creates native objects belonging to the current realm's document.
 /// </remarks>
 internal static class DomConstructors
 {
@@ -56,7 +24,9 @@ internal static class DomConstructors
             return self.Realm.WrapNode(self.Target.CreateProcessingInstruction(target, data));
         });
 
-    /// <summary>Required constructor arguments absent from AngleSharp's interface metadata.</summary>
+    /// <summary>
+    /// Validates required WebIDL constructor arguments.
+    /// </summary>
     internal static int LengthOf(DomInterfaceDefinition definition)
         => ReferenceEquals(definition, DomInterfaces.ProcessingInstruction) ? 1 : definition.ConstructorLength;
 
@@ -110,14 +80,11 @@ internal static class DomConstructors
 
         if (ReferenceEquals(definition, DomInterfaces.Range))
         {
-            // The new range's start and end are (that document, 0), which is what AngleSharp's own
-            // CreateRange answers.
             instance = (ObjectInstance) realm.Wrap(new DomRange(NodeDocument(realm)));
             return true;
         }
 
         // https://dom.spec.whatwg.org/#dom-staticrange-staticrange, and the one row here that is not a
-        // generated interface: AngleSharp models no StaticRange, so this constructs the binding's own.
         if (ReferenceEquals(definition, DomManualInterfaces.StaticRange))
         {
             instance = DomStaticRange.Construct(realm, arguments);
@@ -163,10 +130,7 @@ internal static class DomConstructors
         => DomConvert.OptionalText(arguments, 0, string.Empty)!;
 
     /// <summary>
-    /// An empty XML document, and what <c>DOMImplementation.createDocument</c> starts from too. AngleSharp's
-    /// <c>IImplementation</c> has no <c>createDocument</c> at all and its <c>CreateHtmlDocument</c> answers an
-    /// HTML one, so the empty parse is what is left — and it is exact, because an XML document with no content
-    /// has no document element, which is what the constructor promises.
+    /// Creates an empty native XML document for Document construction and DOMImplementation.createDocument.
     /// </summary>
     /// <param name="contentType">
     /// The content type DOM gives the document. <c>new Document()</c> takes the default, which is DOM §4.5's

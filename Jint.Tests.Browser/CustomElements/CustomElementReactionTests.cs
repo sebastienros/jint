@@ -258,7 +258,7 @@ public sealed class CustomElementReactionTests
     /// A <c>classList</c> write is an ordinary attribute change, and reaches the reaction like one.
     /// </summary>
     /// <remarks>
-    /// It did not use to. AngleSharp's <c>TokenList</c> writes the content attribute through its own
+    /// It did not use to. the former DOM integration's <c>TokenList</c> writes the content attribute through its own
     /// <c>Changed</c> event, which notifies no <c>IAttributeObserver</c> and queues no mutation record, so
     /// nothing arrived at all — not then and not at the checkpoint. DOM §7.1's <i>update steps</i> are
     /// <c>Dom/Collections/DomTokenListMembers</c>' now and they are a plain <i>set an attribute value</i>,

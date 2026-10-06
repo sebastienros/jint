@@ -119,7 +119,7 @@ public sealed partial class Page
     /// <c>GET</c> with a query string or a <c>POST</c> in the form's <c>enctype</c>.
     /// </para>
     /// <para>
-    /// It takes a selector rather than an element because an AngleSharp node belongs to the page's own
+    /// It takes a selector rather than an element because a native DOM node belongs to the page's own
     /// thread: no member of this type hands one out, and one that took a node would be an invitation to
     /// touch the DOM from the caller's thread. A click on a submit button is the input model's business
     /// (campaign item R2), which reaches the same algorithm from inside the loop.

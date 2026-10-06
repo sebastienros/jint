@@ -6,23 +6,11 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// An interface object — the global <c>HTMLDivElement</c>, <c>Node</c>, <c>NodeList</c> — carrying the
-/// interface prototype object as its <c>prototype</c> and refusing construction.
+/// The script-visible constructor object and prototype for a DOM interface.
 /// </summary>
 /// <remarks>
-/// <para>
-/// All but one of them throw <c>TypeError: Illegal constructor</c>, and that is not a gap: AngleSharp puts
-/// <c>[DomConstructor]</c> on concrete classes (<c>Event</c>, <c>MouseEvent</c>, <c>MutationObserver</c>,
-/// <c>DOMRect</c>) and on no <c>[DomName]</c> interface at all, so the generator can never learn that an
-/// interface is constructible. It is also what a browser answers for <c>new HTMLDivElement()</c>. The
-/// exception is <c>Document</c>, whose constructor WebIDL really does declare; <see cref="DomConstructors"/>
-/// is the table it is written in.
-/// </para>
-/// <para>
-/// It derives from <c>Constructor</c> rather than from a plain function so that <c>x instanceof Node</c>
-/// works: <c>instanceof</c> reads <c>prototype</c> and walks the chain, and <c>Constructor</c> is what makes
-/// the object a callable with a <c>prototype</c> the engine recognizes.
-/// </para>
+/// Interfaces without a declared constructor throw TypeError for construction. Constructible interfaces
+/// use the Browser constructor table rather than exposing arbitrary native CLR constructors.
 /// </remarks>
 internal sealed class DomInterfaceObject : Constructor
 {
@@ -74,12 +62,6 @@ internal sealed class DomInterfaceObject : Constructor
     }
 
     /// <inheritdoc />
-    /// <remarks>
-    /// There are two exceptions. <see cref="DomConstructors"/> names a single interface — WebIDL gives
-    /// <c>Document</c> a constructor and the generator cannot learn that from AngleSharp's metadata —
-    /// and <c>CustomElements/CustomElementCreation</c> is HTML's <c>HTMLElement</c> constructor, which
-    /// answers only when <c>newTarget</c> is a constructor <c>customElements.define</c> registered.
-    /// </remarks>
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         // https://html.spec.whatwg.org/multipage/custom-elements.html#html-element-constructors:

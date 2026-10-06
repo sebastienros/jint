@@ -11,11 +11,9 @@ internal static class BrowserLegacyHtmlMembers
 {
     private static readonly ConditionalWeakTable<Element, EmptyKeygenLabels> KeygenLabelViews = new();
 
-    // AngleSharp 1.8.2 allocates but never populates this legacy label list.
     internal static DomNodeList KeygenLabels(Element element)
         => KeygenLabelViews.GetValue(element, static _ => new EmptyKeygenLabels());
 
-    // AngleSharp 1.8.2 HtmlMenuItemElement.Command: nonempty raw ID, first document match, HTML brand.
     internal static Element? Command(DomRealm realm, Element element)
     {
         var work = Work(realm);

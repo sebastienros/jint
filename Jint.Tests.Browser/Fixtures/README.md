@@ -76,7 +76,7 @@ that added the feature — which is what a triage row is for:
 
 | Fixture | What it was owed | Paid by |
 | --- | --- | --- |
-| `htmx` | htmx 2 builds an `XPathEvaluator` expression at the **top level** of its bundle, so the library was a `ReferenceError` before any `hx-` attribute was read | DOM §7's XPath over `AngleSharp.XPath` (`Jint.Browser/Dom/Views/JsXPath`), plus `CSS.escape` and `new DocumentFragment`, which are the next two things it reaches for |
+| `htmx` | htmx 2 builds an `XPathEvaluator` expression at the **top level** of its bundle, so the library was a `ReferenceError` before any `hx-` attribute was read | DOM §7's XPath over the native XPath evaluator (`Jint.Browser/Dom/Views/JsXPath`), plus `CSS.escape` and `new DocumentFragment`, which are the next two things it reaches for |
 | `custom-elements` | `customElements` did not exist | campaign item C6: the registry, the upgrade and the four reactions |
 
 ### The one whose *passing* behaviour is a divergence

@@ -5,23 +5,11 @@ using Jint.Native;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The <c>HTMLIFrameElement</c> member that is about the frame's <i>content</i> rather than about the
-/// element: what document a page may reach through it.
+/// Projects child-frame documents and windows through the Browser frame runtime.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Both are declared in <c>tools/dom-bindings/overrides.json</c> and answered here. <c>contentDocument</c>
-/// is generated from AngleSharp and re-declared over this because the generated body hands out a
-/// cross-origin document; <c>contentWindow</c> is added rather than re-declared, because AngleSharp's own
-/// declaration is an <c>AngleSharp.Dom.IWindow</c> and the conversion table drops that interface whole — the
-/// window a page gets is the runtime's (<c>Runtime/FrameWindows</c>).
-/// </para>
-/// <para>
-/// <b>A frame has a document and its own global in the page's engine</b>
-/// (<c>docs/design/headless-browser.md</c> §3): the parser driver fetches a frame's <c>src</c> and AngleSharp
-/// opens it into the nested browsing context it already made for the element, so the tree is real and
-/// readable and <c>contentWindow</c> answers an object of the frame's own — with independent constructors and same-origin classic script execution.
-/// </para>
+/// The parser driver loads frame documents. These bindings enforce same-origin access and return the
+/// Browser-owned window wrapper instead of exposing a native browsing context to script.
 /// </remarks>
 internal static class DomFrameMembers
 {

@@ -212,7 +212,7 @@ public sealed class OptionSelectednessTests
     }
 
     /// <summary>
-    /// The setter's own dirtiness step is AngleSharp's already, and the reset must not undo it: once a script
+    /// The setter's own dirtiness step is the former DOM integration's already, and the reset must not undo it: once a script
     /// has written <c>selected</c>, adding or removing the content attribute changes nothing.
     /// </summary>
     [Test]

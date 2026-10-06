@@ -48,7 +48,7 @@ public sealed class DomReflectionTests
     /// rather than a computed one.
     /// </summary>
     /// <remarks>
-    /// AngleSharp's <c>Language</c> walks to the nearest ancestor carrying the attribute and falls back to
+    /// The former DOM integration's <c>Language</c> walks to the nearest ancestor carrying the attribute and falls back to
     /// the current culture, so before this it answered <c>"en-US"</c> for an element with no <c>lang</c>
     /// anywhere above it — a page asking what language a paragraph declares was told what machine it was
     /// running on, and the answer moved with the runner's locale.
@@ -89,7 +89,7 @@ public sealed class DomReflectionTests
         fixture.Text("document.querySelector('#s').src").Should().BeEmpty();
 
         // A URL whose parse fails is returned as it stands rather than as the empty string, which is the one
-        // place this differs from AngleSharp's own GetUrlAttribute.
+        // place this differs from the former DOM integration's own GetUrlAttribute.
         fixture.Evaluate("document.querySelector('#s').setAttribute('src', 'http://[bad')");
         fixture.Text("document.querySelector('#s').src").Should().Be("http://[bad");
     }
@@ -122,11 +122,11 @@ public sealed class DomReflectionTests
     /// <summary>
     /// HTML §4.10.18.6's exception to URL reflection — a missing or empty <c>action</c> answers the element's
     /// node document's URL — is the document's <b>current</b> URL, which for a document with a browsing
-    /// context is the one <c>pushState</c> moved and not the address AngleSharp was parsed at.
+    /// context is the one <c>pushState</c> moved and not the address the former DOM integration was parsed at.
     /// </summary>
     /// <remarks>
     /// The two are the same value until a same-document navigation separates them: <c>pushState</c> moves
-    /// <c>PageRuntime.DocumentUrl</c> without touching AngleSharp's document at all, deliberately, because
+    /// <c>PageRuntime.DocumentUrl</c> without touching the former DOM integration's document at all, deliberately, because
     /// writing its location would raise <c>Location.Changed</c> and reopen the browsing context. So a form
     /// posting to itself — the whole reason the rule exists — read the address the page was first loaded at.
     /// It is the document's URL and not its base URL, which is why the <c>&lt;base href&gt;</c> here moves
@@ -425,7 +425,7 @@ public sealed class DomReflectionTests
     /// </summary>
     /// <remarks>
     /// "The best representation of the number as a floating-point number" is ECMAScript's Number-to-String,
-    /// which AngleSharp's <c>Double.ToString(NumberFormatInfo.InvariantInfo)</c> disagrees with on the sign
+    /// which the former DOM integration's <c>Double.ToString(NumberFormatInfo.InvariantInfo)</c> disagrees with on the sign
     /// of negative zero and on the case of an exponent.
     /// </remarks>
     [TestCase("-0", "0")]

@@ -1,5 +1,10 @@
 # A headless browser on Jint — design
 
+> Historical campaign design, written before the native parser cutover. Dependency descriptions and
+> retired integration details below record that campaign; current architecture and ownership are in
+> [the Browser guide](../packages/jint-browser/index.md) and
+> [the native parser guide](../packages/jint-htmlparser/index.md).
+
 **Status: finalized design; implementation under way.** The authoritative statement of this design is the body
 of [sebastienros/jint#3575](https://github.com/sebastienros/jint/issues/3575); where this
 document and that issue disagree, the issue wins and this file is brought back into line. What this file adds is

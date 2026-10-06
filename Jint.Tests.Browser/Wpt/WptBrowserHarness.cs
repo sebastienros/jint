@@ -122,7 +122,7 @@ internal sealed class WptBrowserHarness : IDisposable
         };
 
         // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — an element whose language is unknown
-        // matches no `:lang()`, and AngleSharp answers one from the document's culture instead. The page's
+        // matches no `:lang()`, and the former DOM integration answers one from the document's culture instead. The page's
         // culture is the engine's through ParserDriver, so pinning it here is what makes a verdict the
         // corpus's rather than the machine's: four `ParentNode-querySelector-All.html` rows pass under the
         // invariant culture and fail under an English one, which is the Linux and the Windows leg exactly.

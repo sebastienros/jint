@@ -6,7 +6,7 @@ using Jint.Runtime;
 namespace Jint.Browser.Dom.Views;
 
 /// <summary>
-/// Turns a script's <c>NodeFilter</c> into the delegate AngleSharp's traversal takes.
+/// Converts a script NodeFilter into the callback used by native traversal.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,13 +22,6 @@ namespace Jint.Browser.Dom.Views;
 /// parameter is a CLR delegate, which the conversion table has no entry for and deliberately no general one —
 /// a delegate parameter is a callback whose IDL shape only the standard knows. That is why they arrive
 /// through <c>overrides.json</c>'s additions with a hand-written body instead.
-/// </para>
-/// <para>
-/// A filter that throws propagates out of <c>nextNode()</c>, which is what the standard requires, and the
-/// exception unwinds through the traversal on its way — safe because a traversal holds no state it has to
-/// unwind and only an accepted node moves the walker, so it is left where the filter found it.
-/// <see cref="DomTreeWalker"/> is that traversal for a <c>TreeWalker</c>; a <c>NodeIterator</c>'s is still
-/// AngleSharp's.
 /// </para>
 /// </remarks>
 internal static class NodeFilters

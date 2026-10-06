@@ -3,22 +3,8 @@ using Jint.Native;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// One WebIDL interface, as the generator found it in AngleSharp: its DOM name, the CLR interface it is
-/// projected from, its member layout, and where its prototype sits in the chain.
+/// One WebIDL interface from the binding contract: its name, native receiver type, parent and members.
 /// </summary>
-/// <remarks>
-/// <para>
-/// A definition is process-shared and immutable, which is what lets the <see cref="Shape"/> be: a
-/// <see cref="JsObjectShape"/> describes members once for every engine in the process, and is built here at
-/// most once however many engines ask for it. Everything per engine — the prototype object, the interface
-/// object, the wrappers in front of them — lives in <see cref="DomRealm"/>.
-/// </para>
-/// <para>
-/// The shape is built lazily because building all of them costs about two thousand delegate registrations,
-/// and a page that touches ten interfaces should pay for ten. <see cref="Index"/> is what makes the per-engine
-/// side an array rather than a dictionary.
-/// </para>
-/// </remarks>
 internal sealed class DomInterfaceDefinition
 {
     private readonly Func<JsObjectShape> _shapeFactory;
@@ -60,7 +46,9 @@ internal sealed class DomInterfaceDefinition
     /// <summary>The WebIDL interface name — <c>HTMLDivElement</c>, the value of <c>[DomName]</c>.</summary>
     internal string Name { get; }
 
-    /// <summary>The AngleSharp interface the members are projected from.</summary>
+    /// <summary>
+    /// The native receiver type the members are projected from.
+    /// </summary>
     internal Type ClrInterface { get; }
 
     /// <summary>
@@ -84,9 +72,7 @@ internal sealed class DomInterfaceDefinition
     internal bool RootsAtEventTarget { get; }
 
     /// <summary>
-    /// Whether a global constructor property is installed for this interface — WebIDL's
-    /// <c>[LegacyNoInterfaceObject]</c>, spelled <c>[DomNoInterfaceObject]</c> by AngleSharp. An interface
-    /// without one still has a prototype object in the chain; it just cannot be named from script.
+    /// Whether this interface installs a global constructor property; LegacyNoInterfaceObject interfaces retain only their prototype chain.
     /// </summary>
     internal bool HasInterfaceObject { get; }
 

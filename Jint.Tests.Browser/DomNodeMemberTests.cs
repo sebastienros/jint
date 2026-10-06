@@ -1,7 +1,7 @@
 namespace Jint.Tests.Browser;
 
 /// <summary>
-/// The <c>Node</c> and <c>Element</c> members the DOM standard requires and AngleSharp has no
+/// The <c>Node</c> and <c>Element</c> members the DOM standard requires and the former DOM integration has no
 /// <c>[DomName]</c> for — <c>Dom/DomElementMembers</c> — plus the two whose only fault was their name.
 /// </summary>
 public sealed class DomNodeMemberTests
@@ -20,7 +20,7 @@ public sealed class DomNodeMemberTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // DOM §4.2.7 spells it `replaceWith`; AngleSharp's IChildNode carries [DomName("replace")], so the
+        // DOM §4.2.7 spells it `replaceWith`; the former DOM integration's IChildNode carries [DomName("replace")], so the
         // mixin projected a name the standard does not have.
         fixture.Text(
             """

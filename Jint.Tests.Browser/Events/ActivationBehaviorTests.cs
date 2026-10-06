@@ -487,7 +487,7 @@ public sealed class ActivationBehaviorTests
             })()
             """))
             // The click still dispatches — a disabled control is not inert to events here — but nothing acts
-            // on it. AngleSharp's own IsDisabled is what decides, and the checkbox's pre-activation toggle is
+            // on it. the former DOM integration's own IsDisabled is what decides, and the checkbox's pre-activation toggle is
             // rolled back by the same disabled test.
             .Should().Be("false,0");
     }
@@ -576,7 +576,7 @@ public sealed class ActivationBehaviorTests
     /// control or names it with <c>for</c>.
     /// </summary>
     /// <remarks>
-    /// The containing spelling is the one AngleSharp cannot answer — its <c>IHtmlLabelElement.Control</c> is
+    /// The containing spelling is the one the former DOM integration cannot answer — its <c>IHtmlLabelElement.Control</c> is
     /// <see langword="null"/> for a control the label wraps — so the shared label-association algorithm
     /// supplies it, and this holds activation to the same answer the DOM and accessibility paths use.
     /// </remarks>
@@ -633,7 +633,7 @@ public sealed class ActivationBehaviorTests
             window.turns = 0;
             window.seen = null;
             window.onhashchange = e => { window.seen = window.turns + ':' + e.newURL.endsWith('#target'); };
-            // The absolute form, because resolving a bare `#target` is AngleSharp's and it mangles an
+            // The absolute form, because resolving a bare `#target` is the former DOM integration's and it mangles an
             // `about:blank` base; what is measured here is when the navigation lands, not how it resolved.
             document.getElementById('go').setAttribute('href', location.href + '#target');
             document.getElementById('go').click();
@@ -689,7 +689,7 @@ public sealed class ActivationBehaviorTests
             window.heard = -2;
             window.ticks = 0;
             window.onhashchange = () => { window.heard = loopTurn(); };
-            // The absolute form, because resolving a bare `#target` is AngleSharp's and it mangles an
+            // The absolute form, because resolving a bare `#target` is the former DOM integration's and it mangles an
             // `about:blank` base; what is measured here is when the navigation lands, not how it resolved.
             document.getElementById('go').setAttribute('href', location.href + '#target');
             window.clicked = loopTurn();
@@ -722,7 +722,7 @@ public sealed class ActivationBehaviorTests
     /// <remarks>
     /// <b>Connected is the shadow-including root being a document</b>, not the node having a parent, which is
     /// the half a page cannot get wrong and an implementation can: a control inside a shadow tree of a
-    /// connected host is connected. AngleSharp has no member that answers the question — <c>INode.Owner</c>
+    /// connected host is connected. the former DOM integration has no member that answers the question — <c>INode.Owner</c>
     /// is the node document whether or not the node is in it — so the walk is the package's own and this is
     /// what holds it to the definition.
     /// </remarks>

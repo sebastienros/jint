@@ -12,15 +12,15 @@
 The CSS engine intentionally stores text, not typed computed values. Extraction reads explicit
 white-space-collapse text or interprets white-space keywords for pre/pre-wrap/pre-line behavior;
 do not rebuild the removed typography grammar. Visibility still uses the shared text cascade.
-The AngleSharp discussion below is historical: the current DOM and cascade are native, as described
-in [the Browser instructions](../AGENTS.md#where-the-cascade-diverges-from-cssom).
+The native DOM and text cascade are described in
+[the Browser instructions](../AGENTS.md#where-the-cascade-diverges-from-cssom).
 
 ### Accessibility and extraction have no layout
 
-`Accessibility/` computes an accessibility tree over AngleSharp's DOM and `Extraction/` renders the same
-document as text or CommonMark. Both are pure C# over `IDocument`/`IElement`; neither touches an engine, and
+`Accessibility/` computes an accessibility tree over the native DOM and `Extraction/` renders the same
+document as text or CommonMark. Both are pure C# over `Jint.HtmlParser.Document`/`Element`; neither touches an engine, and
 that is why they were built before the page runtime existed. **Two helpers under `Dom/` are read from here and
-neither breaks that**, because both take an `IElement` and nothing else: `Dom/Views/CssCascade`, and
+neither breaks that**, because both take an `Element` and nothing else: `Dom/Views/CssCascade`, and
 `Dom/AriaElementReferences`, which is the *engine-free half* of ARIA's element reflection — a relationship a
 page made with `el.ariaLabelledByElements` writes the empty string to the content attribute and holds the
 elements by reference, so an accessible name computed from the attribute alone would miss exactly the case a
@@ -33,17 +33,15 @@ the custom `Jint.getMarkdown`/`getText`/`getAccessibilitySnapshot` domain, and t
 place where this can be wrong.**
 
 - **Hidden** is `ElementVisibility`: the `hidden` content attribute, `aria-hidden="true"`, and `display:none`
-  / `visibility:hidden|collapse` from the cascade — `IElement.ComputeCurrentStyle()`, which resolves author
-  sheets and the UA sheet — falling back to the `style` content attribute alone when `AngleSharp.Css` is not
-  registered. It cannot know that an element is off screen, clipped, covered or zero-sized. Two asymmetries
+  / `visibility:hidden|collapse` from the shared native text cascade, with an inline-style fallback
+  when the query cannot answer. It cannot know that an element is off screen, clipped, covered or zero-sized. Two asymmetries
   are deliberate: `display:none` takes its subtree with it while `visibility:hidden` does not (CSS inherits
   `visibility`, so a `visibility:visible` descendant comes back), and `aria-hidden` removes a node from the
   accessibility tree while changing nothing about the rendering — so the extractors ask
   `RenderingReasonFor`, which ignores it, and only the tree asks `ReasonFor`, which does not.
 - **Block-level** is `HtmlDisplay`, HTML's suggested rendering rather than a used display, and it is the
   table that decides — not the cascade. The cascade only wins where it *differs* from the table, which is
-  what makes `<span style="display:block">` a block and stops AngleSharp's incomplete default sheet from
-  calling every `<section>` inline.
+  what makes `<span style="display:block">` a block while retaining HTML's suggested rendering for `<section>`.
 - **`innerText`** is therefore the text of the document, not the text of a rendering of it: the required
   line breaks, the `<br>`s, the cell tabs and the white-space processing are all there, but nothing wraps,
   so a paragraph is one line however wide it would have been.
@@ -69,22 +67,13 @@ The four fixture pages under `Jint.Tests.Browser/Accessibility/Golden/` are rend
 output is checked in. **`JINT_BROWSER_GOLDEN=update` rewrites them**, the same discipline `JINT_SPEC_ANCHORS`
 and `JINT_DOM_BINDINGS` use: the diff is the artefact, so a change to what an agent reads has to be looked at.
 
-Divergences found by this work; Jint owns the missing browser semantics under the package guidance:
+Current renderless boundaries belong to Browser, not to a second DOM or CSS implementation:
 
-| What | The standard | AngleSharp.Css divergence and current status |
-| --- | --- | --- |
-| `el.ComputeCurrentStyle()` without the CSS services | an empty declaration, or a documented failure | throws `InvalidOperationException("Sequence contains no elements")`, which is why every call goes through `Dom/Views/CssCascade` and why `ElementVisibility` latches on a refusal — one throw per document rather than one per node of a tree walk. **It latches only while the cascade has never answered**: a refusal after one has is about *this* element's own declarations (`width: 20ch` is a unit AngleSharp.Css cannot convert, and ordinary modern CSS), and latching there would take the page's `display: none` rules down with it |
-| the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
-| `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
-| `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |
-| `CssMediaQueryList.matches` | evaluate the query against the device and answer | the all-false stub is replaced in 1.1.0, but remaining negation, boolean-dimension and colour/feature gaps still require `Runtime/MediaQuery`; see [`../AGENTS.md`](../AGENTS.md#emulation-and-the-media-environment-it-moves) |
-| Media Queries Level 5's preference features | preference rules evaluate against the page's environment | supported in 1.1.0 through `IRenderDevicePreferences`. `PageRenderDevice` now exposes `PageMediaEnvironment`, so supported stylesheet preferences share the page's defaults and emulated values with `matchMedia`; not every Level 5 validator is implemented |
-| a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value — `visibility` is `visible` | the empty string. Playwright's `style.visibility !== "visible"` consequently read rendered elements as hidden. `Dom/Views/ResolvedStyle` supplies the ten initial values automation requires, as documented in [`../AGENTS.md`](../AGENTS.md#where-the-cascade-diverges-from-cssom); native handling of invalid declared properties in 1.1.0 does not replace this policy for undeclared values |
-| the selector parser on `:has(*,:jqfake)` | a parse failure the caller can act on | the null dereference is fixed in the upgraded selector parser. The selector-only wrapper was removed; native `DomException` failures pass through the generated `DomFailures.Guard`, and jQuery's support detection no longer requires a special CLR-exception workaround |
+- `CssCascade` adapts native text-valued queries. A refusal latches only before the cascade has ever
+  answered; an element-specific failure must not disable visibility rules for the rest of the tree.
+- `HtmlDisplay` supplies HTML's suggested display and whitespace defaults. Declared overrides still win.
+- `ResolvedStyle` supplies the finite initial and used-value policy documented in the Browser instructions.
+- `ContentEditing` implements the enumerated `contenteditable` state and the shared editing-host policy.
+- `DomNodeMembers` implements `getRootNode` over native parent links, including the composed-root option.
 
-Two more, in AngleSharp itself rather than in `AngleSharp.Css`:
-
-| What | The standard | AngleSharp 1.7.2 |
-| --- | --- | --- |
-| `IHtmlElement.IsContentEditable` on `<div contenteditable>` | `true`: HTML's [`contenteditable`](https://html.spec.whatwg.org/multipage/interaction.html#attr-contenteditable) is an enumerated attribute whose `true` keyword has the **empty string** as its other spelling, which is how nearly every page in the world writes it | `false` — the attribute is mapped through an enumeration that does not admit the empty string, so only `contenteditable="true"` reads as editable. `Events/ContentEditing.HostOf` computes the state itself for the editor and for focusability; the script-visible `el.isContentEditable` is still AngleSharp's answer, because that member is the binding forwarding it |
-| `Node.getRootNode()` | DOM §4.4: `Node getRootNode(optional GetRootNodeOptions options = {})` | absent — there is no `[DomName("getRootNode")]` anywhere in the assembly, so nothing could generate it. `Dom/DomNodeMembers` declares it over `INode.Parent`, and it is not a corner: Playwright's injected script calls it on every element it touches |
+Keep golden extraction and accessibility outputs in sync with any observable change to these policies.

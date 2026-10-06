@@ -8,12 +8,12 @@ namespace Jint.Tests.Browser;
 
 /// <summary>
 /// What a page sees when a DOM operation refuses: a JavaScript <c>DOMException</c> with the name and the
-/// legacy code the standard prescribes, never AngleSharp's CLR exception.
+/// legacy code the standard prescribes, never the former DOM integration's CLR exception.
 /// </summary>
 /// <remarks>
 /// Before <see href="https://github.com/sebastienros/jint/issues/3670">#3670</see> every one of these walked
 /// through the script's own <c>try</c>/<c>catch</c> and out of the page loop as an
-/// <c>AngleSharp.Dom.DomException</c>, so a page could neither read <c>e.name</c> nor catch it at all.
+/// <c>Jint.HtmlParser.DomException</c>, so a page could neither read <c>e.name</c> nor catch it at all.
 /// </remarks>
 public sealed class DomExceptionTests
 {
@@ -132,7 +132,7 @@ public sealed class DomExceptionTests
     /// so a refusal for want of room has to arrive as one.
     /// </summary>
     /// <remarks>
-    /// Nothing in AngleSharp raises <c>DomError.QuotaExceeded</c> today, so the interface rather than the
+    /// Nothing in the former DOM integration raises <c>DomError.QuotaExceeded</c> today, so the interface rather than the
     /// projection is what is asserted: <c>DomFailures</c> routes the name to
     /// <c>QuotaExceededErrorConstructor</c> and this is what makes that reachable at all.
     /// </remarks>
@@ -177,7 +177,7 @@ public sealed class DomExceptionTests
 
     /// <summary>
     /// The message names the member that refused, in the wording <c>DomBindings</c> already uses for an
-    /// illegal invocation, and carries the actual native refusal detail. Legacy AngleSharp sentences are not copied into the
+    /// illegal invocation, and carries the actual native refusal detail. Legacy the former DOM integration sentences are not copied into the
     /// native parser; the precise prefix and native detail remain asserted.
     /// </summary>
     [Test]

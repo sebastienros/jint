@@ -6,11 +6,7 @@ using Jint.Native.Object;
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
-/// The wrapper for every DOM collection with an indexed getter that is not an <c>HTMLCollection</c> —
-/// <c>NodeList</c>, <c>DOMTokenList</c>, <c>NamedNodeMap</c>, <c>DOMStringList</c>, <c>CSSRuleList</c>,
-/// <c>StyleSheetList</c>, <c>CSSStyleDeclaration</c>, <c>FileList</c>, the media track lists. One class,
-/// because the interface-specific half is a <see cref="DomCollectionAccessor"/> the generator wrote from
-/// AngleSharp's <c>[DomAccessor]</c> metadata.
+/// Wraps an indexed DOM collection using the interface-specific generated collection accessor.
 /// </summary>
 /// <remarks>
 /// <b>One class per interface family, and that is a performance contract as much as a tidiness one.</b> Every

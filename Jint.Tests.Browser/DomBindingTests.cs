@@ -204,7 +204,7 @@ public sealed class DomBindingTests
     /// fixtures both died on it with
     /// <c>TypeError: Failed to execute 'Node.insertBefore': parameter 2 is not of the expected type</c>
     /// before <c>overrides.json</c>'s <c>nullableParameters</c> table existed. <c>Node.contains(null)</c> and
-    /// <c>Node.isEqualNode(null)</c> are the same rule and are <i>not</i> fixed here: AngleSharp annotates
+    /// <c>Node.isEqualNode(null)</c> are the same rule and are <i>not</i> fixed here: the former DOM integration annotates
     /// both parameters non-nullable and does not implement the null arm, so they are a row in the divergence
     /// table rather than a null this binding forwards.
     /// </remarks>

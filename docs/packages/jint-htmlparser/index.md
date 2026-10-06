@@ -2,7 +2,7 @@
 
 `Jint.HtmlParser` parses and manipulates HTML, XML, SVG and CSS from .NET. It provides a native mutable
 DOM, XPath 1.0, mutation subscriptions, live ranges and explicit HTML/XML serialization. It targets
-.NET 8 and .NET 10 and has no dependency on the Jint JavaScript engine or AngleSharp.
+.NET 8 and .NET 10 and has no dependency on the Jint JavaScript engine.
 
 Parsing is inert: it does not execute scripts, fetch resources, load CSS imports or resolve external XML
 entities. Use [Jint.Browser](../jint-browser/) when you need JavaScript, navigation or a page event loop.

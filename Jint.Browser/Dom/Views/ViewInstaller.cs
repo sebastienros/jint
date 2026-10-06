@@ -9,26 +9,11 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.Dom.Views;
 
 /// <summary>
-/// The interfaces the runtime owns rather than the generator: <c>DOMParser</c>, <c>XMLSerializer</c>,
-/// <c>NodeFilter</c>, <c>Selection</c>, <c>MediaQueryListEvent</c>, <c>Geolocation</c> and DOM's three XPath
-/// interfaces.
+/// Installs Browser-owned DOM views and their script-visible shapes.
 /// </summary>
 /// <remarks>
-/// <para>
-/// None of them exists in AngleSharp — several are host objects a browser supplies rather than DOM
-/// objects, <c>NodeFilter</c> is a callback interface with constants and no instances,
-/// <c>MediaQueryListEvent</c> is CSSOM View's, and DOM §7's XPath is projected from no assembly at all
-/// (<see cref="XPathEvaluation"/> says why). Everything else in this folder is a <em>view</em> onto the DOM
-/// that AngleSharp does have and that the generator already emits: <c>Range</c>, <c>TreeWalker</c> and
-/// <c>NodeIterator</c> are generated, and only the members whose signatures the conversion table could not
-/// cross arrive from <c>overrides.json</c>'s additions. <see cref="Jint.HtmlParser.DomTreeWalker"/> is the one exception in
-/// the other direction — the <em>shape</em> is still generated, and only the walk behind it is this
-/// package's, because AngleSharp's does not terminate.
-/// </para>
-/// <para>
-/// Each global is lazy and non-clobbering, and the shapes are process-shared with the prototypes per engine,
-/// which is what every other installer in this package does.
-/// </para>
+/// Selection and view operations use native nodes and ranges while Browser owns callbacks, brand checks
+/// and the JavaScript-facing interfaces. Traversal filters run on the owning engine thread.
 /// </remarks>
 internal static class ViewInstaller
 {
@@ -130,12 +115,6 @@ internal static class ViewInstaller
         .Build();
 
     /// <summary>https://w3c.github.io/selection-api/#selection-interface</summary>
-    /// <remarks>
-    /// The one hand-written shape whose members reach AngleSharp's own range algorithms — a collapse to an
-    /// offset past the end of a node is an <c>IndexSizeError</c>, selecting the contents of a doctype an
-    /// <c>InvalidNodeTypeError</c> — so every one goes through <see cref="DomFailures.Guard"/>, exactly as a
-    /// generated body does. <see cref="Selection"/> is only there to keep the qualified name in one place.
-    /// </remarks>
     private static JsObjectShape BuildSelectionShape() => new JsObjectShape.Builder()
         .PerRealmSlot("constructor")
         .ToStringTag("Selection")
@@ -161,7 +140,9 @@ internal static class ViewInstaller
         .Method("toString", Selection("toString", static (t, _) => JsString.Create(JsSelection.Brand(t, "toString").ToString())))
         .Build();
 
-    /// <summary>One <c>Selection</c> member body, wrapped so an AngleSharp refusal is a <c>DOMException</c>.</summary>
+    /// <summary>
+    /// Wraps a Selection operation so native DOM failures become script-visible DOMException values.
+    /// </summary>
     private static Func<JsValue, JsValue[], JsValue> Selection(
         string member,
         Func<JsValue, JsValue[], JsValue> implementation)

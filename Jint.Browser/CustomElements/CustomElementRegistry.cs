@@ -21,11 +21,8 @@ namespace Jint.Browser.CustomElements;
 /// a definition does not survive a navigation, which is what a browser does too.
 /// </para>
 /// <para>
-/// <b>The element state is a side table.</b> AngleSharp's element carries no custom element state, no
-/// definition and no reaction queue, and adding one is not this package's to do — so
-/// <see cref="CustomElementRecord"/> hangs off a
-/// <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the element, exactly as the wrapper cache does.
-/// A record is made only for an element that could become custom, so an ordinary document allocates none.
+/// Native elements carry HTML custom-element state and registry identity. Browser's weak side table
+/// holds script definitions, callbacks and reaction records without retaining otherwise unreachable nodes.
 /// </para>
 /// </remarks>
 internal sealed partial class CustomElementRegistry : ObjectInstance
@@ -425,11 +422,6 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// The interface an element of <paramref name="localName"/> would get, or <see langword="null"/> when
     /// HTML has none — which is what makes <c>{ extends: 'bogus' }</c> a <c>NotSupportedError</c>.
     /// </summary>
-    /// <remarks>
-    /// The element is created and thrown away rather than looked up in a table, because the table would be a
-    /// second answer to a question <c>DomTypeMap</c> already answers: the interface a local name gets is
-    /// whatever AngleSharp builds for it. <c>define</c> is rare enough for one element to cost nothing.
-    /// </remarks>
     private DomInterfaceDefinition? BuiltInInterface(string localName)
     {
         if (_runtime.Document is not { } document)

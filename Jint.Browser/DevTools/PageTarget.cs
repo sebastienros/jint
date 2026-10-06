@@ -22,7 +22,7 @@ namespace Jint.Browser.DevTools;
 /// <b>Every protocol command touching the engine runs on the page loop</b>, brought there by the target's own
 /// mailbox exactly as an engine target's is: <c>engine.Tasks.Post</c> wakes the loop, the loop drains, and
 /// what crosses back is a string. Nothing here weakens the thread rule — a <c>JsValue</c> never leaves the
-/// loop thread, and an AngleSharp node never leaves it either.
+/// loop thread, and a native DOM node never leaves it either.
 /// </para>
 /// <para>
 /// <b>It is the page's one observer.</b> Every event a client hears about the page is one

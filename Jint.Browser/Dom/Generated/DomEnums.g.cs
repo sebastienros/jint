@@ -10,7 +10,7 @@
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The WebIDL string enumerations AngleSharp models as CLR enums, in both directions. A value the
+/// The binding contract's WebIDL string enumerations, in both directions. A value the
 /// enumeration does not carry is a <c>TypeError</c>, which is what WebIDL's enumeration conversion
 /// says.
 /// </summary>

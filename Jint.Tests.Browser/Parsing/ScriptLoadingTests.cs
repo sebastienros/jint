@@ -382,7 +382,7 @@ public class ScriptLoadingTests
         await loopback.Page.NavigateAsync(loopback.Url("/"));
 
         // A constraint does not throw a JavaScriptException, and it reaches the driver on the page loop
-        // inside a baton hand-off — so letting it out would fault AngleSharp's parse and fail the whole
+        // inside a baton hand-off — so letting it out would fault the former DOM integration's parse and fail the whole
         // navigation. The contract is the one HTML gives a script that threw: recorded, and the page lives.
         loopback.Page.Errors.Should().ContainSingle();
         (await loopback.Page.EvaluateAsync<bool>("window.before === true")).Should().BeTrue();

@@ -683,18 +683,9 @@ internal enum WptDivergence
     /// — is the binding's own.
     /// </para>
     /// <para>
-    /// What is left is one mapping. AngleSharp routes <c>application/xhtml+xml</c> to the <i>HTML</i>
-    /// parser even with the XML document factory registered, so an XHTML fixture comes back as an HTML
-    /// document — with the trailing newline an HTML skeleton adds — and every row of
-    /// <c>Document-createElement*</c> that is about an XHTML document fails on its first assertion. A
-    /// top-level navigation to an XML content type is refused before a parser sees it, which is why a
-    /// <c>.xhtml</c> or <c>.svg</c> case is a not-vendored row rather than an exclusion.
-    /// </para>
-    /// <para>
-    /// It is <see cref="NeedsMoreEventInterfaces"/>'s shape rather than <see cref="NeedsTriage"/>'s only
-    /// in that the rows name exactly what would move them; the mapping itself is AngleSharp's and is a row
-    /// in <c>Jint.Browser/Dom/divergences.md</c>. The category's own exclusion group is gone —
-    /// <c>Wpt/README.md</c>'s "The XML-document cause is gone" says what its 346 rows turned out to be.
+    /// The Browser driver now selects its native HTML or XML parser from the response content type,
+    /// including application/xhtml+xml. The category has no remaining exclusions; it remains available
+    /// for a corpus case requiring XML-specific behavior the Browser does not provide, such as XML scripts.
     /// </para>
     /// </summary>
     NeedsXmlDocuments,

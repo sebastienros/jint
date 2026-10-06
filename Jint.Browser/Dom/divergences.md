@@ -1,7 +1,7 @@
 # Native DOM binding boundaries and corrections
 
 This register describes the current `Jint.HtmlParser` / `Jint.Browser` boundary, not defects measured in
-the former AngleSharp dependencies. The ownership and scope rules are in
+the former DOM dependencies. The ownership and scope rules are in
 [`Jint.Browser/AGENTS.md`](../AGENTS.md). AngleSharp is retained only for comparison benchmarks.
 
 **The old dependency defect table is not a native conformance inventory.** Its package-version outcomes,

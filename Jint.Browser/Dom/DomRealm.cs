@@ -21,20 +21,13 @@ namespace Jint.Browser.Dom;
 /// which is every generated member.
 /// </para>
 /// <para>
-/// <b>Wrapper identity.</b> One <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the AngleSharp
+/// <b>Wrapper identity.</b> One <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the native DOM
 /// object serves every kind of wrapper, and that single choice buys the browsers' wrapper-preservation rule:
 /// a node still in the tree keeps its wrapper and therefore its expandos alive (React and Vue rely on that);
-/// a node dropped by both the tree and script collects together with its wrapper. Keying on the AngleSharp
+/// a node dropped by both the tree and script collects together with its wrapper. Keying on the native DOM
 /// object rather than on an identity of our own is what extends the same treatment to a short-lived view — a
 /// <c>DOMTokenList</c>, a <c>CSSStyleDeclaration</c> — which keeps one wrapper for exactly as long as
-/// AngleSharp keeps handing back one object.
-/// </para>
-/// <para>
-/// <b>Where that stops, and it is AngleSharp's answer rather than ours.</b> AngleSharp builds a fresh
-/// collection for each call of <c>children</c>, <c>querySelectorAll</c> or <c>getElementsByTagName</c>, so
-/// <c>el.children === el.children</c> answers <see langword="false"/> here where a browser answers
-/// <see langword="true"/>. Mending it in the binding would mean a second identity keyed on (owner, kind) that
-/// nothing could invalidate; it is recorded as a divergence and reported upstream instead.
+/// native DOM keeps handing back one object.
 /// </para>
 /// </remarks>
 internal sealed class DomRealm
@@ -105,8 +98,7 @@ internal sealed class DomRealm
     internal Realm OwningRealm { get; }
 
     /// <summary>
-    /// Where the members that parse markup into the tree go. The default calls AngleSharp directly, which is
-    /// what a binding with no runtime behind it can do; the parser driver replaces it.
+    /// Routes markup insertion through native DOM defaults or the current page parser driver.
     /// </summary>
     internal DomHostHooks Hooks { get => _principal._hooks; set => _principal._hooks = value; }
 
@@ -166,7 +158,7 @@ internal sealed class DomRealm
     /// getter handed to script, because WebIDL's <c>FrozenArray</c> identity is per engine. A table of its own
     /// rather than a field on the wrapper: the members that need it are eight of the two thousand a document's
     /// elements carry, so an element that never has an ARIA relationship must not pay a reference for one.
-    /// Keyed on the AngleSharp element and never on the wrapper, so it dies with the element rather than with
+    /// Keyed on the native element and never on the wrapper, so it dies with the element rather than with
     /// whichever wrapper happened to reach it first.
     /// </remarks>
     internal AriaElementReflection.Cache AriaCacheFor(Element element) => _ariaCaches.GetOrCreateValue(element);
@@ -301,8 +293,6 @@ internal sealed class DomRealm
     /// <summary>Associates a newly opened window document while retaining old documents' creation brands.</summary>
     internal void AssociateWindowDocument(Document document)
     {
-        // AngleSharp may open srcdoc again in the same context during element setup. The new global owns
-        // subsequent parser nodes; documents and wrappers from the previous opening retain their realm.
         if (DomBrowsingContext.Of(document) is { } context)
         {
             _contexts.Remove(context);
@@ -549,7 +539,7 @@ internal sealed class DomRealm
     }
 
     /// <summary>
-    /// Projects an AngleSharp object into script, giving back the wrapper it already has when it has one.
+    /// Projects a native DOM object into script, giving back the wrapper it already has when it has one.
     /// </summary>
     /// <remarks>
     /// This is the general entry, reached when a value arrives from outside a generated member — a host
@@ -687,8 +677,6 @@ internal sealed class DomRealm
 
         if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
         {
-            // AngleSharp's QueryCollection also implements NodeList. The member's IDL return type,
-            // not that extra CLR interface, decides whether named properties belong on this result.
             definition = DomInterfaces.HTMLCollection;
         }
 
@@ -702,7 +690,7 @@ internal sealed class DomRealm
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) rather than AngleSharp's, because
+    /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) and preserves its native node identities, because
     /// nothing about an <c>NodeList</c> says whether it is live and the wrapper keeps one element
     /// wrapper per index. It is cached like every other wrapper, so <c>Hooks.WrapperCreated</c> fires once
     /// for it; the snapshot is new on every call, which keeps

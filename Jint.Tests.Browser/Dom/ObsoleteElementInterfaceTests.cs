@@ -1,7 +1,7 @@
 namespace Jint.Tests.Browser.Dom;
 
 /// <summary>
-/// The four element interfaces HTML declares that AngleSharp models with a plain <c>HTMLElement</c>:
+/// The four element interfaces HTML declares that the former DOM integration models with a plain <c>HTMLElement</c>:
 /// <a href="https://html.spec.whatwg.org/multipage/grouping-content.html#the-dl-element">§4.4.9's
 /// <c>HTMLDListElement</c></a> and
 /// <a href="https://html.spec.whatwg.org/multipage/obsolete.html#htmldirectoryelement">§16.3.3's</a>
@@ -13,7 +13,7 @@ namespace Jint.Tests.Browser.Dom;
 /// reason: <c>HtmlDefinitionListElement</c>, <c>HtmlDirectoryElement</c>, <c>HtmlFontElement</c> and
 /// <c>HtmlFrameElement</c> are internal sealed classes whose only public interface is <c>IHtmlElement</c>, so
 /// <c>DomTypeMap</c> — which keys on the CLR type — cannot tell any of them from a <c>&lt;div&gt;</c>. The
-/// wrapper decides the shape by <b>local name</b> over the same AngleSharp element; there is no second DOM.
+/// wrapper decides the shape by <b>local name</b> over the same the former DOM integration element; there is no second DOM.
 /// </para>
 /// <para>
 /// What the two halves of each case are worth stating separately: the interface has to exist <i>and</i> the
@@ -232,7 +232,7 @@ public sealed class ObsoleteElementInterfaceTests
 
     /// <summary>
     /// <c>HTMLFrameElement.contentDocument</c> and <c>contentWindow</c> are deliberately absent: the page
-    /// runtime fetches no <c>&lt;frame&gt;</c>, so both could only ever answer <c>null</c>, and AngleSharp's
+    /// runtime fetches no <c>&lt;frame&gt;</c>, so both could only ever answer <c>null</c>, and the former DOM integration's
     /// own <c>ContentDocument</c> is on an internal class no public interface reaches. This pins the gap so
     /// that supplying it later is a visible change rather than a silent one.
     /// </summary>

@@ -5,42 +5,12 @@ using Jint.Browser.Runtime;
 namespace Jint.Browser.Media;
 
 /// <summary>
-/// <a href="https://html.spec.whatwg.org/multipage/images.html#the-list-of-available-images">HTML §4.8.4.3</a>'s
-/// current request, for every <c>&lt;img&gt;</c> of one document: what state it is in, what URL it settled
-/// on, and the intrinsic size its container stated.
+/// Keeps fetched image status and intrinsic dimensions for a page's native image elements.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why this exists at all, when AngleSharp has an <c>ImageRequestProcessor</c>.</b> That processor is what
-/// asks for the bytes, and it is kept — it is what turns a parsed <c>&lt;img src&gt;</c>, a
-/// <c>img.src = …</c> and a <c>srcset</c> rewrite into one request, and it is what tells the document to
-/// delay its <c>load</c> event while one is in flight. What it has no answer for is the *state machine*: its
-/// <c>IsCompleted</c> is "a resource object exists", which is neither HTML's <c>complete</c> (true for an
-/// <c>&lt;img&gt;</c> with no <c>src</c> at all, and true for a broken one) nor a state a page can act on;
-/// and it can produce a size only through an <c>IResourceService&lt;IImageInfo&gt;</c> that decodes, which
-/// this browser has none of and should not have. So AngleSharp keeps the request and this keeps the answer.
-/// </para>
-/// <para>
-/// <b>Three of the four states are reachable and the fourth is honestly not.</b> A request is
-/// <i>unavailable</i> while its bytes are on their way, <i>completely available</i> once
-/// <see cref="ImageHeader"/> has read a size out of them, and <i>broken</i> when the fetch failed or the
-/// container is one this browser does not recognise. <i>Partially available</i> means "enough has been
-/// decoded to know the dimensions but not to paint" — it exists so that a browser can lay a page out before
-/// the last scanline arrives, and a browser with no layout has no moment at which it is true.
-/// </para>
-/// <para>
-/// <b>What cannot be honest without pixels</b>, stated here rather than discovered: the intrinsic size is
-/// what the container's header <i>says</i>, so a file whose header disagrees with its pixel data is believed
-/// and a truncated body whose header arrived is available rather than broken; an animated GIF is its logical
-/// screen and has no frame count, no delay and no loop; and there is no colour, no alpha and no orientation,
-/// so an EXIF rotation is not applied and a portrait photograph tagged sideways reports its stored
-/// dimensions. <c>Jint.Browser/Dom/divergences.md</c> carries the rows a page can see.
-/// </para>
-/// <para>
-/// One instance per <see cref="PageRuntime"/>, built on first use, so a document with no images allocates
-/// nothing. The table is keyed on the AngleSharp element for the same reason the wrapper cache is: an element
-/// dropped by both the tree and script takes its image state with it.
-/// </para>
+/// The parser driver owns requests and this table keeps their results. Header decoding supplies dimensions
+/// without rendering pixels. Entries are keyed by native element identity, so wrappers share one answer
+/// and navigation releases the page's image state.
 /// </remarks>
 internal sealed class PageImages
 {
@@ -86,13 +56,6 @@ internal sealed class PageImages
     /// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-image-data">update the image
     /// data</a> step 7.3 takes it from the list of available images and opens no socket.
     /// </summary>
-    /// <remarks>
-    /// <b>No event is fired either, and that is the standard's own condition</b>: step 7.3.7.3 fires
-    /// <c>load</c> only when the previous URL differs from this one, which for a re-run over an unchanged
-    /// <c>src</c> it does not. It is what stops an <c>&lt;input type=image&gt;</c> costing two sockets,
-    /// AngleSharp's own <c>UpdateType</c> running twice for one parsed element (see
-    /// <c>Jint.Browser/Dom/divergences.md</c>).
-    /// </remarks>
     internal bool IsAlreadyAvailable(Element image, string url)
         => Find(image) is { State: ImageAvailability.CompletelyAvailable } request
             && string.Equals(request.CurrentUrl, url, StringComparison.Ordinal);

@@ -52,11 +52,6 @@ internal sealed partial class PageLayout
     /// <summary>
     /// What "not rendered" means, kept for the page because the cascade probe inside it latches.
     /// </summary>
-    /// <remarks>
-    /// <see cref="ElementVisibility"/> asks AngleSharp.Css once and stays on the inline-style path if the
-    /// service is not registered, which is a decision it can only make once per document rather than once
-    /// per query.
-    /// </remarks>
     internal ElementVisibility Visibility { get; } = new(useComputedStyle: true);
 
     /// <summary>How far the page is scrolled down, in CSS pixels.</summary>

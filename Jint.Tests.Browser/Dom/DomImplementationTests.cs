@@ -6,7 +6,7 @@ namespace Jint.Tests.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// It is a legacy member kept for one reason, which the standard states itself: old feature-detection code
-/// gates on it, and a browser answering true is what makes that code take the modern path. AngleSharp
+/// gates on it, and a browser answering true is what makes that code take the modern path. the former DOM integration
 /// answered true for three of the 136 pairs <c>DOMImplementation-hasFeature.html</c> asks about and false for
 /// the rest, so a page asking <c>hasFeature('Core', '3.0')</c> took its fallback.
 /// </remarks>

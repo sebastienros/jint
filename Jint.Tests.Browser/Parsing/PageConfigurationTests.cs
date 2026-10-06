@@ -6,7 +6,7 @@ using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Parsing;
 
-// The removed AngleSharp service enumeration/factory tests policed that implementation.
+// The removed the former DOM integration service enumeration/factory tests policed that implementation.
 // These native tests preserve isolation and configuration order; they do not claim the
 // old enumeration-count performance evidence.
 public sealed class PageConfigurationTests

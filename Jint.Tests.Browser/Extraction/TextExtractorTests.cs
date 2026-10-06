@@ -37,7 +37,7 @@ public sealed class TextExtractorTests
         yield return Case("<div id=t><div>a</div><p>b</p><div>c</div></div>", "a\n\nb\n\nc");
         yield return Case("<div id=t><h1>Title</h1><p>Body</p></div>", "Title\n\nBody");
 
-        // AngleSharp.Css's default sheet has no rule for the HTML5 flow elements, so this is the table in
+        // The former CSS integration's default sheet has no rule for the HTML5 flow elements, so this is the table in
         // HtmlDisplay answering rather than the cascade.
         yield return Case("<div id=t><section>a</section><article>b</article></div>", "a\nb");
         yield return Case("<div id=t><nav>a</nav><aside>b</aside><main>c</main></div>", "a\nb\nc");
@@ -121,7 +121,7 @@ public sealed class TextExtractorTests
     public void ASpanTurnedIntoABlockByTheAuthorBreaksTheLine()
     {
         // The declared value only wins where it differs from HTML's suggested rendering, which is what keeps
-        // AngleSharp's incomplete default sheet from calling every <section> inline.
+        // The former DOM integration's incomplete default sheet from calling every <section> inline.
         var document = PageFixture.Parse("<div id=t>a<span style='display:block'>b</span>c</div>");
 
         TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be("a\nb\nc");

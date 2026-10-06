@@ -150,13 +150,13 @@ public class DocumentLoadTests
         (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).fontSize"))
             .Should().Be("33px");
 
-        // AngleSharp.Css serializes every colour with an alpha channel; see the divergence table in
+        // The former CSS integration serializes every colour with an alpha channel; see the divergence table in
         // Jint.Browser/AGENTS.md. What matters here is that the sheet was fetched and cascaded at all.
         (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).color"))
             .Should().Contain("1, 2, 3");
 
         // A style sheet's own parse happens on the parser thread after the baton went back, so this is also
-        // where a genuinely asynchronous step in AngleSharp.Css would show up as a reported parser hop.
+        // where a genuinely asynchronous step in the former CSS integration would show up as a reported parser hop.
         loopback.Page.Errors.Should().BeEmpty();
     }
 
@@ -194,7 +194,7 @@ public class DocumentLoadTests
             && r.NotFetchedReason == null);
 
         // An <embed> is still a reference nothing follows: there is no plugin to hand it to. The recorded
-        // URL is the raw attribute rather than the resolved one, because AngleSharp hands the resource
+        // URL is the raw attribute rather than the resolved one, because the former DOM integration hands the resource
         // loader `new Url(Source)` for this element -- see Jint.Browser/Dom/divergences.md.
         requests.Should().ContainSingle(r => r.Url.EndsWith("plugin.dat", StringComparison.Ordinal)
             && r.NotFetchedReason != null);

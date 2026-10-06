@@ -57,7 +57,7 @@ internal enum PageRequestKind
 /// <summary>One hop of one request, as everything above the transport sees it.</summary>
 /// <remarks>
 /// <b>Plain CLR data, built on a transport thread.</b> Nothing here is a <c>JsValue</c>, an
-/// <see cref="Engine"/> or an AngleSharp node, which is what lets it be handed to a listener while the script
+/// <see cref="Engine"/> or a native DOM node, which is what lets it be handed to a listener while the script
 /// that started the request goes on running.
 /// </remarks>
 /// <param name="RequestId">The identifier a client addresses this request by, stable across its redirects.</param>

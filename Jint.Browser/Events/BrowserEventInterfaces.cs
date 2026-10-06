@@ -9,41 +9,10 @@ using Jint.WebApi.Files;
 namespace Jint.Browser.Events;
 
 /// <summary>
-/// The event interfaces the browser adds to the engine's <c>Event</c> and <c>CustomEvent</c>: the UI Events
-/// family and the HTML events a page runtime fires.
+/// Declares the script-visible Browser event interfaces and their inheritance.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Hand-written rather than generated, because there is nothing to generate them from: AngleSharp has no
-/// <c>MouseEvent</c>, and every one of these is a Jint <c>Event</c> subclass whose state is CLR fields —
-/// design doc §5, "one bus, Jint's".
-/// </para>
-/// <para>
-/// <b>An interface here is one a page can construct and dispatch; whether the runtime ever fires one is a
-/// separate question and often "no".</b> <c>DragEvent</c>, <c>StorageEvent</c> and the two device events are
-/// in that position: there is no drag, no second document sharing a storage area and no sensor, so nothing
-/// here fires them — and every one of them is still built in full, because constructing one from its
-/// dictionary and dispatching it is what a page does and what <c>document.createEvent</c>'s alias table
-/// requires an interface to exist for. Where a member's value would come from state this browser does not
-/// have, the standard's construction-from-dictionary semantics are what is implemented and each class says
-/// so. <c>TouchEvent</c> was the fifth of them and no longer is: <c>Input.dispatchTouchEvent</c> fires one
-/// (<c>Events/InputDispatcher.Touch</c>), so its three lists are computed from a real gesture as well as
-/// taken from a dictionary.
-/// </para>
-/// <para>
-/// <c>AnimationEvent</c>, <c>TransitionEvent</c>, <c>CommandEvent</c> and <c>GamepadEvent</c> are in that
-/// position too: there are no stylesheet-driven animations, no invoker-command dispatch and no gamepad, and the last
-/// cannot even be built by a page, because its required <c>gamepad</c> member names an interface nobody can
-/// construct. <c>ToggleEvent</c> is fired, by <c>&lt;dialog&gt;</c> and <c>&lt;details&gt;</c>, and
-/// <c>TextEvent</c> has no constructor at all — UI Events keeps it only for <c>createEvent</c>'s alias table
-/// and <c>initTextEvent</c>.
-/// <c>FontFaceSetLoadEvent</c> is fired by a <c>FontFaceSet</c> (<c>Fonts/JsFontFaceSet</c>).
-/// </para>
-/// <para>
-/// <b>Deliberately absent: <c>ClipboardEvent</c></b>, because there is no clipboard model at all — not even
-/// the read side a <c>ClipboardEventInit</c>'s <c>clipboardData</c> would have to answer from — which is also
-/// why <c>document.createEvent('clipboardevent')</c> is not in DOM's alias table and needs nothing here.
-/// </para>
+/// Events use Browser-owned state and shapes rather than projecting native CLR event objects.
 /// </remarks>
 internal static class BrowserEventInterfaces
 {

@@ -177,7 +177,7 @@ public sealed class DocumentHostHookTests
     /// call targets: an XML document is HTML's own first step and still an <c>InvalidStateError</c>, the
     /// displayed document keeps its no-op, and a secondary HTML document gets the standard's own steps —
     /// run here, because every one of these documents sits in a browsing context with no parent, which is
-    /// the reference AngleSharp's <c>Document.Open</c> dereferences.
+    /// the reference the former DOM integration's <c>Document.Open</c> dereferences.
     /// </remarks>
     [Test]
     public async Task ASecondaryDocumentIsWrittenOnItsOwnTermsAndNotAsThePage()
@@ -399,7 +399,7 @@ public sealed class DocumentHostHookTests
     /// <summary>
     /// A frame's document is the page's too — it is in the displayed browsing-context tree — so it takes the
     /// page's refusal rather than the secondary one. Selecting on the one displayed document instead would
-    /// have sent it to AngleSharp's <c>Document.Open</c>, which fires the frame's unload and empties its tree.
+    /// have sent it to the former DOM integration's <c>Document.Open</c>, which fires the frame's unload and empties its tree.
     /// </summary>
     [Test]
     public async Task AFrameDocumentTakesTheDisplayedRefusalRatherThanTheSecondaryOne()

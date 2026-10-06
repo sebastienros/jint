@@ -15,535 +15,535 @@ namespace Jint.Browser.Dom;
 /// </summary>
 internal static partial class DomInterfaces
 {
-    /// <summary>The <c>ApplicationCache</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>ApplicationCache</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition ApplicationCache;
 
-    /// <summary>The <c>Node</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
+    /// <summary>The <c>Node</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Node;
 
-    /// <summary>The <c>Attr</c> interface, projected from <c>Jint.HtmlParser.Attr</c>.</summary>
+    /// <summary>The <c>Attr</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Attr;
 
-    /// <summary>The <c>AudioTrack</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>AudioTrack</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition AudioTrack;
 
-    /// <summary>The <c>AudioTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserAudioTrackList</c>.</summary>
+    /// <summary>The <c>AudioTrackList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition AudioTrackList;
 
-    /// <summary>The <c>Blob</c> interface, projected from <c>Jint.WebApi.Files.JsBlob</c>.</summary>
+    /// <summary>The <c>Blob</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Blob;
 
-    /// <summary>The <c>CSSRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRule</c>.</summary>
+    /// <summary>The <c>CSSRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSRule;
 
-    /// <summary>The <c>CSSGroupingRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssGroupingRule</c>.</summary>
+    /// <summary>The <c>CSSGroupingRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSGroupingRule;
 
-    /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssConditionRule</c>.</summary>
+    /// <summary>The <c>CSSConditionRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSConditionRule;
 
-    /// <summary>The <c>CSSFontFaceRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssFontFaceRule</c>.</summary>
+    /// <summary>The <c>CSSFontFaceRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSFontFaceRule;
 
-    /// <summary>The <c>CSSImportRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssImportRule</c>.</summary>
+    /// <summary>The <c>CSSImportRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSImportRule;
 
-    /// <summary>The <c>CSSLayerBlockRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssLayerBlockRule</c>.</summary>
+    /// <summary>The <c>CSSLayerBlockRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSLayerBlockRule;
 
-    /// <summary>The <c>CSSLayerStatementRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssLayerStatementRule</c>.</summary>
+    /// <summary>The <c>CSSLayerStatementRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSLayerStatementRule;
 
-    /// <summary>The <c>CSSMediaRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
+    /// <summary>The <c>CSSMediaRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSMediaRule;
 
-    /// <summary>The <c>CSSPseudoElement</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSPseudoElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSPseudoElement;
 
-    /// <summary>The <c>CSSPseudoElementList</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSPseudoElementList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSPseudoElementList;
 
-    /// <summary>The <c>CSSRuleList</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRuleList</c>.</summary>
+    /// <summary>The <c>CSSRuleList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSRuleList;
 
-    /// <summary>The <c>CSSStyleDeclaration</c> interface, projected from <c>Jint.Browser.Styling.NativeCssDeclaration</c>.</summary>
+    /// <summary>The <c>CSSStyleDeclaration</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleDeclaration;
 
-    /// <summary>The <c>CSSFontFaceDescriptors</c> interface, projected from <c>Jint.Browser.Styling.NativeCssFontFaceDescriptors</c>.</summary>
+    /// <summary>The <c>CSSFontFaceDescriptors</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSFontFaceDescriptors;
 
-    /// <summary>The <c>CSSStyleRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleRule</c>.</summary>
+    /// <summary>The <c>CSSStyleRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleRule;
 
-    /// <summary>The <c>StyleSheet</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleSheet</c>.</summary>
+    /// <summary>The <c>StyleSheet</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition StyleSheet;
 
-    /// <summary>The <c>CSSStyleSheet</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleSheet</c>.</summary>
+    /// <summary>The <c>CSSStyleSheet</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleSheet;
 
-    /// <summary>The <c>CSSSupportsRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssSupportsRule</c>.</summary>
+    /// <summary>The <c>CSSSupportsRule</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CSSSupportsRule;
 
-    /// <summary>The <c>RenderingContext</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>RenderingContext</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition RenderingContext;
 
-    /// <summary>The <c>CaretPosition</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CaretPosition</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CaretPosition;
 
-    /// <summary>The <c>CharacterData</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
+    /// <summary>The <c>CharacterData</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition CharacterData;
 
-    /// <summary>The <c>Comment</c> interface, projected from <c>Jint.HtmlParser.Comment</c>.</summary>
+    /// <summary>The <c>Comment</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Comment;
 
-    /// <summary>The <c>DOMException</c> interface, projected from <c>Jint.WebApi.DomException.JsDomException</c>.</summary>
+    /// <summary>The <c>DOMException</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DOMException;
 
-    /// <summary>The <c>DOMImplementation</c> interface, projected from <c>AngleSharp.Dom.IImplementation</c>.</summary>
+    /// <summary>The <c>DOMImplementation</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DOMImplementation;
 
-    /// <summary>The <c>DOMStringList</c> interface, projected from <c>Jint.Browser.Styling.NativeCssStyleSetList</c>.</summary>
+    /// <summary>The <c>DOMStringList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DOMStringList;
 
-    /// <summary>The <c>DOMStringMap</c> interface, projected from <c>AngleSharp.Dom.IStringMap</c>.</summary>
+    /// <summary>The <c>DOMStringMap</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DOMStringMap;
 
-    /// <summary>The <c>DOMTokenList</c> interface, projected from <c>AngleSharp.Dom.ITokenList</c>.</summary>
+    /// <summary>The <c>DOMTokenList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DOMTokenList;
 
-    /// <summary>The <c>Document</c> interface, projected from <c>Jint.HtmlParser.Document</c>.</summary>
+    /// <summary>The <c>Document</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Document;
 
-    /// <summary>The <c>DocumentFragment</c> interface, projected from <c>Jint.HtmlParser.DocumentFragment</c>.</summary>
+    /// <summary>The <c>DocumentFragment</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DocumentFragment;
 
-    /// <summary>The <c>DocumentType</c> interface, projected from <c>Jint.HtmlParser.DocumentType</c>.</summary>
+    /// <summary>The <c>DocumentType</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition DocumentType;
 
-    /// <summary>The <c>Element</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>Element</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Element;
 
-    /// <summary>The <c>File</c> interface, projected from <c>Jint.WebApi.Files.JsFile</c>.</summary>
+    /// <summary>The <c>File</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition File;
 
-    /// <summary>The <c>FileList</c> interface, projected from <c>Jint.Browser.Dom.Files.JsFileList</c>.</summary>
+    /// <summary>The <c>FileList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition FileList;
 
-    /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomHtmlCollection&lt;Jint.HtmlParser.Element&gt;</c>.</summary>
+    /// <summary>The <c>HTMLAllCollection</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLAllCollection;
 
-    /// <summary>The <c>HTMLElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLElement;
 
-    /// <summary>The <c>HTMLAnchorElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLAnchorElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLAnchorElement;
 
-    /// <summary>The <c>HTMLAreaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLAreaElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLAreaElement;
 
-    /// <summary>The <c>HTMLMediaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMediaElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMediaElement;
 
-    /// <summary>The <c>HTMLAudioElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLAudioElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLAudioElement;
 
-    /// <summary>The <c>HTMLBRElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLBRElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLBRElement;
 
-    /// <summary>The <c>HTMLBaseElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLBaseElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLBaseElement;
 
-    /// <summary>The <c>HTMLBodyElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLBodyElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLBodyElement;
 
-    /// <summary>The <c>HTMLButtonElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLButtonElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLButtonElement;
 
-    /// <summary>The <c>HTMLCanvasElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLCanvasElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLCanvasElement;
 
-    /// <summary>The <c>HTMLCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlCollection`1</c>.</summary>
+    /// <summary>The <c>HTMLCollection</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLCollection;
 
-    /// <summary>The <c>HTMLCommandElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLCommandElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLCommandElement;
 
-    /// <summary>The <c>HTMLDataElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLDataElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLDataElement;
 
-    /// <summary>The <c>HTMLDataListElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLDataListElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLDataListElement;
 
-    /// <summary>The <c>HTMLDetailsElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLDetailsElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLDetailsElement;
 
-    /// <summary>The <c>HTMLDialogElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLDialogElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLDialogElement;
 
-    /// <summary>The <c>HTMLDivElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLDivElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLDivElement;
 
-    /// <summary>The <c>HTMLDocument</c> interface, projected from <c>Jint.HtmlParser.Document</c>.</summary>
+    /// <summary>The <c>HTMLDocument</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLDocument;
 
-    /// <summary>The <c>HTMLEmbedElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLEmbedElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLEmbedElement;
 
-    /// <summary>The <c>HTMLFieldSetElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLFieldSetElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLFieldSetElement;
 
-    /// <summary>The <c>HTMLFormControlsCollection</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlFormControlsCollection</c>.</summary>
+    /// <summary>The <c>HTMLFormControlsCollection</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLFormControlsCollection;
 
-    /// <summary>The <c>HTMLFormElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLFormElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLFormElement;
 
-    /// <summary>The <c>HTMLHRElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLHRElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLHRElement;
 
-    /// <summary>The <c>HTMLHeadElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLHeadElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLHeadElement;
 
-    /// <summary>The <c>HTMLHeadingElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLHeadingElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLHeadingElement;
 
-    /// <summary>The <c>HTMLHtmlElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLHtmlElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLHtmlElement;
 
-    /// <summary>The <c>HTMLIFrameElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLIFrameElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLIFrameElement;
 
-    /// <summary>The <c>HTMLImageElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLImageElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLImageElement;
 
-    /// <summary>The <c>HTMLInputElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLInputElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLInputElement;
 
-    /// <summary>The <c>HTMLKeygenElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLKeygenElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLKeygenElement;
 
-    /// <summary>The <c>HTMLLIElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLLIElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLLIElement;
 
-    /// <summary>The <c>HTMLLabelElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLLabelElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLLabelElement;
 
-    /// <summary>The <c>HTMLLegendElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLLegendElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLLegendElement;
 
-    /// <summary>The <c>HTMLLinkElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLLinkElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLLinkElement;
 
-    /// <summary>The <c>HTMLMapElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMapElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMapElement;
 
-    /// <summary>The <c>HTMLMarqueeElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMarqueeElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMarqueeElement;
 
-    /// <summary>The <c>HTMLMenuElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMenuElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMenuElement;
 
-    /// <summary>The <c>HTMLMenuItemElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMenuItemElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMenuItemElement;
 
-    /// <summary>The <c>HTMLMetaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMetaElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMetaElement;
 
-    /// <summary>The <c>HTMLMeterElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLMeterElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLMeterElement;
 
-    /// <summary>The <c>HTMLModElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLModElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLModElement;
 
-    /// <summary>The <c>HTMLOListElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLOListElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLOListElement;
 
-    /// <summary>The <c>HTMLObjectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLObjectElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLObjectElement;
 
-    /// <summary>The <c>HTMLOptGroupElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLOptGroupElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLOptGroupElement;
 
-    /// <summary>The <c>HTMLOptionElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLOptionElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLOptionElement;
 
-    /// <summary>The <c>HTMLOptionsCollection</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlOptionsCollection</c>.</summary>
+    /// <summary>The <c>HTMLOptionsCollection</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLOptionsCollection;
 
-    /// <summary>The <c>HTMLOutputElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLOutputElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLOutputElement;
 
-    /// <summary>The <c>HTMLParagraphElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLParagraphElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLParagraphElement;
 
-    /// <summary>The <c>HTMLParamElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLParamElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLParamElement;
 
-    /// <summary>The <c>HTMLPictureElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLPictureElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLPictureElement;
 
-    /// <summary>The <c>HTMLPreElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLPreElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLPreElement;
 
-    /// <summary>The <c>HTMLProgressElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLProgressElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLProgressElement;
 
-    /// <summary>The <c>HTMLQuoteElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLQuoteElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLQuoteElement;
 
-    /// <summary>The <c>HTMLScriptElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLScriptElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLScriptElement;
 
-    /// <summary>The <c>HTMLSelectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLSelectElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLSelectElement;
 
-    /// <summary>The <c>HTMLSlotElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLSlotElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLSlotElement;
 
-    /// <summary>The <c>HTMLSourceElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLSourceElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLSourceElement;
 
-    /// <summary>The <c>HTMLSpanElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLSpanElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLSpanElement;
 
-    /// <summary>The <c>HTMLStyleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLStyleElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLStyleElement;
 
-    /// <summary>The <c>HTMLTableCaptionElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTableCaptionElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableCaptionElement;
 
-    /// <summary>The <c>HTMLTableCellElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTableCellElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableCellElement;
 
-    /// <summary>The <c>HTMLTableColElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTableColElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableColElement;
 
-    /// <summary>The <c>HTMLTableElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTableElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableElement;
 
-    /// <summary>The <c>HTMLTableRowElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTableRowElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableRowElement;
 
-    /// <summary>The <c>HTMLTableSectionElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTableSectionElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableSectionElement;
 
-    /// <summary>The <c>HTMLTemplateElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTemplateElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTemplateElement;
 
-    /// <summary>The <c>HTMLTextAreaElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTextAreaElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTextAreaElement;
 
-    /// <summary>The <c>HTMLTimeElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTimeElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTimeElement;
 
-    /// <summary>The <c>HTMLTitleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTitleElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTitleElement;
 
-    /// <summary>The <c>HTMLTrackElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLTrackElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLTrackElement;
 
-    /// <summary>The <c>HTMLUListElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLUListElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLUListElement;
 
-    /// <summary>The <c>HTMLUnknownElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLUnknownElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLUnknownElement;
 
-    /// <summary>The <c>HTMLVideoElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>HTMLVideoElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition HTMLVideoElement;
 
-    /// <summary>The <c>History</c> interface, projected from <c>Jint.Native.Object.ObjectInstance</c>.</summary>
+    /// <summary>The <c>History</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition History;
 
-    /// <summary>The <c>Location</c> interface, projected from <c>Jint.Browser.Dom.DomLocation</c>.</summary>
+    /// <summary>The <c>Location</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Location;
 
-    /// <summary>The <c>MediaController</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>MediaController</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition MediaController;
 
-    /// <summary>The <c>MediaError</c> interface, projected from <c>Jint.Browser.Dom.BrowserMediaError</c>.</summary>
+    /// <summary>The <c>MediaError</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition MediaError;
 
-    /// <summary>The <c>MediaList</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaList</c>.</summary>
+    /// <summary>The <c>MediaList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition MediaList;
 
-    /// <summary>The <c>MediaQueryList</c> interface, projected from <c>Jint.Browser.Runtime.JsMediaQueryList</c>.</summary>
+    /// <summary>The <c>MediaQueryList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition MediaQueryList;
 
-    /// <summary>The <c>MessagePort</c> interface, projected from <c>Jint.WebApi.Messaging.JsMessagePort</c>.</summary>
+    /// <summary>The <c>MessagePort</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition MessagePort;
 
-    /// <summary>The <c>MutationRecord</c> interface, projected from <c>AngleSharp.Dom.IMutationRecord</c>.</summary>
+    /// <summary>The <c>MutationRecord</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition MutationRecord;
 
-    /// <summary>The <c>NamedNodeMap</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomNamedNodeMap</c>.</summary>
+    /// <summary>The <c>NamedNodeMap</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition NamedNodeMap;
 
-    /// <summary>The <c>Navigator</c> interface, projected from <c>Jint.WebApi.Navigator.JsNavigator</c>.</summary>
+    /// <summary>The <c>Navigator</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Navigator;
 
-    /// <summary>The <c>NodeIterator</c> interface, projected from <c>AngleSharp.Dom.INodeIterator</c>.</summary>
+    /// <summary>The <c>NodeIterator</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition NodeIterator;
 
-    /// <summary>The <c>NodeList</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomNodeList</c>.</summary>
+    /// <summary>The <c>NodeList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition NodeList;
 
-    /// <summary>The <c>ProcessingInstruction</c> interface, projected from <c>Jint.HtmlParser.ProcessingInstruction</c>.</summary>
+    /// <summary>The <c>ProcessingInstruction</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition ProcessingInstruction;
 
-    /// <summary>The <c>PseudoElement</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>PseudoElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition PseudoElement;
 
-    /// <summary>The <c>Range</c> interface, projected from <c>AngleSharp.Dom.IRange</c>.</summary>
+    /// <summary>The <c>Range</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Range;
 
-    /// <summary>The <c>SVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGElement;
 
-    /// <summary>The <c>SVGGraphicsElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGGraphicsElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGGraphicsElement;
 
-    /// <summary>The <c>SVGGeometryElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGGeometryElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGGeometryElement;
 
-    /// <summary>The <c>SVGSVGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGSVGElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGSVGElement;
 
-    /// <summary>The <c>SVGGElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGGElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGGElement;
 
-    /// <summary>The <c>SVGDefsElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGDefsElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGDefsElement;
 
-    /// <summary>The <c>SVGSwitchElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGSwitchElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGSwitchElement;
 
-    /// <summary>The <c>SVGSymbolElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGSymbolElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGSymbolElement;
 
-    /// <summary>The <c>SVGUseElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGUseElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGUseElement;
 
-    /// <summary>The <c>SVGImageElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGImageElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGImageElement;
 
-    /// <summary>The <c>SVGRectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGRectElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGRectElement;
 
-    /// <summary>The <c>SVGCircleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGCircleElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGCircleElement;
 
-    /// <summary>The <c>SVGEllipseElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGEllipseElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGEllipseElement;
 
-    /// <summary>The <c>SVGLineElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGLineElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGLineElement;
 
-    /// <summary>The <c>SVGPolylineElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGPolylineElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGPolylineElement;
 
-    /// <summary>The <c>SVGPolygonElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGPolygonElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGPolygonElement;
 
-    /// <summary>The <c>SVGPathElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGPathElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGPathElement;
 
-    /// <summary>The <c>SVGTextContentElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGTextContentElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGTextContentElement;
 
-    /// <summary>The <c>SVGTextPositioningElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGTextPositioningElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGTextPositioningElement;
 
-    /// <summary>The <c>SVGTextElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGTextElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGTextElement;
 
-    /// <summary>The <c>SVGTSpanElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGTSpanElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGTSpanElement;
 
-    /// <summary>The <c>SVGTextPathElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGTextPathElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGTextPathElement;
 
-    /// <summary>The <c>SVGGradientElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGGradientElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGGradientElement;
 
-    /// <summary>The <c>SVGLinearGradientElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGLinearGradientElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGLinearGradientElement;
 
-    /// <summary>The <c>SVGRadialGradientElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGRadialGradientElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGRadialGradientElement;
 
-    /// <summary>The <c>SVGStopElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGStopElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGStopElement;
 
-    /// <summary>The <c>SVGPatternElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGPatternElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGPatternElement;
 
-    /// <summary>The <c>SVGClipPathElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGClipPathElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGClipPathElement;
 
-    /// <summary>The <c>SVGMaskElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGMaskElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGMaskElement;
 
-    /// <summary>The <c>SVGMarkerElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGMarkerElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGMarkerElement;
 
-    /// <summary>The <c>SVGMetadataElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGMetadataElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGMetadataElement;
 
-    /// <summary>The <c>SVGScriptElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGScriptElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGScriptElement;
 
-    /// <summary>The <c>SVGStyleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGStyleElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGStyleElement;
 
-    /// <summary>The <c>SVGTitleElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGTitleElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGTitleElement;
 
-    /// <summary>The <c>SVGDescElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGDescElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGDescElement;
 
-    /// <summary>The <c>SVGForeignObjectElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGForeignObjectElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGForeignObjectElement;
 
-    /// <summary>The <c>SVGViewElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGViewElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGViewElement;
 
-    /// <summary>The <c>SVGFilterElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
+    /// <summary>The <c>SVGFilterElement</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition SVGFilterElement;
 
-    /// <summary>The <c>ShadowRoot</c> interface, projected from <c>Jint.HtmlParser.ShadowRoot</c>.</summary>
+    /// <summary>The <c>ShadowRoot</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition ShadowRoot;
 
-    /// <summary>The <c>StyleSheetList</c> interface, projected from <c>Jint.Browser.Styling.NativeCssStyleSheetList</c>.</summary>
+    /// <summary>The <c>StyleSheetList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition StyleSheetList;
 
-    /// <summary>The <c>Text</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
+    /// <summary>The <c>Text</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition Text;
 
-    /// <summary>The <c>TextTrack</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>TextTrack</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition TextTrack;
 
-    /// <summary>The <c>TextTrackCue</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>TextTrackCue</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition TextTrackCue;
 
-    /// <summary>The <c>TextTrackCueList</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>TextTrackCueList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition TextTrackCueList;
 
-    /// <summary>The <c>TextTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserTextTrackList</c>.</summary>
+    /// <summary>The <c>TextTrackList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition TextTrackList;
 
-    /// <summary>The <c>TimeRanges</c> interface, projected from <c>Jint.Browser.Dom.BrowserTimeRanges</c>.</summary>
+    /// <summary>The <c>TimeRanges</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition TimeRanges;
 
-    /// <summary>The <c>TreeWalker</c> interface, projected from <c>AngleSharp.Dom.ITreeWalker</c>.</summary>
+    /// <summary>The <c>TreeWalker</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition TreeWalker;
 
-    /// <summary>The <c>ValidityState</c> interface, projected from <c>AngleSharp.Html.Dom.IValidityState</c>.</summary>
+    /// <summary>The <c>ValidityState</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition ValidityState;
 
-    /// <summary>The <c>VideoTrack</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
+    /// <summary>The <c>VideoTrack</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition VideoTrack;
 
-    /// <summary>The <c>VideoTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserVideoTrackList</c>.</summary>
+    /// <summary>The <c>VideoTrackList</c> interface from the native binding contract.</summary>
     internal static readonly DomInterfaceDefinition VideoTrackList;
 
     /// <summary>Every definition, in the order they were created.</summary>

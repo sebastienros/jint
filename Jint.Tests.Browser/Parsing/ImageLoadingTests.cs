@@ -158,7 +158,7 @@ public class ImageLoadingTests
         // conditions: there is nothing to wait for, so a page must not wait for a load event.
         //
         // The third element is the documented gap. HTML's update-the-image-data selects no source for an
-        // empty `srcset`, so the request is broken and `complete` is true; AngleSharp asks the resource
+        // empty `srcset`, so the request is broken and `complete` is true; the former DOM integration asks the resource
         // loader for nothing in that case, so there is no request processor to hang a state on and this
         // browser leaves it unavailable. Jint.Browser/Dom/divergences.md carries the row, and the same gap
         // is why `<img src="">` fires no error here.

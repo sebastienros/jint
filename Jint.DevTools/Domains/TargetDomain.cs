@@ -20,7 +20,7 @@ namespace Jint.DevTools.Domains;
 /// <see cref="ITargetHost"/> has nothing to open and nothing to partition, so <c>createBrowserContext</c>
 /// refuses with a reason rather than minting an identifier that isolates nothing and
 /// <c>createTarget</c> falls back to <see cref="DevToolsServerOptions.EngineFactory"/>. A server that
-/// <i>has</i> one — <c>Jint.Browser</c>, which is AngleSharp plus Jint — routes all four commands through it,
+/// <i>has</i> one — <c>Jint.Browser</c>, which is the native DOM plus Jint — routes all four commands through it,
 /// and everything else on this domain behaves identically either way.
 /// </para>
 /// <para>

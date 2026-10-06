@@ -12,11 +12,6 @@ namespace Jint.Browser.Layout;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every one of these is an <c>additions</c> entry in <c>tools/dom-bindings/overrides.json</c>: AngleSharp
-/// has no layout and therefore declares none of them, so the standard's member list is the only place they
-/// can come from. The bodies are here rather than in the table because the table holds decisions.
-/// </para>
-/// <para>
 /// <b>A binding with no page answers zeros.</b> <c>DomBindings.Install</c> on a bare engine — which is what
 /// the binding tests use — has no viewport, no scroll offset and no document loop, so every metric is zero
 /// and every hit test is <see langword="null"/>. That is the same shape of answer a hidden element gets, and
@@ -208,11 +203,6 @@ internal static class LayoutMembers
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-document-scrollingelement — the document element.
     /// </summary>
-    /// <remarks>
-    /// Standards mode always: AngleSharp's parser produces no quirks-mode document this package ever loads
-    /// with a <c>&lt;body&gt;</c> as its scrolling element, and a page uses this member to find the one
-    /// thing whose <c>scrollTop</c> moves the window.
-    /// </remarks>
     internal static JsValue ScrollingElement(DomRealm realm, Document document)
         => PageOf(realm, document) is null ? JsValue.Null : realm.WrapNodeValue(document.DocumentElement);
 

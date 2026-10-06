@@ -9,18 +9,6 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order is the whole of it.</b> Each of <c>before</c>, <c>after</c> and <c>replaceWith</c> chooses a
-/// <i>viable</i> sibling — the nearest one that is not itself among the arguments — <b>before</b> running
-/// "convert nodes into a node", because that conversion moves every argument node into a fragment and can
-/// therefore empty the very run of siblings the insertion point was going to be measured from. AngleSharp's
-/// <c>IChildNode.Before</c>/<c>After</c>/<c>Replace</c> convert first and then ask the parent to insert
-/// relative to the receiver, so <c>child.before('text', child)</c> — the argument list a page writes when it
-/// is reordering around itself — reaches <c>InsertBefore</c> with a reference node the conversion has already
-/// taken out of the parent, and raises <c>NotFoundError</c> where the standard has an answer.
-/// <c>dom/nodes/ChildNode-before.html</c>, <c>-after.html</c> and <c>-replaceWith.html</c> are nine
-/// assertions of exactly that; the divergence register keeps the upstream half.
-/// </para>
-/// <para>
 /// The receiver is a native <c>Node</c> because DOM declares these on the <c>ChildNode</c> mixin, which
 /// <c>Element</c>, <c>CharacterData</c> and <c>DocumentType</c> include; the hook is one method for all three
 /// for the same reason the generated members are one mixin's.

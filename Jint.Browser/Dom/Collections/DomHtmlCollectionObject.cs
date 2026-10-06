@@ -101,19 +101,6 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Why no <c>Length</c> check stands in front of it.</b> Every implementation of
-    /// <c>IHtmlCollection&lt;T&gt;</c> this wrapper is given is a lazy view over a tree walk rather than a
-    /// list. AngleSharp's <c>HtmlCollection&lt;T&gt;</c> — <c>children</c>, and the snapshot collections —
-    /// holds an <c>IEnumerable&lt;T&gt;</c> whose <c>Length</c> is <c>Count()</c> and whose indexer is a
-    /// linear <c>GetItemByIndex</c>; its <c>HtmlFormControlsCollection</c> (<c>form.elements</c>) is a
-    /// <c>Where</c> over the document's form-control descendants; and the binding's own
-    /// <see cref="DomLiveHtmlCollection"/> re-runs its filter. So the bounds pre-check this method replaced
-    /// ran the entire query a second time on every element read — 36.3% of the <c>GetDescendantsAndSelf</c>
-    /// subtree in the profile on
-    /// <a href="https://github.com/sebastienros/jint/issues/4013">sebastienros/jint#4013</a>. Running out of
-    /// elements <i>is</i> the bounds answer, and it comes free with the walk that had to happen anyway.
-    /// </para>
-    /// <para>
     /// The collections that really can be indexed in constant time — <c>childNodes</c>, <c>attributes</c>, a
     /// token list — are not these. They reach <see cref="DomCollectionObject"/> and its generated accessor,
     /// whose length probe is a field read, and it stays where it is.
@@ -178,16 +165,6 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     /// <c>namedItem</c></a>, whose first step is the empty string and whose second is the element lookup.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The search is written out rather than delegated to AngleSharp's <c>this[string]</c>, because HTML's
-    /// second step is "the <b>first</b> element for which <i>either</i> its ID is key, <i>or</i> it is in the
-    /// HTML namespace and its <c>name</c> content attribute is key" — one pass in tree order, and the
-    /// <c>name</c> half restricted to HTML elements. AngleSharp matches <c>name</c> on any element and does
-    /// so in a second pass after every id, so <c>document.createElementNS("", "img")</c> with
-    /// <c>name="qux"</c> answered from a collection that must not expose it. That is what made this operation
-    /// and <see cref="VisibleNames"/> disagree about one object, which
-    /// <c>dom/nodes/Element-children.html</c> asserts they never do.
-    /// </para>
     /// <para>
     /// The empty-name check is HTML's first step, and it comes first because an element carrying
     /// <c>id=""</c> or <c>name=""</c> would otherwise match. This operation looks through expandos; only

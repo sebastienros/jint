@@ -134,15 +134,6 @@ internal static class AriaElementReferences
     /// — the content attribute's <b>attribute change steps</b>, which drop the explicitly set elements
     /// whenever anything else writes it.
     /// </summary>
-    /// <remarks>
-    /// Read from the attribute's <i>value</i> rather than from an observer, deliberately: AngleSharp's
-    /// <c>IAttributeObserver</c> reports neither a namespaced write, nor an <c>Attr</c> node's value, nor the
-    /// parser, and it is the page runtime that registers one at all — while the value says it without any of
-    /// them, because the IDL setter writes the empty string and nothing else here does. The one case it reads
-    /// differently from the standard is a page writing that same empty string by hand, which keeps a
-    /// reference where a browser drops it; both answer no elements from the ids, and <c>Dom/AGENTS.md</c>
-    /// records it.
-    /// </remarks>
     private static WeakReference<Element>[]? Reconcile(Element element, Slots slots, int index, string attribute)
     {
         var value = element.GetAttribute(attribute);

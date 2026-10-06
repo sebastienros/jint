@@ -48,7 +48,7 @@ target/runtime split and the manifest are there and none of it is repeated here.
   and a `backendNodeId` per node for the page's life, keyed in a `ConditionalWeakTable`. Both are shared by
   every attachment, the way the remote-object table is; what is **not** shared is which nodes an attachment
   has been *sent*, and that is what decides which mutation events reach it — Chrome's own rule, and the
-  reason a client that never called `getDocument` hears nothing. The records are AngleSharp's, delivered on
+  reason a client that never called `getDocument` hears nothing. The records are native mutation records, delivered on
   the engine's queue at the same checkpoint a page's own `MutationObserver` fires. Every box is the flat
   model's ([`Runtime/AGENTS.md`](../Runtime/AGENTS.md)), and a node with no box is refused in Chrome's wording
   rather than answered with zeros. `performSearch` is Chrome's three arms in Chrome's order — a selector,
@@ -155,7 +155,7 @@ target/runtime split and the manifest are there and none of it is repeated here.
   would draw on a surface that does not exist; `Security` has no certificate decision to report, the
   transport being the host's own `HttpClient`.
 - **`CSS` is two reads and a coverage run, and every editing command is still `-32601`.**
-  `getComputedStyleForNode` and `getInlineStylesForNode` are what AngleSharp.Css can stand behind;
+  `getComputedStyleForNode` and `getInlineStylesForNode` read the shared native cascade and authored inline declarations;
   `startRuleUsageTracking`, `takeCoverageDelta` and `stopRuleUsageTracking` — with `styleSheetAdded` and
   `getStyleSheetText`, which are the rest of what a coverage client sends — are
   `page.coverage.startCSSCoverage()`. Four things about them are decisions:
@@ -163,24 +163,19 @@ target/runtime split and the manifest are there and none of it is repeated here.
     seam and `Dom/Views/CssCascade` is where it sits, so every `getComputedStyle`, every box the flat model
     measures and this domain's own computed style feed it. It is armed only while a window is open — a
     process-wide array, a volatile read and a length test — so a page nobody is tracking pays what a page
-    with no `Network` client pays. **The matching is done again rather than read off the cascade**: nothing
-    in AngleSharp.Css reports which rules produced a computed declaration, which is the upstream finding
-    behind this whole shape. The window matches only the rules it has not already recorded, over
-    `IWindow.GetStyleCollection`'s own flattened, condition-filtered list — so a rule inside an `@media` or
-    `@supports` that holds counts on its own, one inside a group that does not is never a candidate, and a
-    rule that matched once is not recorded twice.
+    with no `Network` client pays. The native traversal reports matching rule identities to the coverage
+    window, independently of which declarations win. Conditional groups use the same active rule set as
+    the computed query, and a rule recorded once is not recorded twice.
   - **Starting a window walks the document once, and so does a commit.** Blink's `startRuleUsageTracking`
     marks every element for style recalculation and runs it before returning; nothing renders here, so a
     document nobody queries would otherwise yield an empty report. That sweep is selector matching and no
     value computation.
-  - **The offsets index the text this domain hands out and no other string.** AngleSharp keeps a sheet's
-    authored text (`IStyleSheet.Source`) but no source position on any rule, so a range into the authored
-    bytes cannot be computed at all. `CssStyleSheetText` serializes the sheet and measures that same
+  - **The offsets index the text this domain hands out and no other string.** `CssStyleSheetText`
+    serializes the native sheet and measures that same
     serialization, which is what `getStyleSheetText` answers with — one rule per line, two spaces of
     nesting, an LF line break everywhere — so two platforms report the same offsets, and a client
     slicing the text it was given gets the rule it was told about.
-  - **Sheets are reconciled when a client asks, not watched.** AngleSharp raises no notification when a
-    sheet joins or leaves a document, so `CssStyleSheetTracker` mints identifiers — a document's, shared by
+  - **Sheets are reconciled when a client asks, not watched.** `CssStyleSheetTracker` mints identifiers — a document's, shared by
     every attachment, exactly as `DomNodeTracker` mints a `nodeId` — and `styleSheetAdded` is emitted at
     `enable`, at each commit, and before any command that hands out an offset. `styleSheetChanged` and
     `styleSheetRemoved` are absent for the same reason, and their absence is what a client cannot notice:
@@ -247,10 +242,8 @@ a second truth about the same request.
   allowed to overrun. Neither ever waits for a sibling to let go: a sibling may itself be paused.
 
 **The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and relative
-resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's
-`ILocation` instead raises `Location.Changed`, answered with a fire-and-forget `IBrowsingContext.OpenAsync` on
-the setter's own thread — the second thread in the DOM the divergence table warns about — so
-`LocationInstaller` shadows the *whole* interface and the hazard is gone rather than dormant. One divergence
+resolution read, and `pushState` and a fragment navigation move it without reloading. `LocationInstaller`
+implements the script-visible interface and schedules navigation on the owning page loop. One divergence
 stays: `Options.WebApi.Fetch.BaseUrl` is read once per engine, so `fetch('./x')` after a `pushState` resolves
 against the URL the document *loaded* from. Closing it is an engine seam, not a second URL kept here.
 

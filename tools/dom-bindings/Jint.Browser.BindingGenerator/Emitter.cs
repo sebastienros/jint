@@ -70,8 +70,7 @@ internal sealed class Emitter
 
         foreach (var model in _model.Interfaces)
         {
-            builder.Append("    /// <summary>The <c>").Append(System.Security.SecurityElement.Escape(model.DomName)).Append("</c> interface, projected from <c>")
-                .Append(System.Security.SecurityElement.Escape(model.ClrTypeName)).Append("</c>.</summary>\n")
+            builder.Append("    /// <summary>The <c>").Append(System.Security.SecurityElement.Escape(model.DomName)).Append("</c> interface from the native binding contract.</summary>\n")
                 .Append("    internal static readonly DomInterfaceDefinition ").Append(model.FieldName).Append(";\n\n");
         }
 
@@ -307,9 +306,9 @@ internal sealed class Emitter
     }
 
     /// <summary>
-    /// One member body, wrapped in the invoker that turns an <c>AngleSharp.Dom.DomException</c> into the
+    /// One member body, wrapped in the invoker that turns an <c>Jint.HtmlParser.DomException</c> into the
     /// <c>DOMException</c> the standard prescribes. Every member goes through it — an operation, both halves
-    /// of an attribute — because which of them can refuse is AngleSharp's business rather than the metadata's,
+    /// of an attribute — because native operations can refuse independently of their binding metadata,
     /// and a page's only vocabulary for a refusal is <c>e.name</c>. <c>Jint.Browser/Dom/DomFailures</c> is the
     /// whole of the conversion; here there is deliberately no <c>catch</c> to get out of step with it.
     /// </summary>
@@ -376,7 +375,7 @@ internal sealed class Emitter
         var builder = new StringBuilder(Header);
         builder.Append("""
             /// <summary>
-            /// The WebIDL string enumerations AngleSharp models as CLR enums, in both directions. A value the
+            /// The binding contract's WebIDL string enumerations, in both directions. A value the
             /// enumeration does not carry is a <c>TypeError</c>, which is what WebIDL's enumeration conversion
             /// says.
             /// </summary>
@@ -429,8 +428,7 @@ internal sealed class Emitter
             {
                 /// <summary>
                 /// Every generated interface, most derived first. A runtime type is matched against this in
-                /// order, so the first interface it implements is the most specific one — which is how an
-                /// AngleSharp element class, almost all of which are internal, is given its DOM interface.
+                /// order, so the first matching native type selects the most specific DOM interface.
                 /// </summary>
                 private static readonly DomInterfaceDefinition[] _candidates =
                 [

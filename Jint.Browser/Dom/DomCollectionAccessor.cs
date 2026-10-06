@@ -3,11 +3,7 @@ using Jint.Native;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// How one collection interface answers the indexed and named questions WebIDL's
-/// <a href="https://webidl.spec.whatwg.org/#idl-indexed-properties">indexed</a> and
-/// <a href="https://webidl.spec.whatwg.org/#idl-named-properties">named</a> property getters ask. One
-/// process-shared singleton per interface, written by the generator from AngleSharp's
-/// <c>[DomAccessor]</c> metadata.
+/// Answers a collection interface's WebIDL indexed and named property getters using its generated contract.
 /// </summary>
 /// <remarks>
 /// <para>

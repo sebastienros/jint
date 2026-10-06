@@ -106,7 +106,7 @@ form-associated element and take part in `form.elements`. This package records t
 consults it: there is no `ElementInternals`. The file's other three rows pass.
 
 **`@@unscopables` was another of them, and it is gone.** WebIDL puts one on the interface prototype object of
-every interface with an `[Unscopable]` member, AngleSharp's metadata cannot say which members those are, and
+every interface with an `[Unscopable]` member, the former DOM integration's metadata cannot say which members those are, and
 the answer is an `unscopables` list in `overrides.json` — the standard's half of the table, the way
 `reflected` is — rather than a hand-edited `.g.cs`. DOM §4.2.8 and §4.2.9 mark every member of `ChildNode` and
 `ParentNode`, which is seven names on `Element` and three or four on each of the other four interfaces that
@@ -181,7 +181,7 @@ failures are no longer reasons to exclude passing native assertions.
 `createElement` halves were two hundred and twenty-two rows of one defect, and the defect was not the
 customized-built-in path at all — its `innerHTML` and parser halves always passed. Every one of those rows
 failed on `customized.cloneNode().constructor`: DOM creates a clone with the element's **is value**, which is
-a slot that `createElement(tag, { is })` and `new XY()` set without adding an attribute, and AngleSharp's
+a slot that `createElement(tag, { is })` and `new XY()` set without adding an attribute, and the former DOM integration's
 clone copies attributes and nothing else. So the two halves that set the slot cloned into a plain built-in
 and the two that write the `is` attribute in markup did not. `custom-elements/upgrading/`'s own row was the
 same rule read from the other side — a clone must follow the slot even when the `is` attribute says
@@ -228,10 +228,10 @@ each names `/images/green-2x2.png` or its kind.
 
 Three more are held back by a gap this browser has rather than by a missing environment, and
 [`Dom/divergences.md`](../../Jint.Browser/Dom/divergences.md) carries a row for each. `invalid-src.html` and
-`null-image-source.html` both wait for the `error` an `<img src="">` fires, and AngleSharp asks the resource
+`null-image-source.html` both wait for the `error` an `<img src="">` fires, and the former DOM integration asks the resource
 loader for nothing when it selects no source, so there is no request processor to hang that event on.
 `non-active-document.html` asserts that an image in a document nothing is showing performs no load, and its
-`<template>` case fails here: AngleSharp gives a template's contents no owner document of their own, so an
+`<template>` case fails here: the former DOM integration gives a template's contents no owner document of their own, so an
 `<img>` inside one has a fully active node document and really is fetched. Its other two cases — a
 `DOMParser` document and `createHTMLDocument` — pass, and the document is left out rather than vendored with
 a `NeedsTriage` row, because it also needs a binary this corpus does not hold.
@@ -257,7 +257,7 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
 against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 13
-of which do not pass**, and every failure is one of three bounded things AngleSharp does — only one of which
+of which do not pass**, and every failure is one of three bounded things the former DOM integration does — only one of which
 is still its `DefaultPseudoClassSelectorFactory`. That is the reason the suite is here: the page owns
 `:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled`, `:default`, `:open`/`:closed`,
 `:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown`,
@@ -276,7 +276,7 @@ six DOM suites, and every one of these is a failure of this suite alone.
 
 **Five of the eleven the suite arrived with are gone, and the two that are left of them are named for what
 they now hold.** The page owns `:in-range`/`:out-of-range` and `:valid`/`:invalid` — both ask HTML's
-"candidate for constraint validation" question AngleSharp folds into `CheckValidity()`, `:in-range` also
+"candidate for constraint validation" question the former DOM integration folds into `CheckValidity()`, `:in-range` also
 asks for range limitations, and a `fieldset` is decided from its descendants — and `:read-only`/`:read-write`,
 `:placeholder-shown` and `:indeterminate`, which ask whether the attribute they are about *applies* to the
 type state, answer for a `<textarea>`, and know about a radio button group and about a `progress` attribute
@@ -286,14 +286,14 @@ their selectors answer correctly now and their remaining assertion compared a co
 literal. `getComputedStyle` now serializes color longhands as `rgb()`, so all three pass, and
 `RenderlessSelectorStyleTests` independently checks the type changes and live cascade.
 
-**`:focus` is the sixth, and it needed the page rather than the predicate.** AngleSharp answers `:focus` and
+**`:focus` is the sixth, and it needed the page rather than the predicate.** the former DOM integration answers `:focus` and
 `:focus-within` from `IElement.IsFocused`, a flag nothing in this package sets — its own `DoFocus()` assigns
 neither that flag nor `ActiveElement`, which is why `Events/FocusController` is the page's focus model — so
 the selector could not see a focus every event and `document.activeElement` already agreed about. The
 factory now reads that model, and HTML's focusing steps stop being confined to the displayed document: an
 `element.focus()` inside a child navigable takes the focus out of the page, which is exactly what
 `focus.html`'s last case asserts and what kept it passing while the other four did not.
-`:focus-visible` is deliberately still AngleSharp's and still matches nothing — Selectors §9.4 makes it a
+`:focus-visible` is deliberately still the former DOM integration's and still matches nothing — Selectors §9.4 makes it a
 decision about drawing a focus indicator, which a browser with no rendering cannot make — and
 `Dom/divergences.md` records that.
 
@@ -334,7 +334,7 @@ All **43 assertions in the eight `dom/collections/` documents pass**, with no ex
 `HTMLCollection-as-prototype.html` now permits an inheriting receiver to assign its own property over
 a supported name; the collection's named reads remain live.
 
-**Four collection algorithms are the standard's here rather than AngleSharp's**, because AngleSharp's own
+**Four collection algorithms are the standard's here rather than the former DOM integration's**, because the former DOM integration's own
 answer is reachable through no seam: `getElementById` refuses the empty key DOM §4.9 says no element can
 have, `getElementsByClassName` parses the ordered set and folds ASCII case only in quirks mode,
 `NodeList.item` answers `null` past the end the way an indexed getter must, and `HTMLCollection.namedItem`
@@ -367,7 +367,7 @@ table needs to be regenerated.
 | 1 | 1 | **A `relList` on a MathML `<a>` that no standard defines.** The file's own `testAttr()` asks for a `DOMTokenList` in the MathML namespace beside the SVG one, and MathML Core's only interface is [`MathMLElement`](https://w3c.github.io/mathml-core/#dom-and-javascript), which declares neither `rel` nor `relList`; nothing else defines one on a MathML element either, so this is `AssertsWhatNothingRequires` rather than debt. The SVG row passes now — [SVG 2 §16.2](https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement)'s `SVGAElement` is one of `DomManualInterfaces`' local-name interfaces, and `Dom/divergences.md` records what is still missing. <!-- cause: a relList on a MathML <a> that no standard defines --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
-"a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that
+"a page here parses HTML, the former DOM integration builds no XML document" — and by the time it was re-measured that
 sentence had stopped being true: a frame parses XML ([#3873](https://github.com/sebastienros/jint/issues/3873)),
 `XMLDocument` has its interface ([#3893](https://github.com/sebastienros/jint/issues/3893)), and
 `createDocument` registers its own table. Running its seven documents one at a time
@@ -380,10 +380,10 @@ document that is not an HTML one keeps the name's case. **137 are not about XML 
 [DOM §4.13](https://dom.spec.whatwg.org/#interface-processinginstruction), plus HTML processing-instruction
 parsing. Its earlier description as an unstandardized proposal is obsolete. DOM-created and XML-parsed PIs
 already exist and their attribute map is implemented. The attribute-map implementation and element serialization fix removed 100 failures; 20 still need HTML PI parsing. Another 17 assert that an ill-formed PI-only XML document preserves a PI before its error tree, contrary to HTML §8.5.1; these are `AssertsWhatNothingRequires`, not engine debt. **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
-AngleSharp's**: node equality compares base URLs, a live range is not adjusted across documents, and the
+the former DOM integration's**: node equality compares base URLs, a live range is not adjusted across documents, and the
 HTML element factory lower-cases a local name it is handed.
 
-**`NeedsXmlDocuments` has no rows left at all.** The last thing it named was one AngleSharp mapping:
+**`NeedsXmlDocuments` has no rows left at all.** The last thing it named was one the former DOM integration mapping:
 `application/xhtml+xml` reached the **HTML** parser, so the two XHTML fixtures `Document-createElementNS.html`
 and `Document-createElement.html` frame came back wrapped in a second `<html><body>` skeleton and all 244
 rows died on the trailing newline that adds, before either reached the member it is about. A page picks its
@@ -391,7 +391,7 @@ own parser from the response's content type now, for a frame and for a navigatio
 ([`Jint.Browser/Runtime/Parsing/AGENTS.md`](../../Jint.Browser/Runtime/Parsing/AGENTS.md)), so **all 244 of
 them pass** and neither file carries a single exclusion — [#3950](https://github.com/sebastienros/jint/issues/3950)
 having already taken out the name-validation rows that would otherwise have been the XHTML half's share. The
-category was read for a long time as "AngleSharp cannot be made to do this", and what was actually
+category was read for a long time as "the former DOM integration cannot be made to do this", and what was actually
 unreachable was a second **document factory**; choosing the parser was never the same question. The member stays for the one
 thing an XML document here still cannot do — **run a script** — which is also why no `.xhtml` document in
 the not-vendored table below becomes vendorable: each of them loads `testharness.js` through a
@@ -399,12 +399,12 @@ the not-vendored table below becomes vendorable: each of them loads `testharness
 
 **`html/dom/historical.html` is the file that tells three different things apart**, and "remove it" is the wrong
 answer for two of them. `HTMLAppletElement`, `HTMLTableDataCellElement` and `HTMLTableHeaderCellElement` are names
-the standard removed: the first was never declared here, and the other two were AngleSharp's split of
+the standard removed: the first was never declared here, and the other two were the former DOM integration's split of
 `HTMLTableCellElement` into two interfaces HTML does not have, so both are `excludedInterfaces` rows now and the
 one member the split carried — `scope` — comes back as a `reflected` row on the interface HTML puts it on.
 `document.applets` is the opposite: HTML §16.3 *keeps* it and defines it to answer an `HTMLCollection` whose
 filter matches nothing, which is a member the binding had to gain rather than lose. And `<applet>` is neither —
-the element still parses, and takes the `HTMLUnknownElement` every unlisted HTML name takes, which AngleSharp
+the element still parses, and takes the `HTMLUnknownElement` every unlisted HTML name takes, which the former DOM integration
 cannot say because it builds a real `HtmlAppletElement`. Four of the file's six failures went with those, and a
 fifth with `document.all` becoming a real `HTMLAllCollection`, whose supported names take a `name` attribute only
 from one of the fourteen "all"-named elements and `applet` is not among them. The one that is left is somebody
@@ -460,7 +460,7 @@ arrive as that number rather than as −1. The setter wrote it verbatim. Eight r
 `tabular` took thirty-nine, the largest table of the seven and the first with a **clamped unsigned long** in
 it: `col.span` and `colgroup.span` clamp to [1, 1000], `td.colSpan` and `th.colSpan` to the same, and
 `rowSpan` to [0, 65534] — three ranges, each with a default of 1, none of which any CLR signature carries.
-It also needed one `skip`: AngleSharp splits `<th>` and `<td>` into two interfaces HTML does not have, and
+It also needed one `skip`: the former DOM integration splits `<th>` and `<td>` into two interfaces HTML does not have, and
 the header cell's own `scope` shadowed the reflected `HTMLTableCellElement.scope`, so `<th>` answered the raw
 attribute value while `<td>` answered the enumeration.
 
@@ -471,7 +471,7 @@ and the row model can say it now. Two more are `<input>`'s `width` and `height`,
 rendered image dimensions and are not reflection at all — but whose setters are, in as many words, so what
 the rows fix is the half that is. Both rows still take the whole accessor pair, and deliberately: this
 package renders no image, so the getter answers the content attribute either way, and answering it through
-HTML's rules for parsing non-negative integers rather than through AngleSharp's `DisplayWidth` is the
+HTML's rules for parsing non-negative integers rather than through the former DOM integration's `DisplayWidth` is the
 difference between `width="-5"` reading 0 and reading −5 out of an `unsigned long`.
 
 `forms` took fifteen more — the rest of the form controls, and the two remaining numeric shapes: `textarea`'s
@@ -485,7 +485,7 @@ and the `reflected` list has to state.
 Six more rows finished it, and they are the first that reflect **only a setter**. `<meter>`'s `value`, `min`,
 `max`, `low`, `high` and `optimum` are the case a whole replacement would have made worse: their getters are
 HTML §4.10.14's own algorithm — an absent `max` is 1, `optimum` is the midpoint, the value is constrained to
-the range — which AngleSharp implements and no reflection type can express, while their setters are plain
+the range — which the former DOM integration implements and no reflection type can express, while their setters are plain
 §2.6.1 reflection and were writing `Double.ToString(InvariantInfo)` where HTML wants "the best representation
 of the number as a floating-point number", which is ECMAScript's Number-to-String. So the row model grew a
 `setterOnly` flag: the entry replaces the setter and the generator keeps the projected getter's body, and it
@@ -505,20 +505,20 @@ obsolete elements — `<dl>`, `<dir>`, `<font>` and `<frame>` — get an interfa
 plain `HTMLElement` from the pinned assemblies, so there was nowhere for `compact`, `color`, `src` and their
 kind to be reflected onto, and 506 rows named the tests. `DomManualInterfaces` declares all four by local name
 now, the way it already declared `HTMLFrameSetElement` — one shape and one prototype chain per interface
-over the same AngleSharp element — so `reflection-grouping.html` and `reflection-obsolete.html` pass whole,
+over the same the former DOM integration element — so `reflection-grouping.html` and `reflection-obsolete.html` pass whole,
 and the divergence table records what the pinned assemblies are still missing. `<meter>`'s six setters were
 writing a `double` with .NET's number format, so `-0` kept its sign and an exponent was `1E-10` where HTML
 wants ECMAScript's `1e-10` — three values per member, eighteen rows, and a whole `reflected` row would have
 been a regression because those getters are HTML §4.10.14's and are right; `setterOnly` is what took the
 half that was wrong, and `reflection-forms.html` passes whole. What is left is `<style>`'s `media`, which
-cannot be *written* at all when the value is not a media query AngleSharp.Css can parse — the exception comes
-out of `Element.setAttribute` itself, through the attribute observer AngleSharp core registers, where Media
+cannot be *written* at all when the value is not a media query the former CSS integration can parse — the exception comes
+out of `Element.setAttribute` itself, through the attribute observer the former DOM integration core registers, where Media
 Queries §2.1 requires an unparseable query to be replaced by `not all`. Those 16 rows are the only failures
 this lane's `html/dom/` figure gained, against 51,783 assertions it did not have before.
 
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
-and `TreeWalker-traversal-skip.html` each spun forever: AngleSharp's `TreeWalker.ToPrevious` never advanced the
+and `TreeWalker-traversal-skip.html` each spun forever: the former DOM integration's `TreeWalker.ToPrevious` never advanced the
 sibling it was reading and never climbed to a parent, so `previousNode()` looped the moment the previous
 sibling was not accepted outright — a filter answering `FILTER_REJECT` or `FILTER_SKIP`, or a `currentNode`
 pointed outside the root beside a node `whatToShow` excludes. Nothing in this lane could bound that —
@@ -630,7 +630,7 @@ check removed every stale row rather than preserving that historical result.
 **One of them was the machine's answer rather than the browser's, and that is fixed rather than excluded.**
 `:lang(en)` on an element with **no** inherited language matched on a host whose culture is English and did
 not on one whose culture is invariant — the Windows and the Linux CI leg exactly, so four rows of this
-document passed on one and failed on the other and no exclusion could name them on both. AngleSharp resolves
+document passed on one and failed on the other and no exclusion could name them on both. the former DOM integration resolves
 such an element through the browsing context's culture, and the context had none, so it took
 `CultureInfo.CurrentCulture` off whichever thread was parsing. `ParserDriver` gives the context the
 **engine's** culture now (`Options.Culture`, which itself defaults to the current culture, so nothing moves

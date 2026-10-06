@@ -4,32 +4,13 @@ using Jint.Browser.Dom;
 namespace Jint.Browser.CustomElements;
 
 /// <summary>
-/// Where a reaction comes from: AngleSharp's mutation records for the tree, and its
-/// <c>IAttributeObserver</c> service for an attribute.
+/// Collects native tree and attribute mutation records for custom-element reactions.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Two channels, because neither covers the other's half.</b> A mutation record is what says an element
-/// entered or left the document — the observer is registered on the document, so a record only ever arrives
-/// for a node in the document tree, which is exactly when connectedness changes. But
-/// <c>Document.QueueMutation</c> walks a node's inclusive ancestors, so an attribute written on a
-/// <i>detached</i> element produces no record at all, and <c>el.setAttribute</c> before insertion is the
-/// commonest thing a component does. The <c>IAttributeObserver</c> service is called for every element with
-/// an owner document, attached or not, which is what makes <c>attributeChangedCallback</c> answerable.
-/// </para>
-/// <para>
-/// <b>Both are arrivals, never deliveries.</b> AngleSharp has no <c>IEventLoop</c> registered — the same
-/// decision <c>Observers/JsMutationObserver</c> argues — so both callbacks run inline, inside the DOM
-/// operation that caused them and on whichever thread that operation was on. They enqueue; the drain decides
-/// whether anything runs now, and it refuses to run script on the parser's thread.
-/// </para>
-/// <para>
-/// <b>Two gaps this leaves, both AngleSharp's and both recorded in <c>Jint.Browser/Dom/AGENTS.md</c>.</b> A
-/// write through <c>classList</c> notifies neither channel, so an observed <c>class</c> attribute changed
-/// that way reports nothing; and a namespaced <c>setAttributeNS</c> notifies only the record channel, so it
-/// reports only for a connected element. Every ordinary attribute write — <c>setAttribute</c>,
-/// <c>removeAttribute</c>, <c>id</c>, <c>className</c>, an attribute node — reaches the service.
-/// </para>
+/// Tree subscriptions watch documents and shadow roots. Per-element attribute subscriptions also watch
+/// detached elements and retain old values. Trusted pending-record callbacks only enqueue work;
+/// FlushNativeMutations consumes records and the reaction drain decides when script may run.
+/// A DOM mutator must finish before delivering reactions, and parser-thread arrivals never run script.
 /// </remarks>
 internal sealed partial class CustomElementRegistry
 {
@@ -163,14 +144,6 @@ internal sealed partial class CustomElementRegistry
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The member is the door because a mutation record is not one.</b> The obvious alternative was to
-    /// read an adoption off the removal channel — a node that left the observed document and now belongs
-    /// to another one has been adopted — and it does not work: measured against the pinned AngleSharp, a
-    /// removal record is delivered <i>before</i> the node's owner changes, so at the moment the record
-    /// arrives the node is still this document's and there is nothing to report. The old document has to be
-    /// read before the call, which only the member can do.
-    /// </para>
-    /// <para>
     /// <b>What that leaves is the adoption a page performs by inserting</b> —
     /// <c>otherDocument.body.appendChild(el)</c> and its siblings, where DOM's pre-insert adopts on the way
     /// past. Those enqueue no reaction here, and it is half of a larger gap rather than a hole of its own:
@@ -219,8 +192,7 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#handle-attribute-changes — what AngleSharp's <c>IAttributeObserver</c>
-    /// reports, turned into an <c>attributeChangedCallback</c> reaction for an observed name.
+    /// https://dom.spec.whatwg.org/#handle-attribute-changes — queues attributeChangedCallback for an observed attribute name.
     /// </summary>
     /// <remarks>
     /// The service reports the element, the local name and the <b>new</b> value; the old one comes from the
@@ -254,13 +226,6 @@ internal sealed partial class CustomElementRegistry
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It is the <i>detached</i> half of the picture. A connected element's <c>innerHTML</c> produces a
-    /// mutation record, which upgraded and connected everything before AngleSharp's own call returned; a
-    /// detached one produces none, and HTML upgrades there too — <c>div.innerHTML = '&lt;my-el&gt;'</c> on an
-    /// element that is nowhere runs the constructor. So the subtree is walked here as well, which is a
-    /// second, idempotent pass for the connected case: every element it finds is already custom.
-    /// </para>
-    /// <para>
     /// The walk is skipped outright when nothing has been defined, which is what keeps <c>innerHTML</c> free
     /// for every page that has no custom elements.
     /// </para>
@@ -283,21 +248,6 @@ internal sealed partial class CustomElementRegistry
     /// https://dom.spec.whatwg.org/#concept-node-clone: a copy is created with <b>node's is value</b>, and
     /// then upgraded the way <see cref="SubtreeCreated"/> upgrades anything else a member just made.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The is value is a slot, not the <c>is</c> content attribute</b>, and the difference is the whole
-    /// of this method. <c>document.createElement('button', { is: 'x-y' })</c> and <c>new XY()</c> set the
-    /// slot and add no attribute, so AngleSharp's clone — which copies attributes and nothing else — handed
-    /// back an element with no way to find its definition, and <c>customized.cloneNode()</c> answered a plain
-    /// built-in. An element whose <c>is</c> attribute says something <i>else</i> is the same rule read from
-    /// the other side: the slot wins, and DOM says so.
-    /// </para>
-    /// <para>
-    /// The two trees are walked in lockstep rather than the copy alone, because only the source knows what
-    /// each element's slot held. An explicit stack for the reason <see cref="Walk"/> has one — the depth is
-    /// a stranger's document — and pairing by index is what AngleSharp's own clone produces.
-    /// </para>
-    /// </remarks>
     internal static void Cloned(Dom.DomRealm realm, Node source, Node copy)
     {
         if (Of(realm.Engine) is not { } registry)

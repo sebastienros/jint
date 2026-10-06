@@ -7,28 +7,6 @@ namespace Jint.Browser.Dom;
 /// <summary>
 /// The WebIDL conversion table, as the generated members call it: one method per direction per IDL type.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>Arguments</b> follow
-/// <a href="https://webidl.spec.whatwg.org/#es-overloads">overload resolution</a>'s simple case — there are no
-/// overloads in the generated surface, because AngleSharp gives two overloads two different <c>[DomName]</c>s
-/// (<c>getAttribute</c> and <c>getAttributeNS</c>) — so each parameter converts independently. A missing
-/// argument for a required parameter is a <c>TypeError</c>; a missing argument for an optional one takes the
-/// CLR default the interface declared, which is AngleSharp's record of the IDL default value.
-/// </para>
-/// <para>
-/// <b>Returns</b> have one decision worth stating. A CLR <c>string</c> maps <see langword="null"/> to the
-/// <b>empty string</b>, because WebIDL's <c>DOMString</c> is not nullable and the overwhelming majority of
-/// these members are reflected content attributes, whose IDL type is <c>DOMString</c> and whose specified
-/// value when the attribute is absent is <c>""</c>. AngleSharp 1.7.3 fixes many getters that returned
-/// <see langword="null"/>, but that does not change the non-nullable IDL contract this conversion enforces.
-/// The members whose IDL type genuinely <em>is</em> <c>DOMString?</c> — <c>getAttribute</c>,
-/// <c>Node.nodeValue</c>, <c>Element.namespaceURI</c> and the rest — are listed by name in the generator's
-/// <c>overrides.json</c> and emit <see cref="NullableText(string?)"/> instead. That list is the artefact: a member
-/// missing from it answers <c>""</c> where a browser answers <c>null</c>, and a member wrongly in it does the
-/// reverse, so it is checked against the assembly on every build.
-/// </para>
-/// </remarks>
 internal static class DomConvert
 {
     private static readonly JsString _empty = JsString.Create("");
@@ -58,9 +36,7 @@ internal static class DomConvert
     internal static JsValue Bool(bool value) => value ? JsBoolean.True : JsBoolean.False;
 
     /// <summary>
-    /// A <c>DOMTimeStamp</c> return: milliseconds since the epoch, which is what a JavaScript date is counted
-    /// in. AngleSharp models these as <see cref="DateTime"/>, so the conversion is explicit here rather than
-    /// left to the interop layer, which would have produced a CLR object wrapper.
+    /// Converts a native DateTime return to DOMTimeStamp milliseconds since the epoch.
     /// </summary>
     internal static JsValue Timestamp(DateTime value)
         => JsNumber.Create(new DateTimeOffset(value.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeMilliseconds());
@@ -85,17 +61,13 @@ internal static class DomConvert
     /// </remarks>
 
     /// <summary>
-    /// A WebIDL <c>any</c> return. AngleSharp types a handful of members as <c>object</c>, and what comes back
-    /// is whatever the host put in; it crosses through Jint's ordinary CLR conversion, so a host object
-    /// arrives as an <c>ObjectWrapper</c> and a primitive as a primitive.
+    /// Converts a WebIDL any return using Jint's ordinary CLR conversion.
     /// </summary>
     internal static JsValue Any(DomRealm realm, object? value)
         => value is null ? JsValue.Null : JsValue.FromObject(realm.Engine, value);
 
     /// <summary>
-    /// An array of nodes, for the one member AngleSharp types as a sequence rather than as a
-    /// <c>NodeList</c> (<c>HTMLSlotElement.assignedNodes</c>). WebIDL's <c>sequence&lt;Node&gt;</c> is a
-    /// snapshot by definition, so a plain array is the right shape and there is nothing live to keep.
+    /// Wraps a native node sequence as the snapshot required by WebIDL sequence&lt;Node&gt;.
     /// </summary>
     internal static JsValue NodeSequence(DomRealm realm, System.Collections.Generic.IEnumerable<Jint.HtmlParser.Node>? nodes)
     {
@@ -337,8 +309,7 @@ internal static class DomConvert
     }
 
     /// <summary>
-    /// One member of a WebIDL dictionary argument — AngleSharp's <c>[DomInitDict]</c>, which flattens a
-    /// dictionary into the parameters from a given offset.
+    /// Reads a WebIDL dictionary member from the declared argument offset.
     /// </summary>
     internal static JsValue DictionaryMember(JsValue[] arguments, int offset, string name)
     {

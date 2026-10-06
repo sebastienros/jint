@@ -32,7 +32,7 @@
       - listitem: A renderer.
       - listitem: A rival DOM stack.
     - blockquote:
-      - paragraph: Jint should add value to AngleSharp without competing too much.
+      - paragraph: Jint combines a native DOM with its JavaScript engine.
     - heading "Running it" [level=2]
     - code: dotnet run --project Jint.Repl -c Release -- -f page.js -t 10
     - table "Comparison":

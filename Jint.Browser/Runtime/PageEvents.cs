@@ -6,25 +6,10 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.Runtime;
 
 /// <summary>
-/// The events a navigation, a history traversal and a form submission fire, and the one way they are
-/// dispatched.
+/// Dispatches page lifecycle events through the Browser event realm.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Every one is a Jint event on Jint's dispatcher</b>, for the reason the design gives: AngleSharp's own
-/// firing goes into AngleSharp's listener lists, which hold nothing a script registered, so an event a page
-/// can hear has to be dispatched here.
-/// </para>
-/// <para>
-/// <b>The payload members are own data properties of the event, not accessors on an interface prototype.</b>
-/// A browser has a <c>PopStateEvent</c>, a <c>HashChangeEvent</c>, a <c>SubmitEvent</c> and a
-/// <c>FormDataEvent</c>, each with its own prototype and its own <c>@@toStringTag</c>; here each is an
-/// <c>Event</c> carrying the members that interface declares. What a page reads — <c>e.state</c>,
-/// <c>e.newURL</c>, <c>e.submitter</c>, <c>e.formData</c> — answers exactly as it should; what differs is
-/// <c>Object.prototype.toString.call(e)</c>, <c>e instanceof PopStateEvent</c> and the fact that the members
-/// are own rather than inherited. Declaring four interfaces is the change that closes it, and it is a
-/// binding change rather than a runtime one.
-/// </para>
+/// Events use the same dispatcher and listener lists as script-created events, on the owning page loop.
 /// </remarks>
 internal static class PageEvents
 {

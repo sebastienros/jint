@@ -11,7 +11,7 @@ and encoding returned an empty string. These were backing stubs, rather than imp
 rendering. The native cutover makes the boundary explicit:
 
 * Canvas context selection returns null and the legacy support query returns false. `toDataURL` and the
-  nonstandard `setContext` raise `NotSupportedError`. No rendering-context object from AngleSharp is retained.
+  nonstandard `setContext` raise `NotSupportedError`. No external rendering-context object is retained.
   Raising an error instead of returning the previous empty string is a deliberate behavior correction.
 * Media starts at `HAVE_NOTHING`, `NETWORK_EMPTY`, paused, duration NaN, zero intrinsic video dimensions,
   and no buffered, seekable or played ranges. Script-written volume, mute, playback rates and requested

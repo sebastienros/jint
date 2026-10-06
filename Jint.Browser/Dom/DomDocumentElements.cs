@@ -3,18 +3,9 @@ using Jint.HtmlParser;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// HTML's two named elements of a document — <a href="https://html.spec.whatwg.org/multipage/dom.html#the-html-element-2">the
-/// html element</a> and <a href="https://html.spec.whatwg.org/multipage/dom.html#the-body-element">the body
-/// element</a> — which several members are defined in terms of and no AngleSharp member answers.
+/// HTML's html and body elements, selected using their namespace, parent and local name.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Both are gated on the same sentence</b>: "The html element of a document is its document element, if it
-/// is an <c>html</c> element, and null otherwise", an <c>html</c> element being one in the HTML namespace with
-/// that local name. AngleSharp's <c>Document.Body</c> walks <c>DocumentElement.ChildNodes</c> without asking
-/// what the document element is, so a document rooted at an XHTML <c>div</c> answers a nested <c>body</c> —
-/// the standard's own counter-example. <c>Dom/divergences.md</c> records it.
-/// </para>
 /// <para>
 /// <b>It is here rather than on <see cref="DomHostHooks"/> because two unrelated members need it.</b>
 /// <c>document.body</c> is a hook; HTML §3.2.6.4's <c>document.dir</c> and §16.3.3's five obsolete colours are
@@ -66,10 +57,6 @@ internal static class DomDocumentElements
     /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
     /// <c>frameset</c> child of <see cref="Html(Document)"/>, and <see langword="null"/> when there is no html element.
     /// </summary>
-    /// <remarks>
-    /// Past the gate the search is AngleSharp's, because that half already matches the standard: it takes the
-    /// first child that is a body or a frameset and looks no deeper.
-    /// </remarks>
     internal static Element? Body(Document document)
     {
         if (Html(document) is not { } html) return null;

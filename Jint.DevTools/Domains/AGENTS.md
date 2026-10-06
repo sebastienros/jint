@@ -62,7 +62,7 @@ for under the engine's own `ResultLimits`. Everything else on the path is getter
 (`HTMLDivElement`, `Text`, `HTMLDocument` — the same string `Object.prototype.toString` reports) and Chrome's
 one-line description: `div#id.one.two` for an element, and the node name for everything else (`#text`,
 `#comment`, `#document`). It reads the node's own name and its `id` and `class` content attributes off
-AngleSharp's tree and nothing else, so it keeps the promise below. **The subtype is not decoration**: a
+the native DOM tree and nothing else, so it keeps the promise below. **The subtype is not decoration**: a
 client library builds an element handle out of it and a plain object handle without it, so `$('button')`
 returns something that cannot be clicked long before the click reaches `Input.dispatchMouseEvent`.
 
@@ -355,7 +355,7 @@ and `Absent` is it: a dictionary naming each recorded method this server does no
 Its three reasons are not interchangeable, and picking the wrong one is how a decision turns into a backlog
 item nobody tracks:
 
-- **`page`** — the method belongs to a target that has a document. It is `Jint.Browser`'s, which is AngleSharp
+- **`page`** — the method belongs to a target that has a document. It is `Jint.Browser`'s, which combines the native DOM
   plus Jint, and would be wrong to answer here whatever the implementation state: an engine target has no page
   to answer about.
 - **`later`** — engine-level, and simply not written yet. This is the only reason that is debt, and the table

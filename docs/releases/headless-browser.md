@@ -16,7 +16,7 @@ what was built against them are [`docs/design/devtools-protocol.md`](../design/d
 | Package | What it is | Targets |
 | --- | --- | --- |
 | `Jint.DevTools` | A Chrome DevTools Protocol server over a WebSocket, so a debugging client attaches to an engine the host is already running. `Runtime`, `Debugger`, `Profiler`, `Console`, `Log`, `Target`, `Browser`, `Schema`. Native AOT compatible, measured by a published binary a CI leg drives over a real socket. | `net8.0`, `net10.0` |
-| `Jint.Browser` | A headless browser: AngleSharp's parser, DOM and CSSOM under Jint, with a page runtime, HTML's script scheduling, custom elements, navigation, forms, cookies, storage, workers, a deterministic box model in place of a layout, and the page-level protocol domains that make a page drivable by Puppeteer, PuppeteerSharp, Playwright and Playwright for .NET. Not trim- or AOT-compatible in this version, because AngleSharp is not trim-annotated. | `net8.0`, `net10.0` |
+| `Jint.Browser` | A headless browser: the native `Jint.HtmlParser` parser, DOM and CSSOM under Jint, with a page runtime, HTML's script scheduling, custom elements, navigation, forms, cookies, storage, workers, a deterministic box model in place of a layout, and the page-level protocol domains that make a page drivable by Puppeteer, PuppeteerSharp, Playwright and Playwright for .NET. The library does not claim general trim or AOT compatibility; the closed Native AOT tool has its own smoke coverage. | `net8.0`, `net10.0` |
 | `Jint.Browser.Tool` | The Native AOT `jint-browser` tool: `serve` publishes the protocol, `fetch` dumps a page as HTML, text, CommonMark or its accessibility tree, `eval` answers an expression evaluated in the page, and `mcp` serves the MCP server on stdio. It consumes only the package's published surface. | Linux, macOS, Windows; x64 and arm64. .NET 10 SDK to install via NuGet; standalone downloads need no .NET. |
 | `Jint.Browser.Mcp` | A Model Context Protocol server over the same `Page` API: eighteen tools, an accessibility snapshot carrying a `ref=` on every element that the input tools take in place of a CSS selector, and the page as a resource. A host running a server of its own composes the same tools with `AddJintBrowser()`. | `net8.0`, `net10.0` |
 
@@ -60,10 +60,9 @@ Eleven behaviour changes came out of the same work and are in chapter 4 rather t
 
 ## Upstream contributions
 
-Building the binding layer against AngleSharp found defects in AngleSharp itself, and the campaign's rule is
-that they are fixed there rather than worked around here. Eight pull requests and seven issues came out of it;
-six of the eight are merged, and the issues are the divergences whose fix has to be designed upstream rather
-than written from here.
+Before the native cutover, the original binding campaign contributed fixes to its upstream DOM and CSS
+libraries. The following is that campaign's historical contribution record, including the statuses recorded
+at the time. These libraries are now benchmark controls; they do not own Browser's runtime semantics.
 
 **AngleSharp** — merged:
 
@@ -99,7 +98,7 @@ than written from here.
 | [#233](https://github.com/AngleSharp/AngleSharp.Css/issues/233) | The `scripting` media feature is registered with the `scan` validator |
 | [#234](https://github.com/AngleSharp/AngleSharp.Css/issues/234) | `IRenderDevicePreferences` supplies the page's defaults and live emulated preferences to the stylesheet cascade |
 
-The dependency upgrade synchronized the DOM binding pin and regenerated its output. `PageRenderDevice`
+That historical dependency upgrade synchronized the DOM binding pin and regenerated its output. `PageRenderDevice`
 now supplies the same preference values to stylesheet `@media` rules and `matchMedia`, including explicit
 overrides, clearing overrides, and touch state. The regression tests cover those transitions and isolation
 between browsing contexts. The local `matchMedia` evaluator remains because 1.1.0 still differs on negated
@@ -107,8 +106,7 @@ conjunctions, boolean dimensions and colour features, malformed query text, and 
 preferences; [the divergence register](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) records those limits. The page
 continues to own preference-change notifications and their scheduling.
 
-The divergences that are *not* upstream contributions — because they are decisions AngleSharp is entitled to
-and this package works within — are the two tables at the end of
+Current Browser limitations and ownership rules are documented in
 [`Jint.Browser/AGENTS.md`](../../Jint.Browser/AGENTS.md) and
 [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md).
 

@@ -47,14 +47,6 @@ internal static class ContentEditing
     /// <c>&lt;a contenteditable&gt;&lt;span&gt;…&lt;/span&gt;&lt;/a&gt;</c> focus the anchor and a click on
     /// <c>&lt;a&gt;&lt;span contenteditable&gt;…&lt;/span&gt;&lt;/a&gt;</c> focus the span.
     /// </para>
-    /// <para>
-    /// <b>AngleSharp's <c>IsContentEditable</c> is not used and cannot be:</b> measured against the pinned
-    /// 1.7.2, it answers <see langword="false"/> for <c>&lt;div contenteditable&gt;</c>, because it maps the
-    /// attribute through an enumeration that does not admit the empty string — and HTML says the empty string
-    /// is the <c>true</c> keyword's other spelling, which is how nearly every page in the world writes it. The
-    /// divergence is recorded in <c>Jint.Browser/AGENTS.md</c> and the state is computed here instead, the
-    /// same way focusability is computed rather than read off <c>TabIndex</c>.
-    /// </para>
     /// </remarks>
     internal static Element? HostOf(Element? element) => HostOf(element, null);
 

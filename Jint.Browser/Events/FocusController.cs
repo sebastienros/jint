@@ -8,28 +8,11 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.Events;
 
 /// <summary>
-/// The document's focus: which element has it, the four events moving it fires, and which elements can take it
-/// at all.
-/// <para>
-/// https://html.spec.whatwg.org/multipage/interaction.html#focus
-/// </para>
+/// Owns focus transitions and their script-visible events for a Browser realm.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Focus without layout is exact, and this is why.</b> The parts of HTML's focus model that need a rendering
-/// are the ones that decide <i>where</i> a click landed and whether an element is being rendered at all; the
-/// part that decides <i>what happens</i> when focus moves is pure tree and pure event, and that is all of this
-/// file. The one place the gap shows is focusability: an element hidden by a stylesheet is focusable here and is
-/// not in a browser, because deciding otherwise would need the cascade and a box.
-/// </para>
-/// <para>
-/// <b>AngleSharp's own focus is not used and cannot be.</b> <c>IHtmlElement.DoFocus()</c> never assigns
-/// <c>Document.ActiveElement</c> — measured against the pinned 1.7.2 — so its focus is unobservable, and
-/// <c>IHtmlElement.TabIndex</c> answers 0 for every element including a bare <c>&lt;div&gt;</c>, where HTML says
-/// −1 for anything without the content attribute. Focusability is therefore computed from the element's own
-/// kind and its <c>tabindex</c> content attribute, and the focused element is held on
-/// <see cref="BrowserEventRealm"/>.
-/// </para>
+/// Focus state and event dispatch share the owning engine thread. Native elements provide the targets;
+/// Browser policy decides focusability and updates the active element before listeners observe it.
 /// </remarks>
 internal static class FocusController
 {

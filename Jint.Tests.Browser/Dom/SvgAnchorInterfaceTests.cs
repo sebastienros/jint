@@ -1,7 +1,7 @@
 namespace Jint.Tests.Browser.Dom;
 
 /// <summary>
-/// SVG 2 §16.2's <c>SVGAElement</c>, declared by local name over the bare AngleSharp element an SVG
+/// SVG 2 §16.2's <c>SVGAElement</c>, declared by local name over the bare the former DOM integration element an SVG
 /// <c>&lt;a&gt;</c> is: https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement.
 /// </summary>
 public sealed class SvgAnchorInterfaceTests

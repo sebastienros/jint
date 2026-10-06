@@ -353,8 +353,8 @@ public sealed class MutationObserverTests
             </script>
             """);
 
-        // AngleSharp's own MutationObserver.Disconnect leaves its registration list populated, so a later
-        // observe() would resurrect the first node; the wrapper throws the AngleSharp observer away instead.
+        // The former DOM integration's own MutationObserver.Disconnect leaves its registration list populated, so a later
+        // observe() would resurrect the first node; the wrapper throws the former DOM integration observer away instead.
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("two");
     }
 

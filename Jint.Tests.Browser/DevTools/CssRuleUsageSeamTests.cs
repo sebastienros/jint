@@ -16,7 +16,7 @@ using Browser = global::Jint.Browser.Browser;
 /// The protocol suite next door asserts what a client is told; this asserts the one thing a client cannot
 /// see and an edit can silently undo — that <b>nothing is recorded, and no tracker is even consulted, while
 /// no window is open</b>. It is written as a record count rather than as a memory measurement on purpose: a
-/// cascade allocates plenty on its own, so a byte counter around one would be measuring AngleSharp, while a
+/// cascade allocates plenty on its own, so a byte counter around one would be measuring the former DOM integration, while a
 /// window that was armed only afterwards and still holds nothing is a direct statement that the disarmed
 /// path recorded nothing at all.
 /// </para>

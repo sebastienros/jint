@@ -35,21 +35,17 @@ fall out of the row rule and every one of them is load-bearing:
   `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape. A model whose boxes are rows
   cannot give a descendant a row inside a parent that has none, and the nesting is what the hit test rests on.
 
-**Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads AngleSharp's
+**Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads the shared native cascade's
 computed display, direction, basis, growth, shrinkage and cross-axis alignment. The synthetic intrinsic
 size is still a row, not measured text; wrapping, gaps, margins, min/max sizes, main-axis justification, ordering and positioned
 layout remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
-The cascade indexes required subject classes through AngleSharp's selector visitor for the current layout revision.
-Selectors without a required class stay candidates for every element; the native matcher decides the
-result and specificity, with original rule order retained. Nested rules participate in the same index.
-A bounded cache shares candidate lists for repeated class attributes within that query. Elements with no
-indexed class use the common unkeyed list directly. Attributes, ancestors and pseudo-class state are still
-matched separately for every element.
-The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
-so its native inheritance and value computation still produce the complete declaration.
+The native cascade indexes candidate rules by required subject ID, class or type while retaining rule
+order. Unkeyed rules remain candidates for every element. The native selector matcher still checks
+attributes, ancestors and pseudo-class state for each candidate; the index is only a filter.
+Native text-valued queries supply inheritance and custom-property resolution with the same work guards.
 
 **CSSOM resolved values use these same synthetic sizes.** Browser's `ResolvedStyle` adapts the
 layout-free native computed query on demand ([CSSOM §9](https://drafts.csswg.org/cssom/#resolved-values)).
@@ -106,20 +102,13 @@ observer is installed. See [the invalidation contract](../../docs/design/layout-
 coverage and fallbacks. `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. Visibility and flex measurements filter the active rule collection to the properties they consume,
-including shorthand values and their custom-property dependencies. AngleSharp still owns matching, specificity,
-inheritance and value computation. Within the walk, equivalent literal cascades can share a result only
-after matching each element: the matched rules and their specificity, inherited parent cascade, document
-and inline style must all agree. This bounded memo never shares variable-dependent or explicit-inherit
-ancestor-walk fallback results, because those can read ancestor values the scoped cascade omitted.
-Individual style queries use Css 1.1.0's native computed-style API,
-including its cycle-safe custom-property resolution. **The traversal still needs `Dom/Views/CustomProperties`
-(#3851)**: the native computed-parent overload is internal, and calling the public entry per element would
-rematch every ancestor. The public bulk renderer instead eagerly recurses through the whole document and
-cannot accept this traversal's style collection or isolate per-element failures. Raw ordinary declarations
-preserve the existing child-relative lengths; custom properties inherit resolved values. Invalid inherited
-consumers use the parent's computed value rather than the native initial fallback. Unresolved explicit
-`inherit` retains the ancestor-walk compatibility path. Same-turn CSSOM writes, `classList`, control state
-and media changes invalidate retained layout work before the next read.
+including shorthand values and their custom-property dependencies. Native queries own selector matching,
+specificity, inheritance and text-value computation. Cached work must retain document, DOM, CSSOM,
+selector-state and media witnesses; a mutation or failed witness prevents reuse.
+Individual style queries and traversal reads use the native renderless text cascade. Browser interprets
+only the values required by its finite geometry policy; it does not restore a typed typography grammar.
+Same-turn CSSOM writes, `classList`, control state and media changes invalidate retained layout work
+before the next read.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
 document, and every viewport-relative answer subtracts it; `scrollX` stays zero because horizontal overflow
@@ -134,7 +123,7 @@ writing it moves the page; on anything else it reads zero and a write is ignored
 the **whole bounding box**, not only its first row: exposing only that row can leave every actionable
 descendant outside the viewport. `nearest` leaves a box spanning both viewport edges in place.
 
-**The DOM-side members are `overrides.json` `additions` entries**, with their bodies in `Layout/LayoutMembers`
+**The DOM-side members are declared in `tools/dom-bindings/contract.json`**, with their bodies in `Layout/LayoutMembers`
 — `getBoundingClientRect`, `getClientRects`, the `client*`/`scroll*` metrics, `scrollIntoView`, `HTMLElement`'s
 `offset*` family, `document.elementFromPoint`/`elementsFromPoint`/`scrollingElement`. **Never hand-edit a
 `.g.cs`**; regenerate with `JINT_DOM_BINDINGS=update`. A rectangle is a real `DOMRect` from

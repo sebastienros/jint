@@ -371,7 +371,7 @@ public sealed class CustomElementTests
     /// </summary>
     /// <remarks>
     /// The prefix is readable inside the constructor, where DOM says it is still null: the divergence
-    /// <c>CustomElementRegistry.Construction</c> argues, because AngleSharp's <c>Prefix</c> is read-only.
+    /// <c>CustomElementRegistry.Construction</c> argues, because the former DOM integration's <c>Prefix</c> is read-only.
     /// </remarks>
     [Test]
     public async Task CreateElementNsWithAPrefixLooksTheDefinitionUpUnderTheLocalName()

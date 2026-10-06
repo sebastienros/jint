@@ -11,17 +11,6 @@ namespace Jint.Browser.Dom.Collections;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It is not a refinement of <see cref="DomHtmlCollectionObject{T}"/> even though AngleSharp models
-/// <c>DomHtmlCollection&lt;Element&gt;</c> as an <c>IHtmlCollection&lt;Element&gt;</c>, because four things about this one
-/// interface are its own and none of them is expressible as an <c>HTMLCollection</c>: its named lookup answers
-/// an <em>element or a collection</em> rather than an element, its <c>item</c> takes a name <em>or</em> an
-/// index, it has a legacy caller — <c>document.all('x')</c> — and it carries ECMAScript
-/// <a href="https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot">Annex B.3.6</a>'s <c>[[IsHTMLDDA]]</c>
-/// internal slot, which is what makes <c>typeof document.all</c> answer <c>"undefined"</c>. The prototype
-/// chain is its own too: <c>overrides.json</c>'s manual entry roots it at <c>Object.prototype</c>, where the
-/// CLR hierarchy would have put <c>HTMLCollection.prototype</c>.
-/// </para>
-/// <para>
 /// <c>[LegacyUnenumerableNamedProperties]</c> and the ordinary-own-property visibility rule are
 /// <see cref="DomHtmlCollectionObject{T}"/>'s, unchanged: a supported name is a non-enumerable own property,
 /// an expando of the same name wins, and <c>namedItem</c> looks through both.
@@ -72,12 +61,6 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     /// https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#concept-get-all-indexed — the
     /// <c>index</c>th element, or nothing at all when there is no such element.
     /// </summary>
-    /// <remarks>
-    /// One walk, not two: AngleSharp's <c>HtmlAllCollection</c> is a lazy view over the document's element
-    /// descendants, so <c>Length</c> runs the whole query and the indexer runs it again. Running out of
-    /// elements <i>is</i> the bounds answer, which is the same reason
-    /// <see cref="DomHtmlCollectionObject{T}.TryGetIndex"/> stopped asking for a length first.
-    /// </remarks>
     public override bool TryGetIndex(uint index, out JsValue value)
     {
         var element = ElementAt(index);

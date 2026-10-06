@@ -12,7 +12,7 @@ namespace Jint.Tests.Browser.Dom;
 /// otherwise", and the body element is the first <c>body</c> or <c>frameset</c> child of <em>that</em>. So a
 /// document whose root is an XHTML <c>div</c> has no body element however many <c>body</c> children the root
 /// has — the standard's own example is a body inserted beneath an SVG document element, which the getter
-/// still answers null for. AngleSharp 1.8.0 walks <c>DocumentElement.ChildNodes</c> without asking what the
+/// still answers null for. the former DOM integration walks <c>DocumentElement.ChildNodes</c> without asking what the
 /// document element is, so the binding gates the getter and <c>Dom/divergences.md</c> records it.
 /// </remarks>
 public sealed class DocumentBodyTests
@@ -134,7 +134,7 @@ public sealed class DocumentBodyTests
     }
 
     /// <summary>
-    /// The setter is a separate algorithm and keeps AngleSharp's, so it may append a body beneath a document
+    /// The setter is a separate algorithm and keeps the former DOM integration's, so it may append a body beneath a document
     /// element the getter will not answer for — which the standard allows and this pins, so that gating the
     /// getter is not read as gating both halves.
     /// </summary>

@@ -17,22 +17,6 @@ internal sealed partial class CustomElementRegistry
     /// The namespace prefix the <c>createElementNS</c> in progress owes the element its constructor is about
     /// to make, taken by the first <see cref="NewElement"/> of that construction and cleared by it.
     /// </summary>
-    /// <remarks>
-    /// <b>This is the one place creation diverges from DOM, and AngleSharp's read-only <c>Prefix</c> is
-    /// why.</b> https://dom.spec.whatwg.org/#concept-create-element step 5.1.3.9 sets the prefix on the
-    /// element the constructor produced, <i>after</i> it returns; there is no setter to do that with, so the
-    /// element is created carrying it instead. What that costs is exactly one thing a page can tell apart —
-    /// <c>this.prefix</c> read inside the constructor answers the prefix where the standard says
-    /// <see langword="null"/> — and what it buys is the element keeping its prefix and its qualified
-    /// <c>tagName</c> for the rest of its life instead of losing both.
-    /// <c>Dom/divergences.md</c> records it.
-    /// <para>
-    /// It is taken rather than read, so a nested <c>new MyElement()</c> inside the constructor — which HTML
-    /// gives an empty construction stack and its own fresh element — gets no prefix, and a nested
-    /// <c>createElementNS</c> gets its own. The save-and-restore around the construction is what keeps the
-    /// two from seeing each other's.
-    /// </para>
-    /// </remarks>
     private string? _pendingPrefix;
 
     /// <summary>
@@ -95,18 +79,6 @@ internal sealed partial class CustomElementRegistry
     /// Whether an element of <paramref name="element"/>'s interface may be constructed through
     /// <paramref name="active"/> — the interface itself, or one it inherits from.
     /// </summary>
-    /// <remarks>
-    /// <b>The ancestor clause is a deliberate relaxation of HTML's rule, and AngleSharp is why.</b> The
-    /// standard's check is that the local name's interface <i>is</i> the active function object's, and it
-    /// needs a table of which local names HTML gives which interface. What is available here is what
-    /// AngleSharp builds for a local name — and it does not always agree with HTML. The table-cell split it
-    /// used to disagree about is gone (both interfaces are <c>excludedInterfaces</c> rows now), but
-    /// <c>&lt;dt&gt;</c> and <c>&lt;dd&gt;</c> still take <c>IHtmlListItemElement</c> where HTML gives them a
-    /// plain <c>HTMLElement</c>, so <c>class extends HTMLElement</c> with <c>{ extends: 'dt' }</c> — which is
-    /// what every page and <c>builtin-coverage.html</c> write — would be refused against the exact rule.
-    /// What the relaxation costs is the other direction: <c>class extends HTMLElement</c> with
-    /// <c>{ extends: 'button' }</c> is accepted here where a browser answers a <c>TypeError</c>.
-    /// </remarks>
     private static bool Implements(DomInterfaceDefinition element, DomInterfaceDefinition active)
     {
         for (DomInterfaceDefinition? current = element; current is not null; current = current.Parent)

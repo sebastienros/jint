@@ -91,7 +91,7 @@ public sealed class PageObserverTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The end-of-turn look is not free: <c>IDocument.Title</c> is AngleSharp's depth-first search for the
+    /// The end-of-turn look is not free: <c>IDocument.Title</c> is the former DOM integration's depth-first search for the
     /// first <c>&lt;title&gt;</c> element, which stops at one and walks the whole tree when there is none. So
     /// the observer is checked <i>first</i> and a page with none returns before touching the document at all
     /// — which is most pages, because <c>Page.Observer</c> is null for every page nobody is driving over the

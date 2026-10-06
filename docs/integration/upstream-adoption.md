@@ -12,8 +12,8 @@ Source observations below were rechecked against Jint main `cd4037d8b9f751d42ab9
 
 ## Proposal for AngleSharp Js
 
-Jint's browser work uses AngleSharp for the parser, DOM and CSSOM. We would like to make the generated
-binding work useful to AngleSharp.Js while preserving its choice of scripting services and host lifecycle.
+Jint's browser now uses its native `Jint.HtmlParser` parser, DOM and CSSOM. This historical proposal
+considered making the generated binding approach useful to AngleSharp.Js while preserving its choice of scripting services and host lifecycle.
 The initial proposal is a small integration experiment: generate `Node`, `Element` and `Document` bindings,
 connect them to one AngleSharp document, and prove their behavior and ownership before choosing a package
 boundary. The [binding-cost comparison in #3898](https://github.com/sebastienros/jint/issues/3898) is separate;
@@ -23,8 +23,8 @@ this proposal claims no measured speedup over reflection bindings.
 
 | Artifact | What can be reused | Current boundary |
 | --- | --- | --- |
-| [Metadata reader and emitter](https://github.com/sebastienros/jint/tree/main/tools/dom-bindings/Jint.Browser.BindingGenerator/) | Read AngleSharp attributes with `MetadataLoadContext`; emit static interface calls and checked-in shapes | Generator output currently names `Jint.Browser.Dom` helpers; namespace and runtime targeting need an explicit extraction design |
-| [Pin and overrides](https://github.com/sebastienros/jint/blob/main/tools/dom-bindings/README.md) | Versioned input assemblies, WebIDL corrections, diagnostics and skipped-member reports | Some overrides are browser services, such as navigation, parser insertion and custom-element reactions; adopting every override would also adopt those obligations |
+| [Metadata reader and emitter](https://github.com/sebastienros/jint/tree/main/tools/dom-bindings/Jint.Browser.BindingGenerator/) | The retired metadata extractor read upstream attributes; the active emitter reads `contract.json` and emits native calls and checked-in shapes | Generator output currently names `Jint.Browser.Dom` helpers; namespace and runtime targeting need an explicit extraction design |
+| [Pin and overrides](https://github.com/sebastienros/jint/blob/main/tools/dom-bindings/README.md) | Historical extraction provenance, WebIDL corrections and skipped-member reports; current generation uses the native contract | Some overrides are browser services, such as navigation, parser insertion and custom-element reactions; adopting every override would also adopt those obligations |
 | [Generated output](https://github.com/sebastienros/jint/tree/main/Jint.Browser/Dom/Generated/) | Interface shapes, constants, inheritance, conversion call sites and collection accessors | It is source to review, not a standalone consumer library |
 | [Binding runtime](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomBindings.cs) and [realm](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomRealm.cs) | Receiver brands, one native-object/wrapper identity cache per engine, and realm-owned lazy prototypes and constructors | Both are internal; installation accepts an owning realm, with the principal default reaching `Engine._mainRealm`; realm scoping and installation still need a public extraction boundary |
 | [Node wrapper](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomNodeObject.cs) and [tree dispatcher](https://github.com/sebastienros/jint/blob/main/Jint/WebApi/Events/EventDispatch.cs) | DOM event paths, retargeting and listener dispatch over host-provided tree relationships | `JsEventTarget`, the dispatch entry and tree overrides are internal; this is not a public event adapter today |
@@ -74,7 +74,7 @@ Use the existing suites as executable examples, not as a claim that they validat
   to prove the extraction needs no friend assembly. Add two-engine identity/isolation and disposal cases
   to the proposed fixture, including a wrapped object first reached from a callback.
 - Run the relevant vendored DOM WPT cases in the adopting host; preserve documented
-  [AngleSharp divergences](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) rather than implementing a second DOM.
+  [Browser divergences](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) rather than implementing a second DOM.
   Consult [the browser lane](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Wpt/README.md) for the distinction between passing,
   excluded and untriaged results.
 

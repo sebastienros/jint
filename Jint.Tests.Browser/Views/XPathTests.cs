@@ -9,7 +9,7 @@ using Browser = global::Jint.Browser.Browser;
 /// <c>document.evaluate</c>.
 /// </summary>
 /// <remarks>
-/// The engine is <c>System.Xml.XPath</c> over <c>AngleSharp.XPath</c>'s navigator, so what these assert is
+/// The engine is <c>System.Xml.XPath</c> over <c>the former DOM integration.XPath</c>'s navigator, so what these assert is
 /// the <i>binding</i>: the interfaces exist, a page can construct the one it is meant to, the ten result
 /// types are answered and coerced the way the standard says, and the two documented divergences (namespaces
 /// are ignored, and a node set is materialized) hold. <c>Jint.Browser/Dom/Views/JsXPath</c> argues both.

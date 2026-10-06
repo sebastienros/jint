@@ -6,7 +6,7 @@ namespace Jint.Tests.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// Each case here passes an argument list that includes the receiver or one of its siblings, which is what
-/// separates the standard's order from AngleSharp's: "convert nodes into a node" moves every argument node
+/// separates the standard's order from the former DOM integration's: "convert nodes into a node" moves every argument node
 /// into a fragment, so a reference node chosen after it has already left the parent.
 /// </remarks>
 public sealed class ChildNodeMutationTests
@@ -43,7 +43,7 @@ public sealed class ChildNodeMutationTests
         using var fixture = DomTestFixture.Create("<body><div id='p'><i id='x'></i><b id='c'></b></div></body>");
 
         // The receiver comes last, so its next sibling is only null once the conversion has moved it into the
-        // fragment - which is where AngleSharp reads it, and why it then looks for a node that has left.
+        // fragment - which is where the former DOM integration reads it, and why it then looks for a node that has left.
         fixture.Text(
             """
             var c = document.getElementById('c');

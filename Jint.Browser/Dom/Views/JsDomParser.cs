@@ -65,13 +65,6 @@ internal sealed class JsDomParser : ObjectInstance
         var type = DomConvert.RequiredText(arguments, 1, "DOMParser.parseFromString");
 
         // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-domparser-parsefromstring
-        // step 2.2 and step 3.2 both end "set document's content type to type", so the type the caller named
-        // is the document's own — AngleSharp's XML parser answers `text/xml` for all four of them.
-        //
-        // `SupportedType` is a closed WebIDL enumeration: these five and no others, however XML-shaped a
-        // sixth may be. `DomContentType.IsXml` is the open rule HTML's *read XML* uses for a document a page
-        // navigates to or a frame is served, and it is deliberately not asked here — the two share the
-        // constants and not the decision.
         var document = type switch
         {
             DomContentType.Html => ParseHtml(source),

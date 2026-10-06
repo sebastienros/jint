@@ -10,8 +10,8 @@
 `Jint.DevTools` speaks the Chrome DevTools Protocol to any embedder's engine. It is the *engine-level*
 half — sessions, `Runtime`, `Debugger`, `Profiler`, `Console`, `Log`, `Schema`, `Target`, `Browser` — and it
 works for a host with no pages at all: an Orchard or Elsa host can attach Chrome DevTools to its scripts.
-The page-level domains belong to `Jint.Browser`, which is AngleSharp plus Jint and is never described as a
-DOM stack of its own.
+The page-level domains belong to `Jint.Browser`, which combines the native `Jint.HtmlParser` DOM with the Jint
+JavaScript engine.
 
 The package is `net8.0;net10.0`, the same floor `Jint/WebApi/` sits on and for the same reason: host surface
 built on the modern BCL, not engine surface a `netstandard` consumer resolves. Unlike the web APIs there is
@@ -37,7 +37,7 @@ Everything downstream of that follows:
   hold engine state — a `RemoteObjectTable`, a `ScriptRegistry`, a `DebugHandler` subscription — none of it
   thread-safe. `DevToolsTarget.RunsOffThread(method)` is the gateway hook a target overrides to answer one
   command on the thread that read it instead, and **the bar for naming a method is that it provably touches
-  no engine state, no `JsValue` and no AngleSharp node** — a method that reads any of the three above, an
+  no engine state, no `JsValue` and no native DOM node** — a method that reads any of the three above, an
   `Engine` or a DOM node may never be named, because nothing here would catch it. What it buys is a command
   answerable while the loop is not: today the `Fetch` commands that release a paused request, and
   `Fetch.getResponseBody`, which reads the very socket the loop is blocked on

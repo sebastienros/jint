@@ -5,60 +5,11 @@ using Jint.Native;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The interfaces this package declares itself, because AngleSharp has no <c>[DomName]</c> interface for them
-/// and the generator can therefore never see one.
+/// Declares Browser-owned WebIDL interfaces that supplement the generated native binding contract.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>There are three gaps and three answers.</b> Six element interfaces are nodes AngleSharp builds
-/// and cannot name, so each is chosen by <em>local name</em> where everything else is chosen by CLR type;
-/// <c>XMLDocument</c> has a CLR interface but no <c>[DomName]</c>, so it is declared here and chosen by that
-/// interface; <c>StaticRange</c> is not AngleSharp's at all, so it is chosen by a CLR type of this package's
-/// own that no node ever takes. The first is the harder one to see, and is this: AngleSharp models
-/// <c>&lt;dl&gt;</c>, <c>&lt;dir&gt;</c>, <c>&lt;font&gt;</c>, <c>&lt;frame&gt;</c> and
-/// <c>&lt;frameset&gt;</c> with internal sealed classes whose only public interface is
-/// <c>Element</c> — there is no <c>IHtmlDListElement</c>, no <c>IHtmlFrameElement</c> and no
-/// <c>[DomName]</c> for any of the five WebIDL interfaces anywhere in the pinned assemblies — so
-/// <c>DomTypeMap</c>, which keys on the CLR type, cannot tell any of them from a <c>&lt;div&gt;</c>. The
-/// events bridge already makes the same test the same way (<c>EventHandlerContentAttributes.TargetFor</c>),
-/// because a frameset carries the window-forwarded handler attributes a <c>&lt;body&gt;</c> does.
-/// <c>SVGAElement</c> is the same gap in another namespace: an SVG <c>&lt;a&gt;</c> is a bare
-/// <c>AngleSharp.Svg.Dom.SvgElement</c>, and there is no <c>[DomName("SVGAElement")]</c> either. Its
-/// local-name test is the one that is <b>case-sensitive</b>, because SVG has no ASCII-case-insensitive name
-/// matching for an element.
-/// </para>
-/// <para>
-/// <b>An interface exists so that three things are true</b>: <c>el instanceof HTMLFontElement</c> holds,
-/// <c>HTMLFontElement</c> is a name on the window, and <c>Object.prototype.toString</c> reports it.
-/// <c>dom/events/Body-FrameSet-Event-Handlers.html</c> is what asks for all three of the frameset's, and it
-/// asks first: it reaches for the name at file scope, so without it the whole document is a harness error
-/// rather than a run with two failures. <c>dom/nodes/Node-cloneNode.html</c> asks for the other four, and
-/// <c>html/dom/reflection-grouping.html</c> and <c>-obsolete.html</c> ask for their members.
-/// </para>
-/// <para>
-/// <b>Their members are reflected attributes written by hand</b>, which is the one place in this package that
-/// happens. <see cref="ReflectedAttribute"/> is the shared implementation and the descriptors normally come
-/// from <c>overrides.json</c>'s <c>reflected</c> list — but that list is read against the interfaces the
-/// generator can see, and these five are not among them by definition. So the descriptors are declared here,
-/// next to the shapes that name them, and the algorithm is still the one every other reflected member takes.
-/// The alternative — declaring the members on <c>HTMLElement</c>, the interface these elements do have —
-/// would give <c>compact</c> and <c>noResize</c> to every element in the document, which is worse than not
-/// having them.
-/// </para>
-/// <para>
-/// <b><c>HTMLFrameElement</c>'s <c>contentDocument</c> and <c>contentWindow</c> are deliberately absent.</b>
-/// A frame's document is reachable only where the page runtime loaded one, and it loads none for a
-/// <c>&lt;frame&gt;</c>: <c>Runtime/Parsing/PageResourceLoader</c> dispatches a subresource request by the
-/// element that made it and has an arm for <c>IHtmlInlineFrameElement</c> only, so a <c>&lt;frame src&gt;</c>
-/// is refused like any other subresource this package does not fetch. AngleSharp's own
-/// <c>HtmlFrameElementBase.ContentDocument</c> is on an internal class reachable through no public interface,
-/// so there is nothing to answer from either. Two readonly members that could only ever answer <c>null</c>
-/// would say a browsing context exists where none does; nothing in the corpus asks for them.
-/// </para>
-/// <para>
-/// The indices continue <c>DomInterfaces</c>' own, which is what keeps <see cref="DomRealm"/>'s per-engine
-/// arrays a dense array rather than a dictionary.
-/// </para>
+/// Interface selection preserves HTML, SVG and XML brands. Hand-written shapes provide browser semantics
+/// that cannot be expressed as direct native member forwarding; they use the same wrapper cache and realm.
 /// </remarks>
 internal static class DomManualInterfaces
 {
@@ -175,10 +126,7 @@ internal static class DomManualInterfaces
         DomWrapperKind.Node);
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#xmldocument. AngleSharp exposes <see cref="Document"/> but gives it
-    /// no <c>[DomName]</c>, so the generated interface table cannot see the WebIDL interface. The explicit
-    /// wrapper selected by <c>new Document()</c> remains <c>Document</c>; every other XML document and its
-    /// clones take this interface.
+    /// https://dom.spec.whatwg.org/#xmldocument — selects the XMLDocument interface, while new Document() retains the Document brand.
     /// </summary>
     internal static readonly DomInterfaceDefinition XMLDocument = new(
         "XMLDocument",
@@ -206,11 +154,7 @@ internal static class DomManualInterfaces
         DomWrapperKind.Node);
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#staticrange. AngleSharp has no <c>StaticRange</c> and no
-    /// <c>AbstractRange</c> — the interface is four values a page hands over, so there is nothing for it to
-    /// model — which is why this one is declared by CLR type where the element interfaces are declared by
-    /// local name: the type is <see cref="DomStaticRange.State"/>, ours, and no node ever takes it.
-    /// <see cref="DomStaticRange"/> carries the algorithm and the shape.
+    /// https://dom.spec.whatwg.org/#staticrange — declares the immutable range shape backed by DomStaticRange.State.
     /// </summary>
     internal static readonly DomInterfaceDefinition StaticRange = new(
         "StaticRange",
@@ -261,9 +205,7 @@ internal static class DomManualInterfaces
     }
 
     /// <summary>
-    /// One of HTML's element interfaces that AngleSharp models with a plain <c>Element</c>: an
-    /// <c>HTMLElement</c> subclass whose shape is the <c>constructor</c> slot, the tag and its own reflected
-    /// members.
+    /// Declares an HTML element interface over a native Element and its reflected members.
     /// </summary>
     private static DomInterfaceDefinition ElementInterface(string name, ReflectedAttribute[] members)
         => new(
@@ -291,11 +233,7 @@ internal static class DomManualInterfaces
     }
 
     /// <summary>
-    /// <c>SVGAElement</c>'s two members. <c>relList</c> is the pair's <c>[SameObject, PutForwards=value]</c> half
-    /// and reaches the same <see cref="DomTokenListMembers"/> every other <c>DOMTokenList</c> in this package
-    /// does; what is new is only the token set under it, which
-    /// <see cref="DomAttributeTokenList"/> reads off the element's own <c>rel</c> attribute because
-    /// AngleSharp has no <c>ITokenList</c> to hand for an SVG element.
+    /// Declares SVGAElement's rel and SameObject relList members over its native rel attribute.
     /// </summary>
     private static JsObjectShape SvgAnchorShape()
     {
@@ -382,12 +320,6 @@ internal static class DomManualInterfaces
     /// name and <c>HTMLUnknownElement</c> otherwise — so an undefined <c>&lt;my-el&gt;</c> is an
     /// <c>HTMLElement</c>, which is what a page tests before anything is defined and what the element
     /// keeps until an upgrade swaps its wrapper's prototype for the constructor's.
-    /// </para>
-    /// <para>
-    /// AngleSharp builds an <c>HtmlUnknownElement</c> for both, so the name is the only thing separating
-    /// them. The test costs a character scan, and only for an element AngleSharp could not identify. The five
-    /// local names cost one switch over a string already in hand, and none of them can be an unknown element:
-    /// each is a name the HTML parser knows.
     /// </para>
     /// </remarks>
     internal static DomInterfaceDefinition For(Node node) => DomTypeMap.For(node);

@@ -9,20 +9,10 @@ using Namespaces = Jint.HtmlParser.Namespaces;
 namespace Jint.Browser.Dom.Views;
 
 /// <summary>
-/// The bodies of the members <c>overrides.json</c>'s <c>additions</c> list adds to a generated interface.
+/// Supplies DOM view members whose WebIDL behavior needs a hand-written Browser adapter.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Every one of them is a member the DOM standard puts on an interface the generator emits, and that the
-/// generator could not project from AngleSharp: a filter parameter is a CLR delegate, a stringifier has no
-/// <c>[DomName]</c>, and one member AngleSharp simply spells by its Shadow DOM v0 name. Adding them here
-/// rather than hand-writing the whole interface keeps the prototype shaped and keeps the other two hundred
-/// members generated.
-/// </para>
-/// <para>
-/// They are static and take the brand-checked receiver, exactly like a generated body, so nothing about the
-/// call site differs from the member beside it.
-/// </para>
+/// These members bridge script filters, range stringification and document creation to native DOM operations.
 /// </remarks>
 internal static class DomViewMembers
 {
@@ -30,12 +20,6 @@ internal static class DomViewMembers
     /// The <c>NodeFilter</c> each traversal object was created with, so that <c>walker.filter</c> answers the
     /// value the page passed rather than the delegate it was converted into.
     /// </summary>
-    /// <remarks>
-    /// Keyed on the AngleSharp traversal object, which belongs to one engine and one document, so the stored
-    /// value can never be read by an engine it does not belong to. A <see cref="ConditionalWeakTable{TKey,TValue}"/>
-    /// rather than a field on the wrapper, because the wrapper is created lazily by the cache and the filter
-    /// is known here, at creation.
-    /// </remarks>
     private static readonly ConditionalWeakTable<object, JsValue> _filters = new();
 
     private sealed record TraversalCallback(HtmlParser.TraversalFilter? Filter);
@@ -78,10 +62,6 @@ internal static class DomViewMembers
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-range-stringifier — the text of every text node the range covers.
     /// </summary>
-    /// <remarks>
-    /// AngleSharp implements it as <c>Range.ToString()</c> and puts no <c>[DomName]</c> on it, so nothing in
-    /// the metadata says it is the interface's stringifier.
-    /// </remarks>
     internal static JsValue RangeToString(DomRealm realm, HtmlParser.DomRange range) => JsString.Create(range.GetText(realm.NativeReadCheckpoint, realm.CancellationToken));
 
     /// <summary>
@@ -105,12 +85,6 @@ internal static class DomViewMembers
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-slot-assignednodes.
     /// </summary>
-    /// <remarks>
-    /// AngleSharp names it <c>getDistributedNodes</c>, which is the Shadow DOM v0 spelling, and that is the
-    /// name its <c>[DomName]</c> carries — so the generated interface has the old name and not the standard
-    /// one. Both are present: the generated one because it is what the metadata says, this one because it is
-    /// what a page calls.
-    /// </remarks>
     internal static JsValue AssignedNodes(DomRealm realm, HtmlParser.Element slot, JsValue[] arguments)
         => DomConvert.NodeSequence(realm, HtmlParser.SlotAssignment.AssignedNodes(slot,
             Flatten(realm, arguments, "HTMLSlotElement.assignedNodes"), realm.CancellationToken));
@@ -156,12 +130,6 @@ internal static class DomViewMembers
     /// <c>test()</c> runs; with the member absent it threw at file scope and thirty-one documents reported
     /// nothing at all.
     /// </para>
-    /// <para>
-    /// The node itself comes from AngleSharp.Xml's <c>IXmlDocument.CreateCDataSection</c>, which is the only
-    /// place in either assembly a CDATA section can be made. Every non-HTML document this package can produce
-    /// is one — <c>new Document()</c> and every <c>DOMParser</c> XML type go through <c>XmlParser</c> — so the
-    /// last refusal is for a document shape that does not exist yet rather than one a page can reach.
-    /// </para>
     /// </remarks>
     internal static JsValue CreateCDataSection(DomRealm realm, HtmlParser.Document document, JsValue[] arguments)
     {
@@ -170,23 +138,6 @@ internal static class DomViewMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createhtmldocument.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The title is optional, and its absence is not the empty string.</b> DOM's step 6 is "<i>if title is
-    /// given</i>, create a <c>title</c> element … and append": <c>createHTMLDocument()</c> makes a document
-    /// whose <c>head</c> is empty, and <c>createHTMLDocument("")</c> makes one holding <c>&lt;title&gt;&lt;/title&gt;</c>
-    /// with an empty text node in it. AngleSharp's <c>CreateHtmlDocument</c> takes a required string and
-    /// creates the element only when that string is non-empty, so the two spellings were indistinguishable
-    /// from outside and the argument could not be made optional by projecting it — which is why the member is
-    /// <c>skip</c>ped and re-declared.
-    /// </para>
-    /// <para>
-    /// Adding the element the standard asks for is the whole of what this does beyond that call. It is Web
-    /// IDL semantics AngleSharp's CLR surface cannot represent rather than a behaviour worked around: there
-    /// is no overload that distinguishes an absent title from an empty one, and the divergence register
-    /// records that.
-    /// </para>
-    /// </remarks>
     internal static JsValue CreateHtmlDocument(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
     {
         var given = arguments.Length > 0 && !arguments[0].IsUndefined();
@@ -209,22 +160,6 @@ internal static class DomViewMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocument.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>AngleSharp's <c>IImplementation</c> has three members and this is not one of them</b> —
-    /// <c>createHTMLDocument</c>, <c>createDocumentType</c> and <c>hasFeature</c> are the whole of it — so
-    /// there is nothing to project and the algorithm is here. It is DOM's, over the pieces AngleSharp does
-    /// have: an empty XML document from the same parse <c>DomConstructors</c> uses for <c>new Document()</c>,
-    /// <c>createElementNS</c> for the document element, and DOM's own append for both children.
-    /// </para>
-    /// <para>
-    /// <b>The content type is step 7 and is decided by the namespace</b> — <c>application/xhtml+xml</c> for
-    /// the XHTML namespace, <c>image/svg+xml</c> for SVG, <c>application/xml</c> for everything else. It is
-    /// declared on the browsing context the document is parsed into rather than set on the document, because
-    /// AngleSharp's <c>Document.ContentType</c> setter is <see langword="protected"/>; see
-    /// <see cref="DomContentType"/>.
-    /// </para>
-    /// </remarks>
     internal static JsValue CreateDocument(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
     {
         if (arguments.Length < 2)
@@ -249,9 +184,6 @@ internal static class DomViewMembers
         var document = DomConstructors.NewXmlDocument(ContentTypeFor(namespaceUri));
         DomDocumentMetadata.Initialize(document, DomDocumentState.Of(implementation.Document).Origin);
 
-        // Step 3: the internal createElementNS steps. Validate-and-extract's two refusals are DomNames', which
-        // this member now has a row of its own in: the creation no longer leans on AngleSharp's stricter name
-        // check to make them, because that check refuses names the standard allows.
         var element = qualifiedName.Length == 0
             ? null
             : document.CreateElementNS(namespaceUri, qualifiedName);

@@ -10,29 +10,11 @@ using Jint.WebApi.Url.Parsing;
 namespace Jint.Browser.Runtime;
 
 /// <summary>
-/// The lower half of HTML's form submission algorithm: the entry list, the encoding, and the navigation the
-/// page runs.
-/// <para>
-/// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#form-submission-algorithm
-/// </para>
+/// Runs form submission through the Browser's document fetch and navigation pipeline.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>AngleSharp's own submission is deliberately not used.</b> <c>IHtmlFormElement.Submit()</c> builds its
-/// own entry list, dispatches into its own event bus — which holds nothing a script registered — and then
-/// navigates through <c>IBrowsingContext</c> on whatever thread it was called from
-/// (<see href="https://github.com/AngleSharp/AngleSharp/issues/1309">AngleSharp#1309</see>). A page whose
-/// <c>submit</c> listener called <c>preventDefault()</c> would be navigated anyway, and a page's DOM would
-/// be reached from a thread that is not its loop's. Everything below runs on the page loop and ends by
-/// asking the page to navigate.
-/// </para>
-/// <para>
-/// <b>Neither the decision nor the events are here.</b> This is what a submission runs once something has
-/// decided to submit and the <c>submit</c> event has survived; what decides is a script
-/// (<c>form.submit()</c>, <c>form.requestSubmit()</c>) or a submit button's activation behaviour, and the
-/// validation and the event are <see cref="Events.FormSubmission"/>. That is why the submitter is a
-/// parameter rather than something this works out.
-/// </para>
+/// The Browser owns successful-control collection, encoding, request recording and navigation scheduling.
+/// Native DOM state supplies controls and values; submission does not create a second networking path.
 /// </remarks>
 internal static class FormSubmitter
 {
@@ -195,10 +177,6 @@ internal static class FormSubmitter
 
         try
         {
-            // HTML's entry-list inventory is submittable controls, not form.elements: the latter excludes
-            // image inputs and decides ownership by AngleSharp's rule rather than the standard's. The walk is
-            // over the form's whole tree in tree order, so a control outside the form that the `form`
-            // attribute associated with it contributes, and one inside it that points elsewhere does not.
             foreach (var element in HtmlFormOwner.ControlsOf(form, runtime.Dom.NativeReadCheckpoint, runtime.CustomElementsIfCreated, runtime.Dom.CancellationToken))
             {
                 Append(runtime, entries, element, submitter);

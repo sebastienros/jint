@@ -33,11 +33,11 @@ public sealed class DomIdentityTests
     }
 
     [Test]
-    public void AShortLivedViewKeepsOneWrapperForAsLongAsAngleSharpKeepsOneObject()
+    public void AShortLivedViewKeepsOneWrapperForAsLongAsTheNativeDomKeepsOneObject()
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // AngleSharp hands back the same DOMTokenList and the same DOMStringMap for one element, so the
+        // The former DOM integration hands back the same DOMTokenList and the same DOMStringMap for one element, so the
         // wrapper cache gives them one identity too.
         fixture.Bool("document.querySelector('#a').classList === document.querySelector('#a').classList").Should().BeTrue();
         fixture.Bool("document.querySelector('#a').dataset === document.querySelector('#a').dataset").Should().BeTrue();

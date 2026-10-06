@@ -4,7 +4,7 @@ namespace Jint.Tests.Browser.Dom;
 /// The interfaces WebIDL really does give a constructor, and the ones it does not.
 /// </summary>
 /// <remarks>
-/// AngleSharp puts <c>[DomConstructor]</c> on no <c>[DomName]</c> interface, so the generator can never
+/// The former DOM integration puts <c>[DomConstructor]</c> on no <c>[DomName]</c> interface, so the generator can never
 /// learn that an interface is constructible and <c>DomConstructors</c> is the table it is written in by
 /// hand. The point of these rows is that the table is short and that everything outside it is still
 /// <c>Illegal constructor</c>, which is what a browser answers too.

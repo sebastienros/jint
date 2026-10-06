@@ -202,7 +202,7 @@ public sealed class WindowTests
         // https://dom.spec.whatwg.org/#dom-node-baseuri is Node's, and a browser has it there too.
         (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(Node.prototype, 'baseURI') !== undefined")).Should().BeTrue();
 
-        // And they answer the runtime's values, not AngleSharp's.
+        // And they answer the runtime's values, not the former DOM integration's.
         (await page.EvaluateAsync<bool>("document.defaultView === window")).Should().BeTrue();
         (await page.EvaluateAsync<string>("document.readyState")).Should().Be("complete");
         (await page.EvaluateAsync<bool>("document.URL === location.href && document.documentURI === document.URL")).Should().BeTrue();

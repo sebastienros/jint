@@ -159,15 +159,11 @@ internal sealed class ElementVisibility
     }
 
     /// <summary>
-    /// Stops asking AngleSharp.Css, but only while it has never answered.
+    /// Stops querying the shared cascade only when it has never answered.
     /// </summary>
     /// <remarks>
-    /// The two failures <c>Dom/Views/CssCascade</c> guards are not the same kind of thing. A document whose
-    /// browsing context has no CSS services cannot answer for <i>any</i> element, and asking once per node
-    /// of a whole tree walk would be one thrown exception per node — so the first refusal latches. A cascade
-    /// that has already answered for some other element is available, and a refusal is then about this
-    /// element's own declarations (a unit AngleSharp.Css cannot convert, and <c>width: 20ch</c> is ordinary
-    /// modern CSS): latching there would take a page's <c>display: none</c> rules down with it.
+    /// Once a cascade has answered, a later element-specific refusal must not disable visibility rules
+    /// for the rest of the walk. Only an unavailable cascade may switch the entire query to inline fallback.
     /// </remarks>
     private void Latch()
     {

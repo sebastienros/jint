@@ -366,12 +366,6 @@ internal static class ImageHeader
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is a scan of the root start tag, not a parse.</b> The two attributes are on the document
-    /// element, so finding that element is the whole of the work; running AngleSharp's XML parser over an
-    /// arbitrary number of megabytes of path data to reach two attributes on its first tag would be a real
-    /// cost for the same answer.
-    /// </para>
-    /// <para>
     /// <b>An SVG with no intrinsic size is available, not broken</b>, and <c>naturalWidth</c> then answers 0.
     /// A browser substitutes the 300 × 150 default sizing of a replaced element at layout time, which is a
     /// used value rather than an intrinsic one and is not something this browser has.

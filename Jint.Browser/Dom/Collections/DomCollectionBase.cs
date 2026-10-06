@@ -3,7 +3,7 @@ using Jint.Native.Object;
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
-/// What every DOM collection wrapper shares: the AngleSharp object, the realm, and the interface it was
+/// What every DOM collection wrapper shares: the native DOM object, the realm, and the interface it was
 /// given a prototype from.
 /// </summary>
 /// <remarks>
@@ -47,13 +47,6 @@ internal abstract class DomCollectionBase : ArrayLikeObject, IDomWrapper
     /// The <c>length</c> accessor this interface's prototype was created with, so the engine can answer a
     /// <c>length</c> read from the collection's own count while nothing has redefined it.
     /// </summary>
-    /// <remarks>
-    /// Every generated collection accessor reads the same AngleSharp member the interface's <c>length</c>
-    /// attribute does, and <c>HTMLCollection.prototype.length</c> is literally <c>Length</c> of this wrapper,
-    /// so invoking the captured getter answers what <c>Length</c> answers. The engine trusts that, and a run
-    /// with <c>JINT_HOST_CONTRACT_VERIFICATION=1</c> invokes the accessor on every read that takes the lane
-    /// and fails on the first disagreement.
-    /// </remarks>
     protected override ObjectInstance? PristineLengthGetter => DomRealm.PristineLengthGetterOf(Definition);
 
     /// <summary>

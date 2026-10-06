@@ -13,8 +13,7 @@ internal static partial class DomTypeMap
 {
     /// <summary>
     /// Every generated interface, most derived first. A runtime type is matched against this in
-    /// order, so the first interface it implements is the most specific one — which is how an
-    /// AngleSharp element class, almost all of which are internal, is given its DOM interface.
+    /// order, so the first matching native type selects the most specific DOM interface.
     /// </summary>
     private static readonly DomInterfaceDefinition[] _candidates =
     [

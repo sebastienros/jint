@@ -752,7 +752,7 @@ public partial class PlaywrightCourseTests
     /// <para>
     /// <b>The failure was a protocol error read as a detached element.</b> The actionability check calls
     /// <c>getBoundingClientRect</c> in the utility world; the flat box model reads the cascade to decide
-    /// which elements are rendered; AngleSharp.Css raised <c>ArgumentException</c> for <c>width: 100%</c>
+    /// which elements are rendered; the former CSS integration raised <c>ArgumentException</c> for <c>width: 100%</c>
     /// because the page's browsing context had no <c>IRenderDevice</c>; and a CLR exception escaping
     /// <c>Runtime.callFunctionOn</c> is <c>-32000 "A non null render device with a font size is required to
     /// calculate em or rem units."</c>. Playwright turns anything that is <em>not</em> an

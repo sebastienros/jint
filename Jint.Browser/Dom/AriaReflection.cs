@@ -11,31 +11,11 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Reflection, not stored state.</b> Every member here is a view of one content attribute and holds
-/// nothing of its own: the getter is <c>getAttribute</c> and the setter is <c>setAttribute</c>, or
-/// <c>removeAttribute</c> for <see langword="null"/>. That is what the standard says
-/// (<c>[Reflect="aria-atomic"]</c>) and it is what makes the two directions agree by construction —
-/// <c>el.setAttribute('aria-label', 'x')</c> and <c>el.ariaLabel = 'x'</c> are the same write, so nothing can
-/// drift, and an attribute the parser produced is visible through the IDL attribute without anything having
-/// to synchronise. It is also what makes <c>[CEReactions]</c> come for free: the write goes through
-/// AngleSharp's attribute observer, which is the channel a custom element's
-/// <c>attributeChangedCallback</c> already arrives on.
-/// </para>
-/// <para>
 /// <b>The type is <c>DOMString?</c>, so absence is <c>null</c> and not <c>""</c>.</b> That is the opposite of
 /// the conversion table's default for a projected string member and deliberate: <c>aria-checked</c> being
 /// absent and <c>aria-checked=""</c> are different states to an accessibility tree, and
 /// <c>el.ariaChecked = null</c> is how a page returns to the first. Setting <c>undefined</c> does the same,
 /// which is WebIDL's conversion of <c>undefined</c> to a nullable type.
-/// </para>
-/// <para>
-/// <b>Why the extend form.</b> An <c>additions</c> entry normally names one member and carries its body,
-/// which is better in every way that matters. It cannot express a <em>family</em>: this is forty-five
-/// identically shaped accessor pairs differing only in an attribute name, and as member entries they would be
-/// ninety near-identical rows of a table whose purpose is to hold decisions. The same trade
-/// <c>Events/DomShapeAdditions</c> makes for the event handler IDL attributes, and it costs the same thing —
-/// the generator cannot see the names, so a collision with a member AngleSharp grows is caught by
-/// <c>JsObjectShape.Builder</c> refusing a duplicate rather than reported as a diagnostic.
 /// </para>
 /// <para>
 /// <b>The element-reflection half is <see cref="AriaElementReflection"/>.</b> <c>ariaActiveDescendantElement</c>,
@@ -129,8 +109,6 @@ internal static class AriaReflection
         {
             var self = DomBindings.Bind<Element>(thisObject, Member);
 
-            // AngleSharp answers null for an absent attribute, which for once is exactly the IDL type: this
-            // is one of the members overrides.json's `nullableStrings` list would name if it were generated.
             return DomConvert.NullableText(self.Target.GetAttribute(_attribute));
         }
 

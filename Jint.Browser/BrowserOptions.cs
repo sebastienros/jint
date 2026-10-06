@@ -314,14 +314,6 @@ public sealed class BrowserOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A frame's document is fetched over the page's own network position, bounded by
-    /// <see cref="MaxSubresourceBytes"/> and <see cref="SubresourceTimeout"/> like every other subresource,
-    /// and parsed into the nested browsing context AngleSharp already makes for the element. It runs no
-    /// script: a frame has a document and a window here and no <i>realm</i> of its own, so
-    /// <c>iframe.contentWindow</c> answers an object on the page's realm and nothing in the frame executes
-    /// (<c>docs/design/headless-browser.md</c> §3).
-    /// </para>
-    /// <para>
     /// <b>The count is over the whole load and not per document</b>, because a frame's document may hold
     /// frames of its own: one ceiling per document would let a page pointing a frame at itself recurse until
     /// the parser thread's stack ran out, and one ceiling for the load bounds the depth and the breadth

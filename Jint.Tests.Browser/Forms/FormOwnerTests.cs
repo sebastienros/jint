@@ -13,7 +13,7 @@ namespace Jint.Tests.Browser.Forms;
 /// ancestor form is only the fallback for the elements the explicit branch does not apply to.
 /// </summary>
 /// <remarks>
-/// AngleSharp's <c>HtmlElement.GetAssignedForm()</c> has the two branches the other way round, so every
+/// The former DOM integration's <c>HtmlElement.GetAssignedForm()</c> has the two branches the other way round, so every
 /// assertion here about a control inside one form pointing at another is a regression test for
 /// <a href="https://github.com/sebastienros/jint/issues/3939">#3939</a>.
 /// </remarks>
@@ -90,7 +90,7 @@ public sealed class FormOwnerTests
         fixture.Text("document.getElementById('form-wins').form.id").Should().Be("reverse");
     }
 
-    /// <summary>A control in no form at all, pointing into one: the case AngleSharp already answered.</summary>
+    /// <summary>A control in no form at all, pointing into one: the case the former DOM integration already answered.</summary>
     [Test]
     public void AControlOutsideEveryFormCanPointIntoOne()
     {

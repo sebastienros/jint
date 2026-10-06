@@ -6,35 +6,10 @@ using Jint.Browser.Runtime;
 namespace Jint.Browser.Media;
 
 /// <summary>
-/// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-source-set">HTML §4.8.4.3.6</a>'s
-/// source set: which of an <c>&lt;img&gt;</c>'s candidates — its own <c>srcset</c>, a <c>&lt;picture&gt;</c>
-/// parent's <c>&lt;source&gt;</c> elements, or the plain <c>src</c> — this page is actually asking for.
+/// Chooses an image source candidate using the page's renderless media environment.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why the binding decides this and not AngleSharp.</b> <c>ElementExtensions.GetImageCandidate</c> asks
-/// <c>SourceSet.GetCandidates</c>, which yields every candidate in order and ignores its descriptor
-/// altogether — so <c>srcset="small.png 1x, large.png 2x"</c> always resolves to <c>small.png</c> whatever
-/// the device pixel ratio, <c>sizes</c> is read and discarded, and a <c>&lt;source&gt;</c>'s <c>media</c> is
-/// never evaluated at all, so the first <c>&lt;source&gt;</c> in a <c>&lt;picture&gt;</c> always wins. Those
-/// are three separate wrong answers a page can see, and <c>Dom/divergences.md</c> records them. The
-/// <i>request</i> is still AngleSharp's — see <c>ParserDriver.FetchImage</c> — and only the URL it ends up
-/// fetching is decided here.
-/// </para>
-/// <para>
-/// <b>The environment is the page's own.</b> A <c>&lt;source media&gt;</c> and a <c>sizes</c> media condition
-/// are evaluated by <see cref="MediaQuery"/> against <see cref="PageMediaEnvironment"/> — the same value
-/// <c>matchMedia</c> answers from, so a client that emulates a viewport moves the selection with it. The
-/// density is <see cref="Viewport.DeviceScaleFactor"/>, which is 1 until an emulation says otherwise.
-/// </para>
-/// <para>
-/// <b>What a <c>w</c> descriptor needs is a length, and a length needs a viewport.</b> A width descriptor is
-/// turned into a density by dividing by the <i>source size</i> the <c>sizes</c> attribute selects, so
-/// <c>sizes</c> is parsed here rather than ignored: <c>px</c>, <c>vw</c>, <c>vh</c>, <c>em</c> and
-/// <c>rem</c> resolve, and anything that needs a cascade this browser would have to lay out — a percentage,
-/// <c>calc()</c>, <c>ch</c>, <c>ex</c> — makes that entry unusable and the next one is tried. With no usable
-/// entry the source size is HTML's own default of <c>100vw</c>.
-/// </para>
+/// Candidate selection supplies the URL; the parser driver owns fetching it and PageImages stores the result.
 /// </remarks>
 internal static class ImageSourceSet
 {

@@ -28,12 +28,6 @@ namespace Jint.Browser.Events;
 /// or after all of them, and <c>EventHandlerAttributes</c> is the get/set pair. What is added here is the
 /// content-attribute half: compiling the attribute's text, and keeping the two in step.
 /// </para>
-/// <para>
-/// <b>How the two are kept in step, and why it needs no notification from AngleSharp.</b> The attribute's text
-/// <i>is</i> the state: an element's handler slot records which text it was last reconciled against, and any
-/// difference — the attribute appearing, changing or going away — is what HTML's "set the content attribute"
-/// step observes. Three points reconcile, and between them they cover everything a page can do:
-/// </para>
 /// <list type="bullet">
 /// <item><description>
 /// <b>Wrapper construction</b> scans the element's attributes once, so a handler written in the markup is
@@ -51,13 +45,6 @@ namespace Jint.Browser.Events;
 /// <c>el.onclick = f</c> replaces it.
 /// </description></item>
 /// </list>
-/// <para>
-/// The alternatives were AngleSharp's <c>MutationObserver</c> (a document-wide observer whose records arrive
-/// for every attribute mutation, and whose lane campaign item R4 owns) and its <c>IAttributeObserver</c>
-/// service (a single registration in the <c>IConfiguration</c>, which the page runtime builds, and which
-/// AngleSharp also uses internally). Both would put a notification path in a file another campaign item owns,
-/// to learn something the attribute's own text already says.
-/// </para>
 /// <para>
 /// <b>Compilation is lazy.</b> Reconciling registers a placeholder that compiles on first use, so a page with a
 /// hundred <c>onclick</c> attributes compiles the ones that fire. That is also what makes a syntax error in an
@@ -401,8 +388,6 @@ internal static class EventHandlerContentAttributes
     /// </summary>
     private static JsEventTarget? TargetFor(DomNodeObject wrapper, Element? element, string type)
     {
-        // AngleSharp models <frameset> with the plain IHtmlElement, so the local name is the test; a body and
-        // a frameset carry the same redirected handler names.
         if (element is { NamespaceUri: Namespaces.Html, LocalName: "body" or "frameset" } && _bodyHandlerLookup.Contains(type))
         {
             return wrapper.DomRealm.WindowTarget;

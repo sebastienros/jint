@@ -243,7 +243,7 @@ public sealed class StaticNodeListTests
 
     /// <summary>
     /// Dropping the page and the list lets the nodes and their wrappers go — the cache adds no retention over
-    /// the snapshot, which adds none over the collection AngleSharp already built.
+    /// the snapshot, which adds none over the collection the former DOM integration already built.
     /// </summary>
     [Test]
     [NonParallelizable]
@@ -255,7 +255,7 @@ public sealed class StaticNodeListTests
 
         list.IsAlive.Should().BeFalse("nothing names the NodeList wrapper any more");
         wrapper.IsAlive.Should().BeFalse("the element wrapper was only reachable through the list's cache and the realm's weak table");
-        node.IsAlive.Should().BeFalse("the AngleSharp element was only reachable through the document and the snapshot");
+        node.IsAlive.Should().BeFalse("the native element was only reachable through the document and the snapshot");
     }
 
     /// <summary>
@@ -306,7 +306,7 @@ public sealed class StaticNodeListTests
 
     /// <summary>
     /// Builds a whole page, reads one element out of a static <c>NodeList</c>, and hands back weak references
-    /// to the AngleSharp element, its wrapper and the list — keeping no strong reference to any of them, nor
+    /// to the native element, its wrapper and the list — keeping no strong reference to any of them, nor
     /// to the fixture. <c>NoInlining</c> so nothing stays rooted in the caller's frame.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
