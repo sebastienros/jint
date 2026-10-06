@@ -15,8 +15,46 @@ namespace Jint.Browser.Media;
 internal sealed class PageImages
 {
     private readonly ConditionalWeakTable<Element, ImageRequest> _requests = new();
+    private readonly ConditionalWeakTable<Document, AvailableImages> _available = new();
 
-    /// <summary>How many image requests this document has started, against <see cref="BrowserOptions.MaxImageRequests"/>.</summary>
+    // HTML's list of available images is document-local and may ignore HTTP caching semantics for
+    // images loaded by that document. Only dimensions are retained: this browser does not render pixels.
+    // https://html.spec.whatwg.org/multipage/images.html#list-of-available-images
+    private sealed class AvailableImages
+    {
+        internal readonly Dictionary<(string Url, byte Cors), (int Width, int Height)> Entries = new();
+    }
+
+    private static byte CorsMode(Element image)
+    {
+        var value = image.GetAttribute("crossorigin");
+        return value is null ? (byte) 0
+            : string.Equals(value, "use-credentials", StringComparison.OrdinalIgnoreCase) ? (byte) 2 : (byte) 1;
+    }
+
+    internal bool TryReuse(Element image, string url, out int width, out int height)
+    {
+        if (image.OwnerDocument is { } document && _available.TryGetValue(document, out var available)
+            && available.Entries.TryGetValue((url, CorsMode(image)), out var size))
+        {
+            width = size.Width;
+            height = size.Height;
+            return true;
+        }
+
+        width = height = 0;
+        return false;
+    }
+
+    internal void Remember(Element image, string url, int width, int height)
+    {
+        if (image.OwnerDocument is { } document)
+        {
+            _available.GetValue(document, static _ => new AvailableImages()).Entries[(url, CorsMode(image))] = (width, height);
+        }
+    }
+
+    /// <summary>How many image load attempts this document has started (including reuse), against <see cref="BrowserOptions.MaxImageRequests"/>.</summary>
     private int _started;
 
     /// <summary>The state of <paramref name="image"/>'s current request, or <see langword="null"/> if it has none.</summary>
@@ -30,8 +68,8 @@ internal sealed class PageImages
     /// The ceiling is over the document rather than per element, because the quantity worth bounding is the
     /// traffic one document can ask for — <see cref="BrowserOptions.MaxSubresourceBytes"/> already bounds each
     /// response and <c>SubresourceTimeout</c> each wait, and neither bounds a thousand of them. It counts
-    /// what is <i>started</i>, so a page that rewrites one element's <c>src</c> in a loop is bounded by the
-    /// same number as one with a thousand elements.
+    /// what is <i>started</i>, including available-image reuse, so a page that rewrites one element's
+    /// <c>src</c> in a loop is bounded by the same number as one with a thousand elements.
     /// </remarks>
     internal bool TryStart(int ceiling) => _started++ < ceiling;
 
@@ -53,8 +91,8 @@ internal sealed class PageImages
 
     /// <summary>
     /// Whether this element's current request is already completely available at <paramref name="url"/>.
-    /// This prevents a repeated update from refetching the same element; it is not HTML's document-wide
-    /// list of available images. Distinct elements currently make distinct requests even for one URL.
+    /// This prevents a repeated update from refetching the same element or firing another load event.
+    /// Other elements may reuse the document-local available-image list through <see cref="TryReuse"/>.
     /// </summary>
     internal bool IsAlreadyAvailable(Element image, string url)
         => Find(image) is { State: ImageAvailability.CompletelyAvailable } request
