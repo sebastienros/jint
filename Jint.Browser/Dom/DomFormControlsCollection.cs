@@ -25,6 +25,8 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
         DomRealm realm, Element form) => views.GetValue(form, value => new(realm, value));
 
     internal override int Length => GetLength(realm);
+    // No TryGetCountWitness: native form-associated custom-element category/owner changes can alter
+    // membership without a tree/attribute write. A document mutation stamp alone cannot witness it.
     internal override int GetLength(DomRealm caller)
     {
         var count = 0;
