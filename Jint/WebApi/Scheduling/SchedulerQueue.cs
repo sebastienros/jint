@@ -99,7 +99,8 @@ internal sealed class SchedulerQueue
     /// <remarks>
     /// <b>Synchronous inheritance only.</b> HTML carries the state into every job callback created while a
     /// task runs (its <c>HostMakeJobCallback</c> / <c>HostCallJobCallback</c> patches), so a
-    /// <c>scheduler.yield()</c> after an <c>await</c> still inherits. Jint has no such hook, so the state is
+    /// <c>scheduler.yield()</c> after an <c>await</c> still inherits. Jint's scheduler does not use those hooks
+    /// (<see cref="Options.HostOptions.JobCallbacks"/> belongs to the embedder), so the state is
     /// ambient for the synchronous part of a task only: the first <c>yield()</c> a callback makes inherits,
     /// and one made after an <c>await</c> — including the second hop of an
     /// <c>await scheduler.yield()</c> chain — falls back to a <c>user-visible</c> continuation with no abort

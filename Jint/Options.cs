@@ -551,6 +551,12 @@ public sealed partial class Options
         // native-code placeholder).
         "Host.FunctionToStringHandler",
 
+        // Host wiring that grants script nothing: it carries the host's own state from where a callback is
+        // registered to where it runs, and script can neither see nor call it. A second engine is a separate
+        // agent whose flows are its own host's to track, and an instance written for one engine's state
+        // would otherwise be entered from another engine's thread.
+        "Host.JobCallbacks",
+
         // Grant-shaped, and the pair travels or stays together. The loader is what a worker can import
         // through at all - the provider's to give, which is why CreateDefaultOptions leaves it fresh - and a
         // load policy is written against the ResolvedSpecifier shapes of the loader it accompanies, so
@@ -1588,6 +1594,21 @@ public sealed partial class Options
         internal static readonly Func<Function, Node, string?> _defaultFunctionToStringHandler = static (_, _) => null;
 
         public Func<Function, Node, string?> FunctionToStringHandler { get; set { ThrowIfReadOnly(); field = value; } } = _defaultFunctionToStringHandler;
+
+        /// <summary>
+        /// Gets or sets the hooks that carry host state from where a callback is registered to where it runs. Defaults to <see langword="null"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is how a host tells which logical flow a host call belongs to after an <c>await</c> resumes; see
+        /// <see cref="JobCallbackHooks"/>. Left <see langword="null"/>, promise reactions cost nothing extra.
+        /// </para>
+        /// <para>
+        /// One instance may serve every engine built from these options, so keep per-engine state keyed by the
+        /// <see cref="Engine"/> each member receives.
+        /// </para>
+        /// </remarks>
+        public JobCallbackHooks? JobCallbacks { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal HostOptions Clone() => (HostOptions) MemberwiseClone();
     }

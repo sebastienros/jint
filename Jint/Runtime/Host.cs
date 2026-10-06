@@ -470,9 +470,43 @@ public class Host
     /// <summary>
     /// https://tc39.es/ecma262/#sec-hostmakejobcallback
     /// </summary>
-    internal virtual JobCallback MakeJobCallBack(ICallable cleanupCallback)
+    /// <remarks>
+    /// The record form, for a callback held outside a promise reaction (a FinalizationRegistry's
+    /// <c>[[CleanupCallback]]</c>). Promise reactions take the allocation-free form,
+    /// <see cref="PromiseOperations.MakeJobCallback(Engine, IPromiseContinuation)"/>; both ask the same
+    /// <see cref="Options.HostOptions.JobCallbacks"/>.
+    /// </remarks>
+    internal JobCallback MakeJobCallback(ICallable callback)
     {
-        return new JobCallback(cleanupCallback, null);
+        return new JobCallback(callback, Engine._jobCallbacks?.Capture(Engine));
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-hostcalljobcallback
+    /// </summary>
+    /// <remarks>
+    /// "1. Assert: IsCallable(jobCallback.[[Callback]]) is true. 2. Return ? Call(jobCallback.[[Callback]], V,
+    /// argumentsList)", run between <see cref="JobCallbackHooks.Enter"/> and <see cref="JobCallbackHooks.Exit"/>
+    /// when the record carries captured state.
+    /// </remarks>
+    internal JsValue CallJobCallback(JobCallback jobCallback, JsValue thisValue, JsValue argument)
+    {
+        if (jobCallback.HostDefined is not { } hostDefined)
+        {
+            return jobCallback.Callback.Call(thisValue, argument);
+        }
+
+        // Non-null HostDefined means hooks were installed when the record was made, and options are frozen.
+        var hooks = Engine._jobCallbacks!;
+        var token = hooks.Enter(Engine, hostDefined);
+        try
+        {
+            return jobCallback.Callback.Call(thisValue, argument);
+        }
+        finally
+        {
+            hooks.Exit(Engine, token);
+        }
     }
 
     /// <summary>
@@ -529,4 +563,8 @@ public class Host
     }
 }
 
+/// <summary>
+/// https://tc39.es/ecma262/#sec-jobcallback-records — <see cref="HostDefined"/> is what
+/// <see cref="JobCallbackHooks.Capture"/> returned, or null when no hooks are installed or they captured nothing.
+/// </summary>
 internal sealed record JobCallback(ICallable Callback, object? HostDefined);
