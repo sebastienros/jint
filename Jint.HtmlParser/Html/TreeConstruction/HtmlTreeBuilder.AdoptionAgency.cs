@@ -6,9 +6,10 @@ namespace Jint.HtmlParser.Html;
 internal sealed partial class HtmlTreeBuilder
 {
     // HTML Standard §13.2.6.4.7, adoption agency algorithm (2026-09-22).
-    // Scans and index offsets have continuation points; native list shifts
-    // are atomic and charged by suffix length. The outer limit of eight is
-    // prescribed by HTML and has no relation to the Drive work quota.
+    // Scans and index offsets have continuation points. Replacement moves only
+    // the interval through the furthest block; the distant suffix stays put.
+    // The outer limit of eight is prescribed by HTML and has no relation to
+    // the Drive work quota.
     private enum AdoptionStage
     {
         Idle, Outer, FindOpen, FindFurthest,
@@ -437,13 +438,17 @@ internal sealed partial class HtmlTreeBuilder
                     advanced = true;
                     break;
                 case AdoptionStage.RemoveFormattingOpen:
-                    if (!TryRemoveAdoptionOpen(_adoptionFormattingIndex)) return false;
-                    _adoptionFurthestIndex--;
+                    var removedFormatting = _open[_adoptionFormattingIndex];
+                    RemoveIndexes(removedFormatting, _adoptionFormattingIndex);
+                    _openIdentity.Remove(removedFormatting);
+                    if (!AllowedOpenAtEof(removedFormatting)) _unexpectedOpenCount--;
+                    _adoptionInsertIndex = _adoptionFormattingIndex;
+                    Charge(1);
                     _adoptionStage = AdoptionStage.InsertReplacementOpen;
                     advanced = true;
                     break;
                 case AdoptionStage.InsertReplacementOpen:
-                    if (!TryInsertAdoptionOpen(_adoptionFurthestIndex + 1, _adoptionReplacement!)) return false;
+                    if (!TryReplaceAdoptionOpen()) return false;
                     _adoptionStage = AdoptionStage.Outer;
                     advanced = true;
                     break;
@@ -547,10 +552,12 @@ internal sealed partial class HtmlTreeBuilder
 
     private void AddIndexesAt(Element element, int index)
     {
-        static void Insert(List<int> indexes, int value)
+        void Insert(List<int> indexes, int value)
         {
             var position = indexes.BinarySearch(value);
-            indexes.Insert(position < 0 ? ~position : position, value);
+            position = position < 0 ? ~position : position;
+            Charge(1L + SearchCost(indexes.Count) + indexes.Count - position);
+            indexes.Insert(position, value);
         }
         var names = _nameIndexes.GetOrAdd(element);
         Insert(names, index);
@@ -562,8 +569,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (IsScopeBoundary(element)) Insert(_scopeStops, index);
         if (IsResetModeElement(element)) Insert(_resetModeIndexes, index);
-        Charge(1L + names.Count + _specialIndexes.Count + _liStops.Count + _ddDtStops.Count +
-            _scopeStops.Count + _resetModeIndexes.Count);
+        Charge(1);
     }
 
     private bool TryRemoveAdoptionOpen(int index)
@@ -585,19 +591,27 @@ internal sealed partial class HtmlTreeBuilder
         return true;
     }
 
-    private bool TryInsertAdoptionOpen(int index, Element element)
+    private bool TryReplaceAdoptionOpen()
     {
-        if (_adoptionInsertIndex < 0)
+        // HTML adoption agency step 21 removes the formatting element and
+        // inserts its replacement immediately after the furthest block. The
+        // combined effect leaves every later stack position unchanged, and
+        // consumes the existing depth slot even at the configured depth limit.
+        var advanced = false;
+        while (_adoptionInsertIndex < _adoptionFurthestIndex)
         {
-            CheckDepth();
-            _adoptionInsertIndex = index;
-            _open.Insert(index, element);
-            BeginAdoptionOffsets(index + 1, index, 1);
-            Charge(1L + _open.Count - index - 1);
+            if (_remaining <= 0 && advanced) return false;
+            var source = _adoptionInsertIndex + 1;
+            var moved = _open[source];
+            _open[_adoptionInsertIndex++] = moved;
+            ShiftIndexes(moved, source);
+            advanced = true;
         }
-        if (!TryAdoptionOffsets()) return false;
+        if (_remaining <= 0 && advanced) return false;
+        var element = _adoptionReplacement!;
+        _open[_adoptionFurthestIndex] = element;
         _openIdentity.Add(element);
-        AddIndexesAt(element, index);
+        AddIndexesAt(element, _adoptionFurthestIndex);
         if (!AllowedOpenAtEof(element)) _unexpectedOpenCount++;
         _adoptionInsertIndex = -1;
         Charge(1);

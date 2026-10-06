@@ -36,6 +36,7 @@ internal sealed class XPathReadSession
     private readonly Dictionary<(Element, string), int> _namespaceOrder = new();
     private readonly Dictionary<Node, string> _textValues = new();
     private readonly Dictionary<(string LocalName, string NamespaceUri, bool AnyNamespace, bool NodeTest), Dictionary<object, bool>> _ancestorMatches = new();
+    private readonly Dictionary<(string LocalName, string NamespaceUri, bool AnyNamespace, bool NodeTest), Dictionary<object, double>> _ancestorCounts = new();
     private Dictionary<Node, int>? _order;
     private Dictionary<string, Element>? _ids;
 
@@ -529,14 +530,6 @@ internal sealed class XPathReadSession
             _ancestorMatches.Add(key, answers);
         }
 
-        static object? Parent(object current) => current switch
-        {
-            Attr attribute => attribute.OwnerElement,
-            XPathNamespaceBinding binding => binding.OwnerElement,
-            Node node => node.ParentNode,
-            _ => null
-        };
-
         var current = includeSelf ? position : Parent(position);
         var path = new List<object>();
         var found = false;
@@ -564,6 +557,50 @@ internal sealed class XPathReadSession
 
         Check();
         return found;
+    }
+
+    private static Node? Parent(object current) => current switch
+    {
+        Attr attribute => attribute.OwnerElement,
+        XPathNamespaceBinding binding => binding.OwnerElement,
+        Node node => node.ParentNode,
+        _ => null
+    };
+
+    // XPath 1.0 §4.1: count returns the number of nodes, independent of axis
+    // ordering. Cache inclusive totals, then let the framework evaluate all
+    // surrounding numeric, positional and compound predicate semantics.
+    internal double CountAncestors(object position, string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
+    {
+        Check();
+        Work(1 + localName.Length + namespaceUri.Length, XPathWorkStage.AncestorScan);
+        var key = (localName, namespaceUri, anyNamespace, nodeTest);
+        if (!_ancestorCounts.TryGetValue(key, out var answers))
+        {
+            answers = new Dictionary<object, double>();
+            _ancestorCounts.Add(key, answers);
+        }
+        var current = includeSelf ? position : Parent(position);
+        List<object>? path = null;
+        var total = 0d;
+        while (current is not null)
+        {
+            Work(1, XPathWorkStage.AncestorScan);
+            if (answers.TryGetValue(current, out total)) break;
+            (path ??= []).Add(current);
+            current = Parent(current);
+        }
+        for (var i = (path?.Count ?? 0) - 1; i >= 0; i--)
+        {
+            Work(1, XPathWorkStage.AncestorScan);
+            var visited = path![i];
+            if (nodeTest || visited is Element element &&
+                (localName.Length == 0 || element.LocalName == localName) &&
+                (anyNamespace || (element.NamespaceUri ?? "") == namespaceUri)) total++;
+            answers.Add(visited, total);
+        }
+        Check();
+        return total;
     }
 
     internal int OrderOf(Node node)

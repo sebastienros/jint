@@ -432,7 +432,7 @@ public partial class HtmlTreeConstructionTests
     [TestCase(128)]
     [TestCase(256)]
     [TestCase(512)]
-    public void AdoptionOffsetsLongSpecialSuffixWithLinearCountedWork(int depth)
+    public void AdoptionRetainsLongSpecialSuffixWithLinearCountedWork(int depth)
     {
         var document = Document.CreateHtml();
         var session = new HtmlParserSession(document);
@@ -443,11 +443,36 @@ public partial class HtmlTreeConstructionTests
         DrainToCompletion(session, 4096);
         var work = session.WorkCount - before;
         TestContext.WriteLine($"Adoption suffix {depth}: {work} work units");
-        // Eight spec iterations, each offsetting the moved suffix once in
-        // each applicable index. Repeated binary searches per moved element
-        // exceed this envelope as the suffix grows.
+        // Replacement leaves the distant suffix in place. EOF still pops
+        // each remaining element, so the complete parse has linear work.
         work.Should().BeLessThan(100L * depth);
         document.DocumentElement!.TextContent().Should().Be("x");
+    }
+
+    [Test]
+    public void RepeatedAdoptionDoesNotMoveTheDistantSuffix()
+    {
+        static long Measure(int suffix)
+        {
+            var document = Document.CreateHtml();
+            var session = new HtmlParserSession(document);
+            session.AppendInput("<b>" + string.Concat(Enumerable.Repeat("<div>", suffix)) + "x");
+            DrainToNeedInput(session, 4096);
+            var before = session.WorkCount;
+            // Keep the input open: EOF pops would charge the entire suffix.
+            session.AppendInput(string.Concat(Enumerable.Repeat("</b>", 16)));
+            DrainToNeedInput(session, 4096);
+            var work = session.WorkCount - before;
+            TestContext.WriteLine($"Repeated adoption, suffix {suffix}: {work} work units");
+            document.DocumentElement!.TextContent().Should().Be("x");
+            return work;
+        }
+        var small = Measure(128);
+        var medium = Measure(256);
+        var large = Measure(512);
+        // Binary searches in the auxiliary indexes are the only suffix-size cost.
+        medium.Should().BeLessThan(small * 3 / 2);
+        large.Should().BeLessThan(medium * 3 / 2);
     }
 
     [TestCase(1)]
@@ -472,7 +497,7 @@ public partial class HtmlTreeConstructionTests
 
     [TestCase("RemoveFormattingOpen")]
     [TestCase("InsertReplacementOpen")]
-    public void CancellationDuringBulkIndexOffsetsPreservesCommittedTree(string stage)
+    public void CancellationDuringStackReplacementPreservesCommittedTree(string stage)
     {
         var document = Document.CreateHtml();
         var session = new HtmlParserSession(document);
@@ -482,15 +507,12 @@ public partial class HtmlTreeConstructionTests
         var builder = BuilderOf(session);
         var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
         var stageField = typeof(HtmlTreeBuilder).GetField("_adoptionStage", flags)!;
-        var cursorField = typeof(HtmlTreeBuilder).GetField("_adoptionOffsetCursor", flags)!;
-        var listField = typeof(HtmlTreeBuilder).GetField("_adoptionOffsetList", flags)!;
         for (var turn = 0; turn < 100_000; turn++)
         {
             session.Drive(1, CancellationToken.None);
-            if (stageField.GetValue(builder)!.ToString() == stage &&
-                listField.GetValue(builder) is not null && (int) cursorField.GetValue(builder)! > 1)
+            if (stageField.GetValue(builder)!.ToString() == stage)
                 break;
-            if (turn == 99_999) throw new InvalidOperationException("Adoption did not enter index offsets.");
+            if (turn == 99_999) throw new InvalidOperationException("Adoption did not enter stack replacement.");
         }
         var before = Serialize(document);
         using var cancellation = new CancellationTokenSource();

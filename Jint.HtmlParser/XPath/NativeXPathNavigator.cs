@@ -43,6 +43,8 @@ internal sealed class NativeXPathNavigator : XPathNavigator, IXPathAncestorConte
     internal void CheckRead() => _session.Check();
     bool IXPathAncestorContext.HasAncestor(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
         => _session.HasAncestor(_position, localName, namespaceUri, anyNamespace, nodeTest, includeSelf);
+    double IXPathAncestorContext.CountAncestors(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
+        => _session.CountAncestors(_position, localName, namespaceUri, anyNamespace, nodeTest, includeSelf);
     internal void ResultWork(int units = 1) => _session.Work(units, XPathWorkStage.ResultMaterialization);
     internal void PublishResult() => _session.PublishResult();
     internal object EvaluatePrepared(NativeXPathExpression expression)
