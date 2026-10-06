@@ -378,8 +378,13 @@ beside it, `contentType` is what the algorithm that made the document gave it, a
 document that is not an HTML one keeps the name's case. **137 are not about XML documents at all** —
 `processing-instruction-attributes.html` exercises the attribute surface now specified by
 [DOM §4.13](https://dom.spec.whatwg.org/#interface-processinginstruction), plus HTML processing-instruction
-parsing. Its earlier description as an unstandardized proposal is obsolete. DOM-created and XML-parsed PIs
-already exist and their attribute map is implemented. The attribute-map implementation and element serialization fix removed 100 failures; 20 still need HTML PI parsing. Another 17 assert that an ill-formed PI-only XML document preserves a PI before its error tree, contrary to HTML §8.5.1; these are `AssertsWhatNothingRequires`, not engine debt. **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
+parsing. Its earlier description as an unstandardized proposal is obsolete. The attribute-map implementation
+and element serialization fix removed 100 failures; native HTML PI parsing in
+[#4207](https://github.com/sebastienros/jint/pull/4207) resolves the remaining 20 HTML parser assertions
+tracked by [#4098](https://github.com/sebastienros/jint/issues/4098). The current cause contains ten
+PI-dependent assertions whose ill-formed PI-only XML fixture expects a preserved PI before the error
+tree, contrary to HTML §8.5.1. These are `AssertsWhatNothingRequires`, not engine debt; name-validation
+assertions that also pass on the `parsererror` element remain unexcluded. **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
 the former DOM integration's**: node equality compares base URLs, a live range is not adjusted across documents, and the
 HTML element factory lower-cases a local name it is handed.
 
