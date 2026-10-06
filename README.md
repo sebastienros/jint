@@ -1018,6 +1018,44 @@ If `jsValue` is not a Promise it is returned immediately. If it is a rejected Pr
 
 The synchronous `UnwrapIfPromise` is still available for scenarios where blocking is acceptable (e.g., CPU-bound scripts with no I/O), but `UnwrapIfPromiseAsync` should be preferred in any `async` call chain.
 
+### Carrying host state across await
+
+A host that runs several asynchronous flows in one engine often needs to know which flow a host call belongs to. Host state set around a call is gone once the script reaches its first `await`, and several continuations can resume in the same microtask drain, so restoring it when a host `Task` completes cannot work either.
+
+ECMAScript defines the seam for this: `HostMakeJobCallback` runs when script registers a callback and `HostCallJobCallback` runs around it later. Implement `JobCallbackHooks` (namespace `Jint.Runtime`) and install it with `Options.Host.JobCallbacks`:
+
+```c#
+public sealed class FlowHooks : JobCallbackHooks
+{
+    public static readonly AsyncLocal<string?> Current = new();
+
+    // HostMakeJobCallback: runs when script registers a callback (then, await, ...).
+    protected override object? Capture(Engine engine) => Current.Value;
+
+    // HostCallJobCallback: runs around the callback, restoring even if it throws.
+    protected override object? Enter(Engine engine, object hostDefined)
+    {
+        var previous = Current.Value;
+        Current.Value = (string) hostDefined;
+        return previous;
+    }
+
+    protected override void Exit(Engine engine, object? token) => Current.Value = (string?) token;
+}
+
+var engine = new Engine(options => options.Host.JobCallbacks = new FlowHooks());
+```
+
+`Capture` runs once per `then`, `await`, thenable adoption or `FinalizationRegistry` construction, and the engine runs that callback between `Enter` and `Exit`, so a host function called after an `await` sees the flow that was current where the `await` was reached — for every branch of a `Promise.all` fan-out separately.
+
+- Return `null` from `Capture` when there is nothing to carry. That callback then runs under whatever state is current when its job runs, without `Enter` or `Exit`.
+- All three members run on the engine's thread and may call back into the engine. `Exit` runs even when the callback throws; none of the three should throw themselves.
+- The captured object lives as long as the reaction holding it, so a promise that never settles keeps it alive.
+- The engine reads `Options.Host.JobCallbacks` once, when it is constructed. One instance may serve every engine built from the same `Options`; each member receives its `Engine`.
+- With no hooks installed, promise reactions cost nothing extra.
+
+Only callbacks the ECMAScript specification schedules are covered: promise reactions (including `await`, `for await`, async generators and the `Promise` combinators), thenable adoption and `FinalizationRegistry` cleanup.
+
 ### Task/ValueTask to Promise Interop (Experimental)
 
 When the `TaskInterop` experimental feature is enabled, .NET `Task` and `ValueTask` return values are automatically converted to JavaScript Promises. This allows JavaScript code to `await` or `.then()` the results of .NET async methods without any manual wrapping:

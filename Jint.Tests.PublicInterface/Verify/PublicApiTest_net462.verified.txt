@@ -311,6 +311,7 @@ namespace Jint
         {
             public HostOptions() { }
             public System.Func<Jint.Native.Function.Function, Acornima.Ast.Node, string?> FunctionToStringHandler { get; set; }
+            public Jint.Runtime.JobCallbackHooks? JobCallbacks { get; set; }
             public bool StringCompilationAllowed { get; set; }
         }
         public class InteropOptions
@@ -1443,6 +1444,13 @@ namespace Jint.Runtime
         public string GetJavaScriptErrorString() { }
         public Jint.Runtime.JavaScriptException SetJavaScriptCallstack(Jint.Engine engine, in Acornima.SourceLocation location, bool overwriteExisting = false) { }
         public Jint.Runtime.JavaScriptException SetJavaScriptLocation(in Acornima.SourceLocation location) { }
+    }
+    public abstract class JobCallbackHooks
+    {
+        protected JobCallbackHooks() { }
+        protected abstract object? Capture(Jint.Engine engine);
+        protected abstract object? Enter(Jint.Engine engine, object hostDefined);
+        protected abstract void Exit(Jint.Engine engine, object? token);
     }
     public sealed class MemoryLimitExceededException : Jint.JintException
     {

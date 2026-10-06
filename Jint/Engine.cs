@@ -529,6 +529,14 @@ public sealed partial class Engine : IDisposable
     internal Intrinsics _originalIntrinsics = null!;
     internal Host _host = null!;
 
+    /// <summary>
+    /// <see cref="Options.HostOptions.JobCallbacks"/>, taken after <see cref="Options.Apply"/>. Null on every
+    /// engine whose host installed none, which keeps HostMakeJobCallback to one null test per promise
+    /// registration and HostCallJobCallback to nothing at all per reaction job — see
+    /// <see cref="PromiseOperations.MakeJobCallback(Engine, IPromiseContinuation)"/>.
+    /// </summary>
+    internal JobCallbackHooks? _jobCallbacks;
+
     // The resolved reflection accessors themselves live on Options.Interop.TypeResolver so that every engine
     // sharing a resolver shares the resolution (and the delegates compiled from it). The interop configuration
     // that steers resolution but does not live on the resolver is captured here, and partitions that cache so
@@ -585,6 +593,7 @@ public sealed partial class Engine : IDisposable
         // gather some options as fields for faster checks
         _isDebugMode = Options.Debugger.Enabled;
         _isStrict = Options.Strict;
+        _jobCallbacks = Options.Host.JobCallbacks;
 
         _objectConverters = Options.Interop.ObjectConverters.Count > 0
             ? Options.Interop.ObjectConverters.ToArray()

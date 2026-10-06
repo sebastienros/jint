@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -96,8 +97,43 @@ internal static class PromiseOperations
     //  d. Return Completion(thenCallResult).
     // .....Realm stuff....
     // 6. Return the Record { [[Job]]: job, [[Realm]]: thenRealm }.
-    internal static Action NewPromiseResolveThenableJob(JsPromise promise, ObjectInstance thenable, ICallable thenMethod)
+    //
+    // The caller's step — https://tc39.es/ecma262/#sec-promise-resolve-functions step 14, "Let thenJobCallback be
+    // HostMakeJobCallback(thenAction)" — happens here too, so that thenMethod is the job callback's [[Callback]]
+    // and the captured state, when there is any, is its [[HostDefined]].
+    internal static Action NewPromiseResolveThenableJob(Engine engine, JsPromise promise, ObjectInstance thenable, ICallable thenMethod)
     {
+        if (engine._jobCallbacks is { } hooks && hooks.Capture(engine) is { } hostDefined)
+        {
+            return () =>
+            {
+                var (resolve, reject) = promise.CreateResolvingFunctions();
+
+                JavaScriptException? thrown = null;
+
+                // b. Let thenCallResult be HostCallJobCallback(then, thenable, « resolve, reject »).
+                var token = hooks.Enter(engine, hostDefined);
+                try
+                {
+                    thenMethod.Call(thenable, resolve as JsValue, reject);
+                }
+                catch (JavaScriptException e)
+                {
+                    thrown = e;
+                }
+                finally
+                {
+                    hooks.Exit(engine, token);
+                }
+
+                // c. If thenCallResult is an abrupt completion, reject — outside the job callback, as in the spec.
+                if (thrown is not null)
+                {
+                    reject.Call(JsValue.Undefined, [thrown.Error]);
+                }
+            };
+        }
+
         return () =>
         {
             var (resolve, reject) = promise.CreateResolvingFunctions();
@@ -140,6 +176,20 @@ internal static class PromiseOperations
         JsValue onRejected,
         PromiseCapability? resultCapability)
     {
+        // 3-6. Let onFulfilledJobCallback / onRejectedJobCallback be HostMakeJobCallback(onFulfilled / onRejected)
+        // for whichever of the two is callable. With no hooks installed — or nothing captured — the job callback
+        // is the handler itself and the reactions below carry it unchanged; otherwise both reactions carry one
+        // HostDefinedReactionHandlers, which runs NewPromiseReactionJob's HostCallJobCallback around the handler.
+        if (engine._jobCallbacks is not null)
+        {
+            var hosted = MakeJobCallbacks(engine, onFulfilled, onRejected, resultCapability);
+            if (hosted is not null)
+            {
+                PerformPromiseThenWithJobCallback(engine, promise, hosted);
+                return resultCapability is null ? JsValue.Undefined : resultCapability.PromiseInstance;
+            }
+        }
+
         var wasAlreadyHandled = promise.PromiseIsHandled;
 
         switch (promise.State)
@@ -194,6 +244,16 @@ internal static class PromiseOperations
     /// </summary>
     internal static void PerformPromiseThen(Engine engine, JsPromise promise, IPromiseContinuation continuation)
     {
+        // Steps 3-6's HostMakeJobCallback, for the spec's unobservable Await closures and their kin.
+        PerformPromiseThenWithJobCallback(engine, promise, MakeJobCallback(engine, continuation));
+    }
+
+    /// <summary>
+    /// The rest of <see cref="PerformPromiseThen(Engine, JsPromise, IPromiseContinuation)"/> once HostMakeJobCallback
+    /// has run: <paramref name="continuation"/> is the job callback both reactions carry, unchanged.
+    /// </summary>
+    private static void PerformPromiseThenWithJobCallback(Engine engine, JsPromise promise, IPromiseContinuation continuation)
+    {
         var wasAlreadyHandled = promise.PromiseIsHandled;
 
         switch (promise.State)
@@ -223,6 +283,59 @@ internal static class PromiseOperations
         {
             engine._host.HostPromiseRejectionTracker(promise, PromiseRejectionOperation.Handle);
         }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-hostmakejobcallback for an engine-internal reaction continuation: the
+    /// continuation itself on an engine with no <see cref="Options.HostOptions.JobCallbacks"/> or when they
+    /// capture nothing, otherwise a <see cref="HostDefinedContinuation"/> carrying what they captured. Every
+    /// reaction that does not come from <see cref="PerformPromiseThen(Engine, JsPromise, IPromiseContinuation)"/> —
+    /// the await fast path that enqueues its single reaction directly — must come through here, or an installed
+    /// hook silently stops seeing it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IPromiseContinuation MakeJobCallback(Engine engine, IPromiseContinuation continuation)
+    {
+        var hooks = engine._jobCallbacks;
+        if (hooks is null)
+        {
+            return continuation;
+        }
+
+        return MakeHostDefinedJobCallback(engine, hooks, continuation);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static IPromiseContinuation MakeHostDefinedJobCallback(Engine engine, JobCallbackHooks hooks, IPromiseContinuation continuation)
+    {
+        return hooks.Capture(engine) is { } hostDefined
+            ? new HostDefinedContinuation(hooks, hostDefined, continuation)
+            : continuation;
+    }
+
+    /// <summary>
+    /// HostMakeJobCallback for a <c>then</c>'s two handlers, once for the pair: <see langword="null"/> when
+    /// neither is callable — the spec makes no job callback for an empty handler — or when the hooks capture
+    /// nothing, in which case the reactions carry the handlers directly.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static HostDefinedReactionHandlers? MakeJobCallbacks(
+        Engine engine,
+        JsValue onFulfilled,
+        JsValue onRejected,
+        PromiseCapability? resultCapability)
+    {
+        var fulfill = onFulfilled as ICallable;
+        var reject = onRejected as ICallable;
+        if (fulfill is null && reject is null)
+        {
+            return null;
+        }
+
+        var hooks = engine._jobCallbacks!;
+        return hooks.Capture(engine) is { } hostDefined
+            ? new HostDefinedReactionHandlers(hooks, hostDefined, fulfill, reject, resultCapability)
+            : null;
     }
 
     /// <summary>

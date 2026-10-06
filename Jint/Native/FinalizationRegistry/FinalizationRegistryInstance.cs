@@ -45,7 +45,7 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
 {
     private readonly Realm _realm;
 
-    /// <summary>The specification's <c>[[CleanupCallback]]</c>.</summary>
+    /// <summary>The specification's <c>[[CleanupCallback]]</c>, made by HostMakeJobCallback at construction.</summary>
     private readonly JobCallback _callable;
 
     /// <summary>
@@ -90,7 +90,7 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
     public FinalizationRegistryInstance(Engine engine, Realm realm, ICallable cleanupCallback) : base(engine)
     {
         _realm = realm;
-        _callable = engine._host.MakeJobCallBack(cleanupCallback);
+        _callable = engine._host.MakeJobCallback(cleanupCallback);
         _cleanupJob = CleanupFinalizationRegistry;
         _self = new WeakReference<FinalizationRegistryInstance>(this);
     }
@@ -105,7 +105,7 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
     private void CleanupFinalizationRegistry()
     {
         // 2. Let callback be finalizationRegistry.[[CleanupCallback]].
-        var callback = _callable.Callback;
+        var callback = _callable;
         var generation = _engine.EventLoopGeneration;
 
         // 3. While finalizationRegistry.[[Cells]] contains a Record cell such that cell.[[WeakRefTarget]] is
@@ -141,7 +141,7 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
             // steps for reporting the error" and the same thing a timer callback's exception does. Nothing
             // is stranded by it — every dirty cell was enqueued with a job of its own, so the cells behind
             // this one are delivered by those.
-            callback.Call(JsValue.Undefined, cell.HeldValue);
+            _engine._host.CallJobCallback(callback, JsValue.Undefined, cell.HeldValue);
         }
     }
 

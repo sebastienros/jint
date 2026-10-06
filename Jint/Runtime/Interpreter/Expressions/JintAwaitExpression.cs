@@ -155,8 +155,13 @@ internal sealed class JintAwaitExpression : JintExpression
         if (promise is null)
         {
             // Awaited a non-thenable primitive: the wrapper promise would fulfill immediately
-            // and PerformPromiseThen would enqueue exactly this one reaction job.
-            engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation), value);
+            // and PerformPromiseThen would enqueue exactly this one reaction job — including its
+            // HostMakeJobCallback, which skipping PerformPromiseThen must not skip.
+            engine.AddToEventLoop(new PromiseReaction(
+                ReactionType.Fulfill,
+                Capability: null,
+                Handler: null,
+                PromiseOperations.MakeJobCallback(engine, continuation)), value);
         }
         else
         {
@@ -200,8 +205,13 @@ internal sealed class JintAwaitExpression : JintExpression
         if (promise is null)
         {
             // Awaited a non-thenable primitive: the wrapper promise would fulfill immediately
-            // and PerformPromiseThen would enqueue exactly this one reaction job.
-            engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, asyncInstance), value);
+            // and PerformPromiseThen would enqueue exactly this one reaction job — including its
+            // HostMakeJobCallback, which skipping PerformPromiseThen must not skip.
+            engine.AddToEventLoop(new PromiseReaction(
+                ReactionType.Fulfill,
+                Capability: null,
+                Handler: null,
+                PromiseOperations.MakeJobCallback(engine, asyncInstance)), value);
         }
         else
         {
