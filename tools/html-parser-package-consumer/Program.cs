@@ -19,12 +19,16 @@ internal static class Program
             var parserAssembly = typeof(Document).Assembly;
             Require(parserAssembly.GetName().Name == "Jint.HtmlParser", "The parser package assembly was not loaded.");
 
+            Require(parserAssembly.GetName().GetPublicKeyToken()?.Length > 0,
+                "The parser package must remain signed.");
+
             CheckHtml();
             CheckXmlAndSvg();
             CheckNotationSurface();
             CheckDtdProcessingInstructions();
             CheckFragmentOwnership();
             CheckMutationSubscriptions();
+            CheckLiveTraversal();
             CheckCssSyntax();
             CheckXPath();
             CheckSerialization();
@@ -52,6 +56,106 @@ internal static class Program
         Console.WriteLine("BROWSER PACKAGE PROBE PASSED");
     }
 #endif
+
+    private static void CheckLiveTraversal()
+    {
+        var doc = Document.CreateHtml();
+        var parent = doc.CreateElement("div");
+        doc.AppendChild(parent);
+        var a = doc.CreateTextNode("abc");
+        var b = doc.CreateTextNode("def");
+        parent.AppendChild(a);
+        parent.AppendChild(b);
+        var identity = new DomNodeIdentity(a);
+        Require(identity == new DomNodeIdentity(a) && identity != new DomNodeIdentity(b), "reference identity operators");
+        Require(identity.IsValid && identity.Node == a && identity.Attribute is null, "node identity projection");
+        var range = doc.CreateRange();
+        range.SelectNodeContents(new(b));
+        parent.Normalize();
+        Require(range.Start == new BoundaryPoint(new(a), 3) && range.End.Offset == 6, "normalize endpoint transfer");
+        var tail = a.SplitText(4);
+        Require(range.End == new BoundaryPoint(new(tail), 2), "split transfer");
+        Require(a.Length == 4 && a.SubstringData(1, uint.MaxValue) == "bcd", "character data public reads");
+        a.ReplaceData(1, 1, "B");
+        Require(range.GetText() == "def", "live UTF-16 replacement");
+        var clone = range.CloneRange();
+        Require(range.CompareBoundaryPoints(0, clone) == 0, "clone points");
+        foreach (ushort selector in new ushort[] { 0, 1, 2, 3 }) range.CompareBoundaryPoints(selector, clone);
+        Require(range.ComparePoint(new(a), 0) == -1 && range.IsPointInRange(new(a), 3), "point queries");
+        Require(range.IntersectsNode(new(a)) && range.GetCommonAncestor().Node == parent, "ordinary intersection and common ancestor");
+        Require(range.CloneContents().ChildCount == 2, "partial content clone");
+        var staticRange = new DomStaticRange(range.Start, range.End);
+        Require(staticRange.IsValid(), "static range validity");
+        var invalidStatic = new DomStaticRange(new(new(a), uint.MaxValue), new(new(doc), 0));
+        Require(!invalidStatic.IsValid(), "unsigned static offsets");
+        range.SetStartBefore(new(a));
+        range.SetEndAfter(new(tail));
+        range.SetStartAfter(new(a));
+        range.SetEndBefore(new(tail));
+        Require(range.Collapsed, "boundary setters");
+        range.SelectNode(new(tail));
+        var extracted = range.ExtractContents();
+        Require(extracted.FirstChild == tail && tail.ParentNode == extracted, "move identity");
+        parent.AppendChild(tail);
+        range.SelectNodeContents(new(a));
+        range.Collapse(true);
+        range.InsertNode(new(doc.CreateElement("i")));
+        Require(!range.Collapsed, "collapsed insertion expansion");
+        var wrapper = doc.CreateElement("span");
+        range.SelectNodeContents(new(tail));
+        range.SurroundContents(new(wrapper));
+        Require(wrapper.FirstChild is Text && range.Start.Container.Node == parent, "surround native contents");
+        range.DeleteContents();
+        range.Detach();
+        Require(range.Collapsed, "delete and detach");
+        var iterator = new DomNodeIterator(new(parent), uint.MaxValue);
+        TraversalFilter filter = _ => 1;
+        Require(iterator.Root.Node == parent && iterator.WhatToShow == uint.MaxValue && iterator.PointerBeforeReference, "iterator initial state");
+        Require(iterator.Next(filter)!.Value.Node == parent && iterator.Reference.Node == parent, "iterator reference identity");
+        iterator.Next(null);
+        iterator.Previous(null);
+        iterator.Detach();
+        var walker = new DomTreeWalker(new(parent), uint.MaxValue);
+        Require(walker.Root.Node == parent && walker.WhatToShow == uint.MaxValue, "walker initial state");
+        walker.FirstChild(null);
+        walker.Parent(null);
+        walker.LastChild(null);
+        walker.PreviousSibling(null);
+        walker.NextSibling(null);
+        walker.Previous(null);
+        walker.Next(null);
+        walker.Current = new(doc.CreateTextNode("outside"));
+        Require(walker.Next(null) is null, "out-of-root current");
+        var attribute = doc.CreateAttribute("x");
+        var attrIdentity = new DomNodeIdentity(attribute);
+        range.SetStart(attrIdentity, 0);
+        Require(range.Collapsed && range.Start.Container.Attribute == attribute, "attribute boundary identity");
+        var attrIterator = new DomNodeIterator(attrIdentity, 2);
+        Require(attrIterator.Next(null) == attrIdentity && attrIterator.Next(null) is null, "attribute singleton traversal");
+        var other = Document.CreateHtml();
+        var detached = doc.CreateTextNode("abcd");
+        range.SelectNodeContents(new(detached));
+        other.AdoptNode(detached);
+        detached.Data = "abcd";
+        Require(range.Collapsed, "adopted endpoint repair");
+        try
+        {
+            range.SetEnd(new(detached), uint.MaxValue);
+            throw new InvalidOperationException("uint overflow accepted");
+        }
+        catch (DomException error) when (error.Name == "IndexSizeError")
+        {
+        }
+        var xml = Document.CreateXml();
+        var cdata = xml.CreateCDataSection("abcd");
+        Require(cdata.SplitText(2).Data == "cd", "public CDATA split");
+        var pi = xml.CreateProcessingInstruction("x", "abc");
+        pi.ReplaceData(1, 1, "z");
+        Require(pi.SubstringData(0, pi.Length) == "azc", "public PI replace");
+        var comment = xml.CreateComment("abc");
+        comment.ReplaceData(1, 1, "z");
+        Require(comment.SubstringData(0, comment.Length) == "azc", "public comment replace");
+    }
 
     private static void CheckDtdProcessingInstructions()
     {

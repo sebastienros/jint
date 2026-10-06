@@ -33,3 +33,22 @@ jobs:
 
     - name: Verify pinned html5lib tree corpus
       run: python3 tools/sync_html5lib_corpus.py --check
+
+    - name: Restore pinned W3C XML archive
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        enableCrossOsArchive: true
+
+    - name: Verify archive and test Japanese input preparation
+      run: |
+        python3 - <<'PYTHON'
+        import sys
+        sys.path.insert(0, 'Jint.Tests.HtmlParser/Xml/Conformance/Tools')
+        import import_corpus as corpus
+        if not corpus.ARCHIVE.exists():
+            corpus.restore_one(corpus.ARCHIVE_URL, corpus.ARCHIVE, corpus.ARCHIVE_SHA)
+        corpus.verify(corpus.ARCHIVE, corpus.ARCHIVE_SHA)
+        PYTHON
+        python3 -m unittest discover -s Jint.Tests.HtmlParser/Xml/Conformance/Tools -p 'test_*.py' -v

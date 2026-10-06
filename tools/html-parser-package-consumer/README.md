@@ -33,7 +33,10 @@ ownership, mutation records/drains, whole-sheet CSS syntax, all owned XPath over
 typed IDs and imports, namespace contexts and stale bindings, detached attribute axes, and all five
 serialization routes including shadow acquisition/selection, templates, output limits and cancellation.
 It also checks public DTD processing-instruction metadata, immutable snapshot/clone behavior and
-original-input offsets without relocating instructions into DOM children.
+original-input offsets without relocating instructions into DOM children. Live-traversal probes cover
+node/attribute identity, character-data edits, live and static range endpoints and contents, adoption,
+iterators and tree walkers. These checks replace the standalone D6r6 consumer and run in both the
+shared packaged-consumer CI job and its parser-only Native AOT leg.
 Clearing the disposable feed and package cache before packing prevents a prior package with the
 same version from answering the test. Inspect the actual package dependency list and shipped assets:
 

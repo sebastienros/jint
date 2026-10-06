@@ -57,7 +57,13 @@ HTML Standard. Keep current-spec authored coverage for each excluded algorithm.
 
 The [XML corpus design](../docs/design/html-parser-xml-conformance.md) describes its string-input
 profile, manifest exclusions and adapters. Its pinned download cache is integrity checked;
-network-dependent corpus availability is separate from parser correctness.
+network-dependent corpus availability is separate from parser correctness. The shared parser lookup
+CI job restores and verifies the pinned W3C archive, then runs the Python Japanese-input preparation
+tests. These tests use only the verified archive; they do not need the Clark FTP archive.
+
+```sh
+python3 -B -m unittest discover -s Jint.Tests.HtmlParser/Xml/Conformance/Tools -p 'test_*.py' -v
+```
 
 ### Packed consumers and Native AOT
 
