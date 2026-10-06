@@ -37,6 +37,31 @@ public sealed class NativeXPathAncestorScalingTests
         large.Should().BeLessThan(2048 * 40);
     }
 
+    [TestCase("//*[count(ancestor::*) > 1]", -1)]
+    [TestCase("//*[count(ancestor::r) = 1 and @a = 'yes']", 0)]
+    [TestCase("//*[count(ancestor-or-self::x) > 0 and position() = 1]", 0)]
+    [TestCase("//*[count(ancestor::missing) = 0]", 1)]
+    public void CountAncestorExpressionsHaveLinearWork(string source, int adjustment)
+    {
+        var expression = NativeXPath.Compile(source);
+        int Measure(int depth)
+        {
+            var document = DeepTree(depth);
+            for (var node = document.DocumentElement!.FirstChild; node is Element element; node = node.FirstChild)
+                element.SetAttribute("a", "yes");
+            var work = 0;
+            var nodes = NativeXPath.Select(document, expression, (_, count) => work = count, default);
+            nodes.Count.Should().Be(depth + adjustment);
+            return work;
+        }
+        var small = Measure(512);
+        var medium = Measure(1024);
+        var large = Measure(2048);
+        small.Should().BeGreaterThan(0);
+        medium.Should().BeLessThan(small * 5 / 2);
+        large.Should().BeLessThan(medium * 5 / 2);
+    }
+
     [Test]
     public void PredicateResultsMatchBclIncludingReversePositionsAndNamespaces()
     {
@@ -53,7 +78,18 @@ public sealed class NativeXPathAncestorScalingTests
             "//*[ancestor::r][1]", "//*[ancestor::r][last()]", "//*[ancestor::p:x]/ancestor::*[1]",
             "//*[ancestor::*[1][self::r]]", "//*[count(ancestor::*)=2]", "(//*[ancestor::r])[2]",
             "//*[ancestor::p:x] | //*[ancestor-or-self::r]", "//*[ancestor::missing]",
-            "//*[ancestor::r]/namespace::*[ancestor::r]", "string('text [ancestor::r] jintAncestor')"
+            "//*[ancestor::r]/namespace::*[ancestor::r]", "string('text [ancestor::r] jintAncestor')",
+            "//*[count(ancestor::*)]", "//*[count ( ancestor :: r ) = 1 and @a]",
+            "//*[count(ancestor::p:*) = 1]", "//*[count(ancestor-or-self::p:x) > 0]",
+            "//*[count(ancestor::node()) = 2]", "//@*[count(ancestor::node()) > 1]",
+            "//@*[count(ancestor-or-self::node()) = 3]",
+            "//*[count(ancestor::*[1]) = 1]", "//*[count(ancestor::*[last()]) = 1]",
+            "//*[count(ancestor::r) = 1]/ancestor::*[1]", "(//*[count(ancestor::r) = 1])[last()]",
+            "//*[count(ancestor::r) = 1] | //*[count(ancestor-or-self::r) = 1]",
+            "//*[count(ancestor::r) = 1]/namespace::*[count(ancestor-or-self::node()) > 1]",
+            "count(//p:x/ancestor::r)", "count(ancestor-or-self::node())", "count(ancestor::*)",
+            "boolean(count(ancestor::r))", "string(count(ancestor-or-self::node()))",
+            "string('count(ancestor::r)')", "//*[count(ancestor::r) + count(ancestor::*) > 2]"
         })
         {
             var expected = reference.CreateNavigator()!.Evaluate(source, manager);
@@ -75,15 +111,18 @@ public sealed class NativeXPathAncestorScalingTests
                 });
                 observed.Should().Equal(values, source);
             }
+            else if (expected is double number) actual.NumberValue.Should().Be(number, source);
+            else if (expected is bool boolean) actual.BooleanValue.Should().Be(boolean, source);
             else actual.StringValue.Should().Be((string) expected, source);
         }
     }
 
-    [Test]
-    public void CachedAncestorAnswersDoNotOutliveAnEvaluation()
+    [TestCase("//*[ancestor::r]")]
+    [TestCase("//*[count(ancestor::r) = 1]")]
+    public void CachedAncestorAnswersDoNotOutliveAnEvaluation(string source)
     {
         var document = MarkupParser.ParseXml("<r><x><x/></x></r>");
-        var expression = NativeXPath.Compile("//*[ancestor::r]");
+        var expression = NativeXPath.Compile(source);
         NativeXPath.Select(document, expression).Should().HaveCount(2);
         var subtree = document.DocumentElement!.FirstChild!;
         document.DocumentElement.RemoveChild(subtree);
@@ -94,12 +133,14 @@ public sealed class NativeXPathAncestorScalingTests
         NativeXPath.Select(other, expression).Should().HaveCount(3);
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AncestorCacheConstructionCannotPublishAfterMutationOrCancellation(bool cancel)
+    [TestCase(false, "//*[ancestor::missing]")]
+    [TestCase(true, "//*[ancestor::missing]")]
+    [TestCase(false, "//*[count(ancestor::missing) = 0]")]
+    [TestCase(true, "//*[count(ancestor::missing) = 0]")]
+    public void AncestorCacheConstructionCannotPublishAfterMutationOrCancellation(bool cancel, string source)
     {
         var document = DeepTree(2048);
-        var expression = NativeXPath.Compile("//*[ancestor::missing]");
+        var expression = NativeXPath.Compile(source);
         using var cancellation = new CancellationTokenSource();
         var reached = false;
         IReadOnlyList<object>? published = null;
@@ -114,11 +155,13 @@ public sealed class NativeXPathAncestorScalingTests
         else Assert.Throws<InvalidOperationException>(() => published = NativeXPath.Select(document, expression, Checkpoint, default));
         reached.Should().BeTrue();
         published.Should().BeNull();
-        NativeXPath.Select(document, expression).Should().BeEmpty();
+        NativeXPath.Select(document, expression).Should().HaveCount(source.Contains("count", StringComparison.Ordinal) ? 2049 : 0);
     }
 
     [TestCase("//*[ancestor::missing]")]
     [TestCase("child::*[ancestor::missing]")]
+    [TestCase("//*[count(ancestor::missing) = 0]")]
+    [TestCase("child::*[count(ancestor::missing) = 0]")]
     public void HostCheckpointFailuresKeepTheirOriginalIdentity(string source)
     {
         var document = DeepTree(2048);
