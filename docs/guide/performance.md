@@ -53,6 +53,21 @@ Restoring ends the previous event-loop cycle: queued work is discarded, and a pr
 restore cannot later resume against the restored globals. Restore only after every owned async operation has
 completed.
 
+A restore keeps the warmed interpreter caches, and with them the last callee and receiver each warmed call
+or member-read site served. When those are host objects that must not outlive a request — a delegate closing
+over a request's `IServiceProvider`, a wrapped `HttpContext` — release them as well:
+
+```csharp
+engine.Advanced.RestoreGlobalSnapshot(snapshot);
+engine.Advanced.DiscardInterpreterCaches();
+```
+
+The engine, its realm, the prepared scripts and CLR member resolution stay warm; the next run of each script
+rebuilds its handler tree, roughly a first run on a new engine minus building the engine. Discarding on every
+return gives up the warm trees, so a pool that keeps busy engines warm can discard only when an engine goes
+idle. A function expression held only by another object, module code and computed property keys are not
+reached.
+
 ## Project data efficiently
 
 `SetValue` wraps CLR objects and uses cached member resolution. CLR arrays default to

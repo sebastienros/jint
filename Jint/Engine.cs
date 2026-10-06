@@ -1419,6 +1419,92 @@ public sealed partial class Engine : IDisposable
         return built;
     }
 
+    /// <summary>
+    /// The work behind <see cref="AdvancedOperations.DiscardInterpreterCaches"/>: lets go of every handler tree
+    /// the engine can reach without walking the heap, so that the inline caches inside them — last receivers,
+    /// last callees, parked environments — stop keeping host objects alive. Nothing here runs on an
+    /// evaluation path; the caller guarantees that no evaluation is in progress.
+    /// </summary>
+    internal void DiscardInterpreterCaches()
+    {
+        // A function object that outlives this call shares its definition with the cache entry, so dropping
+        // the entry alone would leave the warmed body reachable through the function. Releasing the body on
+        // the definition itself is what covers both, and the next call simply builds it again.
+        foreach (var definition in _functionDefinitions.Values)
+        {
+            definition.DiscardBody();
+        }
+
+        _functionDefinitions.Clear();
+        _scriptStatementLists = null;
+
+        // _evaluatedScripts is kept on purpose: it holds only ASTs, and it is what makes the next run of a
+        // script cache its rebuilt tree straight away instead of going through the uncached first evaluation.
+        //
+        // _propertyKeyExpressions is kept on purpose too. Its handler identity is what a generator or an async
+        // function suspended inside a computed key finds its parked state by (issue #3142), and either can
+        // resume after this call; rebuilding the handler would replay the key's side effects.
+
+        var realm = Realm;
+        if (realm._dynamicFunctionCache is { } dynamicFunctions)
+        {
+            foreach (var entry in dynamicFunctions.Values)
+            {
+                entry.Definition.DiscardBody();
+            }
+
+            realm._dynamicFunctionCache = null;
+            realm._dynamicFunctionProbationKey = default;
+        }
+
+        // Functions the host defined before capturing a snapshot are held by the global surface itself, and
+        // their definitions were never in a cache above when the defining script ran only once.
+        if (realm.GlobalObject._properties is { } properties)
+        {
+            foreach (var pair in properties)
+            {
+                var descriptor = pair.Value;
+                DiscardFunctionBody(descriptor._value);
+                if (descriptor is GetSetPropertyDescriptor accessor)
+                {
+                    DiscardFunctionBody(accessor.Get);
+                    DiscardFunctionBody(accessor.Set);
+                }
+            }
+        }
+
+        if (realm.GlobalEnv._declarativeRecord._dictionary is { } lexicalBindings)
+        {
+            foreach (var pair in lexicalBindings)
+            {
+                if (pair.Value.HasReferenceValue)
+                {
+                    DiscardFunctionBody(pair.Value.Value);
+                }
+            }
+        }
+
+        // A pooled Reference keeps the base and this values it last resolved, a wrapped host object among them.
+        // Return does not clear them, which is right for the hot path and wrong for an engine about to sit idle.
+        _referencePool.Clear();
+    }
+
+    private static void DiscardFunctionBody(JsValue? value)
+    {
+        if (value is not Function function)
+        {
+            return;
+        }
+
+        function._functionDefinition?.DiscardBody();
+        if (function is ScriptFunction scriptFunction)
+        {
+            // the call environment parked for the next call still carries this value and the bindings of the
+            // call it served
+            scriptFunction._envReuse = null;
+        }
+    }
+
     // The handler-tree cache sizes, for Engine.Diagnostics.GetMemoryReport. Read-only views over the
     // collections above — nothing is recorded for them, so an engine that is never asked pays nothing.
     internal int FunctionDefinitionCacheCount => _functionDefinitions.Count;

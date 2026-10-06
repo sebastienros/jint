@@ -44,6 +44,11 @@ internal sealed class ReferencePool
         return _pool.Allocate().Reassign(baseValue, name, strict, thisValue);
     }
 
+    /// <summary>
+    /// Drops the pooled instances: a returned <see cref="Reference"/> keeps its base and this values.
+    /// </summary>
+    internal void Clear() => _pool.Clear();
+
     public void Return(Reference? reference)
     {
         if (reference == null)

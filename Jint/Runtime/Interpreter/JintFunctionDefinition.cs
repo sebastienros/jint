@@ -69,6 +69,24 @@ internal sealed class JintFunctionDefinition
         : this(function, function) { }
 
     /// <summary>
+    /// Releases the body handler tree, and with it every inline cache inside it, so that the next call builds
+    /// the body afresh. Only for <see cref="Engine.DiscardInterpreterCaches"/>, which runs with no evaluation in
+    /// progress: a generator or a suspended async body keeps the tree it started with, so neither notices.
+    /// </summary>
+    internal void DiscardBody()
+    {
+        _bodyExpression = null;
+        _bodyStatementList = null;
+
+        // A Function-constructor definition parks the last call environment on its State; see
+        // State._dynamicCachedEnv. Read without Initialize, which would build a State nobody asked for.
+        if (IsDynamic && ((Node) Function).UserData is State state)
+        {
+            Interlocked.Exchange(ref state._dynamicCachedEnv, null);
+        }
+    }
+
+    /// <summary>
     /// The source text matched by the production this function was defined by, or <see langword="null"/>
     /// when the parse did not retain it. https://tc39.es/ecma262/#sec-function.prototype.tostring
     /// </summary>
@@ -185,6 +203,13 @@ internal sealed class JintFunctionDefinition
         var function = functionObject;
         JsCallArguments? jsValues = argumentsList;
 
+        // The resume re-runs the delegate below, so it holds the handler it started on rather than reading the
+        // field again: DiscardBody may have released the field in between, and the suspended position is parked
+        // on this handler's nodes anyway, the way a generator or an async body holds its statement list. The
+        // handler's node is Function.Body itself, so the delegate captures it in place of `this` and its closure
+        // is no larger than before.
+        var bodyExpression = _bodyExpression!;
+
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
         // Expression bodies don't have a statement list (used only for resumption)
         AsyncFunctionStart(context, promiseCapability, body: null, context =>
@@ -198,16 +223,16 @@ internal sealed class JintFunctionDefinition
                 context.Engine.FunctionDeclarationInstantiation(context, function, jsValues);
                 jsValues = null;
             }
-            context.RunBeforeExecuteStatementChecks(Function.Body);
-            var jsValue = _bodyExpression!.GetValue(context).Clone();
+            context.RunBeforeExecuteStatementChecks(bodyExpression._expression);
+            var jsValue = bodyExpression.GetValue(context).Clone();
 
             // Check for async suspension - if suspended, return early to allow resumption
             if (context.IsSuspended())
             {
-                return new Completion(CompletionType.Normal, jsValue, _bodyExpression._expression);
+                return new Completion(CompletionType.Normal, jsValue, bodyExpression._expression);
             }
 
-            return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
+            return new Completion(CompletionType.Return, jsValue, bodyExpression._expression);
         });
         return new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
     }
