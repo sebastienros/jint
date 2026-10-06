@@ -5075,9 +5075,9 @@ Object.getPrototypeOf(Performance.prototype);  // 5.0: Object.prototype   5.x: E
 is running in a browser. And the feature closure now brings `WebApiFeatures.Events` with
 `WebApiFeatures.Performance`, so an engine built with the performance flag alone additionally carries `Event`,
 `CustomEvent`, `EventTarget`, `AbortController` and `AbortSignal` as globals — a script that tested
-`typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing is
-dispatched at `performance` by the engine: the one event the specifications define on the interface is
-`resourcetimingbufferfull`, and there is no resource timing buffer here to fill.
+`typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing
+was dispatched at `performance` by the engine in those previews. Resource timing now supplies a buffer
+and its `resourcetimingbufferfull` event; see [§4.148](#4-148-fetch-and-xhr-add-resource-timing-when-performance-is-enabled-4207).
 
 ### 4.116 The File API brings the event interfaces with it ([#3660](https://github.com/sebastienros/jint/pull/3660))
 
@@ -5894,6 +5894,73 @@ public string[]? GetCalendars(string locale) => DefaultCldrProvider.Instance.Get
 A `GetDefaultCalendar` override that matched the whole locale string sees the keyword-free locale for a
 formatter whose tag carried `-u-nu-` or `-u-hc-`.
 
+### 4.146 Enabling IndexedDB selects task and microtask lanes immediately
+
+`WebApiFeatures.IndexedDb` now separates tasks from microtasks when the engine is constructed or when
+`Engine.WebApi.Enable` enables the flag. Earlier previews delayed this until the first IndexedDB operation,
+so unrelated BroadcastChannel deliveries and promise reactions could change order partway through a run.
+With the flag enabled, pending promise reactions run before queued tasks, and every top-level host
+`Invoke` or `Call` performs a microtask checkpoint before transaction cleanup, even before `indexedDB`
+is first read. Hosts without this flag retain their existing queue behavior. Database storage remains lazy;
+requests still require pumping through `Engine.Tasks.ProcessTasks`.
+
+### 4.147 IndexedDB listener failures preserve unrelated connections
+
+On an engine without a diagnostics sink, an uncaught request or upgrade listener exception now aborts only
+its active transaction with `AbortError` before propagating to the host. Earlier previews closed every
+IndexedDB connection and abandoned queued opens. After catching the `JavaScriptException`, resume
+`Engine.Tasks.ProcessTasks()` to deliver abort/request-error events and settle the failed upgrade's open
+request. Other connections and queued opens remain usable. A listener that already called `commit()` or
+`abort()` retains that outcome. Diagnostics-sink reporting and constraint-failure cleanup are unchanged.
+
+### 4.148 Fetch and XHR add resource timing when Performance is enabled ([#4207](https://github.com/sebastienros/jint/pull/4207))
+
+Earlier previews exposed only user-timing entries on ordinary engines. With `WebApiFeatures.Performance`
+enabled, `PerformanceResourceTiming` is now a lazy, non-clobbering global, and Fetch and XMLHttpRequest
+record resource entries visible to `performance.getEntries*` and `PerformanceObserver`. Each completed
+request queues one additional task to publish its entry, even when no observer is registered; observer
+notifications and buffer-full events can schedule further tasks. Hosts that pump or count queued work
+must allow for these tasks. Fetch entries wait for the body to be consumed or cancelled.
+
+`UseWebApis()` includes Performance in `WebApiFeatures.Default`; adding Fetch or XHR therefore activates
+recording without another grant. A bare `new Engine()` still installs no web APIs, and Fetch/XHR alone
+do not enable Performance. To avoid timing entries and their tasks, select flags at construction:
+
+```csharp
+options.UseWebApis((WebApiFeatures.Default & ~WebApiFeatures.Performance) | WebApiFeatures.Fetch);
+```
+
+This also removes `performance.now()`, user timing, and observers; there is no separate resource-timing
+flag, and an existing engine cannot disable enabled features. Resource entries have a separate default
+250-entry buffer. Clearing it or setting its size to zero does not stop recording or its tasks. See
+[performance timeline](web-apis/crypto-and-performance.md#performance-timeline) for buffer management,
+body completion, and cross-origin timing visibility.
+
+### 4.149 Browser XML parsing observes the page turn's time and allocation budgets
+
+XML `DOMParser.parseFromString`, XML navigation (including documents with no script), and XML fragment
+setters such as `innerHTML` now poll engine constraints during parsing. Earlier previews could complete
+native XML work without observing `BrowserOptions.MaxTaskDuration` or charging its allocations to
+`BrowserOptions.MemoryLimit`. Budget exhaustion propagates as `TimeoutException` or
+`MemoryLimitExceededException`; DOMParser converts only XML syntax failures to a `parsererror` document.
+The existing lexical XML limits still apply independently. Standalone `MarkupParser` entry points retain
+their parser limits and cancellation tokens, without a Browser engine budget.
+
+### 4.150 Browser contexts have an aggregate storage quota ([#4207](https://github.com/sebastienros/jint/pull/4207))
+
+Previously, each new origin could retain its own IndexedDB, localStorage and cache quota without a context ceiling.
+`BrowserOptions.MaxTotalStorageBytes` now defaults to 100 MiB per context across origins, pages and workers;
+`BrowserContextOptions.MaxTotalStorageBytes` overrides it. Existing per-origin quotas remain. Writes that exceed
+the shared quota fail with `QuotaExceededError` without publishing changes; a quota-aborted IndexedDB upgrade
+rejects its open request with `AbortError`. Deletion/shrinking releases quota, while deleted caches remain charged
+as long as a live handle retains their data.
+
+Set `browserOptions.MaxTotalStorageBytes = long.MaxValue` to restore the previous aggregate policy for trusted
+content. `ForUntrustedContent` resolves that value to 100 MiB, and an unlimited context override uses the finite
+browser setting. Custom localStorage/cache partitions enforce their own quotas; context-owned IndexedDB still
+counts. Session storage, cookies, empty partition maps and peak allocations are excluded. See
+[IndexedDB storage limits](web-apis/indexeddb.md#jint-browser).
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5922,13 +5989,14 @@ none of it changes an engine that does not.
 | Reading the body of the response an observer is answering, against a memory allowance you own, without the caller losing a byte | override `OnInterceptedResponseAsync` instead of `OnResponseAsync` | [§5.34](#5-34-a-fetch-observer-can-read-the-body-of-the-response-it-is-answering-3828) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
-| A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
+| A headless browser — the native DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](advanced-hosting.md) |
 | A synchronous, bounded callback in a host-created realm | `engine.Advanced.WithRealm(realm, action)` | [§5.33](#5-33-a-host-can-run-a-bounded-callback-in-one-of-its-realms-3917) |
 | Web Locks — `navigator.locks`, in a lock space several engines can share | in `UseWebApis()` already; `options.UseWebLocks(manager)` names the shared space | [§5.37](#5-37-several-engines-can-share-one-lock-space-navigator-locks) |
+| IndexedDB databases, transactions, indexes and cursors (.NET 8+) | `WebApiFeatures.IndexedDb` (`1 << 27`), opt-in; automatic in `Jint.Browser` with `BrowserOptions.MaxIndexedDbBytes` (50 MiB per origin) | [IndexedDB](web-apis/indexeddb.md) |
 | Buffer-view construction mode | `value.IsLengthTrackingArrayBufferView()` | [§5.38](#5-38-reading-a-buffer-view-s-length-tracking-mode) |
 
 The `LazyJsString` row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -6739,7 +6807,7 @@ dispatch still reports the message it always did.
 
 Four new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
 `Jint.DevTools` serves the Chrome DevTools Protocol for an engine your host is already running;
-`Jint.Browser` adds AngleSharp's DOM, a page runtime and the page-level protocol domains on top of it;
+`Jint.Browser` adds the native `Jint.HtmlParser` DOM, a page runtime and the page-level protocol domains on top of it;
 `Jint.Browser.Mcp` is a Model Context Protocol server over that, for an agent rather than a client; and
 `Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All four
 are `net8.0` and later.
@@ -7196,6 +7264,20 @@ engine-retired reason.
 
 Retiring an engine is terminal; use `RestoreGlobalSnapshot` only when the same engine must
 continue serving a trusted cycle.
+
+### 5.40 Plain-engine IndexedDB storage has a configurable quota
+
+`Options.WebApi.IndexedDb` and `Options.IndexedDbOptions.MaxBytes` expose the private store's retained-data
+quota on .NET 8 or later. IndexedDB remains opt-in. Its private store now defaults to 50 MiB across all
+of the engine's databases, rather than unlimited storage. Configure `MaxBytes` before first use, including
+through the live-enable callback; zero refuses database creation, and `long.MaxValue` restores the practical
+unlimited-storage behavior. Negative values are rejected.
+
+A commit exceeding the quota aborts with `QuotaExceededError` without publishing its writes. Stored data
+and its quota charge survive global snapshot restores and host entries; deleting data releases the charge.
+The quota counts retained serialized values, keys, indexes and metadata, not peak CLR allocations. Options
+sharing does not share private stores. Browser-managed storage continues to use `BrowserOptions.MaxIndexedDbBytes`.
+See [IndexedDB](web-apis/indexeddb.md) for configuration and lifetime details.
 
 ## 6. AOT and trimming
 

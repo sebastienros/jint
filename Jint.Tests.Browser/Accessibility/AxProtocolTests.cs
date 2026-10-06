@@ -17,7 +17,7 @@ public sealed class AxProtocolTests
     [Test]
     public void FlattensTheTreeIntoNodesLinkedByIdentifier()
     {
-        using var document = PageFixture.Parse("<h1>Title</h1><button>Save</button>");
+        var document = PageFixture.Parse("<h1>Title</h1><button>Save</button>");
         var root = AccessibilityTree.Build(document);
 
         using var parsed = JsonDocument.Parse(AccessibilityTree.ToJson(root));
@@ -37,8 +37,8 @@ public sealed class AxProtocolTests
     [Test]
     public void EveryValueCarriesTheTypeTagTheProtocolDefines()
     {
-        using var document = PageFixture.Parse("<h2 id=t aria-describedby=d>Heading</h2><span id=d>Help</span>");
-        var node = AccessibilityTree.Build(document.GetElementById("t")!)!;
+        var document = PageFixture.Parse("<h2 id=t aria-describedby=d>Heading</h2><span id=d>Help</span>");
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "t")!)!;
 
         using var parsed = JsonDocument.Parse(JsonSerializer.Serialize(AccessibilityTree.ToProtocol(node), AxProtocolJsonContext.Default.AxProtocolNode));
         var root = parsed.RootElement;
@@ -58,8 +58,8 @@ public sealed class AxProtocolTests
     [Test]
     public void ABooleanPropertyIsAJsonBooleanAndATristateIsAString()
     {
-        using var document = PageFixture.Parse("<input id=t type=checkbox checked required>");
-        var node = AccessibilityTree.Build(document.GetElementById("t")!)!;
+        var document = PageFixture.Parse("<input id=t type=checkbox checked required>");
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "t")!)!;
 
         using var parsed = JsonDocument.Parse(JsonSerializer.Serialize(AccessibilityTree.ToProtocol(node), AxProtocolJsonContext.Default.AxProtocolNode));
         var properties = parsed.RootElement.GetProperty("properties").EnumerateArray()
@@ -74,8 +74,8 @@ public sealed class AxProtocolTests
     [Test]
     public void AnIgnoredNodeSaysThatItIsAndWhy()
     {
-        using var document = PageFixture.Parse("<div id=t hidden>x</div>");
-        var node = AccessibilityTree.Build(document.GetElementById("t")!, AccessibilityOptions.Full)!;
+        var document = PageFixture.Parse("<div id=t hidden>x</div>");
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "t")!, AccessibilityOptions.Full)!;
 
         using var parsed = JsonDocument.Parse(JsonSerializer.Serialize(AccessibilityTree.ToProtocol(node), AxProtocolJsonContext.Default.AxProtocolNode));
 
@@ -89,8 +89,8 @@ public sealed class AxProtocolTests
     [Test]
     public void NullMembersAreLeftOutRatherThanWrittenAsNull()
     {
-        using var document = PageFixture.Parse("<hr id=t>");
-        var node = AccessibilityTree.Build(document.GetElementById("t")!)!;
+        var document = PageFixture.Parse("<hr id=t>");
+        var node = AccessibilityTree.Build(ContentDom.ElementById(document, "t")!)!;
 
         var json = JsonSerializer.Serialize(AccessibilityTree.ToProtocol(node), AxProtocolJsonContext.Default.AxProtocolNode);
 
@@ -102,7 +102,7 @@ public sealed class AxProtocolTests
     [Test]
     public void TheIndentedFormIsTheSameDocument()
     {
-        using var document = PageFixture.Parse("<button>Save</button>");
+        var document = PageFixture.Parse("<button>Save</button>");
         var root = AccessibilityTree.Build(document);
 
         var compact = AccessibilityTree.ToJson(root);

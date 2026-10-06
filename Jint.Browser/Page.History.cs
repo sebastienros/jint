@@ -59,7 +59,11 @@ public sealed partial class Page
             Body: null,
             ContentType: null,
             Reload: true,
-            Referrer: null));
+            Referrer: null,
+            // The host is this browser's address bar: HTML's navigate and reload fire no navigate event for a
+            // "browser UI" navigation, so a page can neither intercept nor cancel it.
+            // https://html.spec.whatwg.org/multipage/browsing-the-web.html#reload
+            BrowserUi: true));
     }
 
     /// <summary>Steps <paramref name="delta"/> entries through the history and waits for the commit.</summary>

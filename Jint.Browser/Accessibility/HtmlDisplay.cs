@@ -1,5 +1,5 @@
 using System.Collections.Frozen;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Accessibility;
 
@@ -7,13 +7,6 @@ namespace Jint.Browser.Accessibility;
 /// What HTML's suggested rendering gives an element for <c>display</c> and <c>white-space</c>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This table, and not the cascade, is what decides whether a box is block-level. AngleSharp.Css's default
-/// style sheet has no rules for the HTML5 flow and sectioning elements — <c>section</c>, <c>article</c>,
-/// <c>nav</c>, <c>aside</c>, <c>header</c>, <c>footer</c>, <c>main</c>, <c>figure</c>, <c>figcaption</c>,
-/// <c>details</c>, <c>summary</c>, <c>dialog</c>, <c>hgroup</c> — so asking it would call every one of them
-/// inline.
-/// </para>
 /// <para>
 /// The cascade still wins where it says something this table does not: <see cref="Resolve"/> prefers a
 /// declared value that differs from the default, which is what makes
@@ -87,14 +80,14 @@ internal static class HtmlDisplay
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>Returns HTML's suggested <c>display</c> for the element, or <c>inline</c>.</summary>
-    internal static string DefaultFor(IElement element) =>
+    internal static string DefaultFor(Element element) =>
         s_defaults.TryGetValue(element.LocalName, out var display) ? display : "inline";
 
     /// <summary>
     /// Returns the element's effective <c>display</c>: the declared value when it differs from HTML's
     /// suggested rendering, and the suggested rendering otherwise.
     /// </summary>
-    internal static string Resolve(IElement element, string? declared)
+    internal static string Resolve(Element element, string? declared)
     {
         var fallback = DefaultFor(element);
         if (string.IsNullOrEmpty(declared) || string.Equals(declared, fallback, StringComparison.OrdinalIgnoreCase))
@@ -130,11 +123,7 @@ internal static class HtmlDisplay
     };
 
     /// <summary>Whether the element's content keeps its white space verbatim.</summary>
-    /// <remarks>
-    /// The element list is HTML's; AngleSharp.Css's default sheet carries <c>pre { white-space: pre }</c> but
-    /// not the <c>textarea</c> rule, so asking the cascade alone would collapse a text area's content.
-    /// </remarks>
-    internal static bool PreservesWhitespace(IElement element, string? declaredWhiteSpace)
+    internal static bool PreservesWhitespace(Element element, string? declaredWhiteSpace)
     {
         if (!string.IsNullOrEmpty(declaredWhiteSpace))
         {

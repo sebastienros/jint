@@ -1,5 +1,5 @@
-using AngleSharp;
-using AngleSharp.Html.Parser;
+using Jint.HtmlParser;
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Runtime;
@@ -25,10 +25,16 @@ public class CreationRealmTests
     [TestCase("const n = new a.ProcessingInstruction('t', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
     [TestCase("const n = new a.ProcessingInstruction('𐀀', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
     [TestCase("const p = new a.ProcessingInstruction('t'); return p.getAttributeNames() instanceof a.Array && !(p.getAttributeNames() instanceof Array);")]
+    // Parsed nodes are branded lazily; each native adoption path must capture the brand before moving.
+    [TestCase("const n = a.document.getElementById('parsed'); document.body.append(n); return n.firstChild instanceof a.Text && !(n.firstChild instanceof Text) && n.lastChild instanceof a.Comment;")]
+    [TestCase("const n = a.document.getElementById('parsed'); const r = document.createRange(); r.selectNodeContents(document.body); r.insertNode(n); return n.firstChild instanceof a.Text && n.lastChild instanceof a.Comment;")]
+    [TestCase("const n = a.document.getElementById('parsed'); document.adoptNode(n); const id = n.getAttributeNode('id'); return id instanceof a.Attr && !(id instanceof Attr) && id.ownerDocument === document;")]
+    [TestCase("const e = a.document.getElementById('parsed'); const id = e.getAttributeNode('id'); e.removeAttributeNode(id); document.body.setAttributeNode(id); return id instanceof a.Attr && !(id instanceof Attr);")]
+    [TestCase("const p = a.document.getElementById('tpl').content.firstChild; document.body.append(p); return p instanceof a.HTMLParagraphElement && !(p instanceof HTMLParagraphElement) && p.firstChild instanceof a.Text;")]
     public async Task FrameNodesAndConstructorsKeepTheirOwningRealm(string assertion)
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/child", "<!doctype html><body><div id=parsed>text<!--comment--></div>")
+            .MapHtml("/child", "<!doctype html><body><div id=parsed>text<!--comment--></div><template id=tpl><p>t</p></template>")
             .MapHtml("/", "<!doctype html><body><iframe src=/child></iframe><iframe src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
         (await loopback.Page.EvaluateAsync<bool>("(() => { const a = frames[0], b = frames[1]; " + assertion + " })()"))
@@ -88,8 +94,7 @@ public class CreationRealmTests
     {
         var engine = new Engine();
         var dom = DomRealm.Of(engine);
-        using var context = BrowsingContext.New();
-        using var document = new HtmlParser(default, context).ParseDocument("");
+        var document = MarkupParser.ParseHtml("");
         dom.AssociateDocument(document, associatedGlobal: true);
         engine.Dispose();
         dom.Document.Should().BeNull();
@@ -110,11 +115,10 @@ public class CreationRealmTests
         var a = DomRealm.Of(fixture.Engine);
         var second = fixture.Engine._host.CreateRealm();
         var b = DomRealm.Of(fixture.Engine, second);
-        using var context = BrowsingContext.New();
-        using var document = new HtmlParser(default, context).ParseDocument("");
+        var document = MarkupParser.ParseHtml("");
         b.AssociateDocument(document);
-        var container = fixture.Document.GetElementById("container")!;
-        document.Adopt(container);
+        var container = ContentDom.ElementById(fixture.Document, "container")!;
+        document.AdoptNode(container);
         b.WrapNode(container.FirstChild!).DomRealm.Should().BeSameAs(a);
         b.WrapNode(container.LastChild!).DomRealm.Should().BeSameAs(a);
     }
@@ -142,15 +146,13 @@ public class CreationRealmTests
         BrowserEventRealm.Install(engine, second);
         var a = DomRealm.Of(engine);
         var b = DomRealm.Of(engine, second);
-        using var contextA = BrowsingContext.New();
-        using var contextB = BrowsingContext.New();
-        using var documentA = new HtmlParser(default, contextA).ParseDocument("<div>text<!--comment--></div>");
-        using var documentB = new HtmlParser(default, contextB).ParseDocument("");
+        var documentA = MarkupParser.ParseHtml("<div>text<!--comment--></div>");
+        var documentB = MarkupParser.ParseHtml("");
         a.AssociateDocument(documentA);
         b.AssociateDocument(documentB);
         a.WrapNode(documentA);
-        var node = documentA.QuerySelector("div")!;
-        documentB.Adopt(node);
+        var node = ContentDom.First(documentA, "div")!;
+        documentB.AdoptNode(node);
         b.WrapNode(node.FirstChild!).DomRealm.Should().BeSameAs(a);
         b.WrapNode(node.LastChild!).DomRealm.Should().BeSameAs(a);
         b.WrapNode(node).Should().BeSameAs(a.WrapNode(node));
@@ -170,16 +172,15 @@ public class CreationRealmTests
         var a = DomRealm.Of(fixture.Engine);
         var second = fixture.Engine._host.CreateRealm();
         var b = DomRealm.Of(fixture.Engine, second);
-        using var context = BrowsingContext.New();
-        using var document = new HtmlParser(default, context).ParseDocument("");
+        var document = MarkupParser.ParseHtml("");
         b.AssociateDocument(document);
-        var host = fixture.Document.GetElementById("host")!;
-        var attribute = host.Attributes["data-original"]!;
-        var template = (AngleSharp.Html.Dom.IHtmlTemplateElement) host.FirstElementChild!;
-        var content = template.Content;
-        var shadow = host.ShadowRoot!;
+        var host = ContentDom.ElementById(fixture.Document, "host")!;
+        var attribute = host.GetAttributeNode("data-original")!;
+        var template = ContentDom.Children(host).First();
+        var content = template.TemplateContent!;
+        var shadow = (ShadowRoot) ((DomNodeObject) fixture.Engine.GetValue("shadow")).Node!;
         a.RecordSubtree(host);
-        document.Adopt(host);
+        document.AdoptNode(host);
         b.RecordSubtree(host);
         b.RecordSubtree(host);
         b.CreationRealmOf(attribute).Should().BeSameAs(a);
@@ -193,7 +194,7 @@ public class CreationRealmTests
         // A late native attribute belongs to the current document, not its element's creation realm.
         host.SetAttribute("data-late", "new");
         a.RecordSubtree(host);
-        a.CreationRealmOf(host.Attributes["data-late"]!).Should().BeSameAs(b);
+        a.CreationRealmOf(host.GetAttributeNode("data-late")!).Should().BeSameAs(b);
         a.CreationRealmOf(attribute).Should().BeSameAs(a);
     }
 }

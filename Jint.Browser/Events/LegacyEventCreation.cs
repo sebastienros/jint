@@ -7,35 +7,11 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.Events;
 
 /// <summary>
-/// <c>document.createEvent(interface)</c> — DOM's legacy way of building an event, kept alive by the
-/// half of the web-platform corpus that predates the constructors.
-/// <para>
-/// https://dom.spec.whatwg.org/#dom-document-createevent
-/// </para>
+/// Implements document.createEvent with the Browser's script-visible event interfaces.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>AngleSharp's own <c>createEvent</c> is skipped and this replaces it</b> (the override table says so):
-/// its result is an AngleSharp <c>Event</c>, and every script-visible event in this package is a Jint one
-/// dispatched through the engine's tree dispatcher. What the standard requires is only the alias table, so
-/// nothing here builds an event a constructor could not have built — the difference is entirely in the two
-/// steps after it.
-/// </para>
-/// <para>
-/// <b>Those two steps are the whole point of the method.</b> The event's <c>type</c> is the empty string and
-/// its <i>initialized flag</i> is unset, which makes it undispatchable until <c>initEvent()</c> has named it —
-/// <c>dispatchEvent</c> answers an <c>InvalidStateError</c> for one that has not been. The flag is the
-/// engine's (<c>JsEvent.InitializedFlag</c>), and <c>document.createEvent</c> is the only algorithm in the
-/// standard that unsets it, which is why the engine leaves the writer to a host.
-/// </para>
-/// <para>
-/// <b>Every row of the table is here now.</b> Five of them used to name interfaces this package did not
-/// build — <c>DragEvent</c>, <c>StorageEvent</c>, <c>TouchEvent</c> and the two device events — and each
-/// answered a <c>NotSupportedError</c>, which is what the standard says for an alias it does not list at
-/// all. <c>BrowserEventInterfaces</c> builds all five: whether the runtime ever <i>fires</i> one is a
-/// separate question from whether a page can construct and dispatch one, and this member only ever needed
-/// the second. The refusal path stays for an alias the table really does not carry.
-/// </para>
+/// https://dom.spec.whatwg.org/#dom-document-createevent
+/// Events belong to the Browser dispatcher and are initialized using the legacy event-creation rules.
 /// </remarks>
 internal static class LegacyEventCreation
 {
@@ -68,7 +44,7 @@ internal static class LegacyEventCreation
         ["mouseevents"] = BrowserEventInterfaces.MouseEvent,
         ["storageevent"] = BrowserEventInterfaces.StorageEvent,
         ["svgevents"] = null,
-        ["textevent"] = BrowserEventInterfaces.CompositionEvent,
+        ["textevent"] = BrowserEventInterfaces.TextEvent,
         ["touchevent"] = BrowserEventInterfaces.TouchEvent,
         ["uievent"] = BrowserEventInterfaces.UIEvent,
         ["uievents"] = BrowserEventInterfaces.UIEvent,

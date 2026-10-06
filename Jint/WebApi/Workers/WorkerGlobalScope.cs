@@ -13,7 +13,7 @@ using Jint.WebApi.StructuredClone;
 namespace Jint.WebApi.Workers;
 
 /// <summary>
-/// The names a dedicated worker's global scope carries, installed on the worker engine's global object when
+/// The names a worker's global scope carries, installed on the worker engine's global object when
 /// the connection is made.
 /// <para>
 /// https://html.spec.whatwg.org/multipage/workers.html#dedicated-workers-and-the-dedicatedworkerglobalscope-interface
@@ -64,18 +64,27 @@ namespace Jint.WebApi.Workers;
 /// Everything is installed <b>non-clobbering</b>, exactly as <c>WebApiRegistration</c> installs a global: a
 /// name the host already put on the worker's global object is left as the host left it.
 /// </para>
+/// <para>
+/// Shared workers reuse the same global installation with <c>SharedWorkerGlobalScope.prototype</c>, a
+/// read-only <c>name</c> and <c>onconnect</c>, without the dedicated hidden port or its messaging members.
+/// https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworkerglobalscope-interface
+/// </para>
 /// </remarks>
 internal sealed class WorkerGlobalScope
 {
-    private readonly WorkerLink _link;
+    private readonly WorkerLink? _link;
+    private readonly Action _close;
+    private readonly JsCallDelegate? _importScripts;
     private readonly Engine _engine;
     private readonly Realm _realm;
 
-    private WorkerGlobalScope(WorkerLink link, Engine engine, Realm realm)
+    private WorkerGlobalScope(WorkerLink? link, Engine engine, Realm realm, Action close, JsCallDelegate? importScripts)
     {
         _link = link;
         _engine = engine;
         _realm = realm;
+        _close = close;
+        _importScripts = importScripts;
     }
 
     /// <summary>
@@ -83,15 +92,21 @@ internal sealed class WorkerGlobalScope
     /// Called on the parent's thread, with that engine owned and quiescent.
     /// </summary>
     internal static void Install(WorkerLink link, string name)
-    {
-        var engine = link.Worker;
+        => InstallCore(link.Worker, name, link, link.CloseFromWorker, importScripts: null);
 
+    /// <summary>Installs the shared worker global without a dedicated worker's hidden message port.</summary>
+    /// <remarks>https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworkerglobalscope-interface</remarks>
+    internal static void InstallShared(WorkerConnection connection, Action close, JsCallDelegate importScripts)
+        => InstallCore(connection.Worker, connection.Name, link: null, close, importScripts);
+
+    private static void InstallCore(Engine engine, string name, WorkerLink? link, Action close, JsCallDelegate? importScripts)
+    {
         // The PRINCIPAL realm, deliberately, and for WebApiRegistration's reason: these globals belong to the
         // engine's own realm and to no other, and a ShadowRealm carries none of them.
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
-        var scope = new WorkerGlobalScope(link, engine, realm);
+        var scope = new WorkerGlobalScope(link, engine, realm, close, importScripts);
 
         // The brand, before any name is installed. Assigning the global object's [[Prototype]] is safe here and
         // only here: the engine has just been built and has evaluated nothing, so no inline cache holds a
@@ -104,10 +119,16 @@ internal sealed class WorkerGlobalScope
         // Host.CreateGlobalObject of its own, and gave that object a chain, keeps the chain it chose — and
         // `self instanceof DedicatedWorkerGlobalScope` then answers false, which is the truth about that
         // object rather than a claim we planted on it.
-        var dedicated = realm.Intrinsics.DedicatedWorkerGlobalScope;
+        var shared = link is null ? new SharedWorkerGlobalScopeConstructor(engine, realm) : null;
+        var workerInterface = shared is null
+            ? (ObjectInstance) realm.Intrinsics.DedicatedWorkerGlobalScope
+            : shared;
+        var workerPrototype = shared is null
+            ? (ObjectInstance) realm.Intrinsics.DedicatedWorkerGlobalScope.PrototypeObject
+            : shared.PrototypeObject;
         if (ReferenceEquals(global._prototype, realm.Intrinsics.Object.PrototypeObject))
         {
-            global._prototype = dedicated.PrototypeObject;
+            global._prototype = workerPrototype;
         }
 
         // [Exposed=Worker] and [Exposed=DedicatedWorker]: these two names exist on a worker's global and on no
@@ -115,7 +136,8 @@ internal sealed class WorkerGlobalScope
         // non-enumerable, exactly as an interface object is installed there —
         // https://webidl.spec.whatwg.org/#es-interfaces.
         InstallDescriptor(global, "WorkerGlobalScope", new PropertyDescriptor(realm.Intrinsics.WorkerGlobalScope, PropertyFlag.NonEnumerable));
-        InstallDescriptor(global, "DedicatedWorkerGlobalScope", new PropertyDescriptor(dedicated, PropertyFlag.NonEnumerable));
+        InstallDescriptor(global, shared is null ? "DedicatedWorkerGlobalScope" : "SharedWorkerGlobalScope",
+            new PropertyDescriptor(workerInterface, PropertyFlag.NonEnumerable));
 
         // `self` is already on this global — WebApiFeatures.GlobalEvents installed it, and every worker has
         // that feature — but with Window's [Replaceable] definition rather than WorkerGlobalScope's read-only
@@ -124,7 +146,10 @@ internal sealed class WorkerGlobalScope
 
         // WebIDL operations on the global are writable, enumerable and configurable —
         // https://webidl.spec.whatwg.org/#es-operations.
-        InstallValue(global, "postMessage", scope.CreateFunction("postMessage", 1, scope.PostMessage));
+        if (link is not null)
+        {
+            InstallValue(global, "postMessage", scope.CreateFunction("postMessage", 1, scope.PostMessage));
+        }
         InstallValue(global, "close", scope.CreateFunction("close", 0, scope.Close));
 
         // https://html.spec.whatwg.org/multipage/workers.html#import-scripts-into-worker-global-scope, whose
@@ -138,10 +163,19 @@ internal sealed class WorkerGlobalScope
         // `[Replaceable] readonly attribute DOMString name`, which is exactly what `self` above it is NOT, so
         // the plain writable data property that simplification installs is right for this one and wrong for
         // that one. HTML decides the two attributes separately, and so does this file.
-        InstallValue(global, "name", JsString.Create(name));
-
-        scope.InstallEventHandler(global, "onmessage", JsMessagePort.MessageEventType);
-        scope.InstallEventHandler(global, "onmessageerror", JsMessagePort.MessageErrorEventType);
+        if (shared is null)
+        {
+            InstallValue(global, "name", JsString.Create(name));
+            scope.InstallEventHandler(global, "onmessage", JsMessagePort.MessageEventType);
+            scope.InstallEventHandler(global, "onmessageerror", JsMessagePort.MessageErrorEventType);
+        }
+        else
+        {
+            InstallDescriptor(global, "name", new GetSetPropertyDescriptor(
+                scope.CreateFunction("get name", 0, (_, _) => JsString.Create(name)), null,
+                PropertyFlag.Configurable | PropertyFlag.Enumerable));
+            scope.InstallEventHandler(global, "onconnect", "connect");
+        }
 
         // WinterTC §5.3's three. The events already fire at this same target under
         // WebApiFeatures.GlobalEvents; what these add is the attribute form of registering for them.
@@ -182,7 +216,7 @@ internal sealed class WorkerGlobalScope
             ? StructuredSerializeOptions.ReadTransferSequence(_realm, argument, Operation)
             : StructuredSerializeOptions.ReadTransferOption(_realm, argument, Operation);
 
-        _link.PostFromWorker(_realm, arguments[0], transferList);
+        _link!.PostFromWorker(_realm, arguments[0], transferList);
         return JsValue.Undefined;
     }
 
@@ -193,7 +227,7 @@ internal sealed class WorkerGlobalScope
     /// </summary>
     private JsValue Close(JsValue thisObject, JsCallArguments arguments)
     {
-        _link.CloseFromWorker();
+        _close();
         return JsValue.Undefined;
     }
 
@@ -202,6 +236,11 @@ internal sealed class WorkerGlobalScope
     /// </summary>
     private JsValue ImportScripts(JsValue thisObject, JsCallArguments arguments)
     {
+        if (_importScripts is not null)
+        {
+            return _importScripts(thisObject, arguments);
+        }
+
         Throw.TypeError(_realm, "Failed to execute 'importScripts' on 'DedicatedWorkerGlobalScope': Module scripts don't support importScripts(). Use a static or dynamic import instead.");
         return JsValue.Undefined;
     }

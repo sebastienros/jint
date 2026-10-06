@@ -1,0 +1,54 @@
+name: Parser lookups
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Generated parser lookups
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Setup Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+
+    - name: Verify generated parser lookups
+      run: python3 Jint.HtmlParser/Parsing/generate_parser_lookups.py --check
+
+    - name: Verify generated known names
+      run: python3 Jint.HtmlParser/Html/generate_known_names.py --check
+
+    - name: Test parser lookup generator
+      run: python3 -m unittest discover -s Jint.HtmlParser/Parsing -p test_generate_parser_lookups.py -v
+
+    - name: Test known name generator
+      run: python3 -m unittest discover -s Jint.HtmlParser/Html -p test_generate_known_names.py -v
+
+    - name: Verify pinned html5lib tree corpus
+      run: python3 tools/sync_html5lib_corpus.py --check
+
+    - name: Restore pinned W3C XML archive
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        enableCrossOsArchive: true
+
+    - name: Verify archive and test Japanese input preparation
+      run: |
+        python3 - <<'PYTHON'
+        import sys
+        sys.path.insert(0, 'Jint.Tests.HtmlParser/Xml/Conformance/Tools')
+        import import_corpus as corpus
+        if not corpus.ARCHIVE.exists():
+            corpus.restore_one(corpus.ARCHIVE_URL, corpus.ARCHIVE, corpus.ARCHIVE_SHA)
+        corpus.verify(corpus.ARCHIVE, corpus.ARCHIVE_SHA)
+        PYTHON
+        python3 -m unittest discover -s Jint.Tests.HtmlParser/Xml/Conformance/Tools -p 'test_*.py' -v

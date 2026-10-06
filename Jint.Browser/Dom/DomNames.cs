@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
@@ -6,36 +6,12 @@ using Jint.WebApi.DomException;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// <a href="https://dom.spec.whatwg.org/#namespaces">DOM §1.4's name validation</a>: the three predicates a
-/// name is held to, and <a href="https://dom.spec.whatwg.org/#validate-and-extract">validate and extract</a>,
-/// which is the algorithm every namespaced creation runs before it does anything.
+/// Validates DOM names and qualified names before a Browser binding enters native creation algorithms.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why this is ours rather than AngleSharp's.</b> The algorithm chooses between two <c>DOMException</c>
-/// names and they are not interchangeable, because <c>e.name</c> is a page's whole vocabulary for a refused
-/// DOM operation: a name whose code points are not allowed is an <c>InvalidCharacterError</c>, while a
-/// <i>prefixed</i> name with a null namespace, an <c>xml</c> prefix outside the XML namespace or an
-/// <c>xmlns</c> name outside the XMLNS namespace is a <c>NamespaceError</c>. AngleSharp's
-/// <c>Document.GetPrefixAndLocalName</c> makes some of those refusals, makes them under the other name, and
-/// makes none at all for a prefixed name with no namespace — so an element or attribute is created carrying a
-/// prefix nothing declares. <c>AGENTS.md</c>'s divergence table has the rows.
-/// </para>
-/// <para>
-/// <b>Where it runs.</b> In <see cref="DomFailures.Guard"/>, which already wraps every emitted member body
-/// and already knows the qualified member name — so the eight members that validate a name are a table here
-/// rather than eight hand-written bodies, no generated file moves, and a member the table does not name pays
-/// nothing. It runs <i>before</i> the body, which is where WebIDL puts it, and only for a receiver the
-/// member's own brand check will accept, so an illegal invocation is still a <c>TypeError</c> and a missing
-/// argument is still the body's <c>TypeError</c> rather than a refusal about a name.
-/// </para>
-/// <para>
-/// <b>These are not the XML productions any more.</b> DOM used to validate against XML's <c>Name</c> and
-/// <c>QName</c>; it was loosened deliberately, because there were names the HTML parser could build and the
-/// DOM API could not. What is left is the four predicates below, and the register of what each forbids is the
-/// point: <c>=</c> is refused in an attribute local name and allowed in an element one, <c>/</c> is refused in
-/// both and allowed in a doctype name, and a code point at or above U+0080 is allowed everywhere.
-/// </para>
+/// https://dom.spec.whatwg.org/#validate-and-extract
+/// Name validation distinguishes InvalidCharacterError from NamespaceError. Prefix and namespace rules
+/// are checked before tree mutation so refused names have the script-visible error the standard specifies.
 /// </remarks>
 internal static class DomNames
 {
@@ -170,9 +146,7 @@ internal static class DomNames
     }
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#validate-and-extract, in the one place a refusal is the whole answer: the
-    /// prefix and local name it extracts are AngleSharp's to compute again, and every step that throws is
-    /// here.
+    /// https://dom.spec.whatwg.org/#validate-and-extract — validates the namespace and qualified name before native creation.
     /// </summary>
     /// <remarks>
     /// The steps are in the standard's order, and the order is what decides which of the two names a page
@@ -365,9 +339,6 @@ internal static class DomNames
                 return;
             }
 
-            // A DOMString? parameter, deliberately: DOM's algorithm turns on whether the namespace is null,
-            // and `createElementNS(null, 'f:oo')` is the commonest way a page reaches that step. What the
-            // member then hands AngleSharp is unchanged.
             var namespaceUri = NamespaceIndex >= 0 && !arguments[NamespaceIndex].IsNullOrUndefined()
                 ? TypeConverter.ToString(arguments[NamespaceIndex])
                 : null;
@@ -400,9 +371,9 @@ internal static class DomNames
 
         private bool Accepts(IDomWrapper wrapper) => On switch
         {
-            Receiver.Document => wrapper.DomTarget is IDocument,
-            Receiver.Implementation => wrapper.DomTarget is IImplementation,
-            _ => wrapper.DomTarget is IElement,
+            Receiver.Document => wrapper.DomTarget is Document,
+            Receiver.Implementation => wrapper.DomTarget is DomImplementation,
+            _ => wrapper.DomTarget is Element,
         };
     }
 }

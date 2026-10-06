@@ -15,7 +15,7 @@ What it is not
 A renderer.
 A rival DOM stack.
 
-Jint should add value to AngleSharp without competing too much.
+Jint combines a native DOM with its JavaScript engine.
 
 Running it
 dotnet run --project Jint.Repl -c Release -- -f page.js -t 10

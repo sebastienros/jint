@@ -1,4 +1,5 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom.Collections;
 using Jint.Browser.Dom;
 
 namespace Jint.Tests.Browser;
@@ -128,11 +129,12 @@ public sealed class DomCollectionTests
     }
 
     [Test]
-    public void AnHtmlCollectionReturnKeepsItsBrandWhenTheTargetAlsoImplementsNodeList()
+    public void AnHtmlCollectionReturnKeepsItsNativeCollectionBrand()
     {
         using var fixture = DomTestFixture.Create(Page);
-        var collection = fixture.Document.QuerySelectorAll("input");
-        collection.Should().BeAssignableTo<INodeList>();
+        var target = ((IDomWrapper) fixture.Evaluate("document.getElementsByTagName('input')")).DomTarget;
+        target.Should().BeAssignableTo<DomHtmlCollection<Element>>();
+        var collection = (DomHtmlCollection<Element>) target;
 
         var realm = DomRealm.Of(fixture.Engine);
         fixture.Engine.SetValue("collection", realm.WrapCollection(collection));

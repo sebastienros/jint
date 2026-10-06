@@ -91,10 +91,13 @@ public abstract class CacheStorageProvider
 /// <b>The two calls are a pair.</b> A <see cref="Write"/> names entries by their index in the list the
 /// immediately preceding <see cref="Entries"/> read returned, and no engine code — and therefore no script —
 /// runs between the two, so the list a provider hands out only has to stay stable across that window.
+/// Jint serializes these batches across engines sharing the same <see cref="CacheStore"/> instance.
 /// </para>
 /// </remarks>
 public abstract class CacheStore
 {
+    internal object SyncRoot { get; } = new();
+
     /// <summary>
     /// The pairs this cache holds, oldest first.
     /// </summary>

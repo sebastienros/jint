@@ -2,7 +2,7 @@ namespace Jint.Tests.Browser;
 
 /// <summary>
 /// The two nodes whose interface also supports indexed or named properties, and the union-typed operations
-/// AngleSharp spells as two overloads.
+/// The former DOM integration spells as two overloads.
 /// </summary>
 /// <remarks>
 /// A node's wrapper is what the engine's tree-dispatch lane keys on and the wrapper cache keeps exactly one
@@ -62,7 +62,8 @@ public sealed class DomIndexedNodeTests
         // The obligation Jint/Native/Object/AGENTS.md states: a name GetOwnProperty answers has to be a name
         // GetOwnPropertyKeys lists, or hasOwnProperty and getOwnPropertyNames disagree about one object.
         fixture.Text("JSON.stringify(Object.getOwnPropertyNames(document.getElementById('f')))")
-            .Should().Be("[\"0\",\"1\",\"username\",\"u\",\"password\"]");
+            // HTML supported property names visit each element's id before its name.
+            .Should().Be("[\"0\",\"1\",\"u\",\"username\",\"password\"]");
         fixture.Bool("document.getElementById('f').hasOwnProperty('username')").Should().BeTrue();
         fixture.Bool("'username' in document.getElementById('f')").Should().BeTrue();
         fixture.Bool("'nope' in document.getElementById('f')").Should().BeFalse();
@@ -76,7 +77,7 @@ public sealed class DomIndexedNodeTests
 
         // An expando is still an ordinary own property, and it enumerates after the projection.
         fixture.Execute("document.getElementById('f').expando = 1;");
-        fixture.Text("Object.keys(document.getElementById('f')).join(',')").Should().Be("0,1,username,u,password,expando");
+        fixture.Text("Object.keys(document.getElementById('f')).join(',')").Should().Be("0,1,u,username,password,expando");
     }
 
     [Test]
@@ -118,7 +119,7 @@ public sealed class DomIndexedNodeTests
         using var fixture = DomTestFixture.Create(Page);
 
         // https://html.spec.whatwg.org/multipage/form-elements.html#dom-select-add —
-        // `(HTMLOptionElement or HTMLOptGroupElement)`, which AngleSharp models as two overloads sharing one
+        // `(HTMLOptionElement or HTMLOptGroupElement)`, which the former DOM integration models as two overloads sharing one
         // [DomName]. The generator binds one member per name, so the optgroup arm used to be a TypeError.
         fixture.Execute("const g = document.createElement('optgroup'); g.label = 'G'; document.getElementById('s').add(g);");
         fixture.Text("document.getElementById('s').lastElementChild.tagName").Should().Be("OPTGROUP");
@@ -141,7 +142,7 @@ public sealed class DomIndexedNodeTests
         using var fixture = DomTestFixture.Create("<div id='a'></div><p id='b'>x</p>");
 
         // https://dom.spec.whatwg.org/#converting-nodes-into-a-node — `(Node or DOMString)...`, where the
-        // string half becomes a Text node in the receiver's node document. AngleSharp's signature is INode[],
+        // string half becomes a Text node in the receiver's node document. the former DOM integration's signature is INode[],
         // so a string argument used to be a TypeError where a browser inserts text.
         fixture.Execute("document.getElementById('a').append('one', document.createElement('span'), 2);");
         fixture.Text("document.getElementById('a').innerHTML").Should().Be("one<span></span>2");

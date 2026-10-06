@@ -193,7 +193,7 @@ public abstract class DevToolsTarget : ICommandGateway
     /// <para>
     /// <b>The one documented exception to "every domain method runs on the engine thread", and the bar is
     /// what keeps it one.</b> A method may be named here only if it provably touches no engine state, no
-    /// <c>JsValue</c> and no AngleSharp node — nothing but its own parameters and structures that are
+    /// <c>JsValue</c> and no native DOM node — nothing but its own parameters and structures that are
     /// thread-safe by construction. One that reads a <c>RemoteObjectTable</c>, a <c>ScriptRegistry</c>, a
     /// <c>DebugHandler</c>, an <c>Engine</c> or a DOM node may never be, whatever it costs on the loop.
     /// </para>

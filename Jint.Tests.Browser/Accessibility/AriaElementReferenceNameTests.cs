@@ -75,11 +75,11 @@ public sealed class AriaElementReferenceNameTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        AccessibleName.ResolveRole(fixture.Document.GetElementById("region")!).Should().Be("generic");
+        AccessibleName.ResolveRole(ContentDom.ElementById(fixture.Document, "region")!).Should().Be("generic");
 
         fixture.Evaluate("document.getElementById('region').ariaLabelledByElements = [document.getElementById('billing')]");
 
-        AccessibleName.ResolveRole(fixture.Document.GetElementById("region")!).Should().Be("region");
+        AccessibleName.ResolveRole(ContentDom.ElementById(fixture.Document, "region")!).Should().Be("region");
     }
 
     /// <summary>
@@ -126,13 +126,13 @@ public sealed class AriaElementReferenceNameTests
 
     private static string Name(DomTestFixture fixture, string id)
     {
-        var element = fixture.Document.GetElementById(id)!;
+        var element = ContentDom.ElementById(fixture.Document, id)!;
         return Computation().Compute(element, AccessibleName.ResolveRole(element));
     }
 
     private static string Description(DomTestFixture fixture, string id)
     {
-        var element = fixture.Document.GetElementById(id)!;
+        var element = ContentDom.ElementById(fixture.Document, id)!;
         var computation = Computation();
         var name = computation.Compute(element, AccessibleName.ResolveRole(element));
         return computation.ComputeDescription(element, name);

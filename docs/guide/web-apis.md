@@ -26,6 +26,7 @@ network position: restrict destinations and sizes, partition state per tenant, a
 - [Encoding, files, and streams](./web-apis/encoding-files-and-streams.md)
 - [Fetch and networking](./web-apis/fetch-and-networking.md)
 - [Storage and Cache API](./web-apis/storage-and-cache.md)
+- [IndexedDB](./web-apis/indexeddb.md)
 - [Crypto and performance](./web-apis/crypto-and-performance.md)
 - [Web Locks](./web-apis/locks.md)
 - [Workers](./web-apis/workers.md)

@@ -97,7 +97,7 @@ public sealed class DomTokenListTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // The one AngleSharp cannot express: `bool force = false` reads "not given" and "given as false"
+        // The one the former DOM integration cannot express: `bool force = false` reads "not given" and "given as false"
         // alike, so an absent token was added by a call that asked for it to be removed.
         fixture.Text(
             """

@@ -150,6 +150,13 @@ public sealed partial class Options
         private StorageOptions? _storage;
 
         /// <summary>
+        /// Settings for private IndexedDB storage, used when <see cref="Features"/> contains <see cref="WebApiFeatures.IndexedDb"/>.
+        /// </summary>
+        public IndexedDbOptions IndexedDb => Materialize(ref _indexedDb, ref _readOnly);
+
+        private IndexedDbOptions? _indexedDb;
+
+        /// <summary>
         /// Settings for the <c>caches</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
@@ -195,6 +202,7 @@ public sealed partial class Options
             clone._navigator = _navigator?.Clone();
             clone._diagnostics = _diagnostics?.Clone();
             clone._storage = _storage?.Clone();
+            clone._indexedDb = _indexedDb?.Clone();
             clone._cache = _cache?.Clone();
             clone._messaging = _messaging?.Clone();
             clone._workers = _workers?.Clone();
@@ -415,6 +423,49 @@ public sealed partial class Options
         public int MaxQueuedMessages { get; set { ThrowIfReadOnly(); field = value; } } = 16384;
 
         internal WorkerOptions Clone() => (WorkerOptions) MemberwiseClone();
+    }
+
+    /// <summary>
+    /// Configures private in-memory IndexedDB storage on .NET 8 or later.
+    /// </summary>
+    public sealed partial class IndexedDbOptions
+    {
+        /// <summary>
+        /// Creates IndexedDB settings with a 50 MiB retained-data quota.
+        /// </summary>
+        public IndexedDbOptions()
+        {
+        }
+
+        /// <summary>
+        /// Gets or sets the retained-data quota across this engine's IndexedDB databases, in bytes; defaults to 50 MiB.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Captured when the engine first uses IndexedDB. Configure before first use, including through
+        /// <c>Engine.WebApi.Enable</c>. Browser-managed stores use their own quota instead.
+        /// </para>
+        /// <para>
+        /// Nonnegative; zero refuses database creation, and <see cref="long.MaxValue"/> explicitly removes
+        /// the practical quota. A commit exceeding it aborts with <c>QuotaExceededError</c>.
+        /// </para>
+        /// <para>
+        /// Counts committed serialized values, keys, indexes and metadata, not peak CLR allocations.
+        /// Data and its charge survive global snapshot restores; deleting data releases its charge.
+        /// </para>
+        /// </remarks>
+        public long MaxBytes
+        {
+            get;
+            set
+            {
+                ThrowIfReadOnly();
+                if (value < 0) Throw.ArgumentOutOfRangeException(nameof(value), "IndexedDB quota must be nonnegative.");
+                field = value;
+            }
+        } = 50 * 1024 * 1024;
+
+        internal IndexedDbOptions Clone() => (IndexedDbOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1187,13 +1238,24 @@ public enum WebApiFeatures
     Crypto = 1 << 5,
 
     /// <summary>
-    /// The <c>performance</c> object — <c>now()</c>, <c>timeOrigin</c>, and the User Timing surface
-    /// (<c>mark</c>, <c>measure</c>, <c>getEntries</c> and friends) with the <c>PerformanceEntry</c>,
-    /// <c>PerformanceMark</c> and <c>PerformanceMeasure</c> interface objects behind it. Every reading comes
-    /// from the clock in <see cref="Options.TimerOptions.TimeProvider"/>, so a fake one drives them and the
-    /// timers together. There is no <c>PerformanceObserver</c>, and the entry buffer is bounded rather than
-    /// unbounded — see <c>JsPerformance</c>.
+    /// The performance clock, timeline, entry interfaces, and observers, including resource timing when Fetch or XMLHttpRequest is enabled.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Included in <see cref="Default"/>. Installs <c>PerformanceResourceTiming</c> even without network features.
+    /// Completed Fetch and XMLHttpRequest requests each queue an additional task to record a resource entry;
+    /// pump the engine to publish entries and deliver observer callbacks.
+    /// </para>
+    /// <para>
+    /// Fetch bodies are read on demand, so their entries wait for consumption or cancellation.
+    /// Resource entries have a separate 250-entry buffer; marks and measures retain at most 10,000 entries.
+    /// All readings use <see cref="Options.TimerOptions.TimeProvider"/>.
+    /// </para>
+    /// <para>
+    /// Omit this flag at construction to avoid resource recording and its tasks; this also removes the
+    /// performance clock, user timing, and observers. Features cannot be disabled after enabling them.
+    /// </para>
+    /// </remarks>
     Performance = 1 << 6,
 
     /// <summary>
@@ -1578,6 +1640,24 @@ public enum WebApiFeatures
     /// </para>
     /// </remarks>
     WebLocks = 1 << 26,
+
+    /// <summary>
+    /// IndexedDB databases, transactions, indexes and cursors, backed by private in-memory storage.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Opt-in, and not part of <see cref="Default"/>. Also enables <see cref="Events"/> and
+    /// <see cref="StructuredClone"/>. Requests complete as tasks on the owning engine's event loop;
+    /// hosts must pump it. Data survives a global snapshot restore but not engine disposal.
+    /// Private storage defaults to 50 MiB; configure <see cref="Options.IndexedDbOptions.MaxBytes"/> before first use.
+    /// </para>
+    /// <para>
+    /// Enabling this flag separates tasks from microtasks immediately, including through live enablement.
+    /// Microtasks run before queued tasks and at the end of every top-level host Invoke or Call.
+    /// See https://w3c.github.io/IndexedDB/#transaction-lifetime.
+    /// </para>
+    /// </remarks>
+    IndexedDb = 1 << 27,
 
     /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.

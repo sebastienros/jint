@@ -80,10 +80,11 @@ public sealed class DocumentHostHookTests
                 "page=kept"));
 
         (await fixture.Page.EvaluateAsync<string>("secondaryDuringParse"))
-            .Should().Be("about:blank|about:blank|about:blank|about:blank||complete|true|");
+            .Should().Be(string.Join("|", fixture.Url("/page/index.html"), fixture.Url("/page/index.html"),
+                fixture.Url("/page/index.html"), fixture.Url("/page/index.html"), "", "complete", "true", ""));
 
         (await fixture.Page.EvaluateAsync<string>("detachedDuringParse"))
-            .Should().Be("about:blank|about:blank|about:blank||loading|true|");
+            .Should().Be("about:blank|about:blank|about:blank||complete|true|");
 
         (await fixture.Page.EvaluateAsync<string>("pageCookieAfterSecondaryWrites"))
             .Should().Be("page=kept", "secondary documents have no access to the page's cookie jar");
@@ -108,7 +109,8 @@ public sealed class DocumentHostHookTests
                 second.remove();
                 [before, afterFirst, secondary.baseURI, secondary.body.baseURI].join('|');
                 """))
-            .Should().Be("https://first.example/root/|https://second.example/root/|about:blank|about:blank");
+            .Should().Be(string.Join("|", "https://first.example/root/", "https://second.example/root/",
+                fixture.Url("/page/index.html"), fixture.Url("/page/index.html")));
 
         fixture.Page.Errors.Should().BeEmpty();
     }
@@ -157,7 +159,8 @@ public sealed class DocumentHostHookTests
                   'application/xml');
                 [xml.baseURI, xml.documentElement.baseURI, xml.documentElement.firstElementChild.baseURI].join('|');
                 """))
-            .Should().Be("about:blank|about:blank|about:blank");
+            // HTML parseFromString inherits the associated document URL; XML base elements do not change it.
+            .Should().Be("https://page.example/root/|https://page.example/root/|https://page.example/root/");
     }
 
     /// <summary>
@@ -174,7 +177,7 @@ public sealed class DocumentHostHookTests
     /// call targets: an XML document is HTML's own first step and still an <c>InvalidStateError</c>, the
     /// displayed document keeps its no-op, and a secondary HTML document gets the standard's own steps —
     /// run here, because every one of these documents sits in a browsing context with no parent, which is
-    /// the reference AngleSharp's <c>Document.Open</c> dereferences.
+    /// the reference the former DOM integration's <c>Document.Open</c> dereferences.
     /// </remarks>
     [Test]
     public async Task ASecondaryDocumentIsWrittenOnItsOwnTermsAndNotAsThePage()
@@ -396,7 +399,7 @@ public sealed class DocumentHostHookTests
     /// <summary>
     /// A frame's document is the page's too — it is in the displayed browsing-context tree — so it takes the
     /// page's refusal rather than the secondary one. Selecting on the one displayed document instead would
-    /// have sent it to AngleSharp's <c>Document.Open</c>, which fires the frame's unload and empties its tree.
+    /// have sent it to the former DOM integration's <c>Document.Open</c>, which fires the frame's unload and empties its tree.
     /// </summary>
     [Test]
     public async Task AFrameDocumentTakesTheDisplayedRefusalRatherThanTheSecondaryOne()

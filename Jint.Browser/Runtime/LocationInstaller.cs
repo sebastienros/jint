@@ -8,32 +8,11 @@ using Jint.WebApi.Url.Parsing;
 namespace Jint.Browser.Runtime;
 
 /// <summary>
-/// <c>location</c>: every member an own property of the one location object, over the page's own URL.
-/// <para>
-/// https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-location-interface
-/// </para>
+/// Installs the script-visible Location interface over the page runtime's URL and navigation queue.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Every member is installed here, not only the navigating ones.</b> The generated <c>Location</c>
-/// prototype reads and writes AngleSharp's <c>ILocation</c>, and a write to it raises
-/// <c>Location.Changed</c>, which AngleSharp answers with a fire-and-forget <c>IBrowsingContext.OpenAsync</c>
-/// on whatever thread the setter ran on — a second thread in the DOM, inert today only because no requester
-/// is registered. A page assigning <c>location.pathname</c> means a navigation, and a navigation is the
-/// page's to run: so the whole interface is shadowed by own properties over the page's authoritative URL,
-/// AngleSharp's location is never written, and the hazard is gone rather than merely dormant.
-/// </para>
-/// <para>
-/// <b>The URL is the runtime's, not AngleSharp's.</b> <see cref="PageRuntime.DocumentUrl"/> is what a
-/// navigation commits and what <c>pushState</c> moves, so it is what every getter reads. AngleSharp's
-/// document address stays at whatever the parse was given, which is the URL relative resolution inside the
-/// parse used and is exactly right for that; nothing else reads it.
-/// </para>
-/// <para>
-/// <b>The attributes are WebIDL's <c>[LegacyUnforgeable]</c> ones</b>, which is what every member of
-/// <c>Location</c> carries: enumerable, and neither writable nor configurable, so a page cannot delete
-/// <c>location.assign</c> or redefine <c>location.href</c> out of the way.
-/// </para>
+/// PageRuntime.DocumentUrl is committed by navigation and moved by same-document history changes.
+/// Getters read that URL and setters schedule Browser navigation on the owning page loop.
 /// </remarks>
 internal static class LocationInstaller
 {
@@ -99,8 +78,6 @@ internal static class LocationInstaller
                 }),
                 PropertyFlag.OnlyEnumerable));
 
-        // AngleSharp's ILocation has no [DomName] for it, so String(location) would otherwise answer
-        // [object Location] instead of the URL.
         wrapper.DefineOwnPropertyUnchecked(
             "toString",
             new PropertyDescriptor(
@@ -130,7 +107,7 @@ internal static class LocationInstaller
     /// exception and has <see cref="WriteHash"/> to itself; every other setter comes through here, and the
     /// navigator is what recognizes a fragment-only change and keeps the document.
     /// </remarks>
-    private static void Write(PageRuntime runtime, string value, Action<UrlRecord, string> setter)
+    internal static void Write(PageRuntime runtime, string value, Action<UrlRecord, string> setter)
     {
         var url = UrlParser.Parse(runtime.DocumentUrl);
         if (url is null)
@@ -169,7 +146,7 @@ internal static class LocationInstaller
     /// read as a reload: the document, its engine and everything a script had put on them went away.
     /// </para>
     /// </remarks>
-    private static void WriteHash(PageRuntime runtime, string value)
+    internal static void WriteHash(PageRuntime runtime, string value)
     {
         // Step 3: a copy of the URL, which parsing the page's own gives us for free.
         var url = UrlParser.Parse(runtime.DocumentUrl);

@@ -9,7 +9,7 @@ using Browser = global::Jint.Browser.Browser;
 /// <c>document.evaluate</c>.
 /// </summary>
 /// <remarks>
-/// The engine is <c>System.Xml.XPath</c> over <c>AngleSharp.XPath</c>'s navigator, so what these assert is
+/// The engine is <c>System.Xml.XPath</c> over <c>the former DOM integration.XPath</c>'s navigator, so what these assert is
 /// the <i>binding</i>: the interfaces exist, a page can construct the one it is meant to, the ten result
 /// types are answered and coerced the way the standard says, and the two documented divergences (namespaces
 /// are ignored, and a node set is materialized) hold. <c>Jint.Browser/Dom/Views/JsXPath</c> argues both.
@@ -30,6 +30,29 @@ public sealed class XPathTests
         var page = await browser.NewPageAsync();
         await page.SetContentAsync(Page);
         return page;
+    }
+
+    [Test]
+    public async Task BareAncestorPredicatesPreserveBrowserNamespacePolicyAndCompiledReuse()
+    {
+        await using var browser = new Browser();
+        var page = await OpenAsync(browser);
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const expression = document.createExpression('//*[ancestor::div]');
+              const ids = () => {
+                const result = expression.evaluate(document, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE);
+                return Array.from({length: result.snapshotLength}, (_, i) => result.snapshotItem(i).localName).join('|');
+              };
+              const before = ids();
+              document.getElementById('root').remove();
+              const after = ids();
+              const xml = new DOMParser().parseFromString('<r xmlns:p="urn:p"><p:x><y/></p:x></r>', 'application/xml');
+              const count = source => document.evaluate(source, xml, p => 'urn:p', XPathResult.ORDERED_NODE_SNAPSHOT_TYPE).snapshotLength;
+              return [before, after, count('//*[ancestor::x]'), count('//*[ancestor::p:x]'), count('//*[ancestor-or-self::x]')].join(';');
+            })()
+            """ )).Should().Be("p|p|span;;1;0;2");
     }
 
     [Test]

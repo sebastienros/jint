@@ -11,7 +11,7 @@ namespace Jint.DevTools.Domains;
 /// This package knows the language's values and nothing else, so a DOM node reaches a client as an ordinary
 /// object. The protocol has a vocabulary for it — <c>subtype: "node"</c>, and a description a front end
 /// renders as <c>div#id.cls</c> — and the package that owns the DOM is the only one that can fill it in.
-/// <c>Jint.Browser</c> is that package: AngleSharp plus Jint, never a DOM stack of its own.
+/// <c>Jint.Browser</c> is that package: the native DOM plus Jint.
 /// </para>
 /// <para>
 /// A describer is consulted <b>first</b>, for every non-primitive value, and answering

@@ -154,13 +154,11 @@ public sealed class DomBindingTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        fixture.Text("document.querySelector('#a').style.color").Should().Be("rgba(255, 0, 0, 1)");
+        fixture.Text("document.querySelector('#a').style.color").Should().Be("red");
 
-
-        // AngleSharp.Css serializes every color as rgba(...) where CSSOM specifies rgb(...) when the alpha
-        // is 1; reported upstream. What the binding owns is the round trip, and that holds.
+        // CSS Color 4 §16.2: declared named colors retain their lowercase keywords.
         fixture.Evaluate("document.querySelector('#a').style.color = 'blue'");
-        fixture.Text("document.querySelector('#a').style.color").Should().Be("rgba(0, 0, 255, 1)");
+        fixture.Text("document.querySelector('#a').style.color").Should().Be("blue");
 
         fixture.Evaluate("document.querySelector('#a').style.setProperty('font-weight', 'bold')");
         fixture.Text("document.querySelector('#a').style.getPropertyValue('font-weight')").Should().Be("bold");
@@ -206,7 +204,7 @@ public sealed class DomBindingTests
     /// fixtures both died on it with
     /// <c>TypeError: Failed to execute 'Node.insertBefore': parameter 2 is not of the expected type</c>
     /// before <c>overrides.json</c>'s <c>nullableParameters</c> table existed. <c>Node.contains(null)</c> and
-    /// <c>Node.isEqualNode(null)</c> are the same rule and are <i>not</i> fixed here: AngleSharp annotates
+    /// <c>Node.isEqualNode(null)</c> are the same rule and are <i>not</i> fixed here: the former DOM integration annotates
     /// both parameters non-nullable and does not implement the null arm, so they are a row in the divergence
     /// table rather than a null this binding forwards.
     /// </remarks>

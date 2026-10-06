@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.WebApi.DomException;
@@ -6,31 +6,11 @@ using Jint.WebApi.DomException;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// <a href="https://dom.spec.whatwg.org/#staticrange">DOM §5.3's <c>StaticRange</c></a>: the four values a
-/// page hands over, and the five <a href="https://dom.spec.whatwg.org/#abstractrange">§5.1
-/// <c>AbstractRange</c></a> attributes it answers them with.
+/// A script-visible StaticRange with immutable native boundary points.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>This is the whole interface, and its emptiness is the point.</b> A <c>Range</c> is live — the tree's
-/// to move when a mutation happens under it, which is why AngleSharp models one and why the binding projects
-/// that model. A <c>StaticRange</c> is four values and nothing else: it is never validated against a
-/// container's length, it does not move when the tree does, and it goes stale rather than following. So
-/// there is nothing here for AngleSharp to own, which is also why it has no type for it — no
-/// <c>StaticRange</c>, no <c>AbstractRange</c>, no <c>[DomName]</c> the generator could ever see.
-/// </para>
-/// <para>
-/// It is therefore a <see cref="DomManualInterfaces"/> row, the way <c>HTMLFrameSetElement</c> is, and the
-/// backing object is <see cref="State"/> rather than anything of AngleSharp's. Nothing else in the binding
-/// wraps one: an instance is only ever created by <c>new</c>, so it never reaches <c>DomTypeMap</c> and
-/// needs no entry there.
-/// </para>
-/// <para>
-/// <b>The endpoints are kept exactly as handed over.</b> An offset past the container's length, an end that
-/// precedes its start, and endpoints in two disconnected trees are all ordinary static ranges — step 1's
-/// refusal is the constructor's only one, and every other check a <c>Range</c> makes belongs to the live
-/// interface rather than to this one.
-/// </para>
+/// Unlike a live Range, its boundary points do not move when the tree changes. The binding stores its
+/// state separately and uses the declared WebIDL shape for brand checks and property access.
 /// </remarks>
 internal static class DomStaticRange
 {
@@ -38,7 +18,7 @@ internal static class DomStaticRange
     /// The four values, which are the whole of a static range. A record so the wrapper has one immutable
     /// thing to read and nothing to keep in step with the tree.
     /// </summary>
-    internal sealed record State(INode StartContainer, uint StartOffset, INode EndContainer, uint EndOffset)
+    internal sealed record State(Node StartContainer, uint StartOffset, Node EndContainer, uint EndOffset)
     {
         /// <summary>
         /// https://dom.spec.whatwg.org/#dom-abstractrange-collapsed — derived rather than stored, because it
@@ -82,7 +62,7 @@ internal static class DomStaticRange
         return new DomObject(
             realm,
             DomManualInterfaces.StaticRange,
-            new State(startContainer, startOffset, endContainer, endOffset));
+            new State((Node) startContainer, startOffset, (Node) endContainer, endOffset));
     }
 
     /// <summary>
@@ -134,11 +114,11 @@ internal static class DomStaticRange
     /// A <c>required Node</c> member. WebIDL refuses an absent one and a value that is not a <c>Node</c>
     /// alike, and <c>null</c> with them, because the declared type is not nullable.
     /// </summary>
-    private static INode RequiredNode(DomRealm realm, ObjectInstance? members, string member)
+    private static object RequiredNode(DomRealm realm, ObjectInstance? members, string member)
     {
-        if (members?.Get(member) is IDomWrapper { DomTarget: INode node })
+        if (members?.Get(member) is IDomWrapper { DomTarget: Node or Attr } wrapper)
         {
-            return node;
+            return wrapper.DomTarget;
         }
 
         Jint.Runtime.Throw.TypeError(
@@ -168,9 +148,9 @@ internal static class DomStaticRange
     }
 
     /// <summary>Step 1's refusal, which is the only one this constructor makes.</summary>
-    private static void RefuseBoundary(DomRealm realm, INode node, string member)
+    private static void RefuseBoundary(DomRealm realm, object node, string member)
     {
-        if (node is not (IDocumentType or IAttr))
+        if (node is not (DocumentType or Attr))
         {
             return;
         }
@@ -179,6 +159,6 @@ internal static class DomStaticRange
             realm,
             "StaticRange",
             DomExceptionNames.InvalidNodeType,
-            "member " + member + " is " + (node is IAttr ? "an Attr" : "a DocumentType") + ", which cannot be a boundary point.");
+            "member " + member + " is " + (node is Attr ? "an Attr" : "a DocumentType") + ", which cannot be a boundary point.");
     }
 }

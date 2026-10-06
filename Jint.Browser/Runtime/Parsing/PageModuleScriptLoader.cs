@@ -150,7 +150,9 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
                 MaxRedirects,
                 RequestInitiator.Subresource,
                 _emulation.EffectiveUserAgent,
-                PageRequestKind.Script),
+                PageRequestKind.Script,
+                Jint.WebApi.Performance.ResourceTiming.Start(engine, engine._mainRealm,
+                    url.Serialize(excludeFragment: true), "script", referrer?.SerializeOrigin(), JsRequest.CredentialsSameOrigin)),
             _requests,
             cancellationToken).ConfigureAwait(false);
 
@@ -184,6 +186,6 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
         }
 
         var essence = MimeType.Parse(contentType)?.Essence;
-        return essence is not null && AngleSharp.Io.MimeTypeNames.IsJavaScript(essence);
+        return essence is not null && JavaScriptMime.IsJavaScript(essence);
     }
 }

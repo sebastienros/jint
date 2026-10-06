@@ -3,8 +3,9 @@
 | Package | Frameworks | Depends on |
 | --- | --- | --- |
 | [`Jint`](https://www.nuget.org/packages/Jint) | net472, netstandard2.0, netstandard2.1, net8.0, net10.0 | Acornima |
+| [`Jint.HtmlParser`](../packages/jint-htmlparser/) | net8.0, net10.0 | System.IO.Hashing |
 | [`Jint.DevTools`](https://www.nuget.org/packages/Jint.DevTools) | net8.0, net10.0 | Jint |
-| [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) | net8.0, net10.0 | Jint, Jint.DevTools, AngleSharp |
+| [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) | net8.0, net10.0 | Jint, Jint.DevTools, Jint.HtmlParser |
 | [`Jint.Browser.Tool`](https://www.nuget.org/packages/Jint.Browser.Tool) | Native AOT; .NET 10 SDK for installation | Jint.Browser, Jint.DevTools, Jint.Browser.Mcp (compiled into the executable) |
 | [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) | net8.0, net10.0 | Jint.Browser, Model Context Protocol SDK |
 
@@ -13,3 +14,6 @@
 `Jint` is available on NuGet.org today. The optional package pages will become available there with the Jint 5
 release; until then, follow [Using Jint 5 Preview Packages](../guide/preview-packages.md) to install their
 development builds from Feedz.
+
+`Jint.HtmlParser` remains experimental and prerelease even for a Jint GA release. Its public API acceptance
+is tracked separately; see the [parser package guide](../packages/jint-htmlparser/).

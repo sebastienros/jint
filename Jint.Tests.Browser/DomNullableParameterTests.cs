@@ -6,7 +6,7 @@ namespace Jint.Tests.Browser;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Which arguments those are is read from AngleSharp's own nullable-reference metadata, narrowed by
+/// Which arguments those are is read from the former DOM integration's own nullable-reference metadata, narrowed by
 /// <c>overrides.json</c>'s <c>nonNullableParameters</c> where the annotation is wider than the standard.
 /// Every namespaced member is in the first group and it is the group a page notices: <c>getAttributeNS(null,
 /// name)</c> is how a library reads an attribute in no namespace, and with the argument converted as a plain
@@ -15,7 +15,7 @@ namespace Jint.Tests.Browser;
 /// </para>
 /// <para>
 /// The second group is here as well, because a list that only ever widens would be half a decision: the
-/// tests below pin the members where the standard is <em>narrower</em> than AngleSharp's annotation, so
+/// tests below pin the members where the standard is <em>narrower</em> tha former DOM integration's annotation, so
 /// removing a row of that list fails rather than silently changing what a page reads back.
 /// </para>
 /// </remarks>
@@ -83,7 +83,7 @@ public sealed class DomNullableParameterTests
         using var fixture = DomTestFixture.Create(Page);
 
         // https://dom.spec.whatwg.org/#dom-element-setattributens — only the namespace is nullable; the value
-        // is a plain DOMString, so null converts to the four characters. AngleSharp annotates the parameter
+        // is a plain DOMString, so null converts to the four characters. the former DOM integration annotates the parameter
         // nullable because its own setter reads null as removing the attribute, and overrides.json's
         // nonNullableParameters is what stops that annotation reaching the binding.
         fixture.Execute("document.getElementById('a').setAttributeNS(null, 'data-y', null);");
@@ -97,7 +97,7 @@ public sealed class DomNullableParameterTests
         using var fixture = DomTestFixture.Create(Page);
 
         // The other half of the same decision, and the reason the annotation is read for an operation's
-        // argument only: AngleSharp annotates a hundred and fifty reflected content attributes String?, and
+        // argument only: the former DOM integration annotates a hundred and fifty reflected content attributes String?, and
         // Web IDL declares every one of them a non-nullable DOMString.
         fixture.Execute("document.getElementById('a').id = null;");
         fixture.Text("document.getElementById('null').id").Should().Be("null");

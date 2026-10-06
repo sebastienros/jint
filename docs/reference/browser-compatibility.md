@@ -1,6 +1,6 @@
 # Browser Compatibility
 
-`Jint.Browser` combines AngleSharp's HTML, DOM, and CSSOM with Jint's JavaScript runtime.
+`Jint.Browser` combines [Jint.HtmlParser](../packages/jint-htmlparser/)'s native markup tree with Jint's JavaScript runtime and browser-owned CSSOM.
 
 ## Measured conformance
 
@@ -15,6 +15,7 @@ runs a broader set with the upstream runner and is informational rather than a m
 - HTML parsing and script execution;
 - DOM and CSSOM bindings;
 - navigation, history, forms, cookies, and storage;
+- in-memory, origin-partitioned IndexedDB;
 - fetch, XHR, WebSocket, EventSource, and workers;
 - deterministic input dispatch;
 - accessibility, text, HTML, and Markdown extraction;
@@ -25,7 +26,7 @@ runs a broader set with the upstream runner and is informational rather than a m
 - layout and rendering;
 - screenshots and PDF;
 - canvas, WebGL, media, or browser extensions;
-- WebAssembly or IndexedDB;
+- WebAssembly;
 - full iframe scripting;
 - pixel-accurate input or layout-dependent actionability.
 

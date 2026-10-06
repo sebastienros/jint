@@ -127,9 +127,14 @@ internal sealed class EmulationState
     /// absent <c>acceptLanguage</c> or <c>platform</c> leaves the one already set, which is what a client
     /// sending only a user agent expects.
     /// </remarks>
-    internal void ApplyUserAgentOverride(string? userAgent, string? acceptLanguage, string? platform)
+    internal void ApplyUserAgentOverride(
+        string? userAgent,
+        string? acceptLanguage,
+        string? platform,
+        UserAgentClientHints? metadata = null)
     {
         UserAgent = userAgent;
+        UserAgentMetadata = userAgent is { Length: > 0 } ? metadata : null;
 
         if (acceptLanguage is { Length: > 0 } language)
         {
@@ -143,6 +148,12 @@ internal sealed class EmulationState
 
         UserAgentChanged?.Invoke(EffectiveUserAgent);
     }
+
+    /// <summary>
+    /// The client hints a user-agent override described, which <c>navigator.userAgentData</c> answers; see
+    /// <see cref="UserAgentClientHints"/> for what it answers without them.
+    /// </summary>
+    internal UserAgentClientHints? UserAgentMetadata { get; private set; }
 
     /// <summary>What <c>navigator.language</c> answers when a user agent override named one.</summary>
     internal string? AcceptLanguage { get; set; }

@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Object;
@@ -12,14 +12,6 @@ namespace Jint.Browser.CustomElements;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>document.createElement</c> and <c>createElementNS</c> are <c>skip</c>ped in the binding's override
-/// table and re-declared over these bodies, because the element a defined name produces is the
-/// <b>constructor's</b> and not AngleSharp's: with the synchronous custom elements flag set, "create an
-/// element" runs the constructor and answers whatever it made. Everything else about the two members —
-/// the name validation, the lower-casing, the namespace — stays AngleSharp's call, so a document with no
-/// definition at all behaves exactly as it did before.
-/// </para>
-/// <para>
 /// The third creation path, <c>new MyElement()</c>, arrives at <see cref="TryConstruct"/> through
 /// <see cref="DomInterfaceObject"/>, which refuses every other <c>new</c>.
 /// </para>
@@ -27,7 +19,7 @@ namespace Jint.Browser.CustomElements;
 internal static class CustomElementCreation
 {
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createelement.</summary>
-    internal static JsValue CreateElement(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal static JsValue CreateElement(DomRealm realm, Document document, JsValue[] arguments)
         => Create(
             realm,
             document,
@@ -37,14 +29,7 @@ internal static class CustomElementCreation
             DomConvert.At(arguments, 1));
 
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createelementns.</summary>
-    /// <remarks>
-    /// The namespace is DOM's `DOMString? namespace`, so <c>createElementNS(null, 'x')</c> creates an element
-    /// in no namespace rather than one in a namespace spelled <c>"null"</c>. It is read here rather than by
-    /// the generated conversion because this member's whole body is the host's; every other namespaced
-    /// member takes the same argument through <c>DomConvert.NullableText</c>, which the emitter now selects
-    /// from AngleSharp's own nullable-reference metadata.
-    /// </remarks>
-    internal static JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal static JsValue CreateElementNS(DomRealm realm, Document document, JsValue[] arguments)
         => Create(
             realm,
             document,
@@ -58,26 +43,22 @@ internal static class CustomElementCreation
     /// which DOM gets by cloning with the synchronous custom elements flag unset and letting the upgrade
     /// reaction run when the <c>[CEReactions]</c> operation returns.
     /// </summary>
-    /// <remarks>
-    /// The <c>deep</c> default is DOM's own — <c>optional boolean deep = false</c> — rather than the
-    /// <see langword="true"/> AngleSharp's <c>INode.Clone</c> takes when nothing passes one. A shallow clone
-    /// is what <c>node.cloneNode()</c> means in every browser, and the difference is observable the moment a
-    /// page clones a node that has children.
-    /// </remarks>
-    internal static JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
+    internal static JsValue CloneNode(DomRealm realm, Node node, JsValue[] arguments)
     {
-        // `new Document()` and an XML parse share AngleSharp's IXmlDocument runtime type, while WebIDL gives
-        // only the parse the XMLDocument brand. Carry the source wrapper's choice through DOM's clone steps.
-        var documentDefinition = node is IDocument ? realm.WrapNode(node).Definition : null;
+        var documentDefinition = node is Document ? realm.WrapNode(node).Definition : null;
         var deep = DomConvert.OptionalBool(arguments, 0, false);
-        var clone = node.Clone(deep);
-        if (!deep)
+        var clone = node.CloneNode(deep);
+        if (node is Document original && clone is Document documentCopy)
         {
-            DomTemplateCloning.ClearShallowContent(clone);
+            var sourceState = DomDocumentState.Of(original);
+            var copyState = DomDocumentState.Of(documentCopy);
+            copyState.Origin = sourceState.Origin;
+            copyState.Url = sourceState.Url;
+            copyState.Referrer = sourceState.Referrer;
+            copyState.CharacterSet = sourceState.CharacterSet;
+            copyState.AboutBaseUrl = sourceState.AboutBaseUrl;
         }
-        DomCloneSteps.Copy(node, clone);
-
-        Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
+        realm.RecordSubtree(clone);
         CustomElementRegistry.Cloned(realm, node, clone);
         return documentDefinition is null ? realm.WrapNodeValue(clone) : realm.Wrap(clone, documentDefinition);
     }
@@ -123,18 +104,15 @@ internal static class CustomElementCreation
         return true;
     }
 
-    private static JsValue Create(DomRealm realm, IDocument document, string localName, string? namespaceUri, bool namespaced, JsValue options)
+    private static JsValue Create(DomRealm realm, Document document, string localName, string? namespaceUri, bool namespaced, JsValue options)
     {
+        var isValue = ReadIs(realm, options);
         if (CustomElementRegistry.Of(realm.Engine) is not { HasDefinitions: true } registry)
         {
-            return realm.WrapNodeValue(Build(document, localName, namespaceUri, namespaced));
+            return realm.WrapNodeValue(Build(document, localName, namespaceUri, namespaced, isValue));
         }
 
-        // The lower-casing AngleSharp does for an HTML document, done here as well because the lookup happens
-        // before the element exists. A definition's name can only be lower-case, so this is what lets
-        // `createElement('X-THING')` find one.
-        var lowered = document is AngleSharp.Html.Dom.IHtmlDocument ? localName.ToLowerInvariant() : localName;
-        var isValue = ReadIs(realm, options);
+        var lowered = !namespaced && document.Kind == DocumentKind.Html ? AsciiLower(localName) : localName;
         // https://dom.spec.whatwg.org/#validate-and-extract: `createElementNS` takes a *qualified* name, and
         // everything after it — the definition lookup, the element the constructor has to produce — is about
         // the local name that validate-and-extract splits out of it. `createElement` does no extraction at
@@ -149,7 +127,7 @@ internal static class CustomElementCreation
 
         if (definition is null)
         {
-            var plain = Build(document, localName, namespaceUri, namespaced);
+            var plain = Build(document, localName, namespaceUri, namespaced, isValue);
 
             if (isValue is not null)
             {
@@ -161,16 +139,12 @@ internal static class CustomElementCreation
 
         if (definition.IsAutonomous)
         {
-            // Step 6.1: the constructor is called with an empty construction stack, so `super()` is what
-            // creates the element — which is why a constructor may call createElement of its own name. The
-            // prefix has to be handed to it, because DOM's step 5.1.3.9 sets the prefix *after* the
-            // constructor returns and AngleSharp has no setter for one: see PendingPrefix.
             return registry.ConstructAutonomous(definition, document, lookupName, namespaced ? PrefixOf(localName) : null);
         }
 
         // Step 5: a customized built-in is created as its built-in and then upgraded, so `super()` answers
         // the button that already exists.
-        var element = Build(document, localName, namespaceUri, namespaced);
+        var element = Build(document, localName, namespaceUri, namespaced, isValue);
         registry.RecordFor(element).IsValue = isValue;
         registry.Upgrade(element, definition);
         registry.Drain();
@@ -181,14 +155,16 @@ internal static class CustomElementCreation
     /// https://dom.spec.whatwg.org/#validate-and-extract step 4: the local name of a qualified name is what
     /// follows its first colon.
     /// </summary>
-    /// <remarks>
-    /// The prefix itself is AngleSharp's to keep — it is given the qualified name and splits it the same way
-    /// — with one exception this cannot reach: an <b>autonomous</b> custom element is made by its own
-    /// constructor, which creates the element from the definition's local name, and AngleSharp's
-    /// <c>Prefix</c> is read-only, so DOM's "set result's namespace prefix to prefix" has nowhere to write.
-    /// <c>Dom/divergences.md</c> records it; a customized built-in is unaffected, being AngleSharp's own
-    /// element from the qualified name and then upgraded.
-    /// </remarks>
+    private static string AsciiLower(string value)
+    {
+        var chars = value.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] is >= 'A' and <= 'Z') chars[i] = (char) (chars[i] + ('a' - 'A'));
+        }
+        return new string(chars);
+    }
+
     private static string LocalNameOf(string qualifiedName)
     {
         var colon = qualifiedName.IndexOf(':', StringComparison.Ordinal);
@@ -206,29 +182,10 @@ internal static class CustomElementCreation
         return colon < 0 ? null : qualifiedName[..colon];
     }
 
-    /// <remarks>
-    /// <para>
-    /// The two members are two AngleSharp overloads, and which one is called is decided by the *member* and
-    /// never by whether the namespace happens to be null: `createElement` is the one-argument overload, which
-    /// is where an HTML document lower-cases the name and puts the element in the HTML namespace, and
-    /// `createElementNS` is the two-argument one, which takes a null namespace as no namespace and leaves the
-    /// name exactly as the script wrote it.
-    /// </para>
-    /// <para>
-    /// <b>Which is why `createElement` on a document that is not an HTML one may not take the two-argument
-    /// overload either.</b> https://dom.spec.whatwg.org/#dom-document-createelement lower-cases the name at
-    /// step 2 only "if this is an HTML document", and chooses the namespace at step 4 — the HTML namespace
-    /// when this is an HTML document or its content type is `application/xhtml+xml`, and null otherwise.
-    /// AngleSharp's one-argument overload does both unconditionally, so `xmlDoc.createElement('DIV')` came
-    /// back as a lower-cased `div` in the HTML namespace where DOM asks for `DIV` in none; and its
-    /// two-argument one extracts a prefix, which `createElement` never does. Both, and the names either
-    /// overload refuses outright, are <see cref="Dom.DomElementFactory"/>'s.
-    /// </para>
-    /// </remarks>
-    private static IElement Build(IDocument document, string localName, string? namespaceUri, bool namespaced)
+    private static Element Build(Document document, string localName, string? namespaceUri, bool namespaced, string? isValue)
         => namespaced
-            ? Dom.DomElementFactory.CreateNamespaced(document, namespaceUri, localName)
-            : Dom.DomElementFactory.Create(document, localName);
+            ? document.CreateElementNS(namespaceUri, localName, isValue)
+            : document.CreateElement(localName, isValue);
 
     /// <summary>
     /// <c>ElementCreationOptions</c>'s one member. A dictionary is only read when it is an object, which is

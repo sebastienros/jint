@@ -6,6 +6,7 @@ import "./custom.css";
 
 const previewSectionPrefixes = [
   "guide/web-apis",
+  "packages/jint-htmlparser",
   "packages/jint-devtools",
   "packages/jint-browser",
   "packages/jint-browser-tool",

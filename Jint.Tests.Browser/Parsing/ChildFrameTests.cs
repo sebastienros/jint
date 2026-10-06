@@ -182,7 +182,7 @@ public class ChildFrameTests
         await loopback.Page.NavigateAsync(loopback.Url("/"));
 
         // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose content
-        // type is an XML MIME type is parsed by the XML parser. Without AngleSharp.Xml's factory registered
+        // type is an XML MIME type is parsed by the XML parser. Without the former XML integration's factory registered
         // the response came back as an *HTML* document with the text inside an <html><body> skeleton, so the
         // root element was HTML and every XML rule a page then asked about was the wrong document's.
         (await loopback.Page.EvaluateAsync<string>(
@@ -271,10 +271,17 @@ public class ChildFrameTests
     public async Task AFramesLocationReadsItsOwnUrlAndRefusesAWriteOutLoud()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/child.html", "<!doctype html><html><body>child</body></html>")
+            .MapHtml("/child.html", """
+                <!doctype html><html><body><p id="h">child</p>
+                <script>window.addEventListener('load', () => window.targetAtLoad = document.querySelector(':target'));</script>
+                </body></html>
+                """)
             .MapHtml("/", "<!doctype html><html><body><iframe id=f src=\"/child.html?q=1#h\"></iframe></body></html>"));
 
         await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow.targetAtLoad === document.getElementById('f').contentDocument.getElementById('h')"))
+            .Should().BeTrue();
 
         // The frame's URL, not the page's — the reason `location` is shadowed rather than inherited.
         (await loopback.Page.EvaluateAsync<bool>(
@@ -294,7 +301,7 @@ public class ChildFrameTests
         // not make extra targets merely because each candidate has the same owner document and ID.
         (await loopback.Page.EvaluateAsync<bool>(
             "var d = document.getElementById('f').contentDocument; "
-            + "var target = d.createElement('p'); target.id = 'h'; d.body.appendChild(target); "
+            + "var target = d.getElementById('h'); "
             + "var duplicate = d.body.appendChild(target.cloneNode()); "
             + "var host = d.body.appendChild(d.createElement('div')); "
             + "var shadowTarget = host.attachShadow({ mode: 'open' }).appendChild(target.cloneNode()); "
@@ -450,7 +457,7 @@ public class ChildFrameTests
         loopback.Page.Errors.Should().ContainSingle(e => e.Message.Contains("/missing.html", StringComparison.Ordinal));
 
         // `ParserDriver.FailSubresource` dispatches `error` at the element as well, and nothing a page could
-        // have registered is there to hear it: a frame's fetch happens the moment AngleSharp applies `src`,
+        // have registered is there to hear it: a frame's fetch happens the moment the former DOM integration applies `src`,
         // which is before the element is in the document and before any script below it has run. That timing
         // is this browser's — a browser's frame load is asynchronous — and it is the same one an <img> that
         // fails already has, so what a page can act on is `Page.Errors`.

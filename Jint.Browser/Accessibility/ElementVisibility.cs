@@ -1,6 +1,10 @@
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Values;
+using Jint.HtmlParser.Css.Values.Properties;
+using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
+using Jint.Browser.Styling;
 
 namespace Jint.Browser.Accessibility;
 
@@ -16,13 +20,32 @@ namespace Jint.Browser.Accessibility;
 internal sealed class ElementVisibility
 {
     private readonly bool _useComputedStyle;
+    private readonly DomReadWork? _work;
+    private readonly NativeCssQueryDiagnostics? _diagnostics;
     private bool _cascadeAvailable = true;
     private bool _cascadeAnswered;
 
-    internal ElementVisibility(bool useComputedStyle) => _useComputedStyle = useComputedStyle;
+    internal ElementVisibility(bool useComputedStyle, DomReadWork? work = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
+    {
+        _useComputedStyle = useComputedStyle;
+        _work = work;
+        _diagnostics = diagnostics;
+    }
 
-    internal CssCascade.Traversal? CreateTraversal(IDocument? document)
-        => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, scope: CssCascade.StyleScope.Visibility) : null;
+    internal CssCascade.Traversal? CreateTraversal(Document? document)
+    {
+        _work?.Check();
+        Action? checkpoint = _work is null ? null : _work.Check;
+        var traversal = _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document,
+            scope: CssCascade.StyleScope.Visibility, diagnostics: _diagnostics,
+            cancellationToken: _work?.Token ?? default, checkpoint: checkpoint) : null;
+        _work?.Check();
+        return traversal;
+    }
+
+    private NativeCssComputedStyle? ComputedOf(Element element, CssCascade.Traversal? traversal) =>
+        (traversal ?? CreateTraversal(element.OwnerDocument))?.Of(element);
 
     /// <summary>
     /// Whether the CSS cascade answered at least once, so a caller can say which source a verdict came from.
@@ -36,7 +59,7 @@ internal sealed class ElementVisibility
     /// Ancestors are not consulted: the tree walk carries an inherited verdict down, which is both cheaper
     /// than walking up per node and the only way <c>hiddenRoot</c> can name the ancestor that did it.
     /// </remarks>
-    internal AxIgnoredReason ReasonFor(IElement element, CssCascade.Traversal? traversal = null)
+    internal AxIgnoredReason ReasonFor(Element element, CssCascade.Traversal? traversal = null)
         => ReasonFor(element, ariaHiddenCounts: true, traversal);
 
     /// <summary>
@@ -47,17 +70,17 @@ internal sealed class ElementVisibility
     /// changes nothing about the rendering. It is what the text and markdown extractors ask, because a
     /// decorative marker is still text on the page.
     /// </remarks>
-    internal AxIgnoredReason RenderingReasonFor(IElement element, CssCascade.Traversal? traversal = null)
+    internal AxIgnoredReason RenderingReasonFor(Element element, CssCascade.Traversal? traversal = null)
         => ReasonFor(element, ariaHiddenCounts: false, traversal);
 
-    private AxIgnoredReason ReasonFor(IElement element, bool ariaHiddenCounts, CssCascade.Traversal? traversal)
+    private AxIgnoredReason ReasonFor(Element element, bool ariaHiddenCounts, CssCascade.Traversal? traversal)
     {
-        if (element.HasAttribute("hidden"))
+        if (Attribute(element, "hidden") is not null)
         {
             return AxIgnoredReason.Hidden;
         }
 
-        if (ariaHiddenCounts && string.Equals(element.GetAttribute("aria-hidden"), "true", StringComparison.OrdinalIgnoreCase))
+        if (ariaHiddenCounts && string.Equals(Attribute(element, "aria-hidden"), "true", StringComparison.OrdinalIgnoreCase))
         {
             return AxIgnoredReason.AriaHiddenElement;
         }
@@ -82,14 +105,16 @@ internal sealed class ElementVisibility
     /// Reads the element's <c>display</c> and <c>visibility</c>, from the cascade when it is available and
     /// from the <c>style</c> content attribute when it is not.
     /// </summary>
-    internal (string? Display, string? Visibility) Style(IElement element, CssCascade.Traversal? traversal = null)
+    internal (string? Display, string? Visibility) Style(Element element, CssCascade.Traversal? traversal = null)
     {
         if (_useComputedStyle && _cascadeAvailable)
         {
-            if ((traversal is null ? CssCascade.Of(element) : traversal.Of(element)) is { } computed
+            _work?.Check();
+            if (ComputedOf(element, traversal) is { } computed
                 && Dom.Views.CssCascade.ValueOf(computed, "display") is { } display
                 && Dom.Views.CssCascade.ValueOf(computed, "visibility") is { } visibility)
             {
+                _work?.Check();
                 _cascadeAnswered = true;
                 return (display, visibility);
             }
@@ -97,41 +122,48 @@ internal sealed class ElementVisibility
             Latch();
         }
 
+        _work?.Check();
         return InlineStyle(element);
     }
 
     /// <summary>
-    /// Reads the element's declared <c>white-space</c>, or <see langword="null"/> when the cascade cannot
+    /// Reads the element's computed <c>white-space-collapse</c>, or <see langword="null"/> when the cascade cannot
     /// answer.
     /// </summary>
-    internal string? WhiteSpace(IElement element)
+    internal string? WhiteSpaceCollapse(Element element, CssCascade.Traversal? traversal = null)
     {
         if (!_useComputedStyle || !_cascadeAvailable)
         {
             return null;
         }
 
-        if (Dom.Views.CssCascade.Of(element) is { } computed
-            && Dom.Views.CssCascade.ValueOf(computed, "white-space") is { } whiteSpace)
+        _work?.Check();
+        if (ComputedOf(element, traversal) is { } computed
+            && Dom.Views.CssCascade.ValueOf(computed, "white-space-collapse") is { } whiteSpace)
         {
+            _work?.Check();
             _cascadeAnswered = true;
-            return whiteSpace;
+            if (whiteSpace.Length != 0) return whiteSpace;
+            // The renderless declaration store retains white-space as text, not a typed shorthand.
+            return Dom.Views.CssCascade.ValueOf(computed, "white-space") switch
+            {
+                "pre" or "pre-wrap" or "break-spaces" => "preserve",
+                "pre-line" => "preserve-breaks",
+                _ => "collapse"
+            };
         }
 
         Latch();
+        _work?.Check();
         return null;
     }
 
     /// <summary>
-    /// Stops asking AngleSharp.Css, but only while it has never answered.
+    /// Stops querying the shared cascade only when it has never answered.
     /// </summary>
     /// <remarks>
-    /// The two failures <c>Dom/Views/CssCascade</c> guards are not the same kind of thing. A document whose
-    /// browsing context has no CSS services cannot answer for <i>any</i> element, and asking once per node
-    /// of a whole tree walk would be one thrown exception per node — so the first refusal latches. A cascade
-    /// that has already answered for some other element is available, and a refusal is then about this
-    /// element's own declarations (a unit AngleSharp.Css cannot convert, and <c>width: 20ch</c> is ordinary
-    /// modern CSS): latching there would take a page's <c>display: none</c> rules down with it.
+    /// Once a cascade has answered, a later element-specific refusal must not disable visibility rules
+    /// for the rest of the walk. Only an unavailable cascade may switch the entire query to inline fallback.
     /// </remarks>
     private void Latch()
     {
@@ -141,38 +173,29 @@ internal sealed class ElementVisibility
         }
     }
 
-    private static (string? Display, string? Visibility) InlineStyle(IElement element)
+    private string? Attribute(Element element, string name)
+        => _work is null ? element.GetAttribute(name) : _work.Attribute(element, name);
+
+    private (string? Display, string? Visibility) InlineStyle(Element element)
     {
-        var style = element.GetAttribute("style");
+        var style = Attribute(element, "style");
         if (string.IsNullOrEmpty(style))
         {
             return (null, null);
         }
 
-        string? display = null;
-        string? visibility = null;
-
-        foreach (var declaration in style.Split(';'))
+        // Charge the captured input to the host read budget; native parsing also polls below.
+        if (_work is not null)
         {
-            var separator = declaration.IndexOf(':', StringComparison.Ordinal);
-            if (separator < 0)
-            {
-                continue;
-            }
-
-            var name = declaration.AsSpan(0, separator).Trim();
-            var value = declaration.AsSpan(separator + 1).Trim();
-
-            if (name.Equals("display", StringComparison.OrdinalIgnoreCase))
-            {
-                display = value.ToString();
-            }
-            else if (name.Equals("visibility", StringComparison.OrdinalIgnoreCase))
-            {
-                visibility = value.ToString();
-            }
+            for (var i = 0; i < style.Length; i++) _work.Step();
         }
-
+        // Inline-only extraction uses the same declaration filtering/importance as the cascade.
+        var token = _work?.Token ?? default;
+        var work = new CssValueWork(token, () => _work?.Check());
+        var block = CssDeclarationBlock.Parse(style, CssDeclarationContext.Style, null, work, token);
+        var display = block.ResolveProperty("display", work)?.Value;
+        var visibility = block.ResolveProperty("visibility", work)?.Value;
+        _work?.Check();
         return (display, visibility);
     }
 }

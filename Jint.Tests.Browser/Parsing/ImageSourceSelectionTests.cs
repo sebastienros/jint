@@ -37,7 +37,7 @@ public class ImageSourceSelectionTests
     [Test]
     public async Task ADensityDescriptorIsReadRatherThanIgnored()
     {
-        // The candidates are written 2x first, so document order and the descriptors disagree: AngleSharp's
+        // The candidates are written 2x first, so document order and the descriptors disagree: the former DOM integration's
         // SourceSet.GetCandidates yields them in order and never looks at a descriptor, which answered
         // b.png on a 1x device.
         await using var loopback = await PageWith("""<img id="a" srcset="/b.png 2x, /a.png 1x">""");
@@ -109,7 +109,7 @@ public class ImageSourceSelectionTests
     [Test]
     public async Task ASourcesMediaIsEvaluatedAgainstThePagesOwnEnvironment()
     {
-        // AngleSharp never evaluates a <source media> at all, so the first <source> always won and a
+        // The former DOM integration never evaluates a <source media> at all, so the first <source> always won and a
         // desktop-only asset was selected on every viewport.
         await using var loopback = await PageWith("""
             <picture>

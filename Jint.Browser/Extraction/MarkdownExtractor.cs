@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
+using Jint.Browser.Styling;
 
 namespace Jint.Browser.Extraction;
 
@@ -27,34 +27,40 @@ internal static class MarkdownExtractor
     internal const string TruncationMarker = "\n\n[truncated]";
 
     /// <summary>Renders <paramref name="document"/> as CommonMark.</summary>
-    internal static string ToMarkdown(IDocument document, MarkdownOptions? options = null)
+    internal static string ToMarkdown(Document document, MarkdownOptions? options = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
         options ??= MarkdownOptions.Default;
         var root = options.MainContentOnly ? MainContentOf(document) : null;
-        root ??= document.Body ?? document.DocumentElement;
+        root ??= Dom.DomDocumentElements.Body(document) ?? document.DocumentElement;
 
-        return root is null ? string.Empty : ToMarkdown(root, options);
+        return root is null ? string.Empty : ToMarkdown(root, options, diagnostics);
     }
 
     /// <summary>Renders <paramref name="element"/> and its descendants as CommonMark.</summary>
-    internal static string ToMarkdown(IElement element, MarkdownOptions? options = null)
+    internal static string ToMarkdown(Element element, MarkdownOptions? options = null,
+        NativeCssQueryDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(element);
 
         options ??= MarkdownOptions.Default;
-        var writer = new Writer(options, new ElementVisibility(options.UseComputedStyle));
+        var visibility = new ElementVisibility(options.UseComputedStyle, diagnostics: diagnostics);
+
+        // One cascade for the whole rendering, as TextExtractor shares one: without it every Skip and IsBlock
+        // built its own, collecting every sheet and indexing every rule, so a page cost a document walk per element.
+        var writer = new Writer(options, visibility, visibility.CreateTraversal(element.OwnerDocument));
         var body = writer.Blocks(element);
         return Truncate(Normalize(body), options.MaxLength);
     }
 
     /// <summary>The main content: the first <c>&lt;main&gt;</c>, <c>[role=main]</c> or <c>&lt;article&gt;</c>.</summary>
     /// <remarks>Shared with <see cref="PageContent"/>, so every representation narrows to the same element.</remarks>
-    internal static IElement? MainContentOf(IDocument document) =>
-        document.QuerySelector("main")
-        ?? document.QuerySelector("[role=main]")
-        ?? document.QuerySelector("article");
+    internal static Element? MainContentOf(Document document) =>
+        ContentDom.First(document, "main")
+        ?? ContentDom.Descendants(document).FirstOrDefault(element => element.GetAttribute("role") == "main")
+        ?? ContentDom.First(document, "article");
 
     /// <summary>
     /// Drops the blank lines at both ends and caps any run of them at one, which is all a block separator
@@ -124,22 +130,24 @@ internal static class MarkdownExtractor
     {
         private readonly MarkdownOptions _options;
         private readonly ElementVisibility _visibility;
+        private readonly Dom.Views.CssCascade.Traversal? _cascade;
 
-        internal Writer(MarkdownOptions options, ElementVisibility visibility)
+        internal Writer(MarkdownOptions options, ElementVisibility visibility, Dom.Views.CssCascade.Traversal? cascade)
         {
             _options = options;
             _visibility = visibility;
+            _cascade = cascade;
         }
 
         /// <summary>Renders an element's children as a sequence of blocks separated by a blank line.</summary>
-        internal string Blocks(IElement element)
+        internal string Blocks(Element element)
         {
             var blocks = new List<string>();
             var inline = new StringBuilder();
 
             foreach (var child in element.ChildNodes)
             {
-                if (child is IElement childElement)
+                if (child is Element childElement)
                 {
                     if (Skip(childElement))
                     {
@@ -177,7 +185,7 @@ internal static class MarkdownExtractor
             }
         }
 
-        private string Block(IElement element)
+        private string Block(Element element)
         {
             switch (element.LocalName)
             {
@@ -195,6 +203,22 @@ internal static class MarkdownExtractor
 
                 case "p":
                     return InlineOf(element);
+
+                // CSS Display 3 §2.7 can give an inline HTML construct a block box. Preserve its
+                // CommonMark semantics while Blocks still supplies the surrounding block separators.
+                // https://drafts.csswg.org/css-display/#automatic-box-type-transformations
+                case "a":
+                case "img":
+                case "strong":
+                case "b":
+                case "em":
+                case "i":
+                case "del":
+                case "s":
+                case "code":
+                case "kbd":
+                case "samp":
+                    return Inline(element);
 
                 case "pre":
                     return CodeBlock(element);
@@ -233,7 +257,7 @@ internal static class MarkdownExtractor
             }
         }
 
-        private string InlineOf(IElement element)
+        private string InlineOf(Element element)
         {
             var builder = new StringBuilder();
             foreach (var child in element.ChildNodes)
@@ -244,14 +268,19 @@ internal static class MarkdownExtractor
             return Collapse(builder.ToString());
         }
 
-        private string Inline(INode node)
+        private string Inline(Node node)
         {
-            if (node is IText text)
+            if (node is Text text)
             {
                 return Escape(text.Data);
             }
 
-            if (node is not IElement element || Skip(element))
+            if (node is CDataSection cdata)
+            {
+                return Escape(cdata.Data);
+            }
+
+            if (node is not Element element || Skip(element))
             {
                 return string.Empty;
             }
@@ -264,7 +293,7 @@ internal static class MarkdownExtractor
                 case "a":
                     {
                         var content = InlineOf(element);
-                        var href = element is IHtmlAnchorElement anchor && anchor.HasAttribute("href") ? anchor.Href : null;
+                        var href = ContentDom.Url(element, "href");
                         if (string.IsNullOrEmpty(href))
                         {
                             return content;
@@ -289,7 +318,7 @@ internal static class MarkdownExtractor
                             return Escape(alt);
                         }
 
-                        var source = element is IHtmlImageElement image && image.HasAttribute("src") ? image.Source : element.GetAttribute("src");
+                        var source = ContentDom.Url(element, "src");
                         return string.IsNullOrEmpty(source) ? Escape(alt) : $"![{Escape(alt)}]({Link(source)})";
                     }
 
@@ -308,7 +337,7 @@ internal static class MarkdownExtractor
                 case "code":
                 case "kbd":
                 case "samp":
-                    return CodeSpan(Collapse(element.TextContent));
+                    return CodeSpan(Collapse(ContentDom.TextContent(element)));
 
                 default:
                     return IsBlock(element) ? " " + Collapse(Block(element).Replace('\n', ' ')) + " " : InlineOf(element);
@@ -339,11 +368,11 @@ internal static class MarkdownExtractor
             return fence + pad + content + pad + fence;
         }
 
-        private static string CodeBlock(IElement element)
+        private static string CodeBlock(Element element)
         {
-            var code = element.QuerySelector("code");
+            var code = ContentDom.First(element, "code");
             var language = LanguageOf(code ?? element);
-            var content = (code ?? element).TextContent.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n');
+            var content = ContentDom.TextContent(code ?? element).Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n');
 
             var fence = "```";
             while (content.Contains(fence, StringComparison.Ordinal))
@@ -354,9 +383,9 @@ internal static class MarkdownExtractor
             return fence + language + "\n" + content + "\n" + fence;
         }
 
-        private static string LanguageOf(IElement element)
+        private static string LanguageOf(Element element)
         {
-            foreach (var token in element.ClassList)
+            foreach (var token in ContentDom.ClassNames(element))
             {
                 if (token.StartsWith("language-", StringComparison.Ordinal))
                 {
@@ -372,12 +401,12 @@ internal static class MarkdownExtractor
             return string.Empty;
         }
 
-        private string List(IElement element, bool ordered)
+        private string List(Element element, bool ordered)
         {
-            var number = ordered && element is IHtmlOrderedListElement { Start: var start } ? start : 1;
+            var number = ordered ? HtmlControlView.ListStart(element) : 1;
             var lines = new List<string>();
 
-            foreach (var child in element.Children)
+            foreach (var child in ContentDom.Children(element))
             {
                 if (!string.Equals(child.LocalName, "li", StringComparison.Ordinal) || Skip(child))
                 {
@@ -393,10 +422,10 @@ internal static class MarkdownExtractor
             return string.Join("\n", lines);
         }
 
-        private string DefinitionList(IElement element)
+        private string DefinitionList(Element element)
         {
             var lines = new List<string>();
-            foreach (var child in element.Children)
+            foreach (var child in ContentDom.Children(element))
             {
                 if (Skip(child))
                 {
@@ -424,10 +453,10 @@ internal static class MarkdownExtractor
             return string.Join("\n", lines);
         }
 
-        private string Details(IElement element)
+        private string Details(Element element)
         {
             var parts = new List<string>();
-            foreach (var child in element.Children)
+            foreach (var child in ContentDom.Children(element))
             {
                 if (Skip(child))
                 {
@@ -463,7 +492,7 @@ internal static class MarkdownExtractor
             return string.Join("\n\n", parts);
         }
 
-        private string Table(IElement element)
+        private string Table(Element element)
         {
             var rows = new List<List<string>>();
             var headerIndex = -1;
@@ -478,7 +507,7 @@ internal static class MarkdownExtractor
                 var cells = new List<string>();
                 var isHeader = true;
 
-                foreach (var cell in row.Children)
+                foreach (var cell in ContentDom.Children(row))
                 {
                     if (cell.LocalName is not ("td" or "th") || Skip(cell))
                     {
@@ -555,9 +584,9 @@ internal static class MarkdownExtractor
         /// A descendant selector would pull a nested table's rows into this one, which is not a shape a
         /// pipe table has any way to express.
         /// </remarks>
-        private static IEnumerable<IElement> RowsOf(IElement table)
+        private static IEnumerable<Element> RowsOf(Element table)
         {
-            foreach (var child in table.Children)
+            foreach (var child in ContentDom.Children(table))
             {
                 if (string.Equals(child.LocalName, "tr", StringComparison.Ordinal))
                 {
@@ -565,7 +594,7 @@ internal static class MarkdownExtractor
                 }
                 else if (child.LocalName is "thead" or "tbody" or "tfoot")
                 {
-                    foreach (var row in child.Children)
+                    foreach (var row in ContentDom.Children(child))
                     {
                         if (string.Equals(row.LocalName, "tr", StringComparison.Ordinal))
                         {
@@ -577,9 +606,9 @@ internal static class MarkdownExtractor
         }
 
         /// <summary>This table's own caption, which is a child rather than any descendant.</summary>
-        private static IElement? CaptionOf(IElement table)
+        private static Element? CaptionOf(Element table)
         {
-            foreach (var child in table.Children)
+            foreach (var child in ContentDom.Children(table))
             {
                 if (string.Equals(child.LocalName, "caption", StringComparison.Ordinal))
                 {
@@ -590,13 +619,13 @@ internal static class MarkdownExtractor
             return null;
         }
 
-        private bool Skip(IElement element) =>
+        private bool Skip(Element element) =>
             ImplicitRole.IsMetadataContent(element)
             || string.Equals(element.LocalName, "noscript", StringComparison.Ordinal)
-            || _visibility.RenderingReasonFor(element) != AxIgnoredReason.None;
+            || _visibility.RenderingReasonFor(element, _cascade) != AxIgnoredReason.None;
 
-        private bool IsBlock(IElement element) =>
-            HtmlDisplay.IsBlockLevel(HtmlDisplay.Resolve(element, _visibility.Style(element).Display))
+        private bool IsBlock(Element element) =>
+            HtmlDisplay.IsBlockLevel(HtmlDisplay.Resolve(element, _visibility.Style(element, _cascade).Display))
             || element.LocalName is "table" or "dl" or "details";
 
         private static string Wrap(string content, string marker)

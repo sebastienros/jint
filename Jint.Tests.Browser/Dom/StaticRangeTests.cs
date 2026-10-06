@@ -6,7 +6,7 @@ namespace Jint.Tests.Browser.Dom;
 /// with, as a page sees them.
 /// </summary>
 /// <remarks>
-/// AngleSharp has no <c>StaticRange</c> at all — no type, no <c>[DomName]</c> — so the generator can never
+/// The former DOM integration has no <c>StaticRange</c> at all — no type, no <c>[DomName]</c> — so the generator can never
 /// see one and this is a <c>DomManualInterfaces</c> row, the way <c>HTMLFrameSetElement</c> is. The
 /// distinction the interface exists for is that a static range is <b>four values and nothing else</b>: it
 /// holds no reference the tree can invalidate, it is never validated against a container's length, and

@@ -29,8 +29,9 @@ public class CssCoverageTests
         @media (min-width: 10px) { .conditional { color: rgb(7, 8, 9) } .conditionalunused { color: rgb(10, 11, 12) } }
         @media (min-width: 99999px) { .impossible { color: rgb(13, 14, 15) } }
         @supports (color: red) { .supported { color: rgb(16, 17, 18) } }
+        @supports (unknown-property: none) { .unsupported { color: red } }
         </style></head>
-        <body><p id="box" class="used conditional supported">text</p></body></html>
+        <body><p id="box" class="used conditional supported unsupported">text</p></body></html>
         """;
 
     [Test]
@@ -160,6 +161,10 @@ public class CssCoverageTests
             "the group itself is not a style rule and matches nothing");
         covered.Should().Contain(slice => slice.StartsWith(".supported ", StringComparison.Ordinal),
             "and so is one inside an @supports whose condition holds");
+        covered.Should().NotContain(slice => slice.StartsWith("@supports", StringComparison.Ordinal),
+            "a supports group itself is not a style rule");
+        covered.Should().NotContain(slice => slice.Contains(".unsupported", StringComparison.Ordinal),
+            "a false capability group retains its raw children without matching or computing them");
         covered.Should().NotContain(slice => slice.Contains(".conditionalunused", StringComparison.Ordinal),
             "its sibling in the same block matches nothing");
 

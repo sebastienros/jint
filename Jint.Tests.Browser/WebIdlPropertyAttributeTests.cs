@@ -144,7 +144,7 @@ public sealed class WebIdlPropertyAttributeTests
 
     /// <summary>
     /// Every interface with a prototype in the chain: the generated ones and the handful
-    /// <c>DomManualInterfaces</c> declares because AngleSharp has no <c>[DomName]</c> for them.
+    /// <c>DomManualInterfaces</c> declares because the former DOM integration has no <c>[DomName]</c> for them.
     /// </summary>
     private static IEnumerable<DomInterfaceDefinition> Declared() => DomInterfaces.All.Concat(DomManualInterfaces.All);
 

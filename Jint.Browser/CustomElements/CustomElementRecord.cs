@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.CustomElements;
 
@@ -71,30 +71,17 @@ internal readonly record struct CustomElementReaction(
     string? Name,
     string? OldValue,
     string? NewValue,
-    IDocument? OldDocument = null,
-    IDocument? NewDocument = null);
+    Document? OldDocument = null,
+    Document? NewDocument = null);
 
 /// <summary>
 /// Everything one element carries because it is, or could become, a custom element: DOM's custom element
 /// state, its definition, its <c>is</c> value and its reaction queue.
 /// </summary>
-/// <remarks>
-/// <para>
-/// It hangs off a <see cref="System.Runtime.CompilerServices.ConditionalWeakTable{TKey,TValue}"/> keyed on
-/// the AngleSharp element, for the reason the wrapper cache is one: AngleSharp's element has no slot for any
-/// of this and adding one is not ours to do, and an element the tree and script have both dropped must take
-/// its state with it.
-/// </para>
-/// <para>
-/// <see cref="Attributes"/> is what makes <c>attributeChangedCallback</c>'s <i>old</i> value answerable at
-/// all: AngleSharp's <c>IAttributeObserver</c> reports the element, the name and the <b>new</b> value, so the
-/// previous one has to be remembered here — the same "the state is what it was last reconciled against"
-/// shape the events bridge uses for a handler content attribute. It holds only the definition's observed
-/// attributes, so an element observing nothing allocates nothing.
-/// </para>
-/// </remarks>
 internal sealed class CustomElementRecord
 {
+    internal MutationSubscription? NativeAttributes { get; set; }
+
     /// <summary>DOM's custom element state.</summary>
     internal CustomElementState State { get; set; } = CustomElementState.Undefined;
 

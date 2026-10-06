@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -37,48 +38,63 @@ namespace Jint.Browser.Runtime;
 internal static class HistoryInstaller
 {
     private static readonly JsObjectShape _shape = BuildShape();
+    private static readonly ConditionalWeakTable<ObjectInstance, PageRuntime> _histories = new();
 
     /// <summary>The <c>history</c> object for an engine, or <c>null</c> when it has no page.</summary>
     internal static JsValue Create(Engine engine)
     {
-        if (PageRuntime.Find(engine) is null)
+        if (PageRuntime.Find(engine) is not { } runtime)
         {
             return JsValue.Null;
         }
 
-        return _shape.Instantiate(engine, engine._mainRealm.Intrinsics.Object.PrototypeObject);
+        var history = _shape.Instantiate(engine, engine._mainRealm.Intrinsics.Object.PrototypeObject);
+        _histories.Add(history, runtime);
+        return history;
+    }
+
+    // https://webidl.spec.whatwg.org/#es-operations: only the actual installed History receiver is valid.
+    internal static PageRuntime Brand(JsValue thisObject, string member)
+    {
+        if (thisObject is ObjectInstance instance && _histories.TryGetValue(instance, out var runtime)) return runtime;
+        var message = "Failed to execute '" + member + "' on 'History': Illegal invocation";
+        if (thisObject is ObjectInstance other) Throw.TypeError(other.Engine.Realm, message);
+        Throw.TypeErrorNoEngine(message);
+        return null!;
     }
 
     private static JsObjectShape BuildShape() => new JsObjectShape.Builder()
         .ToStringTag("History")
-        .Accessor("length", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "length").Page.History.Length))
-        .Accessor("state", static (t, _) => State(PageRuntime.Of(t, "state")))
+        .Accessor("length", static (t, _) => JsNumber.Create(Brand(t, "length").Page.History.Length))
+        .Accessor("state", static (t, _) => State(Brand(t, "state")))
         .Accessor("scrollRestoration",
-            static (t, _) => JsString.Create(PageRuntime.Of(t, "scrollRestoration").ScrollRestoration),
+            static (t, _) => JsString.Create(Brand(t, "scrollRestoration").ScrollRestoration),
             static (t, args) =>
             {
                 // A WebIDL enumeration with two members; anything else is ignored rather than thrown at,
                 // because the conversion happens in the attribute setter and an unknown value is a no-op.
+                var runtime = Brand(t, "scrollRestoration");
                 var value = TypeConverter.ToString(args.At(0));
                 if (value is "auto" or "manual")
                 {
-                    PageRuntime.Of(t, "scrollRestoration").ScrollRestoration = value;
+                    runtime.ScrollRestoration = value;
                 }
 
                 return JsValue.Undefined;
             })
-        .Method("back", static (t, _) => Traverse(PageRuntime.Of(t, "back"), -1))
-        .Method("forward", static (t, _) => Traverse(PageRuntime.Of(t, "forward"), 1))
+        .Method("back", static (t, _) => Traverse(Brand(t, "back"), -1))
+        .Method("forward", static (t, _) => Traverse(Brand(t, "forward"), 1))
         .Method("go", static (t, args) =>
         {
+            var runtime = Brand(t, "go");
             var delta = args.At(0).IsUndefined() ? 0 : TypeConverter.ToInt32(args.At(0));
-            return Traverse(PageRuntime.Of(t, "go"), delta);
+            return Traverse(runtime, delta);
         }, length: 1)
-        .Method("pushState", static (t, args) => Update(PageRuntime.Of(t, "pushState"), args, replace: false), length: 3)
-        .Method("replaceState", static (t, args) => Update(PageRuntime.Of(t, "replaceState"), args, replace: true), length: 3)
+        .Method("pushState", static (t, args) => Update(Brand(t, "pushState"), args, replace: false), length: 3)
+        .Method("replaceState", static (t, args) => Update(Brand(t, "replaceState"), args, replace: true), length: 3)
         .Build();
 
-    private static JsValue State(PageRuntime runtime)
+    internal static JsValue State(PageRuntime runtime)
     {
         if (runtime.Page.History.Current?.State is not { } record)
         {
@@ -90,7 +106,7 @@ internal static class HistoryInstaller
         return new StructuredDeserializer(runtime.Engine, runtime.Engine._mainRealm, sharedRecord: true).Deserialize(record);
     }
 
-    private static JsValue Traverse(PageRuntime runtime, int delta)
+    internal static JsValue Traverse(PageRuntime runtime, int delta)
     {
         runtime.Page.RequestTraversal(delta, rendererInitiated: true);
         return JsValue.Undefined;
@@ -105,7 +121,7 @@ internal static class HistoryInstaller
     /// same-origin with it, which is the one thing here that can throw: a page must not be able to rewrite
     /// its own address to another site's.
     /// </remarks>
-    private static JsValue Update(PageRuntime runtime, JsValue[] arguments, bool replace)
+    internal static JsValue Update(PageRuntime runtime, JsValue[] arguments, bool replace)
     {
         var page = runtime.Page;
         var current = runtime.DocumentUrl;
@@ -144,6 +160,9 @@ internal static class HistoryInstaller
             ? null
             : (SerializationRecord?) new StructuredSerializer(runtime.Engine, runtime.Engine._mainRealm)
                 .Serialize(arguments.At(0), transferList: null);
+
+        if (runtime.Dom.ExistingNavigation?.Handle(target, replace ? "replace" : "push", classicState: state, classicHistory: true) == true)
+            return JsValue.Undefined;
 
         if (replace)
         {

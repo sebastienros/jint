@@ -1,3 +1,4 @@
+using Jint.Browser.Accessibility;
 using Jint.Browser.Extraction;
 using Jint.Tests.Browser.Accessibility;
 
@@ -36,7 +37,7 @@ public sealed class TextExtractorTests
         yield return Case("<div id=t><div>a</div><p>b</p><div>c</div></div>", "a\n\nb\n\nc");
         yield return Case("<div id=t><h1>Title</h1><p>Body</p></div>", "Title\n\nBody");
 
-        // AngleSharp.Css's default sheet has no rule for the HTML5 flow elements, so this is the table in
+        // The former CSS integration's default sheet has no rule for the HTML5 flow elements, so this is the table in
         // HtmlDisplay answering rather than the cascade.
         yield return Case("<div id=t><section>a</section><article>b</article></div>", "a\nb");
         yield return Case("<div id=t><nav>a</nav><aside>b</aside><main>c</main></div>", "a\nb\nc");
@@ -79,14 +80,14 @@ public sealed class TextExtractorTests
     [TestCaseSource(nameof(Cases))]
     public void CollectsTheRenderedText(string html, string expected)
     {
-        using var document = PageFixture.Parse(html);
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be(expected);
+        var document = PageFixture.Parse(html);
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be(expected);
     }
 
     [Test]
     public void ADocumentWithNoElementIdentifiedAnswersItsBody()
     {
-        using var document = PageFixture.Parse("<h1>Title</h1><p>Body</p>");
+        var document = PageFixture.Parse("<h1>Title</h1><p>Body</p>");
 
         TextExtractor.InnerText(document).Should().Be("Title\n\nBody");
     }
@@ -94,27 +95,35 @@ public sealed class TextExtractorTests
     [Test]
     public void ADisplayNoneFromAStyleSheetIsSkippedToo()
     {
-        using var document = PageFixture.Parse("<style>.gone{display:none}</style><div id=t>a<span class=gone>b</span>c</div>");
+        var document = PageFixture.Parse("<style>.gone{display:none}</style><div id=t>a<span class=gone>b</span>c</div>");
 
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be("ac");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be("ac");
     }
 
     [Test]
     public void WithoutTheCascadeTheInlineStyleStillAnswers()
     {
-        using var document = PageFixture.ParseWithoutCss("<div id=t>a<span style='display:none'>b</span>c<div>d</div></div>");
+        var document = PageFixture.Parse("<div id=t>a<span style='display:none'>b</span>c<div>d</div></div>");
 
         // The block break still lands, because HtmlDisplay's table is what supplies it either way.
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be("ac\nd");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!, useComputedStyle: false).Should().Be("ac\nd");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void InvalidInlineKeywordsDoNotOverrideEarlierHiddenDeclarations(bool computed)
+    {
+        var document = PageFixture.Parse("<div id=t>a<span style='display:N\\4f NE!important;display:bogus!important'>b</span>c<span style='visibility:hidden;visibility:bogus'>d</span></div>");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!, useComputedStyle: computed).Should().Be("ac");
     }
 
     [Test]
     public void ASpanTurnedIntoABlockByTheAuthorBreaksTheLine()
     {
         // The declared value only wins where it differs from HTML's suggested rendering, which is what keeps
-        // AngleSharp's incomplete default sheet from calling every <section> inline.
-        using var document = PageFixture.Parse("<div id=t>a<span style='display:block'>b</span>c</div>");
+        // The former DOM integration's incomplete default sheet from calling every <section> inline.
+        var document = PageFixture.Parse("<div id=t>a<span style='display:block'>b</span>c</div>");
 
-        TextExtractor.InnerText(document.GetElementById("t")!).Should().Be("a\nb\nc");
+        TextExtractor.InnerText(ContentDom.ElementById(document, "t")!).Should().Be("a\nb\nc");
     }
 }

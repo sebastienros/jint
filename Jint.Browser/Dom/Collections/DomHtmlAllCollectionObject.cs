@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Array;
 
@@ -11,17 +10,6 @@ namespace Jint.Browser.Dom.Collections;
 /// <c>HTMLAllCollection</c></a>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// It is not a refinement of <see cref="DomHtmlCollectionObject{T}"/> even though AngleSharp models
-/// <c>IHtmlAllCollection</c> as an <c>IHtmlCollection&lt;IElement&gt;</c>, because four things about this one
-/// interface are its own and none of them is expressible as an <c>HTMLCollection</c>: its named lookup answers
-/// an <em>element or a collection</em> rather than an element, its <c>item</c> takes a name <em>or</em> an
-/// index, it has a legacy caller — <c>document.all('x')</c> — and it carries ECMAScript
-/// <a href="https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot">Annex B.3.6</a>'s <c>[[IsHTMLDDA]]</c>
-/// internal slot, which is what makes <c>typeof document.all</c> answer <c>"undefined"</c>. The prototype
-/// chain is its own too: <c>overrides.json</c>'s manual entry roots it at <c>Object.prototype</c>, where the
-/// CLR hierarchy would have put <c>HTMLCollection.prototype</c>.
-/// </para>
 /// <para>
 /// <c>[LegacyUnenumerableNamedProperties]</c> and the ordinary-own-property visibility rule are
 /// <see cref="DomHtmlCollectionObject{T}"/>'s, unchanged: a supported name is a non-enumerable own property,
@@ -42,7 +30,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
         "object", "select", "textarea",
     };
 
-    private readonly IHtmlAllCollection _collection;
+    private readonly DomHtmlCollection<Element> _collection;
     private List<string> _names = [];
 
     // The one name the *property* lane has built a sub-collection for, and that collection. See
@@ -52,7 +40,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     private string? _memoizedName;
     private JsValue? _memoizedCollection;
 
-    internal DomHtmlAllCollectionObject(DomRealm realm, DomInterfaceDefinition definition, IHtmlAllCollection collection)
+    internal DomHtmlAllCollectionObject(DomRealm realm, DomInterfaceDefinition definition, DomHtmlCollection<Element> collection)
         : base(realm, definition, collection)
     {
         _collection = collection;
@@ -64,7 +52,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     }
 
     /// <inheritdoc />
-    public override uint Length => (uint) _collection.Length;
+    public override uint Length => (uint) _collection.GetLength(DomRealm);
 
     /// <inheritdoc />
     protected override bool IgnoreNamedPropertiesInSet => true;
@@ -73,12 +61,6 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     /// https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#concept-get-all-indexed — the
     /// <c>index</c>th element, or nothing at all when there is no such element.
     /// </summary>
-    /// <remarks>
-    /// One walk, not two: AngleSharp's <c>HtmlAllCollection</c> is a lazy view over the document's element
-    /// descendants, so <c>Length</c> runs the whole query and the indexer runs it again. Running out of
-    /// elements <i>is</i> the bounds answer, which is the same reason
-    /// <see cref="DomHtmlCollectionObject{T}.TryGetIndex"/> stopped asking for a length first.
-    /// </remarks>
     public override bool TryGetIndex(uint index, out JsValue value)
     {
         var element = ElementAt(index);
@@ -97,21 +79,9 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     protected override bool HasIndex(uint index) => ElementAt(index) is not null;
 
     /// <summary>The <paramref name="index"/>th element of the collection, in one pass, or <see langword="null"/>.</summary>
-    private IElement? ElementAt(uint index)
+    private Element? ElementAt(uint index)
     {
-        var remaining = index;
-
-        foreach (var candidate in _collection)
-        {
-            if (remaining == 0)
-            {
-                return candidate;
-            }
-
-            remaining--;
-        }
-
-        return null;
+        return _collection.GetItem(DomRealm, index);
     }
 
     /// <summary>
@@ -224,11 +194,13 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
             return JsValue.Null;
         }
 
-        IElement? first = null;
+        Element? first = null;
         var count = 0;
-        foreach (var element in _collection)
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
+        foreach (var element in _collection.Read(DomRealm))
         {
-            if (!Matches(element, name))
+            if (!Matches(element, name, work))
             {
                 continue;
             }
@@ -240,6 +212,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
             }
         }
 
+        work.Check();
         if (count == 0)
         {
             return JsValue.Null;
@@ -273,20 +246,25 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     /// already the filter's domain, and the wrapper has no reference to the document to root a walk at.
     /// </remarks>
     private JsValue NewSubCollection(string name)
-        => DomRealm.WrapCollection<IElement>(new DomLiveHtmlCollection(_collection, new AllNamedFilter(name)));
+        => DomRealm.WrapCollection<Element>(new DomLiveHtmlCollection(_collection, new AllNamedFilter(name)));
 
     /// <summary>The filter of the sub-collection above: an id always, a <c>name</c> only on an "all"-named element.</summary>
     private sealed class AllNamedFilter(string name) : DomElementFilter
     {
-        internal override bool Matches(IElement element) => DomHtmlAllCollectionObject.Matches(element, name);
+        internal override bool Matches(Element element) => DomHtmlAllCollectionObject.Matches(element, name);
+        internal override bool Matches(Element element, DomReadWork work) => DomHtmlAllCollectionObject.Matches(element, name, work);
     }
 
-    private static bool Matches(IElement element, string name)
-        => string.Equals(element.Id, name, StringComparison.Ordinal)
+    private static bool Matches(Element element, string name)
+        => string.Equals(element.GetAttribute("id"), name, StringComparison.Ordinal)
            || (IsAllNamed(element) && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal));
 
-    private static bool IsAllNamed(IElement element)
-        => element is IHtmlElement && _allNamed.Contains(element.LocalName);
+    private static bool Matches(Element element, string name, DomReadWork work)
+        => work.Equal(work.Attribute(element, "id"), name)
+            || (IsAllNamed(element) && work.Equal(work.Attribute(element, "name"), name));
+
+    private static bool IsAllNamed(Element element)
+        => element.NamespaceUri == Namespaces.Html && _allNamed.Contains(element.LocalName);
 
     /// <remarks>
     /// The duplicate check is a set for the reason <c>DomHtmlCollectionObject.VisibleNames</c> gives: the
@@ -297,21 +275,25 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     {
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
 
-        foreach (var element in _collection)
+        foreach (var element in _collection.Read(DomRealm))
         {
-            Add(names, element.Id);
+            Add(names, work.Attribute(element, "id"));
 
             if (IsAllNamed(element))
             {
-                Add(names, element.GetAttribute("name"));
+                Add(names, work.Attribute(element, "name"));
             }
         }
 
+        work.Check();
         return names;
 
         void Add(List<string> names, string? candidate)
         {
+            if (candidate is not null) foreach (var unused in candidate) work.Step();
             if (string.IsNullOrEmpty(candidate)
                 || !seen.Add(candidate!)
                 // A supported name that spells a canonical array index is unreachable as a property — the

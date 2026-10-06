@@ -1,28 +1,15 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Native;
 
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The <c>HTMLIFrameElement</c> member that is about the frame's <i>content</i> rather than about the
-/// element: what document a page may reach through it.
+/// Projects child-frame documents and windows through the Browser frame runtime.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Both are declared in <c>tools/dom-bindings/overrides.json</c> and answered here. <c>contentDocument</c>
-/// is generated from AngleSharp and re-declared over this because the generated body hands out a
-/// cross-origin document; <c>contentWindow</c> is added rather than re-declared, because AngleSharp's own
-/// declaration is an <c>AngleSharp.Dom.IWindow</c> and the conversion table drops that interface whole — the
-/// window a page gets is the runtime's (<c>Runtime/FrameWindows</c>).
-/// </para>
-/// <para>
-/// <b>A frame has a document and its own global in the page's engine</b>
-/// (<c>docs/design/headless-browser.md</c> §3): the parser driver fetches a frame's <c>src</c> and AngleSharp
-/// opens it into the nested browsing context it already made for the element, so the tree is real and
-/// readable and <c>contentWindow</c> answers an object of the frame's own — with independent constructors and same-origin classic script execution.
-/// </para>
+/// The parser driver loads frame documents. These bindings enforce same-origin access and return the
+/// Browser-owned window wrapper instead of exposing a native browsing context to script.
 /// </remarks>
 internal static class DomFrameMembers
 {
@@ -44,32 +31,20 @@ internal static class DomFrameMembers
     /// <c>srcdoc</c> frame's document carries the owner's URL already and needs no rule of its own.
     /// </para>
     /// <para>
-    /// Every other opaque origin answers <see langword="null"/>, being same origin with nothing — not even
-    /// itself. <c>document.domain</c> is not implemented, so "same origin-domain" and "same origin" are one
+    /// An opaque origin is compared by identity: an inherited blank or srcdoc origin remains same origin
+    /// with its creator, while independently created opaque origins are different. <c>document.domain</c> is not implemented, so "same origin-domain" and "same origin" are one
     /// question here.
     /// </para>
     /// </remarks>
-    internal static JsValue ContentDocument(DomRealm realm, IHtmlInlineFrameElement frame)
+    internal static JsValue ContentDocument(DomRealm realm, Element frame)
     {
-        if (frame.ContentDocument is not { } nested)
+        if (DomBrowsingContext.OfFrame(frame)?.Active is not { } nested)
         {
             return JsValue.Null;
         }
 
-        var here = PageUrl.OriginOf(frame.Owner?.Url);
-
-        if (string.Equals(here, PageUrl.OpaqueOrigin, StringComparison.Ordinal))
-        {
-            return JsValue.Null;
-        }
-
-        if (string.Equals(nested.Url, "about:blank", StringComparison.OrdinalIgnoreCase))
-        {
-            Attach(realm, frame, nested);
-            return realm.WrapNodeValue(nested);
-        }
-
-        if (!string.Equals(here, PageUrl.OriginOf(nested.Url), StringComparison.Ordinal))
+        if (frame.OwnerDocument is not { } owner
+            || !DomDocumentState.Of(owner).Origin.IsSameOrigin(DomDocumentState.Of(nested).Origin))
         {
             return JsValue.Null;
         }
@@ -95,7 +70,7 @@ internal static class DomFrameMembers
     /// </para>
     /// </remarks>
     /// <summary>Gives the frame's document its <c>defaultView</c>, whichever member reached it first.</summary>
-    private static void Attach(DomRealm realm, IHtmlInlineFrameElement frame, IDocument document)
+    private static void Attach(DomRealm realm, Element frame, Document document)
     {
         if (PageRuntime.Find(realm.Engine) is { } runtime)
         {
@@ -103,7 +78,7 @@ internal static class DomFrameMembers
         }
     }
 
-    internal static JsValue ContentWindow(DomRealm realm, IHtmlInlineFrameElement frame)
+    internal static JsValue ContentWindow(DomRealm realm, Element frame)
     {
         if (ContentDocument(realm, frame).IsNull() || PageRuntime.Find(realm.Engine) is not { } runtime)
         {

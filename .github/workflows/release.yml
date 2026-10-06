@@ -15,6 +15,11 @@ permissions:
   contents: read
 
 jobs:
+  # No path filter: source vocabularies, shared generators and all generated fixtures must agree.
+  parser-lookups:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/parser-lookups.yml
+
   browser-tool:
     uses: ./.github/workflows/browser-tool.yml
 
@@ -22,12 +27,13 @@ jobs:
 
     # Publishing release notes must not push the same NuGet version again.
     if: github.event_name == 'push'
-    needs: browser-tool
+    needs: [browser-tool, parser-lookups]
     runs-on: ubuntu-latest
 
     # Must match the Environment field of the nuget.org trusted publishing policy.
     # Also the place to add required reviewers if releases should be approval-gated.
-    # The policy must allow creating Jint.* packages, including the six Jint.Browser.Tool.<rid> IDs;
+    # Verify on nuget.org that the policy allows creating Jint.* packages, including Jint.HtmlParser
+    # and the six Jint.Browser.Tool.<rid> IDs; these account-side scopes are not configured here.
     # a policy restricted to new versions of the existing Jint package cannot ship the 5.0 additions.
     environment: nuget
 
@@ -58,6 +64,14 @@ jobs:
         path: Jint.Tests.Test262/Generated
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
 
+    - name: Cache W3C XML conformance corpus
+      uses: actions/cache@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
+        enableCrossOsArchive: true
+
     - name: Test
       run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
@@ -71,6 +85,9 @@ jobs:
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "numeric=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
         echo "Releasing $VERSION"
+
+    - name: Verify experimental parser package versions
+      run: python3 tools/check_html_parser_version.py
 
     - name: Pack with dotnet
       run: >
@@ -86,6 +103,16 @@ jobs:
     - name: Pack Jint.DevTools with dotnet
       run: >
         dotnet pack Jint.DevTools/Jint.DevTools.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
+    # The parser follows the tag base but retains a prerelease label until ACC-06 explicitly closes.
+    # Its project calculates PackageVersion consistently for its own pack and Browser project references.
+    - name: Pack Jint.HtmlParser with dotnet
+      run: >
+        dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj --output artifacts --configuration Release
         -p:Version=${{ steps.version.outputs.version }}
         -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
         -p:FileVersion=${{ steps.version.outputs.numeric }}

@@ -125,7 +125,7 @@ internal static class ToolProgram
 
     private static void PrintHelp(TextWriter output)
     {
-        output.WriteLine($"jint-browser {Version} - a headless browser on Jint and AngleSharp");
+        output.WriteLine($"jint-browser {Version} - a headless browser on Jint and Jint.HtmlParser");
         output.WriteLine();
         output.WriteLine("Usage: jint-browser <command> [options]");
         output.WriteLine();
@@ -157,6 +157,9 @@ internal static class ToolProgram
         output.WriteLine("  --trusted                 Do NOT harden the pages; mcp hardens them by default");
         output.WriteLine("  --timeout <duration>      Ceiling on a navigation and on a wait; 30s");
         output.WriteLine("  --max-snapshot-length <n> Ceiling on what a snapshot returns; 40000");
+        output.WriteLine();
+        output.WriteLine("serve, fetch and eval:");
+        output.WriteLine("  --no-images               Fetch no image; <img> stays incomplete and fires nothing");
         output.WriteLine();
         output.WriteLine("Every command:");
         output.WriteLine("  --untrusted               Harden the pages for content nobody vouches for");

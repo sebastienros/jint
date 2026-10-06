@@ -1,0 +1,108 @@
+using System;
+using System.Collections.Generic;
+
+namespace Jint.HtmlParser.Html;
+
+internal sealed partial class HtmlTreeBuilder
+{
+    // HTML Standard §13.2.6.4.9–10 (2026-09-22). A whole contiguous table
+    // character run must remain pending until its following non-character token.
+    private readonly List<PendingTableSegment> _pendingTableText = [];
+    private Mode _tableTextOriginalMode;
+    private bool _tableTextHasNonwhite;
+    private bool _tableTextFlushErrorReported;
+    private long _tableTextNonwhiteOffset;
+    private int _tableTextFlushSegment;
+    private int _tableTextFlushCharacter;
+
+    private readonly record struct PendingTableSegment(StringSlice Data, int Start, int Length, long Offset);
+
+    private void EnterTableText()
+    {
+        if (_pendingTableText.Count != 0) throw new InvalidOperationException("Table text was not flushed.");
+        _tableTextOriginalMode = _mode;
+        _tableTextHasNonwhite = false;
+        _tableTextFlushErrorReported = false;
+        _tableTextFlushSegment = 0;
+        _tableTextFlushCharacter = 0;
+        _mode = Mode.InTableText;
+    }
+
+    private void BufferTableText()
+    {
+        var data = _token.DataSlice;
+        while (_textIndex < data.Length && _remaining > 0)
+        {
+            var start = _textIndex;
+            var run = data.Span.Slice(start, (int) Math.Min(data.Length - start, _remaining));
+            var length = run.IndexOf('\0');
+            if (length < 0) length = run.Length;
+            if (!_tableTextHasNonwhite && run[..length].IndexOfAnyExcept(BodyWhitespace) >= 0)
+            {
+                _tableTextHasNonwhite = true;
+                _tableTextNonwhiteOffset = _token.Offset;
+            }
+            _textIndex += length;
+            Charge(length);
+            AddTableSegment(data, start, length, _token.Offset);
+            if (length == run.Length) continue;
+            Error("unexpected-null-character");
+            _textIndex++;
+            Charge(1);
+        }
+    }
+
+    private void AddTableSegment(StringSlice data, int start, int length, long offset)
+    {
+        if (length == 0) return;
+        if (_pendingTableText.Count > 0)
+        {
+            var index = _pendingTableText.Count - 1;
+            var last = _pendingTableText[index];
+            if (last.Data.Slice(last.Start, last.Length).TryConcat(data.Slice(start, length), out var combined))
+            {
+                _pendingTableText[index] = last with { Data = combined, Start = 0, Length = combined.Length };
+                return;
+            }
+        }
+        _pendingTableText.Add(new PendingTableSegment(data, start, length, offset));
+        Charge(1);
+    }
+
+    private bool FlushTableText()
+    {
+        if (_tableTextHasNonwhite && !_tableTextFlushErrorReported)
+        {
+            _diagnostics?.Add("html/tree-nonwhite-table-text", _tableTextNonwhiteOffset);
+            _tableTextFlushErrorReported = true;
+            _framesetOk = false;
+        }
+
+        while (_tableTextFlushSegment < _pendingTableText.Count)
+        {
+            if (_remaining <= 0) return false;
+            var segment = _pendingTableText[_tableTextFlushSegment];
+            var length = Math.Min(segment.Length - _tableTextFlushCharacter,
+                (int) Math.Min(2048, Math.Max(1, _remaining)));
+            var oldFoster = _fosterParenting;
+            _fosterParenting = _tableTextHasNonwhite;
+            try
+            {
+                if (_tableTextHasNonwhite && !TryReconstructFormatting()) return false;
+                InsertText(segment.Data.Slice(segment.Start + _tableTextFlushCharacter, length));
+            }
+            finally
+            {
+                _fosterParenting = oldFoster;
+            }
+            _tableTextFlushCharacter += length;
+            if (_tableTextFlushCharacter != segment.Length) continue;
+            _pendingTableText[_tableTextFlushSegment] = default;
+            _tableTextFlushSegment++;
+            _tableTextFlushCharacter = 0;
+        }
+
+        _pendingTableText.Clear();
+        return true;
+    }
+}

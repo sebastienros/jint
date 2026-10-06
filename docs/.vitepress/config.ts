@@ -39,6 +39,7 @@ const jintSidebar = [
           { text: "Encoding, Files, and Streams", link: "/guide/web-apis/encoding-files-and-streams" },
           { text: "Fetch and Networking", link: "/guide/web-apis/fetch-and-networking" },
           { text: "Storage and Cache", link: "/guide/web-apis/storage-and-cache" },
+          { text: "IndexedDB", link: "/guide/web-apis/indexeddb" },
           { text: "Crypto and Performance", link: "/guide/web-apis/crypto-and-performance" },
           { text: "Web Locks", link: "/guide/web-apis/locks" },
           { text: "Workers", link: "/guide/web-apis/workers" }
@@ -99,6 +100,7 @@ export default defineConfig({
       {
         text: "Packages",
         items: [
+          { text: "Jint.HtmlParser", link: "/packages/jint-htmlparser/" },
           { text: "Jint.DevTools", link: "/packages/jint-devtools/" },
           { text: "Jint.Browser", link: "/packages/jint-browser/" },
           { text: "Jint.Browser.Tool", link: "/packages/jint-browser-tool/" },
@@ -112,6 +114,19 @@ export default defineConfig({
     ],
     sidebar: {
       "/guide/": jintSidebar,
+      "/packages/jint-htmlparser/": [
+        {
+          text: "Jint.HtmlParser",
+          items: [
+            { text: "Overview and Installation", link: "/packages/jint-htmlparser/" },
+            { text: "Parsing Markup", link: "/packages/jint-htmlparser/parsing" },
+            { text: "Working with Trees", link: "/packages/jint-htmlparser/trees" },
+            { text: "CSS Syntax and XPath", link: "/packages/jint-htmlparser/css-and-xpath" },
+            { text: "Serialization", link: "/packages/jint-htmlparser/serialization" },
+            { text: "Limits and Threading", link: "/packages/jint-htmlparser/limits-and-threading" }
+          ]
+        }
+      ],
       "/packages/jint-devtools/": [
         {
           text: "Jint.DevTools",

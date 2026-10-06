@@ -12,7 +12,7 @@ namespace Jint.Tests.Browser.Dom;
 /// Both names are HTML's own defined elements rather than tree positions, and both are gated on the same
 /// sentence <c>document.body</c> is: "the html element of a document is its document element, if it is an
 /// <c>html</c> element, and null otherwise". "If there is no such element, then the attribute must return the
-/// empty string and do nothing on setting." AngleSharp's <c>IDocument.Body</c> asks neither question, so
+/// empty string and do nothing on setting." the former DOM integration's <c>IDocument.Body</c> asks neither question, so
 /// resolving the target through it read a body the document does not have.
 /// </remarks>
 public sealed class DocumentColourMemberTests
@@ -106,7 +106,7 @@ public sealed class DocumentColourMemberTests
                 made.documentElement.outerHTML,
               ].join('|');
             })()
-            """)).Should().Be("|||false|false|false|false|<div><body></body></div>");
+            """)).Should().Be("|||false|false|false|false|<div xmlns=\"http://www.w3.org/1999/xhtml\"><body></body></div>");
 
         page.Errors.Should().BeEmpty();
     }

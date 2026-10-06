@@ -222,7 +222,10 @@ internal sealed class BrowserTargetHost : ITargetHost
     {
         try
         {
-            var target = await PageTarget.CreateAsync(page, browserContextId, waitForDebugger, Forget).ConfigureAwait(false);
+            string? openerId = null;
+            if (page.Opener is { IsClosed: false } opener)
+                openerId = (await AdoptAsync(opener, IdOf(opener.Context), waitForDebugger: false).ConfigureAwait(false)).TargetId;
+            var target = await PageTarget.CreateAsync(page, browserContextId, waitForDebugger, Forget, openerId).ConfigureAwait(false);
             var tab = new TabTarget(target);
             target.Tab = tab;
 
@@ -236,6 +239,12 @@ internal sealed class BrowserTargetHost : ITargetHost
             // tab session it will reach that page through.
             _server.AddTarget(target);
             _server.AddTarget(tab);
+            if (page.IsClosed)
+            {
+                // Close may have notified Forget before either target was published.
+                Forget(target);
+                _server.RemoveTarget(tab);
+            }
             return target;
         }
         finally
@@ -275,8 +284,25 @@ internal sealed class BrowserTargetHost : ITargetHost
         }
 
         // The page is already open and the browser is not waiting for this, so the adoption runs on its own
-        // and a failure becomes a target nobody sees rather than an exception in the caller's NewPageAsync.
-        _ = AdoptAsync(page, IdOf(context), waitForDebugger: false);
+        // and failures are observed without turning them into an exception in the caller's NewPageAsync.
+        _ = ObserveAdoptionAsync(context, page);
+    }
+
+    private async Task ObserveAdoptionAsync(BrowserContext context, Page page)
+    {
+        try
+        {
+            await AdoptAsync(page, IdOf(context), waitForDebugger: false).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (page.IsClosed)
+        {
+            // A popup can close before its target has adopted its initial engine.
+            page.NetworkLog.Listener = null;
+        }
+        catch (Exception exception)
+        {
+            page.RecordPopupError(exception);
+        }
     }
 
     private BrowserContext Resolve(string? browserContextId)

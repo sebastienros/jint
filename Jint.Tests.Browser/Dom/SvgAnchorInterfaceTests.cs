@@ -1,7 +1,7 @@
 namespace Jint.Tests.Browser.Dom;
 
 /// <summary>
-/// SVG 2 §16.2's <c>SVGAElement</c>, declared by local name over the bare AngleSharp element an SVG
+/// SVG 2 §16.2's <c>SVGAElement</c>, declared by local name over the bare the former DOM integration element an SVG
 /// <c>&lt;a&gt;</c> is: https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement.
 /// </summary>
 public sealed class SvgAnchorInterfaceTests
@@ -27,14 +27,14 @@ public sealed class SvgAnchorInterfaceTests
         fixture.Bool("svgA instanceof SVGAElement").Should().BeTrue();
         fixture.Bool("svgA instanceof SVGElement && svgA instanceof Element && svgA instanceof Node").Should().BeTrue();
         fixture.Text("SVGAElement.name").Should().Be("SVGAElement");
-        fixture.Bool("Object.getPrototypeOf(SVGAElement.prototype) === SVGElement.prototype").Should().BeTrue();
+        fixture.Bool("Object.getPrototypeOf(SVGAElement.prototype) === SVGGraphicsElement.prototype").Should().BeTrue();
         fixture.Bool("svgA.constructor === SVGAElement").Should().BeTrue();
     }
 
     /// <summary>The interface is chosen by local name, and SVG matches one case-sensitively.</summary>
     [TestCase("a", "[object SVGAElement]")]
     [TestCase("A", "[object SVGElement]")]
-    [TestCase("g", "[object SVGElement]")]
+    [TestCase("g", "[object SVGGElement]")]
     [TestCase("circle", "[object SVGCircleElement]")]
     public void OnlyALowerCaseSvgAnchorTakesIt(string localName, string expected)
     {

@@ -70,6 +70,15 @@
 
     "DOM",
 
+    // enable and disable are accepted no-ops because chromedp enables the domain on every page it attaches
+    // to and fails the attachment if it errors. The four events report a debugging connection being torn
+    // down and a renderer crashing or reloading after one; a page here has no renderer process to lose, and
+    // a detach is the session's own Target.detachedFromTarget.
+    {
+      "domain": "Inspector",
+      "commands": ["disable", "enable"]
+    },
+
     // Left out: drag input, synthesized scroll and pinch gestures, and the input-driver commands. The flat
     // box model dispatches a key, a mouse event, a touch and text, which is what a client uses to drive a
     // page here.
@@ -104,9 +113,8 @@
     // what Puppeteer's and Playwright's CSS coverage is built out of: startRuleUsageTracking,
     // takeCoverageDelta and stopRuleUsageTracking, with the styleSheetAdded stream and getStyleSheetText a
     // client needs to make sense of an offset. Style sheet editing, rule matching, font and animation
-    // tracking are the rest of the domain. styleSheetChanged and styleSheetRemoved are left out because
-    // AngleSharp raises no notification a sheet's arrival or departure could be published from; the sheets
-    // are reconciled when a client asks, which DevTools/AGENTS.md states.
+    // tracking are the rest of the domain. This domain reconciles sheets when a client asks rather than
+    // watching changes, so styleSheetChanged and styleSheetRemoved remain absent; see DevTools/AGENTS.md.
     {
       "domain": "CSS",
       "commands": [
@@ -147,8 +155,7 @@
   // DOM.markUndoableState is a boundary in an undo stack that does not exist - undo and redo are
   // unimplemented - and the front end sends it around every attribute edit; DOM.getFrameOwner can only
   // ever be asked about the one frame there is, which owns nothing, so it always refuses;
-  // DOM.performSearch drops Chrome's XPath arm, because AngleSharp's XPath support is a package this
-  // project does not reference and no recorded client sends the command; and DOM.enable's
+  // DOM.performSearch uses native selector and XPath queries as well as text matching; DOM.enable's
   // includeWhitespace is ignored, because every child node is reported either way.
   //
   // Input is the four commands a client drives a page with: dispatchMouseEvent, and the keyboard half of
@@ -208,8 +215,8 @@
   // Security, Overlay and CSS are what a DevTools front end sends at a page and what the automation clients
   // never do. Each answers the handful of commands that make an ordinary attachment work and nothing else:
   // Security has no certificate state to report because the transport is HttpClient's; Overlay would draw a
-  // highlight on a surface that does not exist; and CSS answers the two read commands AngleSharp.Css can
-  // stand behind - the computed style of a node and its inline style - while every editing command is
+  // highlight on a surface that does not exist; and CSS reads the shared native cascade
+  // for the computed style of a node and its authored inline style - while every editing command is
   // -32601, because a style sheet this package can rewrite is a CSSOM feature nobody has asked for.
   //
   // Jint is not Chrome's. It is described in tools/devtools-protocol/jint_protocol.json, in the protocol's
@@ -328,6 +335,8 @@
     "Input.dispatchTouchEvent",
     "Input.imeSetComposition",
     "Input.insertText",
+    "Inspector.disable",
+    "Inspector.enable",
     "Jint.getAccessibilitySnapshot",
     "Jint.getMarkdown",
     "Jint.getText",

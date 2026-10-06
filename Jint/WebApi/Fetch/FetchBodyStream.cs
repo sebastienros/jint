@@ -72,6 +72,7 @@ internal sealed class FetchBodyStream : IDisposable
     /// documented under.
     /// </summary>
     private readonly FetchObservation? _observation;
+    private readonly FetchResourceTiming? _resourceTiming;
 
     /// <summary>
     /// Released once per <c>pull</c>. Never more than one release is outstanding, because the standard's own
@@ -91,12 +92,14 @@ internal sealed class FetchBodyStream : IDisposable
     private PromiseCapability? _pull;
     private bool _finished;
 
-    internal FetchBodyStream(HttpResponseMessage message, Stream content, long maxBytes, FetchObservation? observation = null)
+    internal FetchBodyStream(HttpResponseMessage message, Stream content, long maxBytes, FetchObservation? observation = null,
+        FetchResourceTiming? resourceTiming = null)
     {
         _message = message;
         _content = content;
         _maxBytes = maxBytes;
         _observation = observation;
+        _resourceTiming = resourceTiming;
     }
 
     /// <summary>
@@ -254,6 +257,7 @@ internal sealed class FetchBodyStream : IDisposable
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _observation?.Failed("Reading the response body failed: " + ex.Message, ex);
+                    _resourceTiming?.Complete(_total, failed: true);
                     Post(null, new FetchFailureException(FetchFailureKind.Network, "Reading the response body failed: " + ex.Message, ex));
                     return;
                 }
@@ -261,6 +265,7 @@ internal sealed class FetchBodyStream : IDisposable
                 if (read == 0)
                 {
                     _observation?.Completed(_total);
+                    _resourceTiming?.Complete(_total);
                     Post(null, null);
                     return;
                 }
@@ -272,6 +277,7 @@ internal sealed class FetchBodyStream : IDisposable
                 {
                     var message = $"The response body exceeded the {_maxBytes} byte limit set by Options.WebApi.Fetch.MaxResponseBytes.";
                     _observation?.Failed(message, null);
+                    _resourceTiming?.Complete(_total, failed: true);
                     Post(null, new FetchFailureException(FetchFailureKind.ResponseTooLarge, message));
                     return;
                 }
@@ -290,6 +296,7 @@ internal sealed class FetchBodyStream : IDisposable
             // the observer, for which this is the only notice that the body ended early. The fetch promise
             // resolved when the headers arrived, so nothing else is left to tell it.
             _observation?.Failed("The response body was not read to its end.", null);
+            _resourceTiming?.Complete(_total, failed: true);
         }
         finally
         {

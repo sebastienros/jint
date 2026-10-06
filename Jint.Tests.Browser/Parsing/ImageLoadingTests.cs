@@ -1,4 +1,6 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
 using Jint.Tests.Browser.Navigation;
 
 namespace Jint.Tests.Browser.Parsing;
@@ -156,7 +158,7 @@ public class ImageLoadingTests
         // conditions: there is nothing to wait for, so a page must not wait for a load event.
         //
         // The third element is the documented gap. HTML's update-the-image-data selects no source for an
-        // empty `srcset`, so the request is broken and `complete` is true; AngleSharp asks the resource
+        // empty `srcset`, so the request is broken and `complete` is true; the former DOM integration asks the resource
         // loader for nothing in that case, so there is no request processor to hang a state on and this
         // browser leaves it unavailable. Jint.Browser/Dom/divergences.md carries the row, and the same gap
         // is why `<img src="">` fires no error here.
@@ -193,6 +195,68 @@ public class ImageLoadingTests
 
         // new Image(w, h) sets the content attributes, and a content attribute is what width answers.
         (await loopback.Page.EvaluateAsync<string>("[img.width, img.height].join('x')")).Should().Be("120x60");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ADetachedCreatedImagesAttributeWriteLoadsOnceAndInsertionKeepsItsRequest(bool namedNodeMap)
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: "");
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            window.detached = document.createElement('img');
+            detached.setAttribute('src', '');
+            window.events = [];
+            detached.onload = () => events.push('load');
+            """ + (namedNodeMap
+            ? "const source = document.createAttribute('src'); source.value = '/a.img'; detached.attributes.setNamedItem(source);"
+            : "detached.getAttributeNode('src').value = '/a.img';"));
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<string>("[detached.isConnected, detached.naturalWidth, events.join(',')].join('|')"))
+            .Should().Be("false|9|load");
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
+
+        await loopback.Page.EvaluateAsync("document.body.appendChild(detached)");
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        (await loopback.Page.EvaluateAsync<string>("events.join(',')")).Should().Be("load");
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AnImageInAManufacturedDocumentDoesNotStartAPageRequest()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: "");
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            const inert = new DOMParser().parseFromString('<img>', 'text/html');
+            inert.querySelector('img').src = '/a.img';
+            """);
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        loopback.Server.Received.Should().NotContain(request => request.Path == "/a.img");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task InstallingAnImageWatchDoesNotDiscardAnEarlierNativeSourceWrite()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: "<img id=a>");
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var image = DomDocumentReads.ById(runtime.Dom, runtime.Document!, "a")!;
+            image.SetAttribute("src", "/a.img");
+            // The document record arrived before this unrelated write installed an image watch.
+            engine.Execute("a.setAttribute('alt', 'later')");
+            return true;
+        });
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        (await loopback.Page.EvaluateAsync<int>("a.naturalWidth")).Should().Be(9);
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
         loopback.Page.Errors.Should().BeEmpty();
     }
 
@@ -245,6 +309,26 @@ public class ImageLoadingTests
             request.Url.EndsWith("/a.img", StringComparison.Ordinal)
             && request.NotFetchedReason!.Contains("MaxImageRequests is zero", StringComparison.Ordinal));
         loopback.Server.Received.Should().NotContain(request => request.Path == "/a.img");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AnImageNamingNoSourceAndANonStylesheetLinkAreNotRequests()
+    {
+        // HTML's update-the-image-data never obtains a request for an <img> with no src, no srcset and no
+        // <picture>, and a <link rel=icon> names nothing this browser loads: neither belongs in the log.
+        await using var loopback = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/", """
+                <!doctype html><html><head><link rel="icon" href="/favicon.svg"></head><body>
+                <img id="a"><img id="b" src=""><input type="image"><picture><img id="c"></picture>
+                </body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.WaitForIdleAsync(Timeout);
+
+        loopback.Page.Requests.Should().ContainSingle();
+        loopback.Page.Requests.Should().OnlyContain(request => request.Initiator == RequestInitiator.Document);
         loopback.Page.Errors.Should().BeEmpty();
     }
 

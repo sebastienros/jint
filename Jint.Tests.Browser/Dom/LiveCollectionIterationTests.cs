@@ -1,7 +1,7 @@
 #nullable enable
 
-using System.Collections;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom.Collections;
 using Jint.Browser.Dom;
 using Jint.Browser;
 using Jint.Browser.Runtime;
@@ -26,8 +26,8 @@ public sealed class LiveCollectionIterationTests
         CountingCollection? source = null;
         await page.RunOnLoopAsync(engine =>
         {
-            source = new CountingCollection(PageRuntime.Find(engine)!.Document!.GetElementById("root")!.Children);
-            engine.SetValue("counted", DomRealm.Of(engine).WrapCollection<IElement>(source));
+            source = new CountingCollection(DomChildHtmlCollection.Of(DomDocumentReads.ById(DomRealm.Of(engine), PageRuntime.Find(engine)!.Document!, "root")!));
+            engine.SetValue("counted", DomRealm.Of(engine).WrapCollection<Element>(source));
             return 0;
         });
         var script = indexed
@@ -61,12 +61,14 @@ public sealed class LiveCollectionIterationTests
             """)).Should().Be(string.Join(',', Enumerable.Repeat((long) size * (size - 1) / 2, 4)));
     }
 
-    private sealed class CountingCollection(IHtmlCollection<IElement> source) : IHtmlCollection<IElement>
+    private sealed class CountingCollection(DomHtmlCollection<Element> source) : DomHtmlCollection<Element>
     {
+        internal override bool TryGetCountWitness(out Document? document, out ulong stamp)
+            => source.TryGetCountWitness(out document, out stamp);
         internal int LengthReads { get; private set; }
         internal long CountVisits { get; private set; }
         internal long IndexVisits { get; private set; }
-        public int Length
+        internal override int Length
         {
             get
             {
@@ -76,14 +78,10 @@ public sealed class LiveCollectionIterationTests
                 return count;
             }
         }
-        public int Count => Length;
-        public IElement this[int index] => source[index];
-        public IElement? this[string name] => source[name];
-        public IEnumerator<IElement> GetEnumerator()
+        public override IEnumerator<Element> GetEnumerator()
         {
             foreach (var item in source) { IndexVisits++; yield return item; }
         }
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private const string Markup = "<div id='root'><i id='a'></i>text<i id='b'></i><i id='c'></i></div>";
@@ -160,7 +158,7 @@ public sealed class LiveCollectionIterationTests
         await page.EvaluateAsync("var c = document.getElementById('root').children; c.length");
         (await page.RunOnLoopAsync(engine =>
         {
-            var root = PageRuntime.Find(engine)!.Document!.GetElementById("root")!;
+            var root = DomDocumentReads.ById(DomRealm.Of(engine), PageRuntime.Find(engine)!.Document!, "root")!;
             var before = engine.Evaluate("c.length").AsNumber();
             root.RemoveChild(root.FirstChild!);
             var after = engine.Evaluate("c.length").AsNumber();
@@ -177,7 +175,7 @@ public sealed class LiveCollectionIterationTests
         await page.SetContentAsync(Markup);
         await page.RunOnLoopAsync(engine =>
         {
-            var root = PageRuntime.Find(engine)!.Document!.GetElementById("root")!;
+            var root = DomDocumentReads.ById(DomRealm.Of(engine), PageRuntime.Find(engine)!.Document!, "root")!;
             engine.SetValue("nativeRemove", () => { root.RemoveChild(root.FirstChild!); });
             return 0;
         });

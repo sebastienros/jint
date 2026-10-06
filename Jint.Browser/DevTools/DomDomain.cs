@@ -1,7 +1,7 @@
 using System.Globalization;
-using AngleSharp;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
+using Jint.Browser.Dom;
+using NativeNode = Jint.HtmlParser.Node;
 using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
 using Jint.Browser.Layout;
@@ -88,14 +88,23 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
 
     /// <inheritdoc/>
     /// <remarks>
-    /// A navigation throws every <c>nodeId</c> away with the document that minted it, so the client is told
-    /// to start again — which is exactly what <c>documentUpdated</c> means. The tracker's own tables are
-    /// cleared by the target, once, rather than by each attachment.
+    /// A navigation throws every <c>nodeId</c> away with the document that minted it. The tracker's own
+    /// tables are cleared by the target, once, rather than by each attachment; telling the client to start
+    /// again waits for <see cref="DocumentCommitted"/>.
     /// </remarks>
-    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime)
-    {
-        Forget();
+    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime) => Forget();
 
+    /// <summary>
+    /// Tells the client to start again — which is exactly what <c>documentUpdated</c> means — once the
+    /// document has committed.
+    /// </summary>
+    /// <remarks>
+    /// After <c>Page.frameNavigated</c>, never before it, which is Chrome's order: chromedp re-reads the
+    /// document into the frame it last heard navigate, and a <c>frameNavigated</c> arriving afterwards
+    /// replaces that frame with one that has no root, so every query waits forever.
+    /// </remarks>
+    internal void DocumentCommitted()
+    {
         if (IsEnabled)
         {
             EmitDetached(DOMEvents.DocumentUpdated());
@@ -167,7 +176,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     protected override ValueTask<ResolveNodeResponse> ResolveNodeAsync(ResolveNodeRequest parameters, CommandContext context)
     {
         var node = Resolve(parameters.NodeId, parameters.BackendNodeId, objectId: null);
-        var value = Runtime(node).Dom.WrapNode(node);
+        var value = Runtime(node).Dom.Wrap(node);
         var request = RemoteObjectRequest.From(byValue: false, generatePreview: false, parameters.ObjectGroup);
 
         return new ValueTask<ResolveNodeResponse>(new ResolveNodeResponse { Object = _objects.Describe(value, request) });
@@ -177,7 +186,8 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     protected override ValueTask<QuerySelectorResponse> QuerySelectorAsync(QuerySelectorRequest parameters, CommandContext context)
     {
         var node = RequireNodeId(parameters.NodeId);
-        var match = Query(node, parameters.Selector).FirstOrDefault();
+        var matches = Query(node, parameters.Selector);
+        var match = matches.Length == 0 ? null : matches[0];
 
         return new ValueTask<QuerySelectorResponse>(new QuerySelectorResponse { NodeId = match is null ? 0 : Push(match) });
     }
@@ -196,11 +206,12 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     {
         var node = Resolve(parameters.NodeId, parameters.BackendNodeId, parameters.ObjectId);
 
+        var dom = Runtime(node).Dom;
         var markup = node switch
         {
-            IElement element => element.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance),
-            IDocument document => document.DocumentElement?.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance) ?? "",
-            _ => node.NodeValue ?? "",
+            Document document => DocumentElement(document) is { } element ? DomHtmlMarkupFormatter.OuterHtml(dom, element) : "",
+            Element element => DomHtmlMarkupFormatter.OuterHtml(dom, element),
+            _ => DomNodeMembers.Value(node) ?? "",
         };
 
         return new ValueTask<GetOuterHTMLResponse>(new GetOuterHTMLResponse { OuterHTML = markup });
@@ -219,7 +230,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     protected override ValueTask<EmptyResult> SetOuterHTMLAsync(SetOuterHTMLRequest parameters, CommandContext context)
     {
         var node = RequireNodeId(parameters.NodeId);
-        if (node is not IElement element)
+        if (node is not Element element)
         {
             return Throw.ServerError<ValueTask<EmptyResult>>("Node is not an Element");
         }
@@ -264,20 +275,25 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
             element.RemoveAttribute(replaced);
         }
 
-        var holder = element.Owner?.CreateElement("div");
+        var holder = element.OwnerDocument?.CreateElement("div");
         if (holder is null)
         {
             return new ValueTask<EmptyResult>(EmptyResult.Instance);
         }
 
-        holder.InnerHtml = "<span " + parameters.Text + "></span>";
+        var dom = Runtime(element).Dom;
+        dom.Hooks.SetInnerHtml(dom, holder, "<span " + parameters.Text + "></span>");
 
-        if (holder.FirstElementChild is { } parsed)
+        if (holder.FirstChild is Element parsed)
         {
-            foreach (var attribute in parsed.Attributes)
+            var work = ReadWork();
+            for (uint i = 0; i < (uint) parsed.AttributeCount; i++)
             {
+                work.Step();
+                var attribute = parsed.GetAttributeAt(i)!;
                 element.SetAttribute(attribute.Name, attribute.Value);
             }
+            work.Check();
         }
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
@@ -297,12 +313,12 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
         using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         var node = RequireNodeId(parameters.NodeId);
 
-        if (node.Parent is not { } parent)
+        if (node is not NativeNode { ParentNode: { } parent } tree)
         {
             return Throw.ServerError<ValueTask<EmptyResult>>("Cannot remove detached node");
         }
 
-        parent.RemoveChild(node);
+        parent.RemoveChild(tree);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -311,7 +327,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     {
         using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         var node = RequireNodeId(parameters.NodeId);
-        node.NodeValue = parameters.Value;
+        DomNodeMembers.SetValue((DomNodeObject) Runtime(node).Dom.Wrap(node), parameters.Value);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -344,7 +360,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
 
         // Chrome's own wording, which is what tells a client it addressed the wrong node rather than sent
         // the wrong command: third_party/blink/renderer/core/inspector/inspector_dom_agent.cc.
-        if (node is not IHtmlInputElement input || !FileSelection.IsFileInput(input))
+        if (node is not Element input || !FileSelection.IsFileInput(input, Runtime(node).Dom.NativeReadCheckpoint, Runtime(node).Dom.CancellationToken))
         {
             return Throw.ServerError<ValueTask<EmptyResult>>("Node is not a file input element");
         }
@@ -353,7 +369,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
 
         // Trimmed before the read rather than after it, so a file this input could never hold is not opened
         // at all; FileSelection.Update applies the same rule for every other caller.
-        var paths = FileSelection.Allowed(input, parameters.Files);
+        var paths = FileSelection.Allowed(input, parameters.Files, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
         var files = new List<SelectedFile>(paths.Count);
 
         foreach (var path in paths)
@@ -380,7 +396,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     protected override ValueTask<EmptyResult> FocusAsync(ProtocolDom.FocusRequest parameters, CommandContext context)
     {
         var node = Resolve(parameters.NodeId, parameters.BackendNodeId, parameters.ObjectId);
-        if (node is not IElement element)
+        if (node is not Element element)
         {
             return Throw.ServerError<ValueTask<EmptyResult>>("Node is not an Element");
         }
@@ -466,7 +482,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     {
         var node = Resolve(parameters.NodeId, parameters.BackendNodeId, parameters.ObjectId);
 
-        if (node is not IElement element || BoxOf(node) is null)
+        if (node is not Element element || BoxOf(node) is null)
         {
             return Throw.ServerError<ValueTask<EmptyResult>>("Node does not have a layout object");
         }
@@ -490,8 +506,8 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     protected override ValueTask<PerformSearchResponse> PerformSearchAsync(PerformSearchRequest parameters, CommandContext context)
     {
         var document = Document();
-        var found = new List<INode>();
-        var seen = new HashSet<INode>(ReferenceEqualityComparer.Instance);
+        var found = new List<object>();
+        var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
         foreach (var element in Query(document, parameters.Query))
         {

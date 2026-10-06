@@ -31,6 +31,7 @@ the complete web platform.
 | Storage | local and session storage | No |
 | Networking | fetch, XHR, WebSocket, EventSource | No |
 | Cache | Cache API with host-provided storage | No |
+| IndexedDB | In-memory databases, transactions, indexes and cursors | No |
 | Workers | `Worker` with a host-provided worker provider | No |
 | Request handling | fetch events | No |
 

@@ -1,34 +1,19 @@
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.Events;
 
 namespace Jint.Browser.Dom.Views;
 
 /// <summary>
-/// The interfaces the runtime owns rather than the generator: <c>DOMParser</c>, <c>XMLSerializer</c>,
-/// <c>NodeFilter</c>, <c>Selection</c>, <c>MediaQueryListEvent</c>, <c>Geolocation</c> and DOM's three XPath
-/// interfaces.
+/// Installs Browser-owned DOM views and their script-visible shapes.
 /// </summary>
 /// <remarks>
-/// <para>
-/// None of them exists in AngleSharp — several are host objects a browser supplies rather than DOM
-/// objects, <c>NodeFilter</c> is a callback interface with constants and no instances,
-/// <c>MediaQueryListEvent</c> is CSSOM View's, and DOM §7's XPath is projected from no assembly at all
-/// (<see cref="XPathEvaluation"/> says why). Everything else in this folder is a <em>view</em> onto the DOM
-/// that AngleSharp does have and that the generator already emits: <c>Range</c>, <c>TreeWalker</c> and
-/// <c>NodeIterator</c> are generated, and only the members whose signatures the conversion table could not
-/// cross arrive from <c>overrides.json</c>'s additions. <see cref="DomTreeWalker"/> is the one exception in
-/// the other direction — the <em>shape</em> is still generated, and only the walk behind it is this
-/// package's, because AngleSharp's does not terminate.
-/// </para>
-/// <para>
-/// Each global is lazy and non-clobbering, and the shapes are process-shared with the prototypes per engine,
-/// which is what every other installer in this package does.
-/// </para>
+/// Selection and view operations use native nodes and ranges while Browser owns callbacks, brand checks
+/// and the JavaScript-facing interfaces. Traversal filters run on the owning engine thread.
 /// </remarks>
 internal static class ViewInstaller
 {
@@ -42,12 +27,7 @@ internal static class ViewInstaller
     private static readonly JsObjectShape _xPathExpression = BuildXPathExpressionShape();
     private static readonly JsObjectShape _xPathResult = BuildXPathResultShape();
     private static readonly JsObjectShape _cssNamespace = BuildCssNamespaceShape();
-
-    /// <summary>
-    /// The configuration a <c>DOMParser</c> document is parsed with: the CSS services, so that
-    /// <c>element.style</c> answers on the result, and nothing else — no requester, no scripting.
-    /// </summary>
-    internal static IConfiguration ParserConfiguration { get; } = CaseSensitiveSvgFactory.Configure(Configuration.Default.WithCss());
+    private static readonly JsObjectShape _sanitizer = BuildSanitizerShape();
 
     /// <summary>Installs the globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
     internal static void Install(PageRuntime runtime)
@@ -64,6 +44,7 @@ internal static class ViewInstaller
         Add(engine, "XPathExpression", static realm => realm.XPathExpressionInterface);
         Add(engine, "XPathResult", static realm => realm.XPathResultInterface);
         Add(engine, "CSS", static realm => realm.CssNamespace);
+        Add(engine, "Sanitizer", static realm => realm.Sanitizer);
     }
 
     private static void Add(Engine engine, string name, Func<ViewRealm, JsValue> factory)
@@ -93,6 +74,8 @@ internal static class ViewInstaller
 
     internal static JsObjectShape CssNamespaceShape => _cssNamespace;
 
+    internal static JsObjectShape SanitizerShape => _sanitizer;
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-domparser-interface
     /// </summary>
@@ -100,6 +83,24 @@ internal static class ViewInstaller
         .PerRealmSlot("constructor")
         .ToStringTag("DOMParser")
         .Method("parseFromString", static (t, args) => JsDomParser.Brand(t, "parseFromString").ParseFromString(args), length: 2)
+        .Build();
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-sanitizer-interface</summary>
+    private static JsObjectShape BuildSanitizerShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("Sanitizer")
+        .Method("get", static (t, _) => JsSanitizer.Brand(t, "get").Get())
+        .Method("allowElement", static (t, args) => JsSanitizer.Brand(t, "allowElement").AllowElement(args), length: 1)
+        .Method("removeElement", static (t, args) => JsSanitizer.Brand(t, "removeElement").RemoveElement(args), length: 1)
+        .Method("replaceElementWithChildren", static (t, args) => JsSanitizer.Brand(t, "replaceElementWithChildren").ReplaceElementWithChildren(args), length: 1)
+        .Method("allowProcessingInstruction", static (t, args) => JsSanitizer.Brand(t, "allowProcessingInstruction").AllowProcessingInstruction(args), length: 1)
+        .Method("removeProcessingInstruction", static (t, args) => JsSanitizer.Brand(t, "removeProcessingInstruction").RemoveProcessingInstruction(args), length: 1)
+        .Method("allowAttribute", static (t, args) => JsSanitizer.Brand(t, "allowAttribute").AllowAttribute(args), length: 1)
+        .Method("removeAttribute", static (t, args) => JsSanitizer.Brand(t, "removeAttribute").RemoveAttribute(args), length: 1)
+        .Method("setComments", static (t, args) => JsSanitizer.Brand(t, "setComments").SetComments(args), length: 1)
+        .Method("setDataAttributes", static (t, args) => JsSanitizer.Brand(t, "setDataAttributes").SetDataAttributes(args), length: 1)
+        .Method("setJavascriptURLs", static (t, args) => JsSanitizer.Brand(t, "setJavascriptURLs").SetJavascriptUrls(args), length: 1)
+        .Method("removeUnsafe", static (t, _) => JsSanitizer.Brand(t, "removeUnsafe").RemoveUnsafe())
         .Build();
 
     /// <summary>https://w3c.github.io/DOM-Parsing/#the-xmlserializer-interface</summary>
@@ -114,12 +115,6 @@ internal static class ViewInstaller
         .Build();
 
     /// <summary>https://w3c.github.io/selection-api/#selection-interface</summary>
-    /// <remarks>
-    /// The one hand-written shape whose members reach AngleSharp's own range algorithms — a collapse to an
-    /// offset past the end of a node is an <c>IndexSizeError</c>, selecting the contents of a doctype an
-    /// <c>InvalidNodeTypeError</c> — so every one goes through <see cref="DomFailures.Guard"/>, exactly as a
-    /// generated body does. <see cref="Selection"/> is only there to keep the qualified name in one place.
-    /// </remarks>
     private static JsObjectShape BuildSelectionShape() => new JsObjectShape.Builder()
         .PerRealmSlot("constructor")
         .ToStringTag("Selection")
@@ -145,7 +140,9 @@ internal static class ViewInstaller
         .Method("toString", Selection("toString", static (t, _) => JsString.Create(JsSelection.Brand(t, "toString").ToString())))
         .Build();
 
-    /// <summary>One <c>Selection</c> member body, wrapped so an AngleSharp refusal is a <c>DOMException</c>.</summary>
+    /// <summary>
+    /// Wraps a Selection operation so native DOM failures become script-visible DOMException values.
+    /// </summary>
     private static Func<JsValue, JsValue[], JsValue> Selection(
         string member,
         Func<JsValue, JsValue[], JsValue> implementation)
@@ -182,7 +179,12 @@ internal static class ViewInstaller
     private static JsObjectShape BuildCssNamespaceShape() => new JsObjectShape.Builder()
         .ToStringTag("CSS")
         .Method("escape", static (_, args) => JsCssNamespace.Escape(args), length: 1)
-        .Method("supports", static (_, args) => JsCssNamespace.Supports(args), length: 1)
+        .PerRealmSlot("supports", static owner =>
+        {
+            var realm = DomRealm.Of(owner.Engine, owner.CreationRealm);
+            return new ClrFunction(owner.Engine, realm.OwningRealm, "supports",
+                (_, args) => JsCssNamespace.Supports(realm, args), 1);
+        }, enumerable: true)
         .Build();
 
     /// <summary>https://w3c.github.io/geolocation/#geolocation_interface</summary>

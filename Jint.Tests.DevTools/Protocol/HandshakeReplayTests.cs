@@ -45,7 +45,7 @@ public class HandshakeReplayTests
     /// </summary>
     /// <remarks>
     /// Three reasons, and they are not interchangeable. A <b>page</b> entry belongs to a target that has a
-    /// document — <c>Jint.Browser</c>, which is AngleSharp plus Jint — and would be wrong to answer here
+    /// document — <c>Jint.Browser</c>, which is the native DOM plus Jint — and would be wrong to answer here
     /// whatever the implementation state, because an engine target has no page to answer about. <b>Several of
     /// them are now implemented</b>, and they still answer <c>-32601</c> here: what a page target answers is
     /// checked by <c>Jint.Tests.Browser</c>, against a page. A <b>later</b> entry is engine-level and simply

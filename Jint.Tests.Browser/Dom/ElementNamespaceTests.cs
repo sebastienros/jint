@@ -10,7 +10,7 @@ using Browser = global::Jint.Browser.Browser;
 /// </summary>
 /// <remarks>
 /// <a href="https://github.com/sebastienros/jint/issues/3949">#3949</a> read as though adoption mutated the
-/// element. It never did: AngleSharp's stored namespace is a <c>private readonly</c> field it exposes as
+/// element. It never did: the former DOM integration's stored namespace is a <c>private readonly</c> field it exposes as
 /// <c>GivenNamespaceUri</c>, and what moved was the <i>read</i> — <c>IElement.NamespaceUri</c> falls back to
 /// an ancestor walk when nothing was stored. So every case here asserts the same element before and after it
 /// is moved, and asserts that the query and <c>namespaceURI</c> give one answer rather than two.
@@ -182,7 +182,7 @@ public sealed class ElementNamespaceTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        // AngleSharp's XML parser records no creation namespace at all, so an element parsed from XML has
+        // The former DOM integration's XML parser records no creation namespace at all, so an element parsed from XML has
         // only the xmlns declarations in scope to resolve against. Reading the stored namespace alone would
         // answer null here and lose a namespace the parse really did resolve.
         await page.SetContentAsync(

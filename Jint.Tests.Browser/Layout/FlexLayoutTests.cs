@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Layout;
@@ -153,7 +154,7 @@ public class FlexLayoutTests
                 var sizes = runtime.Layout.MeasureSizes();
                 foreach (var id in new[] { "outer", "inner", "primary", "label", "secondary", "trailing", "hidden" })
                 {
-                    var target = runtime.Document!.GetElementById(id)!;
+                    var target = DomDocumentReads.ById(runtime.Dom, runtime.Document!, id)!;
                     var expected = layout.ClientBoxOf(target) ?? global::Jint.Browser.Layout.FlatBox.Empty;
                     var measured = sizes.Measure(target);
                     measured.Width.Should().Be(expected.Width, id + " width");

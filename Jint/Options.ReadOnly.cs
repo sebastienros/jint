@@ -349,7 +349,7 @@ public sealed partial class Options
 
         void IOptionsGroup.SetReadOnly(bool value)
         {
-            // Published with a barrier for the reason Options.SetReadOnly states: the eleven accessors
+            // Published with a barrier for the reason Options.SetReadOnly states: the twelve accessors
             // below read this flag before they publish, and this cascade reads their fields after it.
             Volatile.Write(ref _readOnly, value);
             Thread.MemoryBarrier();
@@ -361,6 +361,7 @@ public sealed partial class Options
             Options.SetReadOnly(_navigator, value);
             Options.SetReadOnly(_diagnostics, value);
             Options.SetReadOnly(_storage, value);
+            Options.SetReadOnly(_indexedDb, value);
             Options.SetReadOnly(_cache, value);
             Options.SetReadOnly(_messaging, value);
             Options.SetReadOnly(_workers, value);
@@ -368,7 +369,7 @@ public sealed partial class Options
         }
 
         /// <summary>
-        /// Whether <paramref name="group"/> is this group or one of its eleven sub-groups.
+        /// Whether <paramref name="group"/> is this group or one of its twelve sub-groups.
         /// </summary>
         internal bool Owns(IOptionsGroup group)
             => ReferenceEquals(group, this)
@@ -379,6 +380,7 @@ public sealed partial class Options
                 || ReferenceEquals(group, _navigator)
                 || ReferenceEquals(group, _diagnostics)
                 || ReferenceEquals(group, _storage)
+                || ReferenceEquals(group, _indexedDb)
                 || ReferenceEquals(group, _cache)
                 || ReferenceEquals(group, _messaging)
                 || ReferenceEquals(group, _workers)
@@ -449,6 +451,21 @@ public sealed partial class Options
             if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Workers." + setting);
+            }
+        }
+    }
+
+    public sealed partial class IndexedDbOptions : IOptionsGroup
+    {
+        private bool _readOnly;
+
+        void IOptionsGroup.SetReadOnly(bool value) => _readOnly = value;
+
+        private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
+        {
+            if (_readOnly && !IsConfiguringWebApisLive(this))
+            {
+                Throw.OptionsReadOnly("Options.WebApi.IndexedDb." + setting);
             }
         }
     }

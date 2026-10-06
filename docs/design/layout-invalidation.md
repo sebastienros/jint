@@ -4,47 +4,17 @@ Tracking: [#3698](https://github.com/sebastienros/jint/issues/3698).
 
 ## Status
 
-`PageLayout` implements Browser-owned invalidation with the existing AngleSharp 1.8.1 and
-AngleSharp.Css 1.1.2 packages. It may retain its lazy size query, cascade and complete layout across
-unchanged reads when Jint controls the writers. It does not install a layout `MutationObserver`.
-Upstream package updates are not required for this implementation.
+`PageLayout` implements Browser-owned invalidation over the native DOM and CSSOM. It may retain its
+lazy size query, cascade and complete layout across unchanged reads when Jint controls the writers.
+It does not install a layout `MutationObserver`.
 
 The public `Page` API normally keeps native DOM/CSSOM objects internal. Generated mutators and the
 manual Browser algorithms are therefore usable interception points. The native-write reproducers from
 the earlier audit establish a limitation of a general external observer, not an impossibility of
 instrumenting the Browser's own calls. Arbitrary host/native integrations retain query-local behavior.
 
-The upstream proposals remain useful for broader native-write coverage:
-[AngleSharp #1349](https://github.com/AngleSharp/AngleSharp/pull/1349) and
-[AngleSharp.Css #248](https://github.com/AngleSharp/AngleSharp.Css/pull/248) are ready for review with owner
-approval. [AngleSharp #1344](https://github.com/AngleSharp/AngleSharp/pull/1344) introduced the Core token;
-[#1347](https://github.com/AngleSharp/AngleSharp/pull/1347) separates construction from mutations.
-These are optional future producers. Jint still owns parser/resource lifecycle and environment inputs.
-
-The 2026-09-13 dependency audit used the pinned assemblies and a Core `1.8.2-beta.715` probe. In that
-probe `ClassList.Add`, inline `GetStyle().SetProperty` and tree removal advanced the incoming DOM counter;
-native checkedness, stylesheet declaration writes and rule insertion did not. The counter alone could
-not authorize reuse. No package pin changes accompany the Browser-owned implementation.
-
 PRs #3888, #3908, #3927 and #4066 are merged. Query-local geometry and captured mouse offsets remain the
 fallback and the event contract. A mouse event retains captured numbers, not a live cache entry.
-
-## What the pinned dependencies expose
-
-`dotnet-inspect member` over the pinned packages establishes these boundaries:
-
-| Surface | Available mechanism | Gap |
-| --- | --- | --- |
-| `IDocument` / `INode` | Tree and state reads; document readiness event | No public mutation generation or synchronous general mutation callback |
-| `Document.Mutations` | Internal `MutationHost`; public `QueueMutation(Document, MutationRecord)` extension | A consumer cannot replace or intercept the host through the public API; queueing records is not an allocation-free invalidation signal |
-| `Node.OnParentChanged` | Protected virtual callback | Parent changes alone do not cover attributes, character data, CSSOM or selector state; existing concrete node factories do not become tracked by subclassing one node |
-| `IAttributeObserver.NotifyChange` | Configurable attribute observation | Does not cover tree/character changes or all independent rendering state |
-| `ICssStyleSheet` | Rules, insertion/removal and ownership | No general revision covering nested rules, declaration setters, media and disabled state |
-
-`Document.Changed` is the DOM `change` event, not a notification for arbitrary edits. A whole-document
-observer allocates records and cannot report all CSSOM or selector-state changes even with synchronous
-draining. A complete local integration must also cover nested wrappers (token lists, attributes,
-declarations and rule lists), manual native algorithms, parser boundaries and host customization.
 
 ## Required contract
 
@@ -69,10 +39,6 @@ A generation must never wrap into a still-live identity. Saturation must disable
 identity and drop retained entries. Equality is permission to reuse only when **every** input is covered;
 unknown state must fall back to a fresh query. No hash of DOM serialization is a substitute: it is linear,
 can collide and omits rendering state.
-
-The incoming DOM counter is a signed 64-bit increment, not a saturating revision. Its contract permits
-extra increments and gives step size no meaning. The integration must not assume one increment per API
-call, and must define its behavior at rollover rather than treating the counter as an ordered timestamp.
 
 ## Browser-owned integration
 
@@ -114,8 +80,8 @@ The following paths deliberately keep the existing fresh-query behavior:
   when tracking starts after geometry has already been warmed. Other documents' trackers do not disable it.
 
 These are performance fallbacks, not refusals of functionality. They can be narrowed when an explicit
-boundary and regression test prove the relevant native writes are observable. Private reflection, a
-second DOM store and local forks of AngleSharp are unnecessary.
+boundary and regression test prove the relevant native writes are observable. Private reflection and a
+second DOM store are unnecessary.
 
 The original native-call audit remains relevant to a host that wants unrestricted native writes plus
 persistent caching. Such a host needs native dependency versions or a cooperative mutation boundary;

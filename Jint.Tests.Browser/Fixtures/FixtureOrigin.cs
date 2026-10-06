@@ -54,7 +54,7 @@ internal static class FixtureOrigin
     /// The content type a file is served with, which is the whole of what this server knows about a type.
     /// </summary>
     /// <remarks>
-    /// A wrong one is not cosmetic: AngleSharp refuses a style sheet whose type is not <c>text/css</c>, and
+    /// A wrong one is not cosmetic: the former DOM integration refuses a style sheet whose type is not <c>text/css</c>, and
     /// the module loader refuses a module whose type is not a JavaScript one — so the table is the fixture's
     /// contract with the parser as much as with the network.
     /// </remarks>

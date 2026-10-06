@@ -1,8 +1,9 @@
 ﻿using System.Globalization;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi.Url;
 using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom;
@@ -21,7 +22,7 @@ namespace Jint.Browser.Dom;
 /// <b>Both names are HTML's defined elements and neither is a tree position</b>, so both are resolved through
 /// <see cref="DomDocumentElements"/>: "the html element" is the document element only while that element is
 /// an <c>html</c> one in the HTML namespace, and "the body element" is a <c>body</c>-or-<c>frameset</c> child
-/// of <em>that</em>. Reading them off <c>IDocument.DocumentElement</c> and <c>IDocument.Body</c> instead is
+/// of <em>that</em>. Reading them off <c>Document.DocumentElement</c> and <c>Document.Body</c> instead is
 /// what made <c>document.bgColor</c> answer a body a document rooted at an XHTML <c>div</c> does not have.
 /// </para>
 /// </remarks>
@@ -92,14 +93,6 @@ internal enum ReflectedKind
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The content attribute is the only storage.</b> A getter is <c>getAttribute</c> plus one parse; a setter
-/// is <c>setAttribute</c> plus one serialization. Nothing here holds state, which is what makes the two
-/// directions agree by construction — <c>el.setAttribute('dir', 'RTL')</c> and <c>el.dir = 'RTL'</c> are the
-/// same write, an attribute the parser produced is visible through the IDL attribute with nothing having to
-/// synchronise, and <c>[CEReactions]</c> comes free because the write goes through AngleSharp's attribute
-/// observer, which is where a custom element's <c>attributeChangedCallback</c> already arrives.
-/// </para>
-/// <para>
 /// <b>Every instance is process-shared and immutable</b>, because the generated shape member that names one
 /// is instantiated once per engine: the descriptors live in <c>Generated/DomReflected.g.cs</c> as static
 /// readonly fields, and the whole of an instance's state is the two names and the parameters of its type.
@@ -162,15 +155,6 @@ internal sealed class ReflectedAttribute
     /// <summary>The qualified member name — <c>HTMLElement.dir</c> — as a refusal names it.</summary>
     internal string Member { get; }
 
-    /// <summary>
-    /// Whether the IDL type is a <c>USVString</c> whose content attribute contains a URL, which is the one
-    /// kind whose <em>getter</em> has to resolve against the page runtime's current base URL rather than the
-    /// parsed document's. The generated getters make exactly this distinction — <c>ModelBuilder</c> emits
-    /// the realm overload for a <c>url</c> row and for no other — and it is here so that a shape written by
-    /// hand can make it too, rather than paying for the lookup on every reflected read.
-    /// </summary>
-    internal bool ReflectsUrl => _kind == ReflectedKind.Url;
-
     /// <summary>A <c>DOMString</c>, or a <c>DOMString?</c> when <paramref name="nullable"/>.</summary>
     /// <param name="member">The qualified member name.</param>
     /// <param name="attribute">The content attribute reflected.</param>
@@ -202,8 +186,8 @@ internal sealed class ReflectedAttribute
     /// with: "on getting, when the content attribute is missing or its value is the empty string, the
     /// element's node document's URL must be returned instead". It is the document's URL and not the base
     /// URL, so a <c>&lt;base href&gt;</c> does not move it — and for a document with a browsing context it
-    /// is the URL <em>the page</em> holds, which a same-document navigation moves and AngleSharp's document
-    /// address does not; <see cref="Get(DomRealm, IElement)"/> is where the two are told apart.
+    /// is the URL <em>the page</em> holds, which a same-document navigation moves and the native DOM's document
+    /// address does not; <see cref="Get(DomRealm, Element)"/> is where the two are told apart.
     /// </param>
     internal static ReflectedAttribute Url(string member, string attribute, bool documentUrlWhenEmpty = false)
         => new(member, attribute, ReflectedKind.Url, documentUrlWhenEmpty: documentUrlWhenEmpty);
@@ -246,27 +230,22 @@ internal sealed class ReflectedAttribute
         => new(member, attribute, kind, fallback: fallback, min: min, max: max);
 
     /// <summary>The IDL attribute's value outside a page runtime, resolved against its node document.</summary>
-    internal JsValue Get(IElement element)
+    internal JsValue Get(Element element)
     {
-        var owner = element.Owner;
-        return Get(element, CurrentBaseUri(owner, element.BaseUri), owner?.Url);
+        var owner = element.OwnerDocument;
+        return _kind == ReflectedKind.Url
+            ? Get(element, CurrentBaseUri(owner), owner is null ? null : DomDocumentState.Of(owner).Url)
+            : Get(element, null, null);
     }
 
     /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
-    /// <remarks>
-    /// Two values come from the runtime and they are different values. The base URL is what a relative
-    /// content attribute resolves against; the document's URL is what <see cref="_documentUrlWhenEmpty"/>
-    /// answers instead of resolving anything, and a <c>&lt;base href&gt;</c> does not move it. Both are the
-    /// runtime's rather than AngleSharp's because a same-document navigation moves
-    /// <see cref="PageRuntime.DocumentUrl"/> and leaves AngleSharp's document address at whatever the parse
-    /// was given — so after <c>history.pushState</c> the AngleSharp answer is the address the page was
-    /// loaded at, which for <c>formAction</c> is the one URL a form posting to itself must not read.
-    /// </remarks>
-    internal JsValue Get(DomRealm realm, IElement element)
+    internal JsValue Get(DomRealm realm, Element element)
     {
-        var owner = element.Owner;
+        if (_kind != ReflectedKind.Url) return Get(element, null, null, realm);
+        var owner = element.OwnerDocument;
         var runtime = PageRuntime.Find(realm.Engine, owner);
-        return Get(element, runtime?.BaseUri ?? CurrentBaseUri(owner, element.BaseUri), runtime?.DocumentUrl ?? owner?.Url);
+        var baseUri = owner is null ? null : DomDocumentState.BaseUri(owner, realm.Engine.Constraints.Check, realm.CancellationToken);
+        return Get(element, baseUri, runtime?.DocumentUrl ?? (owner is null ? null : DomDocumentState.Of(owner).Url), realm);
     }
 
     /// <summary>
@@ -278,56 +257,50 @@ internal sealed class ReflectedAttribute
     /// setting" (HTML §3.2.6.4, and §16.3 for the colours): a missing target reads exactly as an absent
     /// content attribute, which is what passing no element to the shared getter says.
     /// </remarks>
-    internal JsValue Get(IDocument document)
-        => Get(ElementIn(document), CurrentBaseUri(document, document.BaseUri), document.Url);
+    internal JsValue Get(Document document)
+        => _kind == ReflectedKind.Url
+            ? Get(ElementIn(document), CurrentBaseUri(document), DomDocumentState.Of(document).Url)
+            : Get(ElementIn(document), null, null);
+
+    /// <summary>The document-targeted getter with the calling realm's bounded attribute read.</summary>
+    internal JsValue Get(DomRealm realm, Document document)
+    {
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Token.ThrowIfCancellationRequested();
+        return Get(ElementIn(document, work), null, null, realm, work);
+    }
 
     /// <summary>The same member's setter, which does nothing when the target element is absent.</summary>
-    internal JsValue Set(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal JsValue Set(DomRealm realm, Document document, JsValue[] arguments)
     {
-        var element = ElementIn(document);
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Token.ThrowIfCancellationRequested();
+        var element = ElementIn(document, work);
+        work.Check();
         return element is null ? JsValue.Undefined : Set(realm, element, arguments);
     }
 
     /// <summary>The element a <see cref="ReflectedTarget"/> names in <paramref name="document"/>.</summary>
-    /// <remarks>
-    /// Both are <see cref="DomDocumentElements"/>' and neither is AngleSharp's, because both members name one
-    /// of HTML's two <em>defined</em> elements rather than the tree position it usually occupies: <c>dir</c>
-    /// reflects "the html element", which is the document element only while that element is an <c>html</c>
-    /// one in the HTML namespace, and the colours reflect "the body element", which is a child of that.
-    /// AngleSharp's <c>Body</c> asks neither question, so <c>document.bgColor</c> on a document rooted at an
-    /// XHTML <c>div</c> read the nested <c>body</c>'s attribute where the standard has no target at all.
-    /// </remarks>
-    private IElement? ElementIn(IDocument document) => _target switch
+    private Element? ElementIn(Document document, DomReadWork? work = null) => _target switch
     {
-        ReflectedTarget.DocumentElement => DomDocumentElements.Html(document),
-        ReflectedTarget.Body => DomDocumentElements.Body(document),
+        ReflectedTarget.DocumentElement => work is null ? DomDocumentElements.Html(document) : DomDocumentElements.Html(document, work),
+        ReflectedTarget.Body => work is null ? DomDocumentElements.Body(document) : DomDocumentElements.Body(document, work),
         _ => null,
     };
 
     /// <summary>
-    /// The node document's current base URL, derived without AngleSharp's cached <c>Node.BaseUri</c>.
+    /// Resolves the node document's current base URL.
     /// </summary>
 
-    private static string? CurrentBaseUri(IDocument? document, string? fallback)
+    private static string? CurrentBaseUri(Document? document)
+        => document is null ? null : DomDocumentState.BaseUri(document);
+
+    private JsValue Get(Element? element, string? baseUri, string? documentUrl, DomRealm? realm = null, DomReadWork? work = null)
     {
-        if (document is null)
-        {
-            return fallback;
-        }
-
-        var address = document.Url;
-        var href = document.QuerySelector("base[href]")?.GetAttribute("href");
-        if (string.IsNullOrEmpty(href))
-        {
-            return address;
-        }
-
-        return PageUrl.Resolve(href, address) ?? address;
-    }
-
-    private JsValue Get(IElement? element, string? baseUri, string? documentUrl)
-    {
-        var value = element?.GetAttribute(_attribute);
+        var value = element is null ? null : work is not null ? work.Attribute(element, _attribute) : realm is null
+            ? element.GetAttributeNS(null, _attribute)
+            : DomContentAttributes.Get(realm, element, _attribute);
+        work?.Check();
 
         switch (_kind)
         {
@@ -341,11 +314,9 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Bool(value is not null);
 
             case ReflectedKind.Nonce:
-                return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element));
+                return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element, value));
 
             case ReflectedKind.Url when _documentUrlWhenEmpty && string.IsNullOrEmpty(value):
-                // "...the element's node document's URL must be returned instead." The caller resolved which
-                // URL that is, because for the page's own document it is the runtime's and not AngleSharp's.
                 return DomConvert.Text(documentUrl ?? "");
 
             case ReflectedKind.Url:
@@ -364,7 +335,7 @@ internal sealed class ReflectedAttribute
     }
 
     /// <summary>Sets the IDL attribute, which is one write of the content attribute.</summary>
-    internal JsValue Set(DomRealm realm, IElement element, JsValue[] arguments)
+    internal JsValue Set(DomRealm realm, Element element, JsValue[] arguments)
     {
         using var mutation = realm.MutateLayout();
         var value = DomConvert.At(arguments, 0);
@@ -374,21 +345,24 @@ internal sealed class ReflectedAttribute
             // "On setting, set this's [[CryptographicNonce]] to the given value." The content attribute is
             // untouched, which is what keeps a header-delivered policy's nonce out of a CSS selector.
             case ReflectedKind.Nonce:
-                CryptographicNonce.Set(element, TypeConverter.ToString(value));
+                var nonce = TypeConverter.ToString(value);
+                CryptographicNonce.Set(element, nonce, DomContentAttributes.Get(realm, element, _attribute));
                 return JsValue.Undefined;
 
             case ReflectedKind.Boolean:
+                var wasOpen = DomHostHooks.DetailsOpen(element);
                 // "The content attribute must be removed if the IDL attribute is set to false, and must be
                 // set to the empty string if the IDL attribute is set to true."
                 if (TypeConverter.ToBoolean(value))
                 {
-                    element.SetAttribute(_attribute, "");
+                    element.SetAttributeNS(null, _attribute, "");
                 }
                 else
                 {
-                    element.RemoveAttribute(_attribute);
+                    element.RemoveAttributeNS(null, _attribute);
                 }
 
+                DomHostHooks.NotifyDetailsOpenChanged(realm, element, wasOpen);
                 return JsValue.Undefined;
 
             // A `DOMString?` setter — a nullable string, and a nullable enumeration, which is the same
@@ -401,14 +375,17 @@ internal sealed class ReflectedAttribute
             // WebIDL's [LegacyNullToEmptyString]: null converts to "" rather than to "null". Only null,
             // and pointedly not undefined, which is what the corpus asserts of <body text> either way.
             case ReflectedKind.Text when _legacyNull && value.IsNull():
-                element.SetAttribute(_attribute, "");
+                element.SetAttributeNS(null, _attribute, "");
                 return JsValue.Undefined;
 
             // On setting, a URL attribute takes the value as given; resolution is the getter's business.
             case ReflectedKind.Text:
             case ReflectedKind.Enumerated:
+                element.SetAttributeNS(null, _attribute, TypeConverter.ToString(value));
+                return JsValue.Undefined;
+
             case ReflectedKind.Url:
-                element.SetAttribute(_attribute, TypeConverter.ToString(value));
+                element.SetAttributeNS(null, _attribute, UrlValues.ToUsvString(value));
                 return JsValue.Undefined;
 
             case ReflectedKind.Double:
@@ -619,11 +596,6 @@ internal sealed class ReflectedAttribute
     /// A URL attribute's getter: parse the content attribute against the element's node document, and answer
     /// the resulting URL string — or, when parsing fails, the content attribute as it stands.
     /// </summary>
-    /// <remarks>
-    /// The parser is the same WHATWG parser the page runtime uses for its document and base URLs. The
-    /// descriptor deliberately bypasses AngleSharp's convenience URL properties because their cached base
-    /// can survive removal of the document's first <c>base[href]</c>.
-    /// </remarks>
     private static string ResolveUrl(string? value, string? baseUri)
     {
         if (value is null)
@@ -702,7 +674,7 @@ internal sealed class ReflectedAttribute
     }
 
     /// <summary>A limited integer type's setter: below the floor is <c>IndexSizeError</c>, not a clamp.</summary>
-    private JsValue SetLimited(DomRealm realm, IElement element, long value, long floor, string detail)
+    private JsValue SetLimited(DomRealm realm, Element element, long value, long floor, string detail)
     {
         if (value < floor)
         {
@@ -730,13 +702,13 @@ internal sealed class ReflectedAttribute
     /// <summary>
     /// The shortest string representing an integer, which is what every numeric reflected attribute writes.
     /// </summary>
-    private JsValue SetInteger(IElement element, long value)
+    private JsValue SetInteger(Element element, long value)
     {
-        element.SetAttribute(_attribute, value.ToString(CultureInfo.InvariantCulture));
+        element.SetAttributeNS(null, _attribute, value.ToString(CultureInfo.InvariantCulture));
         return JsValue.Undefined;
     }
 
-    private JsValue SetDouble(IElement element, double value)
+    private JsValue SetDouble(Element element, double value)
     {
         // "If the value is not greater than 0, then return": the attribute keeps whatever it had, which is
         // the one setter in this file that can decline to write.
@@ -745,19 +717,19 @@ internal sealed class ReflectedAttribute
             return JsValue.Undefined;
         }
 
-        element.SetAttribute(_attribute, TypeConverter.ToString(value));
+        element.SetAttributeNS(null, _attribute, TypeConverter.ToString(value));
         return JsValue.Undefined;
     }
 
-    private JsValue SetOrRemove(IElement element, JsValue value)
+    private JsValue SetOrRemove(Element element, JsValue value)
     {
         if (value.IsNullOrUndefined())
         {
-            element.RemoveAttribute(_attribute);
+            element.RemoveAttributeNS(null, _attribute);
         }
         else
         {
-            element.SetAttribute(_attribute, TypeConverter.ToString(value));
+            element.SetAttributeNS(null, _attribute, TypeConverter.ToString(value));
         }
 
         return JsValue.Undefined;

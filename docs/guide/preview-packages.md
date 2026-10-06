@@ -18,6 +18,7 @@ Then install the package you need with prerelease versions enabled:
 ```bash
 dotnet add package Jint --prerelease
 dotnet add package Jint.Browser --prerelease
+dotnet add package Jint.HtmlParser --prerelease
 ```
 
 For the command-line browser:

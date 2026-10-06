@@ -16,7 +16,7 @@ archive fails the run rather than falling back to another corpus.
 
 `NodaTimeZoneProvider.cs` and `IcuCldrProvider.cs` in this directory are not just test
 fixtures — they are working examples of the provider extension points described in the
-main [README](../README.md#extending-temporal-and-intl-with-custom-providers). The test
+[internationalization guide](../docs/guide/internationalization.md#intl-and-temporal-data). The test
 suite reaches its current test262 conformance numbers by registering them on the
 `Engine.Options.Temporal.TimeZoneProvider` and `Engine.Options.Intl.CldrProvider`
 properties; end users can copy these files into their own projects (with the matching

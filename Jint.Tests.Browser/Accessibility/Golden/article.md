@@ -22,7 +22,7 @@ Figure 1: the parser baton.
 1. A renderer.
 2. A rival DOM stack.
 
-> Jint should add value to AngleSharp without competing too much.
+> Jint combines a native DOM with its JavaScript engine.
 
 ## Running it
 

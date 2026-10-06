@@ -1,5 +1,6 @@
 #nullable enable
 
+using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Tests.Browser.Navigation;
@@ -9,7 +10,7 @@ namespace Jint.Tests.Browser.Parsing;
 using Browser = global::Jint.Browser.Browser;
 using Page = global::Jint.Browser.Page;
 
-/// <summary>The selector states whose answer the page corrects around AngleSharp's defaults.</summary>
+/// <summary>The selector states whose answer the page corrects around the former DOM integration's defaults.</summary>
 public sealed class PagePseudoClassSelectorTests
 {
     /// <summary>
@@ -269,7 +270,7 @@ public sealed class PagePseudoClassSelectorTests
 
     /// <summary>
     /// Selectors §13.1 limits <c>:enabled</c> to elements which have a disabled state. Links have no such
-    /// state, with or without an <c>href</c>; form controls retain AngleSharp's enabled/disabled behavior.
+    /// state, with or without an <c>href</c>; form controls retain the former DOM integration's enabled/disabled behavior.
     /// </summary>
     [Test]
     public async Task EnabledMatchesControlsButNeverLinks()
@@ -583,7 +584,7 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// HTML §4.16.3 matches <c>:open</c> against a <c>details</c> or a <c>dialog</c> carrying <c>open</c>, a
     /// drop-down <c>select</c> whose drop-down box is open, and an <c>input</c> whose picker is open. The last
-    /// two need a user interface, so only the first two can ever match here. AngleSharp's <c>IsOpen()</c>
+    /// two need a user interface, so only the first two can ever match here. the former DOM integration's <c>IsOpen()</c>
     /// returns <c>false</c> for every element, so <c>&lt;details open&gt;</c> matched nothing at all.
     /// </summary>
     [Test]
@@ -617,9 +618,9 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
-    /// Selectors §10.5: <c>:closed</c> is an element which has an open and a closed state and is in the
-    /// closed one, so it is not the complement of <c>:open</c> over every element — only over the four
-    /// categories HTML §4.16.3 gives the pair. AngleSharp registers no <c>:closed</c> selector at all, so the
+    /// Jint's compatibility extension <c>:closed</c> matches an applicable element in its closed state.
+    /// Current Selectors Level 4 does not define this pseudo-class. It is not the complement of
+    /// <c>:open</c> over every element; Jint preserves the categories below. the former DOM integration registers none, so the
     /// whole selector was a parse failure and every API that took one threw a <c>SyntaxError</c>.
     /// </summary>
     [Test]
@@ -692,7 +693,7 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// A selector this package registers has to reach every API a page can spell it in, and has to carry the
     /// text and the one-class specificity the parser gives an ordinary pseudo-class — <c>:closed</c> is the
-    /// first one here that AngleSharp does not supply a default for, so both come from this file.
+    /// first one here that the former DOM integration does not supply a default for, so both come from this file.
     /// </summary>
     [Test]
     public async Task ClosedIsAnOrdinaryPseudoClassEverySelectorApiAccepts()
@@ -721,11 +722,11 @@ public sealed class PagePseudoClassSelectorTests
                 getComputedStyle(details).color,
               ].join('|');
             })()
-            """)).Should().Be("true|true|details|details|1|details:closed|rgba(1, 2, 3, 1)");
+            """)).Should().Be("true|true|details|details|1|details:closed|rgb(1, 2, 3)");
     }
     /// <summary>
     /// HTML §4.16.3 matches <c>:in-range</c> and <c>:out-of-range</c> only against an element which is a
-    /// candidate for constraint validation <i>and</i> has range limitations. AngleSharp asks neither
+    /// candidate for constraint validation <i>and</i> has range limitations. the former DOM integration asks neither
     /// question: its <c>IsInRange()</c> is "any <c>IValidation</c> element that is neither overflowing nor
     /// underflowing", so every input the <c>min</c> and <c>max</c> attributes do not apply to matched
     /// <c>:in-range</c>, and so did one they do apply to that carries neither.
@@ -776,7 +777,7 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// HTML §4.10.5.4 gives the Range state a default minimum of 0 and a default maximum of 100, so a range
     /// control always has range limitations; and its value sanitization algorithm clamps the value to the
-    /// nearest boundary point, so it can suffer neither an underflow nor an overflow. AngleSharp reads the
+    /// nearest boundary point, so it can suffer neither an underflow nor an overflow. the former DOM integration reads the
     /// content attribute back unclamped, so a value outside the range reported both.
     /// </summary>
     [Test]
@@ -812,7 +813,7 @@ public sealed class PagePseudoClassSelectorTests
 
     /// <summary>
     /// HTML §4.16.3 matches <c>:valid</c> and <c>:invalid</c> against elements which are <i>candidates for
-    /// constraint validation</i>, so an element §4.10.19.2 bars from it matches neither. AngleSharp's
+    /// constraint validation</i>, so an element §4.10.19.2 bars from it matches neither. the former DOM integration's
     /// <c>IsInvalid()</c> is <c>!CheckValidity()</c> and its <c>CheckValidity()</c> is
     /// <c>WillValidate &amp;&amp; Validity.IsValid</c>, so a barred element answered <c>false</c> and came
     /// back <c>:invalid</c> — a disabled control, a read-only one, a hidden input and a reset button all did.
@@ -856,7 +857,7 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// HTML §4.16.3's third category: a <c>fieldset</c> is <c>:invalid</c> when a descendant of it is a
     /// candidate for constraint validation that does not satisfy its constraints, and <c>:valid</c> otherwise.
-    /// AngleSharp's <c>IsValid()</c> answers only for an <c>IValidation</c> element and a form, and a fieldset
+    /// The former DOM integration's <c>IsValid()</c> answers only for an <c>IValidation</c> element and a form, and a fieldset
     /// is barred from constraint validation itself, so it came back <c>:invalid</c> whatever it contained.
     /// </summary>
     [Test]
@@ -895,7 +896,7 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// HTML §4.16.3 matches <c>:placeholder-shown</c> against an <c>input</c> or a <c>textarea</c> whose
     /// placeholder is currently being presented, which §4.10.5.3.10 confines to the seven type states the
-    /// attribute applies to and to an empty value. AngleSharp's <c>IsPlaceholderShown()</c> asks any input for
+    /// attribute applies to and to an empty value. the former DOM integration's <c>IsPlaceholderShown()</c> asks any input for
     /// a placeholder and an empty value, applicability included, and never answers for a <c>textarea</c>.
     /// </summary>
     [Test]
@@ -939,7 +940,7 @@ public sealed class PagePseudoClassSelectorTests
     /// HTML §4.16.3's three <c>:read-write</c> categories: an <c>input</c> the <c>readonly</c> attribute
     /// applies to and which is mutable, a <c>textarea</c> with no <c>readonly</c> attribute which is not
     /// disabled, and an element that is an editing host or editable and is neither. <c>:read-only</c> matches
-    /// <b>all other HTML elements</b>, which is what keeps an SVG or a MathML element out of both. AngleSharp
+    /// <b>all other HTML elements</b>, which is what keeps an SVG or a MathML element out of both. the former DOM integration
     /// reads the first category as "not disabled and not read-only" with no applicability test, and its
     /// fall-through answers <c>true</c> for every element that is not an <c>IHtmlElement</c> at all.
     /// </summary>
@@ -990,11 +991,14 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
-    /// The third category, which AngleSharp reads through its own <c>IsContentEditable</c> — the member
+    /// The third category, which the former DOM integration reads through its own <c>IsContentEditable</c> — the member
     /// <c>Events/ContentEditing</c> already documents as answering <see langword="false"/> for
     /// <c>contenteditable</c> written without a value, which is how nearly every page writes it. An editing
-    /// host and everything editable inside it is <c>:read-write</c>, and a document in design mode is an
-    /// editing host of its own; a control inside one is still decided by the first two categories.
+    /// host and everything editable inside it is <c>:read-write</c>. Design mode makes the document's
+    /// child HTML element an editing host; <c>contenteditable="false"</c> subtrees remain noneditable.
+    /// A control inside an editing host is still decided by the first two categories.
+    /// https://html.spec.whatwg.org/multipage/interaction.html#editing-host
+    /// https://w3c.github.io/editing/docs/execCommand/#editable
     /// </summary>
     [Test]
     public async Task AnEditingHostAndWhatIsEditableInsideItIsReadWrite()
@@ -1025,18 +1029,24 @@ public sealed class PagePseudoClassSelectorTests
               document.designMode = 'on';
               const designing = plain.matches(':read-write') + ':' + readOnly.matches(':read-write')
                 + ':' + refused.matches(':read-write');
+              window.designModeBarrierFacts = ['explicitlyFalse', 'refused'].map(id => {
+                const element = document.getElementById(id);
+                return [element.matches(':read-write'), element.matches(':read-only'), element.isContentEditable].join(':');
+              }).join('|');
               document.designMode = 'off';
               return before + '|' + designing + '|' + plain.matches(':read-write');
             })()
             """)).Should().Be(
             "host:true,inside:true,mutable:true,readOnly:false,disabled:false,area:true,readOnlyArea:false," +
-            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:true|false");
+            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:false|false");
+        (await page.EvaluateAsync<string>("window.designModeBarrierFacts"))
+            .Should().Be("false:true:false|false:true:false");
     }
 
     /// <summary>
     /// HTML §4.16.3's three <c>:indeterminate</c> categories: a checkbox whose indeterminate IDL attribute is
     /// set, a radio button whose §4.10.5.1.16 radio button group holds no checked member, and a
-    /// <c>progress</c> with <b>no value content attribute</b>. AngleSharp has the first and reads the third as
+    /// <c>progress</c> with <b>no value content attribute</b>. the former DOM integration has the first and reads the third as
     /// an attribute whose value is empty, and the radio-button rule is missing outright.
     /// </summary>
     [Test]
@@ -1049,7 +1059,7 @@ public sealed class PagePseudoClassSelectorTests
               <input type="radio" name="one" id="oneA"><input type="radio" name="one" id="oneB">
               <input type="radio" name="two" id="twoA" checked><input type="radio" name="two" id="twoB">
               <input type="radio" id="nameless">
-              <input type="radio" name="ONE" id="caseless">
+              <input type="radio" name="ONE" id="differentCase">
               <form id="form"><input type="radio" name="one" id="owned" checked></form>
               <input type="checkbox" id="checkbox">
               <progress id="noValue"></progress>
@@ -1060,19 +1070,19 @@ public sealed class PagePseudoClassSelectorTests
 
         (await page.EvaluateAsync<string>("""
             (() => {
-              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'caseless', 'owned', 'checkbox',
+              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'differentCase', 'owned', 'checkbox',
                 'noValue', 'emptyValue', 'withValue'];
               const read = () => ids.map(id => id + ':' + document.getElementById(id).matches(':indeterminate')).join(',');
               const before = read();
               oneB.checked = true;
               const afterChecking = oneA.matches(':indeterminate') + ':' + oneB.matches(':indeterminate')
-                + ':' + caseless.matches(':indeterminate');
+                + ':' + differentCase.matches(':indeterminate');
               checkbox.indeterminate = true;
               return before + '|' + afterChecking + '|' + checkbox.matches(':indeterminate');
             })()
             """)).Should().Be(
-            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,caseless:true,owned:false," +
-            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:false|true");
+            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,differentCase:true,owned:false," +
+            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:true|true");
     }
 
     /// <summary>
@@ -1115,7 +1125,7 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// HTML §4.16.3: <c>:focus</c> matches the element which has the focus, which for this package is the one
     /// <c>Events/FocusController</c> holds — the same element <c>document.activeElement</c> names and every
-    /// focus event is dispatched at. AngleSharp answers from <c>IElement.IsFocused</c>, which nothing assigns,
+    /// focus event is dispatched at. the former DOM integration answers from <c>IElement.IsFocused</c>, which nothing assigns,
     /// so before this the selector matched nothing however the focus moved.
     /// </summary>
     [Test]
@@ -1157,7 +1167,7 @@ public sealed class PagePseudoClassSelectorTests
     /// Selectors §9.5: <c>:focus-within</c> is the focused element together with every element containing it,
     /// so it answers for the ancestors of whatever <c>:focus</c> answers for and for nothing else.
     /// <c>:focus-visible</c> is deliberately not answered — Selectors §9.4 makes it a decision about drawing a
-    /// focus indicator, which this browser has no rendering to draw — so it stays AngleSharp's and matches
+    /// focus indicator, which this browser has no rendering to draw — so it stays the former DOM integration's and matches
     /// nothing, which this pins rather than leaves to be discovered.
     /// </summary>
     [Test]
@@ -1234,7 +1244,7 @@ public sealed class PagePseudoClassSelectorTests
     /// HTML §4.16.3: an element is <c>:active</c> while it is <b>being actively pointed at</b> — a pointing
     /// device is down over it — and Selectors §9.2 adds its ancestors, while HTML adds the labeled control of
     /// a <c>label</c> which is itself active. Being disabled excludes none of that: a disabled control cannot
-    /// be activated but it is still being pointed at. AngleSharp's <c>IsActive()</c> answers for a hyperlink
+    /// be activated but it is still being pointed at. the former DOM integration's <c>IsActive()</c> answers for a hyperlink
     /// and nothing else, off a flag no part of this package sets.
     /// </summary>
     [Test]
@@ -1288,8 +1298,8 @@ public sealed class PagePseudoClassSelectorTests
     /// <summary>
     /// HTML §4.16.3: <c>:checked</c> is a checkbox or radio button whose checkedness is true and an
     /// <c>option</c> whose selectedness is true, and nothing else — not the historical <c>menuitem</c>
-    /// AngleSharp still models, and not an input whose <c>type</c> attribute has been taken away, whose
-    /// checkedness AngleSharp keeps reading in the Text state it falls back to.
+    /// The former DOM integration still models, and not an input whose <c>type</c> attribute has been taken away, whose
+    /// checkedness the former DOM integration keeps reading in the Text state it falls back to.
     /// </summary>
     [Test]
     public async Task CheckedIsACheckedCheckboxOrRadioAndASelectedOptionAndNothingElse()
@@ -1350,10 +1360,10 @@ public sealed class PagePseudoClassSelectorTests
 
     /// <summary>
     /// HTML §4.16.3: <c>:required</c> is an <c>input</c> which is required and a <c>select</c> or
-    /// <c>textarea</c> carrying the attribute, and <c>:optional</c> is an <c>input</c> the attribute
-    /// <i>applies</i> to which is not required and the other two without it — so §4.10.5.3.4's fifteen type
-    /// states bound both, and an input outside them is in neither class. AngleSharp reads the attribute
-    /// wherever it is written.
+    /// <c>textarea</c> carrying the attribute, so §4.10.5.3.4's fifteen type states bound it. The prose
+    /// bounds <c>:optional</c> the same way, but wpt
+    /// <c>html/semantics/selectors/pseudo-classes/required-optional-hidden.html</c> expects a required hidden
+    /// input to match it, so every input that is not required is optional.
     /// </summary>
     [Test]
     public async Task RequiredAndOptionalAskWhetherTheAttributeAppliesToTheTypeState()
@@ -1384,7 +1394,7 @@ public sealed class PagePseudoClassSelectorTests
               return before + '|' + hidden.matches(':required') + ':' + hidden.matches(':optional');
             })()
             """)).Should().Be(
-            "hidden:false:false,range:false:false,submit:false:false,checkbox:true:false,text:true:false," +
+            "hidden:false:true,range:false:true,submit:false:true,checkbox:true:false,text:true:false," +
             "plain:false:true,select:true:false,plainSelect:false:true,textarea:true:false," +
             "plainTextarea:false:true,div:false:false|true:false");
     }
@@ -1402,7 +1412,7 @@ public sealed class PagePseudoClassSelectorTests
         => page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
-            var element = runtime.Document!.GetElementById(id)!;
+            var element = DomDocumentReads.ById(runtime.Dom, runtime.Document!, id)!;
             var box = runtime.Layout.Current().ClientBoxOf(element)!.Value;
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
                 kind, box.X + (box.Width / 2), box.Y + (box.Height / 2), 0, buttons, 1, EventModifiers.None, 0, 0));

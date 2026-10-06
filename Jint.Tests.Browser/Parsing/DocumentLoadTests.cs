@@ -12,6 +12,32 @@ public class DocumentLoadTests
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     [Test]
+    public async Task ADetachedEmbedSourceIsRecordedOnlyWhenReconnected()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/",
+            "<embed id='plugin' src='/initial.dat'>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var runtime = global::Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            var element = global::Jint.Browser.Dom.DomDocumentReads.ById(runtime.Dom, runtime.Document!, "plugin")!;
+            element.ParentNode!.RemoveChild(element);
+            element.SetAttribute("src", "/changed.dat");
+            runtime.Parser!.CompleteNativeMutation(element);
+            engine.SetValue("detachedPlugin", runtime.Dom.WrapNode(element));
+            return true;
+        });
+        loopback.Page.Requests.Should().NotContain(request => request.Url == "/changed.dat");
+        await loopback.Page.EvaluateAsync("document.body.append(detachedPlugin)");
+        loopback.Page.Requests.Should().ContainSingle(request => request.Url == "/changed.dat"
+            && request.NotFetchedReason != null);
+        await loopback.Page.EvaluateAsync("document.body.append(detachedPlugin)");
+        loopback.Page.Requests.Should().ContainSingle(request => request.Url == "/changed.dat");
+        loopback.Server.Received.Should().NotContain(request => request.Path.EndsWith(".dat", StringComparison.Ordinal));
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ReadinessMovesFromLoadingToInteractiveToComplete()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
@@ -124,13 +150,13 @@ public class DocumentLoadTests
         (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).fontSize"))
             .Should().Be("33px");
 
-        // AngleSharp.Css serializes every colour with an alpha channel; see the divergence table in
+        // The former CSS integration serializes every colour with an alpha channel; see the divergence table in
         // Jint.Browser/AGENTS.md. What matters here is that the sheet was fetched and cascaded at all.
         (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).color"))
             .Should().Contain("1, 2, 3");
 
         // A style sheet's own parse happens on the parser thread after the baton went back, so this is also
-        // where a genuinely asynchronous step in AngleSharp.Css would show up as a reported parser hop.
+        // where a genuinely asynchronous step in the former CSS integration would show up as a reported parser hop.
         loopback.Page.Errors.Should().BeEmpty();
     }
 
@@ -168,7 +194,7 @@ public class DocumentLoadTests
             && r.NotFetchedReason == null);
 
         // An <embed> is still a reference nothing follows: there is no plugin to hand it to. The recorded
-        // URL is the raw attribute rather than the resolved one, because AngleSharp hands the resource
+        // URL is the raw attribute rather than the resolved one, because the former DOM integration hands the resource
         // loader `new Url(Source)` for this element -- see Jint.Browser/Dom/divergences.md.
         requests.Should().ContainSingle(r => r.Url.EndsWith("plugin.dat", StringComparison.Ordinal)
             && r.NotFetchedReason != null);

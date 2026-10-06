@@ -1,5 +1,5 @@
-using AngleSharp.Dom;
 using Jint.Browser;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Runtime;
@@ -91,7 +91,7 @@ public sealed class PageObserverTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The end-of-turn look is not free: <c>IDocument.Title</c> is AngleSharp's depth-first search for the
+    /// The end-of-turn look is not free: <c>IDocument.Title</c> is the former DOM integration's depth-first search for the
     /// first <c>&lt;title&gt;</c> element, which stops at one and walks the whole tree when there is none. So
     /// the observer is checked <i>first</i> and a page with none returns before touching the document at all
     /// — which is most pages, because <c>Page.Observer</c> is null for every page nobody is driving over the
@@ -196,6 +196,10 @@ public sealed class PageObserverTests
         }
 
         private static string? Greeting(PageRuntime runtime)
-            => runtime.Document?.QuerySelector("#greeting")?.TextContent;
+        {
+            if (runtime.Document is not { } document || DomDocumentReads.ById(runtime.Dom, document, "greeting") is not { } element)
+                return null;
+            return DomDescendantText.Read(element, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken);
+        }
     }
 }

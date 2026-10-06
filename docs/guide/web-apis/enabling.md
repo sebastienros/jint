@@ -22,13 +22,20 @@ events, URLs, files, navigator, streams, scheduling, messaging, reporting, compr
 global error events, and `WebLocks`. It deliberately excludes:
 
 - `Fetch`, `EventSource`, `WebSocket`, and `XmlHttpRequest`
-- `Storage` and `CacheApi`
+- `Storage`, `CacheApi`, and `IndexedDb`
 - `FetchEvents`, which lets script claim inbound requests
 - `Workers`, which asks the host to create engines and execution resources
 
 Dedicated helpers such as `UseFetch`, `UseStorage`, `UseCacheApi`, `UseWorkers`, and `UseWebLocks` enable their
 flags and configure the associated options. Feature dependencies are expanded automatically; for example, fetch
 brings the events, URL, files, and streams surfaces it uses, and `WebLocks` brings navigator and events.
+`IndexedDb` brings events and structured cloning; see [IndexedDB](./indexeddb.md) for storage lifetimes and pumping.
+
+Performance is in the default set and installs `PerformanceResourceTiming`. If you also grant Fetch or
+XMLHttpRequest, completed requests record resource entries and queue an additional task per request,
+even without an observer. To omit this work, select `WebApiFeatures.Default & ~WebApiFeatures.Performance`
+before adding your network flags. This removes the clock, user timing, and observers too; see
+[performance timeline](./crypto-and-performance.md#performance-timeline).
 
 Globals are installed lazily and do not replace an own global already registered by the host. Only the principal
 realm is changed; a `ShadowRealm` receives none of these globals unless the host installs them.

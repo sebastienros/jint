@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
@@ -150,9 +150,9 @@ internal sealed class JsResizeObserver : ObjectInstance
         }
     }
 
-    private IElement Target(JsValue[] arguments, string member)
+    private Element Target(JsValue[] arguments, string member)
     {
-        if (arguments.At(0) is IDomWrapper { DomTarget: IElement element })
+        if (arguments.At(0) is IDomWrapper { DomTarget: Element element })
         {
             return element;
         }
@@ -163,9 +163,9 @@ internal sealed class JsResizeObserver : ObjectInstance
         return null!;
     }
 
-    private sealed class Observation(IElement target)
+    private sealed class Observation(Element target)
     {
-        internal IElement Target { get; } = target;
+        internal Element Target { get; } = target;
 
         // https://drafts.csswg.org/resize-observer/#dom-resizeobservation-resizeobservation-target-options
         internal double Width { get; set; } = -1;
@@ -181,7 +181,7 @@ internal sealed class JsResizeObserverEntry : ObjectInstance
     private readonly PageRuntime _runtime;
     private readonly FlatBox _box;
 
-    internal JsResizeObserverEntry(PageRuntime runtime, ObjectInstance prototype, INode node, FlatBox box)
+    internal JsResizeObserverEntry(PageRuntime runtime, ObjectInstance prototype, Node node, FlatBox box)
         : base(runtime.Engine)
     {
         _runtime = runtime;
@@ -191,7 +191,7 @@ internal sealed class JsResizeObserverEntry : ObjectInstance
     }
 
     /// <summary>The element this entry reports on.</summary>
-    internal INode Node { get; }
+    internal Node Node { get; }
 
     /// <summary>The wrapper for <see cref="Node"/>, which is what <c>entry.target</c> answers.</summary>
     internal JsValue TargetValue => _runtime.Dom.WrapNode(Node);
@@ -200,7 +200,7 @@ internal sealed class JsResizeObserverEntry : ObjectInstance
     /// https://drafts.csswg.org/resize-observer/#dom-resizeobserverentry-contentrect — the target's own
     /// size, at the origin of its own padding box, which is where a content rectangle is measured from.
     /// </summary>
-    internal JsValue Rect() => DomRects.Of(Engine, _box);
+    internal JsValue Rect() => DomRects.Of(_runtime.Dom, _box, readOnly: true);
 
     /// <summary>A fresh one-element array holding the target's own size.</summary>
     internal JsValue BoxSizes() => ObserverGeometry.BoxSizes(Engine, _box.Width, _box.Height);

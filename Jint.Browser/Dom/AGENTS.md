@@ -1,306 +1,186 @@
 # Agent instructions: the DOM bindings
 
-> **Read this when:** You are touching `Jint.Browser/Dom/` or `tools/dom-bindings/` — the generated bindings, the
-> hand-written wrapper classes, the override table, or the generator that reads AngleSharp's attributes.
+> **Read this when:** You are touching `Jint.Browser/Dom/` or `tools/dom-bindings/`: generated bindings,
+> hand-written wrappers, the binding contract or its emitter.
 >
-> This is one of the co-located instruction files indexed from the repository-root
-> [`AGENTS.md`](../../AGENTS.md). Read that first, then [`Jint.Browser/AGENTS.md`](../../AGENTS.md) for the
-> package's principle and what is generated versus hand-written. Nothing below is repeated in either.
+> Read the repository-root [`AGENTS.md`](../../AGENTS.md) first, then
+> [`Jint.Browser/AGENTS.md`](../AGENTS.md) for native/parser ownership, performance and scope.
 
-### How AngleSharp's attributes are read as WebIDL
+### How the explicit contract is read as WebIDL
 
-`[DomName]` is the whole surface: an interface or member without one is not projected. These refinements are
-worth knowing before changing the model builder.
+`tools/dom-bindings/contract.json` is the generator's input, not a description inferred from dependency
+assemblies. `BindingGenerator.Run` calls `BindingContract.Load(...).ToModel()` and `Emitter.Emit()`.
+The JSON records interface/parent names, receiver types, type-map eligibility, wrapper kinds, interface-object
+availability, member bodies, method lengths, constants, unscopables, collection accessors and string enums.
 
-- **`[DomNoInterfaceObject]` does not mean "mixin".** An interface carrying it is a mixin only when it *also*
-  has no `[DomName]` base of its own **and** at least one other `[DomName]` interface extends it — that is
-  `ParentNode`, `ChildNode`, `GlobalEventHandlers`, `NavigatorID` and their kind. `CSSGroupingRule` carries
-  the same attribute and has a base, so it stays a real link in the chain; `CaretPosition` carries it with
-  neither a base nor an includer, so it stays a standalone interface that simply cannot be named.
-- **A plain CLR interface with no `[DomName]` but with `[DomName]` members is a mixin too** — `IValidation`,
-  `ILoadableElement`, `IMediaController`. Nothing marks them; the member closure picks them up.
-- **Members are attributed to the shallowest interface that has them.** `MembersOf(I)` is the `[DomName]`
-  closure of `I` minus the closure of its primary base, so `querySelector` lands on `Element`, `Document` and
-  `DocumentFragment` — exactly where WebIDL's `includes` puts it — and never again below.
-- **Some members are extension methods.** Every one of `CSSStyleDeclaration`'s two hundred-odd CSS property
-  attributes lives on `StyleDeclarationExtensions`, and `element.style` on
-  `ElementCssInlineStyleExtensions`; a static method with `[DomName]` + `[DomAccessor]` whose first parameter
-  is a `[DomName]` interface is a member of that interface. They are emitted as **extension calls** rather
-  than as static ones, because AngleSharp and AngleSharp.Css both declare an `AngleSharp.Dom.ElementExtensions`
-  and naming either by its full name is CS0433.
-- **An enum is a string enumeration when any of its `[DomName]` field values contains a lower-case letter**,
-  and a set of numeric constants otherwise: `ShadowRootMode` is `"open"`/`"closed"`, `NodeType` is
-  `ELEMENT_NODE = 1`. `overrides.json`'s `stringEnums` corrects a wrong answer. Numeric-enum constants attach
-  to the interface that **returns** the enum, which is what puts `ELEMENT_NODE` on `Node` and not on everything
-  that mentions a node type; `constants.add` / `constants.skip` fix the rest.
-- **`[DomReturnType]` takes precedence over an operation's CLR return signature.** Since 1.8.0,
-  `querySelectorAll` returns an object implementing both `IHtmlCollection<IElement>` and `INodeList`.
-  Its annotation selects the NodeList projection without an adapter. Do not infer that brand for every
-  HTMLCollection-returning call from the runtime type: it would remove that call's named properties.
+**Change the contract, regenerate, review the emitted diff.** Never hand-edit `Generated/*.g.cs`.
+`DomBindingsStalenessTests` runs the same generator in memory, checks diagnostics and compares output;
+`JINT_DOM_BINDINGS=update` regenerates it. Commands are in
+[`tools/dom-bindings/README.md`](../../tools/dom-bindings/README.md).
+
+`BindingContract.ToModel` rejects duplicate interface names, generated fields and member names, and requires
+parents before children. The emitter builds the registry and orders type-map candidates most-derived first.
+JavaScript conversions live in the recorded member bodies: changing a native CLR signature does not
+automatically update the contract's WebIDL behavior.
 
 ### The override table
 
-`tools/dom-bindings/overrides.json` is the curated half, and every entry carries a reason. Entries that name
-a member the pinned assemblies no longer have become diagnostics, so the table can never quietly describe a
-version of AngleSharp nobody references.
+`overrides.json` and `pin.json` retain the old extraction decisions and assembly provenance. They are **not
+generation inputs**, and changing them alone changes no binding. `Inventory`, `ModelBuilder`, `Conversions`
+and `Nullability` remain in the generator sources as extraction-era code; the active entry point does not
+call them. Do not revive assembly reflection or infer behavior from their old `[DomName]` rules.
 
-Two of its rules bite before you know which list an entry belongs in. **Reach for `hooks` before `skip` +
-`additions`**: a hook stands in front of a generated member, so the member keeps its arity and its name, and a
-member AngleSharp later grows under that name is still reported rather than shadowed — where the `skip` form
-shadows it in silence. And **a member the generator could not convert is not in this table at all**: it is
-skipped with the reason the generator worked out, and the reason is in the report the regeneration prints, so
-an entry written for it describes a decision nobody made. That split is deliberate — this file is for
-decisions, the report is for consequences.
-
-A third bites once you are inside the `reflected` list, because a row there replaces the **whole accessor
-pair**. **`setterOnly` is what a member whose getter is not reflection needs**: HTML defines several as
-reflecting *on setting* while the read is a computation no reflection type expresses, and where the pinned
-assemblies already make that computation — `<meter>`'s six, whose getters are §4.10.14's clamping and its
-defaults — a whole replacement is a regression rather than a fix. The flag keeps the projected getter's body
-verbatim, and the generator refuses, as a diagnostic, a row that asks for it with no projected getter to keep
-or one that also routes its getter through a `hooks` entry, because the read cannot be both. Where the
-**host** rather than AngleSharp has the right answer (`img.width`), the getter hook beside the row is what
-supplies it, and `setterOnly` is the wrong tool.
-
-What each of the thirteen lists is for, the two forms an `additions` entry takes, and which lists state the
-**standard's** half of the table rather than correcting AngleSharp's, are in
-[`tools/dom-bindings/README.md`](../../tools/dom-bindings/README.md#what-every-list-in-overridesjson-is-for),
-beside the generator that reads the file.
+When replacing a getter, setter or operation, preserve its contract name, length, conversions and descriptor
+attributes. Keep computed getters when changing only reflection on setting: a meter getter's clamping is
+not the same algorithm as serializing its setter's argument. Record the actual body/adapter in the contract,
+not a historical `hooks`, `reflected` or `additions` row.
 
 ### The interfaces the generator cannot see
 
-`DomManualInterfaces` and `DomConstructors` are the whole of what the override table cannot express.
+The manual surface is an explicit implementation choice, not a limitation of external metadata:
 
-- **`DomManualInterfaces.For` answers three questions, including HTML's element interface rule**: a
-  name in the HTML namespace that is a valid custom element name is an `HTMLElement`, and only a name that is
-  not is an `HTMLUnknownElement`. AngleSharp builds the same `HtmlUnknownElement` for both.
-- **Six element interfaces are declared by name and selected by local name.** AngleSharp models `<dl>`,
-  `<dir>`, `<font>`, `<frame>` and `<frameset>` with internal sealed classes whose only public interface is
-  `IHtmlElement` — there is no `IHtmlDListElement`, no `IHtmlFrameElement` and no `[DomName]` for any of the
-  five — so `DomTypeMap`, which keys on the CLR type, cannot tell one of them from a `<div>`. An SVG `<a>`
-  is the sixth and the same gap in another namespace: it is a bare `SvgElement`, and SVG 2 §16.2 gives it
-  `rel` and `relList`. Its local-name test is case-**sensitive**, because SVG has no ASCII-case-insensitive
-  name matching, and its `relList` is the one place a `DOMTokenList`'s token set is not AngleSharp's
-  (`DomAttributeTokenList`, over the content attribute, because no public member hands out an `ITokenList`
-  for one). Each gets its
-  own shape, constructor identity and `@@toStringTag`, and HTML §16.3.3's members are reflected onto it:
-  the one place a `ReflectedAttribute` is declared outside `overrides.json`'s `reflected` list, because that
-  list is read against the interfaces the generator can see. Putting the members on `HTMLElement` instead
-  would give `compact` and `noResize` to every element. Their indices continue `DomInterfaces`' own, which is
-  what keeps `DomRealm`'s per-engine arrays a dense array.
-- **`XMLDocument` is declared here and selected by `IXmlDocument`.** AngleSharp exposes that CLR interface
-  but gives it no `[DomName]`, so the generator cannot emit the WebIDL interface. `new Document()` uses the
-  same concrete XML type and is the explicit exception: `DomConstructors` wraps it as `Document`, and the
-  clone hook carries either source brand to the clone.
-- **`Document` and `DocumentFragment` are the interface objects a script may call `new` on.** AngleSharp
-  puts `[DomConstructor]` on no `[DomName]` interface at all, so the generator can never learn that an
-  interface is constructible and `DomInterfaceObject` refuses every `new` — which is also what a browser
-  answers for `new HTMLDivElement()`. The document it makes is DOM's: an XML document with no doctype, no
-  document element and no browsing context; the fragment's node document is the page's.
+- **Native elements are selected by namespace and local name.** `DomRealm` calls `DomTypeMap.For(Node)`
+  in `DomTypeMap.Native.cs`, separately from the generated CLR type map for non-nodes.
+  One native `Element` class represents many WebIDL brands; a type-only cache cannot distinguish a `div`
+  from a `button`.
+- **Manual element shapes include `HTMLDListElement`, `HTMLDirectoryElement`, `HTMLFontElement`,
+  `HTMLFrameElement`, `HTMLFrameSetElement` and `SVGAElement`.** Their reflected members use
+  `ReflectedAttribute`; do not put them on `HTMLElement` to avoid declaring the correct brand.
+  SVG local-name matching is case-sensitive. `DomAttributeTokenList` backs the SVG anchor's `relList`.
+  The SVG anchor inherits `SVGGraphicsElement`, like the generated graphics elements.
+  `Svg/` owns the live value objects; its per-realm weak element table caches raw attribute strings
+  and reparses only on access. Never add SVG parse state to native elements or tree construction.
+- **`XMLDocument` and `StaticRange` are manual brands.** `DocumentKind.Xml` selects the former, except that
+  `new Document()` explicitly wraps its native XML document as `Document`.
+- **Constructibility is decided by `DomConstructors` and `DomInterfaceObject`.** The table includes
+  `Document`, `DocumentFragment`, `Comment`, `Text`, `ProcessingInstruction`, `Range` and `StaticRange`,
+  plus the separate legacy `Image` factory. Ordinary element interface objects remain illegal constructors
+  except through a registered custom-element subclass. The associated document comes from the owning
+  `DomRealm`, with an inert XML document used when none is associated.
 
 ### The conversion table, and where it diverges from a browser
 
-One decision is worth stating in full, because it is the one a page notices. **A CLR `string` return maps
-`null` to the empty string**, because WebIDL's `DOMString` is not nullable and the overwhelming majority of
-these members are reflected content attributes whose specified value when the attribute is absent is `""`.
-AngleSharp 1.7.3 fixes many absent-attribute getters that returned `null`, but the conversion is still the non-nullable IDL
-contract rather than a promise about every CLR implementation. The members whose IDL type genuinely *is*
-`DOMString?` are listed in `overrides.json`'s `nullableStrings` and
-emit `null` instead. **That list is the artefact**: a member missing from it answers `""` where a browser
-answers `null`, and one wrongly in it does the reverse.
+**A non-nullable `DOMString` return maps CLR null to the empty string; a nullable one preserves null.**
+`DomConvert.Text` and `NullableText` implement the distinction; the contract chooses which to call.
+Arguments are a separate decision: `NullableText` accepts null/undefined as null, whereas ordinary string
+conversion makes `el.id = null` write `"null"`. Use null-to-empty only where WebIDL requires it.
+No current generator pass discovers this from nullable-reference metadata.
 
-**An *argument* goes the other way, and the two IDL types are decided differently.** A `DOMString?`
-argument takes `null` and `undefined` as null, and which arguments those are is read from AngleSharp's
-nullable-reference metadata, because it annotates the namespace of every namespaced member and no table
-could have been kept in step with them. But it annotates a hundred and fifty reflected content attributes
-`String?` as well — its *own* setter reads null as removing the attribute — so the metadata is read for an
-**operation's argument only**, and `nonNullableParameters` lists the nine places where even that is wider
-than the standard. `el.id = null` therefore still sets the string `"null"`, which is what
-`[LegacyNullToEmptyString]` exists to say when a specification wants otherwise. An *interface*-typed
-argument reads no metadata at all: `nullableParameters` is its whole list.
+The contract also states integer/boolean/number conversions, interface receiver checks and native wrapping.
+`DomConvert.Window` asks the host for the global corresponding to a `DomBrowsingContext`; never project a
+second window wrapper over an engine's global. Native `Node` and `Attr` identities cross through the same
+realm/cache machinery even though `Attr` is not a subclass of native `Node`.
 
-The rest is mechanical — `bool`, the integer and floating types through WebIDL's `ToInt32`/`ToUint32`/
-`ToNumber`, `DateTime` as a `DOMTimeStamp`, interfaces through the wrapper cache, `IHtmlCollection<T>`
-through a call-site-closed generic, `object` as WebIDL `any`. **`IWindow` is the one entry named by CLR type**,
-because the interface is excluded and a window has no wrapper to be: the global object of an engine already
-*is* one, so `DomConvert.Window` asks the host, which answers this engine's global for its own window and
-`null` for any other browsing context — `WindowProxy?`, and never `undefined`. What it still cannot convert
-(a `Task`, a delegate parameter) becomes a recorded skip.
+Several observable rules must survive changes to the projection:
 
-Divergences from a browser that are **ours** and deliberate:
-
-- **`length` on a collection is a prototype accessor**, as WebIDL requires. `DomCollectionBase` opts out of
-  `ArrayLikeObject`'s compatible default own property, and every length-consuming lane must therefore observe
-  `[[Get]]`; bypassing the prototype makes a redefined getter appear to succeed while iteration ignores it.
-  Observing it is not the same as *invoking* it, and the difference is what `for (var j = 0; j < list.length;
-  j++)` costs: `DomRealm` captures each collection prototype's `length` getter **at the moment it creates that
-  prototype** — before a page can have touched it — and `DomCollectionBase.PristineLengthGetter` hands that
-  object to the engine, which then answers the read from the wrapper's own count while the accessor currently
-  resolving for `length` is still it. Taking the capture any later would let a tampered getter be recorded as
-  the pristine one, so a new collection wrapper kind adds itself to `CaptureLengthAccessor` and nowhere else.
-  The claim it makes — that invoking the captured getter answers `Length` — holds because every generated
-  collection accessor reads the same AngleSharp member the interface's `length` attribute does, and
-  `HTMLCollection.prototype.length` is literally the wrapper's `Length`; `JINT_HOST_CONTRACT_VERIFICATION=1`
-  is what checks it, on every read.
-- **`Symbol.iterator` is declared by the interface that *supports* indexed properties**, never by one that
-  merely inherits the getter, which is where a browser has it too: `NodeList.prototype` and
-  `HTMLCollection.prototype` carry it, `HTMLOptionsCollection.prototype` does not. The value is a per-realm
-  slot naming `%Array.prototype.values%` itself, per
-  [WebIDL](https://webidl.spec.whatwg.org/#js-iterable), so `NodeList.prototype[Symbol.iterator] ===
-  Array.prototype[Symbol.iterator]`. `DomIterator.ArrayValues` is the factory the emitter names, and it reads
-  `DomRealm.OwningRealm` for the reason everything else here does.
-- **A content attribute set to the empty string by hand keeps an ARIA element relationship** where a browser
-  drops it. The mixin's two halves are `AriaReflection` and `AriaElementReflection`, both declared onto the one
-  `Element` shape through the `additions` extend form. The string half is a view of its content attribute and
-  holds nothing, which is what makes the two directions agree by construction and `[CEReactions]` come free;
-  the element half has to hold an *explicitly set attr-element*, because a page may point at an element with no
-  `id` at all. HTML drops that reference in the content attribute's *attribute change steps*, and this reads
-  the attribute's value instead of an observer, so it drops it for every write path AngleSharp reports one for
-  and for the several it does not — a namespaced write, an `Attr` node's value, the parser. The value it
-  cannot tell apart is the empty string, which is what the IDL setter itself writes, so `el.setAttribute(
-  'aria-owns', '')` over an explicit reference keeps it. Both spellings answer no elements from the ids.
-- **A repeated *property* read of `document.all['name']` that several elements match answers one
-  `HTMLCollection`**, where a browser makes a new one per read. The engine verifies an own read by asking
-  `TryGetOwnPropertyValue` and `GetOwnProperty` for the same key and comparing, so a named getter that
-  manufactures a value cannot be one that manufactures a *fresh* one; the property lane memoizes the last
-  name it built a sub-collection for, and it never goes stale because that collection is a live filter over
-  the name. `namedItem`, `item` and the legacy caller each build a new one, which is the part upstream's
-  corpus checks.
-- **`el.tabIndex` answers 0 when the attribute is absent**, where HTML's default is −1 for anything not
-  inherently focusable. It was AngleSharp's answer and is this binding's now, because `reflected` took the
-  member over to get HTML's integer parsing (`tabindex="5%"` is 5, not 0); what is still missing is a
-  focusability model rather than a parse, so `tabIndex` cannot decide focusability.
-- **A form's supported property names are computed rather than read from metadata.** HTML makes them the
-  `name` content attributes and the ids of the form's listed elements, and `name` is not an IDL member of
-  `IElement` at all, so no `[DomName]` heuristic could find it. It is the one named getter over elements in
-  the surface, so `ModelBuilder.AppendNamedHalf` writes the rule once instead of the table carrying it.
+- **Collection `length` is a prototype accessor.** `DomCollectionBase` opts out of `ArrayLikeObject`'s
+  default own property. Length-consuming lanes must observe `[[Get]]`, including a replaced getter.
+  `DomRealm.CaptureLengthAccessor` captures the pristine getter when it creates the prototype, before
+  author code can replace it; the wrapper can then supply its count only while that exact getter resolves.
+  A new collection kind must participate in that capture, and the accessor must agree with the wrapper's
+  count. `JINT_HOST_CONTRACT_VERIFICATION=1` checks the promise.
+- **`Symbol.iterator` belongs on the interface declaring indexed access**, not every derived interface.
+  Its per-realm value is `%Array.prototype.values%` through `DomIterator.ArrayValues`, so
+  `NodeList.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]`.
+- **ARIA element references are not only reflected strings.** `AriaElementReflection` retains an explicitly
+  set element; it detects later attribute changes by value. A manual write of the same empty string cannot
+  be distinguished from the IDL setter's own empty string, so it retains the reference.
+- **Repeated property reads of a multi-match `document.all[name]` reuse a live collection.**
+  `namedItem`, `item` and the legacy caller can create fresh collections, but the property lane memoizes
+  its last named result so value and descriptor reads agree during host-contract verification.
+- **Absent `tabindex` still reflects as 0.** That is not a focusability test; `FocusController` uses the
+  element kind and content attribute directly.
 
 ### Every member body goes through one invoker, and that is where a refusal is converted
 
-`DomFailures.Guard` wraps reads; `GuardMutation` wraps every setter and each operation except the generator's
-explicit read list. New operations default to a mutation scope. This is Browser-owned layout invalidation:
-no mutation records, and no retention while conversions or native callbacks can reenter script. Manual
-writes, including named-property hooks, must enter `DomRealm.MutateLayout()` too. Both wrappers use the
-same exception translation. The emitter
-wraps it in exactly one place (`Emitter.AppendGuardedBody`); `Views/ViewInstaller`'s `Selection` shape is the
-one hand-written shape that takes it too, because its members reach AngleSharp's range algorithms.
-**Nothing generated carries a `catch`**, because
-two thousand copies of one decision is two thousand chances to disagree with it. What crosses is
-AngleSharp's `DomException` as the `DOMException` its `DomError` names, an `ArgumentException` as a
-`TypeError` (WebIDL's answer for an argument no conversion accepts), and a `NotSupportedException` /
-`NotImplementedException` as `NotSupportedError`; **everything else keeps the engine's own interop
-behaviour**, which [`Jint/Runtime/Interop/AGENTS.md`](../../Jint/Runtime/Interop/AGENTS.md) says is frozen —
-so a `JavaScriptException` a body raised itself, and every constraint and cancellation signal, are outside
-the filter. A member the standard gives a *different* name to is written by hand and calls
-`DomFailures.Refuse`; the register in [`divergences.md`](divergences.md) is what says which those are.
-Selectors use the generated guard too: the old selector-only `NullReferenceException` translation was
-removed after the upstream parser stopped dereferencing the invalid `:has()` branch.
+`DomFailures.Guard` wraps reads; `GuardMutation` wraps setters and operations except the emitter's explicit
+read list. New operations default to mutation scopes. The scope invalidates Browser layout on entry/exit
+and prevents retained measurements during reentrant callbacks. Manual writes, including named-property
+hooks, must also use `DomRealm.MutateLayout()`.
 
-Divergences that are **AngleSharp's** — where it answers differently from the standard and the binding has to
-work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
-and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
-silently; never file or reopen issues or submit pull requests in AngleSharp repositories.
+**Mutation completion is a semantic boundary, not just invalidation.** `PrepareMutation` recovers pending
+native notifications and installs needed watches. After a successful complete native call,
+`CompleteMutation` drains resource changes, custom-element reactions and file-transfer changes.
+Native `PendingRecord` callbacks must schedule/record only; never execute author code mid-mutation.
 
-The `dataset` one has a visible consequence inside the binding: AngleSharp exposes a CLR string map over raw
-attribute suffixes, while HTML and Web IDL expose a named-property object whose keys are converted. The
-`HTMLElement.dataset` getter hook therefore projects `DomStringMapAdapter` over the associated element; it owns
-the camelCase conversion, named setter validation and real attribute deletion that the CLR surface cannot state.
+`Emitter.AppendGuardedBody` applies the shared exception policy rather than emitting a `catch` into each
+body. Native `Jint.HtmlParser.DomException.Name` supplies the DOM error name; `ArgumentException` and
+`Jint.Runtime.TypeErrorException` become `TypeError`; `NotSupportedException` / `NotImplementedException` become
+`NotSupportedError`. A `JavaScriptException` raised by a body, constraints and cancellation remain outside
+that filter. Preserve the engine's interop contract
+([`Jint/Runtime/Interop/AGENTS.md`](../../Jint/Runtime/Interop/AGENTS.md)).
+
+Use `DomFailures.Refuse` for a Browser algorithm's own named DOM refusal. Record limitations in
+[`divergences.md`](divergences.md), not an obsolete dependency workaround list.
+`DomSelectors` compiles through the native `SelectorCompiler` before matching, even on an empty tree;
+native grammar handles forgiving lists, escapes and EOF recovery without a Browser text-rewriting prepass.
+`SelectorEnvironment` carries the page's focus, pointer press, fragment target and control facts so CSS and
+DOM queries read the same state.
 
 ### DOM §7's XPath, and CSSOM's `CSS` are in the package file
 
-Neither pinned assembly declares either surface, so neither could be generated and both are hand-written in
-`Dom/Views/`. What each answers, why the XPath engine is `System.Xml.XPath` over `AngleSharp.XPath` rather
-than one written here, and why namespaces are ignored are in
-[`../AGENTS.md`](../AGENTS.md#dom-7s-xpath-and-cssoms-css), beside the rest of what is hand-written.
+The Browser XPath interfaces and `CSS` namespace are hand-written in `Dom/Views/`, using native
+XPath and CSS facilities. The Browser cursor's namespace policy, snapshot results, bounded native
+evaluation and `CSS.supports` are described in
+[`../AGENTS.md`](../AGENTS.md#dom-7s-xpath-and-cssoms-css).
 
 ### Wrapper identity, and the two classes that are not one hierarchy
 
-One `ConditionalWeakTable<object, ObjectInstance>` per engine, keyed on the AngleSharp object. That single
-choice buys the browsers' wrapper-preservation rule: a node in the tree keeps its wrapper and therefore its
-expandos alive (React and Vue rely on that), and a node dropped by both the tree and script collects with its
-wrapper. It is on the engine through a `ConditionalWeakTable<Engine, DomRealm>` rather than in
-`Engine.HostDefined`, because that slot belongs to the embedder.
+**One `ConditionalWeakTable<object, ObjectInstance>` per engine, keyed on native identity.**
+A node retained by the tree keeps its wrapper and expandos alive; a node dropped by both tree and script
+can collect with its wrapper. `DomRealm` is reached through a weak table on the engine rather than through
+`Engine.HostDefined`, which belongs to the embedder.
 
-`[DomSameObject]` is an upstream metadata promise, not a cache. Keep wrapper identity keyed on the underlying
-object, and do not mistake a fresh `querySelectorAll` result for a violation: that operation returns a new
-static NodeList each time.
+**Constructor and prototype state is per Realm; wrapper identity is shared per engine.** Read
+`DomRealm.OwningRealm`, never the realm that happens to be executing. `RealmScope` binds shaped prototype
+construction to that realm as well. Do not manufacture a second wrapper when a node is adopted.
 
-**Constructor and prototype state is per Realm; wrapper identity remains per engine.** Read
-`DomRealm.OwningRealm`, never the realm that happens to be executing. `Jint.Runtime.RealmScope` binds shaped
-prototype construction to that realm too, so lazy methods do not capture a caller's intrinsics.
-`DomRealm` records creation realms for nodes before binding-driven cross-document adoption; parser-created
-frame trees are recorded when associated with the frame realm. Known-node wrapping only checks the shared
-weak table. Never replace that lookup with a subtree scan. Native host creation followed by native adoption
-before any binding observation still needs an integration seam; `divergences.md` records the exact gap.
-Page focus and activation ownership remain engine-wide and receiver-gated, separate from creation brands.
+**Parser nodes need no eager creation-realm walk.** Associating a document installs its weak
+`Document.AdoptionObserver` (`INodeAdoptionObserver`). Before native adoption changes an owner, the hook
+records the node/attribute's original realm. Otherwise a first lookup takes the owner document's realm;
+known identities only read the shared weak table. `AssociateTemplateContents` associates the inert template
+owner document without traversing its contents. Existing explicit `RecordSubtree` boundaries for binding
+operations are not a reason to add one to every parse. A document must be associated before its native
+nodes leave it; the hook cannot reconstruct an original realm for a document Browser never knew.
+Focus and activation ownership remain engine-wide and receiver-gated, separate from creation brands.
 
-The wrappers deliberately do **not** share a base class, and `IDomWrapper` is what they share instead:
+The wrappers share `IDomWrapper`, not a common wrapper base:
 
-- **`DomNodeObject : JsEventTarget`** — so the engine's DOM §2.9 dispatch walks a real path. The seam that
-  must not be forgotten is `IsNode`, because it is what selects the tree lane at all: overriding `GetParent`
-  without it dispatches to the target alone, in silence. Assigned slots answer `null` and there is no
-  activation behaviour yet; both are campaign item R2, and answering a wrong slot would be worse than none.
-- **`Collections/DomCollectionObject : ArrayLikeObject`** — so `list[i]`, `for..of`, spread, `Array.from` and
-  the `Array.prototype` generics reach the engine's one-callback-per-element lane with no `Reference`, no key
-  object and no descriptor. Its interface-specific half is the generated accessor. **Which wrapper class a
-  collection gets is a performance contract, not only a tidiness one**: every `list[i]` arrives at the
-  interpreter as one virtual `ArrayLikeObject.TryGetIndex`, which the JIT devirtualizes and inlines from a
-  class profile holding *one* guess, so the wrapper classes a page's collections produce compete for it. A new
-  wrapper for a shape an existing one already served costs the shapes that were already there: whichever
-  collection warms the call site first wins the guess and the others read every element through a cold
-  indirect call. [#4027](https://github.com/sebastienros/jint/pull/4027) is the worked example — a second
-  wrapper for the *static* `NodeList`, which shares this class with the live one. So a collection wanting a
-  different read strategy gets a branch inside the class that already serves its interface, never a sibling
-  of it.
-- **The static `NodeList`, and where the static/live distinction lives.** **Nothing about an `INodeList` says
-  whether it is live**: `childNodes` and `labels` are, a selector match is not, and all three arrive at the
-  same wrapper. So staticness is a property of a *type* — `Collections/DomStaticNodeList`, a snapshot the
-  binding copies for itself, produced only by the `querySelectorAll` hook, which is where DOM §4.2.6's word
-  "static" is — and `DomCollectionObject.TryGetIndex` tests for that type before it keeps one element wrapper
-  per index. The memo is of `DomRealm.WrapNode` and never a second identity: the cached object *is* the one
-  the wrapper table holds, it adds no retention over the snapshot that already names those nodes, and it dies
-  with the list. **A live collection must not get one** — a per-index cache over a membership that moves
-  answers the wrong node, and a removed node it had cached would be pinned for the collection's life.
-- **`Collections/DomIndexedNodeObject : DomNodeObject`** — a node whose interface *also* supports indexed or
-  named properties (`form[0]`, `form.username`, `select[0]`). It is a node wrapper with the same generated
-  accessor projected on top, and it has to be: the tree-dispatch lane keys on the node wrapper and the cache
-  keeps one per node, so a form that became an `ArrayLikeObject` would stop being an `EventTarget` the
-  dispatcher can walk. Three overrides, all reading the accessor at the same instant, which is what keeps
-  `hasOwnProperty` and `Object.getOwnPropertyNames` agreeing about one object.
-- **`Collections/DomHtmlAllCollectionObject : DomCollectionBase`** — `document.all`, and the only wrapper
-  carrying an engine internal slot: it declares `[[IsHTMLDDA]]` and `[[Call]]` through
-  `ObjectInstance.DeclareIsHtmlDda`/`DeclareCallable` (see
-  [`Jint/Native/Object/AGENTS.md`](../../Jint/Native/Object/AGENTS.md#when-you-add-a-fast-lane-decide-who-can-reach-it)),
-  which is what makes `typeof document.all` answer `"undefined"` and `document.all('x')` a call. Its supported
-  names are HTML's rather than DOM's — an id always, a `name` only on one of the fourteen "all"-named
-  elements — and a name several elements match answers a **new live `HTMLCollection`** per call, which is the
-  one named getter in the surface whose value is not an element.
-- **`Collections/DomNamedMapObject : NamedPropertyObject`** — `dataset`, whose whole model is a named getter.
-- **`DomObject : ObjectInstance`** — everything else, overriding nothing, which is what keeps it on the
-  engine's ordinary access lane.
+- **`DomNodeObject : JsEventTarget`** participates in Jint's tree dispatch. `IsNode` selects that lane;
+  `GetParent` alone is insufficient. It supplies native assigned slots and shadow parents, handler
+  reconciliation, and `ActivationBehaviors` including legacy pre-activation/cancellation.
+- **`Collections/DomCollectionObject : ArrayLikeObject`** serves indexed/iterable collections through one
+  generated accessor. Keep different read strategies in the existing wrapper when it already serves the
+  interface: a sibling wrapper changes the CLR type profile of every hot indexed call site.
+- **Static and live NodeLists share a wrapper, not a caching policy.** `DomStaticNodeList` is the selector
+  snapshot; only it can memoize one wrapper per index. The memo is the same identity `DomRealm.WrapNode`
+  supplies. A live collection must not retain such an index cache: membership changes would return stale
+  nodes and pin removed ones.
+- **`Collections/DomIndexedNodeObject : DomNodeObject`** supplies indexed/named properties for nodes such
+  as forms and selects. It must remain a node/event target; replacing it with an `ArrayLikeObject` loses
+  tree dispatch. Value, descriptor and key reads must describe the same current membership.
+- **`Collections/DomHtmlAllCollectionObject : DomCollectionBase`** supplies `document.all`'s
+  `[[IsHTMLDDA]]`, callable behavior and HTML-specific supported names. A multi-match name is a live
+  collection, not just its first element.
+- **`Collections/DomNamedMapObject : NamedPropertyObject`** serves `dataset`. `DomStringMapAdapter`
+  handles camelCase/name conversion, validation and real attribute deletion.
+- **`DomObject : ObjectInstance`** handles other projected objects without overriding ordinary access.
 
-The cache is also where a page's DOM is *counted*. `DomRealm.MaxNodes` — `BrowserOptions.MaxDomNodes` when a
-page runtime set it, and zero, meaning no limit, for a binding installed on its own — makes the projection
-that would pass the ceiling a `RangeError` in the script that asked for it. It counts node wrappers because
-that is the one place every projection passes through and because the wrapper table is what a script's DOM
-growth actually costs an engine — a different quantity from the one the parse bounds, and deliberately so:
-seeding this counter from the parsed document's size would make merely walking a document of the permitted
-size a refusal. [`Runtime/AGENTS.md`](../Runtime/AGENTS.md#budgets-what-a-turn-is-and-which-constraints-can-bound-one)
-has the other side.
+`DomRealm.MaxNodes` bounds the number of node wrappers, not the parsed tree's node count. Exceeding it is a
+script `RangeError`. `BrowserOptions.MaxDomNodes` also bounds the parsed document separately; seeding the
+wrapper counter from the parse would make walking an allowed document fail. See
+[`Runtime/AGENTS.md`](../Runtime/AGENTS.md#budgets-what-a-turn-is-and-which-constraints-can-bound-one).
 
-Read [`Jint/Native/Object/AGENTS.md`](../../Jint/Native/Object/AGENTS.md) before changing any of them: the
-subclassing cliff, the named-projection hook table and the coherence obligations every one of these classes
-carries are there, and host-contract verification (`JINT_HOST_CONTRACT_VERIFICATION=1`) is what checks them.
+Read [`Jint/Native/Object/AGENTS.md`](../../Jint/Native/Object/AGENTS.md) before changing these wrappers:
+host subclasses owe coherent access lanes and host-contract verification.
 
 ### Shape discipline
 
-Every prototype is a `JsObjectShape.Instantiate` result, and `DomPrototypeTests` asserts
-`Engine.Advanced.HasSharedShape` for **every** interface. That is not decoration: a shaped prototype is a
-valid holder for the prototype-method inline cache and a dictionary-mode one is not, so a single careless
-`DefineOwnProperty` would quietly cost the whole surface its caching. The one write a prototype takes after
-instantiation is the `constructor` slot, filled with `DefineOwnPropertyUnchecked` under a name the shape
-declared — the sanctioned in-place slot replacement, and the only kind a shaped object survives.
+Every interface prototype is a `JsObjectShape.Instantiate` result; `DomPrototypeTests` checks shared shapes.
+Adding an undeclared property deoptimizes the prototype and loses prototype-method caching. The
+`constructor` slot is declared by the shape, then filled with `DefineOwnPropertyUnchecked`: an in-place
+replacement, not permission to add arbitrary slots.
 
-`WebIdlPropertyAttributeTests` holds every emitted member to its kind's attributes, which are WebIDL's and not
-ECMAScript's: an operation is **enumerable**. The same rule `Jint/WebApi/AGENTS.md` states, checked the same
-way, and it is the mistake a generator makes by default.
+`WebIdlPropertyAttributeTests` checks WebIDL attributes, not ECMAScript built-in defaults:
+**an operation is enumerable**. Keep process-shared shapes free of engine/realm state and use per-realm
+slots for values that need it.

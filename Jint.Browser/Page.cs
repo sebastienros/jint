@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Browser.Workers;
 using Jint.Diagnostics;
@@ -20,7 +19,7 @@ namespace Jint.Browser;
 /// <remarks>
 /// <para>
 /// <b>Every member here is a request to the page's own thread.</b> Nothing a caller receives is a
-/// <c>JsValue</c> or an AngleSharp node — those belong to the loop that made them — so a result is converted
+/// <c>JsValue</c> or a native DOM node — those belong to the loop that made them — so a result is converted
 /// before the returned task completes. That is what makes a <see cref="Page"/> usable from any thread while
 /// its engine is used from exactly one.
 /// </para>
@@ -90,10 +89,13 @@ public sealed partial class Page : IAsyncDisposable
     private volatile PageResponse? _response;
     private volatile Frame _mainFrame;
     private volatile bool _closed;
+    private readonly object _closeGate = new();
+    private Task? _closeTask;
 
-    private Page(BrowserContext context, BrowserOptions options, PageRecorder recorder)
+    private Page(BrowserContext context, BrowserOptions options, PageRecorder recorder, BrowsingContextHandle? windowHandle)
     {
         Context = context;
+        WindowHandle = windowHandle ?? new BrowsingContextHandle();
         _options = options;
         _recorder = recorder;
         Emulation = new EmulationState(options.Viewport, options.UserAgent) { TouchEnabled = options.HasTouch };
@@ -117,28 +119,6 @@ public sealed partial class Page : IAsyncDisposable
     /// Looks at <c>document.title</c> at the end of one of the loop's turns, and reports a move.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Why here and not from the DOM.</b> The navigation phases report the title too, and until this hook
-    /// existed they were the only ones that did — so a title a script set after <c>load</c> reached a client
-    /// only at the next navigation. A DOM-side notification would mean AngleSharp's own
-    /// <c>MutationObserver</c>, which queues a record for <i>every</i> mutation of <i>every</i> page whether
-    /// or not anyone is watching; that is the wrong trade for one string, and it is the same trade
-    /// <c>Layout/FlatLayout</c> declines for the same reason. The end of a turn is the moment a script has
-    /// finished running and the loop is about to go and do something else, which is where a browser would
-    /// have painted.
-    /// </para>
-    /// <para>
-    /// <b>What it costs, exactly.</b> A page nobody is watching pays <i>nothing</i>: the observer is checked
-    /// first, and a page with none returns before touching the document. A watched page pays one
-    /// <c>IDocument.Title</c> read per turn, which for an HTML document is AngleSharp's
-    /// <c>DocumentElement.FindDescendant&lt;IHtmlTitleElement&gt;()</c> — a depth-first walk that <b>stops at
-    /// the first title element</b>. So a document with a <c>&lt;title&gt;</c> in its <c>&lt;head&gt;</c>
-    /// costs a handful of node visits, and one <i>without</i> a title costs a walk of its whole tree, once
-    /// per turn, for as long as a watcher is attached. The cheap-looking short circuit — search
-    /// <c>document.Head</c> only — is <i>not</i> taken: it is not exactly correct, because HTML's
-    /// <c>document.title</c> is the first <c>title</c> element in tree order wherever it sits, and a page
-    /// that puts one in its body would silently stop being reported.
-    /// </para>
     /// <para>Runs on the loop thread, outside the turn's budget bracket. See <see cref="PageLoop"/>.</para>
     /// </remarks>
     private void ReportTitleAtEndOfTurn(Engine engine)
@@ -148,7 +128,7 @@ public sealed partial class Page : IAsyncDisposable
             return;
         }
 
-        ReportTitle(PageRuntime.Find(engine)?.Document?.Title ?? "");
+        ReportTitle(PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
     }
 
     /// <summary>Tells the watcher the title, if it has moved since the last time it was told.</summary>
@@ -428,12 +408,13 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>The document's serialized markup, including the doctype.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> ContentAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance) ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { Document: { } document } runtime
+            ? Dom.DomHtmlMarkupFormatter.OuterHtml(runtime.Dom, document) : "");
 
     /// <summary>The document's title.</summary>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<string> TitleAsync()
-        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document?.Title ?? "");
+        => _loop.PostAsync(engine => PageRuntime.Find(engine) is { } runtime ? Dom.DomDocumentReads.Title(runtime.Dom, runtime.Document) : "");
 
     /// <summary>Runs the page until it has nothing left to do, or until <paramref name="timeout"/> runs out.</summary>
     /// <param name="timeout">The ceiling on how long to keep pumping.</param>
@@ -468,7 +449,12 @@ public sealed partial class Page : IAsyncDisposable
     /// awaiting fails with <see cref="OperationCanceledException"/>; every worker thread is asked to stop and
     /// disposes its own engine.
     /// </remarks>
-    public async Task CloseAsync()
+    public Task CloseAsync()
+    {
+        lock (_closeGate) return _closeTask ??= CloseCoreAsync();
+    }
+
+    private async Task CloseCoreAsync()
     {
         _closed = true;
         Context.Remove(this);
@@ -582,6 +568,13 @@ public sealed partial class Page : IAsyncDisposable
     });
 
     /// <summary>
+    /// Runs instrumented resource publication on the page loop under its normal task budget.
+    /// The callback must not write native tree links or attributes: resource revisions own its
+    /// invalidation, so it deliberately does not open a layout mutation scope.
+    /// </summary>
+    internal Task<T> RunResourcePublicationOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
+
+    /// <summary>
     /// Registers the one thing that hears what the page does, which is what a protocol target is.
     /// </summary>
     /// <param name="observer">The watcher, or <see langword="null"/> to stop watching.</param>
@@ -643,9 +636,10 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     internal PageNetworkRecorder NetworkLog => _requests;
 
-    internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options)
+    internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options,
+        BrowsingContextHandle? windowHandle = null, CrossPageNavigation? creator = null)
     {
-        var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents));
+        var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents), windowHandle);
 
         try
         {
@@ -653,7 +647,9 @@ public sealed partial class Page : IAsyncDisposable
 
             // The loop built an engine on the way up, and it is already the about:blank engine this load
             // wants, so the first document reuses it rather than replacing a realm nothing has run in.
-            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null, referrer: "", onPhase: null, page.NextLoaderId())).ConfigureAwait(false);
+            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null,
+                referrer: creator?.Referrer ?? "", onPhase: null, page.NextLoaderId(),
+                creator: creator is null ? null : new DocumentCreationFacts(creator.Origin, creator.BaseUrl))).ConfigureAwait(false);
             await page._loop.PostAsync(page.RecordFirstHistoryEntry).ConfigureAwait(false);
         }
         catch
@@ -690,7 +686,7 @@ public sealed partial class Page : IAsyncDisposable
         => _recorder.Add(PageErrorKind.WorkerError, exception.Message, name.Length == 0 ? "Worker" : name);
 
     /// <summary>The engine one document runs in, built with that document's URL, origin and referrer.</summary>
-    private Engine BuildEngine(string url, string referrer)
+    private Engine BuildEngine(string url, string referrer, string? origin = null)
         => BrowserEngineFactory.Create(new PageEngineRequest(
             this,
             _options,
@@ -702,7 +698,8 @@ public sealed partial class Page : IAsyncDisposable
             Emulation,
             url,
             referrer,
-            _loop.Closing));
+            _loop.Closing,
+            origin));
 
     private static void Release(PageLoad? load)
     {
@@ -713,8 +710,7 @@ public sealed partial class Page : IAsyncDisposable
 
         try
         {
-            load.Document.Dispose();
-            (load.Context as IDisposable)?.Dispose();
+            load.Context.Dispose();
         }
         catch (Exception)
         {

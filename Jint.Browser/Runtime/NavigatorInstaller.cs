@@ -92,13 +92,20 @@ internal static class NavigatorInstaller
         return culture.Name.Length != 0 ? culture.Name : "en-US";
     }
 
+    internal static string PlatformOf(PageRuntime runtime) => runtime.Emulation.Platform ?? "";
+    internal static JsValue Online(PageRuntime runtime)
+    {
+        _ = runtime;
+        return JsBoolean.True;
+    }
+
     private static void Attach(Engine engine, ObjectInstance navigatorPrototype)
     {
         // userAgent is deliberately absent: it is the one member the engine's own Navigator already declares,
         // and Engine.WebApi.UserAgent is what carries the page's string to it.
         Accessor(engine, navigatorPrototype, "language", static runtime => JsString.Create(LanguageOf(runtime)));
         Accessor(engine, navigatorPrototype, "languages", static runtime => Languages(runtime));
-        Accessor(engine, navigatorPrototype, "platform", static runtime => JsString.Create(runtime.Emulation.Platform ?? ""));
+        Accessor(engine, navigatorPrototype, "platform", static runtime => JsString.Create(PlatformOf(runtime)));
 
         // https://w3c.github.io/pointerevents/#dom-navigator-maxtouchpoints — zero is what a device with no
         // touch screen reports, and it is the second half of the `'ontouchstart' in window` test every
@@ -115,10 +122,72 @@ internal static class NavigatorInstaller
         // Both are true and neither is a guess: every request goes out over the context's own HttpClient, and
         // the context's cookie jar stores what a page sets. Emulation.setDocumentCookieDisabled does not move
         // the second, and says so.
-        Accessor(engine, navigatorPrototype, "onLine", static _ => JsBoolean.True);
+        Accessor(engine, navigatorPrototype, "onLine", static runtime => Online(runtime));
         Accessor(engine, navigatorPrototype, "cookieEnabled", static _ => JsBoolean.True);
 
         Accessor(engine, navigatorPrototype, "geolocation", static runtime => runtime.Views.Geolocation);
+
+        // https://html.spec.whatwg.org/multipage/system-state.html#client-identification — the compatibility
+        // constants every browser answers, in the values HTML allows. appVersion is the user agent after its
+        // "Mozilla/" token, which is how Chrome derives it and how it stays true to an override.
+        Accessor(engine, navigatorPrototype, "appCodeName", static _ => JsString.Create("Mozilla"));
+        Accessor(engine, navigatorPrototype, "appName", static _ => JsString.Create("Netscape"));
+        Accessor(engine, navigatorPrototype, "appVersion", static runtime => JsString.Create(AppVersion(runtime.Emulation.EffectiveUserAgent)));
+        Accessor(engine, navigatorPrototype, "product", static _ => JsString.Create("Gecko"));
+        Accessor(engine, navigatorPrototype, "productSub", static _ => JsString.Create("20030107"));
+        Accessor(engine, navigatorPrototype, "vendor", static _ => JsString.Empty);
+        Accessor(engine, navigatorPrototype, "vendorSub", static _ => JsString.Empty);
+
+        // https://html.spec.whatwg.org/multipage/system-state.html#pdf-viewing-support — there is no PDF
+        // viewer, so HTML's answer is false and both legacy collections are empty.
+        Accessor(engine, navigatorPrototype, "pdfViewerEnabled", static _ => JsBoolean.False);
+        Accessor(engine, navigatorPrototype, "plugins", static runtime => runtime.SystemState.Plugins);
+        Accessor(engine, navigatorPrototype, "mimeTypes", static runtime => runtime.SystemState.MimeTypes);
+        Method(engine, navigatorPrototype, "javaEnabled", 0, static (_, _) => JsBoolean.False);
+
+        // https://w3c.github.io/webdriver/#dom-navigatorautomationinformation-webdriver — false, as Chrome
+        // driven over the DevTools protocol without --enable-automation answers.
+        Accessor(engine, navigatorPrototype, "webdriver", static _ => JsBoolean.False);
+
+        // https://www.w3.org/TR/device-memory/#sec-device-memory-js-api — the largest bucket the standard lets
+        // a page see.
+        Accessor(engine, navigatorPrototype, "deviceMemory", static _ => JsNumber.Create(8));
+
+        // Chrome answers null for the retired Do Not Track preference; https://privacycg.github.io/gpc-spec/
+        // is false because nobody expressed one.
+        Accessor(engine, navigatorPrototype, "doNotTrack", static _ => JsValue.Null);
+        Accessor(engine, navigatorPrototype, "globalPrivacyControl", static _ => JsBoolean.False);
+
+        Accessor(engine, navigatorPrototype, "userAgentData", static runtime => runtime.SystemState.UserAgentData);
+        Accessor(engine, navigatorPrototype, "permissions", static runtime => runtime.SystemState.Permissions);
+        Accessor(engine, navigatorPrototype, "storage", static runtime => runtime.SystemState.Storage);
+
+        Method(engine, navigatorPrototype, "registerProtocolHandler", 2, static (runtime, args) =>
+            SystemState.ProtocolHandlers.Register(runtime, args, "registerProtocolHandler"));
+        Method(engine, navigatorPrototype, "unregisterProtocolHandler", 2, static (runtime, args) =>
+            SystemState.ProtocolHandlers.Register(runtime, args, "unregisterProtocolHandler"));
+
+        // https://w3c.github.io/gamepad/#dom-navigator-getgamepads — no gamepad is ever connected.
+        Method(engine, navigatorPrototype, "getGamepads", 0, static (runtime, _) =>
+            runtime.Engine._mainRealm.Intrinsics.Array.ConstructFast(Array.Empty<JsValue>()));
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/system-state.html#dom-navigator-appversion — the user agent
+    /// after its product token, which for every browser's string is what starts with "5.0 (".
+    /// </summary>
+    internal static string AppVersion(string userAgent)
+        => userAgent.StartsWith("Mozilla/", StringComparison.Ordinal) ? userAgent["Mozilla/".Length..] : userAgent;
+
+    private static void Method(Engine engine, ObjectInstance navigatorPrototype, string name, int length, Func<PageRuntime, JsValue[], JsValue> call)
+    {
+        var member = name;
+
+        navigatorPrototype.DefineOwnProperty(
+            name,
+            new PropertyDescriptor(
+                new ClrFunction(engine, name, (thisObject, arguments) => call(Runtime(thisObject, member), arguments), length, PropertyFlag.Configurable),
+                PropertyFlag.ConfigurableEnumerableWritable));
     }
 
     private static void Accessor(Engine engine, ObjectInstance navigatorPrototype, string name, Func<PageRuntime, JsValue> read)
@@ -188,7 +257,7 @@ internal static class NavigatorInstaller
     /// The page behind the receiver, which is a <c>TypeError</c> for anything that is not this realm's
     /// navigator — the brand check the prototype's own <c>userAgent</c> makes, in the same words.
     /// </summary>
-    private static PageRuntime Runtime(JsValue thisObject, string member)
+    internal static PageRuntime Runtime(JsValue thisObject, string member)
     {
         if (thisObject is Jint.WebApi.Navigator.JsNavigator instance && PageRuntime.Find(instance.Engine) is { } runtime)
         {

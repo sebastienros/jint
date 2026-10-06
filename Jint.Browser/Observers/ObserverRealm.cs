@@ -7,14 +7,11 @@ using Jint.Runtime;
 namespace Jint.Browser.Observers;
 
 /// <summary>
-/// The observer interfaces of one engine: each prototype and its interface object, built on first use.
+/// Owns the Browser observer constructors and their engine-local state.
 /// </summary>
 /// <remarks>
-/// It is the observers' half of what <see cref="DomRealm"/> is for the generated interfaces, and it is
-/// separate for the same reason <see cref="HostInterfaceObject"/> is separate from
-/// <see cref="DomInterfaceObject"/>: these interfaces have no <see cref="DomInterfaceDefinition"/>, because
-/// AngleSharp's <c>MutationObserver</c> is a class rather than a <c>[DomName]</c> interface and the other four
-/// do not exist in AngleSharp at all.
+/// Native mutation subscriptions provide records; Browser owns script callbacks and their delivery.
+/// Observer instances and callbacks belong to one realm and never cross to a transport or parser thread.
 /// </remarks>
 internal sealed class ObserverRealm
 {

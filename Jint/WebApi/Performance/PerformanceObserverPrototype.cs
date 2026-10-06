@@ -119,7 +119,7 @@ internal sealed partial class PerformanceObserverPrototype : Prototype
         }
 
         var type = options.Type!;
-        if (!PerformanceObserverConstructor.IsSupportedEntryType(type))
+        if (!_realm.Intrinsics.PerformanceObserver.IsSupportedEntryType(type))
         {
             return Undefined;
         }
@@ -261,12 +261,12 @@ internal sealed partial class PerformanceObserverPrototype : Prototype
     }
 
     /// <summary>The supported subset of an <c>entryTypes</c> sequence, in the order it was given.</summary>
-    private static string[] Supported(string[] entryTypes)
+    private string[] Supported(string[] entryTypes)
     {
         var kept = new List<string>(entryTypes.Length);
         foreach (var entryType in entryTypes)
         {
-            if (PerformanceObserverConstructor.IsSupportedEntryType(entryType) && !kept.Contains(entryType))
+            if (_realm.Intrinsics.PerformanceObserver.IsSupportedEntryType(entryType) && !kept.Contains(entryType))
             {
                 kept.Add(entryType);
             }

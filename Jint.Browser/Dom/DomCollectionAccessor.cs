@@ -3,11 +3,7 @@ using Jint.Native;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// How one collection interface answers the indexed and named questions WebIDL's
-/// <a href="https://webidl.spec.whatwg.org/#idl-indexed-properties">indexed</a> and
-/// <a href="https://webidl.spec.whatwg.org/#idl-named-properties">named</a> property getters ask. One
-/// process-shared singleton per interface, written by the generator from AngleSharp's
-/// <c>[DomAccessor]</c> metadata.
+/// Answers a collection interface's WebIDL indexed and named property getters using its generated contract.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,7 +23,7 @@ internal abstract class DomCollectionAccessor
     /// The collection's current element count. Re-read on every operation, so a live view is live. The
     /// default is for an interface with a named getter and nothing indexed — <c>DOMStringMap</c>.
     /// </summary>
-    internal virtual uint Length(object target) => 0;
+    internal virtual uint Length(DomRealm realm, object target) => 0;
 
     /// <summary>
     /// Reads element <paramref name="index"/>. <see langword="false"/> means the collection has no own
@@ -47,7 +43,7 @@ internal abstract class DomCollectionAccessor
     /// <a href="https://webidl.spec.whatwg.org/#dfn-supported-property-names">supported property names</a>,
     /// and they are what <c>Object.keys</c> and <c>for..in</c> see beside the indices.
     /// </summary>
-    internal virtual IReadOnlyList<string> SupportedNames(object target) => [];
+    internal virtual IReadOnlyList<string> SupportedNames(DomRealm realm, object target) => [];
 
     /// <summary>
     /// Whether <paramref name="name"/> is one of the supported property names, without materializing them.
@@ -60,7 +56,7 @@ internal abstract class DomCollectionAccessor
     /// before the named getter runs — where building a list of every name in order to look at one of them is
     /// a list allocation and a walk of the whole collection for a question about a single member.
     /// </remarks>
-    internal virtual bool HasSupportedName(object target, string name) => false;
+    internal virtual bool HasSupportedName(DomRealm realm, object target, string name) => false;
 
     /// <summary>
     /// Whether the supported property names enumerate. WebIDL's

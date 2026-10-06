@@ -198,8 +198,8 @@ public sealed class SelectionTests
     }
 
     /// <summary>
-    /// A member that reaches AngleSharp's own range algorithms refuses as a <c>DOMException</c>, not as the
-    /// CLR exception AngleSharp raises — <see href="https://github.com/sebastienros/jint/issues/3670">#3670</see>.
+    /// A member that reaches the former DOM integration's own range algorithms refuses as a <c>DOMException</c>, not as the
+    /// CLR exception the former DOM integration raises — <see href="https://github.com/sebastienros/jint/issues/3670">#3670</see>.
     /// </summary>
     [Test]
     public async Task ARefusedRangeOperationIsADomException()

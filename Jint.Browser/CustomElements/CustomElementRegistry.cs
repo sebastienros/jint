@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -21,11 +21,8 @@ namespace Jint.Browser.CustomElements;
 /// a definition does not survive a navigation, which is what a browser does too.
 /// </para>
 /// <para>
-/// <b>The element state is a side table.</b> AngleSharp's element carries no custom element state, no
-/// definition and no reaction queue, and adding one is not this package's to do — so
-/// <see cref="CustomElementRecord"/> hangs off a
-/// <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the element, exactly as the wrapper cache does.
-/// A record is made only for an element that could become custom, so an ordinary document allocates none.
+/// Native elements carry HTML custom-element state and registry identity. Browser's weak side table
+/// holds script definitions, callbacks and reaction records without retaining otherwise unreachable nodes.
 /// </para>
 /// </remarks>
 internal sealed partial class CustomElementRegistry : ObjectInstance
@@ -34,13 +31,16 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     private readonly Dictionary<string, CustomElementDefinition> _byName = new(StringComparer.Ordinal);
     private readonly Dictionary<ObjectInstance, CustomElementDefinition> _byConstructor = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, PromiseCapability> _whenDefined = new(StringComparer.Ordinal);
-    private readonly ConditionalWeakTable<IElement, CustomElementRecord> _records = new();
+    private readonly ConditionalWeakTable<Element, CustomElementRecord> _records = new();
     private bool _definitionIsRunning;
 
     internal CustomElementRegistry(PageRuntime runtime, ObjectInstance prototype, HostInterfaceObject interfaceObject)
         : base(runtime.Engine)
     {
         _runtime = runtime;
+        Identity = runtime.Document?.CustomElementRegistry ?? new CustomElementRegistryIdentity(isScoped: false);
+        runtime.Document?.SetCustomElementRegistry(Identity);
+        runtime.Engine.Disposed += (_, _) => ReleaseNativeSubscriptions();
         InterfaceObject = interfaceObject;
         _checkpoint = RunCheckpoint;
         Prototype = prototype;
@@ -48,6 +48,8 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
 
     /// <summary>The global <c>CustomElementRegistry</c>, built together with this object's prototype.</summary>
     internal HostInterfaceObject InterfaceObject { get; }
+
+    internal CustomElementRegistryIdentity Identity { get; }
 
     /// <summary>Whether any definition exists, which is what every hot path tests before doing anything.</summary>
     internal bool HasDefinitions => _byName.Count > 0;
@@ -248,7 +250,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// </summary>
     internal JsValue Upgrade(JsValue[] arguments)
     {
-        if (arguments.At(0) is not IDomWrapper { DomTarget: INode node })
+        if (arguments.At(0) is not IDomWrapper { DomTarget: Node node })
         {
             Throw.TypeError(
                 _runtime.Engine._mainRealm,
@@ -285,7 +287,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// since a valid custom element name may not be extended.
     /// </para>
     /// </remarks>
-    internal CustomElementDefinition? Lookup(IDocument? document, string? namespaceUri, string localName, string? isValue)
+    internal CustomElementDefinition? Lookup(Document? document, string? namespaceUri, string localName, string? isValue)
     {
         if (_byName.Count == 0)
         {
@@ -299,7 +301,7 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
             return null;
         }
 
-        if (namespaceUri is not null && !string.Equals(namespaceUri, HtmlNamespace, StringComparison.Ordinal))
+        if (!string.Equals(namespaceUri, HtmlNamespace, StringComparison.Ordinal))
         {
             return null;
         }
@@ -420,11 +422,6 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// The interface an element of <paramref name="localName"/> would get, or <see langword="null"/> when
     /// HTML has none — which is what makes <c>{ extends: 'bogus' }</c> a <c>NotSupportedError</c>.
     /// </summary>
-    /// <remarks>
-    /// The element is created and thrown away rather than looked up in a table, because the table would be a
-    /// second answer to a question <c>DomTypeMap</c> already answers: the interface a local name gets is
-    /// whatever AngleSharp builds for it. <c>define</c> is rare enough for one element to cost nothing.
-    /// </remarks>
     private DomInterfaceDefinition? BuiltInInterface(string localName)
     {
         if (_runtime.Document is not { } document)
@@ -432,23 +429,23 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
             return null;
         }
 
-        IElement probe;
+        Element probe;
 
         try
         {
             probe = document.CreateElement(localName);
         }
-        catch (AngleSharp.Dom.DomException)
+        catch (Jint.HtmlParser.DomException)
         {
             return null;
         }
 
-        if (probe is AngleSharp.Html.Dom.IHtmlUnknownElement)
+        if (ReferenceEquals(DomTypeMap.For(probe), DomInterfaces.HTMLUnknownElement))
         {
             return null;
         }
 
-        return DomManualInterfaces.For(probe) ?? DomTypeMap.For(probe.GetType());
+        return DomTypeMap.For(probe);
     }
 
     private void ThrowDomException(string member, string name, string detail)

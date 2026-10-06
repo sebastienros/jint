@@ -3,7 +3,7 @@
 This tool follows [#3575 X4](https://github.com/sebastienros/jint/issues/3575). The original
 [#3907](https://github.com/sebastienros/jint/pull/3907) smoke/raw-diagnostic harness is extended under
 [#3930](https://github.com/sebastienros/jint/issues/3930). One PuppeteerSharp client applies identical offline
-workloads and independently expected checksums to **AngleSharp + Jint**, Chromium, and Lightpanda.
+workloads and independently expected checksums to **Jint.Browser**, Chromium, and Lightpanda.
 No Lightpanda source is read or copied.
 
 A working harness is not a completed benchmark campaign. X4 remains open until the complete idle-accepted
@@ -245,10 +245,12 @@ acquires elevated privileges or changes a parent cgroup policy.
 Always-uploaded artifacts include dispatch pins, runner image and source identity, browser archives/binaries,
 setup manifest, build and driver logs, full calibration/comparison directories, accepted analysis or partial
 failure evidence. Retention is 30 days; retain the artifact independently before using it for campaign closure.
-The setup helper's archive, URL and digest rejection tests run without network or browser execution:
+The Python runner, idle audit, library preflight and setup rejection tests run in comparison CI
+without downloading browsers or changing host packages. The Linux accounting test skips in this
+first pass; the delegated-cgroup CI step runs it separately:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/browser-comparison -p test_setup_hosted.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/browser-comparison -p 'test_*.py'
 ```
 
 The hosted image `20260907.300.1` contained three dangling LLDB18 Python library links, all owned by

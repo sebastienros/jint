@@ -1,4 +1,5 @@
 using Jint.Browser.Runtime;
+using Jint.Browser.Workers;
 using Jint.WebApi.Fetch;
 
 namespace Jint.Browser;
@@ -22,13 +23,24 @@ namespace Jint.Browser;
 public sealed class BrowserContext : IAsyncDisposable
 {
     private readonly List<Page> _pages = [];
+    private readonly List<BrowsingContextHandle> _openingPopups = [];
+    private readonly List<TaskCompletionSource> _openingPages = [];
+    private readonly int _maxPages;
     private readonly object _gate = new();
     private volatile bool _closed;
 
     internal BrowserContext(Browser browser, BrowserContextOptions options)
     {
         Browser = browser;
-        Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault);
+        var maxPages = options.MaxPages ?? browser.Options.MaxPages;
+        _maxPages = browser.Options.UntrustedContent is not null && (maxPages == 0 || maxPages == int.MaxValue)
+            ? browser.Options.MaxPages
+            : maxPages;
+        var maxStorage = options.MaxTotalStorageBytes ?? browser.Options.MaxTotalStorageBytes;
+        if (browser.Options.UntrustedContent is not null && maxStorage == long.MaxValue)
+            maxStorage = browser.Options.MaxTotalStorageBytes;
+        Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault,
+            browser.Options.MaxCacheStorageBytes, browser.Options.MaxIndexedDbBytes, maxStorage);
     }
 
     /// <summary>The browser this context belongs to.</summary>
@@ -65,39 +77,135 @@ public sealed class BrowserContext : IAsyncDisposable
     /// </summary>
     internal PageNetwork Network { get; }
 
+    internal SharedWorkerRegistry SharedWorkers { get; } = new();
+
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>
     /// <exception cref="ObjectDisposedException">The context or its browser has been closed.</exception>
+    /// <exception cref="InvalidOperationException">The context page limit has been reached.</exception>
     public async Task<Page> NewPageAsync()
     {
-        ObjectDisposedException.ThrowIf(_closed, this);
-
-        var page = await Page.CreateAsync(this, Browser.Options).ConfigureAwait(false);
-        var raced = false;
-
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            if (_closed)
-            {
-                raced = true;
-            }
-            else
-            {
-                _pages.Add(page);
-            }
+            ObjectDisposedException.ThrowIf(_closed, this);
+            if (AtPageLimit()) throw new InvalidOperationException("The context page limit has been reached.");
+            _openingPages.Add(opening);
         }
 
-        if (raced)
+        try
         {
-            // Closed while the page was starting, so it is nobody's page. Its thread is awaited here rather
-            // than abandoned, because the browser promises that closing waits for every page thread to end
-            // and this page is not in any list for it to wait on.
-            await page.CloseAsync().ConfigureAwait(false);
-            ObjectDisposedException.ThrowIf(true, this);
-        }
+            var page = await Page.CreateAsync(this, Browser.Options).ConfigureAwait(false);
+            bool closed;
+            lock (_gate)
+            {
+                closed = _closed;
+                if (!closed)
+                {
+                    _pages.Add(page);
+                    _openingPages.Remove(opening);
+                }
+            }
 
-        Browser.OnPageOpened(this, page);
-        return page;
+            if (closed)
+            {
+                await page.CloseAsync().ConfigureAwait(false);
+                ObjectDisposedException.ThrowIf(true, this);
+            }
+
+            page.WindowHandle.Complete(page);
+            Browser.OnPageOpened(this, page);
+            return page;
+        }
+        finally
+        {
+            lock (_gate) _openingPages.Remove(opening);
+            opening.SetResult();
+        }
+    }
+
+    // Called only under _gate: reservations must count before a page allocates an engine or starts a thread.
+    private bool AtPageLimit() => _maxPages != 0
+        && (long) _pages.Count + _openingPopups.Count + _openingPages.Count >= _maxPages;
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/document-sequences.html#the-rules-for-choosing-a-navigable
+    /// Reserve names under the context lock, including pages whose loops have not started yet.
+    /// </summary>
+    internal BrowsingContextHandle? ChoosePopup(Page source, string name, bool noopener, CrossPageNavigation navigation)
+    {
+        lock (_gate)
+        {
+            if (_closed) return null;
+            var named = name.Length != 0 && !name.Equals("_blank", StringComparison.OrdinalIgnoreCase);
+            if (named && !noopener)
+            {
+                foreach (var page in _pages)
+                {
+                    if (page.WindowHandle.Name == name && page.WindowHandle.CanBeNamedTarget(source, navigation.Origin))
+                    {
+                        if (navigation.Url.Length != 0) page.WindowHandle.Navigate(source, navigation);
+                        return page.WindowHandle;
+                    }
+                }
+                foreach (var pending in _openingPopups)
+                {
+                    if (pending.Name == name && pending.CanBeNamedTarget(source, navigation.Origin))
+                    {
+                        if (navigation.Url.Length != 0) pending.Navigate(source, navigation);
+                        return pending;
+                    }
+                }
+            }
+
+            // HTML's choosing-a-navigable algorithm permits refusing a new auxiliary context.
+            // Reusing an existing named target above needs no new resources.
+            if (AtPageLimit()) return null;
+
+            var handle = new BrowsingContextHandle(named ? name : "", noopener ? null : source, scriptClosable: true,
+                origin: navigation.Origin);
+            _openingPopups.Add(handle);
+            if (navigation.Url.Length != 0 && navigation.Url != PageUrl.Blank) handle.Navigate(source, navigation);
+            handle.Opening = Task.Run(() => OpenPopupAsync(source, handle, navigation));
+            return handle;
+        }
+    }
+
+    private async Task OpenPopupAsync(Page source, BrowsingContextHandle handle, CrossPageNavigation creator)
+    {
+        Page? page = null;
+        try
+        {
+            page = await Page.CreateAsync(this, Browser.Options, handle, creator).ConfigureAwait(false);
+            handle.Register(page);
+            bool closed;
+            lock (_gate)
+            {
+                closed = _closed;
+                if (!closed)
+                {
+                    _pages.Add(page);
+                    // From here context shutdown waits for the page, not its announcement callback.
+                    _openingPopups.Remove(handle);
+                }
+            }
+            if (closed)
+            {
+                await page.CloseAsync().ConfigureAwait(false);
+                return;
+            }
+            Browser.OnPageOpened(this, page);
+            source.AnnouncePopup(page);
+        }
+        catch (Exception exception)
+        {
+            source.RecordPopupError(exception);
+        }
+        finally
+        {
+            handle.Complete(page);
+            lock (_gate) _openingPopups.Remove(handle);
+        }
     }
 
     /// <summary>Closes the context and every page in it.</summary>
@@ -105,18 +213,22 @@ public sealed class BrowserContext : IAsyncDisposable
     public async Task CloseAsync()
     {
         Page[] pages;
+        Task[] opening;
 
         lock (_gate)
         {
             _closed = true;
             pages = _pages.ToArray();
             _pages.Clear();
+            opening = _openingPopups.Select(handle => handle.Opening)
+                .Concat(_openingPages.Select(pending => pending.Task)).ToArray();
         }
 
         foreach (var page in pages)
         {
             await page.CloseAsync().ConfigureAwait(false);
         }
+        await Task.WhenAll(opening).ConfigureAwait(false);
 
         Browser.Remove(this);
     }

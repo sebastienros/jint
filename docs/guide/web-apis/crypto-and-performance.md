@@ -27,7 +27,8 @@ decisions.
 ## Performance timeline
 
 `WebApiFeatures.Performance` provides `performance.now()`, `timeOrigin`, marks, measures, entry queries, and
-`PerformanceObserver`.
+`PerformanceObserver`, and the `PerformanceResourceTiming` global. Performance is included in
+`WebApiFeatures.Default`; a bare `new Engine()` installs none of these APIs.
 
 ```javascript
 performance.mark('start');
@@ -36,8 +37,47 @@ const measure = performance.measure('work', 'start');
 console.log(measure.duration);
 ```
 
-The timeline retains at most 10,000 entries; clear marks and measures when they are no longer needed.
-`PerformanceObserver` callbacks are queued microtasks and run only while the engine is pumped.
+The user-timing buffer retains at most 10,000 marks and measures; clear them when no longer needed.
+`PerformanceObserver` callbacks are tasks, delivered after pending microtasks, and run only while the engine is pumped.
+
+With Fetch or XMLHttpRequest also enabled, completed requests create `PerformanceResourceTiming` entries.
+Each request queues one additional task to publish its entry, even without an observer. Pump the engine
+with `Engine.Tasks.ProcessTasks()` to publish entries and deliver any observer callbacks. The default
+web-API set plus an explicit Fetch/XHR grant therefore records resources automatically; Fetch/XHR alone
+do not enable Performance.
+
+To avoid resource recording and its tasks, omit `WebApiFeatures.Performance` when selecting flags at
+construction, for example `(WebApiFeatures.Default & ~WebApiFeatures.Performance) | WebApiFeatures.Fetch`.
+This also removes the performance clock, user timing, and observers. Enabled features cannot be removed;
+there is no separate resource-timing flag. Clearing the resource buffer or setting its size to zero does
+not stop recording or its tasks.
+
+Observe resource entries with:
+
+```javascript
+new PerformanceObserver(list => {
+    for (const entry of list.getEntries()) console.log(entry.name, entry.duration);
+}).observe({ type: 'resource', buffered: true });
+await (await fetch('https://example.org/data')).text();
+```
+
+Resource entries have their own 250-entry buffer. `performance.clearResourceTimings()` clears it without
+removing marks or measures; `setResourceTimingBufferSize(size)` changes its capacity. A
+`resourcetimingbufferfull` listener can clear or enlarge it to recover pending entries. Observers receive
+entries even when the primary buffer is full. Timings use the same clock as `performance.now()`.
+Transport threads collect only CLR timing facts; generation-stamped jobs create entries on the engine thread,
+so restoring a snapshot discards old completions.
+
+Configure `Options.WebApi.Fetch.Origin` (or `BaseUrl`) for same-origin timing visibility. Cross-origin
+responses require `Timing-Allow-Origin` to reveal detailed timing, protocol, size, content type and status.
+Without it only the overall start/end/duration remain visible. DNS/connect/request phases collapse to
+`fetchStart`; TLS and redirect phases are zero when unavailable. `serverTiming` is an empty frozen array and
+`deliveryType` is empty. Transfer size estimates header overhead as 300 bytes; automatic decompression can
+make encoded size unavailable, in which case the bytes actually read are used. Since response bodies are
+read on demand, an unconsumed fetch body has no completed entry until consumed or cancelled.
+
+`Jint.Browser` additionally records document subresources and exposes `PerformanceNavigationTiming` for its
+top-level document. An ordinary engine has no document or navigation entry.
 
 Timers and performance share `Options.WebApi.Timers.TimeProvider`, allowing deterministic tests without a
 background timer. Jint does not reduce timer precision: if untrusted code should not receive a high-resolution

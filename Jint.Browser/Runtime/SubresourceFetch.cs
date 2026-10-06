@@ -11,7 +11,10 @@ namespace Jint.Browser.Runtime;
 /// <param name="Url">The URL the resource ended up at, serialized without its fragment.</param>
 /// <param name="Fragment">The last hop's fragment: null when absent, empty when an explicit trailing <c>#</c>.</param>
 /// <param name="Status">The status of the final response.</param>
-internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status)
+/// <param name="LastModified">The final response's resource timestamp, when its header is valid.</param>
+/// <param name="DefaultStyle">The final response's preferred stylesheet set name, when supplied.</param>
+internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status,
+    DateTimeOffset? LastModified = null, string? DefaultStyle = null)
 {
     /// <summary>
     /// The body decoded as text, with the charset the response declared, then the caller's hint, then UTF-8.
@@ -60,6 +63,7 @@ internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, str
 /// <param name="Initiator">What the page's network log should call this request.</param>
 /// <param name="UserAgent">The user agent the page reports, which every resource it asks for carries.</param>
 /// <param name="Kind">What the resource is for, which is what a protocol client filters requests on.</param>
+/// <param name="Timing">The engine-free recorder for the requesting document's performance timeline.</param>
 internal sealed record SubresourceRequest(
     UrlRecord Url,
     UrlRecord? Referrer,
@@ -68,7 +72,8 @@ internal sealed record SubresourceRequest(
     int MaxRedirects,
     RequestInitiator Initiator,
     string UserAgent,
-    PageRequestKind Kind = PageRequestKind.Other);
+    PageRequestKind Kind = PageRequestKind.Other,
+    FetchResourceTiming? Timing = null);
 
 /// <summary>Raised when a subresource could not be obtained, with the sentence a page error should carry.</summary>
 internal sealed class SubresourceFetchException : Exception
@@ -137,6 +142,7 @@ internal static class SubresourceFetch
             Credentials = JsRequest.CredentialsSameOrigin,
             Referrer = request.Referrer,
             ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin,
+            ResourceTiming = request.Timing,
         };
 
         var policy = new FetchPolicy
@@ -160,16 +166,23 @@ internal static class SubresourceFetch
                 .SendForStreamAsync(client, snapshot, policy, cancellationToken, observation)
                 .ConfigureAwait(false);
 
+            // Freeze document metadata before observers or an awaited body can mutate a
+            // retained response. Each header sets the preference in order; the last wins,
+            // including an empty value. A comma inside a name is not a list separator.
+            var response = exchange.Response;
+            var defaultStyle = response.Headers.TryGetValues("Default-Style", out var styles)
+                ? styles.LastOrDefault() : null;
+
             // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
             observation?.FinalResponse(exchange);
 
-            var response = exchange.Response;
             var bytes = await ReadBoundedAsync(response, request.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
 
             // The body half of that same debt: a subresource reads its own bytes, so nothing else can hand
             // them to the observer.
             observation?.Data(bytes);
             observation?.Completed(bytes.Length);
+            request.Timing?.Complete(bytes.Length);
 
             var status = (int) response.StatusCode;
             var final = exchange.Url.Serialize(excludeFragment: true);
@@ -184,7 +197,8 @@ internal static class SubresourceFetch
                     "'" + final + "' answered " + status.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
             }
 
-            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status);
+            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status,
+                response.Content.Headers.LastModified, defaultStyle);
         }
         catch (SubresourceFetchException)
         {
@@ -192,11 +206,13 @@ internal static class SubresourceFetch
         }
         catch (OperationCanceledException)
         {
+            request.Timing?.Complete(0, failed: true);
             observation?.Failed("The load was cancelled.", null);
             throw;
         }
         catch (Exception exception)
         {
+            request.Timing?.Complete(0, failed: true);
             observation?.Failed(exception.Message, exception);
             throw new SubresourceFetchException(url, "'" + url + "' could not be loaded: " + exception.Message, exception);
         }
@@ -209,7 +225,7 @@ internal static class SubresourceFetch
             : null;
 
     /// <summary>Reads the body, refusing one that grows past the cap rather than buffering it first.</summary>
-    private static async Task<byte[]> ReadBoundedAsync(HttpResponseMessage response, long maxBytes, CancellationToken cancellationToken)
+    internal static async Task<byte[]> ReadBoundedAsync(HttpResponseMessage response, long maxBytes, CancellationToken cancellationToken)
     {
         if (response.Content.Headers.ContentLength is { } declared && declared > maxBytes)
         {

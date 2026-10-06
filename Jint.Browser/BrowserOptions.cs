@@ -27,6 +27,10 @@ public sealed class BrowserOptions
     private long _maxDocumentBytes = 32 * 1024 * 1024;
     private long _maxSubresourceBytes = 8 * 1024 * 1024;
     private long _maxCapturedResponseBytes = 16 * 1024 * 1024;
+    private long _maxCacheStorageBytes = Options.StorageOptions.DefaultMaxTotalBytes;
+    private long _maxIndexedDbBytes = 50 * 1024 * 1024;
+    private long _maxTotalStorageBytes = DefaultMaxTotalStorageBytes;
+    internal const long DefaultMaxTotalStorageBytes = 100 * 1024 * 1024;
     private TimeSpan _subresourceTimeout = TimeSpan.FromSeconds(30);
     private int _maxRedirects = 20;
     private TimeSpan? _maxTaskDuration;
@@ -35,9 +39,25 @@ public sealed class BrowserOptions
     private long _maxResponseBytes = 32 * 1024 * 1024;
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
+    private int _maxPages;
     private int _maxFrameDocuments = 16;
     private int _maxImageRequests = 1000;
     private bool? _blockPrivateNetwork;
+
+    /// <summary>Maximum simultaneous pages per context, including pending creations; zero means unlimited.</summary>
+    /// <remarks>
+    /// Read when a context is created. Under <see cref="ForUntrustedContent"/>, zero and
+    /// <see cref="int.MaxValue"/> resolve to 16. Named target reuse does not consume another slot.
+    /// </remarks>
+    public int MaxPages
+    {
+        get => UntrustedContent is not null && (_maxPages == 0 || _maxPages == int.MaxValue) ? 16 : _maxPages;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxPages = value;
+        }
+    }
 
     /// <summary>What a page reports itself as, in script and on the wire.</summary>
     /// <remarks>
@@ -77,6 +97,57 @@ public sealed class BrowserOptions
     /// </para>
     /// </remarks>
     public bool HasTouch { get; set; }
+
+    /// <summary>Gets or sets the default Cache Storage quota per context and origin; defaults to five mebibytes.</summary>
+    /// <remarks>
+    /// Counts cached bodies, UTF-16 metadata and fixed entry overhead across all live caches.
+    /// Applies when a context is created without a custom storage partition; zero refuses cache creation.
+    /// </remarks>
+    public long MaxCacheStorageBytes
+    {
+        get => _maxCacheStorageBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxCacheStorageBytes = value;
+        }
+    }
+
+    /// <summary>Gets or sets the aggregate retained storage quota per context; defaults to 100 mebibytes.</summary>
+    /// <remarks>
+    /// <para>Counts committed IndexedDB and built-in localStorage/Cache Storage across origins, pages and workers.
+    /// Custom storage partitions enforce their own quotas. Session storage, cookies, empty partition maps and
+    /// peak allocations are excluded.</para>
+    /// <para>Zero denies nonempty storage; long.MaxValue opts out for trusted content and resolves to 100 MiB
+    /// under ForUntrustedContent. Read when a context is created.</para>
+    /// </remarks>
+    public long MaxTotalStorageBytes
+    {
+        get => UntrustedContent is not null && _maxTotalStorageBytes == long.MaxValue
+            ? DefaultMaxTotalStorageBytes : _maxTotalStorageBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxTotalStorageBytes = value;
+        }
+    }
+
+    /// <summary>Gets or sets the IndexedDB quota per context and origin; defaults to fifty mebibytes.</summary>
+    /// <remarks>
+    /// Counts serialized values, keys, indexes and metadata across committed databases. A transaction
+    /// exceeding the quota aborts with <c>QuotaExceededError</c>; zero refuses database creation.
+    /// The in-memory partition is context-owned, including when a custom storage partition is supplied.
+    /// https://w3c.github.io/IndexedDB/#storage
+    /// </remarks>
+    public long MaxIndexedDbBytes
+    {
+        get => _maxIndexedDbBytes;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxIndexedDbBytes = value;
+        }
+    }
 
     /// <summary>Whether every context of this browser refuses loopback and private addresses.</summary>
     /// <remarks>
@@ -242,14 +313,6 @@ public sealed class BrowserOptions
     /// How many child-frame documents one page load may fetch and parse; 16 by default, and 0 loads none.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A frame's document is fetched over the page's own network position, bounded by
-    /// <see cref="MaxSubresourceBytes"/> and <see cref="SubresourceTimeout"/> like every other subresource,
-    /// and parsed into the nested browsing context AngleSharp already makes for the element. It runs no
-    /// script: a frame has a document and a window here and no <i>realm</i> of its own, so
-    /// <c>iframe.contentWindow</c> answers an object on the page's realm and nothing in the frame executes
-    /// (<c>docs/design/headless-browser.md</c> §3).
-    /// </para>
     /// <para>
     /// <b>The count is over the whole load and not per document</b>, because a frame's document may hold
     /// frames of its own: one ceiling per document would let a page pointing a frame at itself recurse until
@@ -453,6 +516,8 @@ public sealed class BrowserOptions
     /// <b>What it changes here.</b> <see cref="MaxTaskDuration"/> and <see cref="MemoryLimit"/> take their
     /// values from the limits unless the host has already set them, and a value the host does set is what the
     /// page engines are given — so the turn bracket and the profile can never disagree about the budget.
+    /// <see cref="MaxPages"/> limits each context to 16 pages unless a finite host limit is set,
+    /// counting pending host pages and popups too.
     /// <see cref="BlockPrivateNetwork"/> comes on unless it was assigned, so every
     /// <see cref="BrowserContext"/> of this browser refuses the private network unless its own options
     /// assigned <see cref="BrowserContextOptions.BlockPrivateNetwork"/>, in which case it keeps its choice.

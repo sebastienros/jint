@@ -6,7 +6,7 @@ namespace Jint.Tests.Browser.Dom;
 /// is in the HTML namespace and whose <c>name</c> content attribute is the key.
 /// </summary>
 /// <remarks>
-/// AngleSharp's string indexer walks every id first and only then every <c>name</c>, and matches <c>name</c>
+/// The former DOM integration's string indexer walks every id first and only then every <c>name</c>, and matches <c>name</c>
 /// on an element in any namespace — so the two halves of the projection, the lookup and the supported-property
 /// name list, could disagree about one object.
 /// </remarks>
@@ -49,7 +49,7 @@ public sealed class HtmlCollectionNamedItemTests
         using var fixture = DomTestFixture.Create(
             "<!doctype html><html><body><div id='root'><img name='foo'><img id='foo'></div></body></html>");
 
-        // AngleSharp answers the id match because it walks every id before any name; HTML's algorithm is one
+        // The former DOM integration answers the id match because it walks every id before any name; HTML's algorithm is one
         // pass, so the earlier `name` match is the answer.
         fixture.Bool(
             """

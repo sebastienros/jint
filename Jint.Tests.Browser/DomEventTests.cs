@@ -6,8 +6,8 @@ namespace Jint.Tests.Browser;
 /// </summary>
 /// <remarks>
 /// Nothing in this package dispatches an event: every one of these is Jint's own DOM §2.9 dispatch walking a
-/// path built from the AngleSharp tree. That is the point — the seam the engine grew is enough, and
-/// AngleSharp's own event bus is neither observed nor driven.
+/// path built from the former DOM integration tree. That is the point — the seam the engine grew is enough, and
+/// The former DOM integration's own event bus is neither observed nor driven.
 /// </remarks>
 public sealed class DomEventTests
 {

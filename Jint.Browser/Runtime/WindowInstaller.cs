@@ -1,5 +1,4 @@
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Native;
@@ -82,7 +81,6 @@ internal static class WindowInstaller
 
     private static readonly JsObjectShape _frameWindowShape = BuildFrameWindowShape();
     private static readonly JsObjectShape _windowShape = BuildWindowShape();
-    private static readonly JsObjectShape _screenShape = BuildScreenShape();
     private static readonly JsObjectShape _mediaQueryListShape = BuildMediaQueryListShape();
 
 
@@ -93,6 +91,7 @@ internal static class WindowInstaller
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
+        InstallCookieStore(runtime.Dom);
         FormDataConstruction.Install(runtime);
 
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object —
@@ -187,7 +186,8 @@ internal static class WindowInstaller
                 }),
                 PropertyFlag.Enumerable | PropertyFlag.ConfigurableSet));
         engine.AddLazyGlobal("history", static e => HistoryInstaller.Create(e));
-        engine.AddLazyGlobal("screen", static e => _screenShape.Instantiate(e, e._mainRealm.Intrinsics.Object.PrototypeObject));
+        Navigation.NavigationRealm.Install(runtime.Dom);
+        engine.AddLazyGlobal("screen", static e => PageRuntime.Find(e)!.SystemState.Screen);
         // Both interface objects are handed in as state rather than built by the factory, because the one the
         // global names has to be the one the prototype's `constructor` slot already holds.
         engine.AddLazyGlobal("Window", windowInterface, static (_, value) => value, PropertyFlag.NonEnumerable);
@@ -203,6 +203,7 @@ internal static class WindowInstaller
         // client set before this document existed: both are read on every access, so this is only the
         // installation and never a snapshot.
         NavigatorInstaller.Install(runtime);
+        SystemState.SystemStateRealm.Install(runtime);
         PerformanceNavigation.Install(runtime);
         TouchEmulation.Apply(runtime);
 
@@ -217,8 +218,10 @@ internal static class WindowInstaller
     }
 
     /// <summary>Installs the child global's Window brand and its independent event-handler slots.</summary>
-    internal static void InstallFrame(PageRuntime runtime, DomRealm dom, IDocument document)
+    internal static void InstallFrame(PageRuntime runtime, DomRealm dom, Document document)
     {
+        InstallCookieStore(dom);
+        Navigation.NavigationRealm.Install(dom);
         var engine = runtime.Engine;
         var realm = dom.OwningRealm;
         var target = engine._webApi!.GlobalEventTargetFor(realm);
@@ -235,9 +238,32 @@ internal static class WindowInstaller
             PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }
 
+    /// <summary>https://cookiestore.spec.whatwg.org/#dom-window-cookiestore - readonly, SameObject, not Replaceable.</summary>
+    private static void InstallCookieStore(DomRealm dom)
+    {
+        var realm = dom.OwningRealm;
+        realm.GlobalObject.SetProperty("cookieStore", new GetSetPropertyDescriptor(
+            new ClrFunction(dom.Engine, realm, "get cookieStore", (receiver, _) =>
+            {
+                if (!ReferenceEquals(receiver, realm.GlobalObject))
+                {
+                    Throw.TypeError(realm, "Illegal invocation of Window.cookieStore");
+                }
+                return dom.Cookies.Store;
+            }, 0), null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
     private static JsObjectShape BuildFrameWindowShape()
     {
-        var builder = new JsObjectShape.Builder().PerRealmSlot("constructor").ToStringTag("Window");
+        var builder = new JsObjectShape.Builder().PerRealmSlot("constructor").ToStringTag("Window")
+            .PerRealmSlot("getComputedStyle", static prototype =>
+            {
+                var engine = prototype.Engine;
+                var realm = prototype.CreationRealm;
+                var dom = DomRealm.Of(engine, realm);
+                return new ClrFunction(engine, realm, "getComputedStyle", (_, arguments) =>
+                    GetComputedStyle(RuntimeOf(engine, "getComputedStyle"), dom, arguments), 1);
+            }, enumerable: true);
         foreach (var type in _eventHandlers)
         {
             var handler = new EventHandlerAccessor(type);
@@ -279,13 +305,7 @@ internal static class WindowInstaller
             return JsValue.Null;
         }
 
-        var wrapper = runtime.Dom.Wrap(document.Location);
-        if (wrapper is ObjectInstance instance && !LocationInstaller.IsInstalled(instance))
-        {
-            LocationInstaller.Attach(runtime, instance);
-        }
-
-        return wrapper;
+        return runtime.Location;
     }
 
     internal static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)
@@ -339,6 +359,7 @@ internal static class WindowInstaller
             .Accessor("outerWidth", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "outerWidth").Viewport.Width))
             .Accessor("outerHeight", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "outerHeight").Viewport.Height))
             .Accessor("devicePixelRatio", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "devicePixelRatio").Viewport.DeviceScaleFactor))
+            .Accessor("visualViewport", static (t, _) => PageRuntime.Of(t, "visualViewport").SystemState.VisualViewport)
             .Accessor("scrollX", static (_, _) => JsNumber.PositiveZero)
             .Accessor("scrollY", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "scrollY").Layout.ScrollY))
             .Accessor("pageXOffset", static (_, _) => JsNumber.PositiveZero)
@@ -355,12 +376,28 @@ internal static class WindowInstaller
                     PageRuntime.Of(t, "name").WindowName = TypeConverter.ToString(args.At(0));
                     return JsValue.Undefined;
                 })
-            .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
+            .Accessor("origin", static (t, _) => JsString.Create(DomDocumentMetadata.CreatorOrigin(PageRuntime.Of(t, "origin").Dom).Serialized))
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
-            .Method("close", static (_, _) => JsValue.Undefined)
-            .Method("open", static (_, _) => JsValue.Null, length: 3)
+            .Accessor("opener", static (t, _) =>
+            {
+                var runtime = PageRuntime.Of(t, "opener");
+                return runtime.Page.Opener is { } opener ? runtime.WindowProxyFor(opener.WindowHandle) : JsValue.Null;
+            }, static (t, args) =>
+            {
+                var runtime = PageRuntime.Of(t, "opener");
+                if (args.At(0).IsNull()) runtime.Page.WindowHandle.Disown();
+                else runtime.Engine._mainRealm.GlobalObject.DefineOwnPropertyUnchecked("opener",
+                    new PropertyDescriptor(args.At(0), PropertyFlag.ConfigurableEnumerableWritable));
+                return JsValue.Undefined;
+            })
+            .PerRealmSlot("close", Operation("close", 0, static (runtime, _) =>
+            {
+                runtime.Page.WindowHandle.Close(runtime.Page);
+                return JsValue.Undefined;
+            }), enumerable: true)
+            .PerRealmSlot("open", Operation("open", 0, WindowOpen.Open), enumerable: true)
             .PerRealmSlot("scrollTo", Operation("scrollTo", 0, static (runtime, args) =>
             {
                 runtime.Layout.ScrollTo(ScrollTarget(args, runtime.Layout.ScrollY, absolute: true));
@@ -420,18 +457,6 @@ internal static class WindowInstaller
 
         return builder.Build();
     }
-
-    private static JsObjectShape BuildScreenShape() => new JsObjectShape.Builder()
-        .ToStringTag("Screen")
-        .Accessor("width", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "width").Viewport.Width))
-        .Accessor("height", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "height").Viewport.Height))
-        .Accessor("availWidth", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "availWidth").Viewport.Width))
-        .Accessor("availHeight", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "availHeight").Viewport.Height))
-        .Accessor("availLeft", static (_, _) => JsNumber.PositiveZero)
-        .Accessor("availTop", static (_, _) => JsNumber.PositiveZero)
-        .Accessor("colorDepth", static (_, _) => JsNumber.Create(24))
-        .Accessor("pixelDepth", static (_, _) => JsNumber.Create(24))
-        .Build();
 
     /// <summary>
     /// The <c>MediaQueryList</c> interface. <c>addListener</c> and <c>removeListener</c> are the aliases a
@@ -527,26 +552,22 @@ internal static class WindowInstaller
     }
 
     private static JsValue GetComputedStyle(PageRuntime runtime, JsValue[] arguments)
+        => GetComputedStyle(runtime, runtime.Dom, arguments);
+
+    // CSSOM §7: the returned declaration belongs to the operation's realm. Its live read
+    // chooses the element's actual document and browsing context rather than principal geometry.
+    private static JsValue GetComputedStyle(PageRuntime runtime, DomRealm dom, JsValue[] arguments)
     {
-        if (arguments.At(0) is not IDomWrapper { DomTarget: IElement element })
+        if (arguments.At(0) is not IDomWrapper { DomTarget: Element element })
         {
             Throw.TypeError(
-                runtime.Engine.Realm,
+                dom.OwningRealm,
                 "Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.");
             return JsValue.Undefined;
         }
 
-        // AngleSharp.Css's cascade, with the ten resolved values Dom/Views/ResolvedStyle answers over it.
-        // The pseudo-element argument is ignored, because the extension that takes one needs an AngleSharp
-        // IWindow and the window here is Jint's.
-        //
-        // Wrapped read-only, because CSSOM gives the result a computed flag and AngleSharp's declaration is
-        // an ordinary writable one that is also detached — so an unwrapped write would neither throw nor
-        // change anything a page can read. See Dom/Views/ReadOnlyStyleDeclaration.
-        return runtime.Dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(
-            runtime,
-            element,
-            Dom.Views.CssCascade.Of(element, resolveInheritance: false)));
+        // The pseudo-element argument remains outside the native cascade's implemented surface.
+        return dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime, element));
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)
@@ -558,7 +579,7 @@ internal static class WindowInstaller
         // message is serialized now, in the caller's turn, and deserialized into the event later — so a
         // mutation between the two is not observed by the listener.
         var message = StructuredCloner.Clone(engine, realm, arguments.At(0), transferList: null);
-        var origin = JsString.Create(runtime.Document?.Origin ?? "");
+        var origin = JsString.Create(DomDocumentMetadata.CreatorOrigin(runtime.Dom).Serialized);
 
         engine.Tasks.Post(() =>
         {

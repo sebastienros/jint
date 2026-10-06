@@ -8,6 +8,7 @@ using Jint.Runtime;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
+using Jint.WebApi.Performance;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url.Parsing;
 
@@ -111,6 +112,7 @@ internal sealed class XhrOperation : IDisposable
     /// inside the send — can report the one terminal call the observer is owed.
     /// </summary>
     private FetchObservation? _observation;
+    private FetchResourceTiming? _resourceTiming;
 
     /// <summary>When the request was sent, so a re-armed <c>timeout</c> measures from the right instant.</summary>
     private long _sentAt;
@@ -536,6 +538,7 @@ internal sealed class XhrOperation : IDisposable
             // a refused hop, a blown cap, an abort, a timeout, a transport error. Reporting it is what keeps a
             // host network log from showing an XMLHttpRequest as sent and never answered.
             _observation?.Failed(exception.Message, exception);
+            _resourceTiming?.Complete(0, failed: true);
             throw;
         }
     }
@@ -544,6 +547,9 @@ internal sealed class XhrOperation : IDisposable
     {
         var network = _state.FetchNetwork;
         var uploadLength = _body?.Length ?? 0;
+        _resourceTiming = ResourceTiming.Start(_engine, _realm, _url.Serialize(excludeFragment: true),
+            "xmlhttprequest", network.SameOriginReference?.SerializeOrigin(),
+            _xhr.WithCredentials ? JsRequest.CredentialsInclude : JsRequest.CredentialsSameOrigin);
 
         var request = new FetchRequestSnapshot
         {
@@ -558,6 +564,7 @@ internal sealed class XhrOperation : IDisposable
             Credentials = _xhr.WithCredentials ? JsRequest.CredentialsInclude : JsRequest.CredentialsSameOrigin,
             Referrer = network.Referrer,
             ReferrerPolicy = network.ReferrerPolicy,
+            ResourceTiming = _resourceTiming,
         };
 
         var observation = FetchObservation.Create(network.Observer, FetchInitiator.XmlHttpRequest);
@@ -605,6 +612,7 @@ internal sealed class XhrOperation : IDisposable
         if (!hasBody)
         {
             observation?.Completed(0);
+            _resourceTiming?.Complete(0);
         }
 
         if (reportProgress)
@@ -667,6 +675,7 @@ internal sealed class XhrOperation : IDisposable
         }
 
         observation?.Completed(total);
+        _resourceTiming?.Complete(total);
 
         return collected is null
             ? head

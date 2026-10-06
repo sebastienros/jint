@@ -18,12 +18,14 @@ namespace Jint.Browser.Runtime;
 /// Which of HTML's <i>read</i> algorithms the navigate rules chose: <c>text/html</c> for markup and for the
 /// <c>&lt;pre&gt;</c> a text document was wrapped in, and the response's own essence for an XML MIME type.
 /// </param>
+/// <param name="Timing">The document fetch's engine-free clock and timing facts.</param>
 internal sealed record FetchedDocument(
     string Markup,
     string Url,
     PageResponse Response,
     int RedirectCount,
-    string ContentType);
+    string ContentType,
+    FetchResourceTiming Timing);
 
 /// <summary>
 /// A navigation's document fetch: Jint's own engine-free fetch pipeline, driven by the page rather than by
@@ -64,12 +66,15 @@ internal static class DocumentFetch
         DocumentRequest request,
         PageNetworkRecorder? recorder,
         string loaderId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeProvider? clock = null)
     {
         // The document's own request is addressed by the loaderId, which is what Chrome does and what every
         // client reads as "this request is the navigation": Puppeteer decides a request is a navigation by
         // comparing exactly those two strings.
         var observation = recorder?.Observe(RequestInitiator.Document, PageRequestKind.Document, loaderId);
+        var timing = new FetchResourceTiming(clock ?? TimeProvider.System, 0, request.Url.Serialize(excludeFragment: true),
+            "navigation", request.Url.SerializeOrigin(), JsRequest.CredentialsInclude);
 
         var headers = new List<HeaderEntry>();
         if (request.ContentType is { } contentType)
@@ -91,6 +96,7 @@ internal static class DocumentFetch
             Credentials = JsRequest.CredentialsInclude,
             Referrer = request.Referrer,
             ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin,
+            ResourceTiming = timing,
         };
 
         var policy = new FetchPolicy
@@ -123,6 +129,7 @@ internal static class DocumentFetch
             // itself, so it is the only place the observer can be handed them.
             observation?.Data(bytes);
             observation?.Completed(bytes.Length);
+            timing.Complete(bytes.Length);
 
             var url = exchange.Url.Serialize(excludeFragment: true);
             var pageResponse = new PageResponse(
@@ -135,7 +142,7 @@ internal static class DocumentFetch
             var document = Decode(bytes, pageResponse, url);
             return new FetchedDocument(document.Text, url, pageResponse,
                 exchange.HasCrossOriginRedirect ? 0 : exchange.RedirectCount,
-                document.ContentType);
+                document.ContentType, timing);
         }
         catch (OperationCanceledException)
         {
@@ -206,8 +213,10 @@ internal static class DocumentFetch
     /// response's <c>Content-Type</c> asks for, and the encoding to read it in.
     /// </summary>
     private static (string Text, string ContentType) Decode(byte[] bytes, PageResponse response, string url)
+        => Decode(bytes, response.Header("content-type"), url);
+
+    internal static (string Text, string ContentType) Decode(byte[] bytes, string? declared, string url)
     {
-        var declared = response.Header("content-type");
         var mime = declared is null ? null : MimeType.Parse(declared);
         var essence = mime?.Essence;
 
@@ -228,12 +237,11 @@ internal static class DocumentFetch
 
         // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — an XML MIME type is read
         // with the XML parser, which is a real XML document and not markup wrapped in an HTML skeleton. The
-        // bytes go on as they are and the essence rides with them: the parse states it back to AngleSharp,
-        // whose document factory is what turns it into an XmlDocument (see PageDocumentFactory), and it is
-        // also the document's own `contentType`, which is what DOM's createElement reads to decide whether
-        // an XHTML document's elements are in the HTML namespace. **A <script> in such a document does not
-        // run**: AngleSharp's XML parser prepares none, which is the same reason `DOMParser` produces an
-        // inert document and is recorded in Dom/divergences.md.
+        // decoded text and MIME essence go to ParserDriver's native XML path. XmlDocumentParser builds a
+        // DocumentKind.Xml document; Browser retains the essence as its `contentType`, which createElement
+        // uses to decide whether an XHTML document's elements are in the HTML namespace. XML navigation
+        // does not execute scripts because it has no HTML session host-request sequence. DOMParser is
+        // separately inert for both HTML and XML, as recorded in Dom/divergences.md.
         if (DomContentType.IsXml(essence))
         {
             return (text, essence);
@@ -244,7 +252,7 @@ internal static class DocumentFetch
         // MIME essences are already lowercased. These types are text documents, not markup or scripts.
         if (essence is "text/plain" or "text/css" or "text/vtt" or "application/json" or "text/json"
             || essence.EndsWith("+json", StringComparison.Ordinal)
-            || AngleSharp.Io.MimeTypeNames.IsJavaScript(essence))
+            || JavaScriptMime.IsJavaScript(essence))
         {
             // The wrapper *is* the document HTML's read text asked for, so what is parsed from here is HTML
             // whatever the response said it was.

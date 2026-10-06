@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.WebApi.Events;
 
 namespace Jint.WebApi.Performance;
 
@@ -29,10 +30,7 @@ namespace Jint.WebApi.Performance;
 /// WebIDL draws and what makes an extracted <c>getEntries</c> behave as a browser's does.
 /// </para>
 /// <para>
-/// Not implemented, and absent rather than throwing so that feature detection sees the truth: <c>toJSON</c>,
-/// and <c>setResourceTimingBufferSize</c> with the rest of the resource-timing surface — which is also why
-/// the <c>resourcetimingbufferfull</c> event this interface declares is never fired, there being no resource
-/// timing buffer to fill. <c>addEventListener</c> and its two siblings are inherited from
+/// Resource entries have a separate, initially 250-entry buffer. <c>addEventListener</c> and its siblings are inherited from
 /// <c>EventTarget</c>; see <see cref="PerformanceConstructor"/>.
 /// </para>
 /// <para>
@@ -74,6 +72,30 @@ internal sealed partial class PerformancePrototype : Prototype
         CreateProperties_Generated();
         CreateSymbols_Generated();
     }
+
+    [JsFunction(Name = "clearResourceTimings", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
+    private JsValue ClearResourceTimings(JsValue thisObject)
+    {
+        Brand(thisObject, "Failed to execute 'clearResourceTimings' on 'Performance'").ClearResourceTimings();
+        return Undefined;
+    }
+
+    [JsFunction(Name = "setResourceTimingBufferSize", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
+    private JsValue SetResourceTimingBufferSize(JsValue thisObject, JsValue size, [ArgCount] int argumentCount)
+    {
+        var performance = Brand(thisObject, "Failed to execute 'setResourceTimingBufferSize' on 'Performance'");
+        if (argumentCount == 0) Throw.TypeError(_realm, "setResourceTimingBufferSize requires one argument.");
+        performance.SetResourceTimingBufferSize(TypeConverter.ToUint32(size));
+        return Undefined;
+    }
+
+    [JsAccessor("onresourcetimingbufferfull", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsValue OnResourceTimingBufferFullGet(JsValue thisObject)
+        => EventHandlerAttributes.Get(Brand(thisObject, "Illegal invocation"), "resourcetimingbufferfull");
+
+    [JsAccessor("onresourcetimingbufferfull", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsValue OnResourceTimingBufferFullSet(JsValue thisObject, JsValue value)
+        => EventHandlerAttributes.Set(Brand(thisObject, "Illegal invocation"), "resourcetimingbufferfull", value);
 
     /// <summary>
     /// https://w3c.github.io/hr-time/#dom-performance-now — "the number of milliseconds in the current high
@@ -313,14 +335,14 @@ internal sealed partial class PerformancePrototype : Prototype
     }
 
     /// <summary>
-    /// The WebIDL brand check every member performs: a receiver that is not a platform object implementing
+    /// The WebIDL brand check every member performs: a thisObject that is not a platform object implementing
     /// the interface raises a <c>TypeError</c>.
     /// </summary>
     private JsPerformance Brand(JsValue thisObject, string what)
     {
         if (thisObject is not JsPerformance performance)
         {
-            Throw.TypeError(_realm, what + ": illegal invocation, receiver is not a Performance object.");
+            Throw.TypeError(_realm, what + ": illegal invocation, thisObject is not a Performance object.");
             return null!;
         }
 

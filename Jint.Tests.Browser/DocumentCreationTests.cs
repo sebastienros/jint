@@ -1,7 +1,7 @@
 namespace Jint.Tests.Browser;
 
 /// <summary>
-/// The two members of DOM's document-creation surface that AngleSharp does not have:
+/// The two members of DOM's document-creation surface that the former DOM integration does not have:
 /// <a href="https://dom.spec.whatwg.org/#dom-document-createcdatasection"><c>createCDATASection</c></a> and
 /// <a href="https://dom.spec.whatwg.org/#dom-domimplementation-createdocument"><c>createDocument</c></a>.
 /// </summary>
@@ -52,7 +52,7 @@ public sealed class DocumentCreationTests
         using var fixture = DomTestFixture.Create(Page);
 
         // DOM §4.5 step 2. It is checked before the node is made, which is what makes the order the
-        // standard's rather than AngleSharp's Data setter's.
+        // standard's rather tha former DOM integration's Data setter's.
         fixture.Text(
             """
             (() => { try { new Document().createCDATASection('a]]>b') } catch (e) { return e.name } return 'no throw' })()
@@ -147,7 +147,7 @@ public sealed class DocumentCreationTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // DOM §4.5.1 step 7. AngleSharp answers text/xml for every document its XML parser builds, and its
+        // DOM §4.5.1 step 7. the former DOM integration answers text/xml for every document its XML parser builds, and its
         // ContentType setter is protected, so the value rides on the browsing context the document was
         // parsed into — see DomContentType.
         fixture.Text(
@@ -185,12 +185,22 @@ public sealed class DocumentCreationTests
             """)
             .Should().Be("null|null|null");
 
-        // The document that is showing keeps its Location, and WebIDL's [PutForwards=href] setter is a
-        // TypeError on the ones that have none rather than a navigation nobody can see.
-        fixture.Bool("document.location !== null").Should().BeTrue();
+        fixture.Bool("document.location === null").Should().BeTrue();
+        // WebIDL's [PutForwards=href] setter raises TypeError when there is no Location.
         fixture.Text(
             "(() => { const d = new Document(); try { d.location = '/x' } catch (e) { return e.constructor.name } return 'no throw' })()")
             .Should().Be("TypeError");
+    }
+
+    [Test]
+    public async Task AShowingDocumentKeepsItsLocation()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Page);
+        (await page.EvaluateAsync<bool>("document.location !== null && document.location === location"))
+            .Should().BeTrue();
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -200,7 +210,7 @@ public sealed class DocumentCreationTests
 
         // DOM §4.5 declares characterSet, charset and inputEncoding, the last two "legacy alias of
         // .characterSet". The name is the Encoding Standard's own spelling, which is UTF-8 and not the
-        // ASCII-lowercased label AngleSharp answers from .NET's Encoding.WebName.
+        // ASCII-lowercased label the former DOM integration answers from .NET's Encoding.WebName.
         fixture.Text(
             """
             const doc = document.implementation.createDocument(null, null, null);
@@ -216,7 +226,7 @@ public sealed class DocumentCreationTests
 
         // DOM §4.5 createElement steps 2 and 4: the name is ASCII-lowercased only for an HTML document,
         // and the namespace is HTML's only for an HTML document or one whose content type is
-        // application/xhtml+xml. AngleSharp's one-argument overload does both unconditionally.
+        // application/xhtml+xml. the former DOM integration's one-argument overload does both unconditionally.
         fixture.Text(
             """
             const xml = document.implementation.createDocument(null, null, null);
@@ -231,9 +241,9 @@ public sealed class DocumentCreationTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // DOM §4.9's HTML-uppercased qualified name asks two questions, and AngleSharp asks only the
+        // DOM §4.9's HTML-uppercased qualified name asks two questions, and the former DOM integration asks only the
         // first: the namespace, and the node document. importNode is what moves the second one — DOM's
-        // import steps clone "with document set to this", which AngleSharp's Import does not do.
+        // import steps clone "with document set to this", which the former DOM integration's Import does not do.
         fixture.Text(
             """
             const xml = document.implementation.createDocument(

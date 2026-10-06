@@ -10,7 +10,7 @@ namespace Jint.DevTools;
 /// <c>Target.createTarget</c> and <c>Target.createBrowserContext</c> are the two commands every automation
 /// client sends before it can do anything at all, and an engine-level server has no honest answer to either:
 /// there is nothing to open and nothing to partition. A host that <i>does</i> — <c>Jint.Browser</c>, which is
-/// AngleSharp plus Jint — registers one of these, and the <c>Target</c> domain routes those commands through
+/// the native DOM plus Jint — registers one of these, and the <c>Target</c> domain routes those commands through
 /// it instead of refusing them.
 /// </para>
 /// <para>

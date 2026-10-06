@@ -80,8 +80,8 @@ internal readonly record struct EventPathItem(
 /// <b>What is deliberately not here.</b> The <i>legacy target override flag</i>, which HTML uses only to make
 /// a <c>load</c> event fired at a <c>Window</c> report the document as its target — a host wanting it
 /// overrides <see cref="JsEventTarget.EventTargetValue"/> or dispatches at the document. The touch target
-/// list, for want of a <c>TouchEvent</c>. <i>legacyOutputDidListenersThrowFlag</i>, which only Indexed
-/// Database reads. And <i>invoke</i>'s second pass over the four <c>webkit</c>-prefixed animation and
+/// list, for want of a <c>TouchEvent</c>. And <i>invoke</i>'s second pass over the four
+/// <c>webkit</c>-prefixed animation and
 /// transition types, which needs an engine that can fire an <c>animationend</c>.
 /// </para>
 /// </remarks>
@@ -251,7 +251,8 @@ internal static class EventDispatch
             var parentRelatedTarget = Retarget(ev.RelatedTarget, relatedRoot, parentRoot);
 
             // A null root is a parent that is not a node, which is the other half of the condition.
-            if (parent.IsGlobalScope || (parentRoot is not null && IsShadowIncludingInclusiveAncestor(targetRoot, parentRoot)))
+            if (parent.IsGlobalScope || (!target.IsNode && !parent.IsNode)
+                || (parentRoot is not null && IsShadowIncludingInclusiveAncestor(targetRoot, parentRoot)))
             {
                 // Step 6.9.5: still inside the tree the target's root spans, so the event only passes
                 // through — the item carries no shadow-adjusted target and reports the capturing or bubbling
@@ -446,6 +447,20 @@ internal static class EventDispatch
         // invoke reads it: a listener whose invocation target is inside a shadow tree runs without the
         // Window's `event` being set to the event it is handling.
         item.InvocationTarget.InvokeListeners(ev, capturePass, item.InvocationTargetInShadowTree);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#retarget — <paramref name="a"/> retargeted against an event's
+    /// <c>currentTarget</c>, which is how an event attribute holding an element answers without leaking a
+    /// node from a shadow tree the listener is outside of: HTML's <c>ToggleEvent.source</c> and
+    /// <c>CommandEvent.source</c>. Outside a dispatch the current target is null, so every shadow tree is
+    /// climbed out of.
+    /// </summary>
+    internal static JsValue RetargetAgainstCurrentTarget(JsEventTarget? a, JsValue currentTarget)
+    {
+        var against = currentTarget as JsEventTarget;
+        var againstRoot = against is { IsNode: true } ? against.GetRoot() : null;
+        return Retarget(a, aRoot: null, againstRoot)?.EventTargetValue ?? JsValue.Null;
     }
 
     /// <summary>

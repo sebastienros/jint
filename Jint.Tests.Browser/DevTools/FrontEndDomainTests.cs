@@ -33,6 +33,16 @@ public class FrontEndDomainTests
     }
 
     [Test]
+    public async Task InspectorIsAcceptedBecauseChromedpEnablesItOnEveryAttachment()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        await session.ResultAsync("Inspector.enable", null, attachment);
+        await session.ResultAsync("Inspector.disable", null, attachment);
+    }
+
+    [Test]
     public async Task DrawingCommandsStayAbsentBecauseThereIsNothingToDrawOn()
     {
         await using var session = await PageSession.CreateAsync();
@@ -67,8 +77,8 @@ public class FrontEndDomainTests
 
         var display = computed.Single(p => p.GetProperty("name").GetString() == "display").GetProperty("value").GetString();
         display.Should().Be("inline");
-        computed.Single(p => p.GetProperty("name").GetString() == "color").GetProperty("value").GetString()
-            .Should().Be("rgba(1, 2, 3, 1)");
+        var color = computed.Single(p => p.GetProperty("name").GetString() == "color").GetProperty("value").GetString();
+        color.Should().Be("rgb(1, 2, 3)");
 
         // The same declaration window.getComputedStyle hands the page, so a front end and a script agree.
         var fromScript = (await session.EvaluateAsync(
@@ -76,6 +86,10 @@ public class FrontEndDomainTests
             attachment)).GetProperty("value").GetString();
 
         display.Should().Be(fromScript);
+        var colorFromScript = (await session.EvaluateAsync(
+            "getComputedStyle(document.getElementById('box')).color",
+            attachment)).GetProperty("value").GetString();
+        color.Should().Be(colorFromScript);
 
         var inline = (await session.ResultAsync("CSS.getInlineStylesForNode", $$"""{"nodeId":{{nodeId}}}""", attachment))
             .GetProperty("inlineStyle");

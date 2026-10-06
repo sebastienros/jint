@@ -1,0 +1,982 @@
+[
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "Comment", "Value": " Namespace name test: a relative URI (deprecated) "},
+      {"Depth": 0, "Kind": "DocumentType", "Name": "foo", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "foo", "NamespaceUri": "namespaces/zaphod", "Attributes": [{"Name": "xmlns", "NamespaceUri": "http://www.w3.org/2000/xmlns/", "Value": "namespaces/zaphod"}]}
+    ],
+    "review": "Pinned source and Namespaces in XML 1.0 Third Edition §§2.2, 8: relative URI namespace names are deprecated, not a required fatal namespace constraint; https://www.w3.org/TR/xml-names/#iri-use https://www.w3.org/TR/xml-names/#conformance."
+  },
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-005",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "Comment", "Value": " Namespace name test: a same-document relative URI (deprecated) "},
+      {"Depth": 0, "Kind": "DocumentType", "Name": "foo", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "foo", "NamespaceUri": "#beeblebrox", "Attributes": [{"Name": "xmlns", "NamespaceUri": "http://www.w3.org/2000/xmlns/", "Value": "#beeblebrox"}]}
+    ],
+    "review": "Pinned source and Namespaces in XML 1.0 Third Edition §§2.2, 8: same-document relative URI namespace names are deprecated, not a required fatal namespace constraint; https://www.w3.org/TR/xml-names/#iri-use https://www.w3.org/TR/xml-names/#conformance."
+  },
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-006",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "Comment", "Value": " Namespace name test: an http IRI that is not a URI "},
+      {"Depth": 0, "Kind": "DocumentType", "Name": "foo", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "foo", "NamespaceUri": "http://example.org/rosé", "Attributes": [{"Name": "xmlns", "NamespaceUri": "http://www.w3.org/2000/xmlns/", "Value": "http://example.org/rosé"}]}
+    ],
+    "review": "Pinned source and Namespaces in XML 1.0 Third Edition §§2.2, 8: URI-reference validation of namespace names is optional; strict ISO-8859-1 adaptation preserves é; https://www.w3.org/TR/xml-names/#iri-use https://www.w3.org/TR/xml-names/#conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-34",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "foo", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "foo", "Attributes": []}
+    ],
+    "review": "Pinned unused <!ELEMENT bar (foo|foo)> has a nondeterministic content model; XML §3.2.1 calls this a compatibility error, not a fatal well-formedness violation. https://www.w3.org/TR/xml/#sec-element-content."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-55",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "foo", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "foo", "Attributes": []}
+    ],
+    "notations": [
+      {
+        "Name": "gif",
+        "PublicId": null,
+        "SystemId": "file:///usr/X11R6/bin/xv",
+        "Offset": 70
+      }
+    ],
+    "review": "Pinned unused entity value contains &unparsed;, an XML §4.4.9 optional error. Reviewed policy accepts while checking complete doctype/root projection, no omissions, and actual public notation gif/null/file:///usr/X11R6/bin/xv@70. https://www.w3.org/TR/xml/#error."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-57",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "Element", "Name": "foo", "Attributes": [{"Name": "xml:space", "NamespaceUri": "http://www.w3.org/XML/1998/namespace", "Prefix": "xml", "Value": "discard-all-but-the-first-three-spaces"}]}
+    ],
+    "review": "Pinned xml:space value is neither default nor preserve; XML §2.10 permits reporting or recovery, including reporting the erroneous value to applications. This policy preserves the literal attribute. https://www.w3.org/TR/xml/#sec-white-space."
+  },
+  {
+    "key": "xmlconf/sun/sun-error.xml#uri01",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []}
+    ],
+    "review": "Pinned internal declaration <!ENTITY foo SYSTEM \"foo#bar\"> is never referenced. XML §4.2.2 calls a fragment in a system identifier a nonfatal error; this reviewed optional policy accepts, preserves the empty root, and reports no external omission. https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-005",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "005.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "doc", "PublicId": "", "SystemId": "005.ent"},
+      {"Depth": 0, "Kind": "Element", "Name": "doc", "Attributes": []}
+    ],
+    "notations": [],
+    "review": "The undefined %e; exists only in unread 005.ent. No nested Parameter omission is emitted. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types"
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p11pass1",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {"Depth": 0, "Kind": "Comment", "Value": "Inability to resolve a notation should not be reported as an error"},
+      {"Depth": 0, "Kind": "DocumentType", "Name": "doc", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "doc", "Attributes": []}
+    ],
+    "notations": [
+      {
+        "Name": "not1",
+        "PublicId": null,
+        "SystemId": "a%a&b&#0<!ELEMENT<!--<?</>?>/\\''",
+        "Offset": 115
+      },
+      {
+        "Name": "not2",
+        "PublicId": null,
+        "SystemId": "a\n\tb\"\"\"",
+        "Offset": 175
+      },
+      {
+        "Name": "not3",
+        "PublicId": null,
+        "SystemId": "",
+        "Offset": 211
+      },
+      {
+        "Name": "not4",
+        "PublicId": null,
+        "SystemId": "",
+        "Offset": 239
+      }
+    ],
+    "review": "Quoted SYSTEM text is literal: %, &, &#0 and markup-like substrings are not references. Preserve TAB; normalize CRLF to LF. Empty SYSTEM is present empty, PUBLIC absent null. All four declared notations are retained by the native metadata contract. Explicit optional-error recovery choice: accept and preserve lexical SYSTEM identifiers; no URI validation/resolution/fetch. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#NT-SystemLiteral https://www.w3.org/TR/xml/#sec-external-ent https://www.w3.org/TR/xml/#Notations https://www.w3.org/TR/xml/#sec-line-ends"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i01.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm68i01.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": "ibm68i01.dtd"},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "a", "Attributes": [{"Name": "attr1", "Value": "xyz"}]},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P68 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i02.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm68i02.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": "ibm68i02.dtd"},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "a", "Attributes": [{"Name": "attr1", "Value": "xyz"}]},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P68 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i03.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm68i03.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P68 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i04.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm68i04.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P68 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i01.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm69i01.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": "ibm69i01.dtd"},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "a", "Attributes": [{"Name": "attr1", "Value": "xyz"}]},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P69 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i02.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm69i02.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": "ibm69i02.dtd"},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "a", "Attributes": [{"Name": "attr1", "Value": "xyz"}]},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P69 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i03.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm69i03.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P69 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i04.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm69i04.ent",
+        "Offset": 132
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  pcdata content\n"},
+      {"Depth": 0, "Kind": "Comment", "Value": "* a invalid test for P69 VC:Entity Declared *"}
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P69-ibm69n05.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "paaa",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 158
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []}
+    ],
+    "notations": [],
+    "review": "Production69 carries Entity Declared as VC, not WFC. The forward PE rule is a validity constraint even here. standalone=yes requires processing later read declarations despite this unread PE; neither unused declaration adds an attribute. DTD-internal comment is not a document child. Explicit nonvalidating recovery: accept unresolved forward PE, omit it once and report null identifiers; do not reinterpret its later declaration retroactively. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#as-PE"
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-7",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bomboom",
+        "PublicId": null,
+        "SystemId": "bomboom_be.xml",
+        "Offset": 68
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []}
+    ],
+    "notations": [],
+    "review": "The main string is ASCII and well-formed. The external bytes encode an initial BOM followed by U+FFFE; that illegal character is never decoded/included under no-fetch. Emit one General omission and no text node. These are not main-input adapter debts. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#include-if-valid https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#NT-Char"
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-8",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bomboom",
+        "PublicId": null,
+        "SystemId": "bomboom_le.xml",
+        "Offset": 68
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []}
+    ],
+    "notations": [],
+    "review": "The main string is ASCII and well-formed. The external bytes encode an initial BOM followed by U+FFFE; that illegal character is never decoded/included under no-fetch. Emit one General omission and no text node. These are not main-input adapter debts. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#include-if-valid https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#NT-Char"
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-9",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bomboom8",
+        "PublicId": null,
+        "SystemId": "8bomboom.xml",
+        "Offset": 67
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "root", "PublicId": "", "SystemId": ""},
+      {"Depth": 0, "Kind": "Element", "Name": "root", "Attributes": []}
+    ],
+    "notations": [],
+    "review": "The main string is ASCII and well-formed. The external bytes encode an initial BOM followed by U+FFFE; that illegal character is never decoded/included under no-fetch. Emit one General omission and no text node. These are not main-input adapter debts. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#include-if-valid https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#NT-Char"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#weekly-euc-jp",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "weekly-euc-jp.dtd",
+        "Offset": 41
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "週報", "PublicId": "", "SystemId": "weekly-euc-jp.dtd"},
+      {"Depth": 0, "Kind": "Comment", "Value": " 週報サンプル "},
+      {"Depth": 0, "Kind": "Element", "Name": "週報", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "年月週", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "年度", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1997"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "月度", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "週", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "氏名", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "氏", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "山田"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "名", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "太郎"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "業務報告リスト", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "業務報告", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務名", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "XMLエディターの作成"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務コード", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "X3355-23"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "工数管理", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "1600"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "320"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "160"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "24"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "予定項目リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "予定項目", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "XMLエディターの基本仕様の作成"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "実施事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "XMLエディターの基本仕様の作成"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "競合他社製品の機能調査"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "上長への要請事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "上長への要請事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "特になし"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "問題点対策", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "XMLとは何かわからない。"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Text", "Value": "\n\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "業務報告", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務名", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "検索エンジンの開発"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務コード", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "S8821-76"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "工数管理", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "120"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "6"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "32"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "2"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "予定項目リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "予定項目", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Element", "Name": "A", "Attributes": [{"Name": "href", "Value": "http://www.goo.ne.jp"}]},
+      {"Depth": 7, "Kind": "Text", "Value": "goo"},
+      {"Depth": 6, "Kind": "Text", "Value": "の機能を調べてみる"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "実施事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "更に、どういう検索エンジンがあるか調査する"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "上長への要請事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "上長への要請事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "開発をするのはめんどうなので、Yahoo!を買収して下さい。"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "問題点対策", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "検索エンジンで車を走らせることができない。（要調査）"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"}
+    ],
+    "notations": [],
+    "review": "Pinned W3C 20130923 xmlconf/japanese/weekly-euc-jp.xml SHA-256 44080d84744259ba1410b23b9cd70e83e02f6251a1ca37682e2a40c41d546537; unread xmlconf/japanese/weekly-euc-jp.dtd SHA-256 467c8c515e0e173b0c94d2e2e0ef0803a9be0956ec1ce34ab8e6276f4027dcf5. The strictly prepared source has one SYSTEM-only doctype, paired Japanese-name elements, literal text and one href; it has no internal subset, standalone declaration or entity reference. Under the nonvalidating no-fetch profile, record only the external-subset omission and preserve the complete 150-node tree with CRLF normalized to LF; there is no notation or upstream OUTPUT. https://www.w3.org/TR/xml/#sec-common-syn https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-line-ends"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#weekly-iso-2022-jp",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "weekly-iso-2022-jp.dtd",
+        "Offset": 46
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "週報", "PublicId": "", "SystemId": "weekly-iso-2022-jp.dtd"},
+      {"Depth": 0, "Kind": "Comment", "Value": " 週報サンプル "},
+      {"Depth": 0, "Kind": "Element", "Name": "週報", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "年月週", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "年度", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1997"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "月度", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "週", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "氏名", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "氏", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "山田"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "名", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "太郎"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "業務報告リスト", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "業務報告", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務名", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "XMLエディターの作成"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務コード", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "X3355-23"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "工数管理", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "1600"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "320"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "160"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "24"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "予定項目リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "予定項目", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "XMLエディターの基本仕様の作成"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "実施事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "XMLエディターの基本仕様の作成"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "競合他社製品の機能調査"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "上長への要請事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "上長への要請事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "特になし"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "問題点対策", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "XMLとは何かわからない。"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Text", "Value": "\n\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "業務報告", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務名", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "検索エンジンの開発"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務コード", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "S8821-76"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "工数管理", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "120"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "6"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "32"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "2"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "予定項目リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "予定項目", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Element", "Name": "A", "Attributes": [{"Name": "href", "Value": "http://www.goo.ne.jp"}]},
+      {"Depth": 7, "Kind": "Text", "Value": "goo"},
+      {"Depth": 6, "Kind": "Text", "Value": "の機能を調べてみる"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "実施事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "更に、どういう検索エンジンがあるか調査する"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "上長への要請事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "上長への要請事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "開発をするのはめんどうなので、Yahoo!を買収して下さい。"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "問題点対策", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "検索エンジンで車を走らせることができない。（要調査）"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"}
+    ],
+    "notations": [],
+    "review": "Pinned W3C 20130923 xmlconf/japanese/weekly-iso-2022-jp.xml SHA-256 834e76f4f57ff2d3c77ad69284091551e3fbf64f869e994652dfed7cebddac45; unread xmlconf/japanese/weekly-iso-2022-jp.dtd SHA-256 467ad6f35b4046dc613a58c851db53e01d2867a2b7fb225f7b88ac80e2222900. The strictly prepared source has one SYSTEM-only doctype, paired Japanese-name elements, literal text and one href; it has no internal subset, standalone declaration or entity reference. Under the nonvalidating no-fetch profile, record only the external-subset omission and preserve the complete 150-node tree with CRLF normalized to LF; there is no notation or upstream OUTPUT. https://www.w3.org/TR/xml/#sec-common-syn https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-line-ends"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#weekly-shift_jis",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "weekly-shift_jis.dtd",
+        "Offset": 44
+      }
+    ],
+    "projection": [
+      {"Depth": 0, "Kind": "DocumentType", "Name": "週報", "PublicId": "", "SystemId": "weekly-shift_jis.dtd"},
+      {"Depth": 0, "Kind": "Comment", "Value": " 週報サンプル "},
+      {"Depth": 0, "Kind": "Element", "Name": "週報", "Attributes": []},
+      {"Depth": 1, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "年月週", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "年度", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1997"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "月度", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "週", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "1"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "氏名", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "氏", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "山田"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "名", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "太郎"},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n\n  "},
+      {"Depth": 1, "Kind": "Element", "Name": "業務報告リスト", "Attributes": []},
+      {"Depth": 2, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "業務報告", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務名", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "XMLエディターの作成"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務コード", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "X3355-23"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "工数管理", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "1600"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "320"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "160"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "24"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "予定項目リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "予定項目", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "XMLエディターの基本仕様の作成"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "実施事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "XMLエディターの基本仕様の作成"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "競合他社製品の機能調査"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "上長への要請事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "上長への要請事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "特になし"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "問題点対策", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "XMLとは何かわからない。"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Text", "Value": "\n\n    "},
+      {"Depth": 2, "Kind": "Element", "Name": "業務報告", "Attributes": []},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務名", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "検索エンジンの開発"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "業務コード", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "S8821-76"},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "工数管理", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "120"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "6"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月見積もり工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "32"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "当月実績工数", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "2"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "予定項目リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "予定項目", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Element", "Name": "A", "Attributes": [{"Name": "href", "Value": "http://www.goo.ne.jp"}]},
+      {"Depth": 7, "Kind": "Text", "Value": "goo"},
+      {"Depth": 6, "Kind": "Text", "Value": "の機能を調べてみる"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "実施事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "実施事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "更に、どういう検索エンジンがあるか調査する"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "上長への要請事項リスト", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "上長への要請事項", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "\n          "},
+      {"Depth": 5, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 6, "Kind": "Text", "Value": "開発をするのはめんどうなので、Yahoo!を買収して下さい。"},
+      {"Depth": 5, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Element", "Name": "問題点対策", "Attributes": []},
+      {"Depth": 4, "Kind": "Text", "Value": "\n        "},
+      {"Depth": 4, "Kind": "Element", "Name": "P", "Attributes": []},
+      {"Depth": 5, "Kind": "Text", "Value": "検索エンジンで車を走らせることができない。（要調査）"},
+      {"Depth": 4, "Kind": "Text", "Value": "\n      "},
+      {"Depth": 3, "Kind": "Text", "Value": "\n    "},
+      {"Depth": 2, "Kind": "Text", "Value": "\n  "},
+      {"Depth": 1, "Kind": "Text", "Value": "\n"}
+    ],
+    "notations": [],
+    "review": "Pinned W3C 20130923 xmlconf/japanese/weekly-shift_jis.xml SHA-256 f16cf8b16b8fe53705964a06bd82ca4cc8d8612890f0f3e6fd7040be8d3bbb19; unread xmlconf/japanese/weekly-shift_jis.dtd SHA-256 dc8a580491f75508675a0d05ef3cf7f72a8c4aa33aff420963d9b8bd77cdb6da. The strictly prepared source has one SYSTEM-only doctype, paired Japanese-name elements, literal text and one href; it has no internal subset, standalone declaration or entity reference. Under the nonvalidating no-fetch profile, record only the external-subset omission and preserve the complete 150-node tree with CRLF normalized to LF; there is no notation or upstream OUTPUT. https://www.w3.org/TR/xml/#sec-common-syn https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-line-ends"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#pr-xml-euc-jp",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "spec.dtd",
+        "Offset": 41
+      }
+    ],
+    "projectionSameAs": "xmlconf/japanese/japanese.xml#pr-xml-utf-8",
+    "notations": [],
+    "review": "Pinned W3C 20130923 xmlconf/japanese/pr-xml-euc-jp.xml raw SHA-256 7b5b7cc9ce672e901c08daa9eadd5e4ff59191980c91f1db6acabab72b6dc655, strictly prepared Unicode SHA-256 14c452dc9e91d1ba7ef9b55e76a71a8ce75fd725142b105a895267ee44979742; unread spec.dtd, sole ExternalSubset omission at original UTF-16 offset 41. The internal subset's first general-entity declarations bind despite eight later duplicates; all body references are internal, predefined or numeric. The source contains literal <!ENTITY lt \"<\">, which violates XML 4.6's predefined-entity declaration prescription. For this exact optional-error case, recover under XML 1.2 while retaining the mandatory predefined escaped '<' meaning; this does not call the source error-free or authorize recovery for other malformed DTDs. Strict prepared decoding satisfies the encoding condition. Under nonvalidating no-fetch, the external subset contributes no defaults, types or notations; preserve the complete source-derived 6283-node tree with first-binding entity expansion, CRLF normalization and CDATA attribute normalization. No upstream OUTPUT exists. https://www.w3.org/TR/xml/#dt-error https://www.w3.org/TR/xml/#sec-predefined-ent https://www.w3.org/TR/xml/#sec-entity-decl https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-line-ends https://www.w3.org/TR/xml/#AVNormalize https://www.w3.org/TR/xml/#charencoding"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#pr-xml-iso-2022-jp",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "spec.dtd",
+        "Offset": 46
+      }
+    ],
+    "projectionSameAs": "xmlconf/japanese/japanese.xml#pr-xml-utf-8",
+    "notations": [],
+    "review": "Pinned W3C 20130923 xmlconf/japanese/pr-xml-iso-2022-jp.xml raw SHA-256 34b947550cf03967736493469e1c7a4ef9ae286fccbc73e1df564069198069ab, strictly prepared Unicode SHA-256 0a9030423eaca147b62b6776030d1720851650f28fb06220b9df9670976706c2; unread spec.dtd, sole ExternalSubset omission at original UTF-16 offset 46. The internal subset's first general-entity declarations bind despite eight later duplicates; all body references are internal, predefined or numeric. The source contains literal <!ENTITY lt \"<\">, which violates XML 4.6's predefined-entity declaration prescription. For this exact optional-error case, recover under XML 1.2 while retaining the mandatory predefined escaped '<' meaning; this does not call the source error-free or authorize recovery for other malformed DTDs. Strict prepared decoding satisfies the encoding condition. Under nonvalidating no-fetch, the external subset contributes no defaults, types or notations; preserve the complete source-derived 6283-node tree with first-binding entity expansion, CRLF normalization and CDATA attribute normalization. No upstream OUTPUT exists. https://www.w3.org/TR/xml/#dt-error https://www.w3.org/TR/xml/#sec-predefined-ent https://www.w3.org/TR/xml/#sec-entity-decl https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-line-ends https://www.w3.org/TR/xml/#AVNormalize https://www.w3.org/TR/xml/#charencoding"
+  },
+  {
+    "key": "xmlconf/japanese/japanese.xml#pr-xml-shift_jis",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "spec.dtd",
+        "Offset": 44
+      }
+    ],
+    "projectionSameAs": "xmlconf/japanese/japanese.xml#pr-xml-utf-8",
+    "notations": [],
+    "review": "Pinned W3C 20130923 xmlconf/japanese/pr-xml-shift_jis.xml raw SHA-256 96aa401656333ed6d7d6a3439b9e456ccc57c1f7722d53065eae5fe0fc6b7dee, strictly prepared Unicode SHA-256 a71d13642192cafb8d2d23c1520b2716d7da27deaf7b1ff4465584c9195d9263; unread spec.dtd, sole ExternalSubset omission at original UTF-16 offset 44. The internal subset's first general-entity declarations bind despite eight later duplicates; all body references are internal, predefined or numeric. The source contains literal <!ENTITY lt \"<\">, which violates XML 4.6's predefined-entity declaration prescription. For this exact optional-error case, recover under XML 1.2 while retaining the mandatory predefined escaped '<' meaning; this does not call the source error-free or authorize recovery for other malformed DTDs. Strict prepared decoding satisfies the encoding condition. Under nonvalidating no-fetch, the external subset contributes no defaults, types or notations; preserve the complete source-derived 6283-node tree with first-binding entity expansion, CRLF normalization and CDATA attribute normalization. No upstream OUTPUT exists. https://www.w3.org/TR/xml/#dt-error https://www.w3.org/TR/xml/#sec-predefined-ent https://www.w3.org/TR/xml/#sec-entity-decl https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-line-ends https://www.w3.org/TR/xml/#AVNormalize https://www.w3.org/TR/xml/#charencoding"
+  }
+]

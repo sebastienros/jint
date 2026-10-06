@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Array;
 
@@ -11,33 +10,24 @@ namespace Jint.Browser.Dom.Collections;
 /// </summary>
 /// <remarks>
 /// It is the one collection the generated <see cref="DomCollectionAccessor"/> scheme cannot serve, because
-/// AngleSharp's <see cref="IHtmlCollection{T}"/> is generic and <b>invariant</b>: an
-/// <c>IHtmlCollection&lt;IHtmlOptionElement&gt;</c> is not an <c>IHtmlCollection&lt;IElement&gt;</c>, so one
+/// the former generic HTML collection is generic and <b>invariant</b>: an
+/// <c>IHtmlCollection&lt;IHtmlOptionElement&gt;</c> is not an <c>IHtmlCollection&lt;Element&gt;</c>, so one
 /// non-generic accessor could not reach the indexer at all. A generated member instead names its declared
 /// element type at the call site — <c>realm.WrapCollection&lt;IHtmlOptionElement&gt;(…)</c> — which keeps the
 /// path free of reflection and of a generic instantiation nothing static can see.
 /// </remarks>
-internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : class, IElement
+internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : Node
 {
-    private readonly IHtmlCollection<T> _collection;
-    // The collection when it is the binding's own live one, and null when it is AngleSharp's -- read on
-    // every indexed access, so it is a field rather than a type test, the same shape and for the same reason
-    // as DomCollectionObject's static-NodeList branch.
-    private readonly DomLiveHtmlCollection? _live;
-
-    private readonly Layout.PageLayout? _layout;
-    private ulong _countVersion;
-    private uint _count;
-    private bool _hasCount;
-
+    private readonly DomHtmlCollection<T> _collection;
     private List<string> _names = [];
+    private WeakReference<Document>? _countOwner;
+    private ulong _countStamp;
+    private uint _count;
 
-    internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, IHtmlCollection<T> collection)
+    internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, DomHtmlCollection<T> collection)
         : base(realm, definition, collection)
     {
         _collection = collection;
-        _live = collection as DomLiveHtmlCollection;
-        _layout = Runtime.PageRuntime.Find(realm.Engine)?.Layout;
     }
 
     /// <inheritdoc />
@@ -45,23 +35,42 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     {
         get
         {
-            // https://dom.spec.whatwg.org/#concept-collection-live: each read describes the current
-            // tree. Retain only a scalar count under Browser's synchronous mutation fence, never an
-            // enumerator or nodes. Standalone bindings and arbitrary native writers stay uncached.
-            if (_layout is not { } layout || !layout.TryGetCollectionVersion(out var version))
+            while (true)
             {
-                _hasCount = false;
-                return (uint) _collection.Length;
-            }
+                DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                DomRealm.Engine.Constraints.Check();
+                DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                if (!_collection.TryGetCountWitness(out var owner, out var stamp))
+                {
+                    var uncached = (uint) _collection.GetLength(DomRealm);
+                    DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                    return uncached;
+                }
 
-            if (!_hasCount || _countVersion != version)
-            {
-                _count = (uint) _collection.Length;
-                _countVersion = version;
-                _hasCount = true;
-            }
+                if (_countOwner is not null && _countOwner.TryGetTarget(out var cachedOwner)
+                    && ReferenceEquals(owner, cachedOwner) && stamp == _countStamp)
+                {
+                    var count = _count;
+                    DomRealm.Engine.Constraints.Check();
+                    DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                    if (_collection.TryGetCountWitness(out var afterOwner, out var afterStamp)
+                        && ReferenceEquals(owner, afterOwner) && stamp == afterStamp)
+                        return count;
+                    continue;
+                }
 
-            return _count;
+                _countOwner = null;
+                var computed = (uint) _collection.GetLength(DomRealm);
+                DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                if (!_collection.TryGetCountWitness(out var finalOwner, out var finalStamp)) return computed;
+                // Host checks may mutate or reenter. Publish only a count measured under one witness;
+                // adoption changes the identity even if the two documents happen to have equal stamps.
+                if (!ReferenceEquals(owner, finalOwner) || stamp != finalStamp) continue;
+                _countOwner = new WeakReference<Document>(owner!);
+                _countStamp = stamp;
+                _count = computed;
+                return computed;
+            }
         }
     }
 
@@ -92,45 +101,12 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Why no <c>Length</c> check stands in front of it.</b> Every implementation of
-    /// <c>IHtmlCollection&lt;T&gt;</c> this wrapper is given is a lazy view over a tree walk rather than a
-    /// list. AngleSharp's <c>HtmlCollection&lt;T&gt;</c> — <c>children</c>, and the snapshot collections —
-    /// holds an <c>IEnumerable&lt;T&gt;</c> whose <c>Length</c> is <c>Count()</c> and whose indexer is a
-    /// linear <c>GetItemByIndex</c>; its <c>HtmlFormControlsCollection</c> (<c>form.elements</c>) is a
-    /// <c>Where</c> over the document's form-control descendants; and the binding's own
-    /// <see cref="DomLiveHtmlCollection"/> re-runs its filter. So the bounds pre-check this method replaced
-    /// ran the entire query a second time on every element read — 36.3% of the <c>GetDescendantsAndSelf</c>
-    /// subtree in the profile on
-    /// <a href="https://github.com/sebastienros/jint/issues/4013">sebastienros/jint#4013</a>. Running out of
-    /// elements <i>is</i> the bounds answer, and it comes free with the walk that had to happen anyway.
-    /// </para>
-    /// <para>
     /// The collections that really can be indexed in constant time — <c>childNodes</c>, <c>attributes</c>, a
     /// token list — are not these. They reach <see cref="DomCollectionObject"/> and its generated accessor,
     /// whose length probe is a field read, and it stays where it is.
     /// </para>
     /// </remarks>
-    private IElement? ElementAt(uint index)
-    {
-        if (_live is { } live)
-        {
-            return live.TryGetElementAt(index, out var element) ? element : null;
-        }
-
-        var remaining = index;
-
-        foreach (var candidate in _collection)
-        {
-            if (remaining == 0)
-            {
-                return candidate;
-            }
-
-            remaining--;
-        }
-
-        return null;
-    }
+    private Element? ElementAt(uint index) => _collection.GetItem(DomRealm, index) as Element;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every
@@ -190,16 +166,6 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The search is written out rather than delegated to AngleSharp's <c>this[string]</c>, because HTML's
-    /// second step is "the <b>first</b> element for which <i>either</i> its ID is key, <i>or</i> it is in the
-    /// HTML namespace and its <c>name</c> content attribute is key" — one pass in tree order, and the
-    /// <c>name</c> half restricted to HTML elements. AngleSharp matches <c>name</c> on any element and does
-    /// so in a second pass after every id, so <c>document.createElementNS("", "img")</c> with
-    /// <c>name="qux"</c> answered from a collection that must not expose it. That is what made this operation
-    /// and <see cref="VisibleNames"/> disagree about one object, which
-    /// <c>dom/nodes/Element-children.html</c> asserts they never do.
-    /// </para>
-    /// <para>
     /// The empty-name check is HTML's first step, and it comes first because an element carrying
     /// <c>id=""</c> or <c>name=""</c> would otherwise match. This operation looks through expandos; only
     /// property lookup applies the visibility check.
@@ -207,20 +173,25 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// </remarks>
     internal override JsValue NamedItem(string name)
     {
+        if (_collection.GetNamedItem(DomRealm, name) is { } specialized) return specialized;
         if (name.Length == 0)
         {
             return JsValue.Null;
         }
 
-        foreach (var element in _collection)
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
+        foreach (var candidate in _collection.Read(DomRealm))
         {
-            if (string.Equals(element.Id, name, StringComparison.Ordinal)
-                || (element is IHtmlElement && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal)))
+            var element = (Element) (Node) candidate;
+            if (work.Equal(work.Attribute(element, "id"), name)
+                || (element.NamespaceUri == Namespaces.Html && work.Equal(work.Attribute(element, "name"), name)))
             {
+                work.Check();
                 return DomRealm.Wrap(element);
             }
         }
-
+        work.Check();
         return JsValue.Null;
     }
 
@@ -234,21 +205,26 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     {
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var work = new DomReadWork(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken);
+        work.Check();
 
-        foreach (var element in _collection)
+        foreach (var candidate in _collection.Read(DomRealm))
         {
-            Add(names, element.Id);
+            var element = (Element) (Node) candidate;
+            Add(names, work.Attribute(element, "id"));
 
-            if (element is IHtmlElement)
+            if (element.NamespaceUri == Namespaces.Html)
             {
-                Add(names, element.GetAttribute("name"));
+                Add(names, work.Attribute(element, "name"));
             }
         }
 
+        work.Check();
         return names;
 
         void Add(List<string> names, string? candidate)
         {
+            if (candidate is not null) foreach (var unused in candidate) work.Step();
             // The base class lists an ordinary own property itself, in property-bag order. Do not also
             // advertise a projected name for it, or enumeration and lookup would disagree.
             if (!string.IsNullOrEmpty(candidate)

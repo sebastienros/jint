@@ -1,4 +1,5 @@
-using AngleSharp.Xml.Parser;
+using Jint.HtmlParser;
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 
 namespace Jint.Tests.Browser.Dom;
@@ -20,31 +21,32 @@ public sealed class HtmlSerializationTests
         fixture.Text("el.getAttribute('attr')").Should().Be(value);
     }
 
-    [TestCase("axx>", "axx&gt;")]
-    [TestCase("some<>", "some&lt;&gt;")]
-    public void XmlDocumentElementsUseTheHtmlMarkupGetter(string value, string escaped)
+    // XML-owner markup uses the XML algorithm, intentionally correcting the legacy HTML formatter.
+    // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#fragment-serializing-algorithm
+    // https://w3c.github.io/DOM-Parsing/#xml-serialization
+    [TestCase("axx>", "<el attr=\"axx&gt;\"/>")]
+    [TestCase("some<>", "<el attr=\"some&lt;&gt;\"/>")]
+    public void XmlDocumentElementsUseXmlMarkupSerialization(string value, string expected)
     {
         using var fixture = DomTestFixture.Create("<main></main>");
         fixture.Engine.SetValue("value", value);
         fixture.Execute("var el = new Document().createElement('el'); el.setAttribute('attr', value);");
-        fixture.Text("el.outerHTML").Should().Be("<el attr=\"" + escaped + "\"></el>");
+        fixture.Text("el.outerHTML").Should().Be(expected);
     }
 
     [Test]
     public void XmlMarkupGettersPreserveNativeNamesEmptyTagsAndNonbreakingSpaces()
     {
         using var fixture = DomTestFixture.Create("<main></main>");
-        using var xml = new XmlParser().ParseDocument(
+        var xml = MarkupParser.ParseXml(
             "<root xmlns='urn:root' xmlns:p='urn:p'><p:leaf/></root>");
         var root = xml.DocumentElement!;
-        root.FirstElementChild!.SetAttribute("data", "\u00a0");
-        var nativeInner = root.InnerHtml;
-        var nativeOuter = root.OuterHtml;
+        ContentDom.Children(root).First().SetAttribute("data", "\u00a0");
         fixture.Engine.SetValue("xml", DomBindings.Wrap(fixture.Engine, xml));
-        fixture.Text("xml.documentElement.innerHTML").Should().Be(nativeInner);
-        fixture.Text("xml.documentElement.outerHTML").Should().Be(nativeOuter);
-        nativeInner.Should().Contain("<p:leaf data=\"&nbsp;\">");
-        nativeOuter.Should().Contain("xmlns=\"urn:root\" xmlns:p=\"urn:p\"");
+        // The isolated inner fragment needs its own prefix declaration; NBSP is an XML character,
+        // not the HTML-only &nbsp; entity. Expected values are independent of the production serializer.
+        fixture.Text("xml.documentElement.innerHTML").Should().Be("<p:leaf xmlns:p=\"urn:p\" data=\"\u00a0\"/>");
+        fixture.Text("xml.documentElement.outerHTML").Should().Be("<root xmlns=\"urn:root\" xmlns:p=\"urn:p\"><p:leaf data=\"\u00a0\"/></root>");
     }
 
     [Test]
@@ -95,6 +97,6 @@ public sealed class HtmlSerializationTests
         await page.SetContentAsync("<!doctype html><el attr='some<>'></el>");
         (await page.ContentAsync()).Should().Contain("<el attr=\"some&lt;&gt;\"></el>");
         (await page.EvaluateAsync<string>("new XMLSerializer().serializeToString(document.querySelector('el'))"))
-            .Should().Be("<el attr=\"some&lt;>\" />");
+            .Should().Be("<el xmlns=\"http://www.w3.org/1999/xhtml\" attr=\"some&lt;&gt;\"></el>");
     }
 }

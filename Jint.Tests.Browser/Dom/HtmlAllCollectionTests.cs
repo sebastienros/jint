@@ -66,7 +66,7 @@ public sealed class HtmlAllCollectionTests
 
     /// <summary>
     /// HTML's IDL declares <c>HTMLAllCollection</c> as a standalone interface, so its prototype inherits
-    /// <c>Object.prototype</c> — not <c>HTMLCollection.prototype</c>, which is what AngleSharp's
+    /// <c>Object.prototype</c> — not <c>HTMLCollection.prototype</c>, which is what the former DOM integration's
     /// <c>IHtmlAllCollection : IHtmlCollection&lt;IElement&gt;</c> would otherwise have produced.
     /// </summary>
     [Test]

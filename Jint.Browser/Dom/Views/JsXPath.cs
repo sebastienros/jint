@@ -1,14 +1,13 @@
 using System.Globalization;
 using System.Xml;
 using System.Xml.XPath;
-using AngleSharp.Dom;
-using AngleSharp.XPath;
+using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
-using CompiledExpression = System.Xml.XPath.XPathExpression;
+using CompiledExpression = Jint.HtmlParser.NativeXPathExpression;
 
 namespace Jint.Browser.Dom.Views;
 
@@ -18,19 +17,15 @@ namespace Jint.Browser.Dom.Views;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The engine is <c>System.Xml.XPath</c>, over <c>AngleSharp.XPath</c>'s navigator.</b> That package —
-/// the AngleSharp project's own, MIT, referenced for this and nothing else — is an
-/// <c>XPathNavigator</c> implementation over an AngleSharp tree, which is exactly the seam the BCL's XPath 1.0
-/// evaluator takes. Writing an XPath engine here instead would be the thing this package is not for.
-/// <b>It carries no <c>[DomName]</c> anywhere</b>, and neither does AngleSharp: there is no
-/// <c>IXPathEvaluator</c>, no <c>evaluate</c> on <c>IDocument</c>, nothing for the generator to project. So
-/// these three interfaces are hand-written host interfaces beside <c>DOMParser</c> and <c>Selection</c>, and
-/// the three <c>Document</c> members are <c>overrides.json</c> <c>additions</c>.
+/// <b>The engine is System.Xml.XPath over the guarded native navigator.</b> Browser's
+/// namespace policy is applied by BrowserXPathNavigator, leaving the native navigator's
+/// namespace and cancellation semantics intact. These interfaces remain Browser host
+/// objects because XPath values cross the script boundary through its wrapper cache.
 /// </para>
 /// <para>
 /// <b>Namespaces are ignored, and that is what makes <c>//div</c> match.</b> An HTML element is in the XHTML
 /// namespace, so an XPath 1.0 name test with no prefix — which is what every page writes — would match
-/// nothing at all if the navigator reported it. <c>AngleSharp.XPath</c>'s own default is the same choice, and
+/// nothing at all if the navigator reported it. The previous Browser navigator made the same choice, and
 /// a browser reaches it from the other side (HTML documents get a name test that matches the HTML namespace).
 /// The consequence is stated rather than hidden: a <i>prefixed</i> name test (<c>svg:circle</c>) compiles,
 /// because a resolver the page supplied is consulted for the prefix, and then matches nothing, because the
@@ -105,7 +100,7 @@ internal static class XPathEvaluation
     /// </remarks>
     internal static JsValue CreateNSResolver(JsValue[] arguments, string member)
     {
-        var node = DomBindings.Argument<INode>(arguments, 0, member);
+        var node = DomBindings.IdentityArgument(arguments, 0, member);
         _ = node;
         return arguments.At(0);
     }
@@ -116,7 +111,7 @@ internal static class XPathEvaluation
     internal static JsValue Evaluate(PageRuntime runtime, JsValue[] arguments, string member)
     {
         var source = DomConvert.RequiredText(arguments, 0, member);
-        var context = DomBindings.Argument<INode>(arguments, 1, member);
+        var context = DomBindings.IdentityArgument(arguments, 1, member);
         var resolver = NamespaceResolver.From(runtime, arguments.At(2), member);
         var type = DomConvert.OptionalInt32(arguments, 3, AnyType);
 
@@ -126,9 +121,9 @@ internal static class XPathEvaluation
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-xpathexpression-evaluate — the expression against one context node.
     /// </summary>
-    internal static JsValue Run(PageRuntime runtime, CompiledExpression expression, INode context, int type, string member)
+    internal static JsValue Run(PageRuntime runtime, CompiledExpression expression, DomNodeIdentity context, int type, string member)
     {
-        var document = context as IDocument ?? context.Owner;
+        var document = context.Attribute?.OwnerDocument ?? context.Node as Document ?? context.Node?.OwnerDocument;
 
         if (document is null)
         {
@@ -138,12 +133,12 @@ internal static class XPathEvaluation
 
         // The navigator is positioned at the context node, which is what makes a relative expression — htmx's
         // `.//*[…]` — mean what the page meant by it.
-        var navigator = new HtmlDocumentNavigator(document, context, ignoreNamespaces: true);
+        var navigator = new BrowserXPathNavigator(runtime.Dom, context);
         object evaluated;
 
         try
         {
-            evaluated = navigator.Evaluate(expression.Clone());
+            evaluated = expression.EvaluatePrepared(navigator.Evaluate);
         }
         catch (XPathException exception)
         {
@@ -156,7 +151,10 @@ internal static class XPathEvaluation
             return JsValue.Undefined;
         }
 
-        return new JsXPathResult(runtime, runtime.Views.XPathResultPrototype, Coerce(runtime, evaluated, type, member));
+        navigator.CheckRead();
+        var answer = Coerce(runtime, evaluated, type, member, navigator);
+        navigator.PublishResult();
+        return new JsXPathResult(runtime, runtime.Views.XPathResultPrototype, answer);
     }
 
     /// <summary>Compiles one expression, turning a parse failure into the standard's <c>SyntaxError</c>.</summary>
@@ -164,14 +162,7 @@ internal static class XPathEvaluation
     {
         try
         {
-            var expression = CompiledExpression.Compile(source);
-
-            if (resolver is not null)
-            {
-                expression.SetContext(resolver);
-            }
-
-            return expression;
+            return NativeXPath.Compile(source, resolver, (_, _) => runtime.Engine.Constraints.Check(), runtime.Dom.CancellationToken);
         }
         catch (Exception exception) when (exception is XPathException or ArgumentException)
         {
@@ -189,11 +180,11 @@ internal static class XPathEvaluation
     /// https://dom.spec.whatwg.org/#concept-evaluate — what the requested result type makes of what XPath
     /// answered.
     /// </summary>
-    private static XPathAnswer Coerce(PageRuntime runtime, object evaluated, int type, string member)
+    private static XPathAnswer Coerce(PageRuntime runtime, object evaluated, int type, string member, BrowserXPathNavigator navigator)
     {
         if (evaluated is XPathNodeIterator nodes)
         {
-            return NodeSet(runtime, nodes, type, member);
+            return NodeSet(runtime, nodes, type, member, navigator);
         }
 
         // A non-node-set can still be asked for as a number, a string or a boolean, and XPath 1.0's own
@@ -213,19 +204,24 @@ internal static class XPathEvaluation
         };
     }
 
-    private static XPathAnswer NodeSet(PageRuntime runtime, XPathNodeIterator nodes, int type, string member)
+    private static XPathAnswer NodeSet(PageRuntime runtime, XPathNodeIterator nodes, int type, string member, BrowserXPathNavigator navigator)
     {
         // The whole set, now: DOM's live iterator needs a mutation signal this has none of, and the class
         // summary states the divergence that follows.
-        var found = new List<INode>();
+        var found = new List<object>();
+        var firstText = "";
 
-        while (nodes.MoveNext())
+        while (true)
         {
-            if (nodes.Current is HtmlDocumentNavigator { CurrentNode: { } node })
-            {
-                found.Add(node);
-            }
+            navigator.CheckRead();
+            if (!nodes.MoveNext()) break;
+            navigator.CheckRead();
+            navigator.ResultWork();
+            var current = nodes.Current ?? throw new XPathException("The XPath iterator has no current node.");
+            if (found.Count == 0) firstText = current.Value;
+            found.Add(current.UnderlyingObject ?? throw new XPathException("The XPath cursor has no native identity."));
         }
+        navigator.CheckRead();
 
         return type switch
         {
@@ -236,8 +232,8 @@ internal static class XPathEvaluation
 
             // XPath 1.0's node-set conversions: a set is true when it is not empty, and its string value is
             // its first node's.
-            NumberType => XPathAnswer.Number(NumberType, StringToNumber(FirstText(found))),
-            StringType => XPathAnswer.String(StringType, FirstText(found)),
+            NumberType => XPathAnswer.Number(NumberType, StringToNumber(firstText)),
+            StringType => XPathAnswer.String(StringType, firstText),
             BooleanType => XPathAnswer.Boolean(BooleanType, found.Count > 0),
             _ => WrongType(runtime, member),
         };
@@ -250,8 +246,6 @@ internal static class XPathEvaluation
             "Failed to execute '" + member + "': The result is not a node set, and therefore cannot be converted to the desired type.");
         return default;
     }
-
-    private static string FirstText(List<INode> nodes) => nodes.Count == 0 ? "" : nodes[0].TextContent ?? "";
 
     private static string Text(object value) => value switch
     {
@@ -315,7 +309,7 @@ internal readonly record struct XPathAnswer(
     double NumberValue,
     string StringValue,
     bool BooleanValue,
-    List<INode>? Nodes)
+    List<object>? Nodes)
 {
     internal static XPathAnswer Number(int type, double value) => new(type, value, "", false, null);
 
@@ -323,7 +317,7 @@ internal readonly record struct XPathAnswer(
 
     internal static XPathAnswer Boolean(int type, bool value) => new(type, double.NaN, "", value, null);
 
-    internal static XPathAnswer NodeSet(int type, List<INode> nodes) => new(type, double.NaN, "", false, nodes);
+    internal static XPathAnswer NodeSet(int type, List<object> nodes) => new(type, double.NaN, "", false, nodes);
 }
 
 /// <summary>
@@ -390,7 +384,7 @@ internal sealed class JsXPathExpression : ObjectInstance
     /// <summary>https://dom.spec.whatwg.org/#dom-xpathexpression-evaluate.</summary>
     internal JsValue Evaluate(JsValue[] arguments)
     {
-        var context = DomBindings.Argument<INode>(arguments, 0, "XPathExpression.evaluate");
+        var context = DomBindings.IdentityArgument(arguments, 0, "XPathExpression.evaluate");
         var type = DomConvert.OptionalInt32(arguments, 1, XPathEvaluation.AnyType);
 
         return XPathEvaluation.Run(_runtime, _expression, context, type, "XPathExpression.evaluate");
@@ -454,7 +448,7 @@ internal sealed class JsXPathResult : ObjectInstance
             }
 
             var nodes = _answer.Nodes;
-            return nodes is { Count: > 0 } ? _runtime.Dom.WrapNode(nodes[0]) : JsValue.Null;
+            return nodes is { Count: > 0 } ? _runtime.Dom.Wrap(nodes[0]) : JsValue.Null;
         }
     }
 
@@ -481,7 +475,7 @@ internal sealed class JsXPathResult : ObjectInstance
         }
 
         var nodes = _answer.Nodes;
-        return nodes is not null && _next < nodes.Count ? _runtime.Dom.WrapNode(nodes[_next++]) : JsValue.Null;
+        return nodes is not null && _next < nodes.Count ? _runtime.Dom.Wrap(nodes[_next++]) : JsValue.Null;
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-xpathresult-snapshotitem.</summary>
@@ -495,7 +489,7 @@ internal sealed class JsXPathResult : ObjectInstance
         var index = DomConvert.RequiredUInt32(arguments, 0, "XPathResult.snapshotItem");
         var nodes = _answer.Nodes;
 
-        return nodes is not null && index < (uint) nodes.Count ? _runtime.Dom.WrapNode(nodes[(int) index]) : JsValue.Null;
+        return nodes is not null && index < (uint) nodes.Count ? _runtime.Dom.Wrap(nodes[(int) index]) : JsValue.Null;
     }
 
     private bool IsSnapshot

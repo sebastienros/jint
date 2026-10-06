@@ -27,7 +27,7 @@ public class PageProtocolManifestTests
     /// <summary>The domains a page target answers, which is what this test is responsible for.</summary>
     private static readonly string[] PageDomains =
     [
-        "Page", "DOM", "Input", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits",
+        "Page", "DOM", "Input", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "Inspector",
         "Accessibility", "CSS", "Security", "Overlay", "Jint",
     ];
 

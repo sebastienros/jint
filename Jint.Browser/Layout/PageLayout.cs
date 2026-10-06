@@ -1,5 +1,6 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
+using Jint.Browser.Dom.Views;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Runtime;
@@ -35,6 +36,7 @@ namespace Jint.Browser.Layout;
 /// </remarks>
 internal sealed partial class PageLayout
 {
+    internal PageLayoutDiagnostics? Diagnostics { get; set; }
     private readonly PageRuntime _runtime;
     private readonly Action _scrollJob;
 
@@ -50,11 +52,6 @@ internal sealed partial class PageLayout
     /// <summary>
     /// What "not rendered" means, kept for the page because the cascade probe inside it latches.
     /// </summary>
-    /// <remarks>
-    /// <see cref="ElementVisibility"/> asks AngleSharp.Css once and stays on the inline-style path if the
-    /// service is not registered, which is a decision it can only make once per document rather than once
-    /// per query.
-    /// </remarks>
     internal ElementVisibility Visibility { get; } = new(useComputedStyle: true);
 
     /// <summary>How far the page is scrolled down, in CSS pixels.</summary>
@@ -63,19 +60,34 @@ internal sealed partial class PageLayout
     /// <summary>Shares current measurements where all writers are tracked; otherwise starts a fresh query.</summary>
     internal FlatLayout.SizeQuery MeasureSizes()
     {
+        Diagnostics?.SizeQueryRequested();
         if (!CanReuse())
         {
-            return CreateSizes();
+            return CreateUnretainedSizes();
         }
 
         return _sizes ??= CreateSizes();
     }
 
+    // Measurements that cannot be retained are walked afresh on every read. The styles they consult need not
+    // be: the document's shared traversal validates itself against every native input, exactly as
+    // getComputedStyle relies on, so consecutive reads stop re-matching every element that precedes the target.
+    private FlatLayout.SizeQuery CreateUnretainedSizes()
+    {
+        var document = _runtime.Document;
+        var traversal = document is not null && Visibility.CascadeAvailable ? CssCascade.Traversal.Current(document) : null;
+        return new(document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+    }
+
     private FlatLayout.SizeQuery CreateSizes()
-        => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
+    {
+        var traversal = Visibility.CreateTraversal(_runtime.Document);
+        return traversal?.ReadContext is { } context ? context.MeasureSizes()
+            : new(_runtime.Document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+    }
 
     /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
-    internal FlatBox? ClientBoxOf(IElement element)
+    internal FlatBox? ClientBoxOf(Element element)
     {
         var sizes = MeasureSizes();
         FlatBox? box = sizes.HasBox(element) ? sizes.Place(element) : null;
@@ -103,7 +115,7 @@ internal sealed partial class PageLayout
 
         var viewport = _runtime.Viewport;
         var sizes = MeasureSizes();
-        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes);
+        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
 
         // A document that shrank under a scrolled page leaves the offset past its end, so the clamp is read
         // here rather than only written in ScrollTo: what a box answers must agree with what scrollY reads.
@@ -118,7 +130,7 @@ internal sealed partial class PageLayout
         }
 
         _scrollY = clamped;
-        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes);
+        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
         if (reuse)
         {
             _layout = layout;
@@ -158,7 +170,7 @@ internal sealed partial class PageLayout
     /// first row can leave every descendant outside the viewport, so a client clicks the container's empty
     /// row instead of its contents. With <c>nearest</c>, a box spanning both viewport edges stays put.
     /// </remarks>
-    internal void ScrollIntoView(IElement element, string block)
+    internal void ScrollIntoView(Element element, string block)
     {
         var layout = Current();
         if (layout.DocumentBoxOf(element) is not { } box)
@@ -227,4 +239,11 @@ internal sealed partial class PageLayout
             ActivationBehaviors.Fire(document, "scroll", bubbles: true, composed: false);
         }
     }
+}
+
+// Opt-in per-page counters for source regression tests, with no callbacks or ambient collector.
+internal sealed class PageLayoutDiagnostics
+{
+    internal long SizeQueryRequests { get; private set; }
+    internal void SizeQueryRequested() => SizeQueryRequests++;
 }

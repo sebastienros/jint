@@ -1,0 +1,81 @@
+name: HtmlParser packed consumer
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+
+jobs:
+  packed-consumer:
+    name: 'linux - parser packages (${{ matrix.version }})'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Exercise both a preserved prerelease and GA Browser's experimental parser dependency.
+        version: [5.0.0-consumer-smoke, 5.0.0]
+    steps:
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: |
+          8.0
+          10.0
+    - name: Checkout source code
+      uses: actions/checkout@v7
+    - name: Setup Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - name: Pack a fresh feed
+      env:
+        PACKAGE_VERSION: ${{ matrix.version }}
+      run: |
+        set -euo pipefail
+        rm -rf artifacts/html-parser-package-consumer tools/html-parser-package-consumer/bin tools/html-parser-package-consumer/obj
+        for project in Jint Jint.DevTools Jint.HtmlParser Jint.Browser; do
+          dotnet pack "$project/$project.csproj" -c Release -p:Version="$PACKAGE_VERSION" \
+            -o artifacts/html-parser-package-consumer/feed
+        done
+        python3 tools/html-parser-package-consumer/verify_packages.py feed \
+          --version "$PACKAGE_VERSION" --framework net8.0 --framework net10.0 >> "$GITHUB_ENV"
+    - name: Build and run both packaged consumers
+      run: |
+        set -euo pipefail
+        project=tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj
+        for framework in net8.0 net10.0; do
+          dotnet build "$project" -c Release -f "$framework" -p:IncludeBrowser=true \
+            -p:HtmlParserPackageVersion="$PARSER_PACKAGE_VERSION" -p:BrowserPackageVersion="$BROWSER_PACKAGE_VERSION"
+          python3 tools/html-parser-package-consumer/verify_packages.py restore \
+            --version "$BROWSER_PACKAGE_VERSION" --framework "$framework" --browser
+          dotnet "tools/html-parser-package-consumer/bin/Release/$framework/HtmlParserPackageConsumer.dll" | tee "$framework.log"
+          grep -q '^ALL PARSER PACKAGE PROBES PASSED$' "$framework.log"
+          grep -q '^BROWSER PACKAGE PROBE PASSED$' "$framework.log"
+        done
+    - name: Ensure the Native AOT toolchain is present
+      run: |
+        if command -v clang > /dev/null && dpkg -s zlib1g-dev > /dev/null 2>&1; then
+          echo "Native AOT toolchain already present"
+        else
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+        fi
+    # Browser does not claim general AOT compatibility. The native leg proves the parser's own claim.
+    - name: Publish and run the packed parser with Native AOT
+      run: |
+        set -euo pipefail
+        rm -rf tools/html-parser-package-consumer/bin tools/html-parser-package-consumer/obj artifacts/html-parser-package-consumer/packages
+        dotnet publish tools/html-parser-package-consumer/HtmlParserPackageConsumer.csproj \
+          -c Release -f net10.0 -r linux-x64 -p:PublishAot=true \
+          -p:HtmlParserPackageVersion="$PARSER_PACKAGE_VERSION" \
+          -p:RestoreConfigFile="$GITHUB_WORKSPACE/tools/html-parser-package-consumer/nuget-aot.config" \
+          2>&1 | tee parser-aot-publish.log
+        python3 tools/html-parser-package-consumer/verify_packages.py restore \
+          --version "$BROWSER_PACKAGE_VERSION" --framework net10.0
+        ./tools/html-parser-package-consumer/bin/Release/net10.0/linux-x64/publish/HtmlParserPackageConsumer | tee parser-aot-run.log
+        grep -q '^ALL PARSER PACKAGE PROBES PASSED$' parser-aot-run.log
+        if grep -E 'warning IL[0-9]{4}' parser-aot-publish.log; then
+          echo '::error::The parser consumer emitted trim/AOT analysis warnings'
+          exit 1
+        fi

@@ -1,55 +1,46 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
-/// An <see cref="IHtmlCollection{T}"/> whose filter is evaluated against the current tree for every read.
+/// An <see cref="DomHtmlCollection{T}"/> whose filter is evaluated against the current tree for every read.
 /// </summary>
-/// <remarks>
-/// <para>
-/// DOM collections are live unless their defining algorithm says otherwise. AngleSharp's tag-name and
-/// class-name queries materialize a snapshot, so the binding supplies this small adapter for those
-/// operations. Keeping the target as an <see cref="IHtmlCollection{T}"/> lets the ordinary HTMLCollection
-/// wrapper retain the one indexed and named-property implementation used by every other collection.
-/// </para>
-/// <para>
-/// <b>Every read is one walk, and it allocates nothing.</b> The element at an index is found by walking until
-/// the walk has passed that many matches — so running out <i>is</i> the bounds answer and no separate
-/// <see cref="Length"/> probe precedes it — and the walk itself is <see cref="DomElementWalker"/>, whose
-/// remarks carry the measurement that motivated both. Nothing here memoizes: these collections are live by
-/// specification, so a second read re-runs the filter against whatever the tree now is.
-/// </para>
-/// <para>
-/// <b>Two sources.</b> Nearly every live collection in the surface is "the element descendants of a root that
-/// match a filter", which is the <see cref="DomElementWalker"/> form. The exception is <c>document.all</c>'s
-/// named sub-collection, whose source is another live collection rather than a tree and which therefore
-/// filters a sequence; it is reached only from a named read of <c>document.all</c> that several elements
-/// match, and is deliberately left on that shape rather than given a wrapper of its own.
-/// </para>
-/// </remarks>
-internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
+// DOM §4.2.10: retain only a weak native cursor, never a membership/wrapper snapshot.
+internal sealed class DomLiveHtmlCollection : DomHtmlCollection<Element>
 {
-    private readonly INode? _root;
-    private readonly IEnumerable<IElement>? _source;
+    private readonly Node? _root;
+    private readonly IEnumerable<Element>? _source;
     private readonly DomElementFilter _filter;
 
+    private WeakReference<Element>? _cursor;
+    private uint _cursorIndex;
+    private WeakReference<Document>? _cursorOwner;
+    private ulong _cursorStamp;
+
+    internal override bool TryGetCountWitness(out Document? document, out ulong stamp)
+    {
+        document = _root as Document ?? _root?.OwnerDocument;
+        stamp = document?.MutationStamp ?? ulong.MaxValue;
+        return document is not null && stamp != ulong.MaxValue;
+    }
+
     /// <summary>The element descendants of <paramref name="root"/> that <paramref name="filter"/> matches.</summary>
-    internal DomLiveHtmlCollection(INode root, DomElementFilter filter)
+    internal DomLiveHtmlCollection(Node root, DomElementFilter filter)
     {
         _root = root;
         _filter = filter;
     }
 
     /// <summary>The members of <paramref name="source"/> that <paramref name="filter"/> matches.</summary>
-    internal DomLiveHtmlCollection(IEnumerable<IElement> source, DomElementFilter filter)
+    internal DomLiveHtmlCollection(IEnumerable<Element> source, DomElementFilter filter)
     {
         _source = source;
         _filter = filter;
     }
 
-    public int Length
+    internal override int Length
     {
         get
         {
@@ -84,6 +75,125 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
         }
     }
 
+    internal override Element? GetItem(uint index)
+        => TryGetElementAt(index, out var element) ? element : null;
+
+    internal override int GetLength(DomRealm realm)
+    {
+        var count = 0;
+        foreach (var unused in Read(realm)) count++;
+        realm.Engine.Constraints.Check();
+        return count;
+    }
+
+    internal override Element? GetItem(DomRealm realm, uint index)
+    {
+        if (_root is not { } root)
+        {
+            Element? result = null;
+            foreach (var item in Read(realm))
+            {
+                if (index-- != 0) continue;
+                result = item;
+                break;
+            }
+            realm.Engine.Constraints.Check();
+            return result;
+        }
+        var work = RootWork(realm, root);
+        work.Check();
+        if (_filter.MatchesNothing) return null;
+        _filter.BeginRead();
+        Node? current = null;
+        uint position = 0;
+        Element? remembered = null;
+        var haveCursor = TryGetCountWitness(out var owner, out var stamp)
+            && _cursorOwner is not null && _cursorOwner.TryGetTarget(out var previousOwner)
+            && ReferenceEquals(owner, previousOwner) && stamp == _cursorStamp
+            && _cursor is not null && _cursor.TryGetTarget(out remembered);
+        // A weak cursor cannot keep a removed descendant alive between reads.
+        if (haveCursor)
+        {
+            current = remembered;
+            position = _cursorIndex;
+        }
+        var backwards = current is not null && index < position;
+        while (!haveCursor || position != index)
+        {
+            do
+            {
+                current = backwards ? Previous(root, current!, work) : Next(root, current, work);
+                if (current is null) { work.Check(); return null; }
+            }
+            while (current is not Element element || !_filter.Matches(element, work));
+            if (haveCursor) position = backwards ? position - 1 : position + 1;
+            else haveCursor = true;
+        }
+        work.Check();
+        if (TryGetCountWitness(out owner, out stamp))
+        {
+            if (_cursor is null) _cursor = new WeakReference<Element>((Element) current!);
+            else _cursor.SetTarget((Element) current!);
+            if (_cursorOwner is null) _cursorOwner = new WeakReference<Document>(owner!);
+            else _cursorOwner.SetTarget(owner!);
+            _cursorStamp = stamp;
+            _cursorIndex = position;
+        }
+        return (Element) current!;
+    }
+
+    private static DomReadWork RootWork(DomRealm realm, Node root)
+        => new(realm.NativeReadCheckpoint, realm.CancellationToken, root);
+
+    private static Node? Next(Node root, Node? node, DomReadWork work)
+    {
+        work.Step();
+        if (node is null) return root.FirstChild;
+        if (node.FirstChild is { } child) return child;
+        while (!ReferenceEquals(node, root))
+        {
+            work.Step();
+            if (node.NextSibling is { } sibling) return sibling;
+            node = node.ParentNode!;
+        }
+        return null;
+    }
+
+    private static Node? Previous(Node root, Node node, DomReadWork work)
+    {
+        work.Step();
+        if (node.PreviousSibling is not { } previous)
+            return ReferenceEquals(node.ParentNode, root) ? null : node.ParentNode;
+        while (previous.LastChild is { } child) { work.Step(); previous = child; }
+        return previous;
+    }
+
+    internal override IEnumerable<Element> Read(DomRealm realm)
+    {
+        if (_root is { } root)
+        {
+            var work = RootWork(realm, root);
+            work.Check();
+            if (_filter.MatchesNothing) yield break;
+            _filter.BeginRead();
+            for (var node = Next(root, null, work); node is not null; node = Next(root, node, work))
+                if (node is Element element && _filter.Matches(element, work)) yield return element;
+            work.Check();
+            yield break;
+        }
+        var sourceWork = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        sourceWork.Check();
+        if (_filter.MatchesNothing) yield break;
+        _filter.BeginRead();
+        var source = _source is DomHtmlCollection<Element> collection ? collection.Read(realm) : _source!;
+        foreach (var element in source)
+        {
+            sourceWork.Step();
+            if (_filter.Matches(element, sourceWork)) yield return element;
+        }
+        sourceWork.Check();
+    }
+
     public int Count => Length;
 
     /// <summary>
@@ -91,7 +201,7 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
     /// which is the authoritative bounds answer, taken from the one walk rather than from a
     /// <see cref="Length"/> that would have had to run the whole query again.
     /// </summary>
-    internal bool TryGetElementAt(uint index, [NotNullWhen(true)] out IElement? element)
+    internal bool TryGetElementAt(uint index, [NotNullWhen(true)] out Element? element)
     {
         if (!_filter.MatchesNothing)
         {
@@ -137,7 +247,7 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
         return false;
     }
 
-    public IElement this[int index]
+    public Element this[int index]
     {
         get
         {
@@ -157,7 +267,7 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
     /// is an HTML element whose <c>name</c> content attribute is. One pass, and the same rule
     /// <c>DomHtmlCollectionObject.NamedItem</c> applies to the wrapper — which is the one script reaches.
     /// </summary>
-    public IElement? this[string id]
+    public Element? this[string id]
     {
         get
         {
@@ -194,21 +304,20 @@ internal sealed class DomLiveHtmlCollection : IHtmlCollection<IElement>
         }
     }
 
-    private static bool IsNamed(IElement element, string id)
-        => string.Equals(element.Id, id, StringComparison.Ordinal)
-           || (element is AngleSharp.Html.Dom.IHtmlElement
+    private static bool IsNamed(Element element, string id)
+        => string.Equals(element.GetAttribute("id"), id, StringComparison.Ordinal)
+           || (element.NamespaceUri == Namespaces.Html
                && string.Equals(element.GetAttribute("name"), id, StringComparison.Ordinal));
 
-    public IEnumerator<IElement> GetEnumerator() => Filtered().GetEnumerator();
+    public override IEnumerator<Element> GetEnumerator() => Filtered().GetEnumerator();
 
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>
     /// The matching elements as a sequence, for the callers that really do visit all of them — the named
     /// half of <c>HTMLCollection</c>, and the sequence-sourced form. The indexed lane does not come through
     /// here, because a state machine is an allocation and it reads one element.
     /// </summary>
-    private IEnumerable<IElement> Filtered()
+    private IEnumerable<Element> Filtered()
     {
         if (_filter.MatchesNothing)
         {

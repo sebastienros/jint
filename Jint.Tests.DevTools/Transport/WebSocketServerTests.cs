@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.WebSockets;
 using System.Text.Json;
 using Jint.DevTools;
+using Jint.DevTools.Transport;
 
 namespace Jint.Tests.DevTools.Transport;
 
@@ -22,6 +23,14 @@ namespace Jint.Tests.DevTools.Transport;
 [NonParallelizable]
 public class WebSocketServerTests
 {
+    [Test]
+    public void TheServerSendsNoKeepAliveFrameChromedpWouldRejectAsInvalid()
+    {
+        // .NET's server keep-alive is an unsolicited Pong, and chromedp drops the connection on any frame
+        // that is not Ping, Close or text, so a non-infinite interval cancels every chromedp session.
+        WebSocketServerTransport.KeepAliveInterval.Should().Be(Timeout.InfiniteTimeSpan);
+    }
+
     [Test]
     public async Task VersionNamesTheBrowserEndpointAClientThenConnectsTo()
     {

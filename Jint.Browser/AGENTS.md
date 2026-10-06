@@ -1,363 +1,276 @@
 # Agent instructions: the browser package
 
 > **Read this when:** You are touching anything under `Jint.Browser/`, the binding generator under
-> `tools/dom-bindings/`, or its override table.
+> `tools/dom-bindings/`, or its contract.
 >
 > This is one of the co-located instruction files indexed from the repository-root
-> [`AGENTS.md`](../AGENTS.md). Read that first — it carries the build and test commands, the branch to
-> target, and the conventions that apply to every file in the repository. Nothing below is repeated there.
-> The design this implements is [`docs/design/headless-browser.md`](../docs/design/headless-browser.md):
-> §4 for the bindings, §3 for the page runtime, §5 for events, §6 for the parse.
+> [`AGENTS.md`](../AGENTS.md). Read that first: it carries the build and test commands, the branch to
+> target, and the conventions that apply to every file in the repository.
+> [`docs/design/headless-browser.md`](../docs/design/headless-browser.md) records the original design;
+> its dependency and parser-thread descriptions predate the native-parser migration.
 
 ### The principle this package is checked against
 
-> Jint should add value to AngleSharp without competing too much.
+**Jint.HtmlParser is the native document foundation; Jint.Browser supplies browser semantics over its
+output.** Tokenization, tree construction, DOM storage, CSS syntax/CSSOM/cascade machinery, selectors,
+XPath, XML and serialization belong to the native foundation, not to a replacement tree inside Browser.
+The current `Styling/NativeCssQuery` composes native CSS models, selectors and text declarations into the
+Browser cascade; bindings, page state, events, resource loading, observer delivery and layout-free geometry
+remain Browser's responsibility. The binding layer projects native identities onto Jint's shapes, without
+a reflection trampoline.
 
-That is the project founder's guidance for the whole headless-browser campaign, and it decides arguments here
-rather than merely decorating them. **AngleSharp supplies the parser, DOM storage and CSSOM. Jint owns
-the browser semantics its embedding requires, including standards-defined behavior AngleSharp does not
-implement.** The binding layer projects onto the engine's own shape and layout machinery instead of using
-a reflection trampoline, and the output is deliberately shaped so that
-[AngleSharp.Js](https://github.com/AngleSharp/AngleSharp.Js) could adopt it without adopting anything else
-here. These rules bind every change:
-
-- **Record each divergence and implement the required browser behavior in Jint.** The maintainer's
-  direction is that AngleSharp's decision to treat behavior as intentional or outside its scope must not
-  leave a Jint conformance issue waiting indefinitely for an upstream fix. A local implementation is
-  authorized; upstream acceptance, a new upstream report and a dependency release are not prerequisites.
-  This applies to the remaining selector, namespace/name-creation and directionality issues as well as
-  the algorithms already owned here.
-- **Compose with AngleSharp's existing tree and services.** Prefer a supported factory, hook, adapter or
-  shared algorithm over a second parser or DOM store. That preference does not prohibit implementing a
-  missing algorithm: class-name collections, form ownership and TreeWalker already do so. Keep one answer
-  across binding calls, selectors, forms, events and automation, preserving node/wrapper identity,
-  mutation behavior, per-page state and execution limits. If the public API cannot express the fix, record
-  the exact inaccessible operation and investigate a local integration design; do not label the issue
-  blocked solely because it was previously assigned to AngleSharp. Private reflection is not a supported
-  extension point.
-- **A local correction needs a specification citation, regression coverage and a divergence entry.**
-  Remove or narrow only the exclusions its tests prove stale, then refresh the required census. Keep
-  historical upstream links as context; do not present an upstream scope decision as a promise of a fix.
-  Reuse a later upstream implementation when it satisfies the same tests. Do not file or reopen issues or submit pull requests in AngleSharp repositories.
-  Record the integration evidence locally.
-- **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
-- **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
-  this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The
-  same is true of the generator: it reads AngleSharp's attributes and emits against Jint's public shape API.
+- **Parser performance is paramount.** Consume parser output without adding per-node Browser work during
+  parsing: no eager wrapper construction, creation-realm tree walks or generic notification listeners just
+  to rediscover facts the parser already knows. The resource watch in
+  `Runtime/Parsing/ParserDriver.NativeResources.cs` sets the internal
+  `MutationSubscription.OmitInertCharacterRecords`: character-node changes outside HTML/SVG `style` and
+  `script` cannot start a resource load or change a sheet. This is a resource-host optimization, **never**
+  an option for a script-visible `MutationObserver`.
+- **Record creation realms lazily.** `Dom/DomRealm.cs` associates a document with its realm and installs
+  `Document.AdoptionObserver`. Its weak `INodeAdoptionObserver` captures a node's or attribute's creation
+  realm just before the native owner changes. A previously unseen parser node otherwise takes its
+  document's realm. Do not replace this with an eager pass over every parsed node or a scan on a known
+  wrapper read. These hooks are internal; `Jint.HtmlParser/Parsing/AssemblyInfo.cs` grants Browser access, and
+  `HtmlParserInternalSurfaceTest` pins what Browser reaches ([the contract](../Jint.HtmlParser/README.md#browser-integration-contract)).
+- **The feature-parity target is [LightPanda](https://github.com/lightpanda-io/browser), not a rendering
+  engine.** Work beyond that headless-automation scope may remain unsupported: real layout, full CSS
+  computation beyond automation's needs, exotic at-rules, DTD entities and exact `document.write`
+  insertion-point edge cases. State the boundary explicitly; this is not permission to silently change
+  supported behavior, lose identity or bypass execution limits.
+- **Keep one answer across bindings, selectors, forms, events and automation.** Fix native algorithms in
+  the native library and browser policy in Browser. Use existing factories and internal integration hooks
+  rather than private reflection or a parallel DOM store.
+- **A correction needs a specification citation, regression coverage and a divergence entry.** Record
+  current limitations in [`Dom/divergences.md`](Dom/divergences.md); remove exclusions only when their tests
+  establish that they are stale. Historical dependency defects are not evidence of a current native defect.
+- **Do not add AngleSharp back.** Its packages are comparison controls in `Jint.Benchmark` only, not
+  production, test or binding-generator dependencies. `ParserDependencyTests` enforces the boundary.
 
 ### What is generated and what is hand-written
 
-`tools/dom-bindings/Jint.Browser.BindingGenerator` loads the two pinned AngleSharp assemblies through
-`System.Reflection.MetadataLoadContext` and emits `Jint.Browser/Dom/Generated/*.g.cs`. The output is
-**checked in** for the reasons `tools/devtools-protocol` gives: reviewable diffs, an analyzer-free build, and
-a swap to a source generator later is mechanical.
+`tools/dom-bindings/Jint.Browser.BindingGenerator/BindingGenerator.cs` loads `contract.json` through
+`BindingContract.Load(...).ToModel()` and passes that model to `Emitter`. It does not load dependency
+assemblies or extract their attributes. The output, `Jint.Browser/Dom/Generated/*.g.cs`, is **checked in**:
+binding changes are explicit contract changes followed by regeneration and review.
 
 | Generated | Hand-written |
 | --- | --- |
-| One `JsObjectShape` per interface — operations, attributes, constants, the `constructor` slot, `@@toStringTag` | The wrapper classes (`DomObject`, `DomNodeObject`, `Collections/`) |
-| The registry (`DomInterfaces`): every interface, its parent, whether it roots at `EventTarget`, its wrapper kind | `DomRealm` (per-realm prototypes and interface objects, one engine-wide wrapper cache) |
-| A `DomCollectionAccessor` per collection interface, from `[DomAccessor]` | `DomInterfaceObject`, `DomBindings`, `DomConvert`, `DomHostHooks`, `DomFailures` — the invoker every generated body is wrapped in, so an AngleSharp refusal is a `DOMException` and no `catch` is ever generated |
-| `DomTypeMap`'s candidate list, most derived first | `DomManualShapes` — the shapes the generator cannot express |
-| `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |
-| — | `DomManualInterfaces` and `DomConstructors` — the interface AngleSharp has no `[DomName]` for (`HTMLFrameSetElement`) and the one WebIDL really does give a constructor (`Document`) |
-| — | `DomNodeMembers` — members such as `getRootNode` that AngleSharp has no `[DomName]` for; selector operations now come from metadata and use the shared failure guard |
+| One `JsObjectShape` per generated interface: operations, attributes, constants, `constructor`, `@@toStringTag` | Wrapper classes (`DomObject`, `DomNodeObject`, `Collections/`) |
+| `DomInterfaces`: parent, `EventTarget` root, wrapper kind and interface-object availability | `DomRealm`: per-realm prototypes/interface objects, shared engine-wide identity cache |
+| Collection accessors stored in the contract | `DomInterfaceObject`, `DomBindings`, `DomConvert`, `DomHostHooks`, `DomFailures` |
+| `DomTypeMap`'s candidate list, most derived first | `DomTypeMap.For`, native element-brand selection and its type cache |
+| `DomEnums`, both directions, for string enumerations | `DomManualShapes`, `DomManualInterfaces`, `DomConstructors`, and native adapters called by contract bodies |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
-difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
-path after an `overrides.json` edit. `tools/dom-bindings/README.md` has the command-line one and the rule that
-**a pin bump is a code change**, not a configuration edit.
+difference; `JINT_DOM_BINDINGS=update` writes the difference back.
+[`tools/dom-bindings/README.md`](../tools/dom-bindings/README.md) has both regeneration commands.
+`overrides.json` and `pin.json` preserve historical decisions and provenance; neither drives generation.
 
 ### Where the cascade diverges from CSSOM
 
-`AngleSharp.Css` is the other half of the DOM the bindings sit on, and its divergences are here rather than
-in [`Dom/divergences.md`](Dom/divergences.md) because each one is a `Dom/Views/` type's whole reason to
-exist. That register's `getComputedStyle` row points back at this table.
+`Dom/Views/CssCascade` is the shared on-demand query entrance over `Styling/NativeCssStyleSheets` and
+`NativeCssQuery`. Native CSS models own parsed rules and declarations; Browser supplies author/UA sheets,
+media and selector state, and adapts width/height to synthetic geometry. CSS intentionally follows
+[the LightPanda-style text boundary](../Jint.HtmlParser/README.md#renderless-css-boundary), not full computed-value semantics.
+Do not restore typed grammar engines or eagerly parse CSS during HTML construction.
 
-| What | The standard | AngleSharp.Css |
-| --- | --- | --- |
-| the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them falls through to CSS's initial value and `getComputedStyle` reads `inline` |
-| a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
-| a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
+| Surface | Current implementation and boundary |
+| --- | --- |
+| Defaults and cascade | `NativeCssBrowserDefaults` supplies supported HTML UA rules. `NativeCssQuery` lazily selects text by origin/importance/layer/specificity/order and inline precedence, with inherited values and a small catalog default table. `NativeCssQuery.Index` buckets rules by their subject's id, class or type (LightPanda's StyleManager); the key filter must stay a superset of matcher case rules. |
+| Resolved values | `Dom/Views/ResolvedStyle` returns synthetic width/height for elements with boxes, otherwise declaration text. No calc, color, font-unit, transform, border or URL computation. |
+| Computed declaration | `ReadOnlyStyleDeclaration` is a read-only Browser view, not a mutable detached stylesheet declaration. `CssCascade.Traversal.Current` shares one traversal per document across script reads while `NativeCssQuery.IsReusable` and the page witness hold; an input a query captures must retire it. |
 
-**That door is also where rule-usage coverage is recorded.** `Dom/Views/CssRuleUsage` is a static arming
-switch every cascade computation reads — a volatile array read and a length test with nothing armed — and
-the `CSS` domain's `startRuleUsageTracking` is what arms it
-([`DevTools/AGENTS.md`](DevTools/AGENTS.md)). Adding a fifth caller of the cascade adds a fifth place a
-client's coverage hears from; removing one silently narrows what "used" means.
+Custom properties inherit declared text; ordinary values optionally use depth-limited textual `var()`.
+Only layout-used shorthands expand, by whitespace splitting. Other than style/media/supports/layer/import/
+font-face, at-rules are opaque base `CSSRule` objects. Container queries, keyframes, registrations and
+typed OM interfaces are removed by design. Retain query stamps, bounded work and CSSOM identity.
+
+**Rule-usage coverage observes the same native rule identities the cascade matched**, independently of
+which declaration won. `Dom/Views/CssRuleUsage` has a static arming switch; `CssCascade.Traversal.Of` records
+matches while tracking is active, and the tracker can sweep the document and shadow trees. Keep new cascade
+consumers on this shared path so the `CSS` domain's coverage does not silently miss them
+([`DevTools/AGENTS.md`](DevTools/AGENTS.md)).
 
 ### DOM §7's XPath, and CSSOM's `CSS`
 
-Two surfaces neither pinned assembly declares, so neither could be generated: there is no
-`[DomName("evaluate")]` and no `[DomName("escape")]` anywhere in AngleSharp or AngleSharp.Css. Both are
-hand-written in `Dom/Views/` beside `DOMParser`, and the three `Document` members XPath adds are
-`overrides.json` `additions`. `Jint.Tests.Browser/Fixtures/htmx` is why: htmx 2 builds an `XPathEvaluator`
-expression and calls `CSS.escape` at the top level of its bundle.
+These Browser-facing objects are hand-written in `Dom/Views/` beside `DOMParser`; the `Document` XPath
+members are explicit binding-contract bodies. The htmx fixture exercises both XPath and `CSS.escape`.
 
-- **The XPath engine is `System.Xml.XPath` over `AngleSharp.XPath`'s `HtmlDocumentNavigator`** — the
-  AngleSharp project's own package, referenced for this and nothing else, and exactly the seam the BCL's
-  XPath 1.0 evaluator takes. Writing an evaluator here instead is the one thing this package is not for.
-- **Namespaces are ignored, and that is what makes `//div` match.** An HTML element is in the XHTML
-  namespace, so an unprefixed XPath 1.0 name test — which is what every page writes — would match nothing
-  if the navigator reported it; `AngleSharp.XPath`'s own default is the same choice. The consequence is
-  stated rather than hidden: a *prefixed* test (`svg:circle`) compiles, because a resolver the page
-  supplied is consulted while the expression is compiled, and then matches nothing.
-- **A node set is materialized at evaluation**, so `invalidIteratorState` is always `false` and an
-  iterator survives a mutation instead of raising `InvalidStateError`. DOM's iterator is live and needs a
-  mutation signal this has none of; the direction is the safe one, because what it removes is a page
-  throwing.
-- **`CSS` is a namespace object, not an interface** — no constructor, no prototype, `[object CSS]` — and
-  it carries both members rather than the one htmx needs, because `window.CSS && CSS.supports(…)` is how
-  the feature is detected and half of it is a trap. `escape` is CSSOM's serialize-an-identifier;
-  `supports` parses the condition as an `@supports` rule and asks AngleSharp.Css's own
-  `IConditionFunction.Check`, so what this claims to support is exactly what the cascade can act on.
-- **`DomConstructors` grew a second entry**: `new DocumentFragment()`, which DOM gives a constructor and
-  htmx builds for every swap whose response starts with `<html>` or `<body>`. The shortness of that table
-  is still the point.
+- **XPath uses `Jint.HtmlParser.NativeXPath` and its guarded `NativeXPathNavigator`**, backed by
+  `System.Xml.XPath`. `BrowserXPathNavigator` adapts that cursor; cancellation, read validation and result
+  work accounting still flow through the native navigator.
+- **Namespaces are ignored by the Browser cursor, which makes `//div` match HTML elements.** This is
+  Browser's policy only: the native navigator preserves namespaces and its namespace axis. A prefixed
+  name test such as `svg:circle` can compile with the page's resolver, but matches nothing through the
+  namespace-ignoring Browser cursor.
+- **A node set is materialized at evaluation.** `invalidIteratorState` is always `false`; subsequent
+  mutation does not invalidate the returned iterator. Native read guards still reject invalidation during
+  evaluation. Do not confuse the snapshot policy with permission to ignore those guards.
+- **`CSS` is a namespace object, not an interface**: no constructor or interface prototype, `[object CSS]`.
+  `escape` implements CSSOM's serialize-an-identifier; `supports` calls native
+  `CssSupports.EvaluateCondition` / `EvaluateDeclaration` with bounded work. Known/custom properties with
+  nonempty text are accepted without value validation;
+  a support query neither executes a stylesheet nor matches against the DOM.
 
 ### The bindings have a file of their own
 
-How AngleSharp's attributes are read as WebIDL, the override table, the conversion table and its divergences in
-both directions, wrapper identity and the shape discipline are [`Dom/AGENTS.md`](Dom/AGENTS.md). The one rule to
-carry across without opening it: **never hand-edit a file under `Dom/Generated/`**; regenerate with
-`JINT_DOM_BINDINGS=update`, and record AngleSharp divergences locally, implementing required browser behavior according to the
-package principle above.
+The checked-in contract, conversion rules, wrapper identity and shape discipline are
+[`Dom/AGENTS.md`](Dom/AGENTS.md). The rule to carry across: **never hand-edit `Dom/Generated/`**; regenerate
+from the contract, and record supported behavior and remaining divergences against the native implementation.
 
 ### The events bridge has a file of its own
 
 Every script-visible event is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the
-algorithm points the package owns (design doc §5) — never AngleSharp's own bus, which holds nothing a script
-registered. What that costs the binding is the `skip` and `additions` rows above: `click`, `focus`, `blur`,
-`form.reset`, `document.activeElement` and `document.hasFocus` are all AngleSharp members that do nothing
-useful, so they are skipped and re-declared — and `document.createEvent`, whose AngleSharp `Event` must never
-reach script, is re-declared against Jint's in `Events/LegacyEventCreation`. The behaviour behind them — which
-algorithm point raises which event, what activation means with no layout, why the handler content attributes
-need no notification from AngleSharp, and the keyboard and the editor under it — is
-[`Events/AGENTS.md`](Events/AGENTS.md).
+algorithm points Browser owns, not through a second native event bus. The contract routes `click`, `focus`,
+`blur`, `form.reset`, `document.activeElement` and `document.hasFocus` to Browser semantics;
+`document.createEvent` reaches `Events/LegacyEventCreation`. Activation, handler reconciliation, keyboard
+input and editing are [`Events/AGENTS.md`](Events/AGENTS.md).
+
 ### The page runtime is a file of its own
 
-`Page`, the loop that owns its engine, the `Window` installer, navigation, forms, history, cookies, storage
-and workers are [`Runtime/AGENTS.md`](Runtime/AGENTS.md). The one rule to carry across the boundary without
-opening it: **one thread owns a page's engine and its DOM**, every public `Page` member is a mailbox request,
-and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may be in the task it answers.
+`Page`, its loop, the `Window` installer, navigation, forms, history, cookies, storage and workers are
+[`Runtime/AGENTS.md`](Runtime/AGENTS.md). **One thread owns a page's engine and mutable DOM**; operations
+that touch them are mailbox requests, and neither a `JsValue` nor a native DOM node may escape in their
+returned tasks. Native HTML parsing also runs on that loop. Cooperative parser yields are not permission
+to run unrelated page tasks; resource waits use the pump described in
+[`Runtime/Parsing/AGENTS.md`](Runtime/Parsing/AGENTS.md#the-parser-driver-and-the-baton).
 
 ### The observers, and when each of them delivers
 
-`Observers/` holds three. **Each delivers on a different lane, and the lane is the design.**
+`Observers/` holds three observer kinds. **The delivery lane is part of each one's contract.**
 
-- **`MutationObserver` delivers on the engine's job queue — the microtask checkpoint.** The *records* are
-  AngleSharp's: `DocumentExtensions.QueueMutation` already walks a mutated node's inclusive ancestors, matches
-  each against the registered observer list, honours `subtree` and `attributeFilter`, and clears `oldValue`
-  for an observer that did not ask for it. What it has no answer for is *when*, and the reason is the
-  [parser driver](Runtime/Parsing/AGENTS.md#the-parser-driver-and-the-baton): its `MutationHost` schedules through an
-  `IEventLoop` service, **nothing in AngleSharp implements one**, and `EventLoopExtensions.Enqueue` on a null
-  loop runs the action *inline* — so out of the box the callback fires synchronously inside `appendChild`.
-  Registering an event loop to fix that would put a second scheduler under a parse whose hand-offs the baton
-  already owns, and every one of its turns would land on whichever thread AngleSharp resumed on. So the
-  inline call is used as the
-  **arrival** of a record and nothing else: `JsMutationObserver` parks it and `MutationObserverLane` puts one
-  job on the engine's queue per batch. Ordering then falls out of a plain enqueue, and
-  `Observers/MutationObserverTests` pins it. Lifetime falls out too, and it is DOM's own rule: a *connected*
-  observer is held by the document (AngleSharp's `MutationHost` holds the callback, which holds the wrapper),
-  and a disconnected one is held only by the notify set until its records are taken — so an observer a page
-  dropped with nothing queued collects together with its callback.
-- **`IntersectionObserver` and `ResizeObserver` deliver as a *task*** — a zero-delay timer entry
-  (`ObserverTask`) — because both belong to update-the-rendering and a microtask would run before the promises
-  of the same turn. It also makes the delivery visible to `Page.WaitForIdleAsync`.
-- **`IntersectionObserver` reports each target exactly once**, fully intersecting.
-  "Never intersecting" would stop every lazy list and reveal-on-scroll animation dead. `root`, `rootMargin` and
-  `thresholds` are parsed, validated and reflected exactly as the specification says and change nothing.
-  **The rectangles are real numbers now** — the flat box model gives every element a row, and an entry
-  reports the target's own box through the same `Layout/DomRects` factory `getBoundingClientRect` answers
-  from, so the two agree. They are still **plain objects, not `DOMRectReadOnly` instances**: the eight
-  members are there and the interface object is not, and `Layout/DomRects` says what adding one would cost.
-- **`ResizeObserver` tracks changes in the flat model**, not just the initial size. A target mounted under
-  `display: none` must hear its later visible size, or a component that gates rendering on that measurement
-  stays empty forever. `ResizeObserverLane` checks at page-turn boundaries and in both nested pumps, shares
-  one size-only query per check/delivery, and schedules a task only for changed dimensions. That query
-  visits observed subtrees, their visibility ancestors and the flex siblings needed for distributed
-  widths or stretched heights, not unrelated document branches; all delivery
-  measurements are captured before any callback. `PageLayout` may reuse its traversal only while its
-  Browser-owned invalidation identity is current; mutation scopes and unknown writers use fresh queries. No mutation observer is
-  installed: ancestor `classList`, CSSOM writes and viewport changes must work too. Idle wakes do not scan,
-  and a page with no resize observers allocates no lane. Entries retain measured sizes; the active list
-  retains observers only while they have targets. Callback-caused changes wait for another task rather than
-  running a depth-limited resize loop. All three box options still use the same synthetic dimensions.
+- **`MutationObserver` delivers at a microtask checkpoint.** Native `MutationTracking` matches
+  inclusive-ancestor registrations, subtree/filter options and per-observer old values, including
+  detached-subtree transients. `JsMutationObserver` owns a `MutationSubscription`; its internal
+  `PendingRecord` callback only enlists the observer in `MutationObserverLane`. The lane posts one
+  `EventLoopJobKind.Microtask` per batch. **Only delivery invokes script**, never the native mutation stack.
+  `TakeRecordsForDelivery` clears transients; `takeRecords()` drains records without withdrawing the
+  scheduled delivery, because that delivery still owes transient cleanup. `disconnect()` unregisters,
+  clears records and withdraws from the notify set. A registered target retains its subscription and
+  callback; the pending lane retains queued observers until delivery or disconnection.
+- **`IntersectionObserver` and `ResizeObserver` deliver as tasks**, through a zero-delay `ObserverTask`.
+  These rendering-adjacent callbacks must follow the turn's promises, and be visible to
+  `Page.WaitForIdleAsync`.
+- **`IntersectionObserver` reports each observed target once, fully intersecting.** Never intersecting
+  would leave lazy lists permanently empty. `root`, `rootMargin` and `thresholds` are parsed and reflected
+  but do not change that policy. Entries use the same flat boxes as `getBoundingClientRect`, through
+  `Layout/DomRects`; the rectangles are `DOMRectReadOnly` instances from `Geometry/GeometryRealm`.
+- **`ResizeObserver` tracks changes in the flat model**, not just initial size. `ResizeObserverLane`
+  checks at page-turn boundaries and in nested pumps, shares a size-only query per check/delivery, and
+  schedules a task only for changed dimensions. Queries visit observed subtrees, visibility ancestors
+  and needed flex siblings, not unrelated branches; measurements are captured before callbacks.
+  `PageLayout` reuse requires a current Browser invalidation identity; mutation scopes and unknown writers
+  force fresh queries. No layout mutation observer is installed: CSSOM, ancestor classes and viewport
+  changes must work too. Idle wakes do not scan; pages with no resize observers allocate no lane.
+  Callback-caused changes wait for another task, not a depth-limited resize loop. All three box options use
+  the same synthetic dimensions.
 
-None of the five interface objects is generated, so they are hand-written `JsObjectShape`s behind
-`HostInterfaceObject`, and `Views/HostInterfaceDisciplineTests` holds them to the same two rules
-`DomPrototypeTests` and `WebIdlPropertyAttributeTests` hold the generated ones to.
+The five observer interface objects are hand-written shapes behind `HostInterfaceObject`.
+`Views/HostInterfaceDisciplineTests` holds them to the same shape and property-attribute rules as generated
+interfaces.
 
-`Dom/Views/` is the same story for the interfaces a *browser* supplies rather than the DOM — `DOMParser`,
-`XMLSerializer`, `Selection`, `MediaQueryListEvent` — plus the members that make the generated `Range`,
-`TreeWalker` and `NodeIterator` usable. Three things there are worth knowing:
+`Dom/Views/` also supplies browser-facing `DOMParser`, `XMLSerializer`, `Selection` and
+`MediaQueryListEvent`, plus adapters for ranges and traversal:
 
-- **`DOMParser`'s XML half is `AngleSharp.Xml`**, referenced for that and for the XML documents a frame or a
-  navigation is served, and nothing else; writing an XML parser here instead is the one thing this package is
-  not for. It is deliberately **not** in `pin.json` — the generator reads two assemblies and projects no
-  interface from this one. A failed parse answers the `parsererror` document the standard prescribes, which
-  is what a page tests for. Which responses reach it is `Runtime/Parsing/AGENTS.md`'s.
-- **A parsed document cannot run anything**: its parser gets a browsing context of its own with no scripting
-  service and `IsScripting` false, so a `<script>` in the input is an element with text and nothing more.
-- **`Selection` has no direction**, because direction comes from which end a user dragged from: the anchor is
-  always the range's start.
+- **`DOMParser` uses native parsers**: `HtmlParserSession` with scripting disabled for HTML,
+  `XmlDocumentParser` for XML. Only `MarkupParseException` becomes a `parsererror` document; cancellation
+  and resource failures remain failures. `XMLSerializer` uses native `XmlMarkupSerializer` over the same
+  identities.
+- **A DOMParser document runs no script and loads no resources**: it has no page parser driver.
+  Navigations and frame loads have their own driver and policy.
+- **`Selection` has no direction**: its anchor is always the range's start.
 
 ### Emulation, and the media environment it moves
 
-**`Runtime/PageMediaEnvironment` is the one value every media query is answered from**, and
-`PageRuntime.SetMedia` is its only writer. It holds the viewport, the emulated media type, whether the
-primary pointer is coarse, whether the document's own scripts run, and the features a client emulated — as
-one immutable value, swapped whole. That is not tidiness: a query's answer can depend on the viewport *and*
-the media type *and* a preference, so a change that moved two of them has to reach a `change` listener once,
-with both already in place. Every `MediaQueryList` the page holds then recomputes and fires a real
-`MediaQueryListEvent` — `e => e.matches` is how the listener is written — only if its own answer moved. No
-`resize` fires at the window: HTML fires that from update-the-rendering, and there is none.
+**`Runtime/PageMediaEnvironment` is the page's immutable media input**, replaced through
+`PageRuntime.SetMedia`. It carries viewport, media type, pointer capability, scripting and preferences.
+Every retained `MediaQueryList` recomputes against the whole new value and fires a real
+`MediaQueryListEvent` only if its answer changed. No window `resize` is synthesized.
 
-**The page owns preference values; AngleSharp.Css now evaluates supported preferences in stylesheets.**
-Since Css 1.1.0, `PageRenderDevice` implements `IRenderDevicePreferences` over `PageMediaEnvironment`, so
-`prefers-color-scheme`, `forced-colors`, `hover`, `pointer` and their supported siblings read the same defaults
-and emulated overrides as `matchMedia`. Clearing an override restores that page's default, not global state.
+`Styling/NativeCssStyleSheets.Browser.cs` builds a native `CssMediaEnvironment` from those values for
+stylesheet queries. `matchMedia` uses `Runtime/MediaQuery`; both receive page state, not process-global
+preferences. **Shared inputs do not imply identical grammars**: `Runtime/MediaQuery` implements its own
+headless subset, whereas stylesheet media conditions use native CSS parsing/evaluation. Preserve the page's
+change-event scheduling rather than replacing the evaluator on the assumption that the two are equivalent.
 
-**An `Emulation` command is a write to that value or to the page's `Runtime/EmulationState`**, which is where
-an override lives — on the **page**, not on the protocol target, because an override outlives the document it
-was set on. What separates one command from the next is *when* it becomes effective, and each summary says
-so: the viewport, the media, touch, focus, geolocation, the user agent and the hardware concurrency move the
-document that is loaded; the time zone and the locale (`Options` an engine is *constructed* from) and script
-execution (the parse is what refuses) reach the next one; and the remainder are accepted no-ops naming what
-there is none of.
+An `Emulation` command writes the page's `Runtime/EmulationState`, not protocol-target state: overrides
+outlive the document. Viewport, media, touch, focus, geolocation, user agent and hardware concurrency can
+affect the loaded document; time zone, locale and script execution affect the next document. Each command
+states its boundary, including accepted no-ops.
 
-**Four decisions are made in the code and argued there**, and each is one an edit can undo without noticing.
-`Runtime/NavigatorInstaller` says how the page adds WebIDL accessors to the engine's shaped
-`Navigator.prototype` without replacing its shared layout, while the existing `userAgent` accessor reads the
-page's `BrowserOptions.UserAgent` or a client's override — the string every request the page makes carries.
-`Runtime/TouchEmulation` says that touch emulation decides what a page *detects* and not what it receives —
-`Input.dispatchTouchEvent` delivers a touch either way — and how the four conditional handler attributes it
-adds to `Element.prototype` use that same hybrid shape storage. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
-two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scripting-disabled is checked,
-because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
-not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
-
-**The cascade is evaluated against the page's own device.** `Runtime/PageRenderDevice` is registered on the
-browsing context `Parsing/ParserDriver` builds and reads `PageMediaEnvironment` at computation time, with
-nothing to re-register when a client emulates ([#3721](https://github.com/sebastienros/jint/issues/3721)).
-Css 1.1.0 also fixes media-list OR, media-type guards, orientation/scan constant recognition and scripting's
-validator. **That is not equivalence with `Runtime/MediaQuery`.** Whole-conjunction negation, boolean
-dimensions, colour arithmetic, malformed-query handling and ordered gamut/dynamic-range features still
-prevent replacing the local evaluator. Keep its semantics and the page's change-event scheduling; the
-remaining upstream differences are recorded in [`Dom/divergences.md`](Dom/divergences.md).
+`NavigatorInstaller` and `TouchEmulation` add accessors without discarding the engine's shared shapes.
+Touch emulation controls detection; `Input.dispatchTouchEvent` can deliver input regardless.
+`EventHandlerContentAttributes.Reconcile` checks scripting policy before compiling a handler. The parser
+uses `HtmlParseOptions.ScriptingEnabled`, and the driver's script preparation and module paths also check
+the policy. `Runtime.evaluate` is unaffected.
 
 ### Custom elements, and where a reaction actually runs
 
-`CustomElements/` is HTML §4.13 over a DOM that has none of it: AngleSharp builds an `HtmlUnknownElement`
-for `<my-el>` and carries no custom element state, no definition and no reaction queue. What this package
-adds is the registry, the three creation paths and the reaction lane; the element state hangs off a
-`ConditionalWeakTable` keyed on the AngleSharp element, exactly as the wrapper cache does, and a document
-that never mentions `customElements` builds no registry at all and pays for none of it.
+`CustomElements/` owns the JavaScript registry, constructors and reaction delivery over native elements.
+Browser reaction records live in a `ConditionalWeakTable` keyed on the element; the native DOM also carries
+custom-element registry identity and HTML state. A page that never mentions `customElements` creates no
+Browser registry.
 
-- **The registry is per document**, which here is per engine, so a definition does not survive a navigation.
-  `define` reads the constructor once, in the specification's order, so a page that changes
-  `observedAttributes` afterwards changes nothing. `formAssociated` and `disabledFeatures` are parsed;
-  `disabledFeatures: ['shadow']` is honoured by the upgrade and `formAssociated` is recorded on the element
-  and consulted by nothing — there is no `ElementInternals` here, so a form-associated custom element takes
-  part in no entry list.
-- **An undefined `<my-el>` is an `HTMLElement`, not an `HTMLUnknownElement`.** That is HTML's element
-  interface rule, and `DomManualInterfaces.For` is where it is made: AngleSharp builds the same class for
-  both, so the name is the only thing separating them.
-- **Three creation paths, all ending in one constructor.** `document.createElement` and `createElementNS` are
-  `skip`ped in the override table and re-declared, because for a defined name the element is the
-  *constructor's* rather than AngleSharp's; `new MyElement()` reaches `DomInterfaceObject.Construct`, which
-  is HTML's `HTMLElement` constructor and the only `new` that object ever answers; and a parser-created
-  element is **upgraded**. `cloneNode` and `importNode` are hooked too, so a copy of a custom element is
-  one, and an imported customized built-in keeps its is value.
-- **The construction stack is the specification's**, which is what makes `super()` answer the element being
-  upgraded rather than a second one, and a constructor that reaches the base twice a `TypeError` — a plain
-  one, not a `DOMException`, which is the only refusal in that constructor a page reaches by constructing its
-  own class from inside its constructor.
-- **A clone carries the element's `is` *value*, not its `is` attribute.** DOM's clone creates the copy with
-  "node's is value", which `createElement(tag, { is })` and `new XY()` set without adding any attribute — so
-  `Cloned` walks the two trees in lockstep and copies the slot before the upgrade, and an element whose `is`
-  attribute says something else is the same rule read from the other side.
+- **The Browser registry is per page engine**, so definitions do not survive navigation. `define` reads
+  the constructor's configuration once. `disabledFeatures: ['shadow']` is honored; recording
+  `formAssociated` does not by itself implement `ElementInternals` or a custom submission value.
+- **A valid undefined custom-element name has the `HTMLElement` brand**, not `HTMLUnknownElement`.
+  `DomTypeMap.Native.cs` selects it from the native namespace/local name.
+- **Three creation paths end in the registered constructor.** Contract bodies for `createElement` and
+  `createElementNS` call `CustomElementCreation`; `new MyElement()` reaches
+  `DomInterfaceObject.Construct`; parser-created elements are upgraded. Clone/import preserve the
+  element's `is` value, not merely the possibly different `is` content attribute.
+- **The construction stack makes `super()` return the element being upgraded**, rather than a second
+  element, and refuses a constructor that reaches the base twice.
 
-**The `[CEReactions]` approximation, which is the one thing to know before changing any of it.** HTML
-processes the element queue when the outermost `[CEReactions]` operation returns to script. Nothing here can
-see a generated member return, so the queue is drained **at the moment a reaction arrives** instead — which
-for everything a script does is inside the DOM call that caused it, and therefore before that call returns.
-Two channels deliver those arrivals and both run inline, for the reason
-[the observer section](#the-observers-and-when-each-of-them-delivers) gives: AngleSharp's mutation records
-say what entered and left the document, and its `IAttributeObserver` service says what attribute changed —
-the service and not the records, because a record needs the element to be under the observed document and
-`el.setAttribute` before insertion is the commonest thing a component does. **Each drain takes the queue the
-arrivals landed on and leaves a fresh one behind**, which is the reactions *stack* rather than one flat
-queue: an arrival during a callback is a queue of its own and runs before that callback returns, so a
-callback that writes an attribute on a second element sees that element's callback run *inside* its own. What
-is deliberately **not** drained on arrival is a reaction that arrived on the parser's thread: those wait for
-the microtask checkpoint. So
-`el.setAttribute('x', 1); assert(calls === 1)` holds as it does in a browser, and a reaction from a mutation
-inside a *host* operation — one the page loop makes with no script to return to — runs at the checkpoint
-rather than before that operation returns.
+**Native notifications are arrivals, not reaction delivery.** `CustomElementRegistry.Tree` subscribes to
+child-list changes on documents/shadow roots and separately to attributes on each tracked element, including
+detached ones. `PendingRecord` queues subscriptions and schedules work; it runs no author code.
+`FlushNativeMutations` translates records, and `Drain` invokes reactions on the page loop.
+`DomFailures.GuardMutation` calls `CompleteMutation` after the complete native operation, so generated
+mutators drain reactions before returning to script. Each drain takes the current element queue and leaves
+a fresh one for nested callbacks. Do not restore the old inline-notification drain or an attribute-service
+side channel.
 
-**A parser-created element is upgraded, not constructed, and that costs one shape of test.** AngleSharp
-creates a parser element with no notification to hook, so `<my-el>` written in the markup is *undefined*
-until the driver's next boundary: before each script it runs, and once when the parse ends, both of which are
-`UpgradeParsedElements`. A page cannot tell, because a script only ever sees the document at those
-boundaries — except for a constructor that constructs its own name *before* calling `super()`, which HTML
-gives an empty construction stack and this gives the element being upgraded.
-`Jint.Tests.Browser/Wpt/README.md` names the one corpus file about exactly that.
-
-**Two attribute writes reach neither channel, and both are AngleSharp's**: `classList` writes the content
-attribute without notifying its own `IAttributeObserver` or queueing a record, and `setAttributeNS` notifies
-only the record channel. Both are in the register [`Dom/divergences.md`](Dom/divergences.md).
+**Parser-created custom elements are upgraded, not synchronously constructed before attributes exist.**
+The native session can yield `CustomElementReactions` after a potential custom-element insertion; the driver
+drains before continuing. `UpgradeParsedElements` remains a fallback at script and parse-end boundaries,
+not the only opportunity to upgrade. Keep the remaining construction-timing differences explicit.
 
 ### The protocol layer has a file of its own
 
-Page targets, the page-level domains and the request log they read are [`DevTools/AGENTS.md`](DevTools/AGENTS.md).
-The one rule to carry across without opening it: a domain reads the target's *current* runtime per command and
-never caches an engine, and a `JsValue` never leaves the page loop.
+Page targets, page-level domains and the request log are [`DevTools/AGENTS.md`](DevTools/AGENTS.md).
+**A domain reads its target's current runtime per command and never caches an engine; a `JsValue` never
+leaves the page loop.**
 
 ### The obstacle course, and what a red fixture means
 
-`Jint.Tests.Browser/Fixtures/` is nineteen offline pages built out of vendored libraries — TodoMVC on React,
-Vue 3, Preact and Svelte, React hydrating server markup, jQuery, htmx, Alpine, a `pushState` router, custom
-elements, an import map, `fetch`, a form that redirects, a cookie login, storage across navigations, both
-observers, dialogs — served over a real socket and driven through the public `Page` API. Four of them are
-driven again over the protocol by PuppeteerSharp and by Playwright for .NET.
-[`Fixtures/README.md`](../Jint.Tests.Browser/Fixtures/README.md) is the inventory, what each proves, and how
-one is added; `FixtureInventoryTests` holds it to the corpus so it cannot drift.
+`Jint.Tests.Browser/Fixtures/` holds offline pages built from vendored libraries, served over a real socket
+and driven through the public `Page` API; protocol cases also use PuppeteerSharp and Playwright for .NET.
+[`Fixtures/README.md`](../Jint.Tests.Browser/Fixtures/README.md) is the inventory and `FixtureInventoryTests`
+holds it to the corpus.
 
-Two rules are worth carrying across without opening it:
-
-- **A case asserts a DOM end state *and* that `Page.Errors` is empty.** A framework that threw half way
-  through still renders something, so the error sink is what tells a half-working page from a working one.
-- **A fixture that does not pass is never deleted and never quietly ignored.** It becomes a `needs triage`
-  row in that README with the failing assertion and a one-line diagnosis, and its case is marked
-  `[Explicit("<fixture>: …")]` — and `FixtureInventoryTests` fails unless the two sets are exactly equal, the
-  way the web-platform-tests exclusion table is the artefact for that lane. No row stands today, and the
-  README says what it took to empty it — both rows that stood were features rather than defects, and each was
-  retired by the pull request that added the feature.
+- **Assert the DOM end state and the error sink.** A framework that threw halfway through can still render
+  something. Expect `Page.Errors` to be empty unless the fixture explicitly names the intended error.
+- **Never delete or quietly ignore a failing fixture.** Record a `needs triage` row with the failing
+  assertion and diagnosis, and mark the case `[Explicit("<fixture>: ...")]`. The inventory test requires
+  the two sets to agree, just as the WPT exclusion table must agree with its corpus.
 
 ### The seams promoted later
 
-**Where the pressure to promote comes from, and the table of what it has promoted so far, are
-[`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md).** `Jint.Browser.Tool` and
-`Jint.Browser.Mcp` take **no** `InternalsVisibleTo` grant and must never be given one: they are the first
-consumers outside this repository's own tests, so what they cannot reach is what an embedder cannot reach,
-and every seam they have needed was published as a `Page` member over the internals the protocol layer
-already used. One rule to carry across without opening that file: **a target is a selector or a `ref=`**, and
-`Runtime/ElementLocator` is the one place that decides.
+The pressure to promote and the table of promoted seams are
+[`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md). `Jint.Browser.Tool` and `Jint.Browser.Mcp`
+take **no** `InternalsVisibleTo` grant: what they cannot reach is what an embedder cannot reach. Publish a
+necessary `Page` seam over existing internals rather than granting either friend access. **A target is a
+selector or a `ref=`**; `Runtime/ElementLocator` decides.
 
-The package publishes the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
-`BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs` and what a navigation
-takes and answers — plus `DevToolsServerExtensions.AddBrowser`, and
-`Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline that makes a change to it a reviewable
-diff. **Nothing public takes or answers an AngleSharp node**, which is why `Page.SubmitFormAsync` takes a
-selector; R2 reaches the same algorithm through the internal `FormSubmitter.Submit` from inside the loop.
-Everything else is internal, and that is a decision with a date on it. `DomBindings`, `DomRealm`,
-`DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, each with XML docs
-and a `docs/guide/migrating-to-v5.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
-named in `InternalsVisibleTo` and why every test of the binding is written against the internal surface
-rather than around it.
+`Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the reviewable public API baseline.
+**The public Browser API does not expose native DOM nodes**, which is why `Page.SubmitFormAsync` takes a
+selector. `DomBindings`, `DomRealm`, `DomInterfaceDefinition` and `DomHostHooks` remain internal.
+Promote a seam only when a concrete consumer establishes its contract, not merely to avoid the existing
+native friend-assembly boundary.
 
 ### Accessibility and extraction have a file of their own
 
-The accessibility tree (html-aam roles, the accessible name, what `hidden` means without layout) and the text
-and markdown extractors are [`Accessibility/AGENTS.md`](Accessibility/AGENTS.md). The one rule to carry across:
-nothing there runs a line of the page's script, and nothing there needs a box.
+The accessibility tree and text/markdown extractors are
+[`Accessibility/AGENTS.md`](Accessibility/AGENTS.md). **Nothing there runs the page's script or needs a box.**

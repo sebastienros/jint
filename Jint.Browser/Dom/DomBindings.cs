@@ -31,11 +31,6 @@ internal static class DomBindings
     /// <a href="https://webidl.spec.whatwg.org/#es-interfaces">interface object</a>:
     /// <c>{ writable: true, enumerable: false, configurable: true }</c>.
     /// </para>
-    /// <para>
-    /// An interface AngleSharp marked <c>[DomNoInterfaceObject]</c> gets no global. Its prototype is still in
-    /// the chain and still carries its members; it simply cannot be named, which is what
-    /// <c>[LegacyNoInterfaceObject]</c> means.
-    /// </para>
     /// </remarks>
     internal static void Install(Engine engine)
     {
@@ -76,6 +71,72 @@ internal static class DomBindings
                 new LazyPropertyDescriptor<DomRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
         }
 
+        foreach (var name in Geometry.GeometryRealm.InterfaceNames)
+        {
+            InstallGeometry(global, realm, name);
+        }
+
+        InstallGeometry(global, realm, Geometry.GeometryRealm.MatrixAlias);
+        InstallGeometry(global, realm, Geometry.GeometryRealm.SvgMatrixAlias);
+        InstallGeometry(global, realm, "SVGPoint");
+        InstallGeometry(global, realm, "SVGRect");
+
+        foreach (var name in Svg.SvgRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Svg.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
+        foreach (var name in Canvas.CanvasRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Canvas.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
+        foreach (var name in Cookies.CookieRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Cookies.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
+        foreach (var name in Navigation.NavigationRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Navigation.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
+        foreach (var name in Fonts.FontRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(
+                    name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Fonts.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
+        foreach (var name in Animations.AnimationRealm.InterfaceNames)
+        {
+            if (!global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+            {
+                global.SetProperty(
+                    name,
+                    new LazyPropertyDescriptor<DomRealm>(realm, r => r.Animations.InterfaceObject(name), PropertyFlag.NonEnumerable));
+            }
+        }
+
         foreach (var factory in DomConstructors.LegacyFactories)
         {
             if (global.HasOwnProperty(WebApiRegistration.NameOf(factory.Name)))
@@ -90,9 +151,21 @@ internal static class DomBindings
         }
     }
 
+    /// <summary>https://drafts.fxtf.org/geometry/ — the interface objects, built together on first read.</summary>
+    private static void InstallGeometry(ObjectInstance global, DomRealm realm, string name)
+    {
+        if (global.HasOwnProperty(WebApiRegistration.NameOf(name)))
+        {
+            return;
+        }
+
+        global.SetProperty(
+            name,
+            new LazyPropertyDescriptor<DomRealm>(realm, r => r.Geometry.InterfaceObject(name), PropertyFlag.NonEnumerable));
+    }
+
     /// <summary>
-    /// Every interface that gets a global: the generated ones, and the ones this package declares itself
-    /// because AngleSharp has no <c>[DomName]</c> interface for them. See <see cref="DomManualInterfaces"/>.
+    /// The generated and Browser-owned interfaces that receive a global constructor property.
     /// </summary>
     private static IEnumerable<DomInterfaceDefinition> Interfaces()
     {
@@ -107,13 +180,11 @@ internal static class DomBindings
         }
     }
 
-    /// <summary>Projects an AngleSharp object into <paramref name="engine"/>.</summary>
+    /// <summary>Projects a native DOM object into <paramref name="engine"/>.</summary>
     internal static JsValue Wrap(Engine engine, object? value) => DomRealm.Of(engine).Wrap(value);
 
     /// <summary>
-    /// The brand check every generated member starts with: the receiver has to be a wrapper over an
-    /// AngleSharp object implementing <typeparamref name="T"/>, or the call is
-    /// <a href="https://webidl.spec.whatwg.org/#dfn-create-operation-function">not on this interface</a>.
+    /// Checks that the receiver wraps the native type declared by this WebIDL interface.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -131,11 +202,50 @@ internal static class DomBindings
     {
         if (thisObject is IDomWrapper wrapper && wrapper.DomTarget is T target)
         {
+            // One native Element CLR type serves every element interface. A CLR cast alone would
+            // admit HTMLInputElement.value on a div; Web IDL's interface brand is immutable native state.
+            if (target is HtmlParser.Node or HtmlParser.Attr && wrapper is DomNodeObject node &&
+                member.IndexOf('.') is var separator and >= 0 && !node.Implements(member[..separator]))
+            {
+                IllegalInvocation(thisObject, member);
+            }
             return new DomBinding<T>(target, wrapper.DomRealm);
         }
 
         IllegalInvocation(thisObject, member);
         return default;
+    }
+
+    /// <summary>Node's receiver conversion, including native Attr's separate storage model.</summary>
+    internal static DomNodeObject BindNode(JsValue thisObject, string member)
+    {
+        if (thisObject is DomNodeObject node)
+        {
+            return node;
+        }
+        IllegalInvocation(thisObject, member);
+        return null!;
+    }
+
+    internal static DomNodeObject NodeArgument(JsValue[] arguments, int index, string member)
+    {
+        var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
+        if (value is DomNodeObject node)
+        {
+            return node;
+        }
+        ArgumentFailure(value, index, member);
+        return null!;
+    }
+
+    private static void ArgumentFailure(JsValue value, int index, string member)
+    {
+        var message = "Failed to execute '" + member + "': parameter " + (index + 1) + " is not of the expected type.";
+        if (value is ObjectInstance instance)
+        {
+            Throw.TypeError(instance.Engine.Realm, message);
+        }
+        Throw.TypeErrorNoEngine(message);
     }
 
     /// <summary>
@@ -158,10 +268,11 @@ internal static class DomBindings
     /// Unwraps an argument that has to be a wrapper over <typeparamref name="T"/>. WebIDL's interface-type
     /// conversion: anything else is a <c>TypeError</c>.
     /// </summary>
-    internal static T Argument<T>(JsValue[] arguments, int index, string member) where T : class
+    internal static T Argument<T>(JsValue[] arguments, int index, string member, string? requiredInterface = null) where T : class
     {
         var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
-        if (value is IDomWrapper wrapper && wrapper.DomTarget is T target)
+        if (value is IDomWrapper wrapper && wrapper.DomTarget is T target &&
+            (requiredInterface is null || wrapper is DomNodeObject node && node.Implements(requiredInterface)))
         {
             return target;
         }
@@ -179,10 +290,16 @@ internal static class DomBindings
     }
 
     /// <summary>The nullable form of <see cref="Argument{T}"/>: <c>null</c> and <c>undefined</c> pass.</summary>
-    internal static T? NullableArgument<T>(JsValue[] arguments, int index, string member) where T : class
+    internal static T? NullableArgument<T>(JsValue[] arguments, int index, string member, string? requiredInterface = null) where T : class
     {
         var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
-        return value.IsNullOrUndefined() ? null : Argument<T>(arguments, index, member);
+        return value.IsNullOrUndefined() ? null : Argument<T>(arguments, index, member, requiredInterface);
+    }
+
+    internal static HtmlParser.DomNodeIdentity IdentityArgument(JsValue[] arguments, int index, string member)
+    {
+        var wrapper = NodeArgument(arguments, index, member);
+        return wrapper.Attribute is { } attribute ? new(attribute) : new(wrapper.Node!);
     }
 
     private static void IllegalInvocation(JsValue thisObject, string member)

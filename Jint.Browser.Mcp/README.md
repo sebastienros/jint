@@ -1,12 +1,12 @@
 # Jint.Browser.Mcp
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) server over a headless browser, from
-[Jint](https://github.com/sebastienros/jint) and [AngleSharp](https://anglesharp.github.io/). An agent
+[Jint](https://github.com/sebastienros/jint) and [Jint.HtmlParser](../Jint.HtmlParser/README.md). An agent
 navigates, reads a page as its accessibility tree or as markdown, and clicks, fills and types its way
 through it — in one .NET process, with no browser to download and no native binary anywhere.
 
-**It renders nothing.** There are no screenshots and no PDFs, because there is no layout: what it answers
-instead is the page — its accessibility tree, its prose, its text. For an agent that is usually the better
+**It renders nothing.** Geometry comes from a synthetic flat box model; there are no painted pixels,
+screenshots or PDFs. It answers with the page's accessibility tree, prose and text. For an agent that is usually the better
 answer anyway, and it costs a fraction of the tokens a picture would.
 
 ## Using it

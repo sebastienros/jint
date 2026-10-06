@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
-using AngleSharp.Dom;
-using AngleSharp.Html.Parser;
+using Jint.HtmlParser;
 using Jint.Tests.Wpt;
 
 namespace Jint.Tests.Browser.Wpt;
@@ -128,12 +127,12 @@ internal static class WptBrowserVariants
     internal static string[] InDocument(string path, string source)
     {
         var variants = new List<string>();
-        var document = new HtmlParser().ParseDocument(source);
+        var document = MarkupParser.ParseHtml(source);
 
-        foreach (var element in document.All)
+        foreach (var element in NodeTraversal.DescendantElements(document, CancellationToken.None))
         {
             if (!string.Equals(element.LocalName, "meta", StringComparison.Ordinal)
-                || !string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+                || !string.Equals(element.NamespaceUri, Namespaces.Html, StringComparison.Ordinal)
                 || !string.Equals(element.GetAttribute("name"), "variant", StringComparison.Ordinal))
             {
                 continue;

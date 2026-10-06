@@ -18,12 +18,12 @@ public sealed class WorkerRequest
     /// The flags a worker never inherits from its parent, whatever the parent carries.
     /// </summary>
     /// <remarks>
-    /// The first six are the grants the feature set documents as given only by name and never by a closure —
+    /// These are grants the feature set documents as given only by name and never by a closure —
     /// outbound network (<see cref="WebApiFeatures.Fetch"/>, <see cref="WebApiFeatures.EventSource"/>,
     /// <see cref="WebApiFeatures.WebSocket"/>), persistent state (<see cref="WebApiFeatures.Storage"/>,
-    /// <see cref="WebApiFeatures.CacheApi"/>) and inbound request routing
+    /// <see cref="WebApiFeatures.CacheApi"/>, <see cref="WebApiFeatures.IndexedDb"/>) and inbound request routing
     /// (<see cref="WebApiFeatures.FetchEvents"/>) — and "the parent could reach the network so the worker may
-    /// too" is exactly the reasoning <see cref="WebApiFeatures.Default"/> exists to refuse. The seventh is
+    /// too" is exactly the reasoning <see cref="WebApiFeatures.Default"/> exists to refuse. The last is
     /// <see cref="WebApiFeatures.Workers"/> itself: a worker that can spawn workers is a grant, by
     /// implication, of the capability that manufactures engines, and a per-engine worker cap bounds the
     /// branching factor of a tree whose depth nothing would then bound.
@@ -34,6 +34,7 @@ public sealed class WorkerRequest
         | WebApiFeatures.WebSocket
         | WebApiFeatures.Storage
         | WebApiFeatures.CacheApi
+        | WebApiFeatures.IndexedDb
         | WebApiFeatures.FetchEvents
         | WebApiFeatures.Workers;
 

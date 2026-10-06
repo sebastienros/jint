@@ -14,7 +14,7 @@ public sealed class CustomElementReactionTests
     private static async Task<Page> PageWith(Browser browser, string body)
     {
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync(body);
+        await page.SetContentAsync("<body>" + body + "</body>");
         return page;
     }
 
@@ -31,6 +31,76 @@ public sealed class CustomElementReactionTests
         }
         customElements.define('x-thing', Thing);
         """;
+
+    [Test]
+    public async Task SubtreeConnectionReactionsFollowShadowIncludingTreeOrder()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + """
+          const host = document.createElement('x-thing');
+          host.id = 'host';
+          const light = document.createElement('x-thing');
+          light.id = 'light';
+          const shadow = document.createElement('x-thing');
+          shadow.id = 'shadow';
+          host.appendChild(light);
+          host.attachShadow({mode: 'open'}).appendChild(shadow);
+          window.log = [];
+          document.body.appendChild(host);
+          host.remove();
+        </script>
+        """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("connected:host|connected:shadow|connected:light|disconnected:host|disconnected:shadow|disconnected:light", "page errors were {0}", string.Join(" | ", page.Errors));
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task DetachedShadowMutationsDoNotReportConnectionAndMovingARecordedElementKeepsObservation()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + """
+          const host = document.createElement('div');
+          const shadow = host.attachShadow({mode: 'open'});
+          const child = document.createElement('x-thing');
+          child.id = 'child';
+          shadow.appendChild(child);
+          child.remove();
+          shadow.appendChild(child);
+          window.log.push('detached');
+          document.body.appendChild(host);
+          child.remove();
+          shadow.appendChild(child);
+        </script>
+        """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("detached|connected:child|disconnected:child|connected:child", "page errors were {0}", string.Join(" | ", page.Errors));
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase(false, "")]
+    [TestCase(true, "connected:child|disconnected:child")]
+    public async Task RangeMutationObservesARecordedElementEnteringANewShadowRoot(bool connected, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + $$"""
+          const child = document.createElement('x-thing');
+          child.id = 'child';
+          const host = document.createElement('div');
+          const shadow = host.attachShadow({mode: 'open'});
+          if ({{(connected ? "true" : "false")}}) document.body.appendChild(host);
+          const range = document.createRange();
+          range.selectNodeContents(shadow);
+          range.insertNode(child);
+          range.selectNode(child);
+          range.deleteContents();
+        </script>
+        """);
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be(expected, "page errors were {0}", string.Join(" | ", page.Errors));
+        page.Errors.Should().BeEmpty();
+    }
 
     [Test]
     public async Task ConnectedFiresOnInsertionAndDisconnectedOnRemovalBeforeTheOperationReturns()
@@ -188,7 +258,7 @@ public sealed class CustomElementReactionTests
     /// A <c>classList</c> write is an ordinary attribute change, and reaches the reaction like one.
     /// </summary>
     /// <remarks>
-    /// It did not use to. AngleSharp's <c>TokenList</c> writes the content attribute through its own
+    /// It did not use to. the former DOM integration's <c>TokenList</c> writes the content attribute through its own
     /// <c>Changed</c> event, which notifies no <c>IAttributeObserver</c> and queues no mutation record, so
     /// nothing arrived at all — not then and not at the checkpoint. DOM §7.1's <i>update steps</i> are
     /// <c>Dom/Collections/DomTokenListMembers</c>' now and they are a plain <i>set an attribute value</i>,

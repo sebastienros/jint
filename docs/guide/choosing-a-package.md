@@ -1,11 +1,12 @@
 # Additional Packages
 
 The `Jint` package is the core runtime used throughout this documentation. Add
-one of these packages when an application needs an optional debugging, browser,
+one of these packages when an application needs an optional markup, debugging, browser,
 automation, command-line, or agent surface.
 
 | Package | Use it when you need |
 | --- | --- |
+| [`Jint.HtmlParser`](../packages/jint-htmlparser/) | Inert HTML/XML/SVG parsing, a native tree, CSS syntax, XPath and serialization without JavaScript |
 | [`Jint.DevTools`](../packages/jint-devtools/) | Chrome DevTools Protocol for an engine hosted by your application |
 | [`Jint.Browser`](../packages/jint-browser/) | HTML, DOM, navigation, extraction, or browser-style automation without rendering |
 | [`Jint.Browser.Tool`](../packages/jint-browser-tool/) | A command-line browser, CDP endpoint, or ready-made MCP process |

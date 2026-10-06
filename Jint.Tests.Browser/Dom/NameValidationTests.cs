@@ -9,7 +9,7 @@ namespace Jint.Tests.Browser.Dom;
 /// points are not allowed is an <c>InvalidCharacterError</c>, while a prefixed name with a null namespace, an
 /// <c>xml</c> prefix outside the XML namespace or an <c>xmlns</c> name outside the XMLNS namespace is a
 /// <c>NamespaceError</c>. The rows are <c>dom/nodes/Document-createElementNS.js</c>'s own, and they are all of
-/// them now: the names AngleSharp's stricter XML <c>Name</c> production used to refuse before the standard's
+/// them now: the names the former DOM integration's stricter XML <c>Name</c> production used to refuse before the standard's
 /// algorithm could accept them are created by <see cref="Jint.Browser.Dom.DomElementFactory"/>, and the test
 /// below pins the WebIDL interface each one gets. The doctype half uses the native parser construction factory and has its own
 /// regression coverage below.
@@ -144,13 +144,13 @@ public sealed class NameValidationTests
     }
 
     /// <summary>
-    /// A name that <c>AngleSharp.Text.XmlExtensions.IsXmlName</c> refuses and DOM allows creates the element
+    /// A name that <c>the former DOM integration.Text.XmlExtensions.IsXmlName</c> refuses and DOM allows creates the element
     /// the standard asks for, and it is the WebIDL interface the element-interface rule gives it rather than
     /// a generic one.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The interface is what says <see cref="Jint.Browser.Dom.DomElementFactory"/> went through AngleSharp's
+    /// The interface is what says <see cref="Jint.Browser.Dom.DomElementFactory"/> went through the former DOM integration's
     /// own <c>IElementFactory</c> rather than constructing an <c>HtmlElement</c> by hand: an unknown HTML name
     /// only becomes an <c>HtmlUnknownElement</c> — and therefore only reaches
     /// <c>DomManualInterfaces.For</c>'s rule, which sorts it into <c>HTMLUnknownElement</c> or, for a valid
@@ -174,11 +174,11 @@ public sealed class NameValidationTests
     [TestCase("document.implementation.createHTMLDocument('t').createElement('f<oo')", "[object HTMLUnknownElement]|f<oo|http://www.w3.org/1999/xhtml|null")]
     [TestCase("document.implementation.createDocument(null, '').createElementNS(null, 'f}oo')", "[object Element]|f}oo|null|null")]
     [TestCase("document.createElementNS('http://www.w3.org/2000/svg', 'f}oo')", "[object SVGElement]|f}oo|http://www.w3.org/2000/svg|null")]
-    // Every MathML element is an `Element` here, valid name or not: AngleSharp has no `[DomName]` for
+    // Every MathML element is an `Element` here, valid name or not: the former DOM integration has no `[DomName]` for
     // MathMLElement, so the generator cannot emit the interface and DomTypeMap answers the base one.
     [TestCase("document.createElementNS('http://www.w3.org/1998/Math/MathML', 'f}oo')", "[object Element]|f}oo|http://www.w3.org/1998/Math/MathML|null")]
     [TestCase("document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mrow')", "[object Element]|mrow|http://www.w3.org/1998/Math/MathML|null")]
-    public void ANameAngleSharpRefusesIsCreatedWithTheInterfaceTheStandardGivesIt(string source, string expected)
+    public void AValidDomNameIsCreatedWithTheInterfaceTheStandardGivesIt(string source, string expected)
     {
         using var fixture = DomTestFixture.Create(Page);
 
@@ -191,12 +191,12 @@ public sealed class NameValidationTests
     }
 
     /// <summary>
-    /// One of those elements is an ordinary node of AngleSharp's tree: it serializes, it is found by a
+    /// One of those elements is an ordinary node of the former DOM integration's tree: it serializes, it is found by a
     /// selector, its clone keeps all three names, and a write to <c>innerHTML</c> parses a fragment in its
     /// context.
     /// </summary>
     /// <remarks>
-    /// The last of those is the only member a namespace with no AngleSharp factory has to answer for itself,
+    /// The last of those is the only member a namespace with no former DOM integration factory has to answer for itself,
     /// because <c>Element.ParseSubtree</c> is the base class's one abstract member.
     /// </remarks>
     [Test]
@@ -242,7 +242,7 @@ public sealed class NameValidationTests
 
     /// <summary>
     /// <c>createDocument</c> runs the internal createElementNS steps at its step 3, so it makes the same two
-    /// refusals — and, since its element is no longer AngleSharp's to refuse, it has to make them itself.
+    /// refusals — and, since its element is no longer the former DOM integration's to refuse, it has to make them itself.
     /// </summary>
     /// <remarks>
     /// The empty qualified name is step 2: it creates no element at all, so nothing is validated. Its

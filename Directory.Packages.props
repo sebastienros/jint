@@ -6,23 +6,11 @@
   <ItemGroup>
     <PackageVersion Include="Acornima" Version="1.8.0" />
     <PackageVersion Include="Acornima.Extras" Version="1.8.0" />
-    <!-- The DOM, the HTML parser and the CSSOM Jint.Browser composes with. These two versions are also the
-         binding generator's pin: tools/dom-bindings/pin.json repeats them, and DomBindingsPinTests fails when
-         the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
-         these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
+    <!-- Comparison controls for Jint.HtmlParser only. Production, tests and binding generation use
+         native models; historical binding provenance does not constrain these benchmark versions. -->
     <PackageVersion Include="AngleSharp" Version="1.8.2" />
-    <!-- Css 1.1.2 includes the converter re-entry and transform fixes first consumed in beta.308/310,
-         plus computed-value fixes for gradients, grid, points and border-image-slice. Keep the focused
-         IndividualTransformStyleTests and TransformFunctionStyleTests: converter re-entry used to end
-         the process with a stack overflow, which CssCascade cannot catch. -->
     <PackageVersion Include="AngleSharp.Css" Version="1.1.2" />
-    <!-- Neither of these is in the binding generator's pin, and deliberately: the generator reads AngleSharp
-         and AngleSharp.Css and nothing else, and neither of these carries a [DomName] the binding could
-         project. Each is referenced for one thing the package's own principle says must not be written here —
-         DOMParser's XML content types, which need an XML parser, and DOM §7's XPath, which needs an
-         XPathNavigator over an AngleSharp tree. -->
     <PackageVersion Include="AngleSharp.Xml" Version="1.2.0" />
-    <PackageVersion Include="AngleSharp.XPath" Version="2.0.6" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
@@ -69,6 +57,7 @@
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
+    <PackageVersion Include="System.IO.Hashing" Version="10.0.12" />
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.12" />
     <PackageVersion Include="System.Text.Json" Version="10.0.12" />
     <PackageVersion Include="Test262Harness" Version="1.2.1" />

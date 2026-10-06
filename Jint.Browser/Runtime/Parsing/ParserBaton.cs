@@ -5,18 +5,9 @@ using Jint.Runtime;
 namespace Jint.Browser.Runtime.Parsing;
 
 /// <summary>
-/// The hand-off between the thread AngleSharp's parser runs on and the page loop that owns the engine and
-/// the DOM. Exactly one of the two holds the baton, and only the holder touches either.
+/// Hands ownership between the native parser thread and the page loop; exactly one may touch the engine or DOM.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Why there are two threads at all.</b> AngleSharp's parse is an asynchronous method whose every
-/// <c>await</c> carries <c>ConfigureAwait(false)</c>, so the moment a step of it genuinely suspends — which
-/// an external <c>&lt;script src&gt;</c> is the first thing to do — the parse and the scripting hook with it
-/// resume on a pool thread. Driving it on the page loop and blocking would therefore let the engine be
-/// entered from two threads with nothing to say so. So the parse gets a thread of its own, and everything it
-/// asks for that needs the engine or the DOM comes back here.
-/// </para>
 /// <para>
 /// <b>The hand-off is a blocking handshake, not a continuation.</b> <see cref="RunOnLoop{T}"/> parks the
 /// parser thread outright until the loop has finished the work, which is a stronger version of the
@@ -59,8 +50,7 @@ internal sealed class ParserBaton : IDisposable
     internal int LoopThreadId { get; } = Environment.CurrentManagedThreadId;
 
     /// <summary>
-    /// The thread the parse was last seen on, or <c>0</c> before it started. Compared against the thread the
-    /// parse began on, a change means AngleSharp genuinely suspended somewhere this driver did not expect.
+    /// The thread last observed parsing, or zero before parsing starts; unexpected thread changes violate parser ownership.
     /// </summary>
     internal int ParserThreadId => _parserThreadId;
 
@@ -73,7 +63,7 @@ internal sealed class ParserBaton : IDisposable
     /// <summary>Runs <paramref name="work"/> on the page loop and blocks the parser thread until it is done.</summary>
     /// <remarks>
     /// Called on the parser thread. What <paramref name="work"/> throws is rethrown here with its stack
-    /// preserved, so a failure inside a script or a fetch reaches AngleSharp as if it had happened inline.
+    /// preserved, so a failure inside a script or a fetch reaches the native parser as if it had happened inline.
     /// </remarks>
     internal T RunOnLoop<T>(Func<T> work)
     {
@@ -118,15 +108,6 @@ internal sealed class ParserBaton : IDisposable
     /// Runs on the page loop and returns to it.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This call holds the loop for the whole parse</b>, which is what makes a document load one turn of
-    /// the page loop rather than many. The residual is stated rather than hidden: while the loop sits here
-    /// with the baton in the parser's hands it runs nothing, so an execution constraint cannot fire and a
-    /// parser thread wedged somewhere other than a bounded fetch would hold the page. Every fetch this
-    /// driver makes is bounded by <c>BrowserOptions.SubresourceTimeout</c> and every script runs on this
-    /// thread where the engine's own constraints reach it, which leaves AngleSharp's own tokenizer as the
-    /// only unbounded step.
-    /// </para>
     /// <para>
     /// <b>The page's token is the way out.</b> Closing the page ends the wait, abandons the parse and lets
     /// the parser thread — a background thread — fail its next hand-off rather than park for ever, so
@@ -181,7 +162,7 @@ internal sealed class ParserBaton : IDisposable
     /// <remarks>
     /// A wake and nothing else, so a page whose engine has gone needs none: <c>Engine.Tasks.Post</c> refuses a
     /// disposed engine, and both callers reach here off the loop thread, where a throw would surface as an
-    /// AngleSharp parse failure or as a faulted continuation nobody observes. The parser thread's own way out
+    /// native parse failure or as a faulted continuation nobody observes. The parser thread's own way out
     /// is the abandoned flag it polls; the loop has already set it by the time it disposes its engine.
     /// </remarks>
     private static void Wake(Engine.TaskOperations tasks)

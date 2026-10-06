@@ -7,7 +7,7 @@ namespace Jint.Tests.Browser;
 /// <remarks>
 /// One fixture, because the three are one subject: what a page gets back from <c>cloneNode()</c> and
 /// <c>importNode()</c> is what it then compares with <c>isEqualNode</c>, and every one of them was
-/// AngleSharp's answer rather than the standard's.
+/// The former DOM integration's answer rather than the standard's.
 /// </remarks>
 public sealed class DomNodeEqualityTests
 {
@@ -18,7 +18,7 @@ public sealed class DomNodeEqualityTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // AngleSharp's Node.Equals compares a doctype's name and stops, so a doctype differing only in its
+        // The former DOM integration's Node.Equals compares a doctype's name and stops, so a doctype differing only in its
         // public or system identifier was equal to one that does not.
         fixture.Text(
             """
@@ -40,7 +40,7 @@ public sealed class DomNodeEqualityTests
         using var fixture = DomTestFixture.Create(Page);
 
         // A text node, a comment and a processing instruction each carry data the standard compares and
-        // AngleSharp does not, so two comments saying different things were equal.
+        // The former DOM integration does not, so two comments saying different things were equal.
         fixture.Text(
             """
             var xml = new Document();
@@ -86,7 +86,7 @@ public sealed class DomNodeEqualityTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // AngleSharp's Node.Equals opens by comparing the two nodes' base URLs, which the algorithm does not
+        // The former DOM integration's Node.Equals opens by comparing the two nodes' base URLs, which the algorithm does not
         // mention: an element built by this document and the same element built by another one were unequal
         // for no reason a page can see.
         fixture.Text(
@@ -106,7 +106,7 @@ public sealed class DomNodeEqualityTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // DOM §4.5.1 step 6 is "if title is given, create a title element": AngleSharp's required parameter
+        // DOM §4.5.1 step 6 is "if title is given, create a title element": the former DOM integration's required parameter
         // creates one only for a non-empty string, so createHTMLDocument('') made the same document
         // createHTMLDocument() does and the two spellings were indistinguishable from outside.
         fixture.Text(
@@ -149,7 +149,7 @@ public sealed class DomNodeEqualityTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        // Both IDL declarations are `optional boolean deep = false`; AngleSharp's own default is true, so
+        // Both IDL declarations are `optional boolean deep = false`; the former DOM integration's own default is true, so
         // every argument-less call copied a whole subtree.
         fixture.Text(
             """
@@ -172,7 +172,7 @@ public sealed class DomNodeEqualityTests
         using var fixture = DomTestFixture.Create(Page);
 
         // DOM's clone steps: "if node is a ProcessingInstruction, set copy's target to node's target and
-        // copy's data to node's data". AngleSharp's clone carries the target and drops the data.
+        // copy's data to node's data". the former DOM integration's clone carries the target and drops the data.
         fixture.Text(
             """
             var pi = new Document().createProcessingInstruction('target', 'data');

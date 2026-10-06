@@ -38,7 +38,10 @@ one value ends, which an `Expires=Wed, 09 Jun 2021 10:18:14 GMT` breaks. What th
 left alone: domain matching with or without the leading dot, host-only cookies not matching subdomains, the
 default-path derivation, `Secure` filtering, `HttpOnly` still being *sent* (that attribute is about
 `document.cookie`, never the wire), longest-path-first ordering, deletion by a past `Expires`, and
-port-insensitivity. Four things are patched or accepted, for different reasons. **`Domain` and `Path` are
+port-insensitivity — except that retrieval for an `http:` loopback URL is asked as `https:`, because
+6265bis lets a user agent treat a trustworthy origin as secure and browsers do, which is what lets a
+`Secure` cookie (every Cookie Store write is one) round-trip on `http://localhost`. Four things are patched
+or accepted, for different reasons. **`Domain` and `Path` are
 assigned only when the header carried them**: assigning either at all — `string.Empty` included — clears the
 container's "implicit" flag and it then refuses the cookie outright, which silently dropped every one.
 **`__Secure-` and `__Host-` are enforced in the parser**, since the container knows nothing about them.

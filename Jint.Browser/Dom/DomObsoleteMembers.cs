@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom.Collections;
 using Jint.Native;
 
@@ -20,10 +20,10 @@ internal static class DomObsoleteMembers
 {
     /// <summary>
     /// One empty collection per document, because the IDL attribute is <c>[SameObject]</c>: two reads of
-    /// <c>document.applets</c> must be the same object, and the wrapper cache keys on the AngleSharp object,
+    /// <c>document.applets</c> must be the same object, and the wrapper cache keys on the native DOM object,
     /// so a fresh collection per read would be a fresh wrapper per read.
     /// </summary>
-    private static readonly ConditionalWeakTable<IDocument, DomLiveHtmlCollection> _applets = new();
+    private static readonly ConditionalWeakTable<Document, DomLiveHtmlCollection> _applets = new();
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/obsolete.html#dom-document-applets — an <c>HTMLCollection</c>
@@ -35,7 +35,7 @@ internal static class DomObsoleteMembers
     /// its <c>length</c> — is the one every other collection uses, and <c>document.applets</c> is a real
     /// <c>HTMLCollection</c> instead of an object that merely looks like one.
     /// </remarks>
-    internal static JsValue Applets(DomRealm realm, IDocument document)
-        => realm.WrapCollection<IElement>(
+    internal static JsValue Applets(DomRealm realm, Document document)
+        => realm.WrapCollection<Element>(
             _applets.GetValue(document, static key => new DomLiveHtmlCollection(key, DomElementFilter.None)));
 }

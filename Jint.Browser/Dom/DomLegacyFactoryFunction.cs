@@ -48,7 +48,9 @@ internal sealed class DomLegacyFactoryFunction : Constructor
     public override string ToString() => "function " + _definition.Name + "() { [native code] }";
 }
 
-/// <summary>One hand-written <c>[LegacyFactoryFunction]</c> the AngleSharp metadata cannot express.</summary>
+/// <summary>
+/// One hand-written WebIDL LegacyFactoryFunction.
+/// </summary>
 internal readonly record struct DomLegacyFactoryDefinition(
     string Name,
     DomInterfaceDefinition Interface,

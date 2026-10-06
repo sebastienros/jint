@@ -13,12 +13,19 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
+  html-parser-package-consumer:
+    uses: ./.github/workflows/html-parser-package-consumer.yml
+
+  # No path filter: source vocabularies, shared generators and all generated fixtures must agree.
+  parser-lookups:
+    uses: ./.github/workflows/parser-lookups.yml
+
   browser-tool:
     uses: ./.github/workflows/browser-tool.yml
 
   build:
 
-    needs: browser-tool
+    needs: [browser-tool, parser-lookups, html-parser-package-consumer]
     runs-on: ubuntu-latest
     steps:
 
@@ -51,6 +58,15 @@ jobs:
         # Seed a cross-OS cache so the PR workflow's Windows/macOS/ARM jobs can restore it too.
         enableCrossOsArchive: true
 
+    - name: Restore W3C XML conformance corpus
+      id: cache-xml
+      uses: actions/cache/restore@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
+        enableCrossOsArchive: true
+
     - name: Test
       run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
@@ -62,11 +78,26 @@ jobs:
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
         enableCrossOsArchive: true
 
+    - name: Save W3C XML conformance corpus
+      if: steps.cache-xml.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: Jint.Tests.HtmlParser/Xml/Conformance/Cache/xmlts20130923.tar.gz
+        key: xml-conformance-${{ hashFiles('Jint.Tests.HtmlParser/Xml/Conformance/corpus.lock.json') }}
+        # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
+        enableCrossOsArchive: true
+
+    - name: Verify experimental parser package versions
+      run: python3 tools/check_html_parser_version.py
+
     - name: Pack with dotnet
       run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.DevTools with dotnet
       run: dotnet pack Jint.DevTools/Jint.DevTools.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+
+    - name: Pack Jint.HtmlParser with dotnet
+      run: dotnet pack Jint.HtmlParser/Jint.HtmlParser.csproj --output artifacts --configuration Release -p:VersionSuffix="preview-$GITHUB_RUN_NUMBER" -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.Browser with dotnet
       run: dotnet pack Jint.Browser/Jint.Browser.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True

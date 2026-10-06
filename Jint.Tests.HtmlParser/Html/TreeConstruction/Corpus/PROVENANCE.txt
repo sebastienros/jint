@@ -1,0 +1,46 @@
+html5lib tree-construction corpus
+
+Repository: https://github.com/html5lib/html5lib-tests
+Revision: 9329e64694e7835d0dcff9811e22856ef6ad16f9
+Source: https://github.com/html5lib/html5lib-tests/tree/9329e64694e7835d0dcff9811e22856ef6ad16f9/tree-construction
+License: MIT, copied verbatim from upstream LICENSE.
+README.md is upstream's format specification, copied verbatim.
+corpus.lock.json records SHA-256 of every vendored upstream file.
+
+Reproduce from the repository root:
+  python3 tools/sync_html5lib_corpus.py --download
+Verify offline (also run by parser-lookups CI):
+  python3 tools/sync_html5lib_corpus.py --check
+
+Census at this verified revision: 60 .dat files, not the review's 59.
+57 top-level inert files contain exactly 1,792 cases. Html5libCorpusTests
+runs all of them in NUnit in the ordinary HtmlParser test project, already
+included in the solution and PR/main CI. Explicit #script-on/off selects
+one grammar mode; otherwise each case runs in both modes. Scripting-on
+here changes tokenizer/tree grammar without executing the script text.
+
+The three scripted/ files (four cases) are preserved and integrity-checked,
+but are outside this standalone parser's inert-tree execution census: their
+expected trees require document.write or script-driven DOM mutations. They
+are not counted as passes or hidden in the inert-case exclusion list.
+
+The loader preserves #data exactly (including NULs, LF, trailing spaces
+and blank lines), removing only the one final section LF, and uses the
+specified fragment namespace/local name. The serializer follows upstream:
+ordinal UTF-16 attribute ordering, foreign namespace labels, raw multiline
+text/comments, DOCTYPE public/system IDs, and indented template contents.
+This is tree conformance, not equivalence of historical parse-error counts
+or names; #errors/#new-errors are read as section boundaries, never used to
+sanitize malformed source. Diagnostics have separate authored tests.
+
+exclusions.json contains four exact historical PI divergences against the
+living HTML Standard inspected 2026-10-05. Each entry pins its source hash,
+reason/spec and independently authored current tree. All four execute in
+both grammar modes and must differ from the historical expected tree AND
+match the current expected tree. An unknown ID, changed source, unexpected
+pass or any other changed output fails. No parser defect is excluded.
+
+The fifth historical mismatch, tests_innerHTML_1.dat#76 (<input><option>
+in select fragment context), was an actual missing current-spec guard and
+is fixed. It now matches upstream without an exclusion, with additional
+split-input/quota regression coverage for input and select start tags.

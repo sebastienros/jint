@@ -188,6 +188,17 @@ internal sealed class PageLoop : IDisposable
 
             try
             {
+                if (PageRuntime.Find(engine) is { Parser: { HasPendingNativeRecovery: true } parser } runtime)
+                {
+                    if (bracketed) parser.RecoverNativeMutationNotifications();
+                    else
+                    {
+                        // Pump requests own no turn. Bound only their pending recovery, and release
+                        // that budget before the pump begins its separately budgeted tasks and parks.
+                        using var recovery = runtime.Budget.BeginTurn();
+                        parser.RecoverNativeMutationNotifications();
+                    }
+                }
                 completion.TrySetResult(work(engine));
             }
             catch (Exception exception)
@@ -494,6 +505,9 @@ internal sealed class PageLoop : IDisposable
             return;
         }
 
+        // Native mailbox reads also check engine constraints. Their entry budget starts here,
+        // rather than inheriting the deadline left armed by the previous script before an idle park.
+        _engine!.ResetConstraints();
         _turn = budget.BeginTurn();
         _inTurn = true;
     }
@@ -528,6 +542,11 @@ internal sealed class PageLoop : IDisposable
             if (updateRendering)
             {
                 PageRuntime.Find(engine)?.UpdateRendering();
+            }
+            else
+            {
+                // Other pages, host/CDP writes and expiry can change the shared jar while this page is idle.
+                PageRuntime.Find(engine)?.ProcessCookieChanges();
             }
 
             _onTurnEnd?.Invoke(engine);

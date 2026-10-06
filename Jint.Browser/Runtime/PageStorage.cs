@@ -32,6 +32,56 @@ namespace Jint.Browser.Runtime;
 /// </remarks>
 internal static class PageStorage
 {
+    internal static bool IsSecureOpaqueUrl(string url, string origin)
+        => string.Equals(origin, PageUrl.OpaqueOrigin, StringComparison.Ordinal)
+            && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.IsFile;
+
+    /// <summary>https://w3c.github.io/IndexedDB/#dom-idbfactory-open: IndexedDB is not a secure-context API.</summary>
+    internal static void InstallIndexedDb(Engine engine, PageNetwork network, string origin)
+    {
+        if ((engine.WebApi.Features & WebApiFeatures.IndexedDb) == WebApiFeatures.None) return;
+        var opaque = string.Equals(origin, PageUrl.OpaqueOrigin, StringComparison.Ordinal);
+        var agent = engine._webApi!.IndexedDb;
+        agent.Configure(opaque ? new WebApi.IndexedDb.IndexedDbStore(0) : network.IndexedDb(origin), opaque);
+        var realm = engine._mainRealm;
+        realm.GlobalObject.SetProperty("indexedDB", new GetSetPropertyDescriptor(
+            new ClrFunction(engine, "get indexedDB", (_, _) => realm.Intrinsics.IndexedDb.Factory),
+            set: null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
+    // https://w3c.github.io/ServiceWorker/#self-caches and
+    // https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
+    internal static bool ConfigureCaches(Options options, PageNetwork network, string origin)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            || !(uri.Scheme == Uri.UriSchemeHttps
+                || uri.Scheme == Uri.UriSchemeHttp && (uri.IsLoopback
+                    || uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))))
+        {
+            return false;
+        }
+
+        var provider = network.Storage.GetCacheStorage(origin);
+        if (provider is null)
+        {
+            return false;
+        }
+
+        options.WebApi.Cache.Provider = provider;
+        return true;
+    }
+
+    // https://w3c.github.io/ServiceWorker/#self-caches: obtaining a storage key fails for an opaque origin.
+    internal static void InstallCaches(Engine engine, bool opaque)
+    {
+        if ((engine.Options.WebApi.Features & WebApiFeatures.CacheApi) == WebApiFeatures.None) return;
+        var realm = engine._mainRealm;
+        realm.GlobalObject.SetProperty("caches", new GetSetPropertyDescriptor(
+            new ClrFunction(engine, "get caches", (thisObject, _) =>
+                opaque ? ThrowOpaque(thisObject, "caches") : realm.Intrinsics.Caches),
+            set: null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
     /// <summary>
     /// Points an engine's storage at the page's partition, and answers whether the feature can be granted.
     /// </summary>
@@ -110,9 +160,8 @@ internal static class PageStorage
         var realm = engine._mainRealm;
         var exception = realm.Intrinsics.DomException.CreateException(
             DomExceptionNames.Security,
-            "Failed to read the '" + member + "' property from 'Window': The document is sandboxed and lacks "
-            + "the 'allow-same-origin' flag. A document loaded from about:blank, a data: URL or SetContentAsync "
-            + "has an opaque origin, and storage is partitioned by origin.");
+            "Failed to read the '" + member + "' property: storage requires a non-opaque document origin "
+            + "and permission from the context's storage partition.");
 
         var location = engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(engine, exception, in location);

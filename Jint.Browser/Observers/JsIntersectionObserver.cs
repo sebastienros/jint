@@ -1,5 +1,5 @@
 using System.Globalization;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -34,7 +34,7 @@ internal sealed class JsIntersectionObserver : ObjectInstance
 {
     private readonly PageRuntime _runtime;
     private readonly ICallable _callback;
-    private readonly List<INode> _targets = [];
+    private readonly List<Node> _targets = [];
     private readonly List<JsIntersectionObserverEntry> _queue = [];
     private readonly ObjectInstance _entryPrototype;
     private bool _scheduled;
@@ -157,9 +157,9 @@ internal sealed class JsIntersectionObserver : ObjectInstance
         return _runtime.Engine._mainRealm.Intrinsics.Array.ConstructFast(values);
     }
 
-    private INode Target(JsValue[] arguments, string member)
+    private Element Target(JsValue[] arguments, string member)
     {
-        if (arguments.At(0) is IDomWrapper { DomTarget: IElement element })
+        if (arguments.At(0) is IDomWrapper { DomTarget: Element element })
         {
             return element;
         }
@@ -184,7 +184,7 @@ internal sealed class JsIntersectionObserver : ObjectInstance
         {
             root = JsValue.Null;
         }
-        else if (!root.IsNull() && root is not IDomWrapper { DomTarget: IElement or IDocument })
+        else if (!root.IsNull() && root is not IDomWrapper { DomTarget: Element or Document })
         {
             Throw.TypeError(realm, "Failed to construct 'IntersectionObserver': member root is not of type Element or Document.");
         }
@@ -310,7 +310,7 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
 {
     private readonly PageRuntime _runtime;
 
-    internal JsIntersectionObserverEntry(PageRuntime runtime, ObjectInstance prototype, INode node)
+    internal JsIntersectionObserverEntry(PageRuntime runtime, ObjectInstance prototype, Node node)
         : base(runtime.Engine)
     {
         _runtime = runtime;
@@ -320,7 +320,7 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
     }
 
     /// <summary>The element this entry reports on.</summary>
-    internal INode Node { get; }
+    internal Node Node { get; }
 
     /// <summary>https://w3c.github.io/IntersectionObserver/#dom-intersectionobserverentry-time.</summary>
     internal double Time { get; }
@@ -334,8 +334,8 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
     /// </summary>
     internal JsValue Rect()
     {
-        var box = Node is IElement element ? _runtime.Layout.Current().ClientBoxOf(element) : null;
-        return Layout.DomRects.Of(Engine, box ?? Layout.FlatBox.Empty);
+        var box = Node is Element element ? _runtime.Layout.Current().ClientBoxOf(element) : null;
+        return Layout.DomRects.Of(_runtime.Dom, box ?? Layout.FlatBox.Empty, readOnly: true);
     }
 
     /// <summary>
@@ -348,7 +348,7 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
     internal JsValue RootBounds()
     {
         var viewport = _runtime.Viewport;
-        return Layout.DomRects.Of(Engine, new Layout.FlatBox(0, 0, viewport.Width, viewport.Height));
+        return Layout.DomRects.Of(_runtime.Dom, new Layout.FlatBox(0, 0, viewport.Width, viewport.Height), readOnly: true);
     }
 
     /// <inheritdoc />

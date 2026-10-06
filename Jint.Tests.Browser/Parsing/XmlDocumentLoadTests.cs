@@ -10,7 +10,7 @@ namespace Jint.Tests.Browser.Parsing;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The frame half is what <c>NeedsXmlDocuments</c> was.</b> <c>AngleSharp.Xml</c>'s <c>WithXml()</c>
+/// <b>The frame half is what <c>NeedsXmlDocuments</c> was.</b> <c>the former XML integration</c>'s <c>WithXml()</c>
 /// registers <c>text/xml</c>, <c>application/xml</c> and <c>image/svg+xml</c> and leaves
 /// <c>application/xhtml+xml</c> on the HTML creator, so an XHTML frame came back wrapped in a second HTML
 /// skeleton — which is the trailing newline two hundred and forty-four wpt rows died on.
@@ -62,7 +62,7 @@ public class XmlDocumentLoadTests
     [Test]
     public async Task AScriptInAnXmlDocumentDoesNotRun()
     {
-        // AngleSharp's XML parser prepares no script element and never asks for the scripting service, which
+        // The former DOM integration's XML parser prepares no script element and never asks for the scripting service, which
         // is the same reason DOMParser's documents are inert. HTML's read XML does run them, so this is a
         // stated divergence rather than a decision: Dom/divergences.md carries the row.
         await using var loopback = await LoopbackPage.CreateAsync(server => server
@@ -94,7 +94,7 @@ public class XmlDocumentLoadTests
     public async Task AScriptInThePagesOwnXmlDocumentDoesNotRunEither()
     {
         // The page's own configuration *does* register the scripting service, so this is the half that says
-        // the parser is what declines rather than the configuration: AngleSharp's XML tree construction has
+        // the parser is what declines rather than the configuration: the former DOM integration's XML tree construction has
         // no prepare-a-script step to ask it. It is the one thing HTML's read XML asks for that this does
         // not do, and it is why no `.xhtml` wpt document is vendorable — none of them could load
         // `testharness.js`.
@@ -152,18 +152,16 @@ public class XmlDocumentLoadTests
         (await loopback.Page.EvaluateAsync<string>("document.documentElement.textContent"))
             .Should().Be("Dummy XHTML document");
 
-        // `document.title` is the empty string here and a browser answers the <title>: AngleSharp's
-        // XmlDocument inherits Document.GetTitle's `return String.Empty`. Dom/divergences.md carries the row;
-        // it is the same answer a `text/xml` frame and a DOMParser document already gave.
-        (await loopback.Page.EvaluateAsync<string>("document.title")).Should().BeEmpty();
+        // HTML's title algorithm reads the first HTML-namespace title in this XHTML document.
+        (await loopback.Page.EvaluateAsync<string>("document.title")).Should().Be("Dummy XHTML document");
 
         loopback.Page.Errors.Should().BeEmpty();
     }
 
     [Test]
-    public async Task AnXmlMimeTypeAngleSharpDoesNotNameIsStillReadAsXml()
+    public async Task AnyXmlSuffixMimeTypeIsReadAsXml()
     {
-        // https://mimesniff.spec.whatwg.org/#xml-mime-type — every `+xml` subtype is one, and AngleSharp's
+        // https://mimesniff.spec.whatwg.org/#xml-mime-type — every `+xml` subtype is one, and the former DOM integration's
         // own table names three. The rest fall through to PageDocumentFactory's default, which is what makes
         // the rule the standard's rather than the dependency's.
         await using var loopback = await LoopbackPage.CreateAsync(server => server
@@ -184,7 +182,7 @@ public class XmlDocumentLoadTests
     [Test]
     public async Task AFrameServedSvgGetsAnSvgDocument()
     {
-        // image/svg+xml is AngleSharp's own mapping and is deliberately left alone: WithXml() routes it to a
+        // image/svg+xml is the former DOM integration's own mapping and is deliberately left alone: WithXml() routes it to a
         // creator that builds an SvgDocument rather than a plain XML one, which is the document DOM §4.5.1
         // names for the SVG namespace. Widening the default to every XML MIME type must not take it over.
         await using var loopback = await LoopbackPage.CreateAsync(server => server

@@ -6,13 +6,6 @@ namespace Jint.Browser.CustomElements;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The grammar is <c>[a-z] PCENChar*</c> with at least one <c>-</c> in it, and it is written out here rather
-/// than as a regular expression because it is asked twice on every element AngleSharp could not identify:
-/// once by <see cref="Dom.DomManualInterfaces"/>, which is what makes an undefined <c>&lt;my-el&gt;</c> an
-/// <c>HTMLElement</c> rather than an <c>HTMLUnknownElement</c>, and once by <c>define</c>. A character scan
-/// with no allocation is what that first caller needs.
-/// </para>
-/// <para>
 /// The astral half of <c>PCENChar</c> (<c>[#x10000-#xEFFFF]</c>) is checked as a surrogate pair, so a lone
 /// surrogate is not a valid name character — which is the answer the grammar gives, since it names code
 /// points rather than code units.

@@ -6,7 +6,7 @@ namespace Jint.Tests.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// An element's ID is <i>unset</i> while its <c>id</c> content attribute is absent or empty, so the empty
-/// string can never be any element's ID. AngleSharp compares the attribute value, which made the empty string
+/// string can never be any element's ID. the former DOM integration compares the attribute value, which made the empty string
 /// match the first element with no <c>id</c> at all — the document element of an ordinary page.
 /// </remarks>
 public sealed class NonElementParentNodeTests

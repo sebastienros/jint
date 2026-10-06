@@ -2,30 +2,24 @@ using Jint.Browser.BindingGenerator;
 
 var arguments = ParseArguments(args);
 
-if (!arguments.TryGetValue("core", out var core)
-    || !arguments.TryGetValue("css", out var css)
-    || !arguments.TryGetValue("output", out var output))
+if (!arguments.TryGetValue("contract", out var contract)
+    || !arguments.TryGetValue("output", out var output)
+    || arguments.Keys.Any(key => key is not ("contract" or "output" or "report")))
 {
     Console.Error.WriteLine("""
         usage: dotnet run --project tools/dom-bindings/Jint.Browser.BindingGenerator -- \
-            --core <AngleSharp.dll> --css <AngleSharp.Css.dll> --output <directory> [--overrides <overrides.json>] [--report <file>]
+            --contract tools/dom-bindings/contract.json --output Jint.Browser/Dom/Generated [--report <file>]
 
         See tools/dom-bindings/README.md; the regeneration path most people want is the test:
-            JINT_DOM_BINDINGS=update dotnet test -c Release Jint.Tests.Browser/Jint.Tests.Browser.csproj \
+            JINT_DOM_BINDINGS=update dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj \
                 --filter FullyQualifiedName~DomBindingsStalenessTests
         """);
     return 1;
 }
 
-var overridesPath = arguments.TryGetValue("overrides", out var configured)
-    ? configured
-    : Path.Combine(AppContext.BaseDirectory, "overrides.json");
-
 var result = BindingGenerator.Run(new BindingGeneratorOptions
 {
-    CoreAssembly = core,
-    CssAssembly = css,
-    OverridesPath = overridesPath,
+    ContractPath = contract,
 });
 
 var files = result.Files;

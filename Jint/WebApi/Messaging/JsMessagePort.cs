@@ -233,6 +233,14 @@ internal sealed class JsMessagePort : JsEventTarget
         var endpoint = _endpoint;
         var target = endpoint?.Peer;
 
+        if (target is { AcceptsPosts: true, MaxQueuedMessages: { } limit }
+            && target.QueuedMessageCount >= limit)
+        {
+            Workers.WorkerErrors.ThrowQuotaExceededError(_engine, _realm,
+                "The worker port's message queue limit has been reached.",
+                Math.Max(0, limit), (double) target.QueuedMessageCount + 1);
+        }
+
         // Steps 2 and 4, both decided before anything is serialized. Step 2 is a refusal — a port cannot be
         // sent through itself — and step 4 only dooms: the transfer still happens and the message is simply
         // never delivered, which is the specification's own way of saying the channel is being thrown away.

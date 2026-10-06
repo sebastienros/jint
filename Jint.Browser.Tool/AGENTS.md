@@ -104,6 +104,10 @@ platform-specific Native AOT tool format. Installation requires the .NET 10 SDK,
   keeps the core engine's standing inventory visible, as in `Jint.AotExample`; the distribution workflow
   rejects diagnostics outside that core-engine inventory. This closed program's native run is not a
   general `IsAotCompatible` claim for the browser libraries.
+- **The native build is compiled for speed, not size** (`OptimizationPreference=Speed`): measured on
+  osx-arm64, about 8% larger and up to 6% faster on extraction and script workloads. The instruction set is
+  left at the RID default — `apple-m1` measured no gain, and a higher x64 level would drop older CPUs.
+  Server GC was measured too and rejected: 2–5.6× the peak memory for at most 13% on the largest page.
 - **`browser-tool.yml` is reused by the build and release publishing workflows.** Each of the six OS/architecture
   legs packs a RID implementation and the selection manifest, installs from a source-mapped local feed,
   and runs `Tool/PublishedToolTests` against the installed executable. The tests cover extraction, scripts,

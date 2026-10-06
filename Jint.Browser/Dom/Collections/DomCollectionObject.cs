@@ -1,6 +1,4 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -8,11 +6,7 @@ using Jint.Native.Object;
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
-/// The wrapper for every DOM collection with an indexed getter that is not an <c>HTMLCollection</c> —
-/// <c>NodeList</c>, <c>DOMTokenList</c>, <c>NamedNodeMap</c>, <c>DOMStringList</c>, <c>CSSRuleList</c>,
-/// <c>StyleSheetList</c>, <c>CSSStyleDeclaration</c>, <c>FileList</c>, the media track lists. One class,
-/// because the interface-specific half is a <see cref="DomCollectionAccessor"/> the generator wrote from
-/// AngleSharp's <c>[DomAccessor]</c> metadata.
+/// Wraps an indexed DOM collection using the interface-specific generated collection accessor.
 /// </summary>
 /// <remarks>
 /// <b>One class per interface family, and that is a performance contract as much as a tidiness one.</b> Every
@@ -42,7 +36,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     // "this collection is live" means here, and the one test the read path below makes. A field rather than
     // `DomTarget is DomStaticNodeList` so that the test the live lane pays is a load and a null branch,
     // rather than a null branch and a type-handle compare.
-    private readonly INode[]? _nodes;
+    private readonly HtmlParser.Node[]? _nodes;
 
     // One slot per index of that snapshot, filled on the index's first read. Allocated on the first indexed
     // read, so a match a page only takes the `length` of costs nothing for it. A null slot means "not read
@@ -57,7 +51,9 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     }
 
     /// <inheritdoc />
-    public override uint Length => _nodes is not null ? (uint) _nodes.Length : _accessor.Length(DomTarget);
+    public override uint Length => _nodes is not null ? (uint) _nodes.Length
+        : DomTarget is DomNodeList list ? (uint) list.ReadLength(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken)
+        : _accessor.Length(DomRealm, DomTarget);
 
     /// <inheritdoc />
     public override bool TryGetIndex(uint index, out JsValue value)
@@ -99,7 +95,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     /// <b>Why a live collection may not have one.</b> A per-index memo over a membership that moves would
     /// answer the wrong node, and a removed node it had cached would be pinned for the collection's life.
     /// That is why the lane is entered from <see cref="DomStaticNodeList"/> — a type the binding constructs
-    /// for itself — rather than from anything read off an <see cref="INodeList"/>, which says nothing at all
+    /// for itself — rather than from anything read off an <c>INodeList</c>, which says nothing at all
     /// about whether it is live.
     /// </para>
     /// <para>
@@ -110,7 +106,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool TryGetStaticIndex(INode[] nodes, uint index, out JsValue value)
+    private bool TryGetStaticIndex(HtmlParser.Node[] nodes, uint index, out JsValue value)
     {
         if (index >= (uint) nodes.Length)
         {
@@ -229,84 +225,10 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     /// <a href="https://webidl.spec.whatwg.org/#dfn-supported-property-names">supported property names</a>,
     /// which for <c>NamedNodeMap</c> are not simply the attributes' qualified names.
     /// </summary>
-    /// <remarks>
-    /// DOM §4.9.1 states two steps the generated accessor cannot: duplicates are omitted, and <b>when the
-    /// map's element is in the HTML namespace and its node document is an HTML document, a name that is not
-    /// its own ASCII lowercase is removed</b>. That second step is what keeps
-    /// <c>el.setAttributeNS("foo", "A:B", "")</c> from putting an <c>A:B</c> own property on
-    /// <c>el.attributes</c>, where an HTML parse could never have produced one; the attribute is still there
-    /// and still reachable by index, by <c>getAttributeNodeNS</c> and by <c>getNamedItemNS</c>, because none
-    /// of those is a named property. The element is read from the first attribute rather than from the map,
-    /// which has no owner in AngleSharp's surface — and an empty map has no names to filter.
-    /// </remarks>
-    private IReadOnlyList<string> SupportedNames()
-    {
-        var names = _accessor.SupportedNames(DomTarget);
+    // The native map accessor owns unique, case-filtered supported names. Do not copy,
+    // re-filter or quadratically de-duplicate its authoritative result in the wrapper.
+    private IReadOnlyList<string> SupportedNames() => _accessor.SupportedNames(DomRealm, DomTarget);
 
-        if (!ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) || names.Count == 0)
-        {
-            return names;
-        }
-
-        var lowercaseOnly = LowercaseNamesOnly();
-
-        var supported = new List<string>(names.Count);
-
-        foreach (var name in names)
-        {
-            if (lowercaseOnly && !IsAsciiLowercase(name))
-            {
-                continue;
-            }
-
-            if (!supported.Contains(name, StringComparer.Ordinal))
-            {
-                supported.Add(name);
-            }
-        }
-
-        return supported;
-    }
-
-    /// <summary>
-    /// DOM §4.9.1's second step: whether this map's names are restricted to their own ASCII lowercase,
-    /// which they are exactly while the owning element is in the HTML namespace in an HTML document. That is
-    /// the element's own namespace (<see cref="DomNamespaces"/>), the same one <c>setAttribute</c> and
-    /// <c>toggleAttribute</c> fold against.
-    /// </summary>
-    private bool LowercaseNamesOnly()
-        => DomTarget is INamedNodeMap { Length: > 0 } map
-           && map[0] is { OwnerElement: { } owner }
-           && string.Equals(DomNamespaces.Of(owner), NamespaceNames.HtmlUri, StringComparison.Ordinal)
-           && owner.Owner is IHtmlDocument;
-
-    /// <summary>Whether <paramref name="name"/> ASCII-lowercased is <paramref name="name"/>.</summary>
-    private static bool IsAsciiLowercase(string name)
-    {
-        foreach (var character in name)
-        {
-            if (character is >= 'A' and <= 'Z')
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Whether <paramref name="name"/> is a supported property name — the membership question, asked on the
-    /// <b>read</b> path by <see cref="TryGetNamedValue"/> and by WebIDL's legacy <c>[[DefineOwnProperty]]</c>.
-    /// </summary>
-    /// <remarks>
-    /// It scans rather than asking <see cref="SupportedNames"/>, whose job is to <em>list</em>: for
-    /// <c>el.attributes.foo</c> that materialized every attribute name into a <c>List&lt;string&gt;</c>, then
-    /// a second filtered list, and then scanned it with a comparer overload that allocated an enumerator per
-    /// candidate — three allocations and a full walk of the map to answer a question about one member.
-    /// Membership is the same either way: duplicate removal cannot change it, and the one filter that can is
-    /// <see cref="LowercaseNamesOnly"/>, applied here to the name asked about instead of to every name there
-    /// is.
-    /// </remarks>
     private bool HasSupportedName(string name)
     {
         if (!_accessor.HasNamedGetter)
@@ -314,12 +236,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
             return false;
         }
 
-        if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) && !IsAsciiLowercase(name) && LowercaseNamesOnly())
-        {
-            return false;
-        }
-
-        return _accessor.HasSupportedName(DomTarget, name);
+        return _accessor.HasSupportedName(DomRealm, DomTarget, name);
     }
 
     bool INamedPropertySupport.HasSupportedName(string name) => HasSupportedName(name);

@@ -53,8 +53,8 @@ public class EmulationDomainTests
     /// The metrics override moves the cascade too, because the render device is a live view of the viewport.
     /// </summary>
     /// <remarks>
-    /// <c>Runtime/PageRenderDevice</c> holds no numbers of its own, so a percentage and an <c>@media</c>
-    /// dimension query in a style sheet answer from the same viewport <c>matchMedia</c> does — at the
+    /// A synthetic box width and an <c>@media</c> dimension query in a style sheet answer
+    /// from the same viewport <c>matchMedia</c> does — at the
     /// moment the cascade asks, with nothing to re-register on a document whose browsing context was built
     /// before the override arrived (<see href="https://github.com/sebastienros/jint/issues/3721">#3721</see>).
     /// </remarks>
@@ -69,7 +69,7 @@ public class EmulationDomainTests
             attachment,
             """
             <style>
-              #t { width: 50%; position: relative }
+              #t { position: relative }
               @media (max-width: 600px) { #t { position: absolute } }
             </style>
             <div id="t">g</div>
@@ -78,7 +78,7 @@ public class EmulationDomainTests
         var width = "getComputedStyle(document.getElementById('t')).width";
         var position = "getComputedStyle(document.getElementById('t')).position";
 
-        (await Text(session, attachment, width)).Should().Be("640px", "half of the 1280px the page opened with");
+        (await Text(session, attachment, width)).Should().Be("1280px", "flat boxes span the viewport");
         (await Text(session, attachment, position)).Should().Be("relative");
         (await Flag(session, attachment, "matchMedia('(max-width: 600px)').matches")).Should().BeFalse();
 
@@ -87,7 +87,7 @@ public class EmulationDomainTests
             """{"width":390,"height":844,"deviceScaleFactor":3,"mobile":true}""",
             attachment);
 
-        (await Text(session, attachment, width)).Should().Be("195px", "the same document, against the emulated viewport");
+        (await Text(session, attachment, width)).Should().Be("390px", "the same document, against the emulated viewport");
         (await Text(session, attachment, position)).Should().Be("absolute", "the @media rule is active now");
         (await Flag(session, attachment, "matchMedia('(max-width: 600px)').matches")).Should().BeTrue();
     }
@@ -283,6 +283,36 @@ public class EmulationDomainTests
         (await Text(session, attachment, "navigator.language")).Should().Be("fr-CA");
         (await Text(session, attachment, "navigator.languages.join('|')")).Should().Be("fr-CA|fr|en");
         (await Text(session, attachment, "navigator.platform")).Should().Be("MacIntel");
+    }
+
+    /// <summary>
+    /// <c>userAgentMetadata</c> is what <c>navigator.userAgentData</c> answers; an override without it leaves
+    /// no brands, as Chrome does, rather than Jint.Browser's own beside a string claiming something else.
+    /// </summary>
+    [Test]
+    public async Task TheUserAgentMetadataIsWhatUserAgentDataAnswers()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        (await Text(session, attachment, "navigator.userAgentData.brands.map(b => b.brand).join()")).Should().Be("Jint.Browser");
+
+        await session.ResultAsync(
+            "Emulation.setUserAgentOverride",
+            """
+            {"userAgent":"Pretend/1.0","userAgentMetadata":{"brands":[{"brand":"Pretend","version":"1"}],
+             "fullVersion":"1.2.3","platform":"Linux","platformVersion":"6.1","architecture":"arm","model":"","mobile":true}}
+            """,
+            attachment);
+
+        (await Text(session, attachment, "navigator.userAgentData.brands.map(b => b.brand + '/' + b.version).join()"))
+            .Should().Be("Pretend/1");
+        (await Text(session, attachment, "[navigator.userAgentData.platform, navigator.userAgentData.mobile].join('|')"))
+            .Should().Be("Linux|true");
+
+        await session.ResultAsync("Emulation.setUserAgentOverride", """{"userAgent":"Bare/1.0"}""", attachment);
+
+        (await Text(session, attachment, "String(navigator.userAgentData.brands.length)")).Should().Be("0");
     }
 
     /// <summary>

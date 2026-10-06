@@ -58,8 +58,8 @@ public class ProtocolManifestTests
     /// </summary>
     /// <remarks>
     /// <b>They are in the manifest and they are not answered here, and both halves are deliberate.</b> A
-    /// page-level command belongs to a target that has a document — <c>Jint.Browser</c>, which is AngleSharp
-    /// plus Jint — and an engine target answers every one of them with <c>-32601</c>, which is what
+    /// page-level command belongs to a target that has a document — <c>Jint.Browser</c>, which combines the native DOM
+    /// with Jint — and an engine target answers every one of them with <c>-32601</c>, which is what
     /// <c>HandshakeReplayTests</c> pins. The same property this test holds for the engine-level domains is
     /// held for these by <c>Jint.Tests.Browser</c>'s own manifest test, over a real page target; naming them
     /// here rather than skipping anything unrecognized is what keeps the two halves adding up to the whole
@@ -67,7 +67,7 @@ public class ProtocolManifestTests
     /// </remarks>
     private static readonly string[] PageDomains =
     [
-        "Page", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "DOM", "Input",
+        "Page", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "Inspector", "DOM", "Input",
         "Accessibility", "CSS", "Security", "Overlay", "Jint",
     ];
 
