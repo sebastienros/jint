@@ -41,7 +41,8 @@ internal static class CssCascade
             if (realm is not null)
                 BrowserSelectorControlFacts.PrepareControlFactsRead(realm, realm.NativeReadCheckpoint, realm.CancellationToken);
             // Coverage observes matched rules when a view is created; a reused view would skip it.
-            if (!CssRuleUsage.IsTracking && Shared.TryGetValue(document, out var cached) && cached.IsReusable(realm))
+            // Only this document's coverage needs a fresh view, not a window on another page.
+            if (!CssRuleUsage.IsTrackingDocument(document) && Shared.TryGetValue(document, out var cached) && cached.IsReusable(realm))
                 return cached;
             var created = For(document)!;
             created._realm = realm;
@@ -98,7 +99,7 @@ internal static class CssCascade
             if (_views.TryGetValue(element, out var cached)) return cached;
             var view = new NativeCssComputedStyle(query, element, _matching, witness, ReadContext);
             // Matching is separate from computation; coverage observes real matched rule identities.
-            if (CssRuleUsage.IsTracking) CssRuleUsage.Observe(element, view.MatchedRules());
+            if (CssRuleUsage.IsTrackingDocument(element.OwnerDocument)) CssRuleUsage.Observe(element, view.MatchedRules());
             _views.Add(element, view);
             return view;
         }
