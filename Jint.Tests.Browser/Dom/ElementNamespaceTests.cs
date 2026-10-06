@@ -206,7 +206,9 @@ public sealed class ElementNamespaceTests
         page.Errors.Should().BeEmpty();
     }
     [TestCase("leaf.cloneNode(true)", false)]
+    [TestCase("leaf.cloneNode(true)", true)]
     [TestCase("document.importNode(leaf, true)", false)]
+    [TestCase("document.importNode(leaf, true)", true)]
     [TestCase("document.adoptNode(leaf)", true)]
     public async Task ParsedXmlNamespacesSurviveMoves(string operation, bool changeDeclarations)
     {
@@ -221,7 +223,8 @@ public sealed class ElementNamespaceTests
             """);
         if (changeDeclarations)
         {
-            // Capture at document observation, before any descendant wrapper is requested.
+            // #4101: declaration edits must not change the creation namespaces copied by clone/import.
+            // Edit before requesting descendant wrappers so wrapping cannot mask a parser regression.
             await page.EvaluateAsync<string>("""
                 xml.documentElement.setAttribute('xmlns', 'urn:changed');
                 xml.documentElement.setAttribute('xmlns:p', 'urn:changed-prefix');
