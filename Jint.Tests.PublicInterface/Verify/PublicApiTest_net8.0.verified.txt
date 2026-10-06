@@ -92,6 +92,7 @@ namespace Jint
             public Jint.GlobalSnapshot CaptureGlobalSnapshot() { }
             public Jint.Native.Object.ObjectInstance CreateProxy(Jint.Native.Object.ObjectInstance target, Jint.Runtime.Interop.ProxyHandler handler) { }
             public Jint.Runtime.Interop.RevocableProxy CreateRevocableProxy(Jint.Native.Object.ObjectInstance target, Jint.Runtime.Interop.ProxyHandler handler) { }
+            public void DiscardInterpreterCaches() { }
             public Jint.InteropConversionDiagnostics GetInteropConversionDiagnostics() { }
             public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
             public Jint.Native.Object.PropertyAccessSemantics GetPropertyAccessSemantics(Jint.Native.Object.ObjectInstance value) { }

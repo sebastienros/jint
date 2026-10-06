@@ -44,14 +44,9 @@ public partial class Engine
         /// left them holding — callee functions, receivers, arguments — is released.
         /// </summary>
         /// <remarks>
-        /// This does <b>not</b> clear the interpreter's per-node inline caches, and there is no API that
-        /// does. In particular, a member-read site that resolved a name on its receiver's prototype keeps
-        /// a strong reference to the last receiver it served (along with that prototype and the resolved
-        /// descriptor) so the next read can be validated by identity; the entry is only replaced when that
-        /// same site later caches a <i>different</i> receiver. Handler trees are engine-owned and survive
-        /// between evaluations on an engine that re-runs a script, so a pooled engine can keep one host
-        /// object alive per warmed call site until its next run. A host whose receivers wrap large native
-        /// state that must not outlive a run should drop the engine rather than pool it.
+        /// This does <b>not</b> clear the interpreter's per-node inline caches, which keep the last receiver
+        /// and callee each warmed site served until that site next runs. A pooled engine that must not keep a
+        /// finished run's host objects alive calls <see cref="DiscardInterpreterCaches"/> as well.
         /// </remarks>
         public void ResetCallStack()
         {
