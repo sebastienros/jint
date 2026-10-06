@@ -85,28 +85,30 @@ jobs:
         # Archive bytes are identical on every OS; the harness still verifies the SHA-256 pin on every read.
         enableCrossOsArchive: true
 
-    - name: Test
-      if: matrix.os.name != 'windows'
-      run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
-
-    # The Windows leg runs the browser suite on its own, after everything else, because three vendored
-    # documents (dom/nodes/NodeList-static-length-getter-tampered-*.html) are ~76 million interpreted
-    # iterations each under upstream testharness.js's 60 s `timeout=long` wall clock -- 15-17 s idle on
-    # net8.0, 37-48 s when the whole solution's test hosts share four cores -- so a slower vCPU takes them
-    # over the budget and the census fails closed on a TIMEOUT nothing in the tree caused (#3947). Running
-    # the suite alone gives those documents the four cores; no bound, deadline or retry changes.
-    - name: Test (everything but the browser suite)
-      if: matrix.os.name == 'windows'
+    # Test262 has its own case-level execution budgets. Run it separately from the
+    # other test hosts so CPU contention cannot consume those budgets (for example,
+    # staging/sm/Array/toSpliced-dense.js on the Linux runner).
+    # Windows also keeps Browser isolated: its WPT census includes documents with
+    # upstream wall-clock deadlines that likewise need the runner's cores (#3947).
+    - name: Test (without Test262 or the isolated Windows browser suite)
       shell: pwsh
+      env:
+        ISOLATE_BROWSER: ${{ matrix.os.name == 'windows' }}
       run: |
-        # Exclude the project, not its test cases: an empty MTP module is an error.
+        # Exclude projects, not their test cases: an empty MTP module is an error.
         $solution = (Resolve-Path Jint.slnx).Path
         $projects = ([xml](Get-Content -Raw $solution)).Solution.Project.Path |
-          Where-Object { $_ -ne 'Jint.Tests.Browser/Jint.Tests.Browser.csproj' }
-        $filter = Join-Path $env:RUNNER_TEMP 'tests-without-browser.slnf'
+          Where-Object {
+            $_ -ne 'Jint.Tests.Test262/Jint.Tests.Test262.csproj' -and
+            ($env:ISOLATE_BROWSER -ne 'true' -or $_ -ne 'Jint.Tests.Browser/Jint.Tests.Browser.csproj')
+          }
+        $filter = Join-Path $env:RUNNER_TEMP 'tests-without-isolated-suites.slnf'
         @{ solution = @{ path = $solution; projects = @($projects) } } |
           ConvertTo-Json -Depth 3 | Set-Content $filter
         dotnet test --solution $filter --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
+
+    - name: Test (Test262 alone)
+      run: dotnet test --project Jint.Tests.Test262/Jint.Tests.Test262.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test (the browser suite alone)
       if: matrix.os.name == 'windows'
