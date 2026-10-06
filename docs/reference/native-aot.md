@@ -13,10 +13,17 @@ types and generated accessors for a predictable native build.
 
 `Jint.DevTools` is Native AOT compatible. Protocol JSON uses source-generated serialization.
 
+## Jint.HtmlParser
+
+The experimental [parser library](../packages/jint-htmlparser/) is marked AOT-compatible. CI publishes
+and runs an unsigned consumer against freshly packed parser assets as net10.0 Native AOT, covering
+markup, tree operations, ranges, CSS syntax, XPath and serialization. Its package API remains provisional.
+
 ## Browser packages
 
-`Jint.Browser` and the browser libraries do not declare general trimming or AOT compatibility: AngleSharp
-is not trim-annotated, and another host's reflection and interop requirements still need evaluation.
+`Jint.Browser` and the browser libraries do not declare general trimming or AOT compatibility.
+Another host's reflection and interop requirements still need evaluation. The standalone parser's
+AOT compatibility does not establish a general Browser compatibility claim.
 
 **The `jint-browser` executable is distributed as Native AOT**, with its complete closed dependency graph
 published and exercised on Linux, macOS and Windows, for x64 and arm64. This includes DOM parsing and scripts,

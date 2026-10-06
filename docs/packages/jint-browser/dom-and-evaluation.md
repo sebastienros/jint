@@ -1,6 +1,6 @@
 # DOM and evaluation
 
-The script-visible DOM is generated from AngleSharp's WebIDL-like metadata. Interface objects and prototype chains are installed so ordinary checks such as `node instanceof Element` work. `window` is the global object and inherits from `Window.prototype`.
+The script-visible DOM is generated from an explicit native binding contract over the [Jint.HtmlParser](../jint-htmlparser/) tree. Interface objects and prototype chains are installed so ordinary checks such as `node instanceof Element` work. `window` is the global object and inherits from `Window.prototype`.
 
 Use `SetContentAsync` for supplied markup and `ContentAsync` for serialized HTML:
 

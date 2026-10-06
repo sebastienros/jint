@@ -1,6 +1,6 @@
 # Browser Compatibility
 
-`Jint.Browser` combines AngleSharp's HTML, DOM, and CSSOM with Jint's JavaScript runtime.
+`Jint.Browser` combines [Jint.HtmlParser](../packages/jint-htmlparser/)'s native markup tree with Jint's JavaScript runtime and browser-owned CSSOM.
 
 ## Measured conformance
 

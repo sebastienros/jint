@@ -63,7 +63,8 @@ code. CI runs `npm run samples:check` and fails if a block is stale or missing.
 
 ## Native parser documentation
 
-The [package README](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/README.md)
+The [docs-site API guide](packages/jint-htmlparser/index.md) covers standalone API usage with compiled
+examples. The [package README](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/README.md)
 covers standalone embedding. The [contributor guide](https://github.com/sebastienros/jint/blob/main/Jint.HtmlParser/CONTRIBUTING.md)
 covers parser contracts, regeneration, corpora and package verification, and the
 [acceptance tracker](design/html-parser-completeness.md) records open gates. Markdown lint covers both

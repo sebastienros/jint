@@ -16,7 +16,7 @@ Some APIs are available only on modern targets. The opt-in web API surface is co
 
 ## Optional packages
 
-`Jint.DevTools`, `Jint.Browser`, and `Jint.Browser.Mcp` target
+`Jint.HtmlParser`, `Jint.DevTools`, `Jint.Browser`, and `Jint.Browser.Mcp` target
 .NET 8 and .NET 10.
 
 `Jint.Browser.Tool` is distributed as a native executable for Linux (glibc), macOS and Windows, on x64
@@ -26,8 +26,9 @@ no .NET installation. See [tool installation](../packages/jint-browser-tool/inst
 ## Native AOT
 
 The core `Jint` package and `Jint.DevTools` support Native AOT on compatible targets, with documented
-limitations for reflection-based CLR interop. The browser libraries do not declare general trimming or
-AOT compatibility, because AngleSharp is not trim-annotated. The closed `jint-browser` tool is published
+limitations for reflection-based CLR interop. The experimental `Jint.HtmlParser` library is also marked
+AOT-compatible and verified through a packed native consumer. The browser libraries do not declare
+general trimming or AOT compatibility. The closed `jint-browser` tool is published
 and exercised as Native AOT separately.
 
 See [Native AOT and trimming](../reference/native-aot.md).

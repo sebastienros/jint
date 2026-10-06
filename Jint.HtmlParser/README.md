@@ -15,6 +15,9 @@ Promotion to a stable parser package requires a separate reviewed change removin
 and recording the external acceptance evidence. Jint.Browser can retain its repository release version
 while declaring the calculated prerelease parser dependency.
 
+The [API usage guide](https://sebastienros.github.io/jint/packages/jint-htmlparser/) covers installation,
+parsing, tree manipulation, CSS syntax, XPath, serialization, limits and threading.
+
 Its implemented public surface includes:
 
 - A mutable document tree with elements, attributes, text, comments, CDATA and processing instructions.

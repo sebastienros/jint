@@ -62,20 +62,24 @@ var result = new Engine()
 ```
 <!-- endSnippet -->
 
-Jint is the main product and documentation entry point. Add another package only when you need debugging or
+Jint is the main product and documentation entry point. Add another package only when you need markup parsing, debugging or
 browser functionality. Jint is open source under the
 [BSD 2-Clause License](https://github.com/sebastienros/jint/blob/main/LICENSE.txt).
 
 ## Additional packages
 
 <div class="package-grid">
+  <a class="package-card" href="./packages/jint-htmlparser/">
+    <strong>Jint.HtmlParser</strong>
+    <span>Inert markup parsing, native trees, CSS syntax, XPath and serialization without JavaScript.</span>
+  </a>
   <a class="package-card" href="./packages/jint-devtools/">
     <strong>Jint.DevTools</strong>
     <span>A Chrome DevTools Protocol server for an engine hosted by your application.</span>
   </a>
   <a class="package-card" href="./packages/jint-browser/">
     <strong>Jint.Browser</strong>
-    <span>An in-process, non-rendering browser built with Jint and AngleSharp.</span>
+    <span>An in-process, non-rendering browser built with Jint and Jint.HtmlParser.</span>
   </a>
   <a class="package-card" href="./packages/jint-browser-tool/">
     <strong>Jint.Browser.Tool</strong>

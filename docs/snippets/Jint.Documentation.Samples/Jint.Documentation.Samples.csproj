@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../Jint/Jint.csproj" />
+    <ProjectReference Include="../../../Jint.HtmlParser/Jint.HtmlParser.csproj" />
     <ProjectReference Include="../../../Jint.Browser/Jint.Browser.csproj" />
   </ItemGroup>
 

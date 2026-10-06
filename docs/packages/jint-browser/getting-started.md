@@ -32,6 +32,6 @@ var answer = await page.EvaluateAsync<int>(
 
 The optional base URL supplies the document URL and origin, and is used to resolve relative URLs. Without it, the document is `about:blank` with an opaque origin.
 
-Every `Page` owns a thread and a Jint engine. Public page methods post work to that thread and return ordinary CLR values; they never return engine-owned `JsValue` instances or AngleSharp nodes.
+Every `Page` owns a thread and a Jint engine. Public page methods post work to that thread and return ordinary CLR values; they never return engine-owned `JsValue` instances or native DOM nodes.
 
 Next, read [Lifecycle](./lifecycle), [Navigation](./navigation), and [DOM and evaluation](./dom-and-evaluation).

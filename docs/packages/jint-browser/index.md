@@ -1,6 +1,6 @@
 # Jint.Browser
 
-`Jint.Browser` is a headless browser for .NET built from AngleSharp and Jint. AngleSharp supplies the HTML parser, DOM, and CSSOM; Jint runs the document's JavaScript. The package adds navigation, an event loop, network and storage state, input, extraction, and automation seams.
+`Jint.Browser` is a headless browser for .NET built from [Jint.HtmlParser](../jint-htmlparser/) and Jint. The native parser supplies the tree and markup/CSS parsing; Jint runs the document's JavaScript. The package adds navigation, an event loop, network and storage state, input, extraction, and automation seams.
 
 It runs in-process and has no browser binary to install. It also **does not render**: there are no pixels, screenshots, PDFs, or browser windows.
 
@@ -22,7 +22,7 @@ Console.WriteLine(await page.MarkdownAsync());
 ```
 <!-- endSnippet -->
 
-The package targets .NET 8 and later. It is not currently trim- or AOT-compatible because AngleSharp is not trim-annotated.
+The package targets .NET 8 and later. The Browser library does not declare general trimming or AOT compatibility; the closed browser tool is verified separately.
 
 ## Choose a topic
 
