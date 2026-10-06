@@ -158,6 +158,31 @@ public class CreationRealmTests
         b.WrapNode(node).Should().BeSameAs(a.WrapNode(node));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DetachedNativeCharacterNodesKeepTheirCreationRealmBeforeFirstBindingObservation(bool comment)
+    {
+        // https://dom.spec.whatwg.org/#concept-node-adopt — adoption changes the node document,
+        // not the creation realm. Reproduce #3971 without binding creation or subtree recording.
+        using var engine = new Engine();
+        var a = DomRealm.Of(engine);
+        var b = DomRealm.Of(engine, engine._host.CreateRealm());
+        var documentA = MarkupParser.ParseHtml("");
+        var documentB = MarkupParser.ParseHtml("");
+        a.AssociateDocument(documentA);
+        b.AssociateDocument(documentB);
+
+        Node node = comment ? documentA.CreateComment("native") : documentA.CreateTextNode("native");
+        documentB.AdoptNode(node);
+        node.OwnerDocument.Should().BeSameAs(documentB);
+
+        var wrapper = b.WrapNode(node);
+        wrapper.DomRealm.Should().BeSameAs(a);
+        wrapper.Prototype.Should().BeSameAs(a.PrototypeOf(comment ? DomInterfaces.Comment : DomInterfaces.Text));
+        wrapper.Prototype.Should().NotBeSameAs(b.PrototypeOf(comment ? DomInterfaces.Comment : DomInterfaces.Text));
+        a.WrapNode(node).Should().BeSameAs(wrapper);
+    }
+
     [Test]
     public void RepeatedRecordingPreservesAttributesTemplatesAndDetachedCreationRealms()
     {
