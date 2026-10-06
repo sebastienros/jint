@@ -2332,6 +2332,8 @@ public sealed partial class Engine : IDisposable
     /// <code>
     /// engine.SetValue("log", new ClrFunction(engine, "log", (_, args) => { /* … */ return JsValue.Undefined; }));
     /// </code>
+    /// To install the same function lazily, return <see cref="JsValue.FromDelegate"/> from an
+    /// <see cref="AddLazyGlobal{TState}"/> factory and pass <see cref="PropertyFlag.NonEnumerable"/>.
     /// </remarks>
     public Engine SetValue(string name, Delegate value)
     {
