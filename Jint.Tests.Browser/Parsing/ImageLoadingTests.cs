@@ -27,6 +27,83 @@ public class ImageLoadingTests
                 .MapHtml("/", "<!doctype html><html><body>" + markup + "</body></html>"),
             configureBrowser: configureBrowser);
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task HundredsOfImagesRespectThePerResponseCapAndFinishBeforeWindowLoad(bool distinctUrls)
+    {
+        const int count = 300;
+        var bytes = ImageBytes.Png(20, 10);
+        var html = "<!doctype html><script>window.imageLoads=0;window.atLoad=-1;"
+            + "window.addEventListener('load',()=>atLoad=imageLoads);</script>"
+            + string.Concat(Enumerable.Range(0, count).Select(i =>
+                $"<img src='/image-{(distinctUrls ? i : 0)}.png' onload='imageLoads++'>"));
+        await using var loopback = await LoopbackPage.CreateAsync(server =>
+        {
+            server.MapHtml("/", html);
+            for (var i = 0; i < count; i++) server.Map($"/image-{i}.png", _ => Image(bytes));
+        }, configureBrowser: options =>
+        {
+            options.MaxImageRequests = count;
+            // Aggregate response bytes are much larger than this cap: it is per response.
+            options.MaxSubresourceBytes = bytes.Length;
+        });
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await loopback.Page.EvaluateAsync<string>("""
+            [document.images.length, imageLoads, atLoad,
+             Array.from(document.images).filter(i => i.complete && i.naturalWidth === 20 && i.naturalHeight === 10).length].join(':')
+            """)).Should().Be("300:300:300:300");
+        var received = loopback.Server.Received.Count(request => request.Path.StartsWith("/image-", StringComparison.Ordinal));
+        if (distinctUrls) received.Should().Be(count);
+        else received.Should().BeInRange(1, count, "a future shared-image cache may reduce traffic, but duplicate processing must not increase it");
+        var requests = loopback.Page.Requests.Where(request => request.Initiator == RequestInitiator.Subresource).ToArray();
+        requests.Should().HaveCount(received).And.OnlyContain(request => request.Status == 200);
+        requests.Sum(request => request.BodyLength).Should().Be((long) received * bytes.Length);
+        TestContext.Out.WriteLine($"Image requests: {received}; aggregate body bytes: {requests.Sum(request => request.BodyLength)}");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task TheLastOfHundredsOfImageBodiesKeepsNavigationWaitingForLoad()
+    {
+        const int count = 300;
+        var bytes = ImageBytes.Png(20, 10);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var html = "<!doctype html><script>window.imageLoads=0;window.atLoad=-1;"
+            + "window.addEventListener('load',()=>atLoad=imageLoads);</script>"
+            + string.Concat(Enumerable.Repeat("<img src='/ready.png' onload='imageLoads++'>", count - 1))
+            + "<img src='/gated.png' onload='imageLoads++'>";
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", html)
+            .Map("/ready.png", _ => Image(bytes))
+            .Map("/gated.png", _ => new LoopbackResponse
+            {
+                RawBody = bytes,
+                WriteBodyAsync = async (stream, token) =>
+                {
+                    entered.TrySetResult();
+                    await release.Task.WaitAsync(token);
+                    await stream.WriteAsync(bytes, token);
+                }
+            }.With("Content-Type", "image/png")),
+            configureBrowser: options => options.SubresourceTimeout = TestBudgets.WedgeCeiling);
+        var navigation = loopback.Page.NavigateAsync(loopback.Url("/"));
+        try
+        {
+            await entered.Task.WaitAsync(TestBudgets.WedgeCeiling);
+            navigation.IsCompleted.Should().BeFalse("the last image has not supplied its body yet");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        await navigation;
+        (await loopback.Page.EvaluateAsync<string>("[imageLoads,atLoad,document.readyState].join(':')"))
+            .Should().Be("300:300:complete");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
     [TestCaseSource(nameof(Containers))]
     public async Task EveryContainerThisBrowserReadsAnswersItsIntrinsicSize(string name, byte[] bytes, string type, int width, int height)
     {

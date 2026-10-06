@@ -52,9 +52,9 @@ internal sealed class PageImages
     }
 
     /// <summary>
-    /// Whether the image <paramref name="url"/> names is already this element's, in which case
-    /// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-image-data">update the image
-    /// data</a> step 7.3 takes it from the list of available images and opens no socket.
+    /// Whether this element's current request is already completely available at <paramref name="url"/>.
+    /// This prevents a repeated update from refetching the same element; it is not HTML's document-wide
+    /// list of available images. Distinct elements currently make distinct requests even for one URL.
     /// </summary>
     internal bool IsAlreadyAvailable(Element image, string url)
         => Find(image) is { State: ImageAvailability.CompletelyAvailable } request
