@@ -1043,6 +1043,39 @@ public sealed class PagePseudoClassSelectorTests
             .Should().Be("false:true:false|false:true:false");
     }
 
+    // HTML §6.8.1 and §4.16.3: editing inheritance stops at false and restarts at a nested host.
+    [TestCase(8)]
+    [TestCase(64)]
+    public async Task NestedEditingSelectorsRefreshAfterAncestorChangesAndReparenting(int depth)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><body><div id=outer contenteditable>"
+            + "<div id=barrier contenteditable=false><div id=inner contenteditable=plaintext-only>"
+            + string.Concat(Enumerable.Repeat("<div class=candidate>", depth))
+            + string.Concat(Enumerable.Repeat("</div>", depth)) + "</div></div></div>");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const read = () => [document.querySelectorAll('.candidate:read-write').length,
+                document.querySelectorAll('.candidate:read-only').length,
+                document.querySelectorAll('.candidate:read-write:read-only').length].join(':');
+              const results = [read()];
+              inner.removeAttribute('contenteditable');
+              results.push(read());
+              barrier.setAttribute('contenteditable', 'invalid');
+              results.push(read());
+              document.body.appendChild(inner);
+              results.push(read());
+              document.designMode = 'on';
+              results.push(read());
+              inner.setAttribute('contenteditable', 'false');
+              results.push(read());
+              return results.join('|');
+            })()
+            """)).Should().Be($"{depth}:0:0|0:{depth}:0|{depth}:0:0|0:{depth}:0|{depth}:0:0|0:{depth}:0");
+        page.Errors.Should().BeEmpty();
+    }
+
     /// <summary>
     /// HTML §4.16.3's three <c>:indeterminate</c> categories: a checkbox whose indeterminate IDL attribute is
     /// set, a radio button whose §4.10.5.1.16 radio button group holds no checked member, and a

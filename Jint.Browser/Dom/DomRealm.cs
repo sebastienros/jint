@@ -713,10 +713,7 @@ internal sealed class DomRealm
 
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>
     internal JsValue WrapLabels(Element control)
-    {
-        var labels = new DomLabelNodeList(control);
-        return Cache(labels, new DomCollectionObject(this, DomInterfaces.NodeList, labels, DomAccessorNodeList.Instance));
-    }
+        => Wrap(DomLabelNodeList.Of(control), DomInterfaces.NodeList);
 
     /// <summary>Projects an element's <c>dataset</c> through HTML's name conversion algorithms.</summary>
     private readonly ConditionalWeakTable<Element, DomStringMapAdapter> _datasets = new();

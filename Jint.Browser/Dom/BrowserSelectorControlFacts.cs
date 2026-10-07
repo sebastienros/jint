@@ -27,6 +27,7 @@ internal sealed class BrowserSelectorControlFacts : ISelectorControlFacts
     private Dictionary<Element, CachedFacts>? _facts;
     private Dictionary<Node, Dictionary<Element, Element>>? _defaultButtons;
     private bool _reading;
+    private Func<Element, bool?>? _cachedEditable;
 
     private BrowserSelectorControlFacts(DomRealm realm, Document document, ulong revision)
     {
@@ -170,7 +171,17 @@ internal sealed class BrowserSelectorControlFacts : ISelectorControlFacts
             if (browser.Attribute(element, "readonly") is not null) return false;
             return HtmlDisabledness.GetState(element, BeginNativeRead(), browser.Token) != HtmlDisabledState.Disabled;
         }
-        return BrowserHtmlSemantics.IsContentEditable(element, browser);
+        return BrowserHtmlSemantics.IsContentEditable(element, browser, _cachedEditable ??= CachedEditable);
+    }
+
+    // HTML §6.8.1: only reuse editing inheritance answers. An input/textarea's ReadWrite
+    // fact describes its value editing, which is independent of descendant content editing.
+    // _facts belongs to this captured selector invocation and Verify brackets every read.
+    private bool? CachedEditable(Element element)
+    {
+        if (element is { NamespaceUri: Namespaces.Html, LocalName: "input" or "textarea" }) return null;
+        return _facts!.TryGetValue(element, out var cached) && (cached.Mask & SelectorControlFactMask.ReadWrite) != 0
+            ? cached.Facts.ReadWrite : null;
     }
 
     // https://html.spec.whatwg.org/multipage/semantics-other.html#selector-valid

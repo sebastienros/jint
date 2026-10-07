@@ -475,9 +475,10 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// <summary>Base64-encodes one body, having reserved what the encoded reply will occupy.</summary>
     /// <remarks>
     /// <para>
-    /// A retained-payload cap alone is not a memory bound: the reply is a second copy of the body, four
-    /// characters per three bytes and two bytes per character, and the serialized message is a third. Both
-    /// are charged to the same allowance before either exists, and the lease is held until the reply has
+    /// A retained-payload cap alone is not a memory bound: base64 and serialized replies also occupy
+    /// memory. Reserve the unescaped size before encoding, then account for JSON's expansion of '+' into
+    /// six characters before serialization. The result fragment and final envelope can coexist, so both
+    /// serialized UTF-16 copies are charged. The leases are held until the reply has
     /// actually left the process rather than until this command returns — which is what stops repeated
     /// commands queueing unboundedly many encoded copies behind a slow transport.
     /// </para>
@@ -487,8 +488,8 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// </remarks>
     private static GetResponseBodyResponse Encode(ReadOnlyMemory<byte> body, PageResponseBodyReader reader, CommandContext context)
     {
-        // 4 characters per 3 bytes, 2 bytes per character, and the same again for the message the reply is
-        // serialized into.
+        // 4 characters per 3 bytes, 2 bytes per character, and two copies. This covers base64 plus
+        // unescaped JSON; the escaped result fragment and envelope are accounted for below.
         var encoded = 4L * ((body.Length + 2L) / 3L);
         var cost = 4L * encoded;
 
@@ -500,17 +501,31 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
                 "the base64 reply would not fit; see BrowserOptions.MaxCapturedResponseBytes");
         }
 
+        IDisposable? escapingLease = null;
         try
         {
             var text = Convert.ToBase64String(body.Span);
+            // The default protocol JSON encoder escapes '+' as \u002B. Each adds five characters to
+            // each of the two UTF-16 JSON strings. Reserve before either serialization can allocate.
+            var escapingCost = 20L * text.AsSpan().Count('+');
+            if (escapingCost > 0
+                && (escapingCost > int.MaxValue || !reader.TryReserve((int) escapingCost, out escapingLease)))
+            {
+                return Throw.ServerError<GetResponseBodyResponse>(
+                    "Response body exceeds the page's captured-response allowance.",
+                    "the escaped base64 reply would not fit; see BrowserOptions.MaxCapturedResponseBytes");
+            }
 
             context.HoldUntilReplyWritten(lease);
             lease = null;
+            context.HoldUntilReplyWritten(escapingLease);
+            escapingLease = null;
 
             return new GetResponseBodyResponse { Body = text, Base64Encoded = true };
         }
         finally
         {
+            escapingLease?.Dispose();
             lease?.Dispose();
         }
     }

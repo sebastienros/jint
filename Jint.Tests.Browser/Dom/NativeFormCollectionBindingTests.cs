@@ -6,6 +6,28 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeFormCollectionBindingTests
 {
     [Test]
+    public void FormMembershipChangesWithoutATreeMutationStayLive()
+    {
+        using var dom = DomTestFixture.Create("<form id=f><input id=a><x-field id=c></x-field></form>");
+        dom.Execute("var f=document.getElementById('f'), a=document.getElementById('a'), c=document.getElementById('c'), controls=f.elements;");
+        dom.Bool("controls.length===1 && controls[0]===a").Should().BeTrue();
+        var realm = DomRealm.Of(dom.Engine);
+        var custom = DomDocumentReads.ById(realm, dom.Document, "c")!;
+        var stamp = dom.Document.MutationStamp;
+
+        // Native category/owner changes need not write a tree link or an attribute. A document-stamp
+        // cache alone cannot witness form.elements membership, even after its count has been read.
+        HtmlFormState.SetFormAssociatedCustomElement(custom, true);
+        HtmlFormState.ResetOwner(custom);
+        dom.Document.MutationStamp.Should().Be(stamp);
+        dom.Bool("controls===f.elements && controls.length===2 && controls[1]===c && controls.item(1)===c").Should().BeTrue();
+
+        HtmlFormState.SetFormAssociatedCustomElement(custom, false);
+        dom.Document.MutationStamp.Should().Be(stamp);
+        dom.Bool("controls.length===1 && controls[0]===a && controls[1]===undefined && controls.item(1)===null").Should().BeTrue();
+    }
+
+    [Test]
     public void SingleNameVisibilityDoesNotEnumerateUnrelatedNames()
     {
         var small = VisibilityChecks(256);

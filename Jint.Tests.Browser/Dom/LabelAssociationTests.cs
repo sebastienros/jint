@@ -75,4 +75,28 @@ public sealed class LabelAssociationTests
             })()
             """).Should().Be("null");
     }
+    [Test]
+    public void LabelsRetainsItsIdentityThroughFormOwnerChangesAndHiddenState()
+    {
+        using var fixture = DomTestFixture.Create("""
+            <!doctype html><form id="a"><label id="label" for="control">Name</label></form>
+            <form id="b"><input id="control"></form>
+            """);
+        fixture.Text("""
+            (() => {
+                const input = document.getElementById('control'), label = document.getElementById('label');
+                const labels = input.labels;
+                labels.marker = 42;
+                const initial = input.labels === labels && labels[0] === label;
+                input.setAttribute('form', 'a');
+                const reassociated = input.labels === labels && labels[0] === label;
+                input.type = 'hidden';
+                const hidden = input.labels === null && labels.length === 0 && labels.item(0) === null;
+                input.type = 'text';
+                return [initial, reassociated, hidden, input.labels === labels,
+                    input.labels.marker, input.labels[0] === label].join('|');
+            })()
+            """).Should().Be("true|true|true|true|42|true");
+    }
+
 }

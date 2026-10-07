@@ -146,17 +146,16 @@ internal sealed partial class CustomElementRegistry
     /// <para>
     /// <b>What that leaves is the adoption a page performs by inserting</b> —
     /// <c>otherDocument.body.appendChild(el)</c> and its siblings, where DOM's pre-insert adopts on the way
-    /// past. Those enqueue no reaction here, and it is half of a larger gap rather than a hole of its own:
-    /// an element inserted into a document this page does not observe gets no <c>connectedCallback</c>
-    /// either, so the sequence <c>custom-elements/reactions/</c> asks for — disconnected, adopted,
-    /// connected — needs a second observed document and not a second reaction. Ten rows of
-    /// <c>WptBrowserExclusions</c>'s "one [CEReactions] member per file" group are that sequence, and they
-    /// stay excluded.
+    /// past. Those enqueue no adopted reaction here. Generated mutators now call
+    /// <c>DomFailures.PrepareMutation</c>, which watches the receiver's current document before
+    /// insertion, so foreign-document connection and disconnection no longer require a new observation
+    /// policy. The implicit adopted reaction remains a separate gap; explicit round trips and temporary
+    /// document collection are covered by <c>CustomElementForeignDocumentTests</c>.
     /// </para>
     /// <para>
     /// The removal that adopting a <i>connected</i> node performs still reports itself the ordinary way, so
-    /// <c>disconnectedCallback</c> runs from the record — inside <c>Adopt</c> — and
-    /// <c>adoptedCallback</c> is enqueued after it returns, which is DOM's own order.
+    /// the disconnection record is translated before <c>adoptedCallback</c> is enqueued. Both reactions
+    /// are delivered in that order after the native adoption completes.
     /// </para>
     /// </remarks>
     internal static Node Adopt(Dom.DomRealm realm, Document document, Node node)

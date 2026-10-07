@@ -27,6 +27,154 @@ public class ImageLoadingTests
                 .MapHtml("/", "<!doctype html><html><body>" + markup + "</body></html>"),
             configureBrowser: configureBrowser);
 
+    [Test]
+    public async Task ReusedImagesStillCountAgainstTheAttemptCeiling()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3),
+            markup: "<img id=a src='/a.img'><img id=b src='/a.img'><img id=c src='/a.img'>",
+            configureBrowser: options => options.MaxImageRequests = 2);
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        (await loopback.Page.EvaluateAsync<string>("[a.complete,b.complete,c.complete].join(':')"))
+            .Should().Be("true:true:false");
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
+        loopback.Page.Requests.Should().ContainSingle(request => request.NotFetchedReason != null);
+    }
+
+    [Test]
+    public async Task AvailableImagesAreLocalToTheNativeDocumentAndNavigation()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/a.png", _ => Image(ImageBytes.Png(3, 4)))
+            .MapHtml("/child", "<img src='/a.png'><img src='/a.png'>")
+            .MapHtml("/", "<img src='/a.png'><img src='/a.png'><iframe src='/child'></iframe><iframe src='/child'></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        loopback.Server.Received.Count(request => request.Path == "/a.png").Should().Be(3);
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        loopback.Server.Received.Count(request => request.Path == "/a.png").Should().Be(6);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AvailableImagesDoNotCombineDifferentCorsAttributeModes()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3), markup: """
+            <img src='/a.img'><img src='/a.img'>
+            <img crossorigin src='/a.img'><img crossorigin='invalid' src='/a.img'>
+            <img crossorigin='use-credentials' src='/a.img'><img crossorigin='USE-CREDENTIALS' src='/a.img'>
+            """);
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(3);
+        (await loopback.Page.EvaluateAsync<int>("Array.from(document.images).filter(i=>i.complete && i.naturalWidth===9).length"))
+            .Should().Be(6);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task BrokenImagesAreNotReused()
+    {
+        await using var loopback = await PageWithImage("not an image"u8.ToArray(), markup: """
+            <script>window.errors=0;</script>
+            <img src='/a.img' onerror='errors++'><img src='/a.img' onerror='errors++'>
+            """);
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(2);
+        (await loopback.Page.EvaluateAsync<int>("errors")).Should().Be(2);
+    }
+
+    [Test]
+    public async Task AScriptCreatedImageReusesAnAvailableImageAndQueuesItsOwnEvent()
+    {
+        await using var loopback = await PageWithImage(ImageBytes.Png(9, 3));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            window.events=[]; window.reused=new Image(); reused.src='/a.img';
+            events.push('assigned:'+reused.naturalWidth);
+            reused.onload=()=>events.push('load');
+            Promise.resolve().then(()=>events.push('microtask'));
+            """);
+        await loopback.Page.WaitForIdleAsync(Timeout);
+        (await loopback.Page.EvaluateAsync<string>("events.join(',')")).Should().Be("assigned:9,microtask,load");
+        loopback.Server.Received.Count(request => request.Path == "/a.img").Should().Be(1);
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task HundredsOfImagesRespectThePerResponseCapAndFinishBeforeWindowLoad(bool distinctUrls)
+    {
+        const int count = 300;
+        var bytes = ImageBytes.Png(20, 10);
+        var html = "<!doctype html><script>window.imageLoads=0;window.atLoad=-1;"
+            + "window.addEventListener('load',()=>atLoad=imageLoads);</script>"
+            + string.Concat(Enumerable.Range(0, count).Select(i =>
+                $"<img src='/image-{(distinctUrls ? i : 0)}.png' onload='imageLoads++'>"));
+        await using var loopback = await LoopbackPage.CreateAsync(server =>
+        {
+            server.MapHtml("/", html);
+            for (var i = 0; i < count; i++) server.Map($"/image-{i}.png", _ => Image(bytes).With("Cache-Control", "no-store"));
+        }, configureBrowser: options =>
+        {
+            options.MaxImageRequests = count;
+            // Aggregate response bytes are much larger than this cap: it is per response.
+            options.MaxSubresourceBytes = bytes.Length;
+        });
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await loopback.Page.EvaluateAsync<string>("""
+            [document.images.length, imageLoads, atLoad,
+             Array.from(document.images).filter(i => i.complete && i.naturalWidth === 20 && i.naturalHeight === 10).length].join(':')
+            """)).Should().Be("300:300:300:300");
+        var received = loopback.Server.Received.Count(request => request.Path.StartsWith("/image-", StringComparison.Ordinal));
+        if (distinctUrls) received.Should().Be(count);
+        else received.Should().Be(1, "completed images are reused within the document");
+        var requests = loopback.Page.Requests.Where(request => request.Initiator == RequestInitiator.Subresource).ToArray();
+        requests.Should().HaveCount(received).And.OnlyContain(request => request.Status == 200);
+        requests.Sum(request => request.BodyLength).Should().Be((long) received * bytes.Length);
+        TestContext.Out.WriteLine($"Image requests: {received}; aggregate body bytes: {requests.Sum(request => request.BodyLength)}");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task TheLastOfHundredsOfImageBodiesKeepsNavigationWaitingForLoad()
+    {
+        const int count = 300;
+        var bytes = ImageBytes.Png(20, 10);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var html = "<!doctype html><script>window.imageLoads=0;window.atLoad=-1;"
+            + "window.addEventListener('load',()=>atLoad=imageLoads);</script>"
+            + string.Concat(Enumerable.Repeat("<img src='/ready.png' onload='imageLoads++'>", count - 1))
+            + "<img src='/gated.png' onload='imageLoads++'>";
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", html)
+            .Map("/ready.png", _ => Image(bytes))
+            .Map("/gated.png", _ => new LoopbackResponse
+            {
+                RawBody = bytes,
+                WriteBodyAsync = async (stream, token) =>
+                {
+                    entered.TrySetResult();
+                    await release.Task.WaitAsync(token);
+                    await stream.WriteAsync(bytes, token);
+                }
+            }.With("Content-Type", "image/png")),
+            configureBrowser: options => options.SubresourceTimeout = TestBudgets.WedgeCeiling);
+        var navigation = loopback.Page.NavigateAsync(loopback.Url("/"));
+        try
+        {
+            await entered.Task.WaitAsync(TestBudgets.WedgeCeiling);
+            navigation.IsCompleted.Should().BeFalse("the last image has not supplied its body yet");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        await navigation;
+        (await loopback.Page.EvaluateAsync<string>("[imageLoads,atLoad,document.readyState].join(':')"))
+            .Should().Be("300:300:complete");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
     [TestCaseSource(nameof(Containers))]
     public async Task EveryContainerThisBrowserReadsAnswersItsIntrinsicSize(string name, byte[] bytes, string type, int width, int height)
     {
