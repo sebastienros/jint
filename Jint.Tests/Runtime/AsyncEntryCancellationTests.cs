@@ -346,6 +346,79 @@ public class AsyncEntryCancellationTests
         exception.Should().BeOfType<ExecutionCanceledException>();
     }
 
+    // Options.Host.JobCallbacks wraps every reaction in Enter/Exit (HostCallJobCallback), so a cancel observed
+    // inside one unwinds through the hook. Both reaction lanes are covered: a then-handler
+    // (HostDefinedReactionHandlers) and a resumed async body (HostDefinedContinuation).
+    [TestCase("Promise.resolve().then(() => { cancel(); for (; i < 1000000; i++) { } return i; })")]
+    [TestCase("(async () => { await null; cancel(); for (; i < 1000000; i++) { } return i; })()")]
+    public async Task ACancelInsideAReactionRunUnderJobCallbackHooksStopsItAndExitsTheHook(string reaction)
+    {
+        using var cts = new CancellationTokenSource();
+        var hooks = new CountingJobCallbackHooks();
+        var engine = new Engine(options => options.Host.JobCallbacks = hooks);
+        engine.SetValue("cancel", new ClrFunction(engine, "cancel", (_, _) =>
+        {
+            cts.Cancel();
+            return JsValue.Undefined;
+        }));
+
+        var exception = await Caught.ExceptionAsync(() => engine.EvaluateAsync("var i = 0; " + reaction, cancellationToken: cts.Token));
+
+        AssertCanceledBy(exception, cts.Token);
+        IterationsReached(engine, "i").Should().BeLessThan(CadenceSlack);
+        hooks.Enters.Should().BeGreaterThan(0, "the cancelled reaction ran under the hook");
+        hooks.Exits.Should().Be(hooks.Enters, "the cancellation unwound through HostCallJobCallback's Exit");
+        hooks.Depth.Should().Be(0);
+
+        // The engine, and the hooks with it, serve the next call as if nothing had happened.
+        (await engine.EvaluateAsync("(async () => { await null; return 7; })()")).Should().Be(7);
+        hooks.Exits.Should().Be(hooks.Enters);
+        hooks.Depth.Should().Be(0);
+    }
+
+    [Test]
+    public async Task APreCancelledTokenCapturesNoJobCallback()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var hooks = new CountingJobCallbackHooks();
+        var engine = new Engine(options => options.Host.JobCallbacks = hooks);
+
+        var exception = await Caught.ExceptionAsync(() => engine.EvaluateAsync("(async () => { await null; return 1; })()", cancellationToken: cts.Token));
+
+        AssertCanceledBy(exception, cts.Token);
+        hooks.Captures.Should().Be(0);
+        hooks.Enters.Should().Be(0);
+    }
+
+    /// <summary>Captures a flow for every registration and counts how deep inside Enter/Exit the engine is.</summary>
+    private sealed class CountingJobCallbackHooks : JobCallbackHooks
+    {
+        internal int Captures;
+        internal int Enters;
+        internal int Exits;
+        internal int Depth;
+
+        protected internal override object Capture(Engine engine)
+        {
+            Captures++;
+            return "flow";
+        }
+
+        protected internal override object Enter(Engine engine, object hostDefined)
+        {
+            Enters++;
+            Depth++;
+            return null;
+        }
+
+        protected internal override void Exit(Engine engine, object token)
+        {
+            Exits++;
+            Depth--;
+        }
+    }
+
     private static (Engine Engine, Func<int> Touched) CreateEngineCountingTouches()
     {
         var count = 0;
