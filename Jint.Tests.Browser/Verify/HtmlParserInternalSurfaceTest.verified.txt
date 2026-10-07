@@ -170,6 +170,7 @@ internal Jint.HtmlParser.Css.Selectors.SelectorCompiler
     Compile
 internal Jint.HtmlParser.Css.Selectors.SelectorControlFactMask
 internal Jint.HtmlParser.Css.Selectors.SelectorControlFacts
+    get_ReadWrite
     set_DefaultSubmit
     set_PlaceholderShown
     set_Range
