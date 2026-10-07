@@ -25,6 +25,12 @@ var value = await engine.EvaluateAsync(
     cancellationToken: cts.Token);
 ```
 
+The token covers the whole call, not only the wait: one already cancelled cancels the task before any script
+runs, and one cancelled later stops the interpreter itself — a synchronous loop, a continuation, a synchronous
+re-entry from a host callback — with an `OperationCanceledException` carrying that token. It is observed on the
+same amortized cadence as `ObserveCancellation`, so a per-request token needs no constraint registered on
+shared options. A host callback that never returns cannot be stopped. `Modules.ImportAsync` behaves the same.
+
 The engine's `Options.Constraints.PromiseTimeout` also bounds waits.
 
 ## Existing promise values

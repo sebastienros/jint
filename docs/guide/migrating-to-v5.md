@@ -6024,6 +6024,31 @@ browser setting. Custom localStorage/cache partitions enforce their own quotas; 
 counts. Session storage, cookies, empty partition maps and peak allocations are excluded. See
 [IndexedDB storage limits](web-apis/indexeddb.md#jint-browser).
 
+### 4.151 An `*Async` entry's `CancellationToken` stops the script, not only the wait
+
+`EvaluateAsync`, `ExecuteAsync` (both overloads each), `InvokeAsync` and `Modules.ImportAsync` used to observe
+their token only while awaiting a pending promise. A token already cancelled when the call was made still let
+the script run to completion, and a script that never yields (`while (true) { }`) could not be stopped through
+it at all; the documented remedy was `ObserveCancellation`, which is fixed when the `Options` are built and so
+cannot carry a per-request token on options shared between engines.
+
+| | 4.16.x | 5.x |
+| --- | --- | --- |
+| token cancelled before the call | script runs; the token is checked only if a promise is still pending | the task is cancelled and no script runs |
+| token cancelled while the script runs | ignored until the synchronous run (or continuation) finishes | `OperationCanceledException` within the amortized check interval, from the run, a continuation, or a synchronous re-entry from a host callback |
+| `OperationCanceledException.CancellationToken` while awaiting | an internal linked token, or none | the token you passed |
+
+The token is observed only for the duration of the call, on the same cadence as `ObserveCancellation`, so the
+interpreter's tight-loop lane stays armed; a non-cancellable token (`default`, `CancellationToken.None`) changes
+nothing. A host that bracketed each call with an `OperationDeadlineConstraint` armed as
+`Begin(Timeout.InfiniteTimeSpan, token)` only to get this can drop the bracket and the factory registered for it;
+keeping them still works. A host that registered `ObserveCancellation` for the same token keeps getting
+`ExecutionCanceledException` from a running script, because registered constraints are checked first.
+
+**What could break:** code that passed an already-cancelled or soon-cancelled token and relied on the script
+still running to completion. There is no switch to restore that; pass `CancellationToken.None` for the work that
+must finish and observe your token yourself.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

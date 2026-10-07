@@ -163,6 +163,10 @@ public partial class Engine
                 {
                     constraint.Check();
                 }
+
+                // Also the self-check every long built-in loop makes, so an *Async entry's token reaches
+                // those loops the way the registered constraints do.
+                _engine.ThrowIfAsyncEntryCancelled();
             }
             catch (Exception exception) when (
                 _engine._implicitMemoryContextDepth != 0 && exception is not JavaScriptException)
