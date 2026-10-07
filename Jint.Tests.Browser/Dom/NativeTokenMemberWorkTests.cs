@@ -140,6 +140,114 @@ public sealed class NativeTokenMemberWorkTests
         }
     }
 
+    [TestCase("add")]
+    [TestCase("remove")]
+    [TestCase("toggle")]
+    [TestCase("replace")]
+    public void EveryWarmMutationCheckpointCanCancelWithoutPublishingAPartialSerialization(string operation)
+    {
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        var realm = DomRealm.Of(engine);
+        var element = Document.CreateHtml().CreateElement("div");
+        // Cross several copy boundaries and preserve non-ASCII UTF-16, including a surrogate pair.
+        var kept = new string('x', 1023) + "\U0001F642\u00a0tail";
+        var raw = "old " + kept + " old";
+        var list = DomAttributeTokenList.Of(element, "class");
+        Reset();
+        Invoke();
+        var checks = probe.Count;
+        var expected = operation switch
+        {
+            "add" => "old " + kept + " new",
+            "remove" or "toggle" => kept,
+            _ => "new " + kept
+        };
+        element.GetAttributeNS(null, "class").Should().Be(expected);
+        checks.Should().BeGreaterThan(4);
+        // Stop at every checkpoint, including those while constructing the final string and the
+        // final source-proof check. None may leak a write; a successful retry must still normalize.
+        for (var stop = 1; stop <= checks; stop++)
+        {
+            Reset();
+            probe.Remaining = stop;
+            Caught.Exception(Invoke).Should().BeOfType<OperationCanceledException>();
+            element.GetAttributeNS(null, "class").Should().Be(raw);
+            Reset();
+            Invoke();
+            element.GetAttributeNS(null, "class").Should().Be(expected);
+        }
+
+        void Reset()
+        {
+            probe.Remaining = 0;
+            element.SetAttributeNS(null, "class", raw);
+            list.ReadLength(null, default); // Isolate mutation work from a cold token-index build.
+            probe.Count = 0;
+        }
+        void Invoke()
+        {
+            switch (operation)
+            {
+                case "add": DomTokenListMembers.Add(realm, list, [JsString.Create("new")]); break;
+                case "remove": DomTokenListMembers.Remove(realm, list, [JsString.Create("old")]); break;
+                case "toggle": DomTokenListMembers.Toggle(realm, list, [JsString.Create("old")]); break;
+                case "replace": DomTokenListMembers.Replace(realm, list, [JsString.Create("old"), JsString.Create("new")]); break;
+            }
+        }
+    }
+
+    [Test]
+    public void ACheckpointInsideLongSerializationRetriesAgainstTheCurrentAttribute()
+    {
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        var realm = DomRealm.Of(engine);
+        var element = Document.CreateHtml().CreateElement("div");
+        var list = DomAttributeTokenList.Of(element, "class");
+        var raw = "old " + new string('x', 8192);
+        element.SetAttributeNS(null, "class", raw);
+        list.ReadLength(null, default);
+        DomTokenListMembers.Add(realm, list, [JsString.Create("new")]);
+        // The last two checks are Serialize's final check and TryWrite's source check.
+        // The preceding check is in the bounded character copy, with unpublished output.
+        var duringCopy = probe.Count - 2;
+        element.SetAttributeNS(null, "class", raw);
+        list.ReadLength(null, default);
+        probe.Count = 0;
+        probe.OnCheck = () =>
+        {
+            if (probe.Count == duringCopy) element.SetAttributeNS(null, "class", "host");
+        };
+        DomTokenListMembers.Add(realm, list, [JsString.Create("new")]);
+        element.GetAttributeNS(null, "class").Should().Be("host new");
+        probe.Count.Should().BeGreaterThan(duringCopy + 2);
+    }
+
+    [Test]
+    public void WarmSingleTokenToggleChargesSerializationCharactersBeforeWriting()
+    {
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        var realm = DomRealm.Of(engine);
+        var element = Document.CreateHtml().CreateElement("div");
+        var raw = new string('x', 8192);
+        element.SetAttributeNS(null, "class", raw);
+        var list = DomAttributeTokenList.Of(element, "class");
+        list.ReadLength(null, default);
+        // The cached single slice materializes by returning the source string, and the absent
+        // short toggle token fails by length. Only serialization needs to scan these characters.
+        probe.Remaining = 8;
+        Caught.Exception(() => DomTokenListMembers.Toggle(realm, list, [JsString.Create("new")]))
+            .Should().BeOfType<OperationCanceledException>();
+        element.GetAttributeNS(null, "class").Should().Be(raw);
+        probe.Remaining = 0;
+        probe.Count = 0;
+        DomTokenListMembers.Toggle(realm, list, [JsString.Create("new")]).Should().Be(JsBoolean.True);
+        probe.Count.Should().BeGreaterThanOrEqualTo(raw.Length / 256);
+        element.GetAttributeNS(null, "class").Should().Be(raw + " new");
+    }
+
     private sealed class ReadProbe : Constraint
     {
         internal int Remaining;
