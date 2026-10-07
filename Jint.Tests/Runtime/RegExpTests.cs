@@ -60,6 +60,18 @@ public class RegExpTests
 
     private static string JsonString(string s) => System.Text.Json.JsonSerializer.Serialize(s);
 
+    [TestCase("")]
+    [TestCase("u")]
+    [TestCase("v")]
+    public void NestedCaptureMatchesRawAstralCharacter(string flags)
+    {
+        const string astral = "\uD842\uDFB7";
+        var engine = new Engine();
+        var result = engine.Evaluate($"JSON.stringify(/(?:{astral}(a))+/{flags}.exec('{astral}a'))").AsString();
+
+        result.Should().Be($"[\"{astral}a\",\"a\"]");
+    }
+
     [TestCase("gy")]
     [TestCase("guy")]
     public void MatchStickyGlobalCollectsAllAdjacentMatches(string flags)
