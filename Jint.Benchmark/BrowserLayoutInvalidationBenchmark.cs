@@ -5,9 +5,10 @@ namespace Jint.Benchmark;
 
 /// <summary>
 /// Browser-owned invalidation: repeated geometry, alternating writes/reads, mutation-only work and parsing.
-/// Each row owns a page and warms only its own workload. Queries loop 100 times, writes 1,000 times and the
-/// arithmetic control 10,000 times to amortize the mailbox. ParseDocument includes engine and DOM creation;
-/// other rows exclude them. The arithmetic control cannot reach DOM mutation or layout code.
+/// Each row owns a page and warms only its own workload. Queries and scroll/read pairs loop 100 times,
+/// writes 1,000 times and the arithmetic control 10,000 times to amortize the mailbox. ParseDocument
+/// includes engine and DOM creation; other rows exclude them. The arithmetic control cannot reach DOM
+/// mutation or layout code.
 /// </summary>
 [MemoryDiagnoser]
 public class BrowserLayoutInvalidationBenchmark
@@ -18,6 +19,9 @@ public class BrowserLayoutInvalidationBenchmark
     private Page _writes = null!;
     private Page _parsing = null!;
     private Page _control = null!;
+    private Page _scroll = null!;
+    private Page _configuredScroll = null!;
+    private Browser.Browser _configuredBrowser = null!;
     private string _html = null!;
 
     private const string Reads = """
@@ -29,6 +33,16 @@ public class BrowserLayoutInvalidationBenchmark
         (() => { const target = document.getElementById('target'); let sum = 0;
           for (let i = 0; i < 100; i++) {
             target.hidden = !!(i & 1); sum += target.getBoundingClientRect().height;
+          } return sum; })()
+        """;
+    // Scroll projection changes while document-space measurements remain reusable. Scalar's fixture
+    // installs a console sink through ConfigureEngine, so also measure that conservative fallback on
+    // an independent page. This synthetic workload is not a Scalar end-to-end timing claim.
+    private const string Scroll = """
+        (() => { const target = document.getElementById('target'); let sum = 0;
+          for (let i = 0; i < 100; i++) {
+            scrollTo(0, i & 1 ? 100 : 0);
+            sum += target.getBoundingClientRect().top + scrollY;
           } return sum; })()
         """;
     private const string Writes = """
@@ -51,6 +65,11 @@ public class BrowserLayoutInvalidationBenchmark
         _mixed = await Create(Mixed);
         _writes = await Create(Writes);
         _control = await Create(Arithmetic);
+        _scroll = await Create(Scroll);
+        _configuredBrowser = new Browser.Browser(new BrowserOptions().ConfigureEngine(_ => { }));
+        _configuredScroll = await _configuredBrowser.NewPageAsync();
+        await _configuredScroll.SetContentAsync(_html);
+        await _configuredScroll.EvaluateAsync(Scroll);
         _parsing = await _browser.NewPageAsync();
         await _parsing.SetContentAsync(_html);
     }
@@ -73,11 +92,21 @@ public class BrowserLayoutInvalidationBenchmark
     public Task<string> MutationsOnly() => _writes.EvaluateAsync<string>(Writes);
 
     [Benchmark]
+    public Task<double> ScrollAndMeasure() => _scroll.EvaluateAsync<double>(Scroll);
+
+    [Benchmark]
+    public Task<double> ConfiguredScrollAndMeasure() => _configuredScroll.EvaluateAsync<double>(Scroll);
+
+    [Benchmark]
     public Task ParseDocument() => _parsing.SetContentAsync(_html);
 
     [Benchmark]
     public Task<double> ArithmeticControl() => _control.EvaluateAsync<double>(Arithmetic);
 
     [GlobalCleanup]
-    public async Task Cleanup() => await _browser.DisposeAsync();
+    public async Task Cleanup()
+    {
+        await _configuredBrowser.DisposeAsync();
+        await _browser.DisposeAsync();
+    }
 }
