@@ -28,6 +28,14 @@ internal sealed class BrowserXPathNavigator : XPathNavigator, IXPathAncestorCont
             ((IXPathAncestorContext) _native).HasAncestor(localName, "", true, nodeTest, includeSelf);
     }
 
+    double IXPathAncestorContext.CountAncestors(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf)
+    {
+        _native.CheckRead();
+        return nodeTest || anyNamespace || namespaceUri.Length == 0
+            ? ((IXPathAncestorContext) _native).CountAncestors(localName, "", true, nodeTest, includeSelf)
+            : 0d;
+    }
+
     internal void CheckRead() => _native.CheckRead();
     internal void ResultWork() => _native.ResultWork();
     internal void PublishResult() => _native.PublishResult();

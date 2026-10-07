@@ -10,6 +10,8 @@ public sealed class XPathAncestorWorkTests
 {
     [TestCase("//*[ancestor::r]", true)]
     [TestCase("//*[ancestor::missing]", false)]
+    [TestCase("//*[count(ancestor::r) = 1 and count(ancestor::*) > 0]", true)]
+    [TestCase("//*[count(ancestor::missing) > 0]", false)]
     public void BrowserAncestorPredicatesHaveLinearConstraintWork(string source, bool matches)
     {
         var expression = NativeXPath.Compile(source);
@@ -36,8 +38,9 @@ public sealed class XPathAncestorWorkTests
         large.Should().BeLessThan(200);
     }
 
-    [Test]
-    public void BrowserLazyPredicateKeepsHostBudgetFailureFatal()
+    [TestCase("child::*[ancestor::missing]")]
+    [TestCase("child::*[count(ancestor::missing) = 0]")]
+    public void BrowserLazyPredicateKeepsHostBudgetFailureFatal(string source)
     {
         var document = DeepTree(2048);
         Node leaf = document.DocumentElement!;
@@ -45,7 +48,7 @@ public sealed class XPathAncestorWorkTests
         var probe = new ReadProbe();
         using var engine = new Engine(options => options.AddConstraint(probe));
         var navigator = new BrowserXPathNavigator(DomRealm.Of(engine), new DomNodeIdentity(leaf.ParentNode!));
-        var expression = NativeXPath.Compile("child::*[ancestor::missing]");
+        var expression = NativeXPath.Compile(source);
         var failure = new NotSupportedException("host budget exhausted");
         probe.OnCheck = () => throw failure;
         var error = Assert.Throws<NotSupportedException>(() =>
@@ -54,6 +57,21 @@ public sealed class XPathAncestorWorkTests
             while (nodes.MoveNext()) { }
         });
         error.Should().BeSameAs(failure);
+    }
+
+    [TestCase("count(ancestor::p:x)", 0d)]
+    [TestCase("count(ancestor::x)", 1d)]
+    [TestCase("count(ancestor::*)", 2d)]
+    public void CachedCountsPreserveBrowserNamespacePolicy(string source, double expected)
+    {
+        var document = MarkupParser.ParseXml("<r xmlns:p='urn:p'><p:x><y/></p:x></r>");
+        var manager = new System.Xml.XmlNamespaceManager(new System.Xml.NameTable());
+        manager.AddNamespace("p", "urn:p");
+        using var engine = new Engine();
+        var leaf = document.DocumentElement!.FirstChild!.FirstChild!;
+        var navigator = new BrowserXPathNavigator(DomRealm.Of(engine), new DomNodeIdentity(leaf));
+        var expression = NativeXPath.Compile(source, manager);
+        expression.EvaluatePrepared(navigator.Evaluate).Should().Be(expected);
     }
 
     private static Document DeepTree(int depth)

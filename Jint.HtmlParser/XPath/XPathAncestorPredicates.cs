@@ -6,11 +6,13 @@ using System.Xml.Xsl;
 
 namespace Jint.HtmlParser;
 
-// Only a complete, bare axis predicate is replaced. Numeric/positional predicates, axis
-// results and extension contexts continue through the framework's XPath 1.0 evaluator.
+// Replace complete bare axis predicates and count calls with unfiltered ancestor axes.
+// The framework retains numeric predicate semantics, operators and axis ordering;
+// filtered axes, node-set results and caller extension contexts remain untouched.
 internal interface IXPathAncestorContext
 {
     bool HasAncestor(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf);
+    double CountAncestors(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf);
 }
 
 internal sealed class XPathAncestorPredicates : XsltContext
@@ -62,9 +64,17 @@ internal sealed class XPathAncestorPredicates : XsltContext
                 continue;
             }
             if (source[i] is '\'' or '"') { quote = source[i]; continue; }
-            if (source[i] != '[') continue;
-            var end = i + 1;
+            var count = source.AsSpan(i).StartsWith("count".AsSpan(), StringComparison.Ordinal) &&
+                (i == 0 || !IsNameChar(source[i - 1]));
+            if (source[i] != '[' && !count) continue;
+            var end = i + (count ? 5 : 1);
             Space(ref end);
+            if (count)
+            {
+                if (end >= source.Length || source[end] != '(') continue;
+                end++;
+                Space(ref end);
+            }
             var includeSelf = source.AsSpan(end).StartsWith("ancestor-or-self".AsSpan(), StringComparison.Ordinal);
             var axis = includeSelf ? "ancestor-or-self" : "ancestor";
             if (!source.AsSpan(end).StartsWith(axis.AsSpan(), StringComparison.Ordinal)) continue;
@@ -83,7 +93,7 @@ internal sealed class XPathAncestorPredicates : XsltContext
             var nodeTest = test == "node" && source.AsSpan(end).StartsWith("()".AsSpan(), StringComparison.Ordinal);
             if (nodeTest) end += 2;
             Space(ref end);
-            if (end >= source.Length || source[end] != ']' || test.Length == 0) continue;
+            if (end >= source.Length || source[end] != (count ? ')' : ']') || test.Length == 0) continue;
             var colon = test.IndexOf(':');
             var namePrefix = colon < 0 ? "" : test[..colon];
             var localName = colon < 0 ? test : test[(colon + 1)..];
@@ -97,12 +107,14 @@ internal sealed class XPathAncestorPredicates : XsltContext
             if (uri is null) continue; // Keep the framework's unresolved-prefix error.
             context ??= new XPathAncestorPredicates(resolver, prefix);
             var function = new AncestorFunction(localName == "*" ? "" : localName, uri,
-                test == "*", nodeTest, includeSelf);
+                test == "*", nodeTest, includeSelf, count);
             var index = context._functions.Count;
             context._functions.Add(function);
             builder ??= new StringBuilder(source.Length);
             builder.Append(source, copied, i - copied);
-            builder.Append('[').Append(prefix).Append(":a").Append(index).Append("()]");
+            if (!count) builder.Append('[');
+            builder.Append(prefix).Append(":a").Append(index).Append("()");
+            if (!count) builder.Append(']');
             copied = end + 1;
             i = end;
         }
@@ -112,6 +124,12 @@ internal sealed class XPathAncestorPredicates : XsltContext
         builder.Append(source, copied, source.Length - copied);
         return builder.ToString();
     }
+
+    private static bool IsNameChar(char value) => char.IsLetterOrDigit(value) ||
+        value is '_' or '-' or '.' or ':' or '\u00B7' ||
+        char.GetUnicodeCategory(value) is System.Globalization.UnicodeCategory.NonSpacingMark or
+            System.Globalization.UnicodeCategory.SpacingCombiningMark or
+            System.Globalization.UnicodeCategory.ConnectorPunctuation;
 
     public override string? LookupNamespace(string prefix)
         => prefix == _prefix ? InternalNamespace : _resolver?.LookupNamespace(prefix) ?? base.LookupNamespace(prefix);
@@ -134,19 +152,20 @@ internal sealed class XPathAncestorPredicates : XsltContext
         internal ExceptionDispatchInfo Original { get; } = ExceptionDispatchInfo.Capture(error);
     }
 
-    private sealed class AncestorFunction(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf) : IXsltContextFunction
+    private sealed class AncestorFunction(string localName, string namespaceUri, bool anyNamespace, bool nodeTest, bool includeSelf, bool count) : IXsltContextFunction
     {
         public int Minargs => 0;
         public int Maxargs => 0;
-        public XPathResultType ReturnType => XPathResultType.Boolean;
+        public XPathResultType ReturnType => count ? XPathResultType.Number : XPathResultType.Boolean;
         public XPathResultType[] ArgTypes => [];
         public object Invoke(XsltContext xsltContext, object[] args, XPathNavigator docContext)
         {
             try
             {
-                return docContext is IXPathAncestorContext native
-                    ? native.HasAncestor(localName, namespaceUri, anyNamespace, nodeTest, includeSelf)
-                    : throw new XPathException("A native XPath context is required.");
+                if (docContext is not IXPathAncestorContext native)
+                    throw new XPathException("A native XPath context is required.");
+                if (count) return native.CountAncestors(localName, namespaceUri, anyNamespace, nodeTest, includeSelf);
+                return native.HasAncestor(localName, namespaceUri, anyNamespace, nodeTest, includeSelf);
             }
             catch (Exception error)
             {

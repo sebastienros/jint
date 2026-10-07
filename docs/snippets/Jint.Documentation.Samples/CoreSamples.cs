@@ -1,4 +1,6 @@
 using Jint;
+using Jint.Native;
+using Jint.Runtime;
 
 namespace Documentation.Samples;
 
@@ -152,4 +154,68 @@ public static class CoreSamples
         return detached ?? copied;
     }
 
+    #region docs:guide-job-callback-hooks
+
+    public sealed class FlowHooks : JobCallbackHooks
+    {
+        public static readonly AsyncLocal<string?> Current = new();
+
+        // HostMakeJobCallback: runs when script registers a callback (then, await, ...).
+        protected override object? Capture(Engine engine) => Current.Value;
+
+        // HostCallJobCallback: runs around the callback, restoring even if it throws.
+        protected override object? Enter(Engine engine, object hostDefined)
+        {
+            var previous = Current.Value;
+            Current.Value = (string) hostDefined;
+            return previous;
+        }
+
+        protected override void Exit(Engine engine, object? token) => Current.Value = (string?) token;
+    }
+
+    #endregion
+
+    public static async Task<List<string>> GuideJobCallbacks()
+    {
+        var log = new List<string>();
+
+        #region docs:guide-job-callback-usage
+
+        var engine = new Engine(options => options.Host.JobCallbacks = new FlowHooks());
+
+        // Runs body inside a named flow; an async body returns at its first await.
+        engine.SetValue("scope", new Func<string, JsValue, JsValue>((name, body) =>
+        {
+            var previous = FlowHooks.Current.Value;
+            FlowHooks.Current.Value = name;
+            try
+            {
+                return body.Call();
+            }
+            finally
+            {
+                FlowHooks.Current.Value = previous;
+            }
+        }));
+
+        // Any host function can now ask which flow it was called from.
+        engine.SetValue("hostOperation", new Action<int>(item =>
+            log.Add($"{item} belongs to {FlowHooks.Current.Value}")));
+
+        await engine.EvaluateAsync("""
+            (async () => {
+                await Promise.all([1, 2, 3].map(async (item) => {
+                    await scope(`Item ${item}`, async () => {
+                        await null;
+                        await hostOperation(item); // "2 belongs to Item 2", ...
+                    });
+                }));
+            })()
+            """);
+
+        #endregion
+
+        return log;
+    }
 }

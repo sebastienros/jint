@@ -462,6 +462,7 @@ internal Jint.HtmlParser.HtmlTextSelection
 internal Jint.HtmlParser.HtmlValueChangeOrigin
 internal Jint.HtmlParser.INodeAdoptionObserver
 internal Jint.HtmlParser.IXPathAncestorContext
+    CountAncestors
     HasAncestor
 internal Jint.HtmlParser.NativeCharacterData
     GetLength

@@ -326,6 +326,15 @@ it is done, the capture has an obvious home — `JobCallback` (`Jint/Runtime/Hos
 `object? HostDefined` slot, and `Host.MakeJobCallBack` (`:461`) is already the single construction point. Until
 then the registry simply does not participate, which is a documented gap and not a silent one.
 
+> **Since written:** both halves of that precondition exist. Cleanup runs as an event-loop job on the engine
+> thread (`Host.HostEnqueueFinalizationRegistryCleanupJob`), and HostMakeJobCallback / HostCallJobCallback are
+> implemented for every promise reaction, every thenable job and the registry's `[[CleanupCallback]]`, with a
+> public host side — `JobCallbackHooks`, installed through `Options.Host.JobCallbacks`
+> ([guide](../guide/async.md#carry-host-state-across-await)). Rows 1-3 and 9-10 are exactly the sites that seam
+> already visits, so phase 1 can capture its mapping there rather than finding the sites again; the
+> `PromiseReaction` storage question of [§7.2](#7-2-the-eight-bytes-on-promisereaction) was answered the same way
+> for the hooks — a wrapper continuation only when something was captured, nothing added to the record.
+
 ### 3.4 Jint shapes that change the answer
 
 Four places where Jint's implementation strategy makes the naive translation wrong.

@@ -206,4 +206,48 @@ public class FinalizationRegistryTests
         recorder.HeldValues.Should().Equal("current");
         GC.KeepAlive(registry);
     }
+
+    private sealed class CurrentFlowHooks : Jint.Runtime.JobCallbackHooks
+    {
+        internal string? Current;
+
+        protected internal override object? Capture(Engine engine) => Current;
+
+        protected internal override object? Enter(Engine engine, object hostDefined)
+        {
+            var previous = Current;
+            Current = (string) hostDefined;
+            return previous;
+        }
+
+        protected internal override void Exit(Engine engine, object? token) => Current = (string?) token;
+    }
+
+    [Test]
+    public void CleanupCallbackRunsUnderTheHostStateCapturedWhenTheRegistryWasConstructed()
+    {
+        // https://tc39.es/ecma262/#sec-finalization-registry-cleanup-callback sets [[CleanupCallback]] to
+        // HostMakeJobCallback(cleanupCallback), so the registry's construction is the capture point - not the
+        // register() call, and not wherever the host happens to be when the cleanup job runs.
+        var hooks = new CurrentFlowHooks();
+        var flows = new List<string?>();
+        var engine = new Engine(options => options.Host.JobCallbacks = hooks);
+        engine.SetValue("record", new Action<string>(_ => flows.Add(hooks.Current)));
+
+        hooks.Current = "constructing";
+        engine.Execute("globalThis.registry = new FinalizationRegistry(record);");
+        hooks.Current = "registering";
+        RegisterUnreachableTarget(engine, "registry.register({}, 'held');");
+        hooks.Current = null;
+
+        for (var i = 0; i < CollectionRounds && flows.Count == 0; i++)
+        {
+            GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+            GC.WaitForPendingFinalizers();
+            engine.Tasks.ProcessTasks();
+        }
+
+        flows.Should().Equal("constructing");
+        hooks.Current.Should().BeNull("Exit restores what Enter replaced");
+    }
 }
