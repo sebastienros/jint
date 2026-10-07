@@ -1297,8 +1297,22 @@ default_escape:
 
                 default:
                     {
-                        // Unicode patterns consume a code point; other patterns consume a UTF-16 unit.
-                        c = ReadChar();
+                        // Normal char: read one code point
+                        char ch = _pattern[_pos];
+                        if (char.IsHighSurrogate(ch) && _pos + 1 < _patternEnd && char.IsLowSurrogate(_pattern[_pos + 1]))
+                        {
+                            c = char.ConvertToUtf32(ch, _pattern[_pos + 1]);
+                            _pos += 2;
+                            if (c > 0xFFFF && !IsUnicode)
+                            {
+                                throw new RegExpSyntaxException("malformed unicode char");
+                            }
+                        }
+                        else
+                        {
+                            c = ch;
+                            _pos++;
+                        }
                         break;
                     }
             }

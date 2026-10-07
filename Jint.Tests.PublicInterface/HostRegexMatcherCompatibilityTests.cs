@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Tests;
+
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>Generated patterns retain captures, backreferences, and finite repetition in Unicode mode.</summary>
@@ -71,5 +73,20 @@ public class HostRegexMatcherCompatibilityTests
         engine.SetValue("pattern", pattern);
 
         engine.Evaluate("new RegExp(pattern, 'u').test('a')").Should().Be(true);
+    }
+
+    [Test]
+    public void ExcessiveGroupNestingProducesACatchableSyntaxError()
+    {
+        const int depth = 20000;
+        var pattern = string.Concat(System.Linq.Enumerable.Repeat("(?:", depth)) + "a" + new string(')', depth);
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine();
+            engine.SetValue("pattern", pattern);
+            engine.Evaluate("(() => { try { new RegExp(pattern, 'v'); return 'compiled'; } catch (error) { return error.name; } })()")
+                .AsString().Should().Be("SyntaxError");
+            engine.Evaluate("6 * 7").Should().Be(42);
+        }, joinTimeout: TestBudgets.WedgeCeiling, maxStackSize: 1024 * 1024);
     }
 }
