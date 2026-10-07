@@ -10,6 +10,9 @@ namespace Jint.Benchmark;
 /// Each row creates its own page/engine and warms only its workload. Construction is excluded.
 /// Observed batches 1,000 writes/callbacks; Nested batches 250 writes through four distinct elements
 /// (1,000 callbacks), preserving synchronous nesting. Unobserved batches 1,000 writes with no reactions;
+/// Adoption alternates 500 round trips between two documents (1,000 callbacks), checking their
+/// arguments. SameDocumentAdoption makes 1,000 adopt calls with no reactions. These rows reuse
+/// warmed per-element reaction storage: they do not measure first-allocation capacity overhead.
 /// PlainScript batches 20,000 arithmetic steps and cannot reach DOM or reaction delivery.
 /// These loops amortise the page mailbox. Results are per batch, with checked callback counts.
 /// Only public Browser/Page APIs are used; no direct access to the registry's queue is measured.
@@ -33,6 +36,40 @@ public class BrowserCustomElementDrainBenchmark
 
     [GlobalSetup(Target = nameof(PlainScript))]
     public Task SetupPlain() => Setup("let sum=0;for(let i=0;i<20000;i++) sum+=(i&1);return sum+calls;", 10000);
+
+    [GlobalSetup(Target = nameof(Adoption))]
+    public Task SetupAdoption() => SetupAdoptionRow(sameDocument: false);
+
+    [GlobalSetup(Target = nameof(SameDocumentAdoption))]
+    public Task SetupSameDocumentAdoption() => SetupAdoptionRow(sameDocument: true);
+
+    private async Task SetupAdoptionRow(bool sameDocument)
+    {
+        _browser = new Browser.Browser(new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
+        _page = await _browser.NewPageAsync();
+        await _page.SetContentAsync("<!doctype html><body></body>");
+        await _page.EvaluateAsync("""
+            var calls=0,bad=0;
+            class AdoptionElement extends HTMLElement {
+              adoptedCallback(oldDocument,newDocument) {
+                calls++;
+                if(arguments.length!==2 || oldDocument===newDocument ||
+                   newDocument!==this.ownerDocument ||
+                   !((oldDocument===document && newDocument===other) ||
+                     (oldDocument===other && newDocument===document))) bad++;
+              }
+            }
+            customElements.define('x-drain-adoption',AdoptionElement);
+            var node=document.createElement('x-drain-adoption');
+            var other=document.implementation.createHTMLDocument();
+            """);
+        _script = sameDocument
+            ? "(()=>{calls=bad=0;let sum=0;for(let i=0;i<1000;i++)sum+=document.adoptNode(node)===node;return sum+calls+bad*100000;})()"
+            : "(()=>{calls=bad=0;for(let i=0;i<500;i++){other.adoptNode(node);document.adoptNode(node);}return calls+bad*100000;})()";
+        _expected = 1000;
+        await Run();
+        if (_page.Errors.Count != 0) throw new InvalidOperationException("Adoption benchmark setup failed.");
+    }
 
     private async Task Setup(string loop, double expected, bool nested = false)
     {
@@ -68,6 +105,8 @@ public class BrowserCustomElementDrainBenchmark
     [Benchmark] public Task<double> Nested() => Run();
     [Benchmark] public Task<double> Unobserved() => Run();
     [Benchmark] public Task<double> PlainScript() => Run();
+    [Benchmark] public Task<double> Adoption() => Run();
+    [Benchmark] public Task<double> SameDocumentAdoption() => Run();
 
     [GlobalCleanup]
     public async Task Cleanup() => await _browser.DisposeAsync();
