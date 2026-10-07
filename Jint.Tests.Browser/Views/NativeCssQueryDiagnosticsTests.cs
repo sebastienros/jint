@@ -113,6 +113,69 @@ public sealed class NativeCssQueryDiagnosticsTests
         cell.Native.Steps.Should().BeLessThan(size * 300);
     }
 
+    private static TestCases<Exception> CascadeFailures => new()
+    {
+        new ArgumentException("cascade argument failure"),
+        new InvalidOperationException("cascade operation failure"),
+        new NullReferenceException("cascade null failure")
+    };
+
+    [TestCaseSource(nameof(CascadeFailures))]
+    public void TraversalConstructionPropagatesTheOriginalFailure(Exception failure)
+    {
+        using var fixture = Create("<style>div { opacity:.5 }</style><div></div>");
+        var diagnostics = new NativeCssQueryDiagnostics();
+        // The former AngleSharp cascade caught these three types and returned null.
+        var caught = Caught.Exception(() => CssCascade.Traversal.For(fixture.Document,
+            diagnostics: diagnostics, checkpoint: () => throw failure));
+        caught.Should().BeSameAs(failure);
+        diagnostics.Queries.Should().BeEmpty();
+    }
+
+    [TestCaseSource(nameof(CascadeFailures))]
+    public void PropertyReadPropagatesTheOriginalFailureAndRetiresThePartialQuery(Exception failure)
+    {
+        // A long selector forces a bounded-work checkpoint inside the lazy first read,
+        // after construction and view creation have succeeded.
+        var name = new string('x', 20000);
+        using var fixture = Create("<style>." + name + " {opacity:.5}</style><div id=t class='" + name + "'></div>");
+        var target = ContentDom.ElementById(fixture.Document, "t")!;
+        var diagnostics = new NativeCssQueryDiagnostics();
+        var failRead = false;
+        var traversal = CssCascade.Traversal.For(fixture.Document, diagnostics: diagnostics,
+            checkpoint: () =>
+            {
+                if (failRead && diagnostics.Queries.Single().RuleAttempts > 0) throw failure;
+            })!;
+        var style = traversal.Of(target);
+        var record = diagnostics.Queries.Single();
+        record.StatePublications.Should().Be(0);
+        failRead = true;
+        Caught.Exception(() => CssCascade.ValueOf(style, "opacity")).Should().BeSameAs(failure);
+        record.RuleAttempts.Should().BeGreaterThan(0);
+        record.StatePublications.Should().Be(0);
+        record.ComputedPublications.Should().BeEmpty();
+
+        failRead = false;
+        Action retry = () => CssCascade.ValueOf(style, "opacity");
+        retry.Should().Throw<InvalidOperationException>().WithMessage("The native CSS read context was aborted.");
+        // Recovery uses a fresh query; no fallback value from the failed one is published.
+        CssCascade.ValueOf(CssCascade.Traversal.For(fixture.Document)!.Of(target), "opacity").Should().Be("0.5");
+    }
+
+    [Test]
+    public void RetainedStyleReportsMutationInsteadOfReturningAFallbackValue()
+    {
+        using var fixture = Create("<style>#box {opacity:.5}</style><div id=box></div>");
+        var target = ContentDom.ElementById(fixture.Document, "box")!;
+        var style = CssCascade.Traversal.For(fixture.Document)!.Of(target);
+        CssCascade.ValueOf(style, "opacity").Should().Be("0.5");
+        target.SetAttribute("style", "opacity:.7");
+        Action staleRead = () => CssCascade.ValueOf(style, "opacity");
+        staleRead.Should().Throw<InvalidOperationException>().WithMessage(NativeCssQuery.Invalidated);
+        CssCascade.ValueOf(CssCascade.Of(target)!, "opacity").Should().Be("0.7");
+    }
+
     private static DomTestFixture Create(string html)
     {
         var fixture = DomTestFixture.Create(html);
