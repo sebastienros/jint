@@ -104,6 +104,9 @@ public class ImageLoadingTests
     {
         const int count = 300;
         var bytes = ImageBytes.Png(20, 10);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var gatedImage = distinctUrls ? count - 1 : 0;
         var html = "<!doctype html><script>window.imageLoads=0;window.atLoad=-1;"
             + "window.addEventListener('load',()=>atLoad=imageLoads);</script>"
             + string.Concat(Enumerable.Range(0, count).Select(i =>
@@ -112,13 +115,38 @@ public class ImageLoadingTests
         {
             server.MapHtml("/", html);
             for (var i = 0; i < count; i++) server.Map($"/image-{i}.png", _ => Image(bytes).With("Cache-Control", "no-store"));
+            server.Map($"/image-{gatedImage}.png", _ => new LoopbackResponse
+            {
+                RawBody = bytes,
+                WriteBodyAsync = async (stream, token) =>
+                {
+                    entered.TrySetResult();
+                    await release.Task.WaitAsync(token);
+                    await stream.WriteAsync(bytes, token);
+                }
+            }.With("Content-Type", "image/png").With("Cache-Control", "no-store"));
         }, configureBrowser: options =>
         {
             options.MaxImageRequests = count;
             // Aggregate response bytes are much larger than this cap: it is per response.
             options.MaxSubresourceBytes = bytes.Length;
+            // Completion and byte limits are the assertions. A loaded runner must not lose to a
+            // per-turn stopwatch; the navigation and host waits retain a bounded hang safeguard.
+            options.MaxTaskDuration = TimeSpan.Zero;
+            options.SubresourceTimeout = TestBudgets.WedgeCeiling;
         });
-        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        var navigation = loopback.Page.NavigateAsync(loopback.Url("/"),
+            new NavigationOptions { WaitUntil = WaitUntilState.Load, Timeout = TestBudgets.WedgeCeiling });
+        try
+        {
+            await entered.Task.WaitAsync(TestBudgets.WedgeCeiling);
+            navigation.IsCompleted.Should().BeFalse("an image body is explicitly withheld");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        await navigation.WaitAsync(TestBudgets.WedgeCeiling);
 
         (await loopback.Page.EvaluateAsync<string>("""
             [document.images.length, imageLoads, atLoad,
@@ -158,8 +186,13 @@ public class ImageLoadingTests
                     await stream.WriteAsync(bytes, token);
                 }
             }.With("Content-Type", "image/png")),
-            configureBrowser: options => options.SubresourceTimeout = TestBudgets.WedgeCeiling);
-        var navigation = loopback.Page.NavigateAsync(loopback.Url("/"));
+            configureBrowser: options =>
+            {
+                options.MaxTaskDuration = TimeSpan.Zero;
+                options.SubresourceTimeout = TestBudgets.WedgeCeiling;
+            });
+        var navigation = loopback.Page.NavigateAsync(loopback.Url("/"),
+            new NavigationOptions { WaitUntil = WaitUntilState.Load, Timeout = TestBudgets.WedgeCeiling });
         try
         {
             await entered.Task.WaitAsync(TestBudgets.WedgeCeiling);
@@ -169,7 +202,7 @@ public class ImageLoadingTests
         {
             release.TrySetResult();
         }
-        await navigation;
+        await navigation.WaitAsync(TestBudgets.WedgeCeiling);
         (await loopback.Page.EvaluateAsync<string>("[imageLoads,atLoad,document.readyState].join(':')"))
             .Should().Be("300:300:complete");
         loopback.Page.Errors.Should().BeEmpty();
