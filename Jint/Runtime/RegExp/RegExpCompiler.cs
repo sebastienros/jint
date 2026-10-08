@@ -1309,14 +1309,11 @@ default_escape:
                     {
                         // Normal char: read one code point
                         char ch = _pattern[_pos];
-                        if (char.IsHighSurrogate(ch) && _pos + 1 < _patternEnd && char.IsLowSurrogate(_pattern[_pos + 1]))
+                        // Legacy mode matches UTF-16 code units; only Unicode mode combines a pair.
+                        if (IsUnicode && char.IsHighSurrogate(ch) && _pos + 1 < _patternEnd && char.IsLowSurrogate(_pattern[_pos + 1]))
                         {
                             c = char.ConvertToUtf32(ch, _pattern[_pos + 1]);
                             _pos += 2;
-                            if (c > 0xFFFF && !IsUnicode)
-                            {
-                                throw new RegExpSyntaxException("malformed unicode char");
-                            }
                         }
                         else
                         {
