@@ -13,7 +13,10 @@ internal sealed record PatternFileResult(byte[] Bytes, int IndexRawLength, int I
 /// </summary>
 internal static class PatternFile
 {
-    internal const byte FormatVersion = 1;
+    /// <summary>
+    /// 2 since the records carry intervalFormats (issue #4158's formatRange); 1 had none.
+    /// </summary>
+    internal const byte FormatVersion = 2;
 
     internal static ReadOnlySpan<byte> Magic => "JDTP"u8;
 
@@ -103,7 +106,7 @@ internal static class PatternFile
     /// <summary>
     /// A record: the slots that differ from the CLDR parent (every slot for the root, which has none) as gap-coded indexes and
     /// values; then the availableFormats entries that are new or differ; then the skeletons the parent has and this
-    /// locale does not.
+    /// locale does not; then the same two lists for the interval patterns, keyed by skeleton and field.
     /// </summary>
     private static void WriteRecord(Stream stream, CldrLocale locale, CldrLocale? parent)
     {
@@ -141,6 +144,25 @@ internal static class PatternFile
         {
             WriteString(stream, skeleton);
         }
+
+        var changedIntervals = locale.Intervals
+            .Where(i => parent is null || !parent.Intervals.TryGetValue(i.Key, out var pattern) || !string.Equals(pattern, i.Value, StringComparison.Ordinal))
+            .ToList();
+        WriteVarint(stream, changedIntervals.Count);
+        foreach (var (key, pattern) in changedIntervals)
+        {
+            WriteString(stream, key.Skeleton);
+            stream.WriteByte(checked((byte) key.Field));
+            WriteString(stream, pattern);
+        }
+
+        var removedIntervals = parent is null ? [] : parent.Intervals.Keys.Where(k => !locale.Intervals.ContainsKey(k)).ToList();
+        WriteVarint(stream, removedIntervals.Count);
+        foreach (var key in removedIntervals)
+        {
+            WriteString(stream, key.Skeleton);
+            stream.WriteByte(checked((byte) key.Field));
+        }
     }
 
     /// <summary>
@@ -170,7 +192,7 @@ internal static class PatternFile
             }
         }
 
-        var records = new Dictionary<string, (string[] Slots, Dictionary<string, string> Set, List<string> Removed)>(StringComparer.Ordinal);
+        var records = new Dictionary<string, DecodedRecord>(StringComparer.Ordinal);
         var blockCount = index.ReadVarint();
         for (var b = 0; b < blockCount; b++)
         {
@@ -183,30 +205,42 @@ internal static class PatternFile
             for (var l = 0; l < localeCount; l++)
             {
                 var id = index.ReadString();
-                var slots = new string[slotCount];
+                var record = new DecodedRecord(new string[slotCount]);
                 var count = block.ReadVarint();
                 var slot = -1;
                 for (var i = 0; i < count; i++)
                 {
                     slot += block.ReadVarint() + 1;
-                    slots[slot] = block.ReadString();
+                    record.Slots[slot] = block.ReadString();
                 }
 
-                var set = new Dictionary<string, string>(StringComparer.Ordinal);
                 count = block.ReadVarint();
                 for (var i = 0; i < count; i++)
                 {
-                    set.Add(block.ReadString(), block.ReadString());
+                    record.Set.Add(block.ReadString(), block.ReadString());
                 }
 
-                var removed = new List<string>();
                 count = block.ReadVarint();
                 for (var i = 0; i < count; i++)
                 {
-                    removed.Add(block.ReadString());
+                    record.Removed.Add(block.ReadString());
                 }
 
-                records.Add(id, (slots, set, removed));
+                count = block.ReadVarint();
+                for (var i = 0; i < count; i++)
+                {
+                    var skeleton = block.ReadString();
+                    record.SetIntervals.Add(new IntervalKey(skeleton, (char) block.ReadByte()), block.ReadString());
+                }
+
+                count = block.ReadVarint();
+                for (var i = 0; i < count; i++)
+                {
+                    var skeleton = block.ReadString();
+                    record.RemovedIntervals.Add(new IntervalKey(skeleton, (char) block.ReadByte()));
+                }
+
+                records.Add(id, record);
             }
 
             if (!block.AtEnd)
@@ -227,17 +261,17 @@ internal static class PatternFile
             throw new InvalidDataException("round trip: trailing bytes in the index");
         }
 
-        var resolved = new Dictionary<string, (string[] Slots, SortedDictionary<string, string> Formats)>(StringComparer.Ordinal);
+        var resolved = new Dictionary<string, (string[] Slots, SortedDictionary<string, string> Formats, SortedDictionary<IntervalKey, string> Intervals)>(StringComparer.Ordinal);
         foreach (var locale in expected)
         {
-            var (slots, formats) = Resolve(locale.Id);
-            if (!slots.SequenceEqual(locale.Slots, StringComparer.Ordinal) || !formats.SequenceEqual(locale.Formats))
+            var (slots, formats, intervals) = Resolve(locale.Id);
+            if (!slots.SequenceEqual(locale.Slots, StringComparer.Ordinal) || !formats.SequenceEqual(locale.Formats) || !intervals.SequenceEqual(locale.Intervals))
             {
                 throw new InvalidDataException($"round trip: {locale.Id} does not decode to what was written");
             }
         }
 
-        (string[] Slots, SortedDictionary<string, string> Formats) Resolve(string id)
+        (string[] Slots, SortedDictionary<string, string> Formats, SortedDictionary<IntervalKey, string> Intervals) Resolve(string id)
         {
             if (resolved.TryGetValue(id, out var done))
             {
@@ -248,10 +282,12 @@ internal static class PatternFile
             var parent = parents.TryGetValue(id, out var listed) ? listed : ParentLocales.Truncate(id);
             string[] slots;
             SortedDictionary<string, string> formats;
+            SortedDictionary<IntervalKey, string> intervals;
             if (string.Equals(id, ParentLocales.Root, StringComparison.Ordinal))
             {
                 slots = record.Slots;
                 formats = new SortedDictionary<string, string>(record.Set, StringComparer.Ordinal);
+                intervals = new SortedDictionary<IntervalKey, string>(record.SetIntervals);
             }
             else
             {
@@ -272,11 +308,35 @@ internal static class PatternFile
                 {
                     formats[skeleton] = pattern;
                 }
+
+                intervals = new SortedDictionary<IntervalKey, string>(inherited.Intervals);
+                foreach (var key in record.RemovedIntervals)
+                {
+                    intervals.Remove(key);
+                }
+
+                foreach (var (key, pattern) in record.SetIntervals)
+                {
+                    intervals[key] = pattern;
+                }
             }
 
-            resolved[id] = (slots, formats);
-            return (slots, formats);
+            resolved[id] = (slots, formats, intervals);
+            return (slots, formats, intervals);
         }
+    }
+
+    private sealed class DecodedRecord(string[] slots)
+    {
+        internal string[] Slots { get; } = slots;
+
+        internal Dictionary<string, string> Set { get; } = new(StringComparer.Ordinal);
+
+        internal List<string> Removed { get; } = [];
+
+        internal Dictionary<IntervalKey, string> SetIntervals { get; } = [];
+
+        internal List<IntervalKey> RemovedIntervals { get; } = [];
     }
 
     internal static byte[] Inflate(byte[] compressed, int rawLength)

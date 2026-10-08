@@ -13,8 +13,9 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>Intl.DateTimeFormat</c> resolves a component bag against it (<see cref="DateTimePatternGenerator"/>) and writes
-/// its names; its <c>dateStyle</c>, <c>timeStyle</c> and <c>formatRange</c> do not read it yet (issue #4158). The
+/// <c>Intl.DateTimeFormat</c> resolves a component bag against it (<see cref="DateTimePatternGenerator"/>), writes its
+/// names, and writes a component bag's <c>formatRange</c> through its interval patterns
+/// (<see cref="DateTimeIntervalFormat"/>); its <c>dateStyle</c> and <c>timeStyle</c> do not read it yet (issue #4158). The
 /// resource and its generator are described in <c>DateTimePatternData.Data.cs</c> and <c>tools/cldr-dates/README.md</c>.
 /// </para>
 /// <para>
@@ -38,7 +39,7 @@ internal sealed partial class DateTimePatternData
     internal const string Root = "und";
 
     private const string ResourceName = "Jint.Native.Intl.Data.DateTimePatterns.bin";
-    private const byte FormatVersion = 1;
+    private const byte FormatVersion = 2;
 
     internal static readonly DateTimePatternData Shared = new(OpenEmbeddedResource);
 
@@ -209,12 +210,12 @@ internal sealed partial class DateTimePatternData
         var parent = ParentOf(index, id);
         if (parent is null)
         {
-            if (record.SlotIndexes.Length != DateTimePatternLocale.SlotCount || record.RemovedSkeletons.Length != 0)
+            if (record.SlotIndexes.Length != DateTimePatternLocale.SlotCount || record.RemovedSkeletons.Length != 0 || record.RemovedIntervals.Length != 0)
             {
                 Throw.InvalidOperationException("The root's date/time pattern record is incomplete.");
             }
 
-            view = new DateTimePatternLocale(id, record.SlotValues, record.SetFormats, parent: null, record.SetFormats);
+            view = new DateTimePatternLocale(id, record.SlotValues, record.SetFormats, parent: null, record.SetFormats, record.SetIntervals);
         }
         else
         {
@@ -275,7 +276,25 @@ internal sealed partial class DateTimePatternData
                 removed[j] = reader.ReadString();
             }
 
-            records[i] = new DateTimePatternRecord(slotIndexes, slotValues, set, removed);
+            var setIntervals = new DateTimeIntervalPattern[reader.ReadVarint()];
+            for (var j = 0; j < setIntervals.Length; j++)
+            {
+                var skeleton = reader.ReadString();
+                setIntervals[j] = new DateTimeIntervalPattern(skeleton, reader.ReadField(), reader.ReadString());
+                if (j > 0 && DateTimeIntervalPattern.Compare(in setIntervals[j - 1], in setIntervals[j]) >= 0)
+                {
+                    Throw.InvalidOperationException("The date/time pattern data is corrupt.");
+                }
+            }
+
+            var removedIntervals = new DateTimeIntervalPattern[reader.ReadVarint()];
+            for (var j = 0; j < removedIntervals.Length; j++)
+            {
+                var skeleton = reader.ReadString();
+                removedIntervals[j] = new DateTimeIntervalPattern(skeleton, reader.ReadField(), "");
+            }
+
+            records[i] = new DateTimePatternRecord(slotIndexes, slotValues, set, removed, setIntervals, removedIntervals);
         }
 
         if (!reader.AtEnd)
@@ -380,7 +399,8 @@ internal sealed partial class DateTimePatternData
             || !string.Equals(slotNames[DateTimePatternLocale.MonthsStart], "months/format/abbreviated/1", StringComparison.Ordinal)
             || !string.Equals(slotNames[DateTimePatternLocale.WeekdaysStart], "days/format/abbreviated/sun", StringComparison.Ordinal)
             || !string.Equals(slotNames[DateTimePatternLocale.ErasStart], "eras/eraAbbr/0", StringComparison.Ordinal)
-            || !string.Equals(slotNames[DateTimePatternLocale.DayPeriodsStart], "dayPeriods/format/abbreviated/am", StringComparison.Ordinal))
+            || !string.Equals(slotNames[DateTimePatternLocale.DayPeriodsStart], "dayPeriods/format/abbreviated/am", StringComparison.Ordinal)
+            || !string.Equals(slotNames[DateTimePatternLocale.IntervalFallbackSlot], "dateTimeFormats/intervalFormats/intervalFormatFallback", StringComparison.Ordinal))
         {
             Throw.InvalidOperationException("The embedded date/time pattern data has a slot layout DateTimePatternLocale does not read; update both together.");
         }
@@ -554,6 +574,17 @@ internal sealed partial class DateTimePatternData
 
             Throw.InvalidOperationException("The embedded date/time pattern data is corrupt.");
             return 0;
+        }
+
+        /// <summary>An interval pattern's field: one of <c>G y M d a h m</c>.</summary>
+        internal char ReadField()
+        {
+            if ((uint) _position >= (uint) _bytes.Length || "GyMdahm".IndexOf((char) _bytes[_position]) < 0)
+            {
+                Throw.InvalidOperationException("The date/time pattern data is corrupt.");
+            }
+
+            return (char) _bytes[_position++];
         }
 
         internal string ReadString()

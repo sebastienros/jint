@@ -26,7 +26,8 @@ internal sealed class DateTimePatternLocale
     internal const int WeekdaysStart = 110;
     internal const int ErasStart = 166;
     internal const int DayPeriodsStart = 172;
-    internal const int SlotCount = 178;
+    internal const int IntervalFallbackSlot = 178;
+    internal const int SlotCount = 179;
 
     private const int AppendFieldCount = 11;
     private const int MonthWidthCount = 3;
@@ -35,6 +36,7 @@ internal sealed class DateTimePatternLocale
     private readonly string[] _slots;
     private readonly DateTimeSkeletonPattern[] _availableFormats;
     private readonly DateTimeSkeletonPattern[] _ownFormats;
+    private readonly DateTimeIntervalPattern[] _intervalFormats;
 
     /// <param name="locale">The CLDR locale.</param>
     /// <param name="slots">Every slot, resolved.</param>
@@ -44,13 +46,21 @@ internal sealed class DateTimePatternLocale
     /// The entries the locale holds itself, in ordinal order of the skeleton: new, or different from its parent's.
     /// For the root, every entry.
     /// </param>
-    internal DateTimePatternLocale(string locale, string[] slots, DateTimeSkeletonPattern[] availableFormats, DateTimePatternLocale? parent, DateTimeSkeletonPattern[] ownFormats)
+    /// <param name="intervalFormats">Every interval pattern, resolved, in ordinal order of the skeleton and then the field.</param>
+    internal DateTimePatternLocale(
+        string locale,
+        string[] slots,
+        DateTimeSkeletonPattern[] availableFormats,
+        DateTimePatternLocale? parent,
+        DateTimeSkeletonPattern[] ownFormats,
+        DateTimeIntervalPattern[] intervalFormats)
     {
         Locale = locale;
         _slots = slots;
         _availableFormats = availableFormats;
         Parent = parent;
         _ownFormats = ownFormats;
+        _intervalFormats = intervalFormats;
     }
 
     /// <summary>
@@ -106,6 +116,23 @@ internal sealed class DateTimePatternLocale
         pattern = null;
         return false;
     }
+
+    /// <summary>
+    /// CLDR's <c>intervalFormats</c>, one pattern per skeleton and greatest-difference field, in ordinal order of the
+    /// skeleton and then the field: what <c>formatRange</c> writes two dates with.
+    /// </summary>
+    /// <remarks>
+    /// Each (skeleton, field) is the one ICU's <c>DateIntervalInfo</c> reads: the nearest locale of the CLDR parent chain
+    /// that has a pattern for it, and CLDR's <c>B</c> before its <c>a</c> where one locale has both. The generator
+    /// resolves this (<c>tools/cldr-dates/Jint.CldrDates.Generator/CldrLocale.cs</c>).
+    /// </remarks>
+    internal ReadOnlySpan<DateTimeIntervalPattern> IntervalFormats => _intervalFormats;
+
+    /// <summary>
+    /// CLDR's <c>intervalFormatFallback</c>: the text two whole dates are joined with when no interval pattern fits,
+    /// <c>{0}</c> the start and <c>{1}</c> the end.
+    /// </summary>
+    internal string IntervalFormatFallback => _slots[IntervalFallbackSlot];
 
     /// <summary>
     /// CLDR's <c>dateTimeFormats</c>: how a date (<c>{1}</c>) and a time (<c>{0}</c>) are joined, by the width of the date.
@@ -175,7 +202,78 @@ internal sealed class DateTimePatternLocale
             slots[record.SlotIndexes[i]] = record.SlotValues[i];
         }
 
-        return new DateTimePatternLocale(locale, slots, Merge(_availableFormats, record.SetFormats, record.RemovedSkeletons), this, record.SetFormats);
+        return new DateTimePatternLocale(
+            locale,
+            slots,
+            Merge(_availableFormats, record.SetFormats, record.RemovedSkeletons),
+            this,
+            record.SetFormats,
+            MergeIntervals(_intervalFormats, record.SetIntervals, record.RemovedIntervals));
+    }
+
+    /// <summary>
+    /// <see cref="Merge"/> for the interval patterns, keyed by skeleton and field.
+    /// </summary>
+    private static DateTimeIntervalPattern[] MergeIntervals(DateTimeIntervalPattern[] inherited, DateTimeIntervalPattern[] set, DateTimeIntervalPattern[] removed)
+    {
+        if (set.Length == 0 && removed.Length == 0)
+        {
+            return inherited;
+        }
+
+        var merged = new List<DateTimeIntervalPattern>(inherited.Length + set.Length);
+        var i = 0;
+        var j = 0;
+        while (i < inherited.Length || j < set.Length)
+        {
+            int comparison;
+            if (i == inherited.Length)
+            {
+                comparison = 1;
+            }
+            else if (j == set.Length)
+            {
+                comparison = -1;
+            }
+            else
+            {
+                comparison = DateTimeIntervalPattern.Compare(in inherited[i], in set[j]);
+            }
+
+            if (comparison < 0)
+            {
+                if (!IsRemoved(removed, in inherited[i]))
+                {
+                    merged.Add(inherited[i]);
+                }
+
+                i++;
+            }
+            else
+            {
+                merged.Add(set[j]);
+                j++;
+                if (comparison == 0)
+                {
+                    i++;
+                }
+            }
+        }
+
+        return merged.ToArray();
+
+        static bool IsRemoved(DateTimeIntervalPattern[] removed, in DateTimeIntervalPattern entry)
+        {
+            foreach (var key in removed)
+            {
+                if (DateTimeIntervalPattern.Compare(in key, in entry) == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     /// <summary>
@@ -290,18 +388,56 @@ internal readonly struct DateTimeSkeletonPattern
 }
 
 /// <summary>
+/// An <c>intervalFormats</c> entry: a skeleton, the field that differs between the two dates (<c>G</c> era, <c>y</c>
+/// year, <c>M</c> month, <c>d</c> day, <c>a</c> am/pm, <c>h</c> hour, <c>m</c> minute) and the pattern writing both.
+/// </summary>
+[StructLayout(LayoutKind.Auto)]
+internal readonly struct DateTimeIntervalPattern
+{
+    internal DateTimeIntervalPattern(string skeleton, char field, string pattern)
+    {
+        Skeleton = skeleton;
+        Field = field;
+        Pattern = pattern;
+    }
+
+    internal string Skeleton { get; }
+
+    internal char Field { get; }
+
+    /// <summary>The pattern; empty for an entry a record removes.</summary>
+    internal string Pattern { get; }
+
+    /// <summary>The order the resource keeps them in: ordinal by skeleton, then by field.</summary>
+    internal static int Compare(in DateTimeIntervalPattern x, in DateTimeIntervalPattern y)
+    {
+        var bySkeleton = string.CompareOrdinal(x.Skeleton, y.Skeleton);
+        return bySkeleton != 0 ? bySkeleton : x.Field.CompareTo(y.Field);
+    }
+}
+
+/// <summary>
 /// What one record of <c>DateTimePatterns.bin</c> holds: the slots that differ from the locale's CLDR parent (all of
-/// them, for the root), the <c>availableFormats</c> entries that are new or differ, and the skeletons it drops.
+/// them, for the root), the <c>availableFormats</c> entries that are new or differ, and the skeletons it drops; and the
+/// same two lists for the interval patterns.
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 internal readonly struct DateTimePatternRecord
 {
-    internal DateTimePatternRecord(byte[] slotIndexes, string[] slotValues, DateTimeSkeletonPattern[] setFormats, string[] removedSkeletons)
+    internal DateTimePatternRecord(
+        byte[] slotIndexes,
+        string[] slotValues,
+        DateTimeSkeletonPattern[] setFormats,
+        string[] removedSkeletons,
+        DateTimeIntervalPattern[] setIntervals,
+        DateTimeIntervalPattern[] removedIntervals)
     {
         SlotIndexes = slotIndexes;
         SlotValues = slotValues;
         SetFormats = setFormats;
         RemovedSkeletons = removedSkeletons;
+        SetIntervals = setIntervals;
+        RemovedIntervals = removedIntervals;
     }
 
     internal byte[] SlotIndexes { get; }
@@ -311,6 +447,11 @@ internal readonly struct DateTimePatternRecord
     internal DateTimeSkeletonPattern[] SetFormats { get; }
 
     internal string[] RemovedSkeletons { get; }
+
+    internal DateTimeIntervalPattern[] SetIntervals { get; }
+
+    /// <summary>The (skeleton, field) keys the locale drops; their <see cref="DateTimeIntervalPattern.Pattern"/> is empty.</summary>
+    internal DateTimeIntervalPattern[] RemovedIntervals { get; }
 }
 
 /// <summary>
