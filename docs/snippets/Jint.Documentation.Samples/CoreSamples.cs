@@ -218,4 +218,52 @@ public static class CoreSamples
 
         return log;
     }
+
+    public static double GuideEvaluateWithContext()
+    {
+        #region docs:guide-evaluate-with-context
+
+        var engine = new Engine();
+        var expression = "ctx.price * ctx.quantity";
+
+        // Compile once. Evaluating a function expression defines no globals.
+        var total = engine.Evaluate($"(ctx) => ({expression})");
+
+        // Invoke converts a CLR argument; Call takes a JsValue, such as one a host function received.
+        var fromClr = engine.Invoke(total, new { price = 4, quantity = 3 }); // 12
+        var fromScript = total.Call(engine.Evaluate("({ price: 5, quantity: 2 })")); // 10
+
+        #endregion
+
+        return fromClr.AsNumber() + fromScript.AsNumber();
+    }
+
+    public static double GuideEvaluateWithScope()
+    {
+        var engine = new Engine();
+
+        #region docs:guide-evaluate-with-scope
+
+        var total = engine.Evaluate("(function (scope) { with (scope) { return (price * quantity); } })");
+        var result = engine.Invoke(total, new { price = 4, quantity = 3 }); // 12
+
+        #endregion
+
+        return result.AsNumber();
+    }
+
+    #region docs:guide-context-across-engines
+
+    // Parsed once and shared by every engine.
+    private static readonly Prepared<Script> Total =
+        Engine.PrepareScript("(ctx) => (ctx.price * ctx.quantity)");
+
+    public static JsValue EvaluateTotal(Engine engine, JsValue ctx)
+    {
+        // The function belongs to this engine; cache it per engine, never in a static.
+        var total = engine.Evaluate(in Total);
+        return total.Call(ctx);
+    }
+
+    #endregion
 }

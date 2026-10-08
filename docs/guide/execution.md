@@ -57,3 +57,54 @@ objects belong to the engine and realm that created them. Convert output before 
 
 Each top-level `Execute`, `Evaluate`, `Invoke`, or `Call` is a separate run and resets ordinary execution
 budgets. See [Execution constraints](./constraints.md) when one host operation makes several calls.
+
+## Evaluate an expression against a context object
+
+To evaluate an expression against a context object without defining globals, compile it once as a function
+that takes the context as a parameter, then call it with each context:
+
+<!-- snippet: guide-evaluate-with-context -->
+```csharp
+var engine = new Engine();
+var expression = "ctx.price * ctx.quantity";
+
+// Compile once. Evaluating a function expression defines no globals.
+var total = engine.Evaluate($"(ctx) => ({expression})");
+
+// Invoke converts a CLR argument; Call takes a JsValue, such as one a host function received.
+var fromClr = engine.Invoke(total, new { price = 4, quantity = 3 }); // 12
+var fromScript = total.Call(engine.Evaluate("({ price: 5, quantity: 2 })")); // 10
+```
+<!-- endSnippet -->
+
+For bare names (`price * quantity` instead of `ctx.price * ctx.quantity`), wrap the expression in `with`. A
+name the context lacks falls through to the globals, and `with` is a syntax error in strict code, so this
+works only when `Options.Strict` is off, the default:
+
+<!-- snippet: guide-evaluate-with-scope -->
+```csharp
+var total = engine.Evaluate("(function (scope) { with (scope) { return (price * quantity); } })");
+var result = engine.Invoke(total, new { price = 4, quantity = 3 }); // 12
+```
+<!-- endSnippet -->
+
+When each run creates a new engine, prepare the function once in a static field. Each engine evaluates it into
+its own function, because a `JsValue` must never be shared across engines:
+
+<!-- snippet: guide-context-across-engines -->
+```csharp
+// Parsed once and shared by every engine.
+private static readonly Prepared<Script> Total =
+    Engine.PrepareScript("(ctx) => (ctx.price * ctx.quantity)");
+
+public static JsValue EvaluateTotal(Engine engine, JsValue ctx)
+{
+    // The function belongs to this engine; cache it per engine, never in a static.
+    var total = engine.Evaluate(in Total);
+    return total.Call(ctx);
+}
+```
+<!-- endSnippet -->
+
+A host function cannot see the local variables of the script that called it; only `eval` captures the
+caller's scope. Pass the context explicitly, as above.
