@@ -11,7 +11,8 @@ each a deterministic 64 KiB PNG representation. Parameters select repeated or di
 and disabled, memory or disk configuration. The baseline fixture keeps the same operation bodies,
 including disk-row context reopening, but omits cache configuration and clearing because those APIs
 do not exist on the starting revision. Its enum has the same names and values as the new public enum.
-[The baseline fixture](baseline-workload.cs.txt) and [candidate source hashes](candidate-source-sha256.txt)
+[The baseline fixture](https://github.com/sebastienros/jint/blob/main/docs/benchmarks/http-cache-2026-10/baseline-workload.cs.txt)
+and [candidate source hashes](https://github.com/sebastienros/jint/blob/main/docs/benchmarks/http-cache-2026-10/candidate-source-sha256.txt)
 make that adaptation reviewable.
 
 The measurements precede the subsequent CLI/MCP configuration wiring and the context-configuration
@@ -54,7 +55,8 @@ All six runs completed all 24 rows. The [full paired table](paired-table.md) inc
 control, with median per-arm times, paired deltas, intervals and allocation. The per-arm columns are
 medians of the three reported values; the delta is the median of per-pair percentage differences, so it
 need not equal the ratio of the displayed per-arm times. Allocation units retain BenchmarkDotNet's MB label.
-The [runner output](paired-analysis.txt) records its fixed-seed bootstrap calculation. Its mechanical
+The [runner output](https://github.com/sebastienros/jint/blob/main/docs/benchmarks/http-cache-2026-10/paired-analysis.txt)
+records its fixed-seed bootstrap calculation. Its mechanical
 FASTER/SLOWER labels alone do not establish small effects with three pairs.
 
 Raw CSV exports remain local and are excluded from this pull request. The paired table, analysis and
@@ -84,7 +86,8 @@ The correctness driver runs outside BenchmarkDotNet timing:
 dotnet run --project Jint.Benchmark/Jint.Benchmark.csproj -c Release -f net10.0 -- --validate-http-cache
 ```
 
-[Raw observations](workload-observations.txt) report request counts, transferred body bytes, validating
+[Raw observations](https://github.com/sebastienros/jint/blob/main/docs/benchmarks/http-cache-2026-10/workload-observations.txt)
+report request counts, transferred body bytes, validating
 requests, whole-process allocated bytes and retained-heap observations separately. The driver asserts
 that all 300 images complete with their expected width, that warm cached images cause no transport
 requests, and that the control makes no requests. The document's bytes are included in body totals.
