@@ -129,7 +129,7 @@ jint-browser mcp --http-cache-temporary --http-cache-max-bytes 32mb
 Disk mode requires an explicit persistent directory and visitor identity, or explicitly temporary storage.
 The CLI also exposes `--http-cache-max-entries` and `--http-cache-max-entry-bytes`. For `serve`, the default
 context owns the persistent identity; additional CDP contexts use isolated temporary disk partitions.
-See the [CLI reference](../../Jint.Browser.Tool/README.md#http-response-caching) for defaults and validation.
+See the [CLI reference](https://github.com/sebastienros/jint/blob/main/Jint.Browser.Tool/README.md#http-response-caching) for defaults and validation.
 
 Hosts that need to configure protocol-created contexts can register `BrowserOptions.ConfigureContext`.
 It runs before each context is created, including the default context, after explicitly provided options.

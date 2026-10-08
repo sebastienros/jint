@@ -794,11 +794,13 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
                     url = parsed;
                 }
 
+                // Keep null nullable: converting a null byte array to ReadOnlyMemory produces an empty
+                // body, which would replace the original POST body during a header-only continuation.
                 return FetchInterception.Continue(
                     url,
                     decision.Method,
                     ToFetchHeaders(decision.Headers),
-                    decision.Body is { } body ? new ReadOnlyMemory<byte>(body) : null);
+                    decision.Body is { } body ? new ReadOnlyMemory<byte>(body) : (ReadOnlyMemory<byte>?) null);
 
             default:
                 return null;

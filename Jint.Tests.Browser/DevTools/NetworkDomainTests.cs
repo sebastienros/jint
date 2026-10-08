@@ -21,6 +21,31 @@ namespace Jint.Tests.Browser.DevTools;
 [NonParallelizable]
 public class NetworkDomainTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DisablingTheCachePreservesPostBodiesThroughHeaderOnlyRewrites(bool intercept)
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<title>post</title>");
+        server.Map("/submit", request => LoopbackResponse.Text(request.Body));
+        await using var fixture = await NetworkFixture.OpenAsync(server);
+        await fixture.NavigateAsync("/page");
+        await fixture.Session.ResultAsync("Network.setCacheDisabled", "{\"cacheDisabled\":true}", fixture.Attachment);
+        if (intercept) await fixture.Session.ResultAsync("Fetch.enable", "{}", fixture.Attachment);
+
+        var pending = fixture.Page.EvaluateAndAwaitAsync<string>(
+            "fetch('/submit', {method: 'POST', body: 'name=jint'}).then(r => r.text())");
+        if (intercept)
+        {
+            var paused = await fixture.EventAsync("Fetch.requestPaused");
+            await fixture.Session.ResultAsync("Fetch.continueRequest",
+                $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}","headers":[]}""", fixture.Attachment);
+        }
+
+        (await pending).Should().Be("name=jint");
+        server.Received.Single(request => request.Path == "/submit").Body.Should().Be("name=jint");
+    }
+
     [Test]
     public async Task CacheHitsAreObservableInterceptableAndCanBeDisabledOrCleared()
     {
