@@ -187,6 +187,7 @@ internal sealed class FetchOperation
 
         var policy = new FetchPolicy
         {
+            HttpCache = options.HttpCache,
             AllowedSchemes = [.. options.AllowedSchemes],
             UrlFilter = urlFilter,
             MaxResponseBytes = options.MaxResponseBytes,
@@ -252,6 +253,8 @@ internal sealed class FetchOperation
         FetchRequestSnapshot Snapshot(ReadOnlyMemory<byte>? body, HttpContent? content = null) => new()
         {
             Method = request.Method,
+            Cache = request.Cache,
+            Mode = request.Mode,
             Url = request.Url,
             Headers = new List<HeaderEntry>(request.Headers.List.Entries),
             Body = body,

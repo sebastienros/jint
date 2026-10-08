@@ -166,8 +166,9 @@ internal sealed class EmulationState
     /// </remarks>
     internal string? Platform { get; set; }
 
-    /// <summary>Whether the client asked for the cache to be bypassed. There is no cache to bypass.</summary>
-    internal bool CacheDisabled { get; set; }
+    /// <summary>Whether the client asked for HTTP cache reads and writes to be bypassed.</summary>
+    internal bool CacheDisabled { get => Volatile.Read(ref _cacheDisabled); set => Volatile.Write(ref _cacheDisabled, value); }
+    private bool _cacheDisabled;
 
     /// <summary>The IANA time zone the next document's engine is built in, or <see langword="null"/>.</summary>
     internal TimeZoneInfo? TimeZone { get; set; }

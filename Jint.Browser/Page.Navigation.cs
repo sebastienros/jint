@@ -858,7 +858,7 @@ public sealed partial class Page
         var documentRequest = new DocumentRequest(
             target,
             request.Body is null ? "GET" : "POST",
-            request.Body,
+            request.Body is { } requestBody ? new ReadOnlyMemory<byte>(requestBody) : (ReadOnlyMemory<byte>?) null,
             request.ContentType,
             referrerUrl.Length == 0 ? null : UrlParser.Parse(referrerUrl),
             PageUrl.HasOrigin(initiatorUrl) ? UrlParser.Parse(initiatorUrl) : null,

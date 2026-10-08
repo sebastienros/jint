@@ -101,6 +101,8 @@ internal static class DocumentFetch
 
         var policy = new FetchPolicy
         {
+            HttpCache = network.HttpCache,
+            IsNavigation = true,
             AllowedSchemes = ["https", "http"],
             UrlFilter = network.UrlFilter,
             MaxResponseBytes = request.MaxResponseBytes,

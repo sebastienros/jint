@@ -147,6 +147,7 @@ internal static class SubresourceFetch
 
         var policy = new FetchPolicy
         {
+            HttpCache = network.HttpCache,
             AllowedSchemes = ["https", "http"],
             UrlFilter = network.UrlFilter,
             MaxResponseBytes = request.MaxResponseBytes,

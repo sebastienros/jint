@@ -356,6 +356,7 @@
     "Network.getResponseBody",
     "Network.setBlockedURLs",
     "Network.setCacheDisabled",
+    "Network.clearBrowserCache",
     "Network.setCookie",
     "Network.setCookies",
     "Network.setExtraHTTPHeaders",

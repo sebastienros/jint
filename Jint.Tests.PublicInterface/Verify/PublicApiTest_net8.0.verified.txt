@@ -3215,10 +3215,12 @@ namespace Jint.WebApi.Fetch
     public sealed class ObservedFetchResponse : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchResponse>
     {
         public ObservedFetchResponse() { }
+        public bool FromCache { get; init; }
         public bool FromInterception { get; init; }
         public required System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> Headers { get; init; }
         public required Jint.WebApi.Fetch.FetchRequestId Id { get; init; }
         public bool IsRedirect { get; init; }
+        public bool Revalidated { get; init; }
         public required int Status { get; init; }
         public required string StatusText { get; init; }
         public Jint.WebApi.Fetch.FetchTiming? Timing { get; init; }

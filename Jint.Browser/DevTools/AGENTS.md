@@ -104,8 +104,7 @@ target/runtime split and the manifest are there and none of it is repeated here.
   through the body read, so a response-stage pause holds it exactly as a request-stage pause does. `Fetch.enable` and `disable` are deliberately not named: they are the domain's
   own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
   every client tells a navigation apart.
-- **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
-  `Audits.enable` and `Inspector.enable` (chromedp's) are answered because a refusal fails an ordinary
+- **What is accepted and not effective says so, in place.** `Audits.enable` and `Inspector.enable` (chromedp's) are answered because a refusal fails an ordinary
   connection. **Authentication is here**:
   `handleAuthRequests` turns it on, a `401` carrying a `WWW-Authenticate` pauses as `Fetch.authRequired`, and
   `continueWithAuth` answers it over `FetchObserver.OnAuthRequiredAsync`. Only `Basic` can be answered, every

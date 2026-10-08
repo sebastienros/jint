@@ -374,6 +374,7 @@ internal sealed class XhrOperation : IDisposable
 
         policy = new FetchPolicy
         {
+            HttpCache = options.HttpCache,
             AllowedSchemes = [.. options.AllowedSchemes],
             UrlFilter = options.UrlFilter ?? (static _ => true),
             MaxResponseBytes = options.MaxResponseBytes,

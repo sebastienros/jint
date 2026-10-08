@@ -111,8 +111,8 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
 
     /// <inheritdoc/>
     /// <remarks>
-    /// <c>ignoreCache</c> and <c>scriptToEvaluateOnLoad</c> are accepted and ignored: there is no HTTP cache
-    /// to bypass, and the second is the deprecated half of
+    /// <c>ignoreCache</c> is accepted and ignored; use <c>Network.setCacheDisabled</c> for a cache bypass.
+    /// <c>scriptToEvaluateOnLoad</c> is the deprecated half of
     /// <c>addScriptToEvaluateOnNewDocument</c>, which is the one every recorded client sends.
     /// </remarks>
     protected override async ValueTask<EmptyResult> ReloadAsync(ReloadRequest parameters, CommandContext context)

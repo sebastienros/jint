@@ -25,21 +25,26 @@ namespace Jint.Browser.Tool;
 internal static class McpCommand
 {
     /// <summary>Every option <c>mcp</c> accepts.</summary>
-    internal static Dictionary<string, OptionKind> Syntax() => new(StringComparer.Ordinal)
+    internal static Dictionary<string, OptionKind> Syntax()
     {
-        // Accepted rather than required, so a client configuration may say which transport it means. It is
-        // the only one there is, and why there is no --http is argued in Jint.Browser.Mcp/AGENTS.md and in
-        // that package's README.
-        ["stdio"] = OptionKind.Flag,
-        ["trusted"] = OptionKind.Flag,
-        ["user-agent"] = OptionKind.Value,
-        ["max-task-duration"] = OptionKind.Value,
-        ["memory-limit"] = OptionKind.Value,
-        ["timeout"] = OptionKind.Value,
-        ["max-snapshot-length"] = OptionKind.Value,
-        ["block-private-network"] = OptionKind.Flag,
-        ["allow-private-network"] = OptionKind.Flag,
-    };
+        var syntax = new Dictionary<string, OptionKind>(StringComparer.Ordinal)
+        {
+            // Accepted rather than required, so a client configuration may say which transport it means. It is
+            // the only one there is, and why there is no --http is argued in Jint.Browser.Mcp/AGENTS.md and in
+            // that package's README.
+            ["stdio"] = OptionKind.Flag,
+            ["trusted"] = OptionKind.Flag,
+            ["user-agent"] = OptionKind.Value,
+            ["max-task-duration"] = OptionKind.Value,
+            ["memory-limit"] = OptionKind.Value,
+            ["timeout"] = OptionKind.Value,
+            ["max-snapshot-length"] = OptionKind.Value,
+            ["block-private-network"] = OptionKind.Flag,
+            ["allow-private-network"] = OptionKind.Flag,
+        };
+        HttpCacheSettings.Declare(syntax);
+        return syntax;
+    }
 
     /// <summary>Serves the protocol on standard input and output until the client goes away.</summary>
     internal static async Task<int> RunAsync(CommandLine line, TextWriter error, CancellationToken stopping)
@@ -59,6 +64,7 @@ internal static class McpCommand
 
         // Read here rather than inside the callback, so a value the command line got wrong is a usage error
         // before anything is built rather than an exception out of the composition root.
+        var httpCache = HttpCacheSettings.Read(line);
         var trusted = line.Flag("trusted");
         var userAgent = line.Value("user-agent");
         var maxTaskDuration = line.Value("max-task-duration") is { } duration ? ValueSyntax.Duration("max-task-duration", duration) : (TimeSpan?) null;
@@ -83,6 +89,7 @@ internal static class McpCommand
             .WithStdioServerTransport()
             .AddJintBrowser(agent =>
             {
+                httpCache.Apply(agent.HttpCache);
                 agent.Trusted = trusted;
                 agent.BlockPrivateNetwork = block ? true : allow ? false : null;
                 agent.UserAgent = userAgent;

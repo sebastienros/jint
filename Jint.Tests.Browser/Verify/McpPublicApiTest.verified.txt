@@ -36,6 +36,7 @@ namespace Jint.Browser.Mcp
     {
         public BrowserAgentOptions() { }
         public bool? BlockPrivateNetwork { get; set; }
+        public Jint.Browser.BrowserHttpCacheOptions HttpCache { get; }
         public int MaxSnapshotLength { get; set; }
         public System.TimeSpan? MaxTaskDuration { get; set; }
         public long? MemoryLimit { get; set; }

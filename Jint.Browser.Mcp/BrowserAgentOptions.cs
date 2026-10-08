@@ -43,6 +43,10 @@ public sealed class BrowserAgentOptions
     /// <summary>The allocation budget for one turn of a page; <see langword="null"/> for the profile's own.</summary>
     public long? MemoryLimit { get; set; }
 
+    /// <summary>Configures the session's private HTTP response cache. Defaults to disabled.</summary>
+    /// <remarks>Persistent disk storage requires an explicit directory and visitor partition identity.</remarks>
+    public BrowserHttpCacheOptions HttpCache { get; } = new();
+
     /// <summary>The ceiling on a navigation and on a wait; thirty seconds.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
 
@@ -82,6 +86,20 @@ public sealed class BrowserAgentOptions
     /// </para>
     /// </remarks>
     public string? UploadDirectory { get; set; }
+
+    internal BrowserContextOptions ToContextOptions()
+    {
+        var options = new BrowserContextOptions { UrlFilter = UrlFilter };
+        options.HttpCache.Storage = HttpCache.Storage;
+        options.HttpCache.Directory = HttpCache.Directory;
+        options.HttpCache.PartitionKey = HttpCache.PartitionKey;
+        options.HttpCache.Temporary = HttpCache.Temporary;
+        options.HttpCache.MaxBytes = HttpCache.MaxBytes;
+        options.HttpCache.MaxEntries = HttpCache.MaxEntries;
+        options.HttpCache.MaxEntryBytes = HttpCache.MaxEntryBytes;
+        options.HttpCache.TimeProvider = HttpCache.TimeProvider;
+        return options;
+    }
 
     /// <summary>Builds what every page of the server's browser is made from.</summary>
     internal BrowserOptions ToBrowserOptions()

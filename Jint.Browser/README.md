@@ -41,3 +41,5 @@ rather than claimed are in
 [Jint's README](https://github.com/sebastienros/jint#headless-browser-opt-in-package).
 
 Licensed under BSD-2-Clause, like the rest of Jint.
+
+Automatic HTTP caching is opt-in per context; see [configuration, HTTP policy and persistence](../docs/guide/browser-http-cache.md).

@@ -20,6 +20,17 @@ var jar = context.CookieJar;
 var storage = context.StoragePartition;
 ```
 
+## HTTP caching
+
+HTTP response caching is disabled by default. Enable a bounded private cache with
+`options.HttpCache.Storage = BrowserHttpCacheStorage.Memory` before creating the context. Disk mode
+also requires an explicit directory and visitor partition identity, or explicitly requested temporary
+storage. Pages and workers in that context share the cache. `context.ClearHttpCache()` clears it.
+
+See [HTTP caching](../../guide/browser-http-cache) for freshness, validation, request cache modes,
+credential partitioning, disk ownership and DevTools controls. This cache is separate from script-visible
+`CacheStorage` and its quotas.
+
 ## Request log
 
 `Page.Requests` is a bounded, page-lifetime summary of document, script, subresource, `fetch`, and `XMLHttpRequest` activity:
@@ -32,6 +43,9 @@ foreach (var request in page.Requests)
 ```
 
 Entries include initiator, final-hop URL and method, status, response headers, redirect count, body length, and failure details. Bodies and request headers are not retained. A request in flight has status `0`.
+
+`FromCache`, `Revalidated` and `TransferredBodyLength` distinguish locally reused bodies from network
+traffic. A validated response delivers the retained body while transferring zero body bytes.
 
 References intentionally not fetched, such as a media element or a non-stylesheet `<link>`, still appear with `NotFetchedReason`. The log spans navigations and is bounded by `BrowserOptions.MaxRecordedEvents`.
 

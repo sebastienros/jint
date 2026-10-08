@@ -514,7 +514,7 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
             headers[i] = new PageHeader(response.Headers[i].Name, response.Headers[i].Value);
         }
 
-        Find(response.Id.Value)?.Responded(response.Status, response.StatusText, headers);
+        Find(response.Id.Value)?.Responded(response.Status, response.StatusText, headers, response.FromCache, response.Revalidated);
 
         Entry? entry;
         PageNetworkResponse described;
@@ -530,6 +530,7 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
             entry.MimeType = described.MimeType;
             entry.Charset = described.Charset;
             entry.Status = described.Status;
+            entry.CachedBody = response.FromCache || response.Revalidated;
         }
 
         if (_listener is { } listener && entry.LastHop is { } hop)
@@ -852,7 +853,9 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
             mime,
             charset,
             response.FromInterception,
-            response.Timing);
+            response.Timing,
+            response.FromCache,
+            response.Revalidated);
     }
 
     /// <summary>Copies as much of the request body as the capture is allowed to keep.</summary>
@@ -1111,6 +1114,11 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
         buffer.Dispose();
     }
 
+    internal bool IsCachedBody(string requestId)
+    {
+        lock (_gate) return _byRequestId.TryGetValue(requestId, out var entry) && entry.CachedBody;
+    }
+
     private PageRequest? Find(long id)
     {
         lock (_gate)
@@ -1170,6 +1178,7 @@ internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBud
         internal string Charset { get; set; } = "";
 
         internal int Status { get; set; }
+        internal bool CachedBody { get; set; }
 
         internal string? PostData { get; set; }
 

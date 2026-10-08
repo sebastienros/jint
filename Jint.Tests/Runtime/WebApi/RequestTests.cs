@@ -293,12 +293,31 @@ public class RequestTests
         Eval(@"(() => {
                 const seen = [];
                 const init = {};
-                for (const name of ['signal', 'redirect', 'method', 'headers', 'body']) {
+                for (const name of ['signal', 'redirect', 'mode', 'method', 'headers', 'credentials', 'cache', 'body']) {
                     Object.defineProperty(init, name, { get() { seen.push(name); return undefined; }, enumerable: true });
                 }
                 new Request('https://example.org', init);
                 return seen.join(',');
-            })()").AsString().Should().Be("body,headers,method,redirect,signal");
+            })()").AsString().Should().Be("body,cache,credentials,headers,method,mode,redirect,signal");
+    }
+
+    [Test]
+    public void ValidatesAndClonesCacheModes()
+    {
+        Eval("new Request('https://example.org').cache").AsString().Should().Be("default");
+        Eval("new Request('https://example.org', { cache: 'reload' }).clone().cache").AsString().Should().Be("reload");
+        Eval("new Request(new Request('https://example.org', { cache: 'no-cache' })).cache").AsString().Should().Be("no-cache");
+        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { cache: 'invalid' })"));
+        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { cache: 'only-if-cached' })"));
+        Eval("new Request('https://example.org', { cache: 'only-if-cached', mode: 'same-origin' }).cache")
+            .AsString().Should().Be("only-if-cached");
+        Eval("""
+            (() => {
+                const copy = new Request('https://example.org', {mode:'same-origin', credentials:'include',
+                    referrer:'', referrerPolicy:'origin'}).clone();
+                return [copy.mode, copy.credentials, copy.referrer, copy.referrerPolicy].join('|');
+            })()
+            """).AsString().Should().Be("same-origin|include||origin");
     }
 
     [Test]

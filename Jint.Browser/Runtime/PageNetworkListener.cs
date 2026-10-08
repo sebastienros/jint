@@ -105,6 +105,8 @@ internal sealed record PageNetworkRequest(
 /// <c>JINT0002</c> preview diagnostic or a vocabulary this package does not share, and this one is neither —
 /// it is two readings of a clock with exactly the meaning the <c>Network</c> domain needs.
 /// </remarks>
+/// <param name="FromCache">Whether no network request was needed.</param>
+/// <param name="Revalidated">Whether a 304 validated the stored body.</param>
 internal sealed record PageNetworkResponse(
     string RequestId,
     string Url,
@@ -114,7 +116,9 @@ internal sealed record PageNetworkResponse(
     string MimeType,
     string Charset,
     bool FromInterception,
-    FetchTiming? Timing);
+    FetchTiming? Timing,
+    bool FromCache = false,
+    bool Revalidated = false);
 
 /// <summary>An authentication challenge one hop was answered with.</summary>
 /// <remarks>

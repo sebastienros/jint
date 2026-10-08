@@ -65,7 +65,7 @@ internal sealed record PageNetworkPolicy(
         var agent = emulation.UserAgent;
         var language = emulation.AcceptLanguage;
 
-        if (ExtraHeaders.Count == 0 && agent is null && language is null)
+        if (ExtraHeaders.Count == 0 && agent is null && language is null && !emulation.CacheDisabled)
         {
             return null;
         }
@@ -81,6 +81,12 @@ internal sealed record PageNetworkPolicy(
         if (language is not null)
         {
             overrides.Add(new PageHeader("accept-language", language));
+        }
+
+        if (emulation.CacheDisabled)
+        {
+            overrides.RemoveAll(h => h.Name.Equals("cache-control", StringComparison.OrdinalIgnoreCase));
+            overrides.Add(new PageHeader("cache-control", "no-store"));
         }
 
         var merged = new List<PageHeader>(headers.Count + overrides.Count);
@@ -104,6 +110,15 @@ internal sealed record PageNetworkPolicy(
 
         merged.AddRange(overrides);
         return merged;
+    }
+
+    internal static IReadOnlyList<PageHeader> BypassCache(IReadOnlyList<PageHeader> headers)
+    {
+        var result = new List<PageHeader>(headers.Count + 1);
+        foreach (var header in headers)
+            if (!header.Name.Equals("cache-control", StringComparison.OrdinalIgnoreCase)) result.Add(header);
+        result.Add(new PageHeader("cache-control", "no-store"));
+        return result;
     }
 }
 

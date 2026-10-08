@@ -145,6 +145,13 @@ internal sealed partial class PageTarget : IPageNetworkListener
         {
             var answered = await interceptor.PauseAsync(effective, FrameId, cancellationToken).ConfigureAwait(false);
 
+            // Cache disabling is page policy even when an interceptor replaces every request header.
+            if (Emulation.CacheDisabled && answered.Kind is PageNetworkDecisionKind.Proceed or PageNetworkDecisionKind.Continue)
+            {
+                var bypassHeaders = PageNetworkPolicy.BypassCache(answered.Headers ?? effective.Headers);
+                return PageNetworkDecision.Continue(answered.Url, answered.Method, bypassHeaders, answered.Body);
+            }
+
             // A client that answered "continue" without naming headers still gets the page's own overrides,
             // because those are the policy rather than part of the request it was shown.
             if (answered.Kind == PageNetworkDecisionKind.Proceed && headers is not null)
@@ -232,7 +239,7 @@ internal sealed partial class PageTarget : IPageNetworkListener
     {
         foreach (var domain in NetworkDomains())
         {
-            domain.DataReceived(requestId, length);
+            domain.DataReceived(requestId, length, NetworkLog.IsCachedBody(requestId));
         }
     }
 
@@ -241,7 +248,7 @@ internal sealed partial class PageTarget : IPageNetworkListener
     {
         foreach (var domain in NetworkDomains())
         {
-            domain.LoadingFinished(requestId, encodedLength);
+            domain.LoadingFinished(requestId, NetworkLog.IsCachedBody(requestId) ? 0 : encodedLength);
         }
     }
 

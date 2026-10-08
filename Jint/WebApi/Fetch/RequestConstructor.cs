@@ -52,11 +52,11 @@ internal sealed class RequestConstructor : Constructor
     /// as it always was.
     /// </para>
     /// <para>
-    /// The <c>RequestInit</c> members this implementation does not act on — <c>cache</c>, <c>integrity</c>,
-    /// <c>keepalive</c>, <c>mode</c>, <c>priority</c>, <c>window</c> — are neither read nor validated, so a
+    /// The <c>RequestInit</c> members this implementation does not act on — <c>integrity</c>,
+    /// <c>keepalive</c>, <c>priority</c>, <c>window</c> — are neither read nor validated, so a
     /// getter among them is not invoked and a misspelled enumeration value is not refused. Accepting and
     /// ignoring them is the Node and workerd convention: a script written for a browser keeps working, and
-    /// nothing here pretends to honour a same-origin policy or an HTTP cache that does not exist.
+    /// cache modes are honored when Browser supplies a context cache; same-origin mode is enforced.
     /// </para>
     /// <para>
     /// <c>credentials</c>, <c>referrer</c> and <c>referrerPolicy</c> are read and validated, because the
@@ -75,6 +75,8 @@ internal sealed class RequestConstructor : Constructor
         var method = "GET";
         var redirect = JsRequest.RedirectFollow;
         var credentials = JsRequest.CredentialsSameOrigin;
+        var cache = "default";
+        var mode = "cors";
         var referrerSource = FetchReferrerSource.Client;
         UrlRecord? referrerUrl = null;
         ReferrerPolicy? referrerPolicy = null;
@@ -87,6 +89,8 @@ internal sealed class RequestConstructor : Constructor
             url = inputRequest.Url;
             method = inputRequest.Method;
             redirect = inputRequest.Redirect;
+            cache = inputRequest.Cache;
+            mode = inputRequest.Mode;
             credentials = inputRequest.Credentials;
             referrerSource = inputRequest.ReferrerSource;
             referrerUrl = inputRequest.ReferrerUrl;
@@ -121,18 +125,35 @@ internal sealed class RequestConstructor : Constructor
         }
 
         // WebIDL converts a dictionary's members in lexicographical order of their identifiers, so a bag whose
-        // members are getters observes body, credentials, duplex, headers, method, redirect, referrer,
+        // members are getters observes body, cache, credentials, duplex, headers, method, mode, redirect, referrer,
         // referrerPolicy, signal in that order.
         var initObject = ToInit(init);
         var bodyInit = Member(initObject, "body");
+        var cacheInit = Member(initObject, "cache");
         var credentialsInit = Member(initObject, "credentials");
         var duplexInit = Member(initObject, "duplex");
         var headersInit = Member(initObject, "headers");
         var methodInit = Member(initObject, "method");
+        var modeInit = Member(initObject, "mode");
         var redirectInit = Member(initObject, "redirect");
         var referrerInit = Member(initObject, "referrer");
         var referrerPolicyInit = Member(initObject, "referrerPolicy");
         var signalInit = Member(initObject, "signal");
+
+        // https://fetch.spec.whatwg.org/#dom-request: cache-only requests require same-origin mode.
+        if (cacheInit is not null)
+        {
+            cache = FetchValues.ToByteString(_realm, cacheInit);
+            if (cache is not ("default" or "no-store" or "reload" or "no-cache" or "force-cache" or "only-if-cached"))
+                Throw.TypeError(_realm, "Invalid RequestCache value.");
+        }
+        if (modeInit is not null)
+        {
+            mode = FetchValues.ToByteString(_realm, modeInit);
+            if (mode is not ("cors" or "same-origin" or "no-cors")) Throw.TypeError(_realm, "Invalid RequestMode value.");
+        }
+        if (cache is "only-if-cached" && mode is not "same-origin")
+            Throw.TypeError(_realm, "only-if-cached requires same-origin mode.");
 
         if (methodInit is not null)
         {
@@ -256,6 +277,8 @@ internal sealed class RequestConstructor : Constructor
             : null);
 
         request.Redirect = redirect;
+        request.Cache = cache;
+        request.Mode = mode;
         request.Credentials = credentials;
         request.ReferrerSource = referrerSource;
         request.ReferrerUrl = referrerUrl;

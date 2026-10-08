@@ -23,6 +23,9 @@ namespace Jint.Browser;
 /// </remarks>
 public sealed class BrowserContextOptions
 {
+    /// <summary>Gets the context-owned HTTP cache configuration. Caching is disabled by default.</summary>
+    public BrowserHttpCacheOptions HttpCache { get; } = new();
+
     private int? _maxPages;
     private long? _maxTotalStorageBytes;
 

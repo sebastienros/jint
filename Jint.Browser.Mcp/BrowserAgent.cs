@@ -491,7 +491,14 @@ public sealed class BrowserAgent : IAsyncDisposable
             return _page;
         }
 
-        _context = await _browser.NewContextAsync(new BrowserContextOptions { UrlFilter = _options.UrlFilter }).ConfigureAwait(false);
+        try
+        {
+            _context = await _browser.NewContextAsync(_options.ToContextOptions()).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            throw new BrowserToolException("Cannot create the browser context: " + failure.Message, failure);
+        }
         _page = await _context.NewPageAsync().ConfigureAwait(false);
         return _page;
     }

@@ -18,7 +18,7 @@ namespace Jint.WebApi.Fetch;
 /// </para>
 /// <para>
 /// The rule for which members exist is that they must describe something this engine <i>has</i>.
-/// <c>destination</c>, <c>mode</c>, <c>cache</c>, <c>integrity</c>, <c>keepalive</c>,
+/// <c>destination</c>, <c>integrity</c>, <c>keepalive</c>,
 /// <c>isReloadNavigation</c> and <c>isHistoryNavigation</c> are deliberately absent rather than present and
 /// lying: every one of them names a browser concept — a fetch destination, a same-origin policy, an HTTP
 /// cache, a navigation — that this engine does not have, and an absent member is what feature detection is
@@ -73,6 +73,10 @@ internal sealed class JsRequest : FetchBodyObject
     /// <c>manual</c>.
     /// </summary>
     internal string Redirect { get; set; } = RedirectFollow;
+
+    internal string Cache { get; set; } = "default";
+
+    internal string Mode { get; set; } = "cors";
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-request-signal — never null: the constructor always makes one, and

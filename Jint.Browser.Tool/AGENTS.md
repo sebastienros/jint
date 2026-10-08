@@ -31,6 +31,7 @@ two different things, or be told different things about one document:
 | `fetch --dump markdown\|text\|ax`, `snapshot` | `Page.MarkdownAsync`, `TextAsync`, `AccessibilitySnapshotAsync` | `Extraction/PageContent`, which the `Jint` protocol domain also answers from | reaching `Extraction/` and `Accessibility/`, which are internal |
 | `--wait-until networkidle`, `wait_for` | `Page.WaitForNetworkIdleAsync`, `WaitForSelectorAsync`, `WaitForTextAsync` | the request log's own quiet period, and the document | a second quiet-period timer beside the page's |
 | `serve --block-private-network` | `BrowserOptions.BlockPrivateNetwork` | the browser-wide default a context inherits | a context option, which cannot reach a context a protocol client mints |
+| `serve --http-cache`, including protocol-created contexts | `BrowserOptions.ConfigureContext` | context construction before its network position is created | reaching into `PageNetwork`, or sharing one persistent identity across incognito contexts |
 | `click`, `fill`, `type`, `press`, `select`, `hover`, `scroll` | `Page.ClickAsync` and its siblings | `Events/InputDispatcher`, `Layout/`, `ActivationBehaviors.SelectOption` — the `Input` domain's own paths | a third input implementation, or `element.click()`, which is untrusted |
 | `back`, `forward`, `reload` | `Page.GoBackAsync`, `GoForwardAsync`, `ReloadAsync` | `Runtime/SessionHistory` and the navigation gate | `evaluate("history.back()")`, which answers before the traversal commits |
 

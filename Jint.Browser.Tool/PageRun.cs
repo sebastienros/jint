@@ -112,7 +112,9 @@ internal sealed class PageRun : IAsyncDisposable
 
         try
         {
-            var context = await instance.NewContextAsync(new BrowserContextOptions { HttpClient = client }).ConfigureAwait(false);
+            var contextOptions = new BrowserContextOptions { HttpClient = client };
+            browser.HttpCache.Apply(contextOptions.HttpCache);
+            var context = await instance.NewContextAsync(contextOptions).ConfigureAwait(false);
             SeedCookies(context, load.Cookies, source);
 
             var page = await context.NewPageAsync().ConfigureAwait(false);

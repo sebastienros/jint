@@ -51,7 +51,9 @@ internal static class ServeCommand
 
         var settings = BrowserSettings.Read(line);
 
-        await using var browser = new Browser(settings.ToBrowserOptions());
+        var browserOptions = settings.ToBrowserOptions();
+        settings.HttpCache.ConfigureBrowser(browserOptions);
+        await using var browser = new Browser(browserOptions);
         await using var server = new DevToolsServer(new DevToolsServerOptions { Host = host, Port = port });
 
         // AddBrowser awaits publication of existing pages. A page opened afterwards is registered in

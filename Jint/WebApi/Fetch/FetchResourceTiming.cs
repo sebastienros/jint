@@ -21,7 +21,9 @@ internal readonly record struct ResourceTimingInfo(
     int ResponseStatus,
     bool TimingAllowed,
     bool RenderBlocking,
-    string ContentType);
+    string ContentType,
+    bool FromCache = false,
+    bool Revalidated = false);
 
 /// <summary>Collects transport facts without reading engine state or creating JavaScript values.</summary>
 internal sealed class FetchResourceTiming
@@ -64,7 +66,7 @@ internal sealed class FetchResourceTiming
         var response = exchange.Response;
         _encodedLength = response.Content.Headers.ContentLength;
         var version = response.Version;
-        var protocol = exchange.FromInterception ? "" : version.Major switch
+        var protocol = exchange.FromInterception || exchange.FromCache ? "" : version.Major switch
         {
             1 => version.Minor == 0 ? "http/1.0" : "http/1.1",
             2 => "h2",
@@ -74,6 +76,8 @@ internal sealed class FetchResourceTiming
         _info = _info with
         {
             ResponseStart = Now,
+            FromCache = exchange.FromCache,
+            Revalidated = exchange.Revalidated,
             ResponseStatus = (int) response.StatusCode,
             NextHopProtocol = protocol,
             TimingAllowed = _info.TimingAllowed && AllowsTiming(response, exchange.Url),

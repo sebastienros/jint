@@ -33,6 +33,8 @@ internal sealed class BrowserSettings
     /// <summary>Whether no image is fetched at all, which is <see cref="BrowserOptions.MaxImageRequests"/> at zero.</summary>
     internal bool NoImages { get; private init; }
 
+    internal HttpCacheSettings HttpCache { get; private init; } = null!;
+
     /// <summary>Adds the shared options to a command's syntax.</summary>
     internal static void Declare(Dictionary<string, OptionKind> syntax)
     {
@@ -43,6 +45,7 @@ internal sealed class BrowserSettings
         syntax["block-private-network"] = OptionKind.Flag;
         syntax["allow-private-network"] = OptionKind.Flag;
         syntax["no-images"] = OptionKind.Flag;
+        HttpCacheSettings.Declare(syntax);
     }
 
     /// <summary>Reads the shared options off a parsed command line.</summary>
@@ -68,6 +71,7 @@ internal sealed class BrowserSettings
                 : null,
             BlockPrivateNetwork = block ? true : allow ? false : null,
             NoImages = line.Flag("no-images"),
+            HttpCache = HttpCacheSettings.Read(line),
         };
     }
 

@@ -1,0 +1,34 @@
+round 1/3 (base,cand)
+round 2/3 (cand,base)
+round 3/3 (base,cand)
+
+row                                                   median %               95% CI     sign verdict
+------------------------------------------------------------------------------------------------------------
+BrowserHttpCacheBenchmark.ColdMiss[Disabled,False]       +2.51       [+1.08, +4.89]      3/3 SLOWER
+BrowserHttpCacheBenchmark.ColdMiss[Disabled,True]        -1.44       [-4.04, -0.99]      0/3 FASTER
+BrowserHttpCacheBenchmark.ColdMiss[Disk,False]          +25.04     [+16.04, +28.46]      3/3 SLOWER
+BrowserHttpCacheBenchmark.ColdMiss[Disk,True]         +1566.20 [+1493.73, +1592.77]      3/3 SLOWER
+BrowserHttpCacheBenchmark.ColdMiss[Memory,False]         +5.65       [+3.17, +6.72]      3/3 SLOWER
+BrowserHttpCacheBenchmark.ColdMiss[Memory,True]         +26.47     [+26.18, +28.45]      3/3 SLOWER
+BrowserHttpCacheBenchmark.Control[Disabled,False]        -0.65       [-3.65, +3.01]      1/3 no change
+BrowserHttpCacheBenchmark.Control[Disabled,True]         -0.13       [-2.06, +6.98]      1/3 no change
+BrowserHttpCacheBenchmark.Control[Disk,False]            -1.69       [-5.45, +1.20]      1/3 no change
+BrowserHttpCacheBenchmark.Control[Disk,True]             -1.72       [-5.08, +1.11]      1/3 no change
+BrowserHttpCacheBenchmark.Control[Memory,False]          +1.36       [+0.84, +4.31]      3/3 SLOWER
+BrowserHttpCacheBenchmark.Control[Memory,True]           -2.22       [-6.36, -0.92]      0/3 FASTER
+BrowserHttpCacheBenchmark.StaleRevalidation[Disabled     +2.72       [-0.07, +9.74]      2/3 no change
+BrowserHttpCacheBenchmark.StaleRevalidation[Disabled     +0.29       [-1.88, +0.95]      2/3 no change
+BrowserHttpCacheBenchmark.StaleRevalidation[Disk,Fal    +24.23     [+23.41, +34.23]      3/3 SLOWER
+BrowserHttpCacheBenchmark.StaleRevalidation[Disk,Tru  +1763.88 [+1743.04, +1864.31]      3/3 SLOWER
+BrowserHttpCacheBenchmark.StaleRevalidation[Memory,F     +4.79      [+1.65, +18.92]      3/3 SLOWER
+BrowserHttpCacheBenchmark.StaleRevalidation[Memory,T    +36.89     [+28.66, +38.29]      3/3 SLOWER
+BrowserHttpCacheBenchmark.WarmHit[Disabled,False]        -0.42       [-4.80, +1.28]      1/3 no change
+BrowserHttpCacheBenchmark.WarmHit[Disabled,True]         -1.26       [-1.36, +0.31]      1/3 no change
+BrowserHttpCacheBenchmark.WarmHit[Disk,False]           +18.30     [+17.89, +31.06]      3/3 SLOWER
+BrowserHttpCacheBenchmark.WarmHit[Disk,True]           +387.70   [+378.33, +406.67]      3/3 SLOWER
+BrowserHttpCacheBenchmark.WarmHit[Memory,False]          +7.13       [+4.63, +8.82]      3/3 SLOWER
+BrowserHttpCacheBenchmark.WarmHit[Memory,True]          +16.31     [+10.43, +23.74]      3/3 SLOWER
+
+rounds: 3   raw data: /private/tmp/jint4236-storage-final-paired
+A row is only a regression when its 95% CI excludes zero. A wide CI means the measurement was
+not precise enough to decide - add rounds rather than reading the median on its own.

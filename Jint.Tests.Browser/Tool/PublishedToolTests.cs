@@ -152,6 +152,28 @@ public sealed class PublishedToolTests
             .Single().Text.Should().Contain("Native input");
     }
 
+    [Test]
+    [IgnoreUnless(nameof(HasPublishedTool), "Set JINT_BROWSER_TOOL to an installed or published executable.")]
+    public async Task DiskCachePersistsAcrossNativeInvocationsAndIsolatesVisitors()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/", _ => LoopbackResponse.Html("<h1>Native cached</h1>").With("Cache-Control", "max-age=600"));
+        var directory = Path.Combine(Path.GetTempPath(), "jint-native-cache-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            foreach (var visitor in new[] { "alice", "alice", "bob" })
+            {
+                var result = await RunAsync("fetch", server.Url("/"), "--http-cache-dir", directory, "--http-cache-partition", visitor);
+                result.ExitCode.Should().Be(0, result.Error);
+                result.Error.Should().BeEmpty();
+                result.Output.Should().Contain("Native cached");
+            }
+            server.Received.Count(request => request.Path == "/").Should().Be(2);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     private static LoopbackServer Serve()
     {
         var server = new LoopbackServer();

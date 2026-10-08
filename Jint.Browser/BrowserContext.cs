@@ -224,14 +224,23 @@ public sealed class BrowserContext : IAsyncDisposable
                 .Concat(_openingPages.Select(pending => pending.Task)).ToArray();
         }
 
-        foreach (var page in pages)
+        try
         {
-            await page.CloseAsync().ConfigureAwait(false);
+            foreach (var page in pages)
+            {
+                await page.CloseAsync().ConfigureAwait(false);
+            }
+            await Task.WhenAll(opening).ConfigureAwait(false);
         }
-        await Task.WhenAll(opening).ConfigureAwait(false);
-
-        Browser.Remove(this);
+        finally
+        {
+            Network.HttpCache?.Dispose();
+            Browser.Remove(this);
+        }
     }
+
+    /// <summary>Clears stored HTTP responses and prevents pending captures from repopulating them.</summary>
+    public void ClearHttpCache() => Network.HttpCache?.Clear();
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync() => await CloseAsync().ConfigureAwait(false);

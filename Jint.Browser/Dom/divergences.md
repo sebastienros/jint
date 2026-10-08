@@ -206,3 +206,11 @@ input and atomic tokens by `MemoryLimit / 2` units when a finite memory budget i
 entity work uses the smaller of that ceiling and the default. Parser limits are resource failures,
 not XML syntax errors or `parsererror` documents. Allocation constraints can fail before these ceilings.
 Standalone parser callers can explicitly select `ParseLimits.Unbounded` for trusted XML.
+
+### Automatic HTTP cache
+
+The context-owned private cache stores only complete `200 GET` responses, with explicit freshness and
+conditional validation. HEAD, redirects, partial responses and caller conditions pass through; heuristic
+freshness, background revalidation and concurrent-miss coalescing are absent. Disk mode persists a bounded
+memory cache. Fetch accepts cache modes and enforces `same-origin`, but this does not add full CORS or
+no-cors filtering. See [the cache policy](../../docs/guide/browser-http-cache.md).
