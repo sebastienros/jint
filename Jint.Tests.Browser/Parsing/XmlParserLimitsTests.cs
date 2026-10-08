@@ -125,7 +125,9 @@ public class XmlParserLimitsTests
     [TestCase(4_000_000L, 2_000_000L)]
     public async Task DomParserRejectsSmallEntityBombAsAResourceFailure(long memory, long expansion)
     {
-        var options = new BrowserOptions { MemoryLimit = memory };
+        // The assertion is the entity-expansion ceiling, not elapsed time. Leave enough headroom
+        // for the parser to reach it on a loaded runner without the page deadline winning first.
+        var options = new BrowserOptions { MemoryLimit = memory, MaxTaskDuration = TestBudgets.WedgeCeiling };
         // Isolate the parser's budget-derived ceiling: allocation accounting may otherwise fail first.
         options.ConfigureEngine(engineOptions => engineOptions.LimitMemory(0));
         await using var browser = new global::Jint.Browser.Browser(options);
